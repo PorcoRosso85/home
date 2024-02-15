@@ -1,0 +1,15 @@
+/*
+# !/.bun
+# !/.cargo
+!/.config
+# !/.deno
+!/.init
+# !/.local
+# !/.npm
+!/.profile
+# !/.rye
+
+!/.bash*
+!/.git*
+!/*rc
+!/*.md

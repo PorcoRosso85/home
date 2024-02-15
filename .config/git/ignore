@@ -1,0 +1,7 @@
+/plugged/
+/tmp/
+/db/
+/database/
+/pgdata/
+env/
+venv/

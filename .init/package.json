@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "electron": "^21.3.1"
+  }
+}
