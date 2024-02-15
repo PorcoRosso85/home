@@ -1,23 +1,5 @@
 mypy
 black
-pytest -sv /home/user/pjs/rye/django_rest/quickstart/models.py
-mypy
-black
-pytest -sv /home/user/pjs/rye/django_rest/quickstart/views.py
-mypy
-black
-pytest -sv /home/user/pjs/rye/django_rest/tutorial/urls.py
-rye run server
-ls
-rye run server
-mypy
-black
-pytest -sv /home/user/pjs/rye/django_rest/quickstart/add.py
-rye add pytest-django --dev
-rye sync
-pytest
-mypy
-black
 pytest -sv /home/user/pjs/rye/django_rest/quickstart/serializers.py
 git init
 gh repo create
@@ -1998,3 +1980,21 @@ rye run ssfix ./app/test_serializer_pytest.py
 ./manage.py migrate app 0013
 /bin/python3 /home/user/.vscode-server/extensions/ms-python.python-2024.0.1/pythonFiles/printEnvVariablesToFile.py /home/user/.vscode-server/extensions/ms-python.python-2024.0.1/pythonFiles/deactivate/bash/envVars.txt
 code .
+zsh
+source ./.init/zsh.sh 
+nix profile install nixpkgs.zsh
+nix profile install nixpkgs#zsh
+zsh
+source ./.init/zsh.sh 
+zsh
+ls
+cd 
+cd pjs/
+ls
+cd
+code .
+zsh
+mypy
+black
+pytest -sv /home/user/pjs/rye/rest/app/test_serializer_pytest.py
+zsh
