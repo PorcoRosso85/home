@@ -1,15 +1,10 @@
 /*
-# !/.bun
-# !/.cargo
-!/.config
-# !/.deno
+!/.config/gh/*
+!/.config/helix/*
 !/.init
-# !/.local
-# !/.npm
 !/.profile
-# !/.rye
-
-!/.bash*
+!/.bashrc*
+/.bashrc.backup
 !/.git*
 !/*rc
 !/*.md

@@ -1,9 +1,0 @@
-lastupdatecheck: 0
-recentrepos:
-- /root
-startuppopupversion: 5
-customcommandshistory:
-- rm
-- git reset -hard 74b0cfc86c79298bc17054c57ca7253c29a1effb
-- git reset --hard 74b0cfc86c79298bc17054c57ca7253c29a1effb
-hidecommandlog: false
