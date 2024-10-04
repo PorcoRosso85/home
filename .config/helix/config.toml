@@ -57,11 +57,7 @@ x = "delete_selection"
 p = "paste_clipboard_after"
 P = "paste_clipboard_before"
 # Would be nice to add ya and yi, but the surround commands can't be chained
-# y = [
-# "yank_main_selection_to_clipboard",
-# "normal_mode",
-# "flip_selections",
-# "collapse_selection"]
+# y = ["yank_main_selection_to_clipboard", "normal_mode", "flip_selections", "collapse_selection"]
 y = ["yank_main_selection_to_clipboard"]
 Y = [
     "extend_to_line_bounds",
@@ -95,6 +91,7 @@ g.g = ":sh zellij run -fc -- lazygit"
 h.c.o = ":config-open"
 h.c.r = ":config-reload"
 h.l.o = ":open ~/.config/helix/languages.toml"
+
 
 [keys.insert]
 # Escape the madness! No more fighting with the cursor! Or with multiple cursors!
