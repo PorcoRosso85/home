@@ -1,6 +1,7 @@
 /*
-!/.config/gh/*
-!/.config/helix/*
+!/.config
+/.config/*
+!/.config/helix
 !/.init
 !/.profile
 !/.bashrc*

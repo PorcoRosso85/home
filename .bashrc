@@ -1,5 +1,3 @@
-# ~/.bashrc: executed by bash(1) for non-login shells.
-
 # Note: PS1 and umask are already set in /etc/profile. You should not
 # need this unless you want different defaults for root.
 # PS1='${debian_chroot:+($debian_chroot)}\h:\w\$ '
@@ -122,3 +120,10 @@ fi
 eval "$(direnv hook bash)"
 export DENO_INSTALL="/home/user/.deno"
 export PATH="$DENO_INSTALL/bin:$PATH"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/user/pjs/rye/rest/google-cloud-sdk/path.bash.inc' ]; then . '/home/user/pjs/rye/rest/google-cloud-sdk/path.bash.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/user/pjs/rye/rest/google-cloud-sdk/completion.bash.inc' ]; then . '/home/user/pjs/rye/rest/google-cloud-sdk/completion.bash.inc'; fi
+
