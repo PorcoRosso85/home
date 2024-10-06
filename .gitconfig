@@ -1,0 +1,7 @@
+[user]
+	email = 1.is.universe@gmail.com
+	name = PorcoRosso85
+[pull]
+	rebase = false
+[safe]
+	directory = /home/roccho
