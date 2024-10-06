@@ -1,36 +1,36 @@
-# dots
-This is the place where
-* initialize new os with shell and dot files
-* my dotfiles is
-* how dotfiles to be update
-* how updated dotfiles to be restore to new terminal
+# home for user `roccho`
 
-## dots
-curl -sS -o /tmp/dots.sh https://raw.githubusercontent.com/PorcoRosso85/dots/main/.init/dots.sh && bash /tmp/dots.sh && rm /tmp/dots.sh
+## description
 
-## nix
-bash $HOME/.init/nix.sh
+### this file is for
 
-## init
-bash $HOME/.init/init.sh
-home-managerは事前にuserの作成が必要
+1. configure the home with nix
+   1. nix, home-manager
+   2. git
+2.
 
-##
+### requirements before `nix build` and apply built home-manager configuration
 
-### note
+* requires manually
+  * create `roccho` user
+  * add `roccho` to `sudo` group
+  * set password for `roccho`
+  * `sudo` privileges
 
 ```
-user@g6i3:~$ sudo useradd -m -s /bin/bash roccho
+$ sudo useradd -m -s /bin/bash roccho
 [sudo] password for user: 
-user@g6i3:~$ sudo -u roccho mkdir -p /home/roccho
-user@g6i3:~$ sudo passwd roccho
+$ sudo -u roccho mkdir -p /home/roccho
+$ sudo passwd roccho
 New password: 
 Retype new password: 
 passwd: password updated successfully
-user@g6i3:~$ sudo adduser roccho
+$ sudo adduser roccho
 adduser: The user `roccho' already exists.
-user@g6i3:~$ sudo usermod -aG sudo roccho
-user@g6i3:~$ groups roccho
+$ sudo usermod -aG sudo roccho
+$ groups roccho
 roccho : roccho sudo
-user@g6i3:~$ su - roccho
+
+# check
+$ su - roccho
 ```
