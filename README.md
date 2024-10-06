@@ -34,3 +34,16 @@ roccho : roccho sudo
 # check
 $ su - roccho
 ```
+
+### after clone
+
+* `nix build`
+  * `nix run .#homeConfigurations.roccho.activationPackage`
+* `./result/activate`
+
+```
+# terminal
+
+$ nix build .#homeConfigurations.rocchoHome.activationPackage
+$ ./result/activate
+```

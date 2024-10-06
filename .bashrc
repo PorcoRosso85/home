@@ -126,10 +126,3 @@ if [ -f '/home/user/pjs/rye/rest/google-cloud-sdk/path.bash.inc' ]; then . '/hom
 
 # The next line enables shell command completion for gcloud.
 if [ -f '/home/user/pjs/rye/rest/google-cloud-sdk/completion.bash.inc' ]; then . '/home/user/pjs/rye/rest/google-cloud-sdk/completion.bash.inc'; fi
-
-
-# .bashrcの内容
-# export PATH="$HOME/.local/bin:$PATH"
-# alias ll='ls -la'
-# 他のエイリアスや環境変数を追加
-export EDITOR=hx
