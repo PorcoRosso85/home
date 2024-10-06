@@ -1,0 +1,12 @@
+.git
+.idea
+.DS_Store
+TabNine
+
+!.config/.*
+!.config/**/.*
+!.extensions
+
+python
+node_modules
+.git

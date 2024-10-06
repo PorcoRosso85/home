@@ -1,0 +1,86 @@
+[language-server]
+# lsp-ai = { command = "lsp-ai"}
+marksman = { command = "marksman", args = ["server"] }
+mdpls = { command =  "mdpls" }
+nil = { command = "nil" }
+nimlangserver = { command = "nimlangserver" }
+nimlsp = { command = "nimlsp" }
+nixd = { command = "nixd" }
+ruff-lsp = { command = "ruff-lsp" }
+
+##############################
+## Configuration for lsp-ai ##
+##############################
+
+[language-server.lsp-ai]
+command = "lsp-ai"
+
+[language-server.lsp-ai.config.memory]
+file_store = { }
+
+[language-server.lsp-ai.config.models.model1]
+type = "open_ai"
+# chat_endpoint = "https://api.openai.com/v1/chat/completions"
+chat_endpoint = "https://api.groq.com/openai/v1/chat/completions"
+model =  "llama3-8b-8192"
+auth_token_env_var_name = "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"
+
+[language-server.lsp-ai.config.completion]
+model = "model1"
+
+[language-server.lsp-ai.config.completion.parameters]
+max_tokens = 64
+max_context = 1024
+
+## Configure the messages per your needs
+[[language-server.lsp-ai.config.completion.parameters.messages]]
+role = "system"
+content = "You are the greatest code completion partner. Replace <CURSOR> with the correct code"
+
+[[language-server.lsp-ai.config.completion.parameters.messages]]
+role = "user"
+content = "{CODE}"
+
+[[language]]
+name = "markdown"
+scope = "source.md"
+injection-regex = "md|markdown"
+file-types = ["md", "markdown", "mdx", "mkd", "mkdn", "mdwn", "mdown", "markdn", "mdtxt", "mdtext", "workbook", { glob = "PULLREQ_EDITMSG" }]
+roots = [".marksman.toml"]
+language-servers = [ "marksman", "markdown-oxide" ]
+indent = { tab-width = 2, unit = "  " }
+block-comment-tokens = { start = "<!--", end = "-->" }
+# config = { markdown.preview.auto = true, markdown.preview.browser = "chrome" } マークダウンをプレビューしたいなら、ただし'config'キーはparseされない
+
+[[grammar]]
+name = "markdown"
+source = { git = "https://github.com/tree-sitter-grammars/tree-sitter-markdown", rev = "62516e8c78380e3b51d5b55727995d2c511436d8", subpath = "tree-sitter-markdown" }
+
+[[language]]
+name = "markdown.inline"
+scope = "source.markdown.inline"
+injection-regex = "markdown\\.inline"
+file-types = []
+grammar = "markdown_inline"
+
+[[grammar]]
+name = "markdown_inline"
+source = { git = "https://github.com/tree-sitter-grammars/tree-sitter-markdown", rev = "62516e8c78380e3b51d5b55727995d2c511436d8", subpath = "tree-sitter-markdown-inline" }
+
+[[language]]
+name = "nix"
+scope = "source.nix"
+injection-regex = "nix"
+file-types = ["nix"]
+shebangs = []
+comment-token = "#"
+# language-servers = [ "nil", "nixd", "lsp-ai" ]
+language-servers = [  "nixd", "lsp-ai" ]
+indent = { tab-width = 2, unit = "  " }
+formatter = { command = "nixfmt"}
+
+[[grammar]]
+name = "nix"
+source = { git = "https://github.com/nix-community/tree-sitter-nix", rev = "1b69cf1fa92366eefbe6863c184e5d2ece5f187d" }
+
+

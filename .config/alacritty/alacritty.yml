@@ -1,0 +1,55 @@
+# 余白設定
+window:
+  padding:
+    x: 4
+    y: 4
+
+# フォント設定（サイズのみ）
+font:
+  size: 11
+  normal:
+      family: Hack Nerd Font
+      style: Regular
+  bold:
+      family: Hack Nerd Font
+      style: Bold
+  italic:
+      family: Hack Nerd Font
+      style: Italic
+
+# スクロール設定
+scrolling:
+  history: 10000
+  multiplier: 3
+
+# tmuxで起動する場合
+shell:
+
+# Colors (Tender)
+colors:
+  # Default colors
+  primary:
+    background: '#282828'
+    foreground: '#eeeeee'
+
+  # Normal colors
+  normal:
+    black:   '#282828'
+    red:     '#f43753'
+    green:   '#c9d05c'
+    yellow:  '#ffc24b'
+    blue:    '#b3deef'
+    magenta: '#d3b987'
+    cyan:    '#73cef4'
+    white:   '#eeeeee'
+
+  # Bright colors
+  bright:
+    black:   '#4c4c4c'
+    red:     '#f43753'
+    green:   '#c9d05c'
+    yellow:  '#ffc24b'
+    blue:    '#b3deef'
+    magenta: '#d3b987'
+    cyan:    '#73cef4'
+    white:   '#feffff'
