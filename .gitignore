@@ -1,14 +1,13 @@
-/*
-!/.config
-/.config/*
-!/.config/helix
-!/.init
-!/.profile
-!/.bashrc*
-/.bashrc.backup
+*
+!.config
+.config/*
+!.config/helix/
+!.config/helix/**
+!*.profile
+!.*_profile
 !/.git*
-!/*rc
-!/*.md
-!/*profile
-!/*nix
-!/flake*
+!/*shrc
+!*ME.md
+# !/*profile
+!*nix
+!flake*
