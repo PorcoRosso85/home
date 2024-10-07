@@ -30,6 +30,7 @@
   ++ (import ./nix.nix { inherit pkgs; })
   ++ (import ./rust.nix { inherit pkgs; })
   ++ (import ./go.nix { inherit pkgs; })
+  ++ (import ./markdown.nix { inherit pkgs; })
   ; # rust.nixがパッケージリストを返す場合、このように展開する
 
   home.file.".profilerc".text = ''
