@@ -14,8 +14,8 @@
         ./home.nix
         {
           home = {
-            username = "roccho"; # あなたのユーザー名
-            homeDirectory = "/home/roccho"; # あなたのホームディレクトリ
+            username = "ubuntu"; # あなたのユーザー名
+            homeDirectory = "/home/ubuntu"; # あなたのホームディレクトリ
             stateVersion = "23.11"; # 適切なバージョンに更新
           };
         }

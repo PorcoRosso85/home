@@ -3,8 +3,8 @@
 {
   programs.home-manager.enable = true;
 
-  home.username = "roccho";
-  home.homeDirectory = "/home/roccho";
+  home.username = "ubuntu";
+  home.homeDirectory = "/home/ubuntu";
 
   home.packages = with pkgs; [
     helix
@@ -28,10 +28,11 @@
     # (import ./rust.nix { inherit pkgs; }) # rust.nixが単一パッケージを返す場合
   ] 
   ++ (import ./nix.nix { inherit pkgs; })
+  # ++ (import ./languages.nix { inherit pkgs; })
   ++ (import ./rust.nix { inherit pkgs; })
   ++ (import ./go.nix { inherit pkgs; })
   ++ (import ./markdown.nix { inherit pkgs; })
-  ; # rust.nixがパッケージリストを返す場合、このように展開する
+  ; 
 
   home.file.".profilerc".text = ''
     # .bashrcの内容

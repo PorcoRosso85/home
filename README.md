@@ -22,7 +22,12 @@ $ sudo useradd -m -s /bin/bash roccho
 [sudo] password for user: 
 $ sudo -u roccho mkdir -p /home/roccho
 $ sudo passwd roccho
-New password: 
+New password:
+  * requires manually
+  * create `roccho` user
+  * add `roccho` to `sudo` group
+  * set password for `roccho`
+  * `sudo` privileges 
 Retype new password: 
 passwd: password updated successfully
 $ sudo adduser roccho
@@ -47,3 +52,15 @@ $ su - roccho
 $ nix build .#homeConfigurations.rocchoHome.activationPackage
 $ ./result/activate
 ```
+
+## branches
+
+- main
+  - home
+    - feat
+      - ...
+      - ...
+  - dev
+    - feat
+      - ...
+      - ...

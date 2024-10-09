@@ -5,3 +5,5 @@
 	rebase = false
 [safe]
 	directory = /home/roccho
+[init]
+	defaultBranch = main

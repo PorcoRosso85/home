@@ -6,11 +6,8 @@ nil = { command = "nil" }
 nimlangserver = { command = "nimlangserver" }
 nimlsp = { command = "nimlsp" }
 nixd = { command = "nixd" }
-ruff-lsp = { command = "ruff-lsp" }
-
-##############################
-## Configuration for lsp-ai ##
-##############################
+ruff-lsp = { command = "ruff-lsp"}
+biome = { command = "biome", args = ["lsp-proxy"]}
 
 [language-server.lsp-ai]
 command = "lsp-ai"
@@ -40,6 +37,10 @@ content = "You are the greatest code completion partner. Replace <CURSOR> with t
 [[language-server.lsp-ai.config.completion.parameters.messages]]
 role = "user"
 content = "{CODE}"
+##############################
+## Configuration for lsp-ai ##
+##############################
+
 
 [[language]]
 name = "markdown"
@@ -83,4 +84,31 @@ formatter = { command = "nixfmt"}
 name = "nix"
 source = { git = "https://github.com/nix-community/tree-sitter-nix", rev = "1b69cf1fa92366eefbe6863c184e5d2ece5f187d" }
 
+
+[[language]]
+name = "typescript"
+
+[[language]]
+name = "javascript"
+language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome" ]
+auto-format = true
+
+[[language]]
+name = "typescript"
+language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome" ]
+auto-format = true
+
+[[language]]
+name = "tsx"
+auto-format = true
+language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome" ]
+
+[[language]]
+name = "jsx"
+auto-format = true
+language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome" ]
+
+[[language]]
+name = "json"
+language-servers = [ { name = "vscode-json-language-server", except-features = [ "format" ] }, "biome" ]
 
