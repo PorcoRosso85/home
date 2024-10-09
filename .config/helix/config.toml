@@ -1,4 +1,4 @@
-theme = "mellow"
+theme = "solarized_dark"
 
 [editor]
 true-color = true
@@ -84,9 +84,12 @@ a = ["append_mode", "collapse_selection"]
 esc = ["collapse_selection", "keep_primary_selection"]
 
 [keys.normal."backspace"]
-t.t = ":sh zellij run -fc -- nu"
+# t.t = ":sh zellij run -fc -- nu"
 # t.t = ":sh zellij run -fc -- bash"
-g.g = ":sh zellij run -fc -- lazygit"
+t.t = ":sh tmux popup"
+# g.g = ":sh zellij run -fc -- lazygit"
+g.g = ":sh tmux popup  -w60% -h80% -x50 'lazygit'"
+f.f = ":sh tmux popup '$HOME/commands/index.sh $HOME/commands'"
 [keys.normal.";"]
 h.c.o = ":config-open"
 h.c.r = ":config-reload"
