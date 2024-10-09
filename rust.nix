@@ -20,6 +20,10 @@ let
   };
 in
 with pkgs; [
+  gcc
+  cmake
+  gnumake
+  pkg-config
   rustup
   # lsp-ai
 ]
