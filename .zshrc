@@ -12,7 +12,3 @@ common_profile() {
   fi
 }
 common_profile
-
-source $HOME/antigen.zsh
-
-source /nix/store/3dvpikignvs56d3njrhbimsafvfz064d-powerlevel10k-1.20.0/share/zsh-powerlevel10k/powerlevel10k.zsh-theme

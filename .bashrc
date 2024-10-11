@@ -117,12 +117,5 @@ if ! shopt -oq posix; then
   fi
 fi
 
-eval "$(direnv hook bash)"
-export DENO_INSTALL="/home/user/.deno"
-export PATH="$DENO_INSTALL/bin:$PATH"
-
-# The next line updates PATH for the Google Cloud SDK.
-if [ -f '/home/user/pjs/rye/rest/google-cloud-sdk/path.bash.inc' ]; then . '/home/user/pjs/rye/rest/google-cloud-sdk/path.bash.inc'; fi
-
-# The next line enables shell command completion for gcloud.
-if [ -f '/home/user/pjs/rye/rest/google-cloud-sdk/completion.bash.inc' ]; then . '/home/user/pjs/rye/rest/google-cloud-sdk/completion.bash.inc'; fi
+eval "$(fnm env --use-on-cd --shell bash)"
+eval "$(starship init bash)"

@@ -11,5 +11,6 @@
 # !/*profile
 !*nix
 !flake*
+!.vscode
 
 dev
