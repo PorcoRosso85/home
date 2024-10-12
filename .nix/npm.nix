@@ -7,5 +7,8 @@ let
 in
 
 with pkgs; [
-  
+  nodePackages.pnpm
+  fnm
+  biome
+  typescript-language-server
 ]

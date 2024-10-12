@@ -20,7 +20,7 @@
       homeConfigurations.roccho = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
-          ./home.nix
+          ./.nix/home.nix
           {
             home = {
               username = "roccho";
@@ -32,7 +32,7 @@
       };
     } // flake-utils.lib.eachDefaultSystem (system: {
       # nix develop
-      devShells.default = import ./develop.nix { inherit pkgs; };
+      devShells.default = import ./.nix/develop.nix { inherit pkgs; };
       packages = {
         default = pkgs.writeShellScriptBin "default" ''
           echo "This is the default package"

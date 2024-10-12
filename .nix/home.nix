@@ -28,9 +28,6 @@
     # (import ./rust.nix { inherit pkgs; }) # rust.nixが単一パッケージを返す場合
   ] 
   ++ (import ./nix.nix { inherit pkgs; })
-  ++ (import ./rust.nix { inherit pkgs; })
-  ++ (import ./go.nix { inherit pkgs; })
-  ++ (import ./python.nix { inherit pkgs; })
   ; # rust.nixがパッケージリストを返す場合、このように展開する
 
   home.activation.installUV = lib.hm.dag.entryAfter ["writeBoundary"] ''
