@@ -12,5 +12,7 @@
 !*nix
 !flake*
 !.vscode
+!.sh
+!.sh/**
 
 dev

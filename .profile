@@ -111,14 +111,6 @@ fw() {
   fd $1 -t f $2 | xargs grep -n -E -w "$3" | fzf
 }
 
-nn() {
-  note=$1
-  echo $(date) "$note" >> $HOME/mount/project/tmp2/echos
-}
-na() {
-  echo $(cat $1) >> $HOME/mount/project/JournalLog/echos
-}
-
 jq_() {
   case $1 in
     "jc")
@@ -157,9 +149,6 @@ gloj() {
   # https://gist.github.com/varemenos/e95c2e098e657c7688fd
 }
 
-fdtree() {
-	fd --full-path . . | sort | awk -F'/' '{ for (i=1; i<NF; i++) { printf("│   "); } print "├── "$NF }'
-}
 
 export LD_LIBRARY_PATH=/nix/store/g3g89nki211vi892cr6vg57aihvjk302-z3-4.8.15-python/lib/python3.10/site-packages/z3/lib/libz3.so:/nix/store/rgdmlsv1fn32pwclapv6zi59fyjc3zf2-z3-4.8.15-lib/lib/libz3.so
 
@@ -175,3 +164,8 @@ export LD_LIBRARY_PATH=/nix/store/g3g89nki211vi892cr6vg57aihvjk302-z3-4.8.15-pyt
 # HISTSIZE=100000
 
 export EDITOR=hx
+
+for file in $HOME/.sh/*.sh; do
+    source "$file"
+    echo "sourced $file"
+done

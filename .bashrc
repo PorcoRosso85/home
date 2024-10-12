@@ -119,3 +119,5 @@ fi
 
 eval "$(fnm env --use-on-cd --shell bash)"
 eval "$(starship init bash)"
+
+export HISTCONTROL=ignoreboth:erasedups
