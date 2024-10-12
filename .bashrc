@@ -117,5 +117,4 @@ if ! shopt -oq posix; then
   fi
 fi
 
-eval "$(fnm env --use-on-cd --shell bash)"
 eval "$(starship init bash)"
