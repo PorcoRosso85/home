@@ -48,7 +48,7 @@
     fi
   '';
 
-  home.file.".profilerc".text = ''
+  home.file.".homerc".text = ''
     # .bashrcの内容
     # export PATH="$HOME/.local/bin:$PATH"
     # alias ll='ls -la'
