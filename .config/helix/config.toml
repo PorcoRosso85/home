@@ -23,8 +23,3 @@ f.f = ":sh tmux popup '$HOME/commands/index.sh $HOME/commands'"
 h.c.o = ":config-open"
 h.c.r = ":config-reload"
 h.l.o = ":open ~/.config/helix/languages.toml"
-
-
-[keys.insert]
-# Escape the madness! No more fighting with the cursor! Or with multiple cursors!
-esc = ["collapse_selection", "normal_mode"]
