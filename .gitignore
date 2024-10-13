@@ -14,5 +14,6 @@
 !.vscode
 !.sh
 !.sh/**
+!.tmux.conf
 
 dev
