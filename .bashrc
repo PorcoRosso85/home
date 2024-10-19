@@ -122,5 +122,7 @@ eval "$(starship init bash)"
 
 export HISTCONTROL=ignoreboth:erasedups
 
-source .shrc
+source  "$HOME/.shrc"
 
+
+. "$HOME/.cargo/env"

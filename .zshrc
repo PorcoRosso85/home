@@ -14,3 +14,4 @@ common_profile() {
 common_profile
 
 source ./.shrc
+. "$HOME/.cargo/env"

@@ -15,4 +15,5 @@ let
 in
 with pkgs; [
   # uv
+  python312
 ]
