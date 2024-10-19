@@ -1,10 +1,14 @@
 { config, pkgs, lib, ... }:
 
+let
+  # username = builtins.getEnv "USER";
+  username = "roccho";
+in
 {
   programs.home-manager.enable = true;
 
-  home.username = "roccho";
-  home.homeDirectory = "/home/roccho";
+  home.username = username;
+  home.homeDirectory = "/home/${username}";
 
   home.packages = with pkgs; [
     helix
