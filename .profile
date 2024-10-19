@@ -165,7 +165,3 @@ export LD_LIBRARY_PATH=/nix/store/g3g89nki211vi892cr6vg57aihvjk302-z3-4.8.15-pyt
 
 export EDITOR=hx
 
-for file in $HOME/.sh/*.sh; do
-    source "$file"
-    echo "sourced $file"
-done

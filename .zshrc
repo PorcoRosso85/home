@@ -12,3 +12,5 @@ common_profile() {
   fi
 }
 common_profile
+
+source ./.shrc

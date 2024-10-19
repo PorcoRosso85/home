@@ -24,6 +24,8 @@
     eza
     lazygit
     broot
+    aider-chat
+
 
     # (import ./rust.nix { inherit pkgs; }) # rust.nixが単一パッケージを返す場合
   ] 
