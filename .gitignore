@@ -15,5 +15,5 @@
 !.sh
 !.sh/**
 !.tmux.conf
-
-dev
+!dev/
+!dev/*
