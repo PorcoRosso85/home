@@ -13,10 +13,8 @@ normal = "block"
 select = "underline"
 
 [keys.normal."backspace"]
-# t.t = ":sh zellij run -fc -- nu"
-# t.t = ":sh zellij run -fc -- bash"
-t.t = ":sh tmux popup"
-# g.g = ":sh zellij run -fc -- lazygit"
+t.t = ":sh tmux popup" # nix developなど仮想環境が同期されていないインタラクティブシェル
+# t.t.s = ":sh tmux popup setw synchronize-panes on" # 仮想環境が同期されているインタラクティブシェル
 g.g = ":sh tmux popup  -w60% -h80% -x50 'lazygit'"
 f.f = ":sh tmux popup '$HOME/commands/index.sh $HOME/commands'"
 [keys.normal."\\"]

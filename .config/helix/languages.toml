@@ -86,9 +86,6 @@ source = { git = "https://github.com/nix-community/tree-sitter-nix", rev = "1b69
 
 
 [[language]]
-name = "typescript"
-
-[[language]]
 name = "javascript"
 language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome" ]
 auto-format = true
