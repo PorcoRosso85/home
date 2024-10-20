@@ -12,7 +12,7 @@ in
 
   home.packages = with pkgs; [
     helix
-    zellij
+    tmux
     starship
     curl
     wget
