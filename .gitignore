@@ -15,5 +15,8 @@
 !.sh
 !.sh/**
 !.tmux.conf
-!dev/
-!dev/*
+!nix/
+!nix/**/*
+!nix/dev/
+!nix/dev/*
+!nix/dev/**

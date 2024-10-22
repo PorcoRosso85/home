@@ -20,11 +20,13 @@
       homeConfigurations.roccho = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
-          ./home.nix
+          ./nix/home.nix
           {
             home = {
-              username = "roccho";
-              homeDirectory = "/home/roccho";
+              username = "ubuntu";
+              homeDirectory = "/home/ubuntu";
+              # username = "${pkgs.lib.getEnv 'USER'}"; # あなたのユーザー名
+              # homeDirectory = "/home/${pkgs.lib.getEnv 'USER'}"; # あなたのホームディレクトリ
               stateVersion = "23.11";
             };
           }

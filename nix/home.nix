@@ -2,7 +2,7 @@
 
 let
   # username = builtins.getEnv "USER";
-  username = "roccho";
+  username = "ubuntu";
 in
 {
   programs.home-manager.enable = true;
@@ -28,17 +28,16 @@ in
     eza
     lazygit
     broot
-    aider-chat
 
+    gcc
+    # aider-chat
 
     # (import ./rust.nix { inherit pkgs; }) # rust.nixが単一パッケージを返す場合
   ] 
-  ++ (import ./nix.nix { inherit pkgs; })
-  ++ (import ./rust.nix { inherit pkgs; })
-  ++ (import ./go.nix { inherit pkgs; })
-  ++ (import ./python.nix { inherit pkgs; })
+  ++ (import ./language.nix { inherit pkgs; })
   ;
 
+  # ここにcargo, go, nodeツールをsourceするシェル設定をおいてもいいかもしれない
   home.file.".homerc".text = ''
     export EDITOR=hx
   '';
