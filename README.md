@@ -48,6 +48,7 @@
 <summary>without clone</summary>
 
 * `nix build github:PorcoRosso85/home/branch_name#homeConfigurations.roccho.activationPackage`
+</details>
 
 <details>
 <summary>with clone</summary>
@@ -57,3 +58,4 @@
 * checkout to branch 'branch_name'
 * `nix build .#homeConfigurations.roccho.activationPackage`
 * `./result/activate`
+</details>
