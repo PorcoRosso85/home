@@ -34,7 +34,7 @@ in
 
     # (import ./rust.nix { inherit pkgs; }) # rust.nixが単一パッケージを返す場合
   ] 
-  ++ (import ./language.nix { inherit pkgs; })
+  ++ (import ./nix.nix { inherit pkgs; })
   ;
 
   # ここにcargo, go, nodeツールをsourceするシェル設定をおいてもいいかもしれない
