@@ -8,6 +8,6 @@
 [init]
 	defaultBranch = main
 [credential "https://github.com"]
-	helper = /home/ubuntu/.nix-profile/bin/gh auth git-credential
+	helper = /home/roccho/.nix-profile/bin/gh auth git-credential
 [credential "https://gist.github.com"]
-	helper = /home/ubuntu/.nix-profile/bin/gh auth git-credential
+	helper = /home/roccho/.nix-profile/bin/gh auth git-credential
