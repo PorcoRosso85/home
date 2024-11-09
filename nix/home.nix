@@ -2,7 +2,7 @@
 
 let
   # username = builtins.getEnv "USER";
-  username = "ubuntu";
+  username = "roccho";
 in
 {
   programs.home-manager.enable = true;
