@@ -1,8 +1,8 @@
-# home for user `<branch name>`
+# home for `<branchName> user`
 
-## description
+## 
 
-### create user on nixos(with wsl)
+### create user on nixos / wsl2
 
 `/etc/nixos/configuration.nix`
 
@@ -11,18 +11,43 @@
 
 {
   imports = [
-    # include NixOS-WSL modules
     <nixos-wsl/modules>
+    /etc/nixos/modules/vscode.nix
   ];
 
   wsl.enable = true;
   wsl.defaultUser = "nixos";
+  # vscode-remote-workaround.enable = true;
 
   system.stateVersion = "24.05";
 
+  environment.systemPackages = [
+    pkgs.wget
+    pkgs.helix
+  ];
+
+  security.sudo.enable = true;
+  security.sudo.extraRules = [
+    {
+      groups = [ "wheel" ];  # wheel グループを対象に
+      commands = [
+        {
+          command = "ALL";  # すべてのコマンドを許可
+          options = [ "SETENV" "NOPASSWD" ];  # パスワードなしで実行可能
+        }
+      ];
+    }
+  ];
+
+  programs.nix-ld = {
+    enable = true;
+    package = pkgs.nix-ld-rs; # only for NixOS 24.05
+  };
+
   users.users.roccho = {
     isNormalUser = true;
-    password = ""; # set password up here
+    password = "roccho"; # set password up here
+    # password = "$6$mKwV.T7nIO3yqW8k$3TWXPmb5zBMKK3.Uk3K1LEq40eOdh1RBQ0qBymmMzNAhjWxeaBbi3nN17lA/T5j/7kG8214xHFX3B/7bguzMn.";
     extraGroups = [ "wheels" ];
   };
 
@@ -33,13 +58,12 @@
     '';
   };
 }
+
 ```
 
-### this file is for
+and then, in terminal...
 
-1. configure the home with nix
-   1. nix, home-manager
-   2. git
+`sudo nixos-rebuild switch`
 
 
 ### requirements before `nix build` and apply built home-manager configuration
@@ -47,7 +71,7 @@
 <details>
 <summary>without clone</summary>
 
-* `nix build github:PorcoRosso85/home/branch_name#homeConfigurations.roccho.activationPackage`
+* `nix build github:PorcoRosso85/home/<branchName>#homeConfigurations.roccho.activationPackage`
 </details>
 
 <details>
