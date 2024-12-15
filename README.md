@@ -72,6 +72,8 @@ and then, in terminal...
 <summary>without clone</summary>
 
 * `nix build github:PorcoRosso85/home/<branchName>#homeConfigurations.roccho.activationPackage`
+* `./result/activate`
+
 </details>
 
 <details>
@@ -83,3 +85,10 @@ and then, in terminal...
 * `nix build .#homeConfigurations.roccho.activationPackage`
 * `./result/activate`
 </details>
+
+### apply home configurations with git fetch
+
+on home
+* `git init`
+* `git remote add origin <this remote branch by http>`
+* checkout to remote branch
