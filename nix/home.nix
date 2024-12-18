@@ -22,9 +22,8 @@ in
         l = "ls -CF";
         # その他のエイリアス
       };
-      historyControl = "ignoreboth:erasedups";
     };
-    
+
     dircolors = { enable = true; }; # カスタムカラーが必要ならここで設定
 
     starship = {
