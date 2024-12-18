@@ -17,7 +17,7 @@
     in
     {
       # nix build .#homeConfigurations.roccho.activationPackage
-      homeConfigurations.roccho = home-manager.lib.homeManagerConfiguration {
+      homeConfigurations.nixos = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
           ./nix/home.nix
