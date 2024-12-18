@@ -5,14 +5,39 @@ let
   # username = "nixos";
 in
 {
-  programs.home-manager.enable = true;
+  programs = {
+    home-manager.enable = true;
 
-  # home.username = username;
-  # home.homeDirectory = "/home/${username}";
+    bash = {
+      enable = true;
+      shellInit = ''
+        export TERM="xterm-256color"
+        export COLORTERM="truecolor"
+        eval "$(dircolors -b)"
+        # source "$HOME/.cargo/env"
+      '';
+      shellAliases = {
+        ll = "ls -alF";
+        la = "ls -A";
+        l = "ls -CF";
+        # ...
+      };
+      historyControl = "ignoreboth:erasedups";
+    };
+
+    dircolors = { enable = true; }; # カスタムカラーが必要ならここで設定
+
+    starship = {
+      enable = true;
+      # settings = { ... }; # starship の設定が必要ならここで追加
+    };
+
+    tmux = {
+        enable = true;
+    };
+  };
 
   home.packages = with pkgs; [
-    tmux
-    starship
     unzip
     tre-command
     fzf
@@ -21,18 +46,11 @@ in
     bat
     zoxide
     eza
-    lazygit
     broot
 
     gcc
-    # aider-chat
+  ] ++ (import ./language.nix { inherit pkgs; });
 
-    # (import ./rust.nix { inherit pkgs; }) # rust.nixが単一パッケージを返す場合
-  ] 
-  ++ (import ./language.nix { inherit pkgs; })
-  ;
-
-  # ここにcargo, go, nodeツールをsourceするシェル設定をおいてもいいかもしれない
   home.file.".homerc".text = ''
     export EDITOR=hx
   '';
