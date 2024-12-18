@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Client-Related Envs
-export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # OpenAIのAPIキー
-export GEMINI_API_KEY="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"     # GeminiのAPIキー
-export AICHAT_PLATFORM="openai"                              # 使用するAIプラットフォーム（設定ファイルがない場合に使用）
+# # Client-Related Envs
+# export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # OpenAIのAPIキー
+# export GEMINI_API_KEY="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"     # GeminiのAPIキー
+# export AICHAT_PLATFORM="openai"                              # 使用するAIプラットフォーム（設定ファイルがない場合に使用）
 
-# API設定のパッチ
-export AICHAT_PATCH_OPENAI_CHAT_COMPLETIONS='{"gpt-4o":{"body":{"seed":666,"temperature":0}}}' # OpenAI APIリクエストのカスタマイズ
+# # API設定のパッチ
+# export AICHAT_PATCH_OPENAI_CHAT_COMPLETIONS='{"gpt-4o":{"body":{"seed":666,"temperature":0}}}' # OpenAI APIリクエストのカスタマイズ
 
-# シェル設定
-export AICHAT_SHELL="/bin/bash"  # 使用するシェルを指定（自動検出をオーバーライド）
+# # シェル設定
+# export AICHAT_SHELL="/bin/bash"  # 使用するシェルを指定（自動検出をオーバーライド）
 
 # ファイル/ディレクトリ設定
 export AICHAT_CONFIG_DIR="$HOME/.config/aichat"              # 設定ディレクトリのカスタマイズ
@@ -30,8 +30,8 @@ export AICHAT_LOG_LEVEL="debug"                              # デバッグロ�
 export AICHAT_LOG_FILE="$HOME/.config/aichat/aichat.log"     # ログファイルの場所をカスタマイズ
 
 # 一般的な設定
-export HTTPS_PROXY="http://proxy.example.com:8080"           # HTTPSプロキシを指定
-export ALL_PROXY="socks5://proxy.example.com:1080"           # すべてのプロトコルに対するプロキシを指定
-export NO_COLOR="1"                                          # カラー出力を無効化
-export EDITOR="vim"                                          # デフォルトエディタを指定
-export XDG_CONFIG_HOME="$HOME/.config"                       # 設定ディレクトリの場所を指定
+# export HTTPS_PROXY="http://proxy.example.com:8080"           # HTTPSプロキシを指定
+# export ALL_PROXY="socks5://proxy.example.com:1080"           # すべてのプロトコルに対するプロキシを指定
+# export NO_COLOR="1"                                          # カラー出力を無効化
+# export EDITOR="vim"                                          # デフォルトエディタを指定
+# export XDG_CONFIG_HOME="$HOME/.config"                       # 設定ディレクトリの場所を指定
