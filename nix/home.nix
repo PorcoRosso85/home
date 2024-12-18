@@ -10,21 +10,21 @@ in
 
     bash = {
       enable = true;
-      shellInit = ''
+      initExtra = ''
         export TERM="xterm-256color"
         export COLORTERM="truecolor"
         eval "$(dircolors -b)"
-        # source "$HOME/.cargo/env"
+        source "$HOME/.cargo/env" # 必要に応じて
       '';
       shellAliases = {
         ll = "ls -alF";
         la = "ls -A";
         l = "ls -CF";
-        # ...
+        # その他のエイリアス
       };
       historyControl = "ignoreboth:erasedups";
     };
-
+    
     dircolors = { enable = true; }; # カスタムカラーが必要ならここで設定
 
     starship = {
