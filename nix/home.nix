@@ -2,7 +2,7 @@
 
 let
   # username = builtins.getEnv "USER";
-  username = "roccho";
+  username = "nixos";
 in
 {
   programs.home-manager.enable = true;
@@ -11,14 +11,9 @@ in
   home.homeDirectory = "/home/${username}";
 
   home.packages = with pkgs; [
-    helix
     tmux
     starship
-    curl
-    wget
     unzip
-    git
-    gh
     tre-command
     fzf
     ripgrep

@@ -23,8 +23,8 @@
           ./nix/home.nix
           {
             home = {
-              username = "roccho";
-              homeDirectory = "/home/roccho";
+              username = "nixos";
+              homeDirectory = "/home/nixos";
               # username = "${pkgs.lib.getEnv 'USER'}"; # あなたのユーザー名
               # homeDirectory = "/home/${pkgs.lib.getEnv 'USER'}"; # あなたのホームディレクトリ
               stateVersion = "23.11";
