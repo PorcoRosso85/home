@@ -2,13 +2,13 @@
 
 let
   # username = builtins.getEnv "USER";
-  username = "nixos";
+  # username = "nixos";
 in
 {
   programs.home-manager.enable = true;
 
-  home.username = username;
-  home.homeDirectory = "/home/${username}";
+  # home.username = username;
+  # home.homeDirectory = "/home/${username}";
 
   home.packages = with pkgs; [
     tmux
