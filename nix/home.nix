@@ -8,8 +8,8 @@ in
   programs = {
     home-manager.enable = true;
 
-    # bash = {
-    #   enable = true;
+    bash = {
+      enable = true;
     #   initExtra = ''
     #     export TERM="xterm-256color"
     #     export COLORTERM="truecolor"
@@ -22,9 +22,9 @@ in
     #     l = "ls -CF";
     #     # その他のエイリアス
     #   };
-    # };
+    };
 
-    dircolors = { enable = true; }; # カスタムカラーが必要ならここで設定
+    # dircolors = { enable = true; }; # カスタムカラーが必要ならここで設定
 
     starship = {
       enable = true;
@@ -40,6 +40,7 @@ in
       enableBashIntegration = true; # see note on other shells below
       nix-direnv.enable = true;
     };
+
   };
 
   home.packages = with pkgs; [
