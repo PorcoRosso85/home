@@ -7,23 +7,66 @@
 `/etc/nixos/configuration.nix`
 
 ```nix
+❯ sudo cat /etc/nixos/configuration.nix
 { config, lib, pkgs, ... }:
 
 {
   imports = [
-    # include NixOS-WSL modules
     <nixos-wsl/modules>
+    # /etc/nixos/modules/vscode.nix
   ];
 
   wsl.enable = true;
   wsl.defaultUser = "nixos";
 
+  # https://github.com/K900/vscode-remote-workaround/blob/main/vscode.nix
+  # https://github.com/sonowz/vscode-remote-wsl-nixos/blob/master/README.md
+  # vscode-remote-workaround.enable = true; 
+
+
   system.stateVersion = "24.05";
 
-  users.users.roccho = {
-    isNormalUser = true;
-    password = ""; # set password up here
-    extraGroups = [ "wheels" ];
+  environment.systemPackages = with pkgs; [
+    wget
+    curl
+    git
+    gh
+    lazygit
+    helix
+  ];
+
+  security.sudo.enable = true;
+  security.sudo.extraRules = [
+    {
+      groups = [ "wheel" ];  # wheel グループを対象に
+      commands = [
+        {
+          command = "ALL";  # すべてのコマンドを許可
+          options = [ "SETENV" "NOPASSWD" ];  # パスワードなしで実行可能
+        }
+      ];
+    }
+  ];
+
+  # programs.nix-ld = {
+  #   enable = true;
+  #   package = pkgs.nix-ld-rs; # only for NixOS 24.05
+  # };
+
+  virtualisation = {
+    podman = {
+      enable = true;
+      dockerCompat = true;
+    };
+  };
+
+  users.users = {
+    roccho = {
+      isNormalUser = true;
+      password = "roccho"; # set password up here
+      extraGroups = [ "wheel" "podman" ];
+      #
+    };
   };
 
   nix = {
