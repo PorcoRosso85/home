@@ -54,7 +54,7 @@ in
     eza
     broot
 
-    aider-chat
+    # aider-chat
   ] ++ (import ./language.nix { inherit pkgs; });
 
   home.file.".homerc".text = ''
