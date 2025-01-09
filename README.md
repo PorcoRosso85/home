@@ -102,3 +102,6 @@
 * `nix build .#homeConfigurations.roccho.activationPackage`
 * `./result/activate`
 </details>
+
+### for integrating vscode into nixos
+https://github.com/sonowz/vscode-remote-wsl-nixos/tree/master
