@@ -26,7 +26,7 @@ in
 {
   imports = [
     <nixos-wsl/modules>
-    # /etc/nixos/modules/vscode.nix
+    (fetchTarball "https://github.com/nix-community/nixos-vscode-server/tarball/master") # https://zenn.dev/tositada/articles/dd0645b5f35beb
   ];
 
   wsl.enable = true;
@@ -37,6 +37,7 @@ in
   # vscode-remote-workaround.enable = true;
 
   system.stateVersion = "24.05";
+  services.vscode-server.enable = true;
 
   # i18n.defaultLocale = "ja_JP.UTF-8";
 
@@ -51,11 +52,18 @@ in
     lazygit
     helix
     aichat
-    aider-chat
     yazi
 
     chromium
 
+    jq
+    duckdb
+
+    pnpm
+    uv
+    rustup
+    go
+    zig
   ];
 
   security.sudo.enable = true;
@@ -115,6 +123,7 @@ in
     '';
   };
 }
+
 ```
 
 ### this file is for
