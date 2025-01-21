@@ -109,3 +109,15 @@ language-servers = [ { name = "typescript-language-server", except-features = [ 
 name = "json"
 language-servers = [ { name = "vscode-json-language-server", except-features = [ "format" ] }, "biome" ]
 
+[[language]]
+name = "python"
+# scope = "source.python"
+# injection-regex = "py(thon)?"
+file-types = ["py", "pyi", "py3", "pyw", "ptl", "rpy", "cpy", "ipy", "pyt", { glob = ".python_history" }, { glob = ".pythonstartup" }, { glob = ".pythonrc" }, { glob = "SConstruct" }, { glob = "SConscript" }]
+shebangs = ["python", "uv"]
+roots = ["pyproject.toml", "setup.py", "poetry.lock", "pyrightconfig.json"]
+comment-token = "#"
+language-servers = ["ruff", "pylsp"]
+# TODO: pyls needs utf-8 offsets
+indent = { tab-width = 2, unit = "    " }
+auto-format = true

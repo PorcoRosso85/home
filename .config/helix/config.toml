@@ -1,4 +1,4 @@
-theme = "ayu_mirage"
+theme = "github_dark"
 
 [editor]
 true-color = true
@@ -13,10 +13,15 @@ normal = "block"
 select = "underline"
 
 [keys.normal."backspace"]
+# sh
 t.t = ":sh tmux popup" # nix developなど仮想環境が同期されていないインタラクティブシェル
 # t.t.s = ":sh tmux popup setw synchronize-panes on" # 仮想環境が同期されているインタラクティブシェル
 g.g = ":sh tmux popup  -w60% -h80% -x50 'lazygit'"
 f.f = ":sh tmux popup '$HOME/commands/index.sh $HOME/commands'"
+# f.t = ":sh tmux popup -w60% -h80% -x50 'yazi'"
+
+b.c = ":buffer-close"
+b.r = ":reload"
 [keys.normal."\\"]
 h.c.o = ":config-open"
 h.c.r = ":config-reload"
