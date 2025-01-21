@@ -10,6 +10,19 @@
 ❯ sudo cat /etc/nixos/configuration.nix
 { config, lib, pkgs, ... }:
 
+let
+  # nixpkgsのunstableブランチをインポート
+  nixpkgs = import <nixpkgs> {
+    system = "x86_64-linux"; # 必要なら他のアーキテクチャを指定
+    overlays = [
+      (self: super: {
+        unstable = import (builtins.fetchTarball {
+          url = "https://github.com/NixOS/nixpkgs/archive/nixpkgs-unstable.tar.gz";
+        }) { inherit (super) system; };
+      })
+    ];
+  };
+in
 {
   imports = [
     <nixos-wsl/modules>
@@ -21,18 +34,28 @@
 
   # https://github.com/K900/vscode-remote-workaround/blob/main/vscode.nix
   # https://github.com/sonowz/vscode-remote-wsl-nixos/blob/master/README.md
-  # vscode-remote-workaround.enable = true; 
-
+  # vscode-remote-workaround.enable = true;
 
   system.stateVersion = "24.05";
 
-  environment.systemPackages = with pkgs; [
+  # i18n.defaultLocale = "ja_JP.UTF-8";
+
+  # unstableチャンネルからパッケージを取得
+  environment.systemPackages = with nixpkgs.unstable; [
+    # ipafont
+
     wget
     curl
     git
     gh
     lazygit
     helix
+    aichat
+    aider-chat
+    yazi
+
+    chromium
+
   ];
 
   security.sudo.enable = true;
@@ -53,6 +76,23 @@
   #   package = pkgs.nix-ld-rs; # only for NixOS 24.05
   # };
 
+  programs = {
+    tmux = {
+      enable = true;
+      clock24 = true; # 24時間表示にする
+      # extraConfigで直接tmux.confに記述するのと同じことができる
+      extraConfig = ''
+        set -g status-bg black
+        set -g status-fg white
+        set-window-option -g window-status-current-format '#[fg=colour235,bg=colour27,bold] #I#[fg=colour235,bg=colour238]:#W#[fg=colour238,bg=colour235] '
+      '';
+      plugins = with pkgs.tmuxPlugins; [
+        # tmux-sensible プラグインの追加例
+        # sensible
+      ];
+    };
+  };
+
   virtualisation = {
     podman = {
       enable = true;
@@ -65,7 +105,6 @@
       isNormalUser = true;
       password = "roccho"; # set password up here
       extraGroups = [ "wheel" "podman" ];
-      #
     };
   };
 
