@@ -19,10 +19,11 @@ t.t = ":sh tmux popup" # nix developなど仮想環境が同期されていな�
 g.g = ":sh tmux popup  -w60% -h80% -x50 'lazygit'"
 f.f = ":sh tmux popup '$HOME/commands/index.sh $HOME/commands'"
 # f.t = ":sh tmux popup -w60% -h80% -x50 'yazi'"
+# r.r = ":sh rg"
 
 b.c = ":buffer-close"
 b.r = ":reload"
 [keys.normal."\\"]
-h.c.o = ":config-open"
-h.c.r = ":config-reload"
-h.l.o = ":open ~/.config/helix/languages.toml"
+h.c = ":config-open"
+h.r = ":config-reload"
+h.l = ":open ~/.config/helix/languages.toml"

@@ -117,7 +117,11 @@ file-types = ["py", "pyi", "py3", "pyw", "ptl", "rpy", "cpy", "ipy", "pyt", { gl
 shebangs = ["python", "uv"]
 roots = ["pyproject.toml", "setup.py", "poetry.lock", "pyrightconfig.json"]
 comment-token = "#"
-language-servers = ["ruff", "pylsp"]
-# TODO: pyls needs utf-8 offsets
-indent = { tab-width = 2, unit = "    " }
+language-servers = ["pylsp", "ruff", "pylyzer", "pyright"]
 auto-format = true
+[language-server.ruff]
+command = "ruff"
+args = ["server"]
+[language-server.pylyzer]
+command = "pylyzer"
+args = ["--server"]
