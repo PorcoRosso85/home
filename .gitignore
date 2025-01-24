@@ -3,6 +3,8 @@
 .config/*
 !.config/helix/
 !.config/helix/**
+!.config/aichat/
+!.config/aichat/**
 !*.profile
 !.*_profile
 !/.git*
