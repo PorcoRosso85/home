@@ -1,5 +1,10 @@
 local wezterm = require 'wezterm'
 
+-- local function layout_3_horizontal_30_30_40()
+-- 水平分割レイアウト定義関数
+--   return { direction = 'West', -- 水平分割 children = { { weight = 0.3, -- 30% の割合 action = wezterm.action { SpawnTab = {启动目录 = '.'} }, -- 最初のペイン (必要に応じて調整) }, { direction = 'East', -- 残りの領域をさらに水平分割 weight = 0.7, -- 残り 70% の領域 children = { { weight = 0.3/0.7, -- 30% / 70% = 約 43% (全体の約30%) action = wezterm.action { SpawnTab = {启动目录 = '.'} }, -- 2番目のペイン (必要に応じて調整) }, { weight = 0.4/0.7, -- 40% / 70% = 約 57% (全体の約40%) action = wezterm.action { SpawnTab = {启动目录 = '.'} }, -- 3番目のペイン (必要に応じて調整) }, }, }, }, }
+-- end
+
 return {
   -- デフォルトの起動コマンドを設定します。
   default_prog = { 'wsl.exe', '-d', 'nix' },
@@ -7,66 +12,30 @@ return {
   -- (オプション) デフォルトのドメイン名を 'WSL' に設定 (必須ではないですが、わかりやすくなります)
   default_domain = 'WSL',
 
+  leader = { key = 'b', mods = 'CTRL', timeout_milliseconds = 1000 },
+
   keys = {
+    -- tmuxバインディング一覧
     {
-      key = "h",
-      mods = "CTRL",
-      action = wezterm.action.ActivatePaneDirection("Left"),
+      key = '%',
+      mods = 'LEADER|SHIFT',
+      action = wezterm.action.SplitHorizontal { domain = 'CurrentPaneDomain' },
     },
-    {
-      key = "j",
-      mods = "CTRL",
-      action = wezterm.action.ActivatePaneDirection("Down"),
-    },
-    {
-      key = "k",
-      mods = "CTRL",
-      action = wezterm.action.ActivatePaneDirection("Up"),
-    },
-    {
-      key = "l",
-      mods = "CTRL",
-      action = wezterm.action.ActivatePaneDirection("Right"),
-    },
-    {
-      key = "LeftArrow",
-      mods = "CTRL",
-      action = wezterm.action.ActivatePaneDirection("Left"),
-    },
-    {
-      key = "DownArrow",
-      mods = "CTRL",
-      action = wezterm.action.ActivatePaneDirection("Down"),
-    },
-    {
-      key = "UpArrow",
-      mods = "CTRL",
-      action = wezterm.action.ActivatePaneDirection("Up"),
-    },
-    {
-      key = "RightArrow",
-      mods = "CTRL",
-      action = wezterm.action.ActivatePaneDirection("Right"),
-    },
-    -- Ctrl+b をプレフィックスキーとして設定
-    { key = 'b', mods = 'CTRL', action = wezterm.action.SetKeyTable({name = 'tmux'}) },
-  },
+    -- LEADER + 数字でペインジャンプ
+    -- { key = '1', mods = 'LEADER', action = wezterm.action.ActivatePaneByIndex(0) },
+    -- { key = '2', mods = 'LEADER', action = wezterm.action.ActivatePaneByIndex(1) },
+    -- { key = '3', mods = 'LEADER', action = wezterm.action.ActivatePaneByIndex(2) },
 
-  key_tables = {
-    tmux = {
-      { key = '%', action = wezterm.action.SplitHorizontal() },
-      { key = '"', action = wezterm.action.SplitVertical() }, -- 垂直分割も同様に設定する場合
-      { key = 'c', action = wezterm.action.SpawnTab('CurrentPaneDomain') }, -- 新しいタブを同様に設定する場合
-      { key = 'n', action = wezterm.action.ActivateTabRelative(1) }, -- 次のタブ
-      { key = 'p', action = wezterm.action.ActivateTabRelative(-1) }, -- 前のタブ
-      { key = ' ', action = wezterm.action.TogglePaneZoomState() }, -- pane zoom
-      { key = 'x', action = wezterm.action.CloseCurrentPane() }, -- pane を閉じる
-      { key = 'd', action = wezterm.action.Detach() }, -- detach
-      { key = '?', action = wezterm.action.ShowLauncherArgs() }, -- ヘルプを表示
-      { key = ':', action = wezterm.action.ActivateCommandPalette() }, -- コマンドパレット
-      -- 必要に応じて tmux の他のキーバインドもここに追加できます
+    -- レイアウト保存
+    {
+      key = 'L',
+      mods = 'LEADER|SHIFT',
+      action = wezterm.action_callback(function(window, pane)
+        window:set_config_overrides({
+          default_gui_startup_args = { layout_mode = { Lua = layout_3_horizontal_30_30_40 } },
+        })
+      end),
+      description = 'Apply 3 Horizontal Panes (30:30:40) Layout',
     },
   },
-
-  -- その他のWezTerm設定 (必要に応じて追記)
 }
