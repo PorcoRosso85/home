@@ -1,4 +1,5 @@
 #!/bin/bash
+alias aichat='aichat --prompt "あなたはソフトウェアのエキスパートであり英語で思考し 日本語で回答する、特に指定がないときには端的に回答して"'
 
 # # Client-Related Envs
 # export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # OpenAIのAPIキー

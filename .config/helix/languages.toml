@@ -125,3 +125,8 @@ args = ["server"]
 [language-server.pylyzer]
 command = "pylyzer"
 args = ["--server"]
+
+[[language]]
+name = "go"
+auto-format = true
+formatter = { command = "goimports" }
