@@ -18,6 +18,9 @@
 !.sh/**
 .sh/secret*
 !.tmux.conf
+!**.tmux.**
+!.tmux.conf.d/
+!.tmux.conf.d/*
 !nix/
 !nix/**/*
 !nix/dev/
