@@ -17,7 +17,8 @@
 !.sh
 !.sh/**
 !tmux.conf
-+!.tmux.conf.d/
+!.tmux.conf.d/
+!.tmux.conf.d/*
 !**.tmux.**
 !nix/
 !nix/**/*
