@@ -16,11 +16,9 @@
 !.vscode
 !.sh
 !.sh/**
-.sh/secret*
-!.tmux.conf
+!tmux.conf
++!.tmux.conf.d/
 !**.tmux.**
-!.tmux.conf.d/
-!.tmux.conf.d/*
 !nix/
 !nix/**/*
 !nix/dev/
