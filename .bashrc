@@ -1,8 +1,10 @@
-. _.bashrc
-# Note: PS1 and umask are already set in /etc/profile. You should not
-# need this unless you want different defaults for root.
-# PS1='${debian_chroot:+($debian_chroot)}\h:\w\$ '
-# umask 022
+# .bashrc の役割
+# - Bash インタラクティブ シェルの初期化
+# - 別名 (alias)、関数、環境変数の設定
+# - シェルの動作をカスタマイズする設定
+# このファイルは新しいシェルが起動するたびに読み込まれます
+# ==================================================
+source $HOME/_.bashrc
 
 # If not running interactively, don't do anything
 case $- in
@@ -25,10 +27,6 @@ HISTFILESIZE=2000
 # update the values of LINES and COLUMNS.
 shopt -s checkwinsize
 
-# If set, the pattern "**" used in a pathname expansion context will
-# match all files and zero or more directories and subdirectories.
-#shopt -s globstar
-
 # make less more friendly for non-text input files, see lesspipe(1)
 [ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
 
@@ -41,11 +39,6 @@ fi
 case "$TERM" in
     xterm-color|*-256color) color_prompt=yes;;
 esac
-
-# uncomment for a colored prompt, if the terminal has the capability; turned
-# off by default to not distract the user: the focus in a terminal window
-# should be on the output of commands, not on the prompt
-#force_color_prompt=yes
 
 if [ -n "$force_color_prompt" ]; then
     if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
@@ -86,9 +79,6 @@ if [ -x /usr/bin/dircolors ]; then
     alias egrep='egrep --color=auto'
 fi
 
-# colored GCC warnings and errors
-#export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
-
 # some more ls aliases
 alias ll='ls -alF'
 alias la='ls -A'
@@ -103,8 +93,9 @@ alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo
 # ~/.bash_aliases, instead of adding them here directly.
 # See /usr/share/doc/bash-doc/examples in the bash-doc package.
 
+# TODO: 別ファイルへ移行 $HOME/.config/shell/bash_aliases に移動して、このファイルからは削除
 if [ -f ~/.bash_aliases ]; then
-    . ~/.bash_aliases
+    . ~/.config/shell/bash_aliases
 fi
 
 # enable programmable completion features (you don't need to enable
@@ -118,10 +109,14 @@ if ! shopt -oq posix; then
   fi
 fi
 
-# eval "$(starship init bash)"
+eval "$(starship init bash)"
 
-export HISTCONTROL=ignoreboth:erasedups
+for file in $HOME/.config/shell/*.sh; do
+    source "$file"
+    echo "sourced $file"
+done
 
-source  "$HOME/.shrc"
+export GO111MODULE=on
 
-. "$HOME/.cargo/env"
+export GOPATH=
+export EDITOR=hx
