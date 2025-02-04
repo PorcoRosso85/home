@@ -9,11 +9,7 @@ done
 
 
 edit_files=(
-  ./.bash_profile
   ./.bashrc
-  ./_.bashrc
-  ./.profile
-  ./_.profile
 )
 edit_options=""
 for file in "${edit_files[@]}"; do
@@ -21,15 +17,19 @@ for file in "${edit_files[@]}"; do
 done
 
 prompts=(
-  あなたはソフトウェアのエキスパートであり
-  英語で思考し日本語で回答する
-  特に指定がない限り以下のファイル群を参照し端的に回答して
+  あなたはソフトウェアのエキスパートであり, 
+  特に指定がない限り回答は端的に日本語で行うこと, 
 )
 prompt=""
 for p in "${prompts[@]}"; do
   prompt+="${p}"
 done
 
+prompt="--prompt ${prompt}"
+
 AICHAT_PLATFORM=gemini aichat \
-  --prompt ${prompt} \
-  ${read_options} ${edit_options} \
+  --model gemini:gemini-2.0-flash-thinking-exp \
+  ${prompt} \
+  ${read_options} \
+  ${edit_options} \
+  "$@"
