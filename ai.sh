@@ -1,43 +1,35 @@
-#!/bin/bash
 source $HOME/secret.sh
 
-# 編集対象ファイルのリスト
-edit_files=(
-  ./.profile
-)
-
 read_files=(
-  ./.bashrc
 )
+read_options=""
+for file in "${read_files[@]}"; do
+  read_options+="-f ${file} "
+done
 
-read_files() {
-  for file in "${read_files[@]}"; do  # グローバル配列を直接参照
-    echo "--- ${file} ---"
-    if [ -f "$file" ]; then          # ファイル存在チェック追加
-      cat "$file"
-    else
-      echo "Error: File not found: $file" >&2
-    fi
-  done
-}
 
-ai() {
-  local prompt="$1"    # 第1引数をプロンプトとして取得
-  shift                # 引数を1つシフトして残りをファイルリストに
-  local read_files=("$@")
+edit_files=(
+  ./.bash_profile
+  ./.bashrc
+  ./_.bashrc
+  ./.profile
+  ./_.profile
+)
+edit_options=""
+for file in "${edit_files[@]}"; do
+  edit_options+="-f ${file} "
+done
 
-  AICHAT_PLATFORM=gemini \
-  aichat \
-  --prompt "あなたはソフトウェアのエキスパートであり英語で思考し日本語で回答する、特に指定がない限り以下のファイル群を参照します" \
-  "$prompt" \
-  <(
-    for file in "${read_files[@]}"; do
-      echo "--- ${file} ---"
-      if [ -f "$file" ]; then
-        cat "$file"
-      else
-        echo "Error: File not found: $file" >&2
-      fi
-    done
-  )
-}
+prompts=(
+  あなたはソフトウェアのエキスパートであり
+  英語で思考し日本語で回答する
+  特に指定がない限り以下のファイル群を参照し端的に回答して
+)
+prompt=""
+for p in "${prompts[@]}"; do
+  prompt+="${p}"
+done
+
+AICHAT_PLATFORM=gemini aichat \
+  --prompt ${prompt} \
+  ${read_options} ${edit_options} \
