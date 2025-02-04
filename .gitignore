@@ -5,6 +5,8 @@
 !.config/helix/**
 !.config/aichat/
 !.config/aichat/**
+!.config/wezterm/
+!.config/wezterm/**
 !*.profile
 !.*_profile
 !/.git*
@@ -19,6 +21,7 @@
 !tmux.conf
 !.tmux.conf.d/
 !.tmux.conf.d/*
+!.tmux.conf.d/**
 !**.tmux.**
 !nix/
 !nix/**/*
@@ -27,3 +30,5 @@
 !nix/dev/**
 
 !.os
+!architect*
+!watcher*
