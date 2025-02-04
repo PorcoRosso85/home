@@ -1,12 +1,16 @@
 *
 !.config
-.config/*
+.config/**
 !.config/helix/
 !.config/helix/**
 !.config/aichat/
 !.config/aichat/**
 !.config/wezterm/
 !.config/wezterm/**
+!.config/shell/
+!.config/shell/**
+!.config/yazi/
+!.config/yazi/**
 !*.profile
 !.*_profile
 !/.git*
