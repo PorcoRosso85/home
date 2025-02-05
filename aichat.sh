@@ -27,9 +27,16 @@ done
 
 prompt="--prompt ${prompt}"
 
-AICHAT_PLATFORM=gemini aichat \
-  --model gemini:gemini-2.0-flash-thinking-exp \
-  ${prompt} \
-  ${read_options} \
-  ${edit_options} \
-  "$@"
+chat() {
+  AICHAT_PLATFORM=gemini aichat \
+    --model gemini:gemini-2.0-flash-thinking-exp \
+    ${prompt} \
+    ${read_options} \
+    ${edit_options} \
+    "$@"
+}
+
+rag() {
+  AICHAT_PLATFORM=gemini aichat \
+    --rag "$1"
+}
