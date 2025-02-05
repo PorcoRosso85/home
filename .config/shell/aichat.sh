@@ -1,5 +1,4 @@
 #!/bin/bash
-alias aichat='aichat --prompt "あなたはソフトウェアのエキスパートであり英語で思考し 日本語で回答する、特に指定がないときには端的に回答して"'
 
 # # API設定のパッチ
 # export AICHAT_PATCH_OPENAI_CHAT_COMPLETIONS='{"gpt-4o":{"body":{"seed":666,"temperature":0}}}' # OpenAI APIリクエストのカスタマイズ
