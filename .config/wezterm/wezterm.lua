@@ -12,7 +12,7 @@ return {
   -- (オプション) デフォルトのドメイン名を 'WSL' に設定 (必須ではないですが、わかりやすくなります)
   default_domain = 'WSL',
 
-  leader = { key = 'b', mods = 'CTRL', timeout_milliseconds = 1000 },
+  -- leader = { key = 'b', mods = 'CTRL', timeout_milliseconds = 1000 },
 
   keys = {
     -- tmuxバインディング一覧

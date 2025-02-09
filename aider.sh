@@ -1,6 +1,7 @@
-THINK=openrouter/deepseek/deepseek-r1-distill-llama-70b:free
-THINK=openrouter/deepseek/deepseek-r1-distill-llama-70b
-CODE=$GEMINI_CODER
+# THINK=openrouter/deepseek/deepseek-r1-distill-llama-70b:free
+# THINK=openrouter/deepseek/deepseek-r1-distill-llama-70b
+THINK=openrouter/google/gemini-2.0-flash-001
+CODE=openrouter/google/gemini-2.0-flash-001
 
 source $HOME/secret.sh
 export LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":$LD_LIBRARY_PATH
