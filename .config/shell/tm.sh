@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # tmux セッション名 (任意)
-SESSION_NAME="mytui_session"
+SESSION_NAME=$(basename "$PWD")
 
 # 起動するアプリケーションとウィンドウ名の配列
 APPS=(
@@ -47,17 +47,19 @@ session_init() {
 
 
 # tmux セッションが存在するか確認
-if tmux has-session -t "$SESSION_NAME" 2> /dev/null; then
-  echo "tmux セッション '$SESSION_NAME' は既に存在します。"
-  echo "既存のセッションにアタッチし、不足しているウィンドウを復元します..."
+tm() {
+  if tmux has-session -t "$SESSION_NAME" 2> /dev/null; then
+    echo "tmux セッション '$SESSION_NAME' は既に存在します。"
+    echo "既存のセッションにアタッチし、不足しているウィンドウを復元します..."
 
-  # アプリケーション配列に基づいてウィンドウの存在を確認し、必要であれば作成
-  for window_id in "${!APPS[@]}"; do
-    open_window "$window_id"
-  done
+    # アプリケーション配列に基づいてウィンドウの存在を確認し、必要であれば作成
+    for window_id in "${!APPS[@]}"; do
+      open_window "$window_id"
+    done
 
-  tmux attach-session -t "$SESSION_NAME"
+    tmux attach-session -t "$SESSION_NAME"
 
-else
-  session_init
-fi
+  else
+    session_init
+  fi
+}
