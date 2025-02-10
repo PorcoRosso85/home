@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# tmux セッション名 (任意)
-SESSION_NAME=$(basename "$PWD")
-
 # 起動するアプリケーションとウィンドウ名の配列
 APPS=(
   "hx"
@@ -48,6 +45,10 @@ session_init() {
 
 # tmux セッションが存在するか確認
 tm() {
+  # tmux セッション名 (任意)
+  SESSION_NAME=$(basename "$PWD")
+  echo SESSION_NAME $SESSION_NAME
+
   if tmux has-session -t "$SESSION_NAME" 2> /dev/null; then
     echo "tmux セッション '$SESSION_NAME' は既に存在します。"
     echo "既存のセッションにアタッチし、不足しているウィンドウを復元します..."
