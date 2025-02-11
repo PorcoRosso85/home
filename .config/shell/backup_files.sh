@@ -75,4 +75,4 @@ rollback() {
     exit 1
 }
 
-backup_files "$1"
+# backup_files "$1"
