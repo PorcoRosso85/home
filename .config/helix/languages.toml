@@ -53,7 +53,7 @@ julia = { command = "julia", timeout = 60, args = [ "--startup-file=no", "--hist
 koka = { command = "koka", args = ["--language-server", "--lsstdio"] }
 koto-ls = { command = "koto-ls" }
 kotlin-language-server = { command = "kotlin-language-server" }
-lean = { command = "lean", args = [ "--server", "--memory=1024" ] }
+lean = { command = "lake", args = [ "env", "lean", "--server", "--memory=1024" ] }
 ltex-ls = { command = "ltex-ls" }
 ltex-ls-plus = { command = "ltex-ls-plus" }
 markdoc-ls = { command = "markdoc-ls", args = ["--stdio"] }
@@ -232,3 +232,16 @@ inlayHints.typeHints.hideClosureInitialization = false
 command = "clippy"
 [language-server.rust-analyzer.config.cargo]
 features = "all"
+
+[[language]]
+name = "lean"
+scope = "source.lean"
+injection-regex = "lean"
+file-types = ["lean"]
+roots = [ "lakefile.lean" ]
+comment-token = "--"
+block-comment-tokens = { start = "/-", end = "-/" }
+language-servers = [ "lean" ]
+indent = { tab-width = 2, unit = "  " }
+rulers = [101]
+text-width = 100
