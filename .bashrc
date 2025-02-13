@@ -5,6 +5,7 @@
 # このファイルは新しいシェルが起動するたびに読み込まれます
 # ==================================================
 source $HOME/_.bashrc
+# source $HOME/todo.sh
 
 # If not running interactively, don't do anything
 case $- in
@@ -113,10 +114,10 @@ eval "$(starship init bash)"
 
 for file in $HOME/.config/shell/*.sh; do
     source "$file"
-    echo "sourced $file"
+    # echo "sourced $file"
 done
 
-export GO111MODULE=on
+# export GO111MODULE=on
 
-export GOPATH=
+# export GOPATH=
 export EDITOR=hx

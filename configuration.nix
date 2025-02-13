@@ -16,19 +16,32 @@ in
 {
   imports = [
     <nixos-wsl/modules>
-    # /etc/nixos/modules/vscode.nix
     (fetchTarball "https://github.com/nix-community/nixos-vscode-server/tarball/master")
   ];
 
   wsl.enable = true;
   wsl.defaultUser = "nixos";
 
-  # https://github.com/K900/vscode-remote-workaround/blob/main/vscode.nix
-  # https://github.com/sonowz/vscode-remote-wsl-nixos/blob/master/README.md
-  # vscode-remote-workaround.enable = true;
 
   system.stateVersion = "24.05";
-  services.vscode-server.enable = true;
+  # # https://github.com/K900/vscode-remote-workaround/blob/main/vscode.nix
+  # vscode-remote-workaround.enable = true;
+  # https://github.com/nix-community/nixos-vscode-server
+  # $HOME/.vscode-serverを削除 + user serviceを再起動(systemctl --user stop -> start) + https://github.com/nix-community/nixos-vscode-server/issues/79
+  services = {
+    vscode-server = {
+      enable = true;
+      nodejsPackage = pkgs.nodejs_22;
+    };
+  };
+  # https://github.com/sonowz/vscode-remote-wsl-nixos/blob/master/README.md
+
+  nix = {
+    package = pkgs.nix;
+    extraOptions = ''
+      experimental-features = nix-command flakes
+    '';
+  };
 
   # i18n.defaultLocale = "ja_JP.UTF-8";
 
@@ -48,15 +61,17 @@ in
 
     chromium
 
-
     jq
     duckdb
+    usql
 
     pnpm
     uv
     rustup
     go
     zig
+
+    bash-language-server
 
   ];
 
@@ -72,11 +87,6 @@ in
       ];
     }
   ];
-
-  # programs.nix-ld = {
-  #   enable = true;
-  #   package = pkgs.nix-ld-rs; # only for NixOS 24.05
-  # };
 
   programs = {
     tmux = {
@@ -96,13 +106,13 @@ in
   };
 
   virtualisation = {
-    # podman = {
-    #   enable = true;
-    #   dockerCompat = true;
-    # };
-    docker = {
+    podman = {
       enable = true;
+      dockerCompat = true;
     };
+    # docker = {
+    #   enable = true;
+    # };
   };
 
   users.users = {
@@ -113,10 +123,4 @@ in
     };
   };
 
-  nix = {
-    package = pkgs.nix;
-    extraOptions = ''
-      experimental-features = nix-command flakes
-    '';
-  };
 }
