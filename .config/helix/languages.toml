@@ -203,8 +203,8 @@ language-servers = [ { name = "vscode-json-language-server", except-features = [
 
 [[language]]
 name = "python"
-# scope = "source.python"
-# injection-regex = "py(thon)?"
+scope = "source.python"
+injection-regex = "py(thon)?"
 file-types = ["py", "pyi", "py3", "pyw", "ptl", "rpy", "cpy", "ipy", "pyt", { glob = ".python_history" }, { glob = ".pythonstartup" }, { glob = ".pythonrc" }, { glob = "SConstruct" }, { glob = "SConscript" }]
 shebangs = ["python", "uv"]
 roots = ["pyproject.toml", "setup.py", "poetry.lock", "pyrightconfig.json"]
