@@ -48,6 +48,7 @@ in
   # unstableチャンネルからパッケージを取得
   environment.systemPackages = with nixpkgs.unstable; [
     # ipafont
+    nushell
 
     wget
     curl

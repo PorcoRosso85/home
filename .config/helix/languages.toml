@@ -245,3 +245,17 @@ language-servers = [ "lean" ]
 indent = { tab-width = 2, unit = "  " }
 rulers = [101]
 text-width = 100
+
+[[language]]
+name = "nu"
+scope = "source.nu"
+injection-regex = "nu"
+file-types = ["nu", "nuon"]
+shebangs = ["nu"]
+comment-token = "#"
+indent = { tab-width = 2, unit = "  " }
+language-servers = [ "nu-lsp" ]
+
+[[grammar]]
+name = "nu"
+source = { git = "https://github.com/nushell/tree-sitter-nu", rev = "358c4f509eb97f0148bbd25ad36acc729819b9c1" }
