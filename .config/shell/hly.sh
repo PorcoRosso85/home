@@ -8,6 +8,14 @@ APPS=(
 )
 
 # ウィンドウを開く関数 (ウィンドウが存在しなければ作成し、アプリを起動)
+create_window() {
+  local window_id="$1"
+  local app_name="${APPS[$window_id]}"
+  local window_name="${app_name}"
+  echo "ウィンドウ $window_id ('$window_name') を作成します..."
+  tmux new-window -t "$SESSION_NAME":"$window_id" -n "$window_name"
+}
+
 open_window() {
   local window_id="$1"
   local app_name="${APPS[$window_id]}"
@@ -16,11 +24,18 @@ open_window() {
   # ウィンドウでアプリが起動しているか確認 (プロセス名で判定)
   if ! tmux list-panes -t "$SESSION_NAME":"$window_id" -F "#{pane_pid} #{pane_current_command}" | grep -q "$app_name"; then
     echo "ウィンドウ $window_id ('$window_name') で '$app_name' が起動していません。ウィンドウを作成し、起動します..."
-    tmux new-window -t "$SESSION_NAME":"$window_id" -n "$window_name"
-    tmux send-keys -t "$SESSION_NAME":"$window_id" "$app_name ; tmux detach ; tmux kill-window" Enter
+    create_window "$window_id"
+    launch_app "$window_id"
   else
     echo "ウィンドウ $window_id ('$window_name') で '$app_name' は正常に起動しています。"
   fi
+}
+
+launch_app() {
+  local window_id="$1"
+  local app_name="${APPS[$window_id]}"
+  echo "ウィンドウ $window_id で '$app_name' を起動します..."
+  tmux send-keys -t "$SESSION_NAME":"$window_id" "$app_name ; tmux detach ; tmux kill-window" Enter
 }
 
 # セッション初期化関数 (新規セッション作成時にウィンドウを作成し、アプリを起動)
@@ -44,9 +59,9 @@ session_init() {
 
 
 # tmux セッションが存在するか確認
-tm() {
+hly() {
   # tmux セッション名 (任意)
-  SESSION_NAME=$(basename "$PWD")
+  SESSION_NAME=$(basename "$PWD")_hly
   echo SESSION_NAME $SESSION_NAME
 
   if tmux has-session -t "$SESSION_NAME" 2> /dev/null; then
