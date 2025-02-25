@@ -12,8 +12,12 @@ for file in "${edit_files[@]}"; do
   aider_edit_options+="--file ${file} "
 done
 
+aider_test_command=""
+aider_test_command="${test_command}"
 
 architect() {
+  echo run aider
+  echo "THINK: $THINK, CODE: $CODE"
   uvx --from aider-chat aider \
     --no-auto-commits \
     ${read_options} ${edit_options} \
@@ -24,14 +28,29 @@ architect() {
 }
 
 watcher() {
+  echo run aider
+  echo "THINK: $THINK, CODE: $CODE"
   uvx --from aider-chat aider \
-    --no-auto-commits \
     ${aider_read_options} ${aider_edit_options} \
     --dark-mode \
     --model $THINK \
     --editor-model $CODE \
     --editor-edit-format diff \
-    --watch-files \
-    --subtree-only \
-    --architect
+    --architect --watch-files --subtree-only \
+    --no-auto-commits \
+    --auto-test ${aider_test_command} \
+    
+}
+
+message() {
+  echo run aider
+  echo "THINK: $THINK, CODE: $CODE"
+  uvx --from aider-chat aider \
+    --model $THINK \
+    --message "$@"
+    # ${aider_read_options} ${aider_edit_options} \
+    # --dark-mode \
+    # --editor-model $CODE \
+    # --editor-edit-format diff \
+    
 }
