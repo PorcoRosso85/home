@@ -10,7 +10,7 @@ return {
   default_prog = { 'wsl.exe', '-d', 'nix' },
 
   -- (オプション) デフォルトのドメイン名を 'WSL' に設定 (必須ではないですが、わかりやすくなります)
-  default_domain = 'WSL',
+  -- default_domain = 'WSL',
 
   -- leader = { key = 'b', mods = 'CTRL', timeout_milliseconds = 1000 },
 
@@ -38,4 +38,7 @@ return {
       description = 'Apply 3 Horizontal Panes (30:30:40) Layout',
     },
   },
+  enable_tab_bar = false,
+  font = wezterm.font('HackGen Console NF', {weight="Regular", stretch="Normal", style="Normal"}),
+  font_size = 12,
 }
