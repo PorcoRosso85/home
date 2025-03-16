@@ -33,6 +33,9 @@ in
       enable = true;
       nodejsPackage = pkgs.nodejs_22;
     };
+    tailscale = {
+      enable = true;
+    };
   };
   # https://github.com/sonowz/vscode-remote-wsl-nixos/blob/master/README.md
 
@@ -47,30 +50,19 @@ in
 
   # unstableチャンネルからパッケージを取得
   environment.systemPackages = with nixpkgs.unstable; [
-    # ipafont
-    nushell
-
     wget
     curl
     git
     gh
     lazygit
     helix
-    aichat
-    # aider-chat
     yazi
 
-    chromium
-
-    jq
     duckdb
-    usql
 
     pnpm
     uv
-    rustup
-    go
-    zig
+    nushell
 
     bash-language-server
 
@@ -107,13 +99,13 @@ in
   };
 
   virtualisation = {
-    podman = {
-      enable = true;
-      dockerCompat = true;
-    };
-    # docker = {
+    # podman = {
     #   enable = true;
+    #   dockerCompat = true;
     # };
+    docker = {
+      enable = true;
+    };
   };
 
   users.users = {
@@ -121,6 +113,9 @@ in
       isNormalUser = true;
       password = "roccho"; # set password up here
       extraGroups = [ "wheel" "podman" ];
+    };
+    nixos = {
+      extraGroups = [ "docker" ];
     };
   };
 
