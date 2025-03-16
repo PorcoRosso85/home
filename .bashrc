@@ -1,10 +1,11 @@
+# TODO このファイルはnixにより生成させるべき。ただし'home.file'機能の文字列として同様の記述が不可能な個所をエスケープなど解決したい
 # .bashrc の役割
 # - Bash インタラクティブ シェルの初期化
 # - 別名 (alias)、関数、環境変数の設定
 # - シェルの動作をカスタマイズする設定
 # このファイルは新しいシェルが起動するたびに読み込まれます
 # ==================================================
-source $HOME/_.bashrc
+source $HOME/_.bashrc # home-managerにより生成
 # source $HOME/todo.sh
 
 # If not running interactively, don't do anything
