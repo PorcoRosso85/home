@@ -132,7 +132,7 @@ wasm-language-tools = { command = "wat_server" }
 mdpls = { command =  "mdpls" }
 # ruff-lsp = { command = "ruff-lsp"}
 biome = { command = "biome", args = ["lsp-proxy"]}
-
+vtsls = { command = "pnpm", args = ["vtsls", "--stdio"]}
 
 [[language]]
 name = "markdown"
@@ -179,23 +179,23 @@ source = { git = "https://github.com/nix-community/tree-sitter-nix", rev = "1b69
 
 [[language]]
 name = "javascript"
-language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome" ]
+language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome", "vtsls" ]
 auto-format = true
 
 [[language]]
 name = "typescript"
-language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome" ]
+language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome", "vtsls" ]
 auto-format = true
 
 [[language]]
 name = "tsx"
 auto-format = true
-language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome" ]
+language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome", "vtsls" ]
 
 [[language]]
 name = "jsx"
 auto-format = true
-language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome" ]
+language-servers = [ { name = "typescript-language-server", except-features = [ "format" ] }, "biome", "vtsls" ]
 
 [[language]]
 name = "json"
