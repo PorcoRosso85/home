@@ -39,3 +39,6 @@
 !.os
 !architect*
 !watcher*
+
+!bin/
+!bin/**
