@@ -10,18 +10,19 @@ in
 
     bash = {
       enable = true;
-    #   initExtra = ''
-    #     export TERM="xterm-256color"
-    #     export COLORTERM="truecolor"
-    #     eval "$(dircolors -b)"
-    #     source "$HOME/.cargo/env" # 必要に応じて
-    #   '';
-    #   shellAliases = {
-    #     ll = "ls -alF";
-    #     la = "ls -A";
-    #     l = "ls -CF";
-    #     # その他のエイリアス
-    #   };
+      initExtra = ''
+        export TERM="xterm-256color"
+        export COLORTERM="truecolor"
+        eval "$(dircolors -b)"
+
+        source ~/.bashrc_
+      '';
+      shellAliases = {
+        ll = "ls -alF";
+        la = "ls -A";
+        l = "ls -CF";
+        # その他のエイリアス
+      };
     };
 
     # dircolors = { enable = true; }; # カスタムカラーが必要ならここで設定
@@ -33,12 +34,6 @@ in
 
     tmux = {
         enable = true;
-    };
-
-    direnv = {
-      enable = true;
-      enableBashIntegration = true; # see note on other shells below
-      nix-direnv.enable = true;
     };
 
   };
@@ -57,7 +52,7 @@ in
     # aider-chat
   ] ++ (import ./language.nix { inherit pkgs; });
 
-  home.file.".homerc".text = ''
-    export EDITOR=hx
+  home.file.".profile".text = ''
+    source ~/.profile_
   '';
 }

@@ -26,6 +26,7 @@
               homeDirectory = "/home/nixos";
               # username = "${pkgs.lib.getEnv 'USER'}"; # あなたのユーザー名
               # homeDirectory = "/home/${pkgs.lib.getEnv 'USER'}"; # あなたのホームディレクトリ
+              stateVersion = "25.05";
             };
           }
         ];

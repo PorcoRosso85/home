@@ -23,7 +23,7 @@ in
   wsl.defaultUser = "nixos";
 
 
-  system.stateVersion = "24.05";
+  system.stateVersion = "25.05";
   # # https://github.com/K900/vscode-remote-workaround/blob/main/vscode.nix
   # vscode-remote-workaround.enable = true;
   # https://github.com/nix-community/nixos-vscode-server
@@ -109,11 +109,11 @@ in
   };
 
   users.users = {
-    roccho = {
-      isNormalUser = true;
-      password = "roccho"; # set password up here
-      extraGroups = [ "wheel" "podman" ];
-    };
+    # roccho = {
+    #   isNormalUser = true;
+    #   password = "roccho"; # set password up here
+    #   extraGroups = [ "wheel" "podman" ];
+    # };
     nixos = {
       extraGroups = [ "docker" ];
     };

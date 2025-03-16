@@ -1,1 +1,0 @@
-/nix/store/rsa9z5rbgfdji4g22a7xray596gp5r91-home-manager-files/.profile

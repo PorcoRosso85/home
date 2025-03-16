@@ -1,1 +1,1 @@
-/nix/store/rsa9z5rbgfdji4g22a7xray596gp5r91-home-manager-files/.bash_profile
+/nix/store/vp6bi6d9hrh3jm36lilpzdxym0wxx3s6-home-manager-files/.bash_profile
