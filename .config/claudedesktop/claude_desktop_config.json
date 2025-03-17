@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "brave-search": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "BRAVE_API_KEY=xxx pnpx @modelcontextprotocol/server-brave-search"
+      ]
+    }
+  }
+}
