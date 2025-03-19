@@ -1,11 +1,19 @@
 {
   "mcpServers": {
-    "brave-search": {
+    "execute_shell": {
       "command": "wsl",
       "args": [
         "bash",
         "-c",
-        "BRAVE_API_KEY=xxx pnpx @modelcontextprotocol/server-brave-search"
+        "pnpx mcp-shell"
+      ]
+    },
+    "filesystem": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "pnpx @modelcontextprotocol/server-filesystem /home/nixos"
       ]
     }
   }
