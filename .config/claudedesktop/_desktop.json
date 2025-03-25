@@ -1,5 +1,13 @@
 {
   "mcpServers": {
+    "mcp-shell": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "pnpx mcp-shell"
+      ]
+    },
     "sequential-thinking": {
       "command": "wsl",
       "args": [
@@ -30,7 +38,7 @@
         "wcgw_mcp"
       ]
     },
-    "shell": {
+    "shell_ts": {
       "command": "wsl",
       "args": [
         "bash",
@@ -48,6 +56,55 @@
         "'git+https://github.com/ezyang/codemcp@prod'",
         "codemcp"
       ]
+    },
+    "claude_code": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "claude",
+        "mcp",
+        "serve"
+      ],
+      "env": {}
+    },
+    "execute_shell": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "pnpx mcp-shell"
+      ]
+    },
+    "claude_code": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "claude",
+        "mcp",
+        "serve"
+      ],
+      "env": {}
+    },
+    "filesystem": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "pnpx @modelcontextprotocol/server-filesystem /home/nixos"
+      ]
+    },
+    "llm_functions": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "pnpx",
+        "mcp-llm-functions",
+        "/home/nixos/bin/src/aichat_extension"
+      ],
+      "prefix": true
     }
   }
 }

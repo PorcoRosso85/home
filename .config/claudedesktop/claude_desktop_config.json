@@ -1,19 +1,20 @@
 {
   "mcpServers": {
-    "execute_shell": {
+    "claude_code": {
       "command": "wsl",
       "args": [
-        "bash",
-        "-c",
-        "pnpx mcp-shell"
-      ]
+        "claude",
+        "mcp",
+        "serve"
+      ],
+      "env": {}
     },
-    "filesystem": {
+    "llm_functions": {
       "command": "wsl",
       "args": [
         "bash",
         "-c",
-        "pnpx @modelcontextprotocol/server-filesystem /home/nixos"
+        "pnpx mcp-llm-functions /home/nixos/bin/src/aichat_extension"
       ]
     }
   }
