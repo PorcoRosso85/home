@@ -3,11 +3,10 @@
     "claude_code": {
       "command": "wsl",
       "args": [
-        "claude",
-        "mcp",
-        "serve"
-      ],
-      "env": {}
+        "bash",
+        "-c",
+        "ALLOWED_TOOLS='[\"GlobTool\", \"Edit\", \"GrepTool\", \"dispatch_agent\", \"LS\", \"Replace\", \"View\"]' claude mcp serve"
+      ]
     },
     "llm_functions": {
       "command": "wsl",
