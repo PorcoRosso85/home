@@ -26,44 +26,56 @@ in
 {
   imports = [
     <nixos-wsl/modules>
-    (fetchTarball "https://github.com/nix-community/nixos-vscode-server/tarball/master") # https://zenn.dev/tositada/articles/dd0645b5f35beb
+    (fetchTarball "https://github.com/nix-community/nixos-vscode-server/tarball/master")
   ];
 
   wsl.enable = true;
   wsl.defaultUser = "nixos";
 
-  # https://github.com/K900/vscode-remote-workaround/blob/main/vscode.nix
-  # https://github.com/sonowz/vscode-remote-wsl-nixos/blob/master/README.md
-  # vscode-remote-workaround.enable = true;
 
-  system.stateVersion = "24.05";
-  services.vscode-server.enable = true;
+  system.stateVersion = "25.05";
+  # # https://github.com/K900/vscode-remote-workaround/blob/main/vscode.nix
+  # vscode-remote-workaround.enable = true;
+  # https://github.com/nix-community/nixos-vscode-server
+  # $HOME/.vscode-serverを削除 + user serviceを再起動(systemctl --user stop -> start) + https://github.com/nix-community/nixos-vscode-server/issues/79
+  services = {
+    vscode-server = {
+      enable = true;
+      nodejsPackage = pkgs.nodejs_22;
+    };
+    tailscale = {
+      enable = true;
+    };
+  };
+  # https://github.com/sonowz/vscode-remote-wsl-nixos/blob/master/README.md
+
+  nix = {
+    package = pkgs.nix;
+    extraOptions = ''
+      experimental-features = nix-command flakes
+    '';
+  };
 
   # i18n.defaultLocale = "ja_JP.UTF-8";
 
   # unstableチャンネルからパッケージを取得
   environment.systemPackages = with nixpkgs.unstable; [
-    # ipafont
-
     wget
     curl
     git
     gh
     lazygit
     helix
-    aichat
     yazi
 
-    chromium
-
-    jq
     duckdb
 
     pnpm
     uv
-    rustup
-    go
-    zig
+    nushell
+
+    bash-language-server
+
   ];
 
   security.sudo.enable = true;
@@ -78,11 +90,6 @@ in
       ];
     }
   ];
-
-  # programs.nix-ld = {
-  #   enable = true;
-  #   package = pkgs.nix-ld-rs; # only for NixOS 24.05
-  # };
 
   programs = {
     tmux = {
@@ -102,26 +109,26 @@ in
   };
 
   virtualisation = {
-    podman = {
+    # podman = {
+    #   enable = true;
+    #   dockerCompat = true;
+    # };
+    docker = {
       enable = true;
-      dockerCompat = true;
     };
   };
 
   users.users = {
-    roccho = {
-      isNormalUser = true;
-      password = "roccho"; # set password up here
-      extraGroups = [ "wheel" "podman" ];
+    # roccho = {
+    #   isNormalUser = true;
+    #   password = "roccho"; # set password up here
+    #   extraGroups = [ "wheel" "podman" ];
+    # };
+    nixos = {
+      extraGroups = [ "docker" ];
     };
   };
 
-  nix = {
-    package = pkgs.nix;
-    extraOptions = ''
-      experimental-features = nix-command flakes
-    '';
-  };
 }
 
 ```
