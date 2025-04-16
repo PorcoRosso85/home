@@ -1,0 +1,87 @@
+[
+  {
+    "affinityCookieTtlSec": 0,
+    "backends": [
+      {
+        "balancingMode": "UTILIZATION",
+        "capacityScaler": 1,
+        "group": "https://www.googleapis.com/compute/v1/projects/bsp-pb-support-ai-stg/regions/asia-northeast1/networkEndpointGroups/pb-support-admin-ai"
+      }
+    ],
+    "connectionDraining": {
+      "drainingTimeoutSec": 0
+    },
+    "creationTimestamp": "2024-10-31T17:31:20.651-07:00",
+    "description": "",
+    "enableCDN": false,
+    "fingerprint": "8X2TM8VhgfI=",
+    "iap": {
+      "enabled": true,
+      "oauth2ClientId": "848338256369-0golate93hiafe35oupqobq5373o19p3.apps.googleusercontent.com",
+      "oauth2ClientSecretSha256": "854fda0e51269d788fb3cfcd70683c5a7b882c56bf6e629939a4942e6d3b287e"
+    },
+    "id": "9015910585401450423",
+    "kind": "compute#backendService",
+    "loadBalancingScheme": "EXTERNAL",
+    "logConfig": {
+      "enable": true,
+      "optionalMode": "EXCLUDE_ALL_OPTIONAL",
+      "sampleRate": 1
+    },
+    "name": "pb-support-admin-ai",
+    "port": 80,
+    "portName": "http",
+    "protocol": "HTTPS",
+    "securityPolicy": "https://www.googleapis.com/compute/v1/projects/bsp-pb-support-ai-stg/global/securityPolicies/pb-support-admin-ai-policy",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/bsp-pb-support-ai-stg/global/backendServices/pb-support-admin-ai",
+    "sessionAffinity": "NONE",
+    "timeoutSec": 30,
+    "usedBy": [
+      {
+        "reference": "https://www.googleapis.com/compute/v1/projects/bsp-pb-support-ai-stg/global/urlMaps/pb-support-admin-ai"
+      }
+    ]
+  },
+  {
+    "affinityCookieTtlSec": 0,
+    "backends": [
+      {
+        "balancingMode": "UTILIZATION",
+        "capacityScaler": 1,
+        "group": "https://www.googleapis.com/compute/v1/projects/bsp-pb-support-ai-stg/regions/asia-northeast1/networkEndpointGroups/pb-support-ai"
+      }
+    ],
+    "connectionDraining": {
+      "drainingTimeoutSec": 0
+    },
+    "creationTimestamp": "2024-10-19T23:57:36.909-07:00",
+    "description": "",
+    "enableCDN": false,
+    "fingerprint": "qzOFq4NMpAM=",
+    "iap": {
+      "enabled": true,
+      "oauth2ClientId": "848338256369-7qt88ofr84be3ji65iel22ap32t7dffv.apps.googleusercontent.com",
+      "oauth2ClientSecretSha256": "c8ef70568a11f2673eb8fe883949f44c6a122efd7b11356929b36a881a7750f4"
+    },
+    "id": "7277635976665044751",
+    "kind": "compute#backendService",
+    "loadBalancingScheme": "EXTERNAL",
+    "logConfig": {
+      "enable": false,
+      "optionalMode": "EXCLUDE_ALL_OPTIONAL"
+    },
+    "name": "pb-support-ai",
+    "port": 80,
+    "portName": "http",
+    "protocol": "HTTPS",
+    "securityPolicy": "https://www.googleapis.com/compute/v1/projects/bsp-pb-support-ai-stg/global/securityPolicies/pb-support-ai-policy",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/bsp-pb-support-ai-stg/global/backendServices/pb-support-ai",
+    "sessionAffinity": "NONE",
+    "timeoutSec": 30,
+    "usedBy": [
+      {
+        "reference": "https://www.googleapis.com/compute/v1/projects/bsp-pb-support-ai-stg/global/urlMaps/pb-support-ai"
+      }
+    ]
+  }
+]

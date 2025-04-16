@@ -1,0 +1,222 @@
+[
+  {
+    "name": "execute_command",
+    "description": "Execute the shell command.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "The command to execute."
+        }
+      },
+      "required": [
+        "command"
+      ]
+    }
+  },
+  {
+    "name": "claude_extension_assistant",
+    "description": "ツール作成方法のヘルプを提供します。新しいツールを追加する手順とBash、Python、JavaScriptでの実装の違いを説明します。ツールは /home/nixos/bin/src/tools ディレクトリに格納されています。",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "type": "string",
+          "description": "情報を取得したい言語を指定します",
+          "enum": [
+            "bash",
+            "python",
+            "javascript"
+          ]
+        },
+        "show_examples": {
+          "type": "boolean",
+          "description": "各言語のサンプルコードも表示します"
+        }
+      },
+      "required": [
+        "language"
+      ]
+    }
+  },
+  {
+    "name": "extension_search",
+    "description": "テキスト検索ツール - ファイルやディレクトリ内でテキストパターンを検索します",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "description": "検索するテキストパターン（正規表現使用可）"
+        },
+        "path": {
+          "type": "string",
+          "description": "ディレクトリパス (デフォルト: カレントディレクトリ)"
+        },
+        "file_pattern": {
+          "type": "string",
+          "description": "検索対象のファイルパターン（例: \"*.txt\", \"*.{js,ts}\"）"
+        },
+        "case_sensitive": {
+          "type": "boolean",
+          "description": "大文字と小文字を区別する"
+        },
+        "only_filenames": {
+          "type": "boolean",
+          "description": "ファイル名のみを表示する"
+        },
+        "fuzzy": {
+          "type": "boolean",
+          "description": "ファジーマッチングを有効にする（単語の間に任意文字を許容）"
+        },
+        "show_help": {
+          "type": "boolean",
+          "description": "マッチしたファイルの -h/--help 出力も表示する"
+        }
+      },
+      "required": [
+        "pattern"
+      ]
+    }
+  },
+  {
+    "name": "another_aichat",
+    "description": "Set AI provider and model, then execute aichat with a prompt.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "The AI provider to use (e.g., \"google\", \"openai\", \"anthropic\")."
+        },
+        "model": {
+          "type": "string",
+          "description": "The model to use (e.g., \"gemini:gemini-2.0-flash\", \"gpt-4o\")."
+        },
+        "prompt": {
+          "type": "string",
+          "description": "The prompt to send to the AI model."
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "prompt"
+      ]
+    }
+  },
+  {
+    "name": "rclone_backup",
+    "description": "rcloneを使ってディレクトリをS3互換バケット（AWS S3、Cloudflare R2など）にバックアップするツール",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "'バックアップするソースディレクトリのパス（絶対パスまたは相対パス）'"
+        },
+        "bucket": {
+          "type": "string",
+          "description": "'バックアップ先のS3互換バケット名と経路（例: r2://bucket-name/backup/path や s3://bucket-name/path）'"
+        },
+        "config": {
+          "type": "string",
+          "description": "'rcloneの設定ファイルのパス（デフォルト: ~/.config/rclone/rclone.conf）。事前にrclone configで設定が必要'"
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "'除外するファイルパターン（例: *.tmp, *.bak, .git/**, node_modules/**）。複数指定可能'"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "'実際にバックアップを実行せず、何が行われるかをシミュレーションして表示する'"
+        },
+        "sync": {
+          "type": "boolean",
+          "description": "'同期モードを使用する（宛先にないファイルを削除）。指定しない場合はコピーモードで実行'"
+        },
+        "verbose": {
+          "type": "boolean",
+          "description": "'詳細な出力を表示する。進捗状況やファイル転送の詳細情報が表示される'"
+        }
+      },
+      "required": [
+        "source",
+        "bucket"
+      ]
+    }
+  },
+  {
+    "name": "claude_config_builder",
+    "description": "Claude Desktop設定ビルダーツール - /home/nixos/.config/claudedesktop/claude_desktop_config.json を構築します\n\nこのツールは直接実行または require() で使用できます。\n直接実行時: ./claude_config_builder.js --config_dir=<dir> --output_file=<file> [--dry_run] [--no-backup]",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "config_dir=\"/home/nixos/bin/src/mcp_servers_extended\"": {
+          "type": "string",
+          "description": "MCP設定ファイルが保存されているディレクトリ"
+        },
+        "output_file=\"/home/nixos/.config/claudedesktop/claude_desktop_config.json\"": {
+          "type": "string",
+          "description": "出力する設定ファイルパス"
+        },
+        "dry_run=false": {
+          "type": "boolean",
+          "description": "実際の変更なしで実行結果のみ表示"
+        },
+        "backup=true": {
+          "type": "boolean",
+          "description": "既存の設定ファイルをバックアップする"
+        }
+      }
+    }
+  },
+  {
+    "name": "sitemcp",
+    "description": "ウェブサイト全体を取得してMCPサーバー用のキャッシュを作成するツール\nargcビルド実行時は execute_command関数を使用し、以下のように適切なディレクトリで実行してください:\ncd /home/nixos/bin && argc build",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "取得するウェブサイトのURL"
+        },
+        "concurrency": {
+          "type": "integer",
+          "description": "同時リクエスト数（デフォルト: 5）"
+        },
+        "tool_name_strategy": {
+          "type": "string",
+          "description": "ツール名生成戦略（デフォルト: domain）",
+          "enum": [
+            "domain",
+            "subdomain",
+            "pathname"
+          ]
+        },
+        "match": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "特定のページに一致するパターン"
+        },
+        "content_selector": {
+          "type": "string",
+          "description": "コンテンツ抽出用のCSSセレクタ"
+        },
+        "no_cache": {
+          "type": "boolean",
+          "description": "キャッシングを無効にする"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "command": "wsl",
+  "args": [
+    "bash",
+    "-c",
+    "ALLOWED_TOOLS='[\"GlobTool\", \"Edit\", \"GrepTool\", \"dispatch_agent\", \"LS\", \"Replace\", \"View\"]' claude mcp serve"
+  ]
+}

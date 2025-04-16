@@ -1,0 +1,26 @@
+:create feature {
+    name: String,
+    =>
+    dependency: String?
+}
+
+?[name, dependency] <- [['A', null], ['B', 'A'], ['C', 'B']]
+:put feature {name => dependency}
+
+// 1. すべての機能をリスト表示する
+?[name] := *feature{name}
+
+// 2. 機能 'B' が依存する機能を調べる
+?[dependency] := *feature{name: 'B', dependency}
+
+// 3. 機能 'A' に依存している機能を調べる
+?[dependent_feature] := *feature{dependency: 'A', name: dependent_feature}
+
+// 4. 機能とその依存機能をペアで表示する
+?[feature_name, dependency_name] := *feature{name: feature_name, dependency: dependency_name}
+
+// 5. 機能 'C' が依存するすべての機能を再帰的に取得する (修正版)
+dependent_features[feature, dependency] := *feature{name: feature, dependency: dependency}
+dependent_features[feature, transitive_dependency] := dependent_features[feature, intermediate_dependency],
+                                                    dependent_features[intermediate_dependency, transitive_dependency]
+?[dependency] := dependent_features['C', dependency]
