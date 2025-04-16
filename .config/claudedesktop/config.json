@@ -1,6 +1,6 @@
 {
 	"darkMode": "dark",
-	"scale": 0.5,
+	"scale": 1.5,
 	"locale": "ja-JP",
 	"quickWindowPosition": {
 		"absolutePointInWorkspace": {
@@ -20,7 +20,7 @@
 			"depthPerComponent": 8,
 			"detected": true,
 			"displayFrequency": 60,
-			"id": 2490153695,
+			"id": 427602543,
 			"internal": true,
 			"label": "",
 			"maximumCursorSize": {

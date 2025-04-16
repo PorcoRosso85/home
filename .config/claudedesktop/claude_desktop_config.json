@@ -8,12 +8,23 @@
         "ALLOWED_TOOLS='[\"GlobTool\", \"Edit\", \"GrepTool\", \"dispatch_agent\", \"LS\", \"Replace\", \"View\"]' claude mcp serve"
       ]
     },
+    "excel": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "pnpx @negokaz/excel-mcp-server"
+      ],
+      "env": {
+        "EXCEL_MCP_PAGING_CELLS_LIMIT": "4000"
+      }
+    },
     "llm_functions": {
       "command": "wsl",
       "args": [
         "bash",
         "-c",
-        "pnpx mcp-llm-functions /home/nixos/bin/src/aichat_extension"
+        "pnpx mcp-llm-functions /home/nixos/bin/src"
       ]
     }
   }
