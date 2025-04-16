@@ -1,0 +1,26 @@
+[
+  {
+    "id": "url-processing",
+    "name": "URL処理フロー",
+    "description": "URLの検証と取得に関連するプロセス",
+    "nodeIds": ["urlString", "validatedUrl", "rawContent"]
+  },
+  {
+    "id": "content-processing",
+    "name": "コンテンツ処理フロー",
+    "description": "コンテンツの解析と強化に関連するプロセス",
+    "nodeIds": ["rawContent", "parsedContent", "enrichedContent", "normalizedContent"]
+  },
+  {
+    "id": "storage-flow",
+    "name": "ストレージフロー",
+    "description": "コンテンツの永続化に関連するプロセス",
+    "nodeIds": ["normalizedContent", "storedDocument"]
+  },
+  {
+    "id": "complete-pipeline",
+    "name": "完全パイプライン",
+    "description": "URLからストレージまでの全体フロー",
+    "nodeIds": ["urlString", "validatedUrl", "rawContent", "parsedContent", "enrichedContent", "normalizedContent", "storedDocument"]
+  }
+]

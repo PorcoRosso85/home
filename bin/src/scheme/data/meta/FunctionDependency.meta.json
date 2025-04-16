@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Function Dependency Meta Schema",
+  "description": "関数型の機能的依存関係を表現するためのメタスキーマ",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "metaSchema",
+    "dependencies"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "関数型の識別子（関数名）"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["Function"],
+      "description": "このスキーマが関数型を表すことを示す識別子"
+    },
+    "metaSchema": {
+      "type": "string",
+      "enum": ["FunctionDependency"],
+      "description": "このスキーマが機能的依存関係を表すメタスキーマであることを示す識別子"
+    },
+    "description": {
+      "type": "string",
+      "description": "関数型の説明（オプション）"
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "この関数が依存する他の関数のリスト（実行順序順）",
+      "items": {
+        "type": "object",
+        "required": [
+          "functionId",
+          "metaSchema"
+        ],
+        "properties": {
+          "functionId": {
+            "type": "string",
+            "description": "依存する関数の識別子"
+          },
+          "metaSchema": {
+            "type": "string",
+            "description": "依存する関数のメタスキーマ識別子（通常は'Function'）"
+          },
+          "description": {
+            "type": "string",
+            "description": "この依存関係の説明（オプション）"
+          },
+          "isOptional": {
+            "type": "boolean",
+            "description": "この依存関係が省略可能かどうか",
+            "default": false
+          },
+          "executionOrder": {
+            "type": "integer",
+            "description": "実行順序を明示的に指定（小さい値ほど先に実行される）",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "functionalFlow": {
+      "type": "object",
+      "description": "より複雑な機能フローを表現するための拡張プロパティ（将来の拡張用）",
+      "additionalProperties": true
+    }
+  }
+}

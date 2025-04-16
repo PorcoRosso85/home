@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Deno + Vite + React SSR/SSG アプリケーション">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>Deno + Vite + React</title>
+  <!-- SSRのスタイルを即時適用するためのインラインCSS -->
+  <style>
+    /* 初期ロード時のフラッシュ防止用スタイル */
+    html[data-hydrating] * {
+      transition: none !important;
+    }
+    
+    /* 基本的なスタイルリセット */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      background-color: #f9f9f9;
+    }
+
+    /* スケルトンローディングアニメーション */
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 0.8; }
+      100% { opacity: 0.6; }
+    }
+
+    .skeleton {
+      background-color: #e0e0e0;
+      animation: pulse 1.5s infinite;
+    }
+  </style>
+  <!-- SSRでレンダリングされたスタイルが注入される場所 -->
+  <!--ssr-styles-->
+</head>
+<body>
+  <!-- noscript用のフォールバック -->
+  <noscript>
+    <div style="padding: 20px; text-align: center;">
+      このアプリケーションにはJavaScriptが必要です。ブラウザの設定でJavaScriptを有効にしてください。
+    </div>
+  </noscript>
+
+  <!-- アプリケーションのマウントポイント - SSRされたHTMLがここに注入される -->
+  <div id="root">
+    <!-- SSRコンテンツ注入位置 -->
+    <h1>Hello from Deno + Vite + SSR!</h1>
+    
+    <!-- SSRに失敗した場合のフォールバックスケルトン -->
+    <div id="ssr-fallback" style="display: none">
+      <div class="skeleton" style="height: 60px; width: 100%; margin-bottom: 20px;"></div>
+      <div class="skeleton" style="height: 400px; width: 100%;"></div>
+    </div>
+  </div>
+
+  <!-- モジュールプリロードのヒント -->
+  <!--preload-links-->
+  
+  <!-- クライアントエントリポイント - ハイドレーション用 -->
+  <script type="module" src="./index.tsx"></script>
+  
+  <!-- ハイドレーション検出とエラーハンドリング -->
+  <script>
+    // SSRコンテンツが正しく表示されているか確認
+    if (document.getElementById('root').children.length === 0) {
+      document.getElementById('ssr-fallback').style.display = 'block';
+    }
+    
+    // ハイドレーションが始まったことをマーク
+    document.documentElement.setAttribute('data-hydrating', 'true');
+    
+    // ハイドレーション完了時の処理
+    window.addEventListener('load', function() {
+      // ハイドレーション完了マーカーを更新
+      document.documentElement.removeAttribute('data-hydrating');
+      document.documentElement.setAttribute('data-hydrated', 'true');
+      
+      // フォールバックスケルトンが表示されていれば非表示に
+      const fallback = document.getElementById('ssr-fallback');
+      if (fallback) fallback.style.display = 'none';
+    });
+  </script>
+</body>
+</html>

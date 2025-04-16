@@ -1,0 +1,51 @@
+{
+  "$schema": "./data/meta/Requirement.meta.json",
+  "$metaSchema": "Requirement",
+  "id": "Resource",
+  "title": "リソース情報構造体",
+  "description": "アクセス制御対象のリソースを表す構造体",
+  "type": "requirement",
+  "implementationType": "struct",
+  "outputPath": {
+    "default": "/src/auth/Resource.js"
+  },
+  "implementation": {
+    "struct": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "リソースの一意識別子"
+        },
+        "name": {
+          "type": "string",
+          "description": "リソースの名前"
+        },
+        "type": {
+          "type": "string",
+          "description": "リソースの種類",
+          "enum": ["api", "data", "file", "service"]
+        },
+        "path": {
+          "type": "string",
+          "description": "リソースのパス"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["read", "write", "create", "delete", "execute"]
+          },
+          "description": "許可されるアクション"
+        }
+      },
+      "required": ["id", "name", "type"],
+      "methods": {}
+    }
+  },
+  "dependencies": [],
+  "tags": ["auth", "security", "resources"],
+  "status": "draft",
+  "priority": "medium",
+  "createdAt": "2025-03-23T10:45:00.000Z",
+  "updatedAt": "2025-03-23T10:45:00.000Z"
+}
