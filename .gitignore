@@ -6,6 +6,8 @@
 !.config/helix/**
 !.config/aichat/
 !.config/aichat/**
+.config/aichat/*.md
+.config/aichat/*.log
 !.config/aider/
 !.config/aider/**
 !.config/wezterm/
