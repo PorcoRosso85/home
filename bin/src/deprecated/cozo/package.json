@@ -1,0 +1,14 @@
+{
+  "name": "cozo-simple-poc",
+  "version": "1.0.0",
+  "description": "Simple PoC for CozoDB with Node.js",
+  "main": "simple-node.js",
+  "dependencies": {
+    "cozo-lib-wasm": "^0.7.6",
+    "cozo-node": "^0.7.6"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
