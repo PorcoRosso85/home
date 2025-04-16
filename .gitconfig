@@ -1,10 +1,7 @@
 [pull]
 	rebase = false
-# [safe]
-# 	directory = /home/roccho
 [init]
 	defaultBranch = main
-# [credential "https://github.com"]
-# 	helper = /home/roccho/.nix-profile/bin/gh auth git-credential
-# [credential "https://gist.github.com"]
-# 	helper = /home/roccho/.nix-profile/bin/gh auth git-credential
+[user]
+	email = user@example.com
+	name = User

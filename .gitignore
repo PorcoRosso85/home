@@ -14,6 +14,10 @@
 !.config/shell/**
 !.config/yazi/
 !.config/yazi/**
+!.config/claudedesktop/
+!.config/claudedesktop/**
+!.config/goose/
+!.config/goose/**
 !*.profile
 !.*_profile
 !/.git*
@@ -35,10 +39,14 @@
 !nix/dev/
 !nix/dev/*
 !nix/dev/**
+!.vscode-server/
+!.vscode-server/data/
+!.vscode-server/data/Machine/
+!.vscode-server/data/Machine/**
+!claude/
+!claude/**
 
 !.os
-!architect*
-!watcher*
-
-!bin/
+!bin
 !bin/**
+
