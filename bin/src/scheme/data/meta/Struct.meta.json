@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Struct",
+  "description": "構造体/クラス型を定義するためのメタスキーマ",
+  "type": "object",
+  "required": ["title", "type", "properties"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$metaSchema": {
+      "type": "string",
+      "const": "Struct",
+      "description": "このスキーマが構造体型メタスキーマであることを示す識別子"
+    },
+    "title": {
+      "type": "string",
+      "description": "型の名前"
+    },
+    "description": {
+      "type": "string",
+      "description": "型の説明"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["object"],
+      "description": "JSONスキーマのタイプ (構造体のため 'object'固定)"
+    },
+    "required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "必須フィールドのリスト"
+    },
+    "properties": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "プロパティの型"
+          },
+          "description": {
+            "type": "string",
+            "description": "プロパティの説明"
+          },
+          "$ref": {
+            "type": "string",
+            "description": "別のスキーマへの参照"
+          },
+          "minLength": {
+            "type": "integer",
+            "description": "最小文字数 (文字列の場合)"
+          },
+          "maxLength": {
+            "type": "integer",
+            "description": "最大文字数 (文字列の場合)"
+          },
+          "format": {
+            "type": "string",
+            "description": "特定のフォーマット (email, dateなど)"
+          },
+          "minimum": {
+            "type": "number",
+            "description": "最小値 (数値の場合)"
+          },
+          "maximum": {
+            "type": "number",
+            "description": "最大値 (数値の場合)"
+          },
+          "default": {
+            "description": "デフォルト値"
+          },
+          "properties": {
+            "type": "object",
+            "description": "ネストされたプロパティ (オブジェクトの場合)"
+          },
+          "items": {
+            "type": "object",
+            "description": "配列要素の定義 (配列の場合)"
+          },
+          "enum": {
+            "type": "array",
+            "description": "許容値のリスト (列挙型の場合)"
+          }
+        }
+      }
+    },
+    "additionalProperties": {
+      "type": "boolean",
+      "description": "追加プロパティを許可するかどうか"
+    }
+  }
+}

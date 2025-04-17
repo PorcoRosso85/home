@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SignedInteger",
+  "description": "符号付き整数型",
+  "$comment": "言語別取り扱い:
+    - Zig: i8, i16, i32, i64など固定サイズ整数型として実装
+    - Lean 4: Int8, Int16, Int32, Int64として実装
+    - Rust: i8, i16, i32, i64, i128として実装、サイズ指定が明示的
+    - TypeScript: number型として実装（特定のビット幅の区別なし）",
+  "oneOf": [
+    {
+      "title": "i8",
+      "type": "integer",
+      "minimum": -128,
+      "maximum": 127
+    },
+    {
+      "title": "i16",
+      "type": "integer",
+      "minimum": -32768,
+      "maximum": 32767
+    },
+    {
+      "title": "i32",
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    },
+    {
+      "title": "i64",
+      "type": "integer",
+      "minimum": -9223372036854775808,
+      "maximum": 9223372036854775807
+    }
+  ]
+}

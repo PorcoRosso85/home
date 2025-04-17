@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Requirement",
+  "description": "要件定義を表現するためのメタスキーマ",
+  "type": "object",
+  "required": ["id", "title", "description", "outputType", "outputPath", "outputInfo"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$metaSchema": {
+      "type": "string",
+      "const": "Requirement",
+      "description": "このスキーマが要件メタスキーマであることを示す識別子"
+    },
+    "id": {
+      "type": "string",
+      "description": "要件の一意識別子",
+      "pattern": "^[a-zA-Z0-9-_]+$"
+    },
+    "title": {
+      "type": "string",
+      "description": "要件のタイトル"
+    },
+    "description": {
+      "type": "string",
+      "description": "要件の詳細説明"
+    },
+    "outputType": {
+      "type": "string",
+      "enum": ["function", "struct", "string", "enum"],
+      "description": "生成される成果物の種類"
+    },
+    "outputPath": {
+      "type": "object",
+      "description": "生成されるファイルのパス情報",
+      "required": ["default"],
+      "properties": {
+        "default": {
+          "type": "string",
+          "description": "デフォルトのファイルパス"
+        },
+        "typescript": {
+          "type": "string",
+          "description": "TypeScript実装のファイルパス"
+        },
+        "javascript": {
+          "type": "string",
+          "description": "JavaScript実装のファイルパス"
+        },
+        "python": {
+          "type": "string",
+          "description": "Python実装のファイルパス"
+        },
+        "java": {
+          "type": "string",
+          "description": "Java実装のファイルパス"
+        },
+        "csharp": {
+          "type": "string",
+          "description": "C#実装のファイルパス"
+        },
+        "rust": {
+          "type": "string",
+          "description": "Rust実装のファイルパス"
+        },
+        "go": {
+          "type": "string",
+          "description": "Go実装のファイルパス"
+        }
+      },
+      "additionalProperties": {
+        "type": "string",
+        "description": "その他の言語実装のファイルパス"
+      }
+    },
+    "outputInfo": {
+      "type": "object",
+      "description": "生成される成果物の詳細情報",
+      "properties": {
+        "function": {
+          "type": "object",
+          "description": "関数型の場合の追加情報",
+          "properties": {
+            "parameters": {
+              "type": "object",
+              "description": "関数のパラメータ情報"
+            },
+            "returnType": {
+              "type": "object",
+              "description": "関数の戻り値情報"
+            },
+            "async": {
+              "type": "boolean",
+              "description": "非同期関数かどうか"
+            }
+          }
+        },
+        "struct": {
+          "type": "object",
+          "description": "構造体型の場合の追加情報",
+          "properties": {
+            "properties": {
+              "type": "object",
+              "description": "構造体のプロパティ情報"
+            }
+          }
+        },
+        "string": {
+          "type": "object",
+          "description": "文字列型の場合の追加情報",
+          "properties": {
+            "validation": {
+              "type": "object",
+              "description": "文字列のバリデーション情報"
+            }
+          }
+        },
+        "enum": {
+          "type": "object",
+          "description": "列挙型の場合の追加情報",
+          "properties": {
+            "values": {
+              "type": "array",
+              "description": "列挙型の値リスト"
+            }
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "この要件が依存する他の要件のID一覧",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "description": "要件に関連するタグのリスト",
+      "items": {
+        "type": "string"
+      }
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["high", "medium", "low"],
+      "description": "要件の優先度"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "pending", "approved", "implemented", "deprecated"],
+      "description": "要件の状態",
+      "default": "draft"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "要件の作成日時"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "要件の最終更新日時"
+    }
+  }
+}

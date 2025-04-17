@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "エッジスキーマ",
+  "description": "グラフのエッジ（辺）を定義",
+  
+  "definitions": {
+    "retryPolicy": {
+      "type": "object",
+      "properties": {
+        "maxRetries": { "type": "integer" },
+        "backoffFactor": { "type": "number" },
+        "statusCodes": {
+          "type": "array",
+          "items": { "type": "integer" }
+        }
+      }
+    },
+    
+    "d3Config": {
+      "type": "object",
+      "properties": {
+        "visual": {
+          "type": "object",
+          "properties": {
+            "strokeWidth": { "type": "number" },
+            "style": { 
+              "type": "string",
+              "enum": ["solid", "dashed", "dotted"]
+            },
+            "color": { "type": "string" },
+            "curvature": { "type": "number" },
+            "label": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    
+    "edge": {
+      "type": "object",
+      "required": ["id", "source", "target", "name", "description"],
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string" },
+        "properties": {
+          "type": "object",
+          "properties": {
+            "async": { "type": "boolean" },
+            "timeout": { "type": "integer" },
+            "retry": { "$ref": "#/definitions/retryPolicy" }
+          },
+          "additionalProperties": true
+        },
+        "metadata": { "$ref": "Core__Schema.json#/definitions/metadata" },
+        "d3": { "$ref": "#/definitions/d3Config" }
+      }
+    }
+  },
+  
+  "type": "array",
+  "items": { "$ref": "#/definitions/edge" }
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "./data/meta/Requirement.meta.json",
+  "$metaSchema": "Requirement",
+  "id": "ValidationResult",
+  "title": "バリデーション結果インターフェース",
+  "description": "バリデーション結果を表すインターフェース",
+  "type": "requirement",
+  "implementationType": "struct",
+  "implementation": {
+    "struct": {
+      "properties": {
+        "valid": {
+          "type": "boolean",
+          "description": "バリデーションが成功したかどうか"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "バリデーションエラーのリスト"
+        }
+      },
+      "required": [
+        "valid",
+        "errors"
+      ]
+    }
+  },
+  "outputPath": {
+    "default": "/src/validationresult/ValidationResult.js"
+  },
+  "status": "draft",
+  "priority": "medium",
+  "createdAt": "2025-03-21T10:28:46.360Z",
+  "updatedAt": "2025-03-21T20:46:25.762Z",
+  "dependencies": []
+}

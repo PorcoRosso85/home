@@ -1,0 +1,1223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UserRegister",
+  "description": "ユーザー登録機能",
+  "type": "object",
+  "required": [
+    "title",
+    "type",
+    "signatures"
+  ],
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "関数型の名前"
+    },
+    "description": {
+      "type": "string",
+      "description": "関数型の説明"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "function"
+      ],
+      "description": "型のカテゴリ (関数のため 'function'固定)"
+    },
+    "signatures": {
+      "type": "array",
+      "description": "関数のシグネチャ（引数型と戻り値型のペア）リスト",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "parameterTypes",
+          "returnTypes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "シグネチャの識別子"
+          },
+          "description": {
+            "type": "string",
+            "description": "シグネチャの説明"
+          },
+          "parameterTypes": {
+            "type": "object",
+            "description": "関数の入力パラメータの型",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "パラメータの型"
+              },
+              "description": {
+                "type": "string",
+                "description": "パラメータの説明"
+              },
+              "$ref": {
+                "type": "string",
+                "description": "別のスキーマへの参照"
+              },
+              "items": {
+                "type": "object",
+                "description": "配列要素の定義 (配列の場合)"
+              },
+              "properties": {
+                "type": "object",
+                "description": "オブジェクトプロパティの定義 (オブジェクトの場合)"
+              },
+              "immutable": {
+                "type": "boolean",
+                "description": "パラメータが不変かどうか",
+                "default": true
+              },
+              "required": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "必須パラメータのリスト"
+              },
+              "propertiesOrder": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "パラメータの順序"
+              },
+              "varargs": {
+                "type": "boolean",
+                "description": "可変長引数サポート",
+                "default": false
+              },
+              "defaultsStrategy": {
+                "type": "string",
+                "enum": [
+                  "eager",
+                  "lazy",
+                  "none"
+                ],
+                "description": "デフォルト値の評価戦略",
+                "default": "eager"
+              }
+            }
+          },
+          "returnTypes": {
+            "type": "object",
+            "description": "関数の戻り値の型",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "戻り値の型"
+              },
+              "description": {
+                "type": "string",
+                "description": "戻り値の説明"
+              },
+              "$ref": {
+                "type": "string",
+                "description": "別のスキーマへの参照"
+              },
+              "items": {
+                "type": "object",
+                "description": "配列要素の定義 (配列の場合)"
+              },
+              "properties": {
+                "type": "object",
+                "description": "オブジェクトプロパティの定義 (オブジェクトの場合)"
+              },
+              "immutable": {
+                "type": "boolean",
+                "description": "戻り値が不変かどうか",
+                "default": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "description": "関数の機能特性",
+      "properties": {
+        "purity": {
+          "type": "object",
+          "description": "関数の純粋性に関する特性",
+          "properties": {
+            "isPure": {
+              "type": "boolean",
+              "description": "純粋関数かどうか（同じ入力に対して常に同じ出力を返し、副作用がない）",
+              "default": true
+            },
+            "referentiallyTransparent": {
+              "type": "boolean",
+              "description": "参照透過性",
+              "default": true
+            },
+            "sideEffects": {
+              "type": "array",
+              "description": "副作用の詳細リスト",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "description": "副作用の種類"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "副作用の説明"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "type": "object",
+          "description": "関数の評価に関する特性",
+          "properties": {
+            "isLazy": {
+              "type": "boolean",
+              "description": "遅延評価が可能かどうか",
+              "default": false
+            },
+            "lazyEvaluationStrategy": {
+              "type": "string",
+              "enum": [
+                "call-by-need",
+                "call-by-name"
+              ],
+              "description": "遅延評価戦略",
+              "default": "call-by-need"
+            },
+            "strictnessAnnotations": {
+              "type": "boolean",
+              "description": "厳格性注釈サポート",
+              "default": false
+            }
+          }
+        },
+        "currying": {
+          "type": "object",
+          "description": "カリー化に関する特性",
+          "properties": {
+            "isCurried": {
+              "type": "boolean",
+              "description": "カリー化された関数かどうか",
+              "default": false
+            },
+            "partialApplicationSupport": {
+              "type": "boolean",
+              "description": "部分適用サポート",
+              "default": true
+            },
+            "curryingOrder": {
+              "type": "string",
+              "enum": [
+                "left-to-right",
+                "right-to-left"
+              ],
+              "description": "カリー化の順序",
+              "default": "left-to-right"
+            }
+          }
+        },
+        "recursion": {
+          "type": "object",
+          "description": "再帰に関する特性",
+          "properties": {
+            "isRecursive": {
+              "type": "boolean",
+              "description": "関数が再帰的か",
+              "default": false
+            },
+            "recursionLimit": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "再帰の制限（ある場合）",
+              "default": null
+            },
+            "tailRecursive": {
+              "type": "boolean",
+              "description": "末尾再帰最適化が適用可能か",
+              "default": false
+            },
+            "recursionType": {
+              "type": "string",
+              "enum": [
+                "direct",
+                "mutual",
+                "nested"
+              ],
+              "description": "再帰の種類",
+              "default": "direct"
+            },
+            "terminationCondition": {
+              "type": "string",
+              "description": "終了条件"
+            },
+            "terminationProof": {
+              "type": "object",
+              "description": "終了証明",
+              "properties": {
+                "measure": {
+                  "type": "string",
+                  "description": "測度関数"
+                },
+                "argument": {
+                  "type": "string",
+                  "description": "減少引数"
+                }
+              }
+            },
+            "complexityAnalysis": {
+              "type": "object",
+              "properties": {
+                "time": {
+                  "type": "string",
+                  "description": "時間計算量"
+                },
+                "space": {
+                  "type": "string",
+                  "description": "空間計算量"
+                }
+              }
+            },
+            "recursionDepth": {
+              "type": "object",
+              "properties": {
+                "maximum": {
+                  "type": "number",
+                  "description": "最大再帰深度"
+                },
+                "average": {
+                  "type": "number",
+                  "description": "平均再帰深度"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "再帰深度についての説明"
+                }
+              }
+            },
+            "mutuallyRecursiveWith": {
+              "type": "array",
+              "description": "相互再帰関数のリスト",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "関数名"
+                  },
+                  "$ref": {
+                    "type": "string",
+                    "description": "関数への参照"
+                  }
+                }
+              }
+            },
+            "invariants": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "再帰不変条件"
+            },
+            "transformationType": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "tailCall",
+                  "accumulator",
+                  "trampolined",
+                  "none"
+                ]
+              },
+              "description": "変換の種類"
+            },
+            "structuralRecursion": {
+              "type": "boolean",
+              "description": "構造的再帰かどうか",
+              "default": false
+            }
+          }
+        },
+        "memoization": {
+          "type": "object",
+          "description": "メモ化に関する特性",
+          "properties": {
+            "supportsMemoization": {
+              "type": "boolean",
+              "description": "メモ化をサポートするか",
+              "default": false
+            },
+            "memoizationStrategy": {
+              "type": "string",
+              "enum": [
+                "simple",
+                "lru",
+                "custom"
+              ],
+              "description": "メモ化の戦略",
+              "default": "simple"
+            },
+            "memoizationScope": {
+              "type": "string",
+              "enum": [
+                "global",
+                "instance",
+                "call"
+              ],
+              "description": "メモ化のスコープ",
+              "default": "call"
+            }
+          }
+        },
+        "async": {
+          "type": "object",
+          "description": "非同期処理に関する特性",
+          "properties": {
+            "isAsync": {
+              "type": "boolean",
+              "description": "非同期関数かどうか",
+              "default": false
+            },
+            "asyncType": {
+              "type": "string",
+              "enum": [
+                "promise",
+                "observable",
+                "callback",
+                "stream",
+                "future"
+              ],
+              "description": "非同期処理の種類",
+              "default": "promise"
+            },
+            "awaitPattern": {
+              "type": "object",
+              "properties": {
+                "syntax": {
+                  "type": "string",
+                  "enum": [
+                    "await",
+                    "then",
+                    "bind",
+                    "custom"
+                  ],
+                  "description": "待機パターンの構文",
+                  "default": "await"
+                },
+                "cancellable": {
+                  "type": "boolean",
+                  "description": "キャンセル可能かどうか",
+                  "default": false
+                }
+              }
+            }
+          }
+        },
+        "multipleReturns": {
+          "type": "object",
+          "description": "複数戻り値に関する特性",
+          "properties": {
+            "multipleReturnValues": {
+              "type": "boolean",
+              "description": "複数の戻り値をサポートするか",
+              "default": false
+            },
+            "conditionalReturn": {
+              "type": "object",
+              "properties": {
+                "conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "condition": {
+                        "type": "string",
+                        "description": "条件の説明"
+                      },
+                      "returnTypes": {
+                        "type": "object",
+                        "description": "戻り値の型"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "typeSystem": {
+          "type": "object",
+          "description": "型システムに関する詳細情報",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "static",
+                "dynamic",
+                "gradual",
+                "soft",
+                "hybrid"
+              ],
+              "description": "型システムの種類",
+              "default": "static"
+            },
+            "algebraicDataTypes": {
+              "type": "object",
+              "description": "代数的データ型（ADT）のサポート情報",
+              "properties": {
+                "sumTypes": {
+                  "type": "object",
+                  "description": "サム型（直和型）のサポート",
+                  "properties": {
+                    "supported": {
+                      "type": "boolean",
+                      "description": "サム型がサポートされているか",
+                      "default": false
+                    },
+                    "representation": {
+                      "type": "string",
+                      "enum": [
+                        "tagged-union",
+                        "variant-record",
+                        "polymorphic-variant",
+                        "custom"
+                      ],
+                      "description": "サム型の表現方法",
+                      "default": "tagged-union"
+                    }
+                  }
+                },
+                "productTypes": {
+                  "type": "object",
+                  "description": "プロダクト型（直積型）のサポート",
+                  "properties": {
+                    "supported": {
+                      "type": "boolean",
+                      "description": "プロダクト型がサポートされているか",
+                      "default": false
+                    },
+                    "representation": {
+                      "type": "string",
+                      "enum": [
+                        "tuple",
+                        "record",
+                        "class",
+                        "custom"
+                      ],
+                      "description": "プロダクト型の表現方法",
+                      "default": "record"
+                    }
+                  }
+                },
+                "patternMatching": {
+                  "type": "object",
+                  "description": "パターンマッチングのサポート",
+                  "properties": {
+                    "supported": {
+                      "type": "boolean",
+                      "description": "パターンマッチングがサポートされているか",
+                      "default": false
+                    },
+                    "exhaustivenessChecking": {
+                      "type": "boolean",
+                      "description": "網羅性チェックがサポートされているか",
+                      "default": false
+                    }
+                  }
+                }
+              }
+            },
+            "generics": {
+              "type": "object",
+              "description": "ジェネリック型のサポート情報",
+              "properties": {
+                "supported": {
+                  "type": "boolean",
+                  "description": "ジェネリック型がサポートされているか",
+                  "default": false
+                },
+                "typeParameters": {
+                  "type": "object",
+                  "description": "型パラメータのサポート",
+                  "properties": {
+                    "variance": {
+                      "type": "string",
+                      "enum": [
+                        "invariant",
+                        "covariant",
+                        "contravariant",
+                        "bivariant"
+                      ],
+                      "description": "型パラメータの変性",
+                      "default": "invariant"
+                    },
+                    "constraints": {
+                      "type": "object",
+                      "description": "型パラメータの制約",
+                      "properties": {
+                        "supported": {
+                          "type": "boolean",
+                          "description": "型制約がサポートされているか",
+                          "default": false
+                        },
+                        "constraintMechanisms": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "subtyping",
+                              "typeclasses",
+                              "interfaces",
+                              "concepts",
+                              "custom"
+                            ]
+                          },
+                          "description": "サポートされている制約メカニズム"
+                        }
+                      }
+                    }
+                  }
+                },
+                "higherKindedTypes": {
+                  "type": "object",
+                  "description": "高階型のサポート",
+                  "properties": {
+                    "supported": {
+                      "type": "boolean",
+                      "description": "高階型がサポートされているか",
+                      "default": false
+                    }
+                  }
+                }
+              }
+            },
+            "dependentTypes": {
+              "type": "object",
+              "description": "拡張された依存型システムのサポート情報",
+              "properties": {
+                "dependentTypes": {
+                  "type": "object",
+                  "description": "依存型のサポート情報",
+                  "properties": {
+                    "supported": {
+                      "type": "boolean",
+                      "description": "依存型がサポートされているか",
+                      "default": false
+                    },
+                    "valueIndexing": {
+                      "type": "object",
+                      "description": "値による型のインデックス化",
+                      "properties": {
+                        "supported": {
+                          "type": "boolean",
+                          "description": "値によるインデックス化がサポートされているか",
+                          "default": false
+                        },
+                        "allowedValueTypes": {
+                          "type": "array",
+                          "description": "型が依存できる値の種類",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "constant",
+                              "parameter",
+                              "computed",
+                              "global"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "supported"
+                      ]
+                    },
+                    "refinementTypes": {
+                      "type": "object",
+                      "description": "リファインメント型のサポート",
+                      "properties": {
+                        "supported": {
+                          "type": "boolean",
+                          "description": "リファインメント型がサポートされているか",
+                          "default": false
+                        },
+                        "staticVerification": {
+                          "type": "boolean",
+                          "description": "静的検証のサポート"
+                        },
+                        "dynamicVerification": {
+                          "type": "boolean",
+                          "description": "動的検証のサポート"
+                        }
+                      },
+                      "required": [
+                        "supported"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "supported"
+                  ]
+                },
+                "typeLevelProgramming": {
+                  "type": "object",
+                  "description": "型レベルプログラミングのサポート情報",
+                  "properties": {
+                    "supported": {
+                      "type": "boolean",
+                      "description": "型レベルプログラミングがサポートされているか",
+                      "default": false
+                    },
+                    "computation": {
+                      "type": "object",
+                      "description": "型レベル計算の特性",
+                      "properties": {
+                        "arithmetic": {
+                          "type": "boolean",
+                          "description": "型レベルでの算術演算のサポート",
+                          "default": false
+                        },
+                        "stringManipulation": {
+                          "type": "boolean",
+                          "description": "型レベルでの文字列操作のサポート",
+                          "default": false
+                        },
+                        "listManipulation": {
+                          "type": "boolean",
+                          "description": "型レベルでのリスト/タプル操作のサポート",
+                          "default": false
+                        },
+                        "recursion": {
+                          "type": "boolean",
+                          "description": "型レベルでの再帰のサポート",
+                          "default": false
+                        }
+                      }
+                    },
+                    "conditionals": {
+                      "type": "object",
+                      "description": "型レベル条件分岐の特性",
+                      "properties": {
+                        "supported": {
+                          "type": "boolean",
+                          "description": "型レベル条件分岐がサポートされているか",
+                          "default": false
+                        },
+                        "branches": {
+                          "type": "boolean",
+                          "description": "型レベルのif-thenなどの条件分岐構造のサポート",
+                          "default": false
+                        },
+                        "typeSelection": {
+                          "type": "boolean",
+                          "description": "型システム内での型選択機能のサポート",
+                          "default": false
+                        }
+                      },
+                      "required": [
+                        "supported"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "supported"
+                  ]
+                },
+                "singletonTypes": {
+                  "type": "object",
+                  "description": "シングルトン型のサポート情報",
+                  "properties": {
+                    "supported": {
+                      "type": "boolean",
+                      "description": "シングルトン型がサポートされているか",
+                      "default": false
+                    },
+                    "applicableTypes": {
+                      "type": "array",
+                      "description": "シングルトン型が適用可能な型",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "literal",
+                          "numeric",
+                          "string",
+                          "boolean",
+                          "object",
+                          "custom"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "supported"
+                  ]
+                },
+                "refinementTypes": {
+                  "type": "object",
+                  "description": "リファインメント型のサポート情報",
+                  "properties": {
+                    "supported": {
+                      "type": "boolean",
+                      "description": "リファインメント型がサポートされているか",
+                      "default": false
+                    },
+                    "verification": {
+                      "type": "object",
+                      "description": "リファインメント型の検証方法",
+                      "properties": {
+                        "static": {
+                          "type": "boolean",
+                          "description": "静的検証（コンパイル時）",
+                          "default": false
+                        },
+                        "dynamic": {
+                          "type": "boolean",
+                          "description": "動的検証（実行時）",
+                          "default": false
+                        },
+                        "smtSolver": {
+                          "type": "boolean",
+                          "description": "SMTソルバーの使用",
+                          "default": false
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "supported"
+                  ]
+                }
+              }
+            },
+            "typeInference": {
+              "type": "object",
+              "description": "型推論の特性",
+              "properties": {
+                "supported": {
+                  "type": "boolean",
+                  "description": "型推論がサポートされているか",
+                  "default": false
+                },
+                "algorithm": {
+                  "type": "string",
+                  "description": "型推論アルゴリズム"
+                },
+                "completeness": {
+                  "type": "string",
+                  "enum": [
+                    "partial",
+                    "complete"
+                  ],
+                  "description": "型推論の完全性",
+                  "default": "partial"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "resourceUri": {
+      "type": "string",
+      "description": "関数の実装リソースへの参照URI",
+      "examples": [
+        "file:///src/utils/math.ts",
+        "https://github.com/user/repo/blob/main/src/utils/math.ts",
+        "git://github.com/user/repo.git#path=src/utils/math.ts",
+        "/absolute/path/to/file.ts",
+        "./relative/path/to/file.ts"
+      ]
+    },
+    "externalDependencies": {
+      "type": "array",
+      "description": "関数が依存する外部関数のリスト",
+      "items": {
+        "type": "object",
+        "required": [
+          "$ref"
+        ],
+        "properties": {
+          "$ref": {
+            "type": "string",
+            "description": "依存関数のスキーマへの参照"
+          },
+          "description": {
+            "type": "string",
+            "description": "依存関係の説明（任意）"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "thrownExceptions": {
+      "type": "array",
+      "description": "発生する可能性のある例外のリスト",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "description"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "例外の名前"
+          },
+          "description": {
+            "type": "string",
+            "description": "例外の説明"
+          },
+          "code": {
+            "type": "string",
+            "description": "例外コード (存在する場合)"
+          }
+        }
+      }
+    },
+    "usageExamples": {
+      "type": "array",
+      "description": "関数使用例",
+      "items": {
+        "type": "object",
+        "required": [
+          "input",
+          "output"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "例の説明"
+          },
+          "input": {
+            "description": "入力例"
+          },
+          "output": {
+            "description": "期待される出力"
+          },
+          "intermediateSteps": {
+            "type": "array",
+            "description": "計算の各ステップでの中間結果",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stepName": {
+                  "type": "string",
+                  "description": "ステップの名前"
+                },
+                "value": {
+                  "description": "中間値"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "deprecated": {
+      "type": "boolean",
+      "description": "関数が非推奨かどうか",
+      "default": false
+    },
+    "deprecationMessage": {
+      "type": "string",
+      "description": "非推奨の場合のメッセージ"
+    },
+    "composition": {
+      "type": "object",
+      "description": "関数の合成に関する情報",
+      "properties": {
+        "composable": {
+          "type": "boolean",
+          "description": "この関数が他の関数と簡単に合成可能かどうか"
+        },
+        "compositionPatterns": {
+          "type": "array",
+          "description": "この関数が対応する合成パターン",
+          "items": {
+            "type": "string",
+            "enum": [
+              "pipeline",
+              "pointfree",
+              "monad",
+              "applicative",
+              "arrow",
+              "lens",
+              "transducer"
+            ]
+          }
+        },
+        "dataFlow": {
+          "type": "object",
+          "description": "関数間のデータフロー情報",
+          "properties": {
+            "inputTransformations": {
+              "type": "array",
+              "description": "入力データの変換ステップ",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "stage": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "stage",
+                  "description"
+                ]
+              }
+            },
+            "outputAdaptations": {
+              "type": "array",
+              "description": "出力データの適応パターン",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pattern": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "pattern",
+                  "description"
+                ]
+              }
+            }
+          }
+        },
+        "optimizationHints": {
+          "type": "object",
+          "description": "合成時の最適化ヒント",
+          "properties": {
+            "fusable": {
+              "type": "boolean"
+            },
+            "parallelizable": {
+              "type": "boolean"
+            },
+            "memoizable": {
+              "type": "boolean"
+            },
+            "notes": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "fusable",
+            "parallelizable",
+            "memoizable"
+          ]
+        }
+      },
+      "required": [
+        "composable"
+      ]
+    },
+    "tests": {
+      "type": "object",
+      "description": "関数のテスト仕様と要件",
+      "required": [
+        "requiresTests"
+      ],
+      "properties": {
+        "requiresTests": {
+          "type": "boolean",
+          "description": "テストが必要かどうかのフラグ",
+          "default": false
+        },
+        "testCaseGeneration": {
+          "type": "object",
+          "description": "テストケース生成のヒント情報",
+          "properties": {
+            "edgeCases": {
+              "type": "array",
+              "description": "エッジケースの識別情報",
+              "items": {
+                "type": "object",
+                "required": [
+                  "description"
+                ],
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "エッジケースの説明"
+                  },
+                  "input": {
+                    "description": "エッジケースのテスト入力"
+                  },
+                  "expectedOutput": {
+                    "description": "エッジケースの期待される出力"
+                  }
+                }
+              }
+            },
+            "boundaryConditions": {
+              "type": "array",
+              "description": "境界条件の明示",
+              "items": {
+                "type": "object",
+                "required": [
+                  "description"
+                ],
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "境界条件の説明"
+                  },
+                  "input": {
+                    "description": "境界条件のテスト入力"
+                  },
+                  "expectedOutput": {
+                    "description": "境界条件の期待される出力"
+                  }
+                }
+              }
+            },
+            "essentialHappyPath": {
+              "type": "object",
+              "description": "必須の正常系テストケース",
+              "required": [
+                "description"
+              ],
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "description": "テストケースの説明"
+                },
+                "input": {
+                  "description": "テスト入力"
+                },
+                "expectedOutput": {
+                  "description": "期待される出力"
+                },
+                "motivation": {
+                  "type": "string",
+                  "description": "このテストケースが重要な理由"
+                }
+              }
+            }
+          }
+        },
+        "propertyBasedTesting": {
+          "type": "object",
+          "description": "プロパティベーステストの戦略",
+          "properties": {
+            "inputProperties": {
+              "type": "array",
+              "description": "生成すべき入力の性質",
+              "items": {
+                "type": "object",
+                "required": [
+                  "property",
+                  "description"
+                ],
+                "properties": {
+                  "property": {
+                    "type": "string",
+                    "description": "入力プロパティの名前"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "入力プロパティの説明"
+                  }
+                }
+              }
+            },
+            "invariants": {
+              "type": "array",
+              "description": "不変条件の定義",
+              "items": {
+                "type": "object",
+                "required": [
+                  "description"
+                ],
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "不変条件の説明"
+                  },
+                  "condition": {
+                    "type": "string",
+                    "description": "不変条件を表す擬似コード"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "testability": {
+          "type": "object",
+          "description": "テスト容易性の評価基準",
+          "properties": {
+            "mockability": {
+              "type": "object",
+              "description": "モック化の可能性",
+              "required": [
+                "score"
+              ],
+              "properties": {
+                "score": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10,
+                  "description": "モック容易性スコア (1-10)"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "モック化に関する詳細説明"
+                }
+              }
+            },
+            "isolationStrategy": {
+              "type": "object",
+              "description": "分離テスト戦略",
+              "required": [
+                "description"
+              ],
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "description": "分離テスト戦略の説明"
+                },
+                "dependencies": {
+                  "type": "array",
+                  "description": "テスト時に考慮すべき依存関係",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

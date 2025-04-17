@@ -1,0 +1,11 @@
+{
+  "command": "wsl",
+  "args": [
+    "bash",
+    "-c",
+    "uvx",
+    "--from",
+    "'git+https://github.com/ezyang/codemcp@prod'",
+    "codemcp"
+  ]
+}

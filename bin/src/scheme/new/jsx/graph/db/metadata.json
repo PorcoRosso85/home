@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-04-12T10:00:00Z",
+  "author": "システム設計チーム",
+  "description": "URLコンテンツキャッシュと設計生成パイプラインのグラフ定義",
+  "stats": {
+    "nodeCount": 7,
+    "edgeCount": 6,
+    "subgraphCount": 4
+  },
+  "statusSummary": {
+    "完了": 3,
+    "テスト中": 2,
+    "開発中": 2,
+    "計画中": 0
+  },
+  "tags": ["URL処理", "コンテンツ解析", "メタデータ抽出", "データ永続化", "設計生成"]
+}

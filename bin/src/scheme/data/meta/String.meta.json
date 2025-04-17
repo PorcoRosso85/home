@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "String",
+  "description": "文字列型を定義するためのメタスキーマ",
+  "type": "object",
+  "required": ["title", "type"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$metaSchema": {
+      "type": "string",
+      "const": "String",
+      "description": "このスキーマが文字列型メタスキーマであることを示す識別子"
+    },
+    "title": {
+      "type": "string",
+      "description": "型の名前"
+    },
+    "description": {
+      "type": "string",
+      "description": "型の説明"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["string"],
+      "description": "JSONスキーマのタイプ (文字列のため 'string'固定)"
+    },
+    "pattern": {
+      "type": "string",
+      "description": "文字列のパターン (正規表現)"
+    },
+    "minLength": {
+      "type": "integer",
+      "description": "最小文字数",
+      "minimum": 0
+    },
+    "maxLength": {
+      "type": "integer",
+      "description": "最大文字数",
+      "minimum": 0
+    },
+    "format": {
+      "type": "string",
+      "description": "文字列のフォーマット (例: email, date, uuid など)",
+      "enum": ["email", "hostname", "ipv4", "ipv6", "uri", "date", "date-time", "uuid"]
+    },
+    "examples": {
+      "type": "array",
+      "description": "文字列の例",
+      "items": {
+        "type": "string"
+      }
+    },
+    "enum": {
+      "type": "array",
+      "description": "許容値の列挙",
+      "items": {
+        "type": "string"
+      }
+    },
+    "default": {
+      "type": "string",
+      "description": "デフォルト値"
+    }
+  }
+}

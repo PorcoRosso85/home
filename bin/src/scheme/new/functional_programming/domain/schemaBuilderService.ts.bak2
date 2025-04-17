@@ -1,0 +1,76 @@
+/**
+ * schemaBuilderService.ts
+ * 
+ * スキーマビルダーサービスの型定義
+ * 関数型アプローチでのドメイン定義を提供します
+ */
+
+import { FunctionSchema, FunctionFeatures } from './schema.ts';
+
+/**
+ * 基本的なスキーマを作成する関数の型定義
+ */
+export type CreateBaseSchemaFn = (
+  title?: string,
+  description?: string
+) => FunctionSchema;
+
+/**
+ * スキーマにプロパティを追加する関数の型定義
+ */
+export type AddPropertyToSchemaFn = (
+  schema: FunctionSchema,
+  propertyName: string,
+  propertySchema: any
+) => FunctionSchema;
+
+/**
+ * スキーマに必須プロパティを追加する関数の型定義
+ */
+export type AddRequiredPropertyFn = (
+  schema: FunctionSchema,
+  requiredProperty: string
+) => FunctionSchema;
+
+/**
+ * 関数型スキーマを完全に生成する関数の型定義
+ */
+/**
+ * 関数型スキーマを完全に生成する関数の型定義
+ * 
+ * FIXME: リソースURIパラメータのサポートが必要
+ * - Generate関数の引数にresourceUri文字列型パラメータを追加する
+ * - Function.meta.jsonに含まれるresourceUriプロパティに対応するため
+ * - 参考: application/schemas/resourceUriSchema.tsの実装と統合
+ */
+export type GenerateCompleteSchemaFn = (
+  title?: string,
+  description?: string,
+  features?: FunctionFeatures,
+  resourceUri?: string // FIXME: URI文字列対応が必要だがここでは型だけ定義
+) => FunctionSchema;
+
+/**
+ * スキーマビルダーサービスの型定義
+ */
+export type SchemaBuilderService = {
+  /**
+   * 基本的なスキーマを作成する
+   */
+  createBaseSchema: CreateBaseSchemaFn;
+
+  /**
+   * スキーマにプロパティを追加する
+   */
+  addPropertyToSchema: AddPropertyToSchemaFn;
+
+  /**
+   * スキーマに必須プロパティを追加する
+   */
+  addRequiredProperty: AddRequiredPropertyFn;
+
+  /**
+   * 関数型スキーマを完全に生成する
+   */
+  generateCompleteSchema: GenerateCompleteSchemaFn;
+};
