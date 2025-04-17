@@ -10,6 +10,11 @@ in
 
     bash = {
       enable = true;
+      initExtra = ''
+        if [ -f "$HOME/.config/shell/main.sh" ]; then
+          source "$HOME/.config/shell/main.sh"
+        fi
+      '';
     };
 
     # dircolors = { enable = true; }; # カスタムカラーが必要ならここで設定
