@@ -1,5 +1,4 @@
 { config, lib, pkgs, ... }:
-
 let
   # nixpkgsのunstableブランチをインポート
   nixpkgs = import <nixpkgs> {
@@ -16,39 +15,45 @@ in
 {
   imports = [
     <nixos-wsl/modules>
-    (fetchTarball "https://github.com/nix-community/nixos-vscode-server/tarball/master")
+    # nixos-vscode-serverをimportsに追加
+    (builtins.fetchTarball "https://github.com/nix-community/nixos-vscode-server/tarball/master")
   ];
 
   wsl.enable = true;
   wsl.defaultUser = "nixos";
-
-
-  system.stateVersion = "25.05";
-  # # https://github.com/K900/vscode-remote-workaround/blob/main/vscode.nix
-  # vscode-remote-workaround.enable = true;
-  # https://github.com/nix-community/nixos-vscode-server
-  # $HOME/.vscode-serverを削除 + user serviceを再起動(systemctl --user stop -> start) + https://github.com/nix-community/nixos-vscode-server/issues/79
+  # WSL環境でsystemdを有効化
+  wsl.nativeSystemd = true;
+  # VSCode Serverの設定を有効にする
   services = {
     vscode-server = {
       enable = true;
-      nodejsPackage = pkgs.nodejs_22;
+      # お使いのNode.jsバージョンを指定（オプション）
+      # nodejsPackage = pkgs.nodejs_22;
     };
     tailscale = {
       enable = true;
     };
+    # D-Bus設定
+    dbus = {
+      enable = true;
+      implementation = "dbus";
+    };
   };
-  # https://github.com/sonowz/vscode-remote-wsl-nixos/blob/master/README.md
-
+  
+  # WSL関連の追加設定
+  wsl.wslConf.automount.root = "/mnt";
+  wsl.wslConf.interop.appendWindowsPath = true;
+  wsl.wslConf.network.generateHosts = true;
+  system.stateVersion = "25.05";
+  
+  # 以下は変更なし
   nix = {
     package = pkgs.nix;
     extraOptions = ''
       experimental-features = nix-command flakes
     '';
   };
-
-  # i18n.defaultLocale = "ja_JP.UTF-8";
-
-  # unstableチャンネルからパッケージを取得
+  
   environment.systemPackages = with nixpkgs.unstable; [
     wget
     curl
@@ -57,66 +62,47 @@ in
     lazygit
     helix
     yazi
-
-    duckdb
-
-    pnpm
-    uv
     nushell
-
     bash-language-server
-
   ];
-
+  
   security.sudo.enable = true;
   security.sudo.extraRules = [
     {
-      groups = [ "wheel" ];  # wheel グループを対象に
+      groups = [ "wheel" ];
       commands = [
         {
-          command = "ALL";  # すべてのコマンドを許可
-          options = [ "SETENV" "NOPASSWD" ];  # パスワードなしで実行可能
+          command = "ALL";
+          options = [ "SETENV" "NOPASSWD" ];
         }
       ];
     }
   ];
-
+  
   programs = {
     tmux = {
       enable = true;
-      clock24 = true; # 24時間表示にする
-      # extraConfigで直接tmux.confに記述するのと同じことができる
+      clock24 = true;
       extraConfig = ''
         set -g status-bg black
         set -g status-fg white
         set-window-option -g window-status-current-format '#[fg=colour235,bg=colour27,bold] #I#[fg=colour235,bg=colour238]:#W#[fg=colour238,bg=colour235] '
       '';
       plugins = with pkgs.tmuxPlugins; [
-        # tmux-sensible プラグインの追加例
         # sensible
       ];
     };
   };
-
+  
   virtualisation = {
-    # podman = {
-    #   enable = true;
-    #   dockerCompat = true;
-    # };
     docker = {
       enable = true;
     };
   };
-
+  
   users.users = {
-    # roccho = {
-    #   isNormalUser = true;
-    #   password = "roccho"; # set password up here
-    #   extraGroups = [ "wheel" "podman" ];
-    # };
     nixos = {
       extraGroups = [ "docker" ];
     };
   };
-
 }

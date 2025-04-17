@@ -18,44 +18,27 @@
         "type": "github"
       }
     },
-    "my-custom-flake": {
+    "home-manager": {
       "inputs": {
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": [
+          "nixpkgs"
+        ]
       },
       "locked": {
-        "dir": "nix/dev/python",
-        "lastModified": 1734227207,
-        "narHash": "sha256-St4C0b6JxDryIs+hbC6nz8r35FUKhSUo48WewrTSQyo=",
-        "owner": "PorcoRosso85",
-        "repo": "home",
-        "rev": "62bbf57bc131380992e080cae854f6a77be169db",
+        "lastModified": 1744833442,
+        "narHash": "sha256-BBMWW2m64Grcc5FlXz74+vdkUyCJOfUGnl+VcS/4x44=",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "c6b75d69b6994ba68ec281bd36faebcc56097800",
         "type": "github"
       },
       "original": {
-        "dir": "nix/dev/python",
-        "owner": "PorcoRosso85",
-        "ref": "main",
-        "repo": "home",
+        "owner": "nix-community",
+        "repo": "home-manager",
         "type": "github"
       }
     },
     "nixpkgs": {
-      "locked": {
-        "lastModified": 1729181673,
-        "narHash": "sha256-LDiPhQ3l+fBjRATNtnuDZsBS7hqoBtPkKBkhpoBHv3I=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "4eb33fe664af7b41a4c446f87d20c9a0a6321fa3",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-24.05",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_2": {
       "locked": {
         "lastModified": 1737885589,
         "narHash": "sha256-Zf0hSrtzaM1DEz8//+Xs51k/wdSajticVrATqDrfQjg=",
@@ -74,8 +57,8 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "my-custom-flake": "my-custom-flake",
-        "nixpkgs": "nixpkgs_2"
+        "home-manager": "home-manager",
+        "nixpkgs": "nixpkgs"
       }
     },
     "systems": {
