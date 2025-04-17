@@ -5,3 +5,5 @@
 [user]
 	email = user@example.com
 	name = User
+[credential]
+	helper = !/run/current-system/sw/bin/gh auth git-credential
