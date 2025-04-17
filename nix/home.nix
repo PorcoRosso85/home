@@ -36,6 +36,11 @@ in
     eza
     broot
 
+    pnpm
+    nodejs_22
+    uv
+    python311
+
     # aider-chat
   ] ++ (import ./language.nix { inherit pkgs; });
 

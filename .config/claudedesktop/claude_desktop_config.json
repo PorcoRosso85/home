@@ -5,7 +5,7 @@
       "args": [
         "bash",
         "-c",
-        "ALLOWED_TOOLS='[\"GlobTool\", \"Edit\", \"GrepTool\", \"dispatch_agent\", \"LS\", \"Replace\", \"View\"]' claude mcp serve"
+        "pnpx @anthropic-ai/claude-code mcp serve"
       ]
     },
     "excel": {
