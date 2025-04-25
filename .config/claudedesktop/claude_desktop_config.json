@@ -26,14 +26,6 @@
       "env": {
         "EXCEL_MCP_PAGING_CELLS_LIMIT": "4000"
       }
-    },
-    "llm_functions": {
-      "command": "wsl",
-      "args": [
-        "bash",
-        "-c",
-        "pnpx mcp-llm-functions /home/nixos/bin/src"
-      ]
     }
   }
 }
