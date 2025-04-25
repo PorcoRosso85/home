@@ -1,0 +1,16 @@
+[project]
+name = "python"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "argparse>=1.4.0",
+    "kuzu>=0.9.0",
+    "pyshacl>=0.30.1",
+    "pytest>=8.3.5",
+    "rdflib>=7.1.4",
+]
+[tool.pytest]
+testpaths = ["main.py"]
+python_files = ["main.py"]
