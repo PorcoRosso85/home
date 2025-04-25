@@ -27,9 +27,9 @@ serve(async (req: Request) => {
   console.log(`Request: ${path}`);
 
   if (path === "/" || path === "/index.html") {
-    return await serveFile("./index.html", "text/html; charset=utf-8");
+    return await serveFile("./public/index.html", "text/html; charset=utf-8");
   } else if (path === "/browser.ts") {
-    return await serveFile("./browser.ts", "application/typescript; charset=utf-8");
+    return await serveFile("./public/browser.ts", "application/typescript; charset=utf-8");
   } else {
     return new Response("Not Found", { status: 404 });
   }
