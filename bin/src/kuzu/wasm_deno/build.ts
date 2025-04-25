@@ -5,11 +5,19 @@ import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
 
 // 開発サーバーの起動
 async function createViteDevServer() {
+  // vite-plugin-terminalをインポート
+  const Terminal = (await import("npm:vite-plugin-terminal")).default;
+  
   // Vite設定
   const config = {
     configFile: false,
     root: ".",
-    plugins: [],
+    plugins: [
+      Terminal({ 
+        console: 'terminal',  // ブラウザのconsole.logをターミナルにリダイレクト
+        output: ['terminal', 'console'] // 両方に出力
+      })
+    ],
     define: {
       'process.env.NODE_ENV': '\"development\"',
       'import.meta.env.DEV': 'true',
