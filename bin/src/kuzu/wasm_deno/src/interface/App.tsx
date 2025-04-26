@@ -1,50 +1,62 @@
 import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
-import { QueryResult } from '../domain/types.ts';
 
-// Kuzu-Wasm メインアプリケーション
+// 最小構成のKuzu-Wasmアプリケーション
 const App = () => {
   // ステート
-  const [kuzu, setKuzu] = useState<any>(null);
-  const [db, setDb] = useState<any>(null);
-  const [conn, setConn] = useState<any>(null);
-  const [query, setQuery] = useState<string>('MATCH (a:User) RETURN a.*;');
-  const [result, setResult] = useState<QueryResult | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState<boolean>(false);
+  const [query, setQuery] = useState<string>('MATCH (a:User) RETURN a.*;');
 
   // Kuzuの初期化
   useEffect(() => {
     const initKuzu = async () => {
       try {
         setLoading(true);
+        console.log('Kuzu初期化開始...');
         
         // Kuzu-Wasmのロード
-        const kuzuWasm = await import('https://unpkg.com/@kuzu/kuzu-wasm@latest/dist/kuzu-browser.js');
+        console.log('Kuzu-Wasmモジュールのロード開始...');
+        const kuzuWasm = await import('https://unpkg.com/@kuzu/kuzu-wasm@0.0.8/dist/kuzu-browser.js');
+        console.log('Kuzu-Wasmモジュールのロード完了');
+        
+        // Kuzuのインスタンス化
+        console.log('Kuzuインスタンス化開始...');
         const kuzu = await kuzuWasm.default();
-        setKuzu(kuzu);
+        console.log('Kuzuインスタンス化完了');
         
         // インメモリデータベースの作成
+        console.log('データベース作成開始...');
         const db = await kuzu.Database();
-        setDb(db);
+        console.log('データベース作成完了');
         
         // データベース接続の作成
+        console.log('データベース接続開始...');
         const conn = await kuzu.Connection(db);
-        setConn(conn);
+        console.log('データベース接続完了');
         
         // 基本的なサンプルデータを作成
         await conn.execute(`CREATE NODE TABLE User(name STRING, age INT64, PRIMARY KEY (name))`);
         await conn.execute(`CREATE (u:User {name: 'Alice', age: 35})`);
         await conn.execute(`CREATE (u:User {name: 'Bob', age: 42})`);
         
-        // Person テーブルの作成
-        await conn.execute(`CREATE NODE TABLE Person(id INT64, name STRING, country STRING, PRIMARY KEY (id))`);
+        // クエリの実行とデータ表示
+        const queryResult = await conn.execute(`MATCH (a:User) RETURN a.*;`);
+        const resultJson = JSON.parse(queryResult.table.toString());
+        setResult(resultJson);
         
-        setInitialized(true);
-        setResult({ columns: ['status'], rows: [['データベースが初期化されました']] });
+        // グローバル変数として保存（デバッグ用）
+        window.kuzu = kuzu;
+        window.db = db;
+        window.conn = conn;
+        
+        console.log('Kuzu初期化完了');
       } catch (error) {
         console.error('Kuzu初期化エラー:', error);
-        setError('Kuzuの初期化中にエラーが発生しました: ' + error.message);
+        console.log('エラータイプ:', typeof error);
+        console.log('エラーメッセージ:', error.message);
+        console.log('エラースタック:', error.stack);
+        setError(`Kuzuの初期化中にエラーが発生しました: ${error.message}`);
       } finally {
         setLoading(false);
       }
@@ -53,94 +65,29 @@ const App = () => {
     initKuzu();
   }, []);
 
-  // クエリ実行
-  const executeQuery = async () => {
-    if (!conn) {
-      setError('データベース接続がまだ初期化されていません');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const result = await conn.execute(query);
-      const resultJson = JSON.parse(result.table.toString());
-      setResult(resultJson);
-    } catch (error) {
-      console.error('クエリ実行エラー:', error);
-      setError('クエリ実行中にエラーが発生しました: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // リモートデータのロード
-  const loadRemoteData = async () => {
-    if (!conn) {
-      setError('データベース接続がまだ初期化されていません');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // リモートCSVファイルをロード
-      // このURLはビルドサーバーに合わせる必要があります
-      const remoteDataUrl = '/public/remote_data.csv';
-      const loadQuery = `COPY FROM '${remoteDataUrl}' (HEADER=true) TO Person;`;
-      
-      await conn.execute(loadQuery);
-      setResult({ columns: ['status'], rows: [['リモートデータがロードされました']] });
-    } catch (error) {
-      console.error('リモートデータロードエラー:', error);
-      setError('リモートデータのロード中にエラーが発生しました: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div>
-      <h1>Kuzu-Wasm Deno Demo</h1>
-      
-      <div className="button-group">
-        <button onClick={loadRemoteData} disabled={!initialized || loading}>
-          リモートデータをロード
-        </button>
-      </div>
+      <h1>Kuzu-Wasm 最小構成デモ</h1>
       
       <div>
-        <h2>クエリ実行</h2>
-        <textarea
-          rows={4}
-          cols={50}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          disabled={loading}
-        />
-        <br />
-        <button onClick={executeQuery} disabled={!initialized || loading}>
-          実行
-        </button>
-      </div>
-      
-      <div>
-        <h2>結果</h2>
+        <h2>ステータス</h2>
         {loading && <p>処理中...</p>}
         {error && <p style={{ color: 'red' }}>{error}</p>}
+      </div>
+      
+      <div>
+        <h2>クエリ結果</h2>
         {result && (
           <pre>{JSON.stringify(result, null, 2)}</pre>
         )}
       </div>
       
       <div>
-        <h3>サンプルクエリ</h3>
+        <h3>環境情報</h3>
         <ul>
-          <li><code>MATCH (a:User) RETURN a.*;</code> - Userテーブルのすべてのデータを表示</li>
-          <li><code>MATCH (a:Person) RETURN a.*;</code> - リモートからロードしたPersonテーブルのデータを表示</li>
-          <li><code>MATCH (a:Person) WHERE a.country = 'Japan' RETURN a.*;</code> - 日本出身の人のデータを表示</li>
+          <li>WebAssembly: {typeof WebAssembly !== 'undefined' ? '✅ サポート' : '❌ 未サポート'}</li>
+          <li>SharedArrayBuffer: {typeof SharedArrayBuffer !== 'undefined' ? '✅ サポート' : '❌ 未サポート'}</li>
+          <li>Cross-Origin-Isolation: {window.crossOriginIsolated ? '✅ 有効' : '❌ 無効'}</li>
         </ul>
       </div>
     </div>

@@ -6,13 +6,4 @@ export interface QueryResult {
   rows: any[][];
 }
 
-// Kuzuデータベース接続の抽象型
-export interface KuzuConnection {
-  execute: (query: string) => Promise<any>;
-}
-
-// Kuzu関連のエラー型
-export interface KuzuError {
-  message: string;
-  code?: string;
-}
+// 最小限の型定義のみ維持

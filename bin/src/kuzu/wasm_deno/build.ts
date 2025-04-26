@@ -31,7 +31,13 @@ async function createViteDevServer() {
       ]
     },
     optimizeDeps: {
-      force: true
+      force: true,
+      include: ['kuzu-wasm']
+    },
+    build: {
+      rollupOptions: {
+        external: [],
+      },
     },
     esbuild: {
       jsx: "automatic",
@@ -42,6 +48,11 @@ async function createViteDevServer() {
       watch: {
         usePolling: true,
         interval: 100
+      },
+      headers: {
+        // クロスオリジン分離の設定（SharedArrayBuffer対応に必須）
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin'
       }
     }
   };
