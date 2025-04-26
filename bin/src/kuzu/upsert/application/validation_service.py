@@ -26,11 +26,11 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHAPES_PATH = os.path.join(ROOT_DIR, "design_shapes.ttl")
 
 
-def generate_rdf_from_function(function_data: Dict[str, Any]) -> RDFGenerationResult:
-    """関数データからRDFデータを生成する
+def generate_rdf_from_function_type(function_type_data: Dict[str, Any]) -> RDFGenerationResult:
+    """関数型データからRDFデータを生成する
     
     Args:
-        function_data: 関数データ
+        function_type_data: 関数型データ
     
     Returns:
         RDFGenerationResult: 成功時はRDF内容、失敗時はエラー情報
@@ -39,7 +39,7 @@ def generate_rdf_from_function(function_data: Dict[str, Any]) -> RDFGenerationRe
         # 基本的な必須フィールドをチェック
         required_fields = ["title", "type"]
         for field in required_fields:
-            if field not in function_data:
+            if field not in function_type_data:
                 return {
                     "code": "MISSING_FIELD",
                     "message": f"必須フィールドがありません: {field}"
@@ -49,37 +49,37 @@ def generate_rdf_from_function(function_data: Dict[str, Any]) -> RDFGenerationRe
         turtle_data = "@prefix ex: <http://example.org/> .\n"
         turtle_data += "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n"
         
-        # 関数ノードを生成
-        title = function_data["title"]
-        turtle_data += f"ex:{title} a ex:Function .\n"
+        # 関数型ノードを生成
+        title = function_type_data["title"]
+        turtle_data += f"ex:{title} a ex:FunctionType .\n"
         
         # titleプロパティを明示的に追加（SHACL制約でminCount=1が要求されているため）
         turtle_data += f'ex:{title} ex:title "{title}" .\n'
         
-        # 関数の基本プロパティを追加
-        description = function_data.get("description", "")
+        # 関数型の基本プロパティを追加
+        description = function_type_data.get("description", "")
         if description:
             turtle_data += f'ex:{title} ex:description "{description}" .\n'
         
-        type_value = function_data["type"]
+        type_value = function_type_data["type"]
         turtle_data += f'ex:{title} ex:type "{type_value}" .\n'
         
-        pure = function_data.get("pure", True)
+        pure = function_type_data.get("pure", True)
         turtle_data += f'ex:{title} ex:pure "{str(pure).lower()}"^^xsd:boolean .\n'
         
-        async_value = function_data.get("async", False)
+        async_value = function_type_data.get("async", False)
         turtle_data += f'ex:{title} ex:async "{str(async_value).lower()}"^^xsd:boolean .\n'
         
         # パラメータの処理
-        params = function_data.get("parameters", {})
+        params = function_type_data.get("parameters", {})
         if "properties" in params:
             param_props = params["properties"]
             required_params = params.get("required", [])
             
             for param_name, param_info in param_props.items():
                 param_id = f"{param_name}Param"  # 一意のIDを作成
-                # パラメータノードを生成
-                turtle_data += f"ex:{param_id} a ex:Parameter .\n"
+                # パラメータ型ノードを生成
+                turtle_data += f"ex:{param_id} a ex:ParameterType .\n"
                 turtle_data += f'ex:{param_id} ex:name "{param_name}" .\n'
                 
                 param_type = param_info.get("type", "any")
@@ -92,11 +92,11 @@ def generate_rdf_from_function(function_data: Dict[str, Any]) -> RDFGenerationRe
                 is_required = param_name in required_params
                 turtle_data += f'ex:{param_id} ex:required "{str(is_required).lower()}"^^xsd:boolean .\n'
                 
-                # 関数とパラメータの関連付け
-                turtle_data += f"ex:{title} ex:hasParameter ex:{param_id} .\n"
+                # 関数型とパラメータ型の関連付け
+                turtle_data += f"ex:{title} ex:hasParameterType ex:{param_id} .\n"
         
         # 戻り値の型を処理
-        return_type = function_data.get("returnType", {})
+        return_type = function_type_data.get("returnType", {})
         if return_type:
             return_type_value = return_type.get("type", "any")
             return_type_node = f"{title}ReturnType"  # 関数名に基づいた一意のID
@@ -174,12 +174,12 @@ def validate_against_shacl(rdf_data: str, shapes_file: str = SHAPES_PATH) -> SHA
 
 
 # テスト関数
-def test_generate_rdf_from_function() -> None:
-    """generate_rdf_from_function関数のテスト"""
+def test_generate_rdf_from_function_type() -> None:
+    """generate_rdf_from_function_type関数のテスト"""
     # 正常なケース
-    function_data = {
-        "title": "TestFunction",
-        "description": "Test function description",
+    function_type_data = {
+        "title": "TestFunctionType",
+        "description": "Test function type description",
         "type": "function",
         "pure": True,
         "async": False,
@@ -198,18 +198,18 @@ def test_generate_rdf_from_function() -> None:
         }
     }
     
-    result = generate_rdf_from_function(function_data)
+    result = generate_rdf_from_function_type(function_type_data)
     assert "code" not in result
     assert "content" in result
-    assert "ex:TestFunction a ex:Function" in result["content"]
-    assert 'ex:TestFunction ex:title "TestFunction"' in result["content"]
+    assert "ex:TestFunctionType a ex:FunctionType" in result["content"]
+    assert 'ex:TestFunctionType ex:title "TestFunctionType"' in result["content"]
     assert 'ex:param1Param ex:required "true"' in result["content"]
     
     # エラーケース（必須フィールドなし）
     incomplete_data = {
         "description": "Missing title"
     }
-    result = generate_rdf_from_function(incomplete_data)
+    result = generate_rdf_from_function_type(incomplete_data)
     assert "code" in result
     assert result["code"] == "MISSING_FIELD"
 

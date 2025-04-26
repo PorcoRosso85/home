@@ -4,10 +4,10 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix ex: <http://example.org/> .
 
-# Function型の制約
-ex:FunctionShape
+# FunctionType型の制約
+ex:FunctionTypeShape
     a sh:NodeShape ;
-    sh:targetClass ex:Function ;
+    sh:targetClass ex:FunctionType ;
     sh:property [
         sh:path ex:title ;
         sh:datatype xsd:string ;
@@ -32,10 +32,10 @@ ex:FunctionShape
         sh:datatype xsd:boolean ;
     ] .
 
-# Parameter型の制約
-ex:ParameterShape
+# ParameterType型の制約
+ex:ParameterTypeShape
     a sh:NodeShape ;
-    sh:targetClass ex:Parameter ;
+    sh:targetClass ex:ParameterType ;
     sh:property [
         sh:path ex:name ;
         sh:datatype xsd:string ;

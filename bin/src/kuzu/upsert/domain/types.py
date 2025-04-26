@@ -8,8 +8,8 @@ from typing import TypedDict, Union, List, Optional, Dict, Any
 
 
 # 関数モデルの型
-class Function(TypedDict):
-    """関数エンティティ"""
+class FunctionType(TypedDict):
+    """関数型エンティティ"""
     title: str
     description: Optional[str]
     type: str
@@ -17,18 +17,18 @@ class Function(TypedDict):
     async_value: bool
 
 
-class FunctionModelError(TypedDict):
-    """関数モデルエラー"""
+class FunctionTypeModelError(TypedDict):
+    """関数型モデルエラー"""
     code: str
     message: str
 
 
-FunctionModel = Union[Function, FunctionModelError]
+FunctionTypeModel = Union[FunctionType, FunctionTypeModelError]
 
 
 # パラメータモデルの型
-class Parameter(TypedDict):
-    """パラメータエンティティ"""
+class ParameterType(TypedDict):
+    """パラメータ型エンティティ"""
     name: str
     type: str
     description: Optional[str]
@@ -36,16 +36,16 @@ class Parameter(TypedDict):
     order_index: int
 
 
-class ParameterModelError(TypedDict):
-    """パラメータモデルエラー"""
+class ParameterTypeModelError(TypedDict):
+    """パラメータ型モデルエラー"""
     code: str
     message: str
 
 
-ParameterModel = Union[Parameter, ParameterModelError]
+ParameterTypeModel = Union[ParameterType, ParameterTypeModelError]
 
 
-# 戻り値モデルの型
+# 戻り値モデルの型（既にTypeが付いているのでそのまま）
 class ReturnType(TypedDict):
     """戻り値型エンティティ"""
     type: str
@@ -77,20 +77,20 @@ RepositoryResult = Union[RepositorySuccess, RepositoryError]
 
 
 # 集約ルートとしての関数完全モデル
-class FunctionAggregate(TypedDict):
-    """関数集約（関数、パラメータ、戻り値の集合）"""
-    function: Function
-    parameters: List[Parameter]
+class FunctionTypeAggregate(TypedDict):
+    """関数型集約（関数型、パラメータ型、戻り値型の集合）"""
+    function_type: FunctionType
+    parameter_types: List[ParameterType]
     return_type: ReturnType
 
 
-class FunctionAggregateError(TypedDict):
-    """関数集約エラー"""
+class FunctionTypeAggregateError(TypedDict):
+    """関数型集約エラー"""
     code: str
     message: str
 
 
-FunctionAggregateResult = Union[FunctionAggregate, FunctionAggregateError]
+FunctionTypeAggregateResult = Union[FunctionTypeAggregate, FunctionTypeAggregateError]
 
 
 # ヘルパー関数
@@ -114,7 +114,7 @@ def test_is_error() -> None:
     assert is_error(error_result) is True
     
     # 正常データの場合
-    success_result: Function = {
+    success_result: FunctionType = {
         "title": "TestFunction",
         "description": "Test description",
         "type": "function",

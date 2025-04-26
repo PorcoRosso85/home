@@ -60,26 +60,26 @@ class SHACLValidationError(TypedDict):
 SHACLValidationResult = Union[SHACLValidationSuccess, SHACLValidationFailure, SHACLValidationError]
 
 
-# 関数サービスの型
-class FunctionCreationSuccess(TypedDict):
-    """関数作成成功結果"""
+# 関数型サービスの型
+class FunctionTypeCreationSuccess(TypedDict):
+    """関数型作成成功結果"""
     title: str
     description: Optional[str]
     message: str
 
 
-class FunctionCreationError(TypedDict):
-    """関数作成エラー"""
+class FunctionTypeCreationError(TypedDict):
+    """関数型作成エラー"""
     code: str
     message: str
 
 
-FunctionCreationResult = Union[FunctionCreationSuccess, FunctionCreationError]
+FunctionTypeCreationResult = Union[FunctionTypeCreationSuccess, FunctionTypeCreationError]
 
 
-# 関数取得サービスの型
-class FunctionData(TypedDict):
-    """関数データ"""
+# 関数型取得サービスの型
+class FunctionTypeData(TypedDict):
+    """関数型データ"""
     title: str
     description: Optional[str]
     type: str
@@ -89,28 +89,28 @@ class FunctionData(TypedDict):
     returnType: Dict[str, Any]
 
 
-class FunctionQueryError(TypedDict):
-    """関数検索エラー"""
+class FunctionTypeQueryError(TypedDict):
+    """関数型検索エラー"""
     code: str
     message: str
 
 
-FunctionQueryResult = Union[FunctionData, FunctionQueryError]
+FunctionTypeQueryResult = Union[FunctionTypeData, FunctionTypeQueryError]
 
 
-# 関数一覧取得サービスの型
-class FunctionListItem(TypedDict):
-    """関数一覧項目"""
+# 関数型一覧取得サービスの型
+class FunctionTypeListItem(TypedDict):
+    """関数型一覧項目"""
     title: str
     description: Optional[str]
 
 
-class FunctionList(TypedDict):
-    """関数一覧"""
-    functions: List[FunctionListItem]
+class FunctionTypeList(TypedDict):
+    """関数型一覧"""
+    functions: List[FunctionTypeListItem]
 
 
-FunctionListResult = Union[FunctionList, FunctionQueryError]
+FunctionTypeListResult = Union[FunctionTypeList, FunctionTypeQueryError]
 
 
 # RDF変換サービスの型
@@ -173,14 +173,14 @@ def is_validation_failure(result: SHACLValidationResult) -> bool:
 def test_is_error() -> None:
     """is_error関数のテスト"""
     # エラーの場合
-    error_result: FunctionCreationError = {"code": "TEST_ERROR", "message": "テストエラー"}
+    error_result: FunctionTypeCreationError = {"code": "TEST_ERROR", "message": "テストエラー"}
     assert is_error(error_result) is True
     
     # 正常データの場合
-    success_result: FunctionCreationSuccess = {
+    success_result: FunctionTypeCreationSuccess = {
         "title": "TestFunction",
         "description": "Test description",
-        "message": "関数が正常に作成されました"
+        "message": "関数型が正常に作成されました"
     }
     assert is_error(success_result) is False
 

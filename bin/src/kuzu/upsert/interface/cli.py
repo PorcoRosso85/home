@@ -17,10 +17,10 @@ from upsert.interface.types import (
 )
 from upsert.application.database_service import init_database
 from upsert.application.schema_service import create_design_shapes
-from upsert.application.function_service import (
-    get_function_details,
-    get_all_functions,
-    add_function_from_json,
+from upsert.application.function_type_service import (
+    get_function_type_details,
+    get_all_function_types,
+    add_function_type_from_json,
 )
 from upsert.infrastructure.variables import ROOT_DIR, DB_DIR
 
@@ -46,12 +46,12 @@ def handle_init_command() -> None:
 
 
 def handle_add_command(json_file: str) -> None:
-    """関数追加コマンドを処理する
+    """関数型追加コマンドを処理する
     
     Args:
         json_file: JSONファイルのパス
     """
-    success, message = add_function_from_json(json_file)
+    success, message = add_function_type_from_json(json_file)
     if success:
         print(message)
     else:
@@ -59,35 +59,35 @@ def handle_add_command(json_file: str) -> None:
 
 
 def handle_list_command() -> None:
-    """関数一覧表示コマンドを処理する"""
-    # データベース接続と関数一覧取得
+    """関数型一覧表示コマンドを処理する"""
+    # データベース接続と関数型一覧取得
     from upsert.application.database_service import get_connection
     db_result = get_connection()
     if is_error(db_result):
         print(f"データベース接続エラー: {db_result['message']}")
         return
     
-    # 関数一覧取得
-    function_list = get_all_functions(db_result["connection"])
-    if is_error(function_list):
-        print(f"関数一覧取得エラー: {function_list['message']}")
+    # 関数型一覧取得
+    function_type_list = get_all_function_types(db_result["connection"])
+    if is_error(function_type_list):
+        print(f"関数型一覧取得エラー: {function_type_list['message']}")
         return
     
     # 結果表示
-    if not function_list["functions"]:
-        print("登録されている関数はありません")
+    if not function_type_list["functions"]:
+        print("登録されている関数型はありません")
         return
     
-    print("登録されている関数:")
-    for func in function_list["functions"]:
+    print("登録されている関数型:")
+    for func in function_type_list["functions"]:
         print(f"- {func['title']}: {func['description']}")
 
 
-def handle_get_command(function_title: str) -> None:
-    """関数詳細表示コマンドを処理する
+def handle_get_command(function_type_title: str) -> None:
+    """関数型詳細表示コマンドを処理する
     
     Args:
-        function_title: 関数のタイトル
+        function_type_title: 関数型のタイトル
     """
     # データベース接続
     from upsert.application.database_service import get_connection
@@ -96,14 +96,14 @@ def handle_get_command(function_title: str) -> None:
         print(f"データベース接続エラー: {db_result['message']}")
         return
     
-    # 関数詳細取得
-    function_details = get_function_details(db_result["connection"], function_title)
-    if is_error(function_details):
-        print(f"関数詳細取得エラー: {function_details['message']}")
+    # 関数型詳細取得
+    function_type_details = get_function_type_details(db_result["connection"], function_type_title)
+    if is_error(function_type_details):
+        print(f"関数型詳細取得エラー: {function_type_details['message']}")
         return
     
     # 結果表示
-    print(json.dumps(function_details, indent=2, ensure_ascii=False))
+    print(json.dumps(function_type_details, indent=2, ensure_ascii=False))
 
 
 def run_tests() -> bool:
