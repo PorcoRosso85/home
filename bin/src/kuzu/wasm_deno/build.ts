@@ -2,6 +2,7 @@
 // build.ts - Kuzu-Wasm用の最小構成Vite開発サーバー
 import { createServer } from "npm:vite";
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
+import wasm from "npm:vite-plugin-wasm";
 
 // 開発サーバーの起動
 async function createViteDevServer() {
@@ -16,7 +17,8 @@ async function createViteDevServer() {
       Terminal({ 
         console: 'terminal',  // ブラウザのconsole.logをターミナルにリダイレクト
         output: ['terminal', 'console'] // 両方に出力
-      })
+      }),
+      wasm()
     ],
     define: {
       'process.env.NODE_ENV': '\"development\"',
@@ -31,17 +33,21 @@ async function createViteDevServer() {
       ]
     },
     optimizeDeps: {
-      force: true,
-      include: ['kuzu-wasm']
+      exclude: ['npm:kuzu-wasm'],
+      esbuildOptions: {
+        target: 'es2020'
+      }
     },
     build: {
+      target: 'esnext',
       rollupOptions: {
         external: [],
       },
     },
     esbuild: {
       jsx: "automatic",
-      jsxImportSource: "https://esm.sh/react@18.2.0"
+      jsxImportSource: "https://esm.sh/react@18.2.0",
+      target: 'es2020'
     },
     server: {
       port: 8000,
