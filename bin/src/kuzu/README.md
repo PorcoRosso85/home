@@ -48,7 +48,11 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
 
 ## パッケージ構造
 
-- `design.py`: メインスクリプト
+- `__main__.py`: エントリーポイント
+- `interface/cli.py`: CLIインターフェース
+- `application/`: アプリケーション層
+- `domain/`: ドメイン層
+- `infrastructure/`: インフラ層
 - `design_shapes.ttl`: SHACL制約定義ファイル
 - `example_function.json`: サンプル関数定義
 - `.venv`: 仮想環境ディレクトリ
