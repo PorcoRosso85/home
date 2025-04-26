@@ -28,29 +28,42 @@ class FunctionData(TypedDict):
 
 - 例外を投げる代わりに、定義したエラー型を返却してください
 - 関数の戻り値として成功/失敗を表現してください
+- Result型は使用せず、以下の2+1種類の列挙型/共用体型を使用してください：
+  * 成功時の戻り値型
+  * 例外時の戻り値型
+  * （オプション）副作用型
 
 ```python
 # 良い例
 from typing import TypedDict, Union, Literal
 
-class Success(TypedDict):
-    status: Literal["success"]
-    data: dict
+class FunctionData(TypedDict):
+    title: str
+    description: str
+    parameters: List[str]
 
-class Error(TypedDict):
-    status: Literal["error"]
-    message: str
+class FunctionError(TypedDict):
     code: str
+    message: str
 
-Result = Union[Success, Error]
+# 成功型とエラー型の共用体型として定義
+FunctionResult = Union[FunctionData, FunctionError]
 
-def add_function(data: dict) -> Result:
+def add_function(data: dict) -> FunctionResult:
     if not validate_data(data):
-        return {"status": "error", "message": "Invalid data", "code": "INVALID_DATA"}
+        return {"code": "INVALID_DATA", "message": "Invalid data"}
     
     # 処理...
     
-    return {"status": "success", "data": result_data}
+    return {
+        "title": result_title,
+        "description": result_description,
+        "parameters": result_parameters
+    }
+
+# エラーかどうかの判別関数
+def is_error(result: FunctionResult) -> bool:
+    return "code" in result and "message" in result
 ```
 
 ## 禁止事項
