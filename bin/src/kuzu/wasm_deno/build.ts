@@ -5,8 +5,12 @@ import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
 
 // 開発サーバーの起動
 async function createViteDevServer() {
-  // vite-plugin-terminalをインポート
+  // プラグインのインポート
   const Terminal = (await import("npm:vite-plugin-terminal")).default;
+  // NOTE: WebAssembly ESM統合プラグイン - WASMモジュールをブラウザで直接使えるようにするため
+  const wasmPlugin = (await import("npm:vite-plugin-wasm")).default;
+  // NOTE: トップレベルawaitサポートプラグイン - WASMモジュールの非同期初期化に必要
+  const topLevelAwait = (await import("npm:vite-plugin-top-level-await")).default;
   
   // Vite設定
   const config = {
@@ -16,7 +20,10 @@ async function createViteDevServer() {
       Terminal({ 
         console: 'terminal',  // ブラウザのconsole.logをターミナルにリダイレクト
         output: ['terminal', 'console'] // 両方に出力
-      })
+      }),
+      // NOTE: プラグインの順番が重要 - wasmプラグインを先に適用し、次にtopLevelAwaitプラグインを適用
+      wasmPlugin(),  // WASMモジュールをESM形式で使用可能にする
+      topLevelAwait() // トップレベルでのawait使用を可能にする
     ],
     define: {
       'process.env.NODE_ENV': '\"development\"',
@@ -32,12 +39,23 @@ async function createViteDevServer() {
     },
     optimizeDeps: {
       force: true,
-      include: ['kuzu-wasm']
+      // NOTE: kuzu-wasmを除外リストに追加 - これにより、モジュールがViteの依存関係事前バンドルプロセスから除外され、
+      // 外部化されずにブラウザで直接使用できるようになる
+      exclude: ['kuzu-wasm'],
+      esbuildOptions: {
+        supported: {
+          // NOTE: top-level-awaitサポートを明示的に有効化 - ESBuildレベルでも非同期モジュール初期化をサポートするため
+          'top-level-await': true
+        }
+      }
     },
     build: {
       rollupOptions: {
-        external: [],
+        external: [], // 外部化するモジュールを指定しない（空リスト）
       },
+      // NOTE: ターゲットをESNextに設定 - モダンなJavaScript機能（top-level-await含む）をサポートするため
+      // 古いブラウザ向けにトランスパイルせず、最新のES機能を使用することでWASMとの互換性を向上
+      target: 'esnext',
     },
     esbuild: {
       jsx: "automatic",

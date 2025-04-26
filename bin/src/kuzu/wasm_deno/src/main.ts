@@ -1,6 +1,12 @@
 // Kuzu-WASM初期化と実行
-// ESMモジュールとしてインポート
-import * as KuzuWasm from "npm:kuzu-wasm";
+// NOTE: 相対パスでのインポートに変更 - npm:プレフィックスでのインポートが外部化の原因となるため、
+// node_modulesからの相対パスに変更することでViteのWASMプラグインが正しく機能するようになる
+import * as KuzuWasm from "../node_modules/kuzu-wasm";
+
+// NOTE: 以下は元のインポート方法 - 外部化の問題により機能しなかった
+// npm:プレフィックスを使用するとDenoでは動作するが、Viteビルドでは外部化され、
+// ブラウザでは"Module has been externalized for browser compatibility"エラーが発生する
+// import * as KuzuWasm from "npm:kuzu-wasm";
 
 console.log("Kuzu-WASM ESMモジュールを読み込みました");
 
