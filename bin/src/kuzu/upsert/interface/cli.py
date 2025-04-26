@@ -22,17 +22,13 @@ from upsert.application.function_service import (
     get_all_functions,
     add_function_from_json,
 )
-
-
-# モジュールの定数
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(ROOT_DIR, "db")
+from upsert.infrastructure.variables import ROOT_DIR, DB_DIR
 
 
 def handle_init_command() -> None:
     """データベース初期化コマンドを処理する"""
     # ディレクトリが存在しない場合は作成
-    os.makedirs(DB_PATH, exist_ok=True)
+    os.makedirs(DB_DIR, exist_ok=True)
     
     # SHACL制約ファイル作成
     shapes_result = create_design_shapes()

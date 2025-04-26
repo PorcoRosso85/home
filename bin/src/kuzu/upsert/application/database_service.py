@@ -15,12 +15,7 @@ from upsert.application.types import (
     DatabaseInitializationError,
     DatabaseInitializationResult,
 )
-
-
-# モジュールの定数
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(ROOT_DIR, "db")
-DB_NAME = "DesignKG"
+from upsert.infrastructure.variables import DB_DIR, DB_NAME
 
 
 def init_database() -> DatabaseInitializationResult:
@@ -34,10 +29,10 @@ def init_database() -> DatabaseInitializationResult:
         import kuzu
         
         # ディレクトリが存在しない場合は作成
-        os.makedirs(DB_PATH, exist_ok=True)
+        os.makedirs(DB_DIR, exist_ok=True)
         
         # データベース接続
-        db = kuzu.Database(DB_PATH)
+        db = kuzu.Database(DB_DIR)
         conn = kuzu.Connection(db)
         
         # 各テーブルを作成
@@ -245,14 +240,14 @@ def get_connection() -> DatabaseResult:
         import kuzu
         
         # ディレクトリの存在確認
-        if not os.path.exists(DB_PATH):
+        if not os.path.exists(DB_DIR):
             return {
                 "code": "DB_NOT_FOUND",
-                "message": f"データベースディレクトリが見つかりません: {DB_PATH}"
+                "message": f"データベースディレクトリが見つかりません: {DB_DIR}"
             }
         
         # データベース接続
-        db = kuzu.Database(DB_PATH)
+        db = kuzu.Database(DB_DIR)
         conn = kuzu.Connection(db)
         
         return {"connection": conn}
@@ -272,10 +267,11 @@ def test_db_connection() -> None:
     test_db_path = tempfile.mkdtemp()
     
     try:
-        # テスト用のパスで実行
-        global DB_PATH
-        original_db_path = DB_PATH
-        DB_PATH = test_db_path
+        # テストではimportされた設定変数を直接参照できないため
+        # モンキーパッチングを行う
+        import upsert.infrastructure.variables as vars
+        original_db_dir = vars.DB_DIR
+        vars.DB_DIR = test_db_path
         
         # 接続テスト
         result = init_database()
@@ -284,7 +280,7 @@ def test_db_connection() -> None:
         assert "message" in result
         
         # 復元
-        DB_PATH = original_db_path
+        vars.DB_DIR = original_db_dir
     
     except ImportError:
         # ライブラリがない場合はテストをスキップ

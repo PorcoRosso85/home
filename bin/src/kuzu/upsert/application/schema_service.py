@@ -12,11 +12,7 @@ from upsert.application.types import (
     FileOperationError,
     FileOperationResult,
 )
-
-
-# モジュールの定数
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SHAPES_PATH = os.path.join(ROOT_DIR, "design_shapes.ttl")
+from upsert.infrastructure.variables import ROOT_DIR, SHAPES_FILE
 
 
 def create_design_shapes() -> FileOperationResult:
@@ -26,10 +22,10 @@ def create_design_shapes() -> FileOperationResult:
         FileOperationResult: 成功時はファイル操作結果、失敗時はエラー情報
     """
     try:
-        if os.path.exists(SHAPES_PATH):
-            print(f"{SHAPES_PATH} は既に存在します")
+        if os.path.exists(SHAPES_FILE):
+            print(f"{SHAPES_FILE} は既に存在します")
             return {
-                "path": SHAPES_PATH,
+                "path": SHAPES_FILE,
                 "message": "ファイルは既に存在します"
             }
         
@@ -97,12 +93,12 @@ ex:ReturnTypeShape
     ] .
 """
         
-        with open(SHAPES_PATH, "w") as f:
+        with open(SHAPES_FILE, "w") as f:
             f.write(shapes_content)
         
-        print(f"{SHAPES_PATH} を作成しました")
+        print(f"{SHAPES_FILE} を作成しました")
         return {
-            "path": SHAPES_PATH,
+            "path": SHAPES_FILE,
             "message": "制約ファイルを作成しました"
         }
     
@@ -119,7 +115,7 @@ def get_shapes_path() -> str:
     Returns:
         str: SHACL制約ファイルのパス
     """
-    return SHAPES_PATH
+    return SHAPES_FILE
 
 
 def shapes_file_exists() -> bool:
@@ -128,7 +124,7 @@ def shapes_file_exists() -> bool:
     Returns:
         bool: ファイルが存在する場合はTrue、存在しない場合はFalse
     """
-    return os.path.exists(SHAPES_PATH)
+    return os.path.exists(SHAPES_FILE)
 
 
 # テスト関数
@@ -140,16 +136,16 @@ def test_create_design_shapes() -> None:
     
     try:
         # テスト用パスに変更
-        global SHAPES_PATH
-        original_shapes_path = SHAPES_PATH
-        SHAPES_PATH = os.path.join(test_dir, "test_design_shapes.ttl")
+        import upsert.infrastructure.variables as vars
+        original_shapes_file = vars.SHAPES_FILE
+        vars.SHAPES_FILE = os.path.join(test_dir, "test_design_shapes.ttl")
         
         # ファイル作成テスト
         result = create_design_shapes()
         assert "code" not in result
-        assert result["path"] == SHAPES_PATH
+        assert result["path"] == vars.SHAPES_FILE
         assert "制約ファイルを作成しました" in result["message"]
-        assert os.path.exists(SHAPES_PATH)
+        assert os.path.exists(vars.SHAPES_FILE)
         
         # 既存ファイルテスト
         result = create_design_shapes()
@@ -157,7 +153,7 @@ def test_create_design_shapes() -> None:
         assert "既に存在します" in result["message"]
         
         # パスを元に戻す
-        SHAPES_PATH = original_shapes_path
+        vars.SHAPES_FILE = original_shapes_file
     
     finally:
         # テスト用ディレクトリを削除
