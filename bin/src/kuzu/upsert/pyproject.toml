@@ -1,0 +1,23 @@
+[project]
+name = "upsert"
+version = "0.1.0"
+description = "KuzuDB function design tool"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "argparse>=1.4.0",
+    "kuzu>=0.9.0",
+    "pyshacl>=0.30.1",
+    "pytest>=8.3.5",
+    "rdflib>=7.1.4",
+]
+
+[project.scripts]
+upsert = "upsert.design:main"
+
+[project.entry-points.console_scripts]
+upsert-design = "upsert.design:main"
+
+[tool.pytest]
+testpaths = ["design.py"]
+python_files = ["design.py"]
