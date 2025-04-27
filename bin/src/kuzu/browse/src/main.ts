@@ -1,6 +1,7 @@
 // Kuzu-WASM初期化と実行
 // Denoの標準的なインポート構文を使用し、WASMモジュールを適切に読み込む
-import * as KuzuWasm from "npm:kuzu-wasm";
+// WARN: npm呼び出しだとうまくいかないためモジュールを直接指定している
+import * as KuzuWasm from "../node_modules/kuzu-wasm";
 
 // NOTE: 元々は相対パスでのインポートを使用していました
 // node_modulesからの相対パスに変更することでViteのWASMプラグインが正しく機能するようになっていましたが、
