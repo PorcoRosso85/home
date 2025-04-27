@@ -68,35 +68,8 @@ def load_ddl_from_file(ddl_file_path: str) -> List[str]:
     return statements
 
 
-def create_connection(db_path: str = DB_DIR) -> DatabaseResult:
-    """データベース接続を作成する
-    
-    Args:
-        db_path: データベースディレクトリのパス（デフォルト: DB_DIR）
-    
-    Returns:
-        DatabaseResult: 成功時は接続オブジェクト、失敗時はエラー情報
-    """
-    if not os.path.exists(db_path):
-        return {
-            "code": "DB_NOT_FOUND",
-            "message": f"データベースディレクトリが見つかりません: {db_path}"
-        }
-    
-    try:
-        import kuzu
-        db = kuzu.Database(db_path)
-        conn = kuzu.Connection(db)
-        return {"connection": conn}
-    except Exception as e:
-        return {
-            "code": "DB_CONNECTION_ERROR",
-            "message": f"データベース接続エラー: {str(e)}"
-        }
-
-
 def get_connection(db_path: str = None, with_query_loader: bool = False, in_memory: bool = None) -> Union[DatabaseResult, QueryLoaderResult]:
-    """データベース接続を取得する
+    """データベース接続を取得する統合関数
     
     Args:
         db_path: データベースディレクトリのパス（デフォルト: variables.get_db_dir()）
@@ -110,49 +83,63 @@ def get_connection(db_path: str = None, with_query_loader: bool = False, in_memo
         import kuzu
         from upsert.infrastructure.variables import get_db_dir, IN_MEMORY_MODE
         
-        # db_pathが指定されていない場合は変数から取得
+        # デフォルト値の処理
         if db_path is None:
             db_path = get_db_dir()
             
-        # in_memoryが指定されていない場合は変数から取得
         if in_memory is None:
             in_memory = IN_MEMORY_MODE
         
-        # インメモリモードの場合、ディレクトリの存在チェックをスキップ
+        # 接続の作成（条件分岐）
         if not in_memory:
-            # ディレクトリの存在確認
+            # ディスクモード接続
             if not os.path.exists(db_path):
                 return {
                     "code": "DB_NOT_FOUND",
                     "message": f"データベースディレクトリが見つかりません: {db_path}"
                 }
-            
-            # データベース接続（ディスクモード）
             db = kuzu.Database(db_path)
         else:
-            # データベース接続（インメモリモード）
+            # インメモリモード接続
             db = kuzu.Database()
         
         conn = kuzu.Connection(db)
         
-        # クエリローダーが不要な場合は接続のみ返す
-        if not with_query_loader:
-            return {"connection": conn}
+        # クエリローダー作成と設定
+        if with_query_loader:
+            loader = create_query_loader(QUERY_DIR, dml_subdir="dml")
+            # 接続オブジェクトに関連づける（呼び出し側の互換性のため）
+            conn._query_loader = loader
+            # 互換性のあるレスポンス形式
+            return {
+                "connection": conn,
+                "query_loader": loader
+            }
         
-        # クエリローダーの作成
-        loader = create_query_loader(QUERY_DIR, dml_subdir="dml")
-        
-        # 接続とクエリローダーを返す
-        return {
-            "connection": conn,
-            "query_loader": loader
-        }
+        return {"connection": conn}
     
     except Exception as e:
         return {
             "code": "DB_CONNECTION_ERROR",
             "message": f"データベース接続エラー: {str(e)}"
         }
+
+
+# 後方互換性のための関数
+def create_connection(db_path: str = DB_DIR) -> DatabaseResult:
+    """データベース接続を作成する（後方互換性のため）
+    
+    注: この関数は後方互換性のために残されています。
+        新しいコードでは get_connection() を使用してください。
+    
+    Args:
+        db_path: データベースディレクトリのパス（デフォルト: DB_DIR）
+    
+    Returns:
+        DatabaseResult: 成功時は接続オブジェクト、失敗時はエラー情報
+    """
+    # get_connection関数にディスクモードで委譲
+    return get_connection(db_path=db_path, with_query_loader=False, in_memory=False)
 
 
 def init_database(db_path: str = None, in_memory: bool = None) -> DatabaseInitializationResult:
@@ -266,11 +253,17 @@ def test_connection() -> None:
     test_db_path = tempfile.mkdtemp()
     
     try:
-        # 実際に接続してみる
-        connection_result = create_connection(test_db_path)
+        # ディスクモードで接続テスト（統合された関数を使用）
+        connection_result = get_connection(db_path=test_db_path, in_memory=False)
         # 成功ケースを検証
         assert "code" not in connection_result
         assert "connection" in connection_result
+        
+        # 後方互換性のための関数でも確認
+        connection_result_legacy = create_connection(test_db_path)
+        # 同じく成功ケースを検証
+        assert "code" not in connection_result_legacy
+        assert "connection" in connection_result_legacy
     
     except ImportError:
         # ライブラリがない場合はテストをスキップ
@@ -308,7 +301,7 @@ def test_get_connection_with_query_loader() -> None:
         vars.DB_DIR = test_db_path
         vars.QUERY_DIR = test_query_path
         
-        # 接続とクエリローダーの取得テスト
+        # 接続とクエリローダーの取得テスト（統合された関数を使用）
         result = get_connection(with_query_loader=True)
         
         # 結果の検証
@@ -319,11 +312,21 @@ def test_get_connection_with_query_loader() -> None:
         # クエリローダーの動作確認
         loader = result["query_loader"]
         
+        # クエリローダーアクセスの検証
+        conn = result["connection"]
+        assert hasattr(conn, "_query_loader"), "接続オブジェクトにクエリローダー属性が追加されていません"
+        
         # ここで、テストファイルがあるディレクトリをクエリローダーに直接渡す
         test_loader = create_query_loader(test_query_path, dml_subdir="dml")
         query_result = test_loader["get_query"]("test_query")
         assert test_loader["get_success"](query_result)
         assert query_result["data"] == test_query
+        
+        # インメモリモードでも確認
+        in_memory_result = get_connection(with_query_loader=True, in_memory=True)
+        assert "code" not in in_memory_result
+        assert "connection" in in_memory_result
+        assert "query_loader" in in_memory_result
         
         # 設定の復元
         vars.DB_DIR = original_db_dir
