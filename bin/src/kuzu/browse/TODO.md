@@ -16,11 +16,11 @@
 
 ### 1. インポート戦略の統一
 
-- [ ] `/home/nixos/bin/src/kuzu/browse/src/interface/App.tsx`
+- [x] `/home/nixos/bin/src/kuzu/browse/src/interface/App.tsx`
   - kuzu-wasmのインポートを修正（"@kuzu/kuzu-wasm@0.0.8" から "npm:kuzu-wasm@^0.8.0"に変更）
   - インポート方法をDenoの標準パターンに揃える
   
-- [ ] `/home/nixos/bin/src/kuzu/browse/src/main.ts`
+- [x] `/home/nixos/bin/src/kuzu/browse/src/main.ts`
   - 相対パスインポート（"../node_modules/kuzu-wasm"）を、Denoの標準的なインポート構文（"npm:kuzu-wasm"）に修正
 
 ### 2. API利用パターンの統一

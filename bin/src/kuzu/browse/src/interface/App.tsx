@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+import React, { useState, useEffect } from 'react';
 
 // 最小構成のKuzu-Wasmアプリケーション
 const App = () => {
@@ -17,7 +17,7 @@ const App = () => {
         
         // Kuzu-Wasmのロード
         console.log('Kuzu-Wasmモジュールのロード開始...');
-        const kuzuWasm = await import('https://unpkg.com/@kuzu/kuzu-wasm@0.0.8/dist/kuzu-browser.js');
+        const kuzuWasm = await import('npm:kuzu-wasm@^0.8.0');
         console.log('Kuzu-Wasmモジュールのロード完了');
         
         // Kuzuのインスタンス化

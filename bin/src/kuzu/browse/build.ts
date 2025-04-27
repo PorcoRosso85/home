@@ -1,14 +1,13 @@
 import { createServer } from "npm:vite";
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
+import Terminal from "npm:vite-plugin-terminal";
+import wasmPlugin from "npm:vite-plugin-wasm";
+import topLevelAwait from "npm:vite-plugin-top-level-await";
 
 // 開発サーバーの起動
 async function createViteDevServer() {
-  // プラグインのインポート
-  const Terminal = (await import("npm:vite-plugin-terminal")).default;
   // NOTE: WebAssembly ESM統合プラグイン - WASMモジュールをブラウザで直接使えるようにするため
-  const wasmPlugin = (await import("npm:vite-plugin-wasm")).default;
   // NOTE: トップレベルawaitサポートプラグイン - WASMモジュールの非同期初期化に必要
-  const topLevelAwait = (await import("npm:vite-plugin-top-level-await")).default;
   
   // Vite設定
   const config = {
