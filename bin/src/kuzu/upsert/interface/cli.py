@@ -15,54 +15,68 @@ from upsert.interface.types import (
     CommandArgs,
     is_error,
 )
-from upsert.application.database_service import init_database
+from upsert.infrastructure.database.connection import init_database
 from upsert.application.schema_service import create_design_shapes
 from upsert.application.function_type_service import (
     get_function_type_details,
     get_all_function_types,
     add_function_type_from_json,
 )
-from upsert.infrastructure.variables import ROOT_DIR, DB_DIR
+from upsert.infrastructure.variables import ROOT_DIR, DB_DIR, QUERY_DIR
 
 
-def handle_init_command() -> None:
-    """データベース初期化コマンドを処理する"""
+def handle_init_command(db_path: str = DB_DIR) -> Dict[str, Any]:
+    """データベース初期化コマンドを処理する
+    
+    Args:
+        db_path: データベースディレクトリのパス（デフォルト: DB_DIR）
+        
+    Returns:
+        Dict[str, Any]: 処理結果
+    """
     # ディレクトリが存在しない場合は作成
-    os.makedirs(DB_DIR, exist_ok=True)
+    os.makedirs(db_path, exist_ok=True)
     
     # SHACL制約ファイル作成
     shapes_result = create_design_shapes()
     if is_error(shapes_result):
         print(f"SHACL制約ファイル作成エラー: {shapes_result['message']}")
-        return
+        return {"success": False, "message": f"SHACL制約ファイル作成エラー: {shapes_result['message']}"}
     
     # データベース初期化
-    db_result = init_database()
+    db_result = init_database(db_path)
     if is_error(db_result):
         print(f"データベース初期化エラー: {db_result['message']}")
-        return
+        return {"success": False, "message": f"データベース初期化エラー: {db_result['message']}"}
     
     print("データベースと制約ファイルの初期化が完了しました")
+    return {"success": True, "message": "データベースと制約ファイルの初期化が完了しました"}
 
 
-def handle_add_command(json_file: str) -> None:
+def handle_add_command(json_file: str) -> Dict[str, Any]:
     """関数型追加コマンドを処理する
     
     Args:
         json_file: JSONファイルのパス
+        
+    Returns:
+        Dict[str, Any]: 処理結果
     """
     success, message = add_function_type_from_json(json_file)
     if success:
         print(message)
+        return {"success": True, "message": message}
     else:
         print(f"エラー: {message}")
+        return {"success": False, "message": message}
 
 
 def handle_list_command() -> None:
     """関数型一覧表示コマンドを処理する"""
     # データベース接続と関数型一覧取得
-    from upsert.application.database_service import get_connection
-    db_result = get_connection()
+    from upsert.infrastructure.database.connection import get_connection
+    # クエリローダー付きで接続を取得するように修正
+    db_result = get_connection(with_query_loader=True)
     if is_error(db_result):
         print(f"データベース接続エラー: {db_result['message']}")
         return
@@ -90,8 +104,9 @@ def handle_get_command(function_type_title: str) -> None:
         function_type_title: 関数型のタイトル
     """
     # データベース接続
-    from upsert.application.database_service import get_connection
-    db_result = get_connection()
+    from upsert.infrastructure.database.connection import get_connection
+    # クエリローダー付きで接続を取得するように修正
+    db_result = get_connection(with_query_loader=True)
     if is_error(db_result):
         print(f"データベース接続エラー: {db_result['message']}")
         return
@@ -161,12 +176,14 @@ def main() -> None:
     
     # データベース初期化
     if args["init"]:
-        handle_init_command()
+        result = handle_init_command()
         return
     
     # 関数の追加
     if args["add"]:
-        handle_add_command(args["add"])
+        result = handle_add_command(args["add"])
+        if not result["success"]:
+            print(f"コマンド実行エラー: {result['message']}")
         return
     
     # 関数一覧の表示
@@ -211,6 +228,100 @@ def test_parse_arguments() -> None:
     """parse_arguments関数のテスト"""
     # このテストはモック化が必要なため、実際の実装では別途テストフレームワークを使用します
     pass
+
+
+def test_cli_e2e() -> None:
+    """CLIインターフェースのE2Eテスト"""
+    import tempfile
+    import os
+    import shutil
+    import json
+    
+    # テスト用のディレクトリとファイルを作成
+    test_dir = tempfile.mkdtemp()
+    test_db_dir = os.path.join(test_dir, "db")
+    os.makedirs(test_db_dir, exist_ok=True)  # 明示的にディレクトリを作成
+    test_json_path = os.path.join(test_dir, "test_function.json")
+    
+    try:
+        # 環境変数をパッチ
+        import upsert.infrastructure.variables as vars
+        original_db_dir = vars.DB_DIR
+        original_query_dir = vars.QUERY_DIR
+        vars.DB_DIR = test_db_dir
+        # テスト実行中も正しいクエリディレクトリを参照するように設定
+        # QUERY_DIRはオリジナルのままにする（クエリファイルはそのまま使用）
+        
+        # テスト用の関数型JSONを作成
+        test_function = {
+            "title": "TestE2EFunction",
+            "description": "Test function for E2E test",
+            "type": "function",
+            "pure": True,
+            "async": False,
+            "parameters": {
+                "properties": {
+                    "param1": {
+                        "type": "string",
+                        "description": "First parameter"
+                    }
+                },
+                "required": ["param1"]
+            },
+            "returnType": {
+                "type": "string",
+                "description": "Return value"
+            }
+        }
+        
+        with open(test_json_path, "w") as f:
+            json.dump(test_function, f, indent=2)
+        
+        # ディレクトリの存在確認
+        assert os.path.exists(test_db_dir), f"テストDBディレクトリが存在しません: {test_db_dir}"
+        
+        # 初期化コマンドのテスト
+        init_result = handle_init_command(test_db_dir)
+        assert init_result["success"], f"データベース初期化に失敗しました: {init_result.get('message', '不明なエラー')}"
+        
+        # 関数追加コマンドのテスト
+        add_result = handle_add_command(test_json_path)
+        assert add_result["success"], f"関数型の追加に失敗しました: {add_result.get('message', '不明なエラー')}"
+        
+        # CLI呼び出し後の結果を検証するために関数をオーバーライド
+        original_list_command = handle_list_command
+        original_get_command = handle_get_command
+        
+        def patched_list_command():
+            # データベース接続と関数型一覧取得
+            from upsert.infrastructure.database.connection import get_connection
+            # クエリローダー付きで接続を取得するように修正
+            db_result = get_connection(with_query_loader=True)
+            if is_error(db_result):
+                return {"success": False, "message": f"データベース接続エラー: {db_result['message']}"}
+            
+            # 関数型一覧取得
+            function_type_list = get_all_function_types(db_result["connection"])
+            if is_error(function_type_list):
+                return {"success": False, "message": f"関数型一覧取得エラー: {function_type_list['message']}"}
+            
+            return {"success": True, "functions": function_type_list["functions"]}
+        
+        # 関数一覧コマンドのテスト
+        list_result = patched_list_command()
+        assert list_result["success"], f"関数一覧取得に失敗しました: {list_result.get('message', '不明なエラー')}"
+        assert any(f["title"] == "TestE2EFunction" for f in list_result["functions"]), "テスト用関数が一覧に見つかりません"
+        
+        # 設定を元に戻す
+        vars.DB_DIR = original_db_dir
+        vars.QUERY_DIR = original_query_dir
+    
+    except Exception as e:
+        assert False, f"E2Eテストが失敗しました: {str(e)}"
+    
+    finally:
+        # テスト用ディレクトリを削除
+        shutil.rmtree(test_dir)
 
 
 if __name__ == "__main__":

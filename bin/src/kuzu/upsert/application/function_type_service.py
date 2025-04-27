@@ -6,6 +6,7 @@
 
 import os
 import json
+import sys
 from typing import Dict, Any, List, Optional, Tuple, Union, Literal
 
 from upsert.application.types import (
@@ -24,7 +25,15 @@ from upsert.application.validation_service import (
     generate_rdf_from_function_type,
     validate_against_shacl,
 )
-from upsert.application.database_service import get_connection
+from upsert.infrastructure.database.connection import get_connection
+from upsert.infrastructure.variables import QUERY_DIR
+
+# クエリローダーをインポート
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from query.call_dml import create_query_loader
+
+# クエリローダーを作成
+query_loader = create_query_loader(QUERY_DIR, dml_subdir="dml")
 
 
 def create_function_type(conn: Any, function_type_data: Dict[str, Any]) -> FunctionTypeCreationResult:
@@ -54,69 +63,103 @@ def create_function_type(conn: Any, function_type_data: Dict[str, Any]) -> Funct
     async_value = function_type_data.get("async", False)
     
     try:
+        # 関数型ノード作成クエリを取得
+        function_query_result = query_loader["get_query"]("create_function_type")
+        if not query_loader["get_success"](function_query_result):
+            return {
+                "code": "QUERY_NOT_FOUND",
+                "message": f"クエリが見つかりません: {function_query_result.get('error', '')}"
+            }
+        
         # 関数型ノードを作成
-        query = f"""
-        CREATE (f:FunctionType {{
-            title: '{title}',
-            description: '{description}',
-            type: '{type_value}',
-            pure: {str(pure).lower()},
-            async: {str(async_value).lower()}
-        }})
-        """
-        conn.execute(query)
+        function_params = {
+            "title": title,
+            "description": description,
+            "type": type_value,
+            "pure": pure,
+            "async": async_value
+        }
+        conn.execute(function_query_result["data"], function_params)
         
         # パラメータの処理
-        params = function_type_data["parameters"]
+        params = function_type_data.get("parameters", {})
         if "properties" in params:
             param_props = params["properties"]
             required_params = params.get("required", [])
+            
+            # パラメータ作成クエリとリレーションシップ作成クエリを取得
+            param_query_result = query_loader["get_query"]("create_parameter")
+            rel_query_result = query_loader["get_query"]("create_has_parameter_relation")
+            
+            if not query_loader["get_success"](param_query_result):
+                return {
+                    "code": "QUERY_NOT_FOUND",
+                    "message": f"パラメータ作成クエリが見つかりません: {param_query_result.get('error', '')}"
+                }
+            
+            if not query_loader["get_success"](rel_query_result):
+                return {
+                    "code": "QUERY_NOT_FOUND",
+                    "message": f"リレーションシップ作成クエリが見つかりません: {rel_query_result.get('error', '')}"
+                }
             
             for idx, (param_name, param_info) in enumerate(param_props.items()):
                 param_type = param_info.get("type", "any")
                 param_desc = param_info.get("description", "")
                 is_required = param_name in required_params
                 
-                # パラメータ型ノードを作成
-                param_query = f"""
-                CREATE (p:ParameterType {{
-                    name: '{param_name}',
-                    type: '{param_type}',
-                    description: '{param_desc}',
-                    required: {str(is_required).lower()}
-                }})
-                """
-                conn.execute(param_query)
+                # パラメータノードを作成
+                param_params = {
+                    "name": param_name,
+                    "type": param_type,
+                    "description": param_desc,
+                    "required": is_required
+                }
+                conn.execute(param_query_result["data"], param_params)
                 
-                # 関数型とパラメータ型を関連付けるエッジを作成
-                edge_query = f"""
-                MATCH (f:FunctionType), (p:ParameterType)
-                WHERE f.title = '{title}' AND p.name = '{param_name}'
-                CREATE (f)-[:HasParameterType {{ order_index: {idx} }}]->(p)
-                """
-                conn.execute(edge_query)
+                # リレーションシップを作成
+                rel_params = {
+                    "function_title": title,
+                    "param_name": param_name,
+                    "order_index": idx
+                }
+                conn.execute(rel_query_result["data"], rel_params)
         
         # 戻り値の型を処理
-        return_type = function_type_data["returnType"]
-        return_type_value = return_type.get("type", "any")
-        return_desc = return_type.get("description", "")
-        
-        # 戻り値型ノードを作成
-        return_query = f"""
-        CREATE (r:ReturnType {{
-            type: '{return_type_value}',
-            description: '{return_desc}'
-        }})
-        """
-        conn.execute(return_query)
-        
-        # 関数型と戻り値型を関連付けるエッジを作成
-        return_edge_query = f"""
-        MATCH (f:FunctionType), (r:ReturnType)
-        WHERE f.title = '{title}' AND r.type = '{return_type_value}'
-        CREATE (f)-[:HasReturnType]->(r)
-        """
-        conn.execute(return_edge_query)
+        if "returnType" in function_type_data:
+            # 戻り値ノード作成クエリとリレーションシップ作成クエリを取得
+            return_query_result = query_loader["get_query"]("create_return_type")
+            return_rel_query_result = query_loader["get_query"]("create_has_return_type_relation")
+            
+            if not query_loader["get_success"](return_query_result):
+                return {
+                    "code": "QUERY_NOT_FOUND",
+                    "message": f"戻り値型作成クエリが見つかりません: {return_query_result.get('error', '')}"
+                }
+            
+            if not query_loader["get_success"](return_rel_query_result):
+                return {
+                    "code": "QUERY_NOT_FOUND",
+                    "message": f"戻り値リレーションシップ作成クエリが見つかりません: {return_rel_query_result.get('error', '')}"
+                }
+            
+            return_type = function_type_data["returnType"]
+            return_type_value = return_type.get("type", "any")
+            return_desc = return_type.get("description", "")
+            
+            # 戻り値型ノードを作成
+            return_params = {
+                "type": return_type_value,
+                "description": return_desc
+            }
+            conn.execute(return_query_result["data"], return_params)
+            
+            # リレーションシップを作成
+            return_rel_params = {
+                "function_title": title,
+                "return_type": return_type_value
+            }
+            conn.execute(return_rel_query_result["data"], return_rel_params)
         
         return {
             "title": title,
@@ -142,12 +185,24 @@ def get_function_type_details(conn: Any, function_type_title: str) -> FunctionTy
         FunctionTypeQueryResult: 成功時は関数型データ、失敗時はエラー情報
     """
     try:
+        # 関数型検索クエリを取得
+        find_query_result = query_loader["get_query"]("find_function_type_by_title")
+        params_query_result = query_loader["get_query"]("get_parameters_for_function_type")
+        return_query_result = query_loader["get_query"]("get_return_type_for_function_type")
+        
+        if not query_loader["get_success"](find_query_result) or \
+           not query_loader["get_success"](params_query_result) or \
+           not query_loader["get_success"](return_query_result):
+            return {
+                "code": "QUERY_NOT_FOUND",
+                "message": "必要なクエリファイルが見つかりません"
+            }
+        
         # 関数型の基本情報を取得
-        function_query = conn.execute(f"""
-        MATCH (f:FunctionType)
-        WHERE f.title = '{function_type_title}'
-        RETURN f.title, f.description, f.type, f.pure, f.async
-        """)
+        function_query = conn.execute(
+            find_query_result["data"], 
+            {"title": function_type_title}
+        )
         
         # QueryResultをリストに変換
         function_result = []
@@ -160,13 +215,11 @@ def get_function_type_details(conn: Any, function_type_title: str) -> FunctionTy
                 "message": f"関数型 '{function_type_title}' が見つかりません"
             }
         
-        # パラメータ型情報を取得
-        params_query = conn.execute(f"""
-        MATCH (f:FunctionType)-[r:HasParameterType]->(p:ParameterType)
-        WHERE f.title = '{function_type_title}'
-        RETURN p.name, p.type, p.description, p.required, r.order_index
-        ORDER BY r.order_index
-        """)
+        # パラメータ情報を取得
+        params_query = conn.execute(
+            params_query_result["data"], 
+            {"function_title": function_type_title}
+        )
         
         # QueryResultをリストに変換
         params_result = []
@@ -174,11 +227,10 @@ def get_function_type_details(conn: Any, function_type_title: str) -> FunctionTy
             params_result.append(params_query.get_next())
         
         # 戻り値の型を取得
-        return_type_query = conn.execute(f"""
-        MATCH (f:FunctionType)-[:HasReturnType]->(r:ReturnType)
-        WHERE f.title = '{function_type_title}'
-        RETURN r.type, r.description
-        """)
+        return_type_query = conn.execute(
+            return_query_result["data"], 
+            {"function_title": function_type_title}
+        )
         
         # QueryResultをリストに変換
         return_type_result = []
@@ -199,7 +251,7 @@ def get_function_type_details(conn: Any, function_type_title: str) -> FunctionTy
             "returnType": {}
         }
         
-        # パラメータ型情報を追加
+        # パラメータ情報を追加
         for param in params_result:
             name, type_value, desc, required, _ = param
             function_type_data["parameters"]["properties"][name] = {
@@ -235,15 +287,21 @@ def get_all_function_types(conn: Any) -> FunctionTypeListResult:
         FunctionTypeListResult: 成功時は関数型リスト、失敗時はエラー情報
     """
     try:
-        query_result = conn.execute(f"""
-        MATCH (f:FunctionType)
-        RETURN f.title, f.description, f.type, f.pure, f.async
-        """)
+        # クエリを取得
+        query_result = query_loader["get_query"]("get_all_function_types")
+        if not query_loader["get_success"](query_result):
+            return {
+                "code": "QUERY_NOT_FOUND",
+                "message": query_result.get("error", "クエリが見つかりません")
+            }
+        
+        # クエリを実行
+        result_set = conn.execute(query_result["data"])
         
         # QueryResultオブジェクトをリストに変換
         result: List[FunctionTypeListItem] = []
-        while query_result.has_next():
-            row = query_result.get_next()
+        while result_set.has_next():
+            row = result_set.get_next()
             result.append({
                 "title": row[0],
                 "description": row[1]

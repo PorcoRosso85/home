@@ -2,7 +2,7 @@
 // Function.meta.json をグラフモデルに変換したDDL
 
 // ノードテーブル定義
-CREATE NODE TABLE Function (
+CREATE NODE TABLE FunctionType (
   title STRING,
   description STRING,
   type STRING,
@@ -23,7 +23,7 @@ CREATE NODE TABLE Parameter (
   required BOOLEAN,
   immutable BOOLEAN DEFAULT TRUE,
   default_value STRING,
-  PRIMARY KEY (name, type)
+  PRIMARY KEY (name)
 );
 
 CREATE NODE TABLE ReturnType (
@@ -41,7 +41,7 @@ CREATE NODE TABLE Exception (
 );
 
 CREATE NODE TABLE Example (
-  id INT64,
+  id INT,
   description STRING,
   input STRING,
   output STRING,
@@ -54,19 +54,19 @@ CREATE NODE TABLE RecursionInfo (
   recursionType STRING,
   terminationCondition STRING,
   structuralRecursion BOOLEAN DEFAULT FALSE,
-  PRIMARY KEY (isRecursive, recursionType)
+  PRIMARY KEY (recursionType)
 );
 
 CREATE NODE TABLE ComplexityAnalysis (
-  id INT64,
+  id INT,
   time STRING,
   space STRING,
   PRIMARY KEY (id)
 );
 
 CREATE NODE TABLE RecursionDepth (
-  maximum INT64,
-  average FLOAT64,
+  maximum INT,
+  average FLOAT,
   description STRING,
   PRIMARY KEY (maximum)
 );
@@ -76,31 +76,38 @@ CREATE NODE TABLE TransformationType (
 );
 
 CREATE NODE TABLE Invariant (
-  id INT64,
+  id INT,
   description STRING,
+  PRIMARY KEY (id)
+);
+
+CREATE NODE TABLE IntermediateStep (
+  id INT,
+  stepName STRING,
+  value STRING,
   PRIMARY KEY (id)
 );
 
 // リレーションシップテーブル定義
 CREATE REL TABLE HasParameter (
-  FROM Function TO Parameter,
+  FROM FunctionType TO Parameter,
   required BOOLEAN
 );
 
 CREATE REL TABLE ReturnsType (
-  FROM Function TO ReturnType
+  FROM FunctionType TO ReturnType
 );
 
 CREATE REL TABLE ThrowsException (
-  FROM Function TO Exception
+  FROM FunctionType TO Exception
 );
 
 CREATE REL TABLE HasExample (
-  FROM Function TO Example
+  FROM FunctionType TO Example
 );
 
 CREATE REL TABLE HasRecursionInfo (
-  FROM Function TO RecursionInfo
+  FROM FunctionType TO RecursionInfo
 );
 
 CREATE REL TABLE HasComplexityAnalysis (
@@ -108,12 +115,12 @@ CREATE REL TABLE HasComplexityAnalysis (
 );
 
 CREATE REL TABLE DependsOn (
-  FROM Function TO Function,
+  FROM FunctionType TO FunctionType,
   description STRING
 );
 
 CREATE REL TABLE MutuallyRecursiveWith (
-  FROM Function TO Function
+  FROM FunctionType TO FunctionType
 );
 
 CREATE REL TABLE HasNestedParameter (
@@ -134,11 +141,4 @@ CREATE REL TABLE HasInvariant (
 
 CREATE REL TABLE HasIntermediateStep (
   FROM Example TO IntermediateStep
-);
-
-CREATE NODE TABLE IntermediateStep (
-  id INT64,
-  stepName STRING,
-  value STRING,
-  PRIMARY KEY (id)
 );
