@@ -19,10 +19,6 @@
 ### 禁止される変更
 
 - サーバーサイドのDeno化は行わない
-- 以下のようなファイルのコピー・移動は行わない：
-  - `/home/nixos/bin/src/kuzu/wasm_deno/kuzu-wasm.js`
-  - `/home/nixos/bin/src/kuzu/wasm_deno/kuzu-wasm.wasm`
-  - `/home/nixos/bin/src/kuzu/wasm_deno/kuzu-worker.js`
 
 ### 不要なファイル
 

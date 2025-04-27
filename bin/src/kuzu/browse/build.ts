@@ -1,4 +1,3 @@
-// build.ts - Kuzu-Wasm用の最小構成Vite開発サーバー
 import { createServer } from "npm:vite";
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
 
@@ -79,7 +78,7 @@ async function createViteDevServer() {
 
 // メイン関数
 async function main() {
-  console.log("Kuzu-Wasm Deno Demo - Viteでの開発サーバー起動");
+  console.log("Kuzu-Browse Deno Demo - Viteでの開発サーバー起動");
   
   // 開発サーバーを起動
   const devServer = await createViteDevServer();
