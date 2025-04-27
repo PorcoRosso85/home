@@ -121,7 +121,7 @@ def create_function_type(conn: Any, function_type_data: Dict[str, Any]) -> Funct
                 rel_params = {
                     "function_title": title,
                     "param_name": param_name,
-                    "order_index": idx
+                    "order_index": idx  # パラメータの順序はインデックスで管理
                 }
                 conn.execute(rel_query_result["data"], rel_params)
         
@@ -347,11 +347,15 @@ def read_function_type_from_json(json_file: str) -> Tuple[Optional[Dict[str, Any
         return None, f"ファイル読み込みエラー: {str(e)}"
 
 
-def add_function_type_from_json(json_file: str) -> Tuple[bool, str]:
+def add_function_type_from_json(json_file: str, db_path: str = None, in_memory: bool = None, 
+                             connection: Any = None) -> Tuple[bool, str]:
     """JSONファイルから関数型ノードを追加する
     
     Args:
         json_file: JSONファイルのパス
+        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
+        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
+        connection: 既存のデータベース接続（デフォルト: None、新規接続を作成）
     
     Returns:
         Tuple[bool, str]: 成功時は(True, 成功メッセージ)、失敗時は(False, エラーメッセージ)
@@ -375,13 +379,19 @@ def add_function_type_from_json(json_file: str) -> Tuple[bool, str]:
         elif "is_valid" in validation_result and not validation_result["is_valid"]:
             return False, f"SHACL制約違反: {validation_result['report']}"
     
-    # データベース接続
-    db_result = get_connection()
-    if is_error(db_result):
-        return False, f"データベース接続エラー: {db_result['message']}"
+    # 既存の接続を使用するか、新規に接続を取得
+    if connection is None:
+        # データベース接続
+        db_result = get_connection(db_path=db_path, in_memory=in_memory)
+        if is_error(db_result):
+            return False, f"データベース接続エラー: {db_result['message']}"
+        conn = db_result["connection"]
+    else:
+        # 既存の接続を使用
+        conn = connection
     
     # 関数型追加
-    function_type_result = create_function_type(db_result["connection"], function_type_data)
+    function_type_result = create_function_type(conn, function_type_data)
     if is_error(function_type_result):
         return False, f"関数型追加エラー: {function_type_result['message']}"
     

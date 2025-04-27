@@ -95,27 +95,44 @@ def create_connection(db_path: str = DB_DIR) -> DatabaseResult:
         }
 
 
-def get_connection(with_query_loader: bool = False) -> Union[DatabaseResult, QueryLoaderResult]:
+def get_connection(db_path: str = None, with_query_loader: bool = False, in_memory: bool = None) -> Union[DatabaseResult, QueryLoaderResult]:
     """データベース接続を取得する
     
     Args:
+        db_path: データベースディレクトリのパス（デフォルト: variables.get_db_dir()）
         with_query_loader: クエリローダーも一緒に取得するかどうか
+        in_memory: インメモリモードで接続するかどうか（デフォルト: variables.IN_MEMORY_MODE）
     
     Returns:
         Union[DatabaseResult, QueryLoaderResult]: 成功時はデータベース接続（とクエリローダー）、失敗時はエラー情報
     """
     try:
         import kuzu
+        from upsert.infrastructure.variables import get_db_dir, IN_MEMORY_MODE
         
-        # ディレクトリの存在確認
-        if not os.path.exists(DB_DIR):
-            return {
-                "code": "DB_NOT_FOUND",
-                "message": f"データベースディレクトリが見つかりません: {DB_DIR}"
-            }
+        # db_pathが指定されていない場合は変数から取得
+        if db_path is None:
+            db_path = get_db_dir()
+            
+        # in_memoryが指定されていない場合は変数から取得
+        if in_memory is None:
+            in_memory = IN_MEMORY_MODE
         
-        # データベース接続
-        db = kuzu.Database(DB_DIR)
+        # インメモリモードの場合、ディレクトリの存在チェックをスキップ
+        if not in_memory:
+            # ディレクトリの存在確認
+            if not os.path.exists(db_path):
+                return {
+                    "code": "DB_NOT_FOUND",
+                    "message": f"データベースディレクトリが見つかりません: {db_path}"
+                }
+            
+            # データベース接続（ディスクモード）
+            db = kuzu.Database(db_path)
+        else:
+            # データベース接続（インメモリモード）
+            db = kuzu.Database()
+        
         conn = kuzu.Connection(db)
         
         # クエリローダーが不要な場合は接続のみ返す
@@ -138,11 +155,12 @@ def get_connection(with_query_loader: bool = False) -> Union[DatabaseResult, Que
         }
 
 
-def init_database(db_path: str = DB_DIR) -> DatabaseInitializationResult:
+def init_database(db_path: str = None, in_memory: bool = None) -> DatabaseInitializationResult:
     """データベースの初期化
     
     Args:
-        db_path: データベースディレクトリのパス（デフォルト: DB_DIR）
+        db_path: データベースディレクトリのパス（デフォルト: variables.get_db_dir()）
+        in_memory: インメモリモードで接続するかどうか（デフォルト: variables.IN_MEMORY_MODE）
     
     Returns:
         DatabaseInitializationResult: 成功時はデータベース接続、失敗時はエラー情報
@@ -150,12 +168,27 @@ def init_database(db_path: str = DB_DIR) -> DatabaseInitializationResult:
     try:
         # 必要なインポートをローカルで行う
         import kuzu
+        from upsert.infrastructure.variables import get_db_dir, IN_MEMORY_MODE
         
-        # ディレクトリが存在しない場合は作成
-        os.makedirs(db_path, exist_ok=True)
-        
-        # データベース接続
-        db = kuzu.Database(db_path)
+        # db_pathが指定されていない場合は変数から取得
+        if db_path is None:
+            db_path = get_db_dir()
+            
+        # in_memoryが指定されていない場合は変数から取得
+        if in_memory is None:
+            in_memory = IN_MEMORY_MODE
+            
+        # ディスクモードの場合のみディレクトリを作成
+        if not in_memory:
+            # ディレクトリが存在しない場合は作成
+            os.makedirs(db_path, exist_ok=True)
+            
+            # データベース接続（ディスクモード）
+            db = kuzu.Database(db_path)
+        else:
+            # データベース接続（インメモリモード）
+            db = kuzu.Database()
+            
         conn = kuzu.Connection(db)
         
         # DDLファイルのパスを取得

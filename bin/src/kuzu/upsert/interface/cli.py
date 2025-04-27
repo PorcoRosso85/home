@@ -25,17 +25,30 @@ from upsert.application.function_type_service import (
 from upsert.infrastructure.variables import ROOT_DIR, DB_DIR, QUERY_DIR
 
 
-def handle_init_command(db_path: str = DB_DIR) -> Dict[str, Any]:
+def handle_init_command(db_path: str = None, in_memory: bool = None) -> Dict[str, Any]:
     """データベース初期化コマンドを処理する
     
     Args:
-        db_path: データベースディレクトリのパス（デフォルト: DB_DIR）
+        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
+        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
         
     Returns:
-        Dict[str, Any]: 処理結果
+        Dict[str, Any]: 処理結果、成功時は'connection'キーに接続オブジェクトを含む
     """
-    # ディレクトリが存在しない場合は作成
-    os.makedirs(db_path, exist_ok=True)
+    from upsert.infrastructure.variables import get_db_dir, IN_MEMORY_MODE
+    
+    # db_pathが指定されていない場合は変数から取得
+    if db_path is None:
+        db_path = get_db_dir()
+        
+    # in_memoryが指定されていない場合は変数から取得
+    if in_memory is None:
+        in_memory = IN_MEMORY_MODE
+    
+    # ディスクモードの場合のみディレクトリを作成
+    if not in_memory:
+        # ディレクトリが存在しない場合は作成
+        os.makedirs(db_path, exist_ok=True)
     
     # SHACL制約ファイル作成
     shapes_result = create_design_shapes()
@@ -44,25 +57,39 @@ def handle_init_command(db_path: str = DB_DIR) -> Dict[str, Any]:
         return {"success": False, "message": f"SHACL制約ファイル作成エラー: {shapes_result['message']}"}
     
     # データベース初期化
-    db_result = init_database(db_path)
+    db_result = init_database(db_path=db_path, in_memory=in_memory)
     if is_error(db_result):
         print(f"データベース初期化エラー: {db_result['message']}")
         return {"success": False, "message": f"データベース初期化エラー: {db_result['message']}"}
     
     print("データベースと制約ファイルの初期化が完了しました")
-    return {"success": True, "message": "データベースと制約ファイルの初期化が完了しました"}
+    # 接続オブジェクトを含めて返す
+    return {
+        "success": True, 
+        "message": "データベースと制約ファイルの初期化が完了しました",
+        "connection": db_result["connection"]  # 接続オブジェクトを保持
+    }
 
 
-def handle_add_command(json_file: str) -> Dict[str, Any]:
+def handle_add_command(json_file: str, db_path: str = None, in_memory: bool = None, 
+                   connection: Any = None) -> Dict[str, Any]:
     """関数型追加コマンドを処理する
     
     Args:
         json_file: JSONファイルのパス
+        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
+        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
+        connection: 既存のデータベース接続（デフォルト: None、新規接続を作成）
         
     Returns:
         Dict[str, Any]: 処理結果
     """
-    success, message = add_function_type_from_json(json_file)
+    success, message = add_function_type_from_json(
+        json_file, 
+        db_path=db_path, 
+        in_memory=in_memory,
+        connection=connection
+    )
     if success:
         print(message)
         return {"success": True, "message": message}
@@ -71,12 +98,17 @@ def handle_add_command(json_file: str) -> Dict[str, Any]:
         return {"success": False, "message": message}
 
 
-def handle_list_command() -> None:
-    """関数型一覧表示コマンドを処理する"""
+def handle_list_command(db_path: str = None, in_memory: bool = None) -> None:
+    """関数型一覧表示コマンドを処理する
+    
+    Args:
+        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
+        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
+    """
     # データベース接続と関数型一覧取得
     from upsert.infrastructure.database.connection import get_connection
     # クエリローダー付きで接続を取得するように修正
-    db_result = get_connection(with_query_loader=True)
+    db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
     if is_error(db_result):
         print(f"データベース接続エラー: {db_result['message']}")
         return
@@ -97,16 +129,18 @@ def handle_list_command() -> None:
         print(f"- {func['title']}: {func['description']}")
 
 
-def handle_get_command(function_type_title: str) -> None:
+def handle_get_command(function_type_title: str, db_path: str = None, in_memory: bool = None) -> None:
     """関数型詳細表示コマンドを処理する
     
     Args:
         function_type_title: 関数型のタイトル
+        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
+        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
     """
     # データベース接続
     from upsert.infrastructure.database.connection import get_connection
     # クエリローダー付きで接続を取得するように修正
-    db_result = get_connection(with_query_loader=True)
+    db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
     if is_error(db_result):
         print(f"データベース接続エラー: {db_result['message']}")
         return
@@ -176,24 +210,24 @@ def main() -> None:
     
     # データベース初期化
     if args["init"]:
-        result = handle_init_command()
+        result = handle_init_command() # デフォルトのパスと設定を使用
         return
     
     # 関数の追加
     if args["add"]:
-        result = handle_add_command(args["add"])
+        result = handle_add_command(args["add"]) # デフォルトのパスと設定を使用
         if not result["success"]:
             print(f"コマンド実行エラー: {result['message']}")
         return
     
     # 関数一覧の表示
     if args["list"]:
-        handle_list_command()
+        handle_list_command() # デフォルトのパスと設定を使用
         return
     
     # 関数詳細の表示
     if args["get"]:
-        handle_get_command(args["get"])
+        handle_get_command(args["get"]) # デフォルトのパスと設定を使用
         return
 
 
@@ -248,7 +282,12 @@ def test_cli_e2e() -> None:
         import upsert.infrastructure.variables as vars
         original_db_dir = vars.DB_DIR
         original_query_dir = vars.QUERY_DIR
+        original_in_memory = vars.IN_MEMORY_MODE
+        
+        # テスト用の環境変数を設定
         vars.DB_DIR = test_db_dir
+        vars.IN_MEMORY_MODE = True  # テスト時はインメモリモードを使用
+        
         # テスト実行中も正しいクエリディレクトリを参照するように設定
         # QUERY_DIRはオリジナルのままにする（クエリファイルはそのまま使用）
         
@@ -280,41 +319,40 @@ def test_cli_e2e() -> None:
         # ディレクトリの存在確認
         assert os.path.exists(test_db_dir), f"テストDBディレクトリが存在しません: {test_db_dir}"
         
-        # 初期化コマンドのテスト
-        init_result = handle_init_command(test_db_dir)
+        # インメモリモードで初期化コマンドのテスト
+        init_result = handle_init_command(db_path=test_db_dir, in_memory=True)
         assert init_result["success"], f"データベース初期化に失敗しました: {init_result.get('message', '不明なエラー')}"
         
-        # 関数追加コマンドのテスト
-        add_result = handle_add_command(test_json_path)
+        # 初期化で得られた接続を使用
+        db_connection = init_result["connection"]
+        
+        # 関数追加コマンドのテスト（初期化で得た接続を再利用）
+        add_result = handle_add_command(
+            test_json_path, 
+            db_path=test_db_dir, 
+            in_memory=True,
+            connection=db_connection  # 既存の接続を使用
+        )
         assert add_result["success"], f"関数型の追加に失敗しました: {add_result.get('message', '不明なエラー')}"
         
-        # CLI呼び出し後の結果を検証するために関数をオーバーライド
-        original_list_command = handle_list_command
-        original_get_command = handle_get_command
-        
-        def patched_list_command():
-            # データベース接続と関数型一覧取得
-            from upsert.infrastructure.database.connection import get_connection
-            # クエリローダー付きで接続を取得するように修正
-            db_result = get_connection(with_query_loader=True)
-            if is_error(db_result):
-                return {"success": False, "message": f"データベース接続エラー: {db_result['message']}"}
-            
-            # 関数型一覧取得
-            function_type_list = get_all_function_types(db_result["connection"])
+        # 関数一覧取得のカスタム関数（同じ接続を使用）
+        def get_function_list(connection):
+            # 同じ接続を使って関数型一覧を取得
+            function_type_list = get_all_function_types(connection)
             if is_error(function_type_list):
                 return {"success": False, "message": f"関数型一覧取得エラー: {function_type_list['message']}"}
             
             return {"success": True, "functions": function_type_list["functions"]}
         
-        # 関数一覧コマンドのテスト
-        list_result = patched_list_command()
+        # 関数一覧コマンドのテスト（同じ接続を使用）
+        list_result = get_function_list(db_connection)
         assert list_result["success"], f"関数一覧取得に失敗しました: {list_result.get('message', '不明なエラー')}"
         assert any(f["title"] == "TestE2EFunction" for f in list_result["functions"]), "テスト用関数が一覧に見つかりません"
         
         # 設定を元に戻す
         vars.DB_DIR = original_db_dir
         vars.QUERY_DIR = original_query_dir
+        vars.IN_MEMORY_MODE = original_in_memory
     
     except Exception as e:
         assert False, f"E2Eテストが失敗しました: {str(e)}"

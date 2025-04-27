@@ -91,7 +91,8 @@ CREATE NODE TABLE IntermediateStep (
 // リレーションシップテーブル定義
 CREATE REL TABLE HasParameter (
   FROM FunctionType TO Parameter,
-  required BOOLEAN
+  required BOOLEAN,
+  order_index INT
 );
 
 CREATE REL TABLE ReturnsType (
