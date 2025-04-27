@@ -8,6 +8,15 @@
 2. CSVファイルを配信する
 3. ブラウザ側でWasmを使ってCSVデータを解析する
 
+## 命名規則
+
+- TypeScriptのコードは一般的な慣習に沿って以下の命名規則を使用します：
+  - 変数・関数名：camelCase （例：`initializeDatabase`, `createConnection`）
+  - クラス・型・インターフェース名：PascalCase （例：`DatabaseConfig`, `KuzuConnection`）
+  - 定数：UPPER_SNAKE_CASE （例：`MAX_CONNECTIONS`, `DEFAULT_TIMEOUT`）
+  - ファイル名：kebab-case.ts （例：`database-service.ts`）
+  - コンポーネントファイル：PascalCase.tsx （例：`DataTable.tsx`）
+
 ## 制約事項
 
 ### 許可される変更

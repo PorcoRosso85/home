@@ -1,12 +1,12 @@
 // Kuzu-WASM初期化と実行
-// Denoの標準的なインポート構文を使用し、WASMモジュールを適切に読み込む
-// WARN: npm呼び出しだとうまくいかないためモジュールを直接指定している
-import * as KuzuWasm from "../node_modules/kuzu-wasm";
-
-// NOTE: 元々は相対パスでのインポートを使用していました
-// node_modulesからの相対パスに変更することでViteのWASMプラグインが正しく機能するようになっていましたが、
-// 現在はoptimizeDepsの設定により、npm:プレフィックスを使用しても適切に動作します
-// 旧: import * as KuzuWasm from "../node_modules/kuzu-wasm";
+// 統一された初期化処理を使用して実装
+import { 
+  initializeDatabase, 
+  setupUserTable, 
+  isError, 
+  loadCsvData, 
+  cleanupDatabaseResources 
+} from './infrastructure/database/databaseService';
 
 console.log("Kuzu-WASM ESMモジュールを読み込みました");
 
@@ -24,81 +24,65 @@ async function runKuzuDemo() {
   try {
     appendOutput("Kuzu-Wasmを初期化中...");
     
-    // Kuzuモジュールの初期化
-    appendOutput("KuzuWasmデフォルトエクスポート: " + typeof KuzuWasm.default);
-    appendOutput("KuzuWasmモジュールキー: " + Object.keys(KuzuWasm).join(", "));
+    // 統一されたデータベース初期化処理
+    const dbResult = await initializeDatabase();
     
-    // ESMとして正しくインポートするためのコード
-    const kuzu = KuzuWasm.default || KuzuWasm;
-    appendOutput("Kuzuインスタンス型: " + typeof kuzu);
-    
-    // DB初期化
-    // メモリ内にDBを作成
-    const db = new kuzu.Database("");
-    appendOutput("データベースを作成しました");
-    
-    // 接続を作成
-    const conn = new kuzu.Connection(db);
-    
-    appendOutput("データベースに接続しました");
-    
-    // CSVファイルの読み込み
-    try {
-      appendOutput("CSVファイルを読み込み中...");
-      const response = await fetch('/remote_data.csv');
-      const csvData = await response.text();
-      appendOutput(`CSVデータ: ${csvData.substring(0, 100)}...`);
-      
-      // CSVをkuzu FS領域に書き込む
-      if (kuzu.FS) {
-        await kuzu.FS.writeFile("/remote_data.csv", csvData);
-        appendOutput("CSVファイルをkuzu FSに書き込みました");
-      } else {
-        appendOutput("警告: kuzu.FSが利用できません。ファイルシステムアクセスをスキップします");
-      }
-    } catch (error) {
-      appendOutput(`CSVファイル読み込みエラー: ${error.message}`);
+    // エラーチェック
+    if (isError(dbResult)) {
+      appendOutput(`エラー: ${dbResult.message}`);
+      return;
     }
     
-    // ユーザーテーブル作成
+    const { kuzu, db, conn } = dbResult;
+    appendOutput("Kuzuインスタンス型: " + typeof kuzu);
+    appendOutput("データベースを作成しました");
+    appendOutput("データベースに接続しました");
+    
+    // ユーザーテーブルのセットアップ
+    const setupError = await setupUserTable(conn);
+    if (setupError) {
+      appendOutput(`エラー: ${setupError.message}`);
+      await cleanupDatabaseResources(conn, db);
+      return;
+    }
+    
+    // CSVファイルの読み込み
+    const csvError = await loadCsvData(conn, kuzu);
+    if (csvError) {
+      appendOutput(`警告: ${csvError.message}`);
+      // CSVエラーは致命的でないため、処理を継続
+    }
+    
+    // クエリ実行
     try {
-      const createUserTable = "CREATE NODE TABLE User(id INT64, name STRING, country STRING, PRIMARY KEY (id))";
-      appendOutput(`クエリ実行: ${createUserTable}`);
-      const createResult = await conn.query(createUserTable);
-      appendOutput("テーブル作成完了");
-      
-      // CSVデータの読み込み（FSから）
-      if (kuzu.FS) {
-        const loadData = "COPY User FROM '/remote_data.csv'";
-        appendOutput(`クエリ実行: ${loadData}`);
-        const loadResult = await conn.query(loadData);
-        appendOutput("データ読み込み完了");
-      }
-      
-      // クエリ実行
       const query = "MATCH (a:User) RETURN a.*";
       appendOutput(`クエリ実行: ${query}`);
       const queryResult = await conn.query(query);
       
-      // 結果の取得
-      const allObjects = await queryResult.getAllObjects();
-      appendOutput(`クエリ結果: ${JSON.stringify(allObjects, null, 2)}`);
-      
-      await queryResult.close();
+      // 結果の取得（結果形式によって処理を分岐）
+      let resultJson;
+      if (queryResult.table) {
+        // tableプロパティを持つ場合
+        const resultTable = queryResult.table.toString();
+        resultJson = JSON.parse(resultTable);
+      } else if (queryResult.getAllObjects) {
+        // getAllObjects()メソッドを持つ場合
+        resultJson = await queryResult.getAllObjects();
+      } else {
+        // その他の場合はオブジェクトとして扱う
+        resultJson = queryResult;
+      }
+      appendOutput(`クエリ結果: ${JSON.stringify(resultJson, null, 2)}`);
     } catch (error) {
-      appendOutput(`テーブル作成/クエリ実行エラー: ${error.message}`);
+      appendOutput(`クエリ実行エラー: ${error.message}`);
     }
     
     // クリーンアップ
-    appendOutput("接続をクローズしています...");
-    try {
-      await conn.close();
-      appendOutput("接続がクローズされました");
-      
-      await db.close();
-      appendOutput("データベースがクローズされました");
-    } catch (error) {
-      appendOutput(`クリーンアップエラー: ${error.message}`);
+    const cleanupError = await cleanupDatabaseResources(conn, db);
+    if (cleanupError) {
+      appendOutput(`クリーンアップ警告: ${cleanupError.message}`);
+    } else {
+      appendOutput("リソースを正常にクリーンアップしました");
     }
     
     appendOutput("デモ完了");

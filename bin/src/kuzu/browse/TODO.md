@@ -25,32 +25,32 @@
 
 ### 2. API利用パターンの統一
 
-- [ ] `/home/nixos/bin/src/kuzu/browse/src/interface/App.tsx`
+- [x] `/home/nixos/bin/src/kuzu/browse/src/interface/App.tsx`
   - Userテーブルのスキーマを`main.ts`と一致させる
   - APIの使用パターンを統一（`new kuzu.Database("")`パターンに統一）
 
 ### 3. ビルド・設定の整理
 
-- [ ] `/home/nixos/bin/src/kuzu/browse/build.ts`
+- [x] `/home/nixos/bin/src/kuzu/browse/build.ts`
   - optimizeDepsの除外リストを確認し、インポート戦略と一致させる
 
-- [ ] `/home/nixos/bin/src/kuzu/browse/index.html`
+- [x] `/home/nixos/bin/src/kuzu/browse/index.html`
   - メタタグとViteサーバー設定の間でCOOP/COEPヘッダーの重複を確認し、一方に統一することを検討
 
 ## エラーアプローチ統一フェーズ
 
 ### 1. エラーハンドリングの統一
 
-- [ ] `/home/nixos/bin/src/kuzu/browse/src/interface/App.tsx`
+- [x] `/home/nixos/bin/src/kuzu/browse/src/interface/App.tsx`
   - エラー処理を改善し、適切なクリーンアップを実装
   - エラーメッセージを標準化
 
-- [ ] `/home/nixos/bin/src/kuzu/browse/src/main.ts`
+- [x] `/home/nixos/bin/src/kuzu/browse/src/main.ts`
   - エラー処理のパターンを確認し、App.tsxと一貫性を持たせる
 
 ### 2. 例外処理の追加
 
-- [ ] `/home/nixos/bin/src/kuzu/browse/build.ts`
+- [x] `/home/nixos/bin/src/kuzu/browse/build.ts`
   - エラーハンドリングを追加し、サーバー起動失敗時の適切な対応を実装
 
 - [ ] `/home/nixos/bin/src/kuzu/browse/mod.ts`

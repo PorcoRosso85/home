@@ -79,11 +79,17 @@ async function createViteDevServer() {
 async function main() {
   console.log("Kuzu-Browse Deno Demo - Viteでの開発サーバー起動");
   
-  // 開発サーバーを起動
-  const devServer = await createViteDevServer();
-  await devServer.listen();
-  console.log("サーバー起動完了");
-  devServer.printUrls();
+  try {
+    // 開発サーバーを起動
+    const devServer = await createViteDevServer();
+    await devServer.listen();
+    console.log("サーバー起動完了");
+    devServer.printUrls();
+  } catch (error) {
+    console.error("サーバー起動中にエラーが発生しました:", error.message);
+    console.error("スタックトレース:", error.stack);
+    Deno.exit(1);  // エラーコードと共に終了
+  }
 }
 
 // スクリプトが直接実行された場合のみメイン関数を実行

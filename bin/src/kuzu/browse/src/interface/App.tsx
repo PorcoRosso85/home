@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { 
+  initializeDatabase, 
+  setupUserTable, 
+  isError,
+  loadCsvData,
+  cleanupDatabaseResources
+} from '../infrastructure/database/databaseService';
 
 // 最小構成のKuzu-Wasmアプリケーション
 const App = () => {
@@ -15,34 +22,48 @@ const App = () => {
         setLoading(true);
         console.log('Kuzu初期化開始...');
         
-        // Kuzu-Wasmのロード
-        console.log('Kuzu-Wasmモジュールのロード開始...');
-        const kuzuWasm = await import('npm:kuzu-wasm@^0.8.0');
-        console.log('Kuzu-Wasmモジュールのロード完了');
+        // 統一されたデータベース初期化処理
+        const dbResult = await initializeDatabase();
         
-        // Kuzuのインスタンス化
-        console.log('Kuzuインスタンス化開始...');
-        const kuzu = await kuzuWasm.default();
-        console.log('Kuzuインスタンス化完了');
+        // エラーチェック
+        if (isError(dbResult)) {
+          setError(dbResult.message);
+          return;
+        }
         
-        // インメモリデータベースの作成
-        console.log('データベース作成開始...');
-        const db = await kuzu.Database();
-        console.log('データベース作成完了');
+        const { kuzu, db, conn } = dbResult;
         
-        // データベース接続の作成
-        console.log('データベース接続開始...');
-        const conn = await kuzu.Connection(db);
-        console.log('データベース接続完了');
+        // ユーザーテーブルのセットアップ
+        const setupError = await setupUserTable(conn);
+        if (setupError) {
+          setError(setupError.message);
+          await cleanupDatabaseResources(conn, db);
+          return;
+        }
         
-        // 基本的なサンプルデータを作成
-        await conn.execute(`CREATE NODE TABLE User(name STRING, age INT64, PRIMARY KEY (name))`);
-        await conn.execute(`CREATE (u:User {name: 'Alice', age: 35})`);
-        await conn.execute(`CREATE (u:User {name: 'Bob', age: 42})`);
+        // CSVデータの読み込み (オプション)
+        // const csvError = await loadCsvData(conn, kuzu);
+        // if (csvError) {
+        //   console.warn(csvError.message);
+        // }
         
         // クエリの実行とデータ表示
-        const queryResult = await conn.execute(`MATCH (a:User) RETURN a.*;`);
-        const resultJson = JSON.parse(queryResult.table.toString());
+        const queryResult = await conn.query(`MATCH (a:User) RETURN a.*;`);
+        
+        // 結果の取得（結果形式によって処理を分岐）
+        let resultJson;
+        if (queryResult.table) {
+          // tableプロパティを持つ場合
+          const resultTable = queryResult.table.toString();
+          resultJson = JSON.parse(resultTable);
+        } else if (queryResult.getAllObjects) {
+          // getAllObjects()メソッドを持つ場合
+          resultJson = await queryResult.getAllObjects();
+        } else {
+          // その他の場合はオブジェクトとして扱う
+          resultJson = queryResult;
+        }
+        
         setResult(resultJson);
         
         // グローバル変数として保存（デバッグ用）
@@ -63,6 +84,15 @@ const App = () => {
     };
     
     initKuzu();
+    
+    // クリーンアップ関数
+    return () => {
+      // コンポーネントのアンマウント時にリソースをクリーンアップ
+      if (window.conn && window.db) {
+        cleanupDatabaseResources(window.conn, window.db)
+          .catch(err => console.error('クリーンアップエラー:', err));
+      }
+    };
   }, []);
 
   return (
