@@ -49,8 +49,10 @@ async function runKuzuDemo() {
     // CSVファイルの読み込み
     const csvError = await loadCsvData(conn, kuzu);
     if (csvError) {
-      appendOutput(`警告: ${csvError.message}`);
-      // CSVエラーは致命的でないため、処理を継続
+      appendOutput(`エラー: ${csvError.message}`);
+      // フォールバック処理は禁止されているため、エラーが発生したら処理を中断
+      await cleanupDatabaseResources(conn, db);
+      return;
     }
     
     // クエリ実行

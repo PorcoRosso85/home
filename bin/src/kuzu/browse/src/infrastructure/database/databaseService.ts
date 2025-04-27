@@ -141,13 +141,56 @@ export const loadCsvData = async (
       console.log('CSVファイルをkuzu FSに書き込みました');
       
       // CSVデータの読み込み
+      // 1. CSVファイルの内容を解析して主キー値を抽出
+      const csvLines = csvData.split('\n');
+      const headerLine = csvLines[0];
+      const dataLines = csvLines.slice(1);
+      
+      // 2. ヘッダーから主キーのインデックスを特定
+      const headers = headerLine.split(',');
+      const idIndex = headers.indexOf('id');
+      
+      if (idIndex >= 0) {
+        // 3. CSVから主キー値を抽出
+        const primaryKeys = dataLines
+          .filter(line => line.trim() !== '')
+          .map(line => {
+            const values = line.split(',');
+            return values[idIndex];
+          });
+        
+        // 4. CSVデータを優先するため、重複する可能性のある既存レコードを削除
+        if (primaryKeys.length > 0) {
+          const deleteQuery = `MATCH (u:User) WHERE u.id IN [${primaryKeys.join(', ')}] DELETE u`;
+          console.log(`重複防止のためのレコード削除: ${deleteQuery}`);
+          try {
+            await conn.query(deleteQuery);
+            console.log('既存の重複レコードを削除しました');
+          } catch (deleteError) {
+            console.error('既存レコードの削除エラー:', deleteError.message);
+            return createError(
+              'DELETE_ERROR',
+              deleteError.message,
+              deleteError
+            );
+          }
+        }
+      }
+      
+      // 5. CSVデータの読み込み
       const loadData = `COPY User FROM '${csvPath}'`;
       console.log(`クエリ実行: ${loadData}`);
       try {
         const loadResult = await conn.query(loadData);
         console.log('CSVデータ読み込み完了:', loadResult);
       } catch (loadError) {
-        console.warn('CSVデータ読み込みに問題が発生しましたが、続行します:', loadError.message);
+        // エラーメッセージはそのまま出力（ライブラリのエラーを保持）
+        console.error('CSVデータ読み込みエラー:', loadError.message);
+        return createError(
+          'CSV_IMPORT_ERROR',
+          loadError.message,
+          loadError
+        );
       }
       return null;
     } else {
