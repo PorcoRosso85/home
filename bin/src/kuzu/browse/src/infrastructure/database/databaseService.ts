@@ -7,6 +7,8 @@
  * 統一されたインターフェースでデータベースとの連携を行うためのモジュール
  */
 
+import { DB_DIR } from '../variables';
+
 // WARN: npm呼び出しだとうまくいかないためモジュールを直接指定している
 // 注: ここでは実際のインポートは行わず、initializeDatabase内で動的にインポートします
 
@@ -70,10 +72,13 @@ export const initializeDatabase = async (): Promise<DatabaseResult> => {
     const kuzu = kuzuWasm.default || kuzuWasm;
     console.log('Kuzuインスタンス化完了');
     
-    // インメモリデータベースの作成
-    console.log('データベース作成開始...');
-    const db = new kuzu.Database("");
+    // 実DBファイルを参照
+    console.log(`データベース作成開始...パス: ${DB_DIR}`);
+    const db = new kuzu.Database(DB_DIR);
     console.log('データベース作成完了');
+    
+    // グローバルにDBパスを保存（UI表示用）
+    window.db_path = DB_DIR;
     
     // データベース接続の作成
     console.log('データベース接続開始...');
@@ -100,11 +105,24 @@ export const setupUserTable = async (conn: any): Promise<DatabaseError | null> =
   try {
     // 統一されたユーザーテーブルスキーマ
     const createUserTable = "CREATE NODE TABLE User(id INT64, name STRING, country STRING, PRIMARY KEY (id))";
-    await conn.query(createUserTable);
     
-    // サンプルデータの挿入
-    await conn.query(`CREATE (u:User {id: 1, name: 'Alice', country: 'Japan'})`);
-    await conn.query(`CREATE (u:User {id: 2, name: 'Bob', country: 'USA'})`);
+    try {
+      await conn.query(createUserTable);
+      console.log("Userテーブルを作成しました");
+      
+      // サンプルデータの挿入（新規テーブル作成時のみ）
+      await conn.query(`CREATE (u:User {id: 1, name: 'Alice', country: 'Japan'})`);
+      await conn.query(`CREATE (u:User {id: 2, name: 'Bob', country: 'USA'})`);
+      console.log("サンプルデータを挿入しました");
+    } catch (tableError) {
+      // テーブルが既に存在する場合はエラーを無視
+      if (tableError.message && tableError.message.includes("already exists")) {
+        console.log("Userテーブルは既に存在します。スキップします");
+      } else {
+        // その他のエラーは再スローして外側のcatchで処理
+        throw tableError;
+      }
+    }
     
     return null;
   } catch (error) {

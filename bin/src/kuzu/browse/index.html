@@ -3,34 +3,29 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kuzu-Wasm 最小構成デモ</title>
+    <title>Kuzu-Wasm データベースブラウザ</title>
     <!-- Cross-Origin-Isolation設定は build.ts のヘッダーで設定されています -->
     <style>
       body {
         font-family: sans-serif;
-        max-width: 800px;
+        max-width: 1000px;
         margin: 0 auto;
         padding: 20px;
       }
-      code {
-        margin-top: 20px; 
+      pre {
+        margin-top: 10px; 
         padding: 10px; 
-        display: block; 
         border: 1px solid #ccc; 
         background-color: #f9f9f9; 
-        white-space: pre-wrap;
+        overflow: auto;
+        max-height: 400px;
       }
     </style>
     <!-- メインアプリケーションスクリプト (ESMとして読み込み) -->
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
-    <h1>Kuzu-Wasm 最小構成デモ</h1>
-    <p>このデモはDeno+Viteを使用してブラウザ内でKuzu-Wasmを実行する最小構成の例です。</p>
-    
-    <h2>実行結果</h2>
-    <code id="output"></code>
-
-    <!-- スクリプトはすべてmain.tsに移動しました -->
+    <!-- Reactアプリケーションのマウントポイント -->
+    <div id="root"></div>
   </body>
 </html>
