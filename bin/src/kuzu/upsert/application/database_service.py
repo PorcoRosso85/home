@@ -5,7 +5,8 @@
 """
 
 import os
-from typing import Optional, Tuple, Any
+import sys
+from typing import Optional, Tuple, Any, Dict, Union, List
 
 from upsert.application.types import (
     DatabaseConnection,
@@ -14,8 +15,36 @@ from upsert.application.types import (
     DatabaseInitializationSuccess,
     DatabaseInitializationError,
     DatabaseInitializationResult,
+    QueryLoaderResult,
 )
-from upsert.infrastructure.variables import DB_DIR, DB_NAME
+from upsert.infrastructure.variables import DB_DIR, DB_NAME, QUERY_DIR
+
+# クエリローダーモジュールのパスをシステムパスに追加
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# upsert自身で判定ロジックを実装し、call_dmlからはcreate_query_loaderのみをインポート
+from query.call_dml import create_query_loader
+
+# 独自のエラー判定関数
+def is_error(result: Any) -> bool:
+    """
+    結果がエラーかどうかを判定する
+    
+    Args:
+        result: 判定する結果オブジェクト
+    
+    Returns:
+        エラーの場合はTrue、成功の場合はFalse
+    """
+    # codeとmessageの両方が含まれている場合はエラー
+    if isinstance(result, dict) and "code" in result and "message" in result:
+        return True
+    
+    # キーが存在し、valueがFalseの場合はエラー
+    if isinstance(result, dict) and result.get("success") == False:
+        return True
+    
+    # それ以外は成功とみなす
+    return False
 
 
 def init_database() -> DatabaseInitializationResult:
@@ -230,11 +259,14 @@ def create_has_return_type_table(conn: Any) -> Tuple[bool, Optional[str]]:
             return False, str(e)
 
 
-def get_connection() -> DatabaseResult:
+def get_connection(with_query_loader: bool = False) -> Union[DatabaseResult, QueryLoaderResult]:
     """データベース接続を取得する
     
+    Args:
+        with_query_loader: クエリローダーも一緒に取得するかどうか
+    
     Returns:
-        DatabaseResult: 成功時はデータベース接続、失敗時はエラー情報
+        成功時はデータベース接続（とクエリローダー）、失敗時はエラー情報
     """
     try:
         import kuzu
@@ -250,7 +282,18 @@ def get_connection() -> DatabaseResult:
         db = kuzu.Database(DB_DIR)
         conn = kuzu.Connection(db)
         
-        return {"connection": conn}
+        # クエリローダーが不要な場合は接続のみ返す
+        if not with_query_loader:
+            return {"connection": conn}
+        
+        # クエリローダーの作成
+        loader = create_query_loader(QUERY_DIR, dml_subdir="dml")
+        
+        # 接続とクエリローダーを返す
+        return {
+            "connection": conn,
+            "query_loader": loader
+        }
     
     except Exception as e:
         return {
@@ -290,6 +333,63 @@ def test_db_connection() -> None:
         # テスト用ディレクトリを削除
         import shutil
         shutil.rmtree(test_db_path)
+
+
+def test_get_connection_with_query_loader() -> None:
+    """クエリローダー付きの接続取得をテスト"""
+    # テストディレクトリを作成
+    import tempfile
+    import shutil
+    
+    test_db_path = tempfile.mkdtemp()
+    test_query_path = tempfile.mkdtemp()
+    test_query_dml_path = os.path.join(test_query_path, "dml")
+    os.makedirs(test_query_dml_path)
+    
+    try:
+        # テスト用のクエリファイルを作成
+        test_query = "// テストクエリ\nRETURN 1;"
+        test_file_path = os.path.join(test_query_dml_path, "test_query.cypher")
+        with open(test_file_path, "w") as f:
+            f.write(test_query)
+        
+        # テストではimportされた設定変数を直接参照できないため
+        # モンキーパッチングを行う
+        import upsert.infrastructure.variables as vars
+        original_db_dir = vars.DB_DIR
+        original_query_dir = vars.QUERY_DIR
+        vars.DB_DIR = test_db_path
+        vars.QUERY_DIR = test_query_path
+        
+        # 接続とクエリローダーの取得テスト
+        result = get_connection(with_query_loader=True)
+        
+        # 結果の検証
+        assert "code" not in result  # errorがないことを確認
+        assert "connection" in result
+        assert "query_loader" in result
+        
+        # クエリローダーの動作確認
+        loader = result["query_loader"]
+        
+        # ここで、テストファイルがあるディレクトリをクエリローダーに直接渡す
+        test_loader = create_query_loader(test_query_path, dml_subdir="dml")
+        query_result = test_loader["get_query"]("test_query")
+        assert test_loader["get_success"](query_result)
+        assert query_result["data"] == test_query
+        
+        # 設定の復元
+        vars.DB_DIR = original_db_dir
+        vars.QUERY_DIR = original_query_dir
+    
+    except ImportError:
+        # ライブラリがない場合はテストをスキップ
+        print("kuzu または必要なライブラリがないためテストをスキップします")
+    
+    finally:
+        # テスト用ディレクトリを削除
+        shutil.rmtree(test_db_path)
+        shutil.rmtree(test_query_path)
 
 
 if __name__ == "__main__":

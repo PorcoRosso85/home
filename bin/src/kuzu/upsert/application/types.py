@@ -4,7 +4,7 @@
 このモジュールでは、アプリケーションサービスで使用する型定義を行います。
 """
 
-from typing import TypedDict, Union, List, Optional, Dict, Any, Literal
+from typing import TypedDict, Union, List, Optional, Dict, Any, Literal, Callable
 
 
 # データベース関連の型
@@ -142,6 +142,36 @@ class FileOperationError(TypedDict):
 
 
 FileOperationResult = Union[FileOperationSuccess, FileOperationError]
+
+
+# クエリローダーサービスの型
+class QueryLoaderSuccess(TypedDict):
+    """クエリローダー成功結果"""
+    connection: Any  # DB接続
+    query_loader: Dict[str, Callable]  # クエリローダー
+
+
+class QueryLoaderError(TypedDict):
+    """クエリローダーエラー"""
+    code: str
+    message: str
+
+
+QueryLoaderResult = Union[QueryLoaderSuccess, QueryLoaderError]
+
+
+class QueryExecutionSuccess(TypedDict):
+    """クエリ実行成功結果"""
+    data: Any
+
+
+class QueryExecutionError(TypedDict):
+    """クエリ実行エラー"""
+    code: str
+    message: str
+
+
+QueryExecutionResult = Union[QueryExecutionSuccess, QueryExecutionError]
 
 
 # ヘルパー関数
