@@ -1,4 +1,3 @@
-#!/usr/bin/env -S nix run nixpkgs#deno -- run -A
 // build.ts - Kuzu-Wasm用の最小構成Vite開発サーバー
 import { createServer } from "npm:vite";
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
@@ -89,5 +88,10 @@ async function main() {
   devServer.printUrls();
 }
 
-// スクリプト実行
-await main();
+// スクリプトが直接実行された場合のみメイン関数を実行
+if (import.meta.main) {
+  await main();
+}
+
+// 関数をエクスポート
+export { createViteDevServer, main };
