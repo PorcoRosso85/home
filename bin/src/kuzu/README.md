@@ -33,10 +33,10 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
 
 ## 機能
 
-- Kuzuグラフデータベースによる関数情報の保存と管理
-- SHACL制約による関数メタデータの検証
-- JSONフォーマットによる関数定義の追加
-- 関数一覧の表示と詳細情報の取得
+- Kuzuグラフデータベースによる関数型情報の保存と管理
+- SHACL制約による関数型メタデータの検証
+- JSONフォーマットによる関数型定義の追加
+- 関数型一覧の表示と詳細情報の取得
 
 ## 要件
 
@@ -54,6 +54,6 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
 - `domain/`: ドメイン層
 - `infrastructure/`: インフラ層
 - `design_shapes.ttl`: SHACL制約定義ファイル
-- `example_function.json`: サンプル関数定義
+- `example_function.json`: サンプル関数型定義
 - `.venv`: 仮想環境ディレクトリ
 - `db`: データベースディレクトリ（初期化時に作成）
