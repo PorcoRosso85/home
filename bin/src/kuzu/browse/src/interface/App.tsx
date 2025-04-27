@@ -9,6 +9,60 @@ const App = () => {
   const [error, setError] = useState<string | null>(null);
   // シンプルなクエリ（スキーマ非依存）
   const [query, setQuery] = useState<string>('');
+  
+  // BigInt値を文字列に変換するヘルパー関数
+  const jsonStringifyReplacer = (key, value) => {
+    // BigInt型の値を文字列に変換
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    return value;
+  };
+  const fetchAllNodeIds = async () => {
+    try {
+      setLoading(true);
+      
+      // 直接Cypherクエリを実行
+      const nodeIdQuery = `
+        MATCH (n)
+        RETURN n
+        LIMIT 1000
+      `;
+      
+      // データベース接続がない場合は接続
+      if (!window.conn) {
+        const connectResult = await databaseService.connect();
+        if (!connectResult.success) {
+          setError(connectResult.error);
+          return;
+        }
+      }
+      
+      // 直接クエリを実行
+      const queryResult = await window.conn.query(nodeIdQuery);
+      
+      // 結果の変換
+      let resultJson;
+      if (queryResult.table) {
+        const resultTable = queryResult.table.toString();
+        resultJson = JSON.parse(resultTable);
+      } else if (queryResult.getAllObjects) {
+        resultJson = await queryResult.getAllObjects();
+      } else {
+        resultJson = queryResult;
+      }
+      
+      setQuery(nodeIdQuery);
+      setResult(resultJson);
+      setError(null);
+      
+    } catch (err) {
+      console.error('ノードID取得エラー:', err);
+      setError(`ノードIDの取得に失敗しました: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Kuzuの初期化
   useEffect(() => {
@@ -61,10 +115,30 @@ const App = () => {
       
       <div>
         <h2>データベース情報</h2>
+        
+        {/* クエリ操作ボタン */}
+        <div style={{ marginBottom: '15px' }}>
+          <button 
+            onClick={fetchAllNodeIds}
+            style={{ 
+              padding: '8px 12px', 
+              backgroundColor: '#4caf50', 
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginRight: '10px'
+            }}
+            disabled={loading}
+          >
+            全ノードIDを取得
+          </button>
+        </div>
+        
         {result && (
           <div>
             {query && <p>クエリ: {query}</p>}
-            <pre style={{ maxHeight: '400px', overflow: 'auto' }}>{JSON.stringify(result, null, 2)}</pre>
+            <pre style={{ maxHeight: '400px', overflow: 'auto' }}>{JSON.stringify(result, jsonStringifyReplacer, 2)}</pre>
             
             {/* DB接続情報の追加表示 */}
             <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
