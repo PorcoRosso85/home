@@ -173,7 +173,7 @@ def add_parameter(function, parameter):
 - テストは関数の入出力のみに焦点を当ててください
 - モックやスタブを活用して依存関係を分離してください
 - 別途テストファイルは作成せず、実装ファイル内に単体テストを記述してください
-- テスト関数は実装ファイルの末尾に `test_` プレフィックスを付けて定義してください
+- テストは目的を明確に示す命名を使用してください
 - テストはpytestの規約に従って記述してください（assert文を使用）
 - `if __name__ == "__main__":` ブロック内にテストケースを記述し、ファイル単体実行時にテストが実行されるようにしてください
 
@@ -183,7 +183,7 @@ def add(a: int, b: int) -> int:
     return a + b
 
 # テスト関数
-def test_add():
+def verify_addition():
     assert add(1, 2) == 3
     assert add(-1, 1) == 0
     assert add(0, 0) == 0
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     pytest.main([__file__])
     
     # または以下のように独自のテスト実行ロジックを実装することも可能
-    # test_add()
+    # verify_addition()
     # print("All tests passed!")
 ```
 

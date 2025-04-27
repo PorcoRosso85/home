@@ -1,4 +1,4 @@
-# Upsert
+# Kuzu 
 
 Kuzuグラフデータベースを用いた関数型設計ツール
 
@@ -48,12 +48,26 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
 
 ## パッケージ構造
 
-- `__main__.py`: エントリーポイント
-- `interface/cli.py`: CLIインターフェース
-- `application/`: アプリケーション層
-- `domain/`: ドメイン層
-- `infrastructure/`: インフラ層
-- `design_shapes.ttl`: SHACL制約定義ファイル
-- `example_function.json`: サンプル関数型定義
-- `.venv`: 仮想環境ディレクトリ
-- `db`: データベースディレクトリ（初期化時に作成）
+- `upsert/`: upsertモジュール（関数型定義の追加・更新）
+  - `__main__.py`: エントリーポイント
+  - `interface/cli.py`: CLIインターフェース
+  - `application/`: アプリケーション層
+  - `domain/`: ドメイン層
+  - `infrastructure/`: インフラ層
+  - `design_shapes.ttl`: SHACL制約定義ファイル
+  - `example_function.json`: サンプル関数型定義
+  - `.venv`: 仮想環境ディレクトリ
+- `query/`: queryモジュール（クエリの管理）
+  - `dml/`: DMLクエリファイル
+  - `call_dml.py`: Cypherクエリローダー（DML・DDL対応）
+- `browse/`: browseモジュール（データの閲覧）
+- `db/`: データベースディレクトリ（初期化時に作成）
+
+## テスト実行
+
+テストを実行するには、以下のコマンドを使用します：
+
+```bash
+# call_dmlモジュールのテスト実行
+/home/nixos/bin/src/kuzu/upsert/.venv/bin/python -m pytest ../query/call_dml.py
+```
