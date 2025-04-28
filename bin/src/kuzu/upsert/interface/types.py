@@ -4,7 +4,7 @@
 このモジュールでは、CLIインターフェースで使用する型定義を行います。
 """
 
-from typing import TypedDict, Union, List, Optional, Literal, Any, Dict, Tuple
+from typing import TypedDict, Union, List, Optional, Literal, Any, Dict, Tuple, Callable
 
 
 # データベース関連の型
@@ -314,6 +314,37 @@ class CommandArgs(TypedDict, total=False):
     show_examples: Optional[str]
     interactive: bool
     suggest: Optional[str]
+    debug: bool  # デバッグモードで実行するかどうか
+    verbose: bool  # 詳細表示モードで実行するかどうか
+
+
+# エラーハンドリング関連の型
+class CommandError(TypedDict):
+    """コマンド実行エラー"""
+    success: Literal[False]
+    command: str  # エラーが発生したコマンド
+    error_type: str  # エラータイプ
+    message: str  # エラーメッセージ
+    trace: Optional[str]  # スタックトレース（デバッグモードでのみ使用）
+
+
+class CommandSuccess(TypedDict):
+    """コマンド実行成功"""
+    success: Literal[True]
+    message: str  # 成功メッセージ
+    data: Optional[Dict[str, Any]]  # コマンド固有のデータ
+
+
+CommandResult = Union[CommandSuccess, CommandError]
+
+
+class CommandInfo(TypedDict):
+    """コマンド情報"""
+    name: str  # コマンド名
+    description: str  # コマンドの説明
+    usage: str  # 使用方法
+    examples: List[str]  # 使用例
+    handler: Callable  # コマンドハンドラー関数
 
 
 # ヘルパー関数

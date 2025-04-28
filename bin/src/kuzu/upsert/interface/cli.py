@@ -1,379 +1,287 @@
 #!/usr/bin/env python3
-"""関数型設計ツールのコマンドラインインターフェース"""
+"""関数型設計ツールのコマンドラインインターフェース
+
+このモジュールは動的なコマンド検出機能を実装しています。
+新しいコマンドは別のファイルに実装し、commands/ディレクトリに配置することで
+自動的に認識されます。コマンドのリストをこのファイルにハードコードしないでください。
+
+動的コマンド検出の方針:
+1. commands/ ディレクトリに新しいコマンドを実装する
+2. handle_XXX() 関数を定義する (XXXはCLI引数名と一致: init, add, list など)
+3. コマンドはCLIから自動的に検出・登録される
+"""
 
 import argparse
 import json
 import os
 import sys
-from typing import Dict, Any, List, Optional, Union
+import inspect
+from typing import Dict, Any, List, Optional, Union, Callable
 
 from upsert.interface.types import (
     CommandArgs,
     is_error,
-)
-from upsert.infrastructure.database.connection import init_database
-from upsert.application.schema_service import create_design_shapes
-from upsert.application.function_type_service import (
-    get_function_type_details,
-    get_all_function_types,
-    add_function_type_from_json,
+    CommandInfo,
+    CommandResult,
+    CommandError,
+    CommandSuccess,
 )
 from upsert.infrastructure.variables import ROOT_DIR, DB_DIR, QUERY_DIR, INIT_DIR
-from upsert.application.init_service import process_init_file, process_init_directory
-# 簡素化したquery_serviceをインポート
-from upsert.application.query_service import handle_query_command
+from upsert.interface.commands import get_command, get_command_names, get_all_commands
+from upsert.interface.commands.error_handler import (
+    handle_unknown_option,
+    print_available_commands,
+    is_debug_mode,
+    safe_execute_command,
+    handle_command_error,
+)
 
 
-def handle_init_command(db_path: str, in_memory: bool) -> Dict[str, Any]:
-    """データベースと制約ファイルを初期化"""
+def create_parser() -> argparse.ArgumentParser:
+    """コマンドライン引数パーサーを作成"""
+    parser = argparse.ArgumentParser(description='関数型設計のためのKuzuアプリ - Function.Meta.jsonからノード追加機能')
     
-    if not in_memory:
-        os.makedirs(db_path, exist_ok=True)
+    # 利用可能なコマンドを動的に検出
+    command_handlers = get_all_commands()
+    valid_commands = [cmd_name.replace('handle_', '') for cmd_name in command_handlers.keys()]
     
-    shapes_result = create_design_shapes()
-    if is_error(shapes_result):
-        print(f"SHACL制約ファイル作成エラー: {shapes_result['message']}")
-        return {"success": False, "message": f"SHACL制約ファイル作成エラー: {shapes_result['message']}"}
-    
-    db_result = init_database(db_path=db_path, in_memory=in_memory)
-    if is_error(db_result):
-        print(f"データベース初期化エラー: {db_result['message']}")
-        return {"success": False, "message": f"データベース初期化エラー: {db_result['message']}"}
-    
-    print("データベースと制約ファイルの初期化が完了しました")
-    return {
-        "success": True, 
-        "message": "データベースと制約ファイルの初期化が完了しました",
-        "connection": db_result["connection"]
-    }
-
-
-def handle_add_command(json_file: str, db_path: str, in_memory: bool, 
-                   connection: Any) -> Dict[str, Any]:
-    """関数型追加コマンドを処理する
-    
-    Args:
-        json_file: JSONファイルのパス
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
-        connection: 既存のデータベース接続
+    # 動的に検出したコマンドを追加
+    for command in valid_commands:
+        # コマンド名をハイフン付きに変換 (snake_case -> --snake-case)
+        option_name = f"--{command.replace('_', '-')}"
         
-    Returns:
-        Dict[str, Any]: 処理結果
-    """
-    success, message = add_function_type_from_json(
-        json_file, 
-        db_path=db_path, 
-        in_memory=in_memory,
-        connection=connection
-    )
-    if success:
-        print(message)
-        return {"success": True, "message": message}
-    else:
-        print(f"エラー: {message}")
-        return {"success": False, "message": message}
-
-
-def handle_list_command(db_path: str, in_memory: bool) -> None:
-    """関数型一覧表示コマンドを処理する
+        # コマンドハンドラーの関数シグネチャに基づいて引数タイプを決定
+        handler = command_handlers.get(f"handle_{command}")
+        if handler:
+            # 関数のパラメータを確認
+            params = inspect.signature(handler).parameters
+            
+            # パラメータがない、またはすべてのパラメータにデフォルト値がある場合はフラグとして追加
+            if not params or all(p.default != inspect.Parameter.empty for p in params.values()):
+                parser.add_argument(option_name, action='store_true', help=f'{command}コマンドを実行')
+            else:
+                # パラメータを必要とするコマンドの場合は値を受け取るオプションとして追加
+                parser.add_argument(option_name, help=f'{command}コマンドを実行（引数が必要）')
     
-    Args:
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
-    """
-    # データベース接続と関数型一覧取得
-    from upsert.infrastructure.database.connection import get_connection
-    # クエリローダー付きで接続を取得するように修正
-    db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
-    if is_error(db_result):
-        print(f"データベース接続エラー: {db_result['message']}")
-        return
+    # クエリパラメータとデバッグオプションの追加（共通）
+    parser.add_argument('--param', action='append', help='クエリパラメータ（例: name=value 形式で指定、複数指定可能）')
+    parser.add_argument('--debug', action='store_true', help='デバッグモードで実行（エラー時に詳細情報を表示）')
+    parser.add_argument('--verbose', action='store_true', help='詳細表示モードで実行（実行過程の詳細情報を表示）')
     
-    # 関数型一覧取得
-    function_type_list = get_all_function_types(db_result["connection"])
-    if is_error(function_type_list):
-        print(f"関数型一覧取得エラー: {function_type_list['message']}")
-        return
-    
-    # 結果表示
-    if not function_type_list["functions"]:
-        print("登録されている関数型はありません")
-        return
-    
-    print("登録されている関数型:")
-    for func in function_type_list["functions"]:
-        print(f"- {func['title']}: {func['description']}")
-
-
-def handle_init_convention_command(file_path: str, db_path: str, in_memory: bool) -> Dict[str, Any]:
-    """初期化ファイル（CONVENTION.yaml等）をデータベースに永続化するコマンドを処理する
-    
-    Args:
-        file_path: 処理するファイルのパス
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
-        
-    Returns:
-        Dict[str, Any]: 処理結果
-    """
-    # 特定のファイルが指定された場合
-    if file_path:
-        if not os.path.exists(file_path):
-            print(f"ファイルが見つかりません: {file_path}")
-            return {"success": False, "message": f"ファイルが見つかりません: {file_path}"}
-        
-        # ファイルを処理
-        result = process_init_file(file_path, db_path, in_memory)
-        if result["success"]:
-            print(result["message"])
-        else:
-            print(f"エラー: {result['message']}")
-        return result
-    
-    # ディレクトリ全体を処理
-    if not os.path.exists(INIT_DIR) or not os.path.isdir(INIT_DIR):
-        print(f"初期化ディレクトリが見つかりません: {INIT_DIR}")
-        return {"success": False, "message": f"初期化ディレクトリが見つかりません: {INIT_DIR}"}
-    
-    # ディレクトリ内のすべてのYAML/JSONファイルを処理
-    result = process_init_directory(INIT_DIR, db_path, in_memory)
-    if result["success"]:
-        print(result["message"])
-    else:
-        print(f"エラー: {result['message']}")
-    return result
-
-
-def handle_get_command(function_type_title: str, db_path: str, in_memory: bool) -> None:
-    """関数型詳細表示コマンドを処理する
-    
-    Args:
-        function_type_title: 関数型のタイトル
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
-    """
-    # データベース接続
-    from upsert.infrastructure.database.connection import get_connection
-    # クエリローダー付きで接続を取得するように修正
-    db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
-    if is_error(db_result):
-        print(f"データベース接続エラー: {db_result['message']}")
-        return
-    
-    # 関数型詳細取得
-    function_type_details = get_function_type_details(db_result["connection"], function_type_title)
-    if is_error(function_type_details):
-        print(f"関数型詳細取得エラー: {function_type_details['message']}")
-        return
-    
-    # 結果表示
-    print(json.dumps(function_type_details, indent=2, ensure_ascii=False))
-
-
-def run_tests() -> bool:
-    """テストケースを実行"""
-    import pytest
-    result = pytest.main([ROOT_DIR])
-    return result == 0
+    return parser
 
 
 def parse_arguments() -> CommandArgs:
     """コマンドライン引数を解析"""
-    parser = argparse.ArgumentParser(description='関数型設計のためのKuzuアプリ - Function.Meta.jsonからノード追加機能')
-    parser.add_argument('--init', action='store_true', help='データベース初期化（最初に実行してください）')
-    parser.add_argument('--add', help='追加するFunction.Meta.jsonファイルのパス（例: example_function.json）')
-    parser.add_argument('--list', action='store_true', help='すべての登録済み関数を一覧表示')
-    parser.add_argument('--get', help='詳細を取得する関数のタイトル（例: MapFunction）')
-    parser.add_argument('--init-convention', nargs='?', const=None, help='初期化データ（CONVENTION.yaml等）をデータベースに永続化（パス省略時はINIT_DIRディレクトリ全体を処理）')
-    parser.add_argument('--create-shapes', action='store_true', help='SHACL制約ファイルを作成（通常は--initで自動作成）')
-    parser.add_argument('--test', action='store_true', help='単体テスト実行（pytest実行には "uv run pytest design.py" を使用）')
-    
-    # クエリ実行オプションの追加
-    parser.add_argument('--query', help='実行するCypherクエリ（例: "MATCH (f:FunctionType) RETURN f.title LIMIT 5"）')
-    parser.add_argument('--param', action='append', help='クエリパラメータ（例: name=value 形式で指定、複数指定可能）')
-    
+    parser = create_parser()
     return vars(parser.parse_args())
 
 
-def display_query_result(result: Dict[str, Any]) -> None:
-    """クエリ実行結果を表示"""
+def get_command_handlers() -> Dict[str, Callable]:
+    """
+    利用可能なコマンドハンドラーを取得
     
-    validation = result.get("validation", {})
-    if validation.get("is_valid", False):
-        print("✅ クエリは検証に成功しました")
-    else:
-        print("❌ クエリはSHACL検証に失敗しました:")
-        print(f"  {validation.get('report', '不明なエラー')}")
+    注: コマンド名は関数名そのままを使用します。
+    例: handle_init, handle_add, handle_list など
+    """
+    # commands/ ディレクトリから検出したコマンドをそのまま使用
+    return get_all_commands()
+
+
+def execute_command(command_name: str, args: Dict[str, Any]) -> CommandResult:
+    """コマンドを実行"""
+    # コマンドハンドラーを取得
+    command_handlers = get_command_handlers()
+    handler = command_handlers.get(command_name)
+    
+    if not handler:
+        return {
+            "success": False,
+            "command": command_name,
+            "error_type": "UnknownCommand",
+            "message": f"不明なコマンド: {command_name}",
+            "trace": None
+        }
+    
+    # デバッグモードの設定
+    debug_mode = args.get("debug", False) or is_debug_mode()
+    
+    # コマンド実行パラメータの前処理
+    # 全てのコマンド関連パラメータを除外
+    command_keys = [cmd.replace('handle_', '') for cmd in get_command_handlers().keys()]
+    command_args = {k: v for k, v in args.items() 
+                   if k not in ['debug', 'verbose'] + command_keys and not k.startswith('_')}
+    
+    # コマンドハンドラが受け付ける引数のみを渡す
+    handler_params = inspect.signature(handler).parameters.keys()
+    command_args = {k: v for k, v in command_args.items() if k in handler_params}
+    
+    try:
+        # コマンドの実行
+        result = safe_execute_command(handler, command_args, command_name, debug_mode)
         
-    execution = result.get("execution", {})
-    if execution.get("success", False):
-        print("\n📊 クエリ実行結果:")
-        
-        stats = execution.get("stats", {})
-        if stats:
-            print(f"  実行時間: {stats.get('execution_time_ms', 0)}ms")
-            print(f"  影響を受けた行数: {stats.get('affected_rows', 0)}")
-        
-        data = execution.get("data", [])
-        if data:
-            try:
-                if isinstance(data, list):
-                    for i, item in enumerate(data, 1):
-                        print(f"  {i}. {item}")
-                else:
-                    print(f"  データ: {data}")
-            except Exception as e:
-                print(f"  [データの表示エラー: {str(e)}]")
-    else:
-        print(f"\n❌ クエリ実行エラー: {execution.get('message', '不明なエラー')}")
+        # 結果の整形
+        if isinstance(result, dict) and "success" in result:
+            if result["success"]:
+                # 既に適切な形式の場合
+                return result
+            else:
+                # エラー結果を適切な形式に整形
+                return {
+                    "success": False,
+                    "command": command_name,
+                    "error_type": result.get("error_type", "CommandError"),
+                    "message": result.get("message", "不明なエラー"),
+                    "trace": result.get("trace", None)
+                }
+        else:
+            # 成功結果を適切な形式に整形
+            return {
+                "success": True,
+                "message": "コマンドが正常に実行されました",
+                "data": result
+            }
+    except Exception as e:
+        # 予期しない例外を処理
+        return handle_command_error(e, command_name, debug_mode)
+
+
+def find_requested_command(args: CommandArgs) -> Optional[str]:
+    """
+    実行するコマンドを特定
+    
+    CLIのオプションに対応するハンドラー関数を探します。
+    関数名のプレフィックスは 'handle_' で、CLI引数名と直接対応付けます。
+    """
+    # 利用可能なコマンドを取得
+    available_handlers = get_command_handlers()
+    
+    # デバッグ情報
+    if args.get('verbose', False):
+        print(f"DEBUG: 利用可能なコマンドハンドラー: {list(available_handlers.keys())}")
+    
+    # 明示的なコマンドオプションがあるか確認
+    has_explicit_command = False
+    for arg_name in args:
+        if arg_name in ['debug', 'verbose', 'param', 'help'] or arg_name.startswith('_'):
+            continue
+            
+        if args[arg_name] is not None:
+            has_explicit_command = True
+            break
+    
+    # 明示的なコマンドがない場合はNoneを返す
+    if not has_explicit_command:
+        return None
+    
+    # 引数から対応するコマンドを検索 - 優先度順に確認
+    command_priority = ['init', 'add', 'list', 'get', 'query', 'init_convention', 'create_shapes', 'test']
+    
+    for arg_name in command_priority:
+        if arg_name in args and args[arg_name] is not None:
+            command_name = f"handle_{arg_name}"
+            if command_name in available_handlers:
+                return command_name
+    
+    # それでも見つからない場合は任意の引数を検索
+    for arg_name in args:
+        if arg_name in ['debug', 'verbose', 'param', 'help'] or arg_name.startswith('_'):
+            continue  # 特殊な引数はスキップ
+            
+        if args[arg_name] is not None:
+            # コマンド名から対応するハンドラー名を生成
+            command_name = f"handle_{arg_name}"
+            
+            # ハンドラーが存在する場合
+            if command_name in available_handlers:
+                return command_name
+    
+    return None
 
 
 def main() -> None:
     """メイン関数"""
+    # コマンドライン引数の解析
     args = parse_arguments()
     
-    # デバッグログ
-    print(f"DEBUG: 引数: {args}")
+    # デバッグ情報の表示
+    verbose = args.get("verbose", False)
+    if verbose:
+        print(f"DEBUG: 引数: {args}")
     
-    # 引数がない場合はヘルプを表示
-    # 注意: 'init_convention'引数は値がNoneでも有効な引数として扱う
-    if not any([
-        args["init"], 
-        args["add"], 
-        args["list"], 
-        args["get"], 
-        "init_convention" in args, 
-        args["create_shapes"], 
-        args["test"],
-        args["query"] is not None
-    ]):
-        print_help()
-        return
+    # 利用可能なコマンドハンドラーを取得して有効なコマンドをチェック
+    available_handlers = get_command_handlers()
     
-    # テスト実行
-    if args["test"]:
-        success = run_tests()
-        if success:
-            print("すべてのテストが成功しました")
-        else:
-            print("テストに失敗しました")
-        return
+    # 有効なコマンド名のリストを作成（handle_ 接頭辞を除去）
+    valid_command_bases = [cmd_name.replace('handle_', '') for cmd_name in available_handlers.keys()]
     
-    # SHACL制約ファイルの作成
-    if args["create_shapes"]:
-        result = create_design_shapes()
-        if is_error(result):
-            print(f"SHACL制約ファイル作成エラー: {result['message']}")
-        return
+    # デバッグ情報を表示
+    if verbose:
+        # 利用可能なコマンドハンドラー一覧
+        available_handlers = get_command_handlers()
+        print(f"DEBUG: 利用可能なコマンドハンドラー: {list(available_handlers.keys())}")
     
-    # 環境変数からデフォルト値を取得（明示的に）
-    from upsert.infrastructure.variables import get_db_dir, IN_MEMORY_MODE
-    default_db_path = get_db_dir()
-    default_in_memory = IN_MEMORY_MODE
+    # 明示的なコマンドがあるか確認 - store_trueアクションの場合はTrueかどうかも確認
+    has_command = False
+    for cmd in valid_command_bases:
+        if cmd in args and args[cmd] is not None:
+            # store_true オプションの場合はTrueかどうかも確認
+            if isinstance(args[cmd], bool):
+                if args[cmd]:  # Trueの場合のみ有効なコマンドとして扱う
+                    has_command = True
+                    break
+            else:
+                # 他のタイプの引数（文字列など）の場合は値があれば有効
+                has_command = True
+                break
     
-    # データベース初期化
-    if args["init"]:
-        result = handle_init_command(db_path=default_db_path, in_memory=default_in_memory)
-        return
-    
-    # 関数の追加
-    if args["add"]:
-        # 初期化済みのデータベースに接続
-        from upsert.infrastructure.database.connection import get_connection
-        conn_result = get_connection(db_path=default_db_path, with_query_loader=True, in_memory=default_in_memory)
-        if is_error(conn_result):
-            print(f"データベース接続エラー: {conn_result['message']}")
-            return
-            
-        result = handle_add_command(
-            json_file=args["add"],
-            db_path=default_db_path, 
-            in_memory=default_in_memory,
-            connection=conn_result["connection"]
-        )
-        if not result["success"]:
-            print(f"コマンド実行エラー: {result['message']}")
-        return
-    
-    # 関数一覧の表示
-    if args["list"]:
-        handle_list_command(db_path=default_db_path, in_memory=default_in_memory)
-        return
-    
-    # 関数詳細の表示
-    if args["get"]:
-        handle_get_command(
-            function_type_title=args["get"],
-            db_path=default_db_path,
-            in_memory=default_in_memory
-        )
-        return
-    
-    # クエリの実行（シンプル化）
-    if args["query"] is not None:
-        # CLIからのCypher実行を強化
-        result = handle_query_command(
-            query=args["query"],
-            param_strings=args["param"] if args["param"] else [],
-            db_path=default_db_path,
-            in_memory=default_in_memory,
-            validation_level="standard"  # 標準の検証レベルを使用
-        )
-        # 結果表示（シンプル化）
-        display_query_result(result)
-        return
-    
-    # 初期化データ（CONVENTION.yaml等）の永続化
-    if "init_convention" in args:
-        print(f"DEBUG: init_convention引数の値: {args['init_convention']}")
-        print(f"DEBUG: init_conventionの型: {type(args['init_convention'])}")
+    # 明示的なコマンドがない場合はヘルプのみ表示して終了
+    if not has_command:
+        print("エラー: 有効なコマンドが指定されていません")
+        print("使用方法を確認するには以下のコマンドを実行してください：")
+        print("  python -m upsert --help")
+        print("\n利用可能なコマンド:")
         
-        # 最初にデータベースが初期化されているかを確認して必要なら初期化する
-        init_result = handle_init_command(db_path=default_db_path, in_memory=default_in_memory)
-        if not init_result.get("success", False):
-            print(f"データベース初期化エラー: {init_result.get('message', '不明なエラー')}")
-            return
-            
-        # ファイルパスが指定された場合
-        if args["init_convention"] is not None:
-            print(f"DEBUG: ファイルパスを指定したinit-convention処理を開始: {args['init_convention']}")
-            result = handle_init_convention_command(
-                file_path=args["init_convention"],
-                db_path=default_db_path,
-                in_memory=default_in_memory
-            )
-            if not result["success"]:
-                print(f"コマンド実行エラー: {result['message']}")
-            return
-        else:
-            # ディレクトリ全体を処理する場合
-            print(f"DEBUG: ディレクトリ全体を処理するinit-convention処理を開始: INIT_DIR={INIT_DIR}")
-            # NoneをINIT_DIRに置き換えて明示的に渡す
-            result = handle_init_convention_command(
-                file_path=INIT_DIR,
-                db_path=default_db_path,
-                in_memory=default_in_memory
-            )
-            if not result["success"]:
-                print(f"コマンド実行エラー: {result['message']}")
-            return
-
+        # 動的に検出されたコマンド一覧を表示
+        valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
+        for cmd in sorted(valid_commands):
+            print(f"  {cmd}")
+        
+        return
+        
+    # 実行するコマンドを特定
+    command_name = find_requested_command(args)
+    
+    # コマンドが指定されていない場合はヘルプを表示
+    if not command_name:
+        print("エラー: 有効なコマンドが指定されていません")
+        print("使用方法を確認するには以下のコマンドを実行してください：")
+        print("  python -m upsert --help")
+        print("\n利用可能なコマンド:")
+        
+        # 動的に検出されたコマンド一覧を表示
+        valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
+        for cmd in sorted(valid_commands):
+            print(f"  {cmd}")
+        
+        return
+    
+    # コマンドを実行
+    result = execute_command(command_name, args)
+    
+    # 実行結果の処理
+    if not result["success"]:
+        print(f"エラー: {result.get('message', '不明なエラー')}", file=sys.stderr)
+        if args.get("debug", False) or is_debug_mode():
+            if result.get("trace"):
+                print(result["trace"], file=sys.stderr)
+        sys.exit(1)
 
 def print_help() -> None:
     """使用方法の表示"""
-    parser = argparse.ArgumentParser(description='関数型設計のためのKuzuアプリ - Function.Meta.jsonからノード追加機能')
-    parser.add_argument('--init', action='store_true', help='データベース初期化（最初に実行してください）')
-    parser.add_argument('--add', help='追加するFunction.Meta.jsonファイルのパス（例: example_function.json）')
-    parser.add_argument('--list', action='store_true', help='すべての登録済み関数を一覧表示')
-    parser.add_argument('--get', help='詳細を取得する関数のタイトル（例: MapFunction）')
-    parser.add_argument('--init-convention', nargs='?', const=None, help='初期化データ（CONVENTION.yaml等）をデータベースに永続化（パス省略時はINIT_DIRディレクトリ全体を処理）')
-    parser.add_argument('--create-shapes', action='store_true', help='SHACL制約ファイルを作成（通常は--initで自動作成）')
-    parser.add_argument('--test', action='store_true', help='単体テスト実行（pytest実行には "uv run pytest design.py" を使用）')
-    parser.add_argument('--query', help='実行するCypherクエリ（例: "MATCH (f:FunctionType) RETURN f.title LIMIT 5"）')
-    parser.add_argument('--param', action='append', help='クエリパラメータ（例: name=value 形式で指定、複数指定可能）')
-    
+    parser = create_parser()
     parser.print_help()
+    
     print("\n使用例:")
     print("  # 環境変数の設定とKuzu用ライブラリパスの追加")
     print("  LD_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib\"")
@@ -389,6 +297,8 @@ def print_help() -> None:
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --query \"MATCH (f:FunctionType) RETURN f.title, f.description\"")
     print("  # パラメータ付きクエリを実行")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --query \"MATCH (f:FunctionType) WHERE f.title = $title RETURN f\" --param title=MapFunction")
+    print("  # デバッグモードで実行")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --query \"...\" --debug")
 
 
 if __name__ == "__main__":
