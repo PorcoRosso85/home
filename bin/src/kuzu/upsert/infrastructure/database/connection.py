@@ -102,6 +102,11 @@ def get_connection(db_path: str, with_query_loader: bool, in_memory: bool) -> Un
         if with_query_loader:
             # 簡素化したクエリローダーを使用（ディレクトリパスのみ渡す）
             loader = create_query_loader(QUERY_DIR)
+            # query_typeデフォルト値を"dml"に設定したget_query_wrapperを上書き
+            original_get_query = loader["get_query"]
+            def get_query_with_default(query_name, query_type="dml"):
+                return original_get_query(query_name, query_type)
+            loader["get_query"] = get_query_with_default
             # 接続オブジェクトに関連づける（呼び出し側の互換性のため）
             conn._query_loader = loader
             # 互換性のあるレスポンス形式

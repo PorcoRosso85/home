@@ -53,7 +53,7 @@ def save_function(function_data: Dict[str, Any]) -> RepositoryResult:
         async_value = function_data.get("async", False)
         
         # 関数型ノード作成クエリを取得
-        function_query_result = query_loader["get_query"]("create_function_type")
+        function_query_result = query_loader["get_query"]("create_function_type", "dml")
         if not query_loader["get_success"](function_query_result):
             return {
                 "code": "QUERY_NOT_FOUND",
@@ -73,8 +73,8 @@ def save_function(function_data: Dict[str, Any]) -> RepositoryResult:
         # パラメータが存在する場合は処理
         if "parameters" in function_data and "properties" in function_data["parameters"]:
             # パラメータとリレーションシップのクエリを取得
-            param_query_result = query_loader["get_query"]("create_parameter")
-            rel_query_result = query_loader["get_query"]("create_has_parameter_relation")
+            param_query_result = query_loader["get_query"]("create_parameter", "dml")
+            rel_query_result = query_loader["get_query"]("create_has_parameter_relation", "dml")
             
             if not query_loader["get_success"](param_query_result) or not query_loader["get_success"](rel_query_result):
                 return {
@@ -110,8 +110,8 @@ def save_function(function_data: Dict[str, Any]) -> RepositoryResult:
         # 戻り値の型が存在する場合は処理
         if "returnType" in function_data:
             # 戻り値型とリレーションシップのクエリを取得
-            return_query_result = query_loader["get_query"]("create_return_type")
-            return_rel_query_result = query_loader["get_query"]("create_has_return_type_relation")
+            return_query_result = query_loader["get_query"]("create_return_type", "dml")
+            return_rel_query_result = query_loader["get_query"]("create_has_return_type_relation", "dml")
             
             if not query_loader["get_success"](return_query_result) or not query_loader["get_success"](return_rel_query_result):
                 return {
@@ -172,9 +172,9 @@ def find_by_title(title: str) -> RepositoryResult:
     
     try:
         # 関数型検索クエリを取得
-        find_query_result = query_loader["get_query"]("find_function_type_by_title")
-        params_query_result = query_loader["get_query"]("get_parameters_for_function_type")
-        return_query_result = query_loader["get_query"]("get_return_type_for_function_type")
+        find_query_result = query_loader["get_query"]("find_function_type_by_title", "dml")
+        params_query_result = query_loader["get_query"]("get_parameters_for_function_type", "dml")
+        return_query_result = query_loader["get_query"]("get_return_type_for_function_type", "dml")
         
         if not query_loader["get_success"](find_query_result) or \
            not query_loader["get_success"](params_query_result) or \
@@ -265,7 +265,7 @@ def get_all_functions() -> RepositoryListResult:
     
     try:
         # 関数型一覧クエリを取得
-        query_result = query_loader["get_query"]("get_all_function_types")
+        query_result = query_loader["get_query"]("get_all_function_types", "dml")
         if not query_loader["get_success"](query_result):
             return {
                 "code": "QUERY_NOT_FOUND",

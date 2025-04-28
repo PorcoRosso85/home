@@ -64,7 +64,7 @@ def create_function_type(conn: Any, function_type_data: Dict[str, Any]) -> Funct
     
     try:
         # 関数型ノード作成クエリを取得
-        function_query_result = query_loader["get_query"]("create_function_type")
+        function_query_result = query_loader["get_query"]("create_function_type", "dml")
         if not query_loader["get_success"](function_query_result):
             return {
                 "code": "QUERY_NOT_FOUND",
@@ -88,8 +88,8 @@ def create_function_type(conn: Any, function_type_data: Dict[str, Any]) -> Funct
             required_params = params.get("required", [])
             
             # パラメータ作成クエリとリレーションシップ作成クエリを取得
-            param_query_result = query_loader["get_query"]("create_parameter")
-            rel_query_result = query_loader["get_query"]("create_has_parameter_relation")
+            param_query_result = query_loader["get_query"]("create_parameter", "dml")
+            rel_query_result = query_loader["get_query"]("create_has_parameter_relation", "dml")
             
             if not query_loader["get_success"](param_query_result):
                 return {
@@ -128,8 +128,8 @@ def create_function_type(conn: Any, function_type_data: Dict[str, Any]) -> Funct
         # 戻り値の型を処理
         if "returnType" in function_type_data:
             # 戻り値ノード作成クエリとリレーションシップ作成クエリを取得
-            return_query_result = query_loader["get_query"]("create_return_type")
-            return_rel_query_result = query_loader["get_query"]("create_has_return_type_relation")
+            return_query_result = query_loader["get_query"]("create_return_type", "dml")
+            return_rel_query_result = query_loader["get_query"]("create_has_return_type_relation", "dml")
             
             if not query_loader["get_success"](return_query_result):
                 return {
@@ -186,9 +186,9 @@ def get_function_type_details(conn: Any, function_type_title: str) -> FunctionTy
     """
     try:
         # 関数型検索クエリを取得
-        find_query_result = query_loader["get_query"]("find_function_type_by_title")
-        params_query_result = query_loader["get_query"]("get_parameters_for_function_type")
-        return_query_result = query_loader["get_query"]("get_return_type_for_function_type")
+        find_query_result = query_loader["get_query"]("find_function_type_by_title", "dml")
+        params_query_result = query_loader["get_query"]("get_parameters_for_function_type", "dml")
+        return_query_result = query_loader["get_query"]("get_return_type_for_function_type", "dml")
         
         if not query_loader["get_success"](find_query_result) or \
            not query_loader["get_success"](params_query_result) or \
@@ -288,7 +288,7 @@ def get_all_function_types(conn: Any) -> FunctionTypeListResult:
     """
     try:
         # クエリを取得
-        query_result = query_loader["get_query"]("get_all_function_types")
+        query_result = query_loader["get_query"]("get_all_function_types", "dml")
         if not query_loader["get_success"](query_result):
             return {
                 "code": "QUERY_NOT_FOUND",
