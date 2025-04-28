@@ -29,25 +29,16 @@ from upsert.application.init_service import process_init_file, process_init_dire
 from upsert.application.query_service import handle_query_command
 
 
-def handle_init_command(db_path: str = None, in_memory: bool = None) -> Dict[str, Any]:
+def handle_init_command(db_path: str, in_memory: bool) -> Dict[str, Any]:
     """データベース初期化コマンドを処理する
     
     Args:
-        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
-        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
+        db_path: データベースディレクトリのパス
+        in_memory: インメモリモードで接続するかどうか
         
     Returns:
         Dict[str, Any]: 処理結果、成功時は'connection'キーに接続オブジェクトを含む
     """
-    from upsert.infrastructure.variables import get_db_dir, IN_MEMORY_MODE
-    
-    # db_pathが指定されていない場合は変数から取得
-    if db_path is None:
-        db_path = get_db_dir()
-        
-    # in_memoryが指定されていない場合は変数から取得
-    if in_memory is None:
-        in_memory = IN_MEMORY_MODE
     
     # ディスクモードの場合のみディレクトリを作成
     if not in_memory:
@@ -75,15 +66,15 @@ def handle_init_command(db_path: str = None, in_memory: bool = None) -> Dict[str
     }
 
 
-def handle_add_command(json_file: str, db_path: str = None, in_memory: bool = None, 
-                   connection: Any = None) -> Dict[str, Any]:
+def handle_add_command(json_file: str, db_path: str, in_memory: bool, 
+                   connection: Any) -> Dict[str, Any]:
     """関数型追加コマンドを処理する
     
     Args:
         json_file: JSONファイルのパス
-        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
-        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
-        connection: 既存のデータベース接続（デフォルト: None、新規接続を作成）
+        db_path: データベースディレクトリのパス
+        in_memory: インメモリモードで接続するかどうか
+        connection: 既存のデータベース接続
         
     Returns:
         Dict[str, Any]: 処理結果
@@ -102,12 +93,12 @@ def handle_add_command(json_file: str, db_path: str = None, in_memory: bool = No
         return {"success": False, "message": message}
 
 
-def handle_list_command(db_path: str = None, in_memory: bool = None) -> None:
+def handle_list_command(db_path: str, in_memory: bool) -> None:
     """関数型一覧表示コマンドを処理する
     
     Args:
-        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
-        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
+        db_path: データベースディレクトリのパス
+        in_memory: インメモリモードで接続するかどうか
     """
     # データベース接続と関数型一覧取得
     from upsert.infrastructure.database.connection import get_connection
@@ -133,13 +124,13 @@ def handle_list_command(db_path: str = None, in_memory: bool = None) -> None:
         print(f"- {func['title']}: {func['description']}")
 
 
-def handle_init_convention_command(file_path: str = None, db_path: str = None, in_memory: bool = None) -> Dict[str, Any]:
+def handle_init_convention_command(file_path: str, db_path: str, in_memory: bool) -> Dict[str, Any]:
     """初期化ファイル（CONVENTION.yaml等）をデータベースに永続化するコマンドを処理する
     
     Args:
-        file_path: 処理するファイルのパス（デフォルト: None、INIT_DIRディレクトリ全体を処理）
-        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
-        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
+        file_path: 処理するファイルのパス
+        db_path: データベースディレクトリのパス
+        in_memory: インメモリモードで接続するかどうか
         
     Returns:
         Dict[str, Any]: 処理結果
@@ -172,13 +163,13 @@ def handle_init_convention_command(file_path: str = None, db_path: str = None, i
     return result
 
 
-def handle_get_command(function_type_title: str, db_path: str = None, in_memory: bool = None) -> None:
+def handle_get_command(function_type_title: str, db_path: str, in_memory: bool) -> None:
     """関数型詳細表示コマンドを処理する
     
     Args:
         function_type_title: 関数型のタイトル
-        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
-        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
+        db_path: データベースディレクトリのパス
+        in_memory: インメモリモードで接続するかどうか
     """
     # データベース接続
     from upsert.infrastructure.database.connection import get_connection
@@ -309,26 +300,47 @@ def main() -> None:
             print(f"SHACL制約ファイル作成エラー: {result['message']}")
         return
     
+    # 環境変数からデフォルト値を取得（明示的に）
+    from upsert.infrastructure.variables import get_db_dir, IN_MEMORY_MODE
+    default_db_path = get_db_dir()
+    default_in_memory = IN_MEMORY_MODE
+    
     # データベース初期化
     if args["init"]:
-        result = handle_init_command() # デフォルトのパスと設定を使用
+        result = handle_init_command(db_path=default_db_path, in_memory=default_in_memory)
         return
     
     # 関数の追加
     if args["add"]:
-        result = handle_add_command(args["add"]) # デフォルトのパスと設定を使用
+        # 初期化済みのデータベースに接続
+        from upsert.infrastructure.database.connection import get_connection
+        conn_result = get_connection(db_path=default_db_path, with_query_loader=True, in_memory=default_in_memory)
+        if is_error(conn_result):
+            print(f"データベース接続エラー: {conn_result['message']}")
+            return
+            
+        result = handle_add_command(
+            json_file=args["add"],
+            db_path=default_db_path, 
+            in_memory=default_in_memory,
+            connection=conn_result["connection"]
+        )
         if not result["success"]:
             print(f"コマンド実行エラー: {result['message']}")
         return
     
     # 関数一覧の表示
     if args["list"]:
-        handle_list_command() # デフォルトのパスと設定を使用
+        handle_list_command(db_path=default_db_path, in_memory=default_in_memory)
         return
     
     # 関数詳細の表示
     if args["get"]:
-        handle_get_command(args["get"]) # デフォルトのパスと設定を使用
+        handle_get_command(
+            function_type_title=args["get"],
+            db_path=default_db_path,
+            in_memory=default_in_memory
+        )
         return
     
     # クエリの実行（シンプル化）
@@ -336,7 +348,10 @@ def main() -> None:
         # CLIからのCypher実行を強化
         result = handle_query_command(
             query=args["query"],
-            param_strings=args["param"]
+            param_strings=args["param"] if args["param"] else [],
+            db_path=default_db_path,
+            in_memory=default_in_memory,
+            validation_level="standard"  # 標準の検証レベルを使用
         )
         # 結果表示（シンプル化）
         display_query_result(result)
@@ -348,7 +363,7 @@ def main() -> None:
         print(f"DEBUG: init_conventionの型: {type(args['init_convention'])}")
         
         # 最初にデータベースが初期化されているかを確認して必要なら初期化する
-        init_result = handle_init_command()
+        init_result = handle_init_command(db_path=default_db_path, in_memory=default_in_memory)
         if not init_result.get("success", False):
             print(f"データベース初期化エラー: {init_result.get('message', '不明なエラー')}")
             return
@@ -356,14 +371,23 @@ def main() -> None:
         # ファイルパスが指定された場合
         if args["init_convention"] is not None:
             print(f"DEBUG: ファイルパスを指定したinit-convention処理を開始: {args['init_convention']}")
-            result = handle_init_convention_command(args["init_convention"]) # ファイルパスを指定
+            result = handle_init_convention_command(
+                file_path=args["init_convention"],
+                db_path=default_db_path,
+                in_memory=default_in_memory
+            )
             if not result["success"]:
                 print(f"コマンド実行エラー: {result['message']}")
             return
         else:
             # ディレクトリ全体を処理する場合
             print(f"DEBUG: ディレクトリ全体を処理するinit-convention処理を開始: INIT_DIR={INIT_DIR}")
-            result = handle_init_convention_command() # デフォルトのパスを使用
+            # NoneをINIT_DIRに置き換えて明示的に渡す
+            result = handle_init_convention_command(
+                file_path=INIT_DIR,
+                db_path=default_db_path,
+                in_memory=default_in_memory
+            )
             if not result["success"]:
                 print(f"コマンド実行エラー: {result['message']}")
             return

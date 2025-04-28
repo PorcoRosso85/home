@@ -69,27 +69,19 @@ def load_ddl_from_file(ddl_file_path: str) -> List[str]:
     return statements
 
 
-def get_connection(db_path: str = None, with_query_loader: bool = False, in_memory: bool = None) -> Union[DatabaseResult, QueryLoaderResult]:
+def get_connection(db_path: str, with_query_loader: bool, in_memory: bool) -> Union[DatabaseResult, QueryLoaderResult]:
     """データベース接続を取得する統合関数
     
     Args:
-        db_path: データベースディレクトリのパス（デフォルト: variables.get_db_dir()）
+        db_path: データベースディレクトリのパス
         with_query_loader: クエリローダーも一緒に取得するかどうか
-        in_memory: インメモリモードで接続するかどうか（デフォルト: variables.IN_MEMORY_MODE）
+        in_memory: インメモリモードで接続するかどうか
     
     Returns:
         Union[DatabaseResult, QueryLoaderResult]: 成功時はデータベース接続（とクエリローダー）、失敗時はエラー情報
     """
     try:
         import kuzu
-        from upsert.infrastructure.variables import get_db_dir, IN_MEMORY_MODE
-        
-        # デフォルト値の処理
-        if db_path is None:
-            db_path = get_db_dir()
-            
-        if in_memory is None:
-            in_memory = IN_MEMORY_MODE
         
         # 接続の作成（条件分岐）
         if not in_memory:
@@ -128,11 +120,11 @@ def get_connection(db_path: str = None, with_query_loader: bool = False, in_memo
 
 
 # 後方互換性のための関数
-def create_connection(db_path: str = DB_DIR) -> DatabaseResult:
+def create_connection(db_path: str) -> DatabaseResult:
     """データベース接続を作成する（後方互換性のため）
     
     Args:
-        db_path: データベースディレクトリのパス（デフォルト: DB_DIR）
+        db_path: データベースディレクトリのパス
     
     Returns:
         DatabaseResult: 成功時は接続オブジェクト、失敗時はエラー情報
@@ -141,12 +133,12 @@ def create_connection(db_path: str = DB_DIR) -> DatabaseResult:
     return get_connection(db_path=db_path, with_query_loader=False, in_memory=False)
 
 
-def init_database(db_path: str = None, in_memory: bool = None) -> DatabaseInitializationResult:
+def init_database(db_path: str, in_memory: bool) -> DatabaseInitializationResult:
     """データベースの初期化
     
     Args:
-        db_path: データベースディレクトリのパス（デフォルト: variables.get_db_dir()）
-        in_memory: インメモリモードで接続するかどうか（デフォルト: variables.IN_MEMORY_MODE）
+        db_path: データベースディレクトリのパス
+        in_memory: インメモリモードで接続するかどうか
     
     Returns:
         DatabaseInitializationResult: 成功時はデータベース接続、失敗時はエラー情報
@@ -154,15 +146,6 @@ def init_database(db_path: str = None, in_memory: bool = None) -> DatabaseInitia
     try:
         # 必要なインポートをローカルで行う
         import kuzu
-        from upsert.infrastructure.variables import get_db_dir, IN_MEMORY_MODE
-        
-        # db_pathが指定されていない場合は変数から取得
-        if db_path is None:
-            db_path = get_db_dir()
-            
-        # in_memoryが指定されていない場合は変数から取得
-        if in_memory is None:
-            in_memory = IN_MEMORY_MODE
             
         # ディスクモードの場合のみディレクトリを作成
         if not in_memory:

@@ -1,9 +1,11 @@
 """
-KuzuDBのCypherクエリをファイル名ベースで読み込むシンプルユーティリティ
+KuzuDBのCypherクエリローダー
 
-このモジュールは、DMLとDDLのCypherクエリをファイル名から動的にロードするための
-最小限の機能を提供します。キャッシュや複雑なパス構築機能を省き、単純明快な
-実装を心がけています。
+DMLとDDLのCypherクエリファイルを固定パスから読み込み、実行するためのモジュールです。
+固定パス構造を採用し、シンプルで予測可能なインターフェースを提供します。
+
+- DMLクエリ: `query_dir/dml/クエリ名.cypher`
+- DDLクエリ: `query_dir/クエリ名.cypher`
 """
 import os
 from typing import Dict, List, Optional, Any, Union
@@ -11,40 +13,34 @@ from typing import Dict, List, Optional, Any, Union
 # 型定義（最小限に簡素化）
 QueryType = Union["dml", "ddl", "all"]
 
+# 固定パス設定
+DML_DIR_NAME = "dml"  # DMLクエリのディレクトリ名
+DDL_FILE_EXTENSION = ".cypher"  # DDL/DMLファイルの拡張子
 
-# 成功結果生成
+
 def create_success_result(data: Any) -> Dict[str, Any]:
-    """
-    成功結果を生成
+    """成功結果を生成する
     
     Args:
         data: 結果データ
     
     Returns:
-        成功結果の辞書
+        成功結果を表す辞書 {"success": True, "data": データ}
     """
-    return {
-        "success": True,
-        "data": data
-    }
+    return {"success": True, "data": data}
 
 
-# エラー結果生成
 def create_error_result(message: str, available_queries: Optional[List[str]] = None) -> Dict[str, Any]:
-    """
-    エラー結果を生成
+    """エラー結果を生成する
     
     Args:
         message: エラーメッセージ
         available_queries: 利用可能なクエリのリスト（オプション）
     
     Returns:
-        エラー結果の辞書
+        エラー結果を表す辞書 {"success": False, "error": メッセージ, ...}
     """
-    result = {
-        "success": False,
-        "error": message
-    }
+    result = {"success": False, "error": message}
     
     if available_queries is not None:
         result["available_queries"] = available_queries
@@ -53,14 +49,13 @@ def create_error_result(message: str, available_queries: Optional[List[str]] = N
 
 
 def validate_query_type(query_type: str) -> Dict[str, Any]:
-    """
-    クエリタイプのバリデーション
+    """クエリタイプの有効性を検証する
     
     Args:
         query_type: 検証するクエリタイプ
     
     Returns:
-        成功時は成功結果、失敗時はエラー結果
+        成功時は {"success": True}、失敗時は {"success": False, "error": エラーメッセージ}
     """
     valid_types = ["dml", "ddl"]
     if query_type not in valid_types:
@@ -73,16 +68,15 @@ def validate_query_type(query_type: str) -> Dict[str, Any]:
     return create_success_result(None)
 
 
-def list_queries(query_dir: str, query_type: QueryType = "dml") -> List[str]:
-    """
-    利用可能なクエリの一覧を取得（シンプル版）
+def list_queries(query_dir: str, query_type: QueryType) -> List[str]:
+    """指定したタイプの利用可能なクエリファイル名一覧を取得する
     
     Args:
         query_dir: クエリディレクトリのパス
         query_type: 取得するクエリのタイプ (dml, ddl, all)
     
     Returns:
-        クエリ名のリスト
+        拡張子を除いたクエリファイル名のリスト（アルファベット順）
     """
     query_files = []
     
@@ -92,10 +86,10 @@ def list_queries(query_dir: str, query_type: QueryType = "dml") -> List[str]:
     
     # DMLクエリの取得
     if query_type in ["dml", "all"]:
-        dml_dir = os.path.join(query_dir, "dml")
+        dml_dir = os.path.join(query_dir, DML_DIR_NAME)
         if os.path.exists(dml_dir) and os.path.isdir(dml_dir):
             for filename in os.listdir(dml_dir):
-                if filename.endswith('.cypher'):
+                if filename.endswith(DDL_FILE_EXTENSION):
                     query_name = os.path.splitext(filename)[0]
                     query_files.append(query_name)
     
@@ -103,7 +97,7 @@ def list_queries(query_dir: str, query_type: QueryType = "dml") -> List[str]:
     if query_type in ["ddl", "all"]:
         if os.path.exists(query_dir) and os.path.isdir(query_dir):
             for filename in os.listdir(query_dir):
-                if filename.endswith('.cypher') and os.path.isfile(os.path.join(query_dir, filename)):
+                if filename.endswith(DDL_FILE_EXTENSION) and os.path.isfile(os.path.join(query_dir, filename)):
                     query_name = os.path.splitext(filename)[0]
                     query_files.append(query_name)
     
@@ -111,14 +105,14 @@ def list_queries(query_dir: str, query_type: QueryType = "dml") -> List[str]:
 
 
 def read_query_file(file_path: str) -> Dict[str, Any]:
-    """
-    クエリファイルを読み込む
+    """クエリファイルの内容を読み込む
     
     Args:
-        file_path: ファイルパス
+        file_path: 読み込むファイルの絶対パス
     
     Returns:
-        成功時は内容を含む成功結果、失敗時はエラー結果
+        成功時は {"success": True, "data": ファイル内容}
+        失敗時は {"success": False, "error": エラーメッセージ, "file_path": ファイルパス}
     """
     if not os.path.exists(file_path):
         return {
@@ -139,28 +133,30 @@ def read_query_file(file_path: str) -> Dict[str, Any]:
         }
 
 
-def get_query(query_dir: str, query_name: str, query_type: QueryType = "dml") -> Dict[str, Any]:
-    """
-    クエリの内容を取得（シンプル版）
+def get_query(query_dir: str, query_name: str, query_type: QueryType) -> Dict[str, Any]:
+    """クエリファイルの内容を取得する
+    
+    固定ディレクトリパスからクエリファイルを読み込む
     
     Args:
         query_dir: クエリディレクトリのパス
         query_name: クエリ名（拡張子なし）
-        query_type: クエリのタイプ (dml または ddl)
+        query_type: クエリのタイプ
     
     Returns:
-        成功時はクエリ内容を含む成功結果、失敗時はエラー結果
+        成功時は {"success": True, "data": クエリ内容}
+        失敗時は {"success": False, "error": エラーメッセージ}
     """
     # クエリタイプの検証
     validation_result = validate_query_type(query_type)
     if not validation_result.get("success", False):
         return validation_result
     
-    # シンプルなファイルパス構築
+    # シンプルなファイルパス構築（固定パス）
     if query_type == "dml":
-        query_path = os.path.join(query_dir, "dml", f"{query_name}.cypher")
+        query_path = os.path.join(query_dir, DML_DIR_NAME, f"{query_name}{DDL_FILE_EXTENSION}")
     else:  # ddl
-        query_path = os.path.join(query_dir, f"{query_name}.cypher")
+        query_path = os.path.join(query_dir, f"{query_name}{DDL_FILE_EXTENSION}")
     
     # ファイルの存在チェックと読み込み
     if not os.path.exists(query_path):
@@ -177,45 +173,36 @@ def get_query(query_dir: str, query_name: str, query_type: QueryType = "dml") ->
 
 
 def create_query_loader(query_dir: str) -> Dict[str, Any]:
-    """
-    シンプル化されたクエリローダーを作成
+    """クエリ操作機能を提供するローダーを作成
     
     Args:
         query_dir: クエリディレクトリのパス
     
     Returns:
-        クエリ関連の操作関数を含む辞書
+        クエリ操作関数を含む辞書
     """
     
-    def get_query_wrapper(query_name: str, query_type: QueryType = "dml") -> Dict[str, Any]:
+    def get_query_wrapper(query_name: str, query_type: QueryType) -> Dict[str, Any]:
         """クエリ取得関数のラッパー"""
         return get_query(query_dir, query_name, query_type)
     
-    def list_queries_wrapper(query_type: QueryType = "dml") -> List[str]:
+    def list_queries_wrapper(query_type: QueryType) -> List[str]:
         """クエリ一覧取得関数のラッパー"""
         return list_queries(query_dir, query_type)
     
-    def execute_query(query_name: str, params: Optional[List[Any]] = None, 
-                     query_type: QueryType = "dml", connection: Any = None) -> Dict[str, Any]:
-        """
-        クエリを実行する
+    def execute_query(query_name: str, params: List[Any], 
+                     query_type: QueryType, connection: Any) -> Dict[str, Any]:
+        """クエリを実行する
         
         Args:
             query_name: クエリ名（拡張子なし）
-            params: クエリパラメータのリスト (オプション)
-            query_type: クエリのタイプ (dml または ddl)
-            connection: クエリ実行に使用するデータベース接続 (オプション)
+            params: クエリパラメータのリスト
+            query_type: クエリのタイプ
+            connection: データベース接続
         
         Returns:
             クエリ実行結果
         """
-        # 接続オブジェクトがない場合はエラー
-        if connection is None:
-            return {
-                "success": False,
-                "error": "データベース接続が指定されていません"
-            }
-        
         # クエリを取得
         query_result = get_query_wrapper(query_name, query_type)
         if not query_result.get("success", False):
@@ -225,10 +212,7 @@ def create_query_loader(query_dir: str) -> Dict[str, Any]:
         
         # クエリの実行
         try:
-            if params:
-                result = connection.execute(query_content, params)
-            else:
-                result = connection.execute(query_content)
+            result = connection.execute(query_content, params)
             
             return create_success_result(result)
         except Exception as e:

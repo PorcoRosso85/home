@@ -61,28 +61,26 @@ def parse_params(param_strings: List[str]) -> Dict[str, Any]:
 
 def execute_and_validate_query(
     query: str,
-    params: Optional[Dict[str, Any]] = None,
-    db_path: Optional[str] = None,
-    in_memory: Optional[bool] = None,
-    connection: Any = None,
-    validation_level: str = "standard"
+    params: Dict[str, Any],
+    db_path: Optional[str],
+    in_memory: Optional[bool],
+    connection: Any,
+    validation_level: str
 ) -> Dict[str, Any]:
-    """クエリを検証して実行する統合関数（SHACL検証は維持）
+    """クエリを検証して実行する統合関数
     
     Args:
         query: 実行するCypherクエリ
-        params: クエリパラメータ（デフォルト: None）
-        db_path: データベースディレクトリのパス（デフォルト: None）
-        in_memory: インメモリモードで接続するかどうか（デフォルト: None）
-        connection: 既存のデータベース接続（デフォルト: None）
+        params: クエリパラメータ
+        db_path: データベースディレクトリのパス
+        in_memory: インメモリモードで接続するかどうか
+        connection: 既存のデータベース接続
         validation_level: 検証レベル（"strict", "standard", "warning"）
         
     Returns:
         Dict[str, Any]: 検証結果と実行結果を含む辞書
     """
-    # パラメータの初期化
-    if params is None:
-        params = {}
+    # パラメータは必須のため、初期化は不要
         
     # クエリからRDFを生成（SHACLで検証するため）
     rdf_result = generate_rdf_from_cypher_query(query)
@@ -129,35 +127,33 @@ def execute_and_validate_query(
 
 def execute_query(
     query: str,
-    params: Dict[str, Any] = None,
-    db_path: Optional[str] = None,
-    in_memory: Optional[bool] = None,
-    connection: Any = None
+    params: Dict[str, Any],
+    db_path: Optional[str],
+    in_memory: Optional[bool],
+    connection: Any
 ) -> QueryExecutionResult:
     """クエリを実行する
     
     Args:
         query: 実行するCypherクエリ
-        params: クエリパラメータ（デフォルト: None）
-        db_path: データベースディレクトリのパス（デフォルト: None）
-        in_memory: インメモリモードで接続するかどうか（デフォルト: None）
-        connection: 既存のデータベース接続（デフォルト: None）
+        params: クエリパラメータ
+        db_path: データベースディレクトリのパス
+        in_memory: インメモリモードで接続するかどうか
+        connection: 既存のデータベース接続
         
     Returns:
         QueryExecutionResult: クエリ実行結果
     """
-    # パラメータの初期化
-    if params is None:
-        params = {}
     
-    # 接続の取得（既存の接続がない場合）
+    # 接続を取得
+    db_result = get_connection(db_path, True, in_memory)
+    if "code" in db_result:  # エラーの場合
+        return {
+            "success": False,
+            "message": f"データベース接続エラー: {db_result.get('message', '不明なエラー')}"
+        }
+    # 既存の接続があればそれを使用、なければ新しい接続を使用
     if connection is None:
-        db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
-        if "code" in db_result:  # エラーの場合
-            return {
-                "success": False,
-                "message": f"データベース接続エラー: {db_result.get('message', '不明なエラー')}"
-            }
         connection = db_result["connection"]
     
     try:
@@ -196,31 +192,33 @@ def execute_query(
 
 def handle_query_command(
     query: str,
-    param_strings: Optional[List[str]] = None,
-    db_path: Optional[str] = None,
-    in_memory: Optional[bool] = None,
-    validation_level: str = "standard"
+    param_strings: List[str],
+    db_path: Optional[str],
+    in_memory: Optional[bool],
+    validation_level: str
 ) -> Dict[str, Any]:
-    """CLIからのクエリ実行コマンドを処理する（シンプル版）
+    """CLIからのクエリ実行コマンドを処理する
     
     Args:
         query: 実行するCypherクエリ
         param_strings: 'name=value' 形式のパラメータ文字列のリスト
-        db_path: データベースディレクトリのパス（デフォルト: None）
-        in_memory: インメモリモードで接続するかどうか（デフォルト: None）
+        db_path: データベースディレクトリのパス
+        in_memory: インメモリモードで接続するかどうか
         validation_level: 検証レベル（"strict", "standard", "warning"）
         
     Returns:
         Dict[str, Any]: 検証結果と実行結果を含む辞書
     """
     # パラメータの解析
-    params = parse_params(param_strings) if param_strings else {}
+    params = parse_params(param_strings)
     
     # クエリの実行と検証
+    # 引数名なしで順に渡す
     return execute_and_validate_query(
-        query=query,
-        params=params,
-        db_path=db_path,
-        in_memory=in_memory,
-        validation_level=validation_level
+        query,
+        params,
+        db_path,
+        in_memory,
+        None,  # connection（新規接続が必要）
+        validation_level
     )
