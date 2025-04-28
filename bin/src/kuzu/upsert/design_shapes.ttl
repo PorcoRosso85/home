@@ -12,24 +12,29 @@ ex:FunctionTypeShape
         sh:path ex:title ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
+        sh:message "FunctionTypeノードには必ずtitleプロパティが必要です。例: {title: 'FunctionName'}" ;
     ] ;
     sh:property [
         sh:path ex:type ;
         sh:datatype xsd:string ;
         sh:hasValue "function" ;
         sh:minCount 1 ;
+        sh:message "FunctionTypeノードには必ずtypeプロパティが必要で、値は'function'である必要があります。例: {type: 'function'}" ;
     ] ;
     sh:property [
         sh:path ex:description ;
         sh:datatype xsd:string ;
+        sh:message "descriptionプロパティは文字列である必要があります。" ;
     ] ;
     sh:property [
         sh:path ex:pure ;
         sh:datatype xsd:boolean ;
+        sh:message "pureプロパティは真偽値(true/false)である必要があります。" ;
     ] ;
     sh:property [
         sh:path ex:async ;
         sh:datatype xsd:boolean ;
+        sh:message "asyncプロパティは真偽値(true/false)である必要があります。" ;
     ] .
 
 # ParameterType型の制約
@@ -40,15 +45,23 @@ ex:ParameterTypeShape
         sh:path ex:name ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
+        sh:message "ParameterTypeノードには必ずnameプロパティが必要です。例: {name: 'paramName'}" ;
     ] ;
     sh:property [
         sh:path ex:type ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
+        sh:message "ParameterTypeノードには必ずtypeプロパティが必要です。例: {type: 'string'}" ;
     ] ;
     sh:property [
         sh:path ex:required ;
         sh:datatype xsd:boolean ;
+        sh:message "requiredプロパティは真偽値(true/false)である必要があります。" ;
+    ] ;
+    sh:property [
+        sh:path ex:description ;
+        sh:datatype xsd:string ;
+        sh:message "descriptionプロパティは文字列である必要があります。" ;
     ] .
 
 # ReturnType型の制約
@@ -59,4 +72,31 @@ ex:ReturnTypeShape
         sh:path ex:type ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
+        sh:message "ReturnTypeノードには必ずtypeプロパティが必要です。例: {type: 'string'}" ;
+    ] ;
+    sh:property [
+        sh:path ex:description ;
+        sh:datatype xsd:string ;
+        sh:message "descriptionプロパティは文字列である必要があります。" ;
     ] .
+
+# Cypherクエリの制約
+ex:CypherQueryShape
+    a sh:NodeShape ;
+    sh:targetClass ex:CypherQuery ;
+    sh:property [
+        sh:path ex:queryString ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:message "クエリ文字列は必須です。" ;
+    ] ;
+    sh:property [
+        sh:path ex:hasOperation ;
+        sh:message "サポートされているクエリ操作は MATCH, CREATE, SET, DELETE, MERGE です。" ;
+    ] .
+
+# FunctionType作成のクエリパターン制約
+ex:CreateFunctionTypePattern
+    a sh:NodeShape ;
+    sh:targetNode ex:Create ;
+    sh:message "FunctionTypeノード作成時は、title, typeプロパティを必ず指定してください。例: CREATE (f:FunctionType {title: 'NewFunction', type: 'function'})" .

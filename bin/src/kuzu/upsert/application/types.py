@@ -4,7 +4,7 @@
 このモジュールでは、アプリケーションサービスで使用する型定義を行います。
 """
 
-from typing import TypedDict, Union, List, Optional, Dict, Any, Literal, Callable, Set
+from typing import TypedDict, Union, List, Optional, Dict, Any, Literal, Callable, Set, Tuple
 
 
 # データベース関連の型
@@ -58,6 +58,76 @@ class SHACLValidationError(TypedDict):
 
 
 SHACLValidationResult = Union[SHACLValidationSuccess, SHACLValidationFailure, SHACLValidationError]
+
+
+# SHACLエラーと制約に関する拡張型定義
+class SHACLErrorViolation(TypedDict):
+    """SHACL制約違反情報"""
+    type: str  # エラータイプ: missing_required_property, invalid_property_value, etc.
+    message: str  # エラーメッセージ
+    description: str  # 人間向けの説明文
+    suggestion: Optional[str]  # 修正提案
+    property: Optional[str]  # 違反しているプロパティ名
+    node_type: Optional[str]  # ノードタイプ
+    value: Optional[str]  # 違反している値
+
+
+class SHACLErrorAnalysisDetected(TypedDict):
+    """検出されたSHACL制約違反情報"""
+    error_type: Literal["detected"]
+    violations: List[SHACLErrorViolation]  # 検出された違反リスト
+    errors: List[SHACLErrorViolation]  # 古い API 互換用
+    original_message: str  # 元のエラーメッセージ
+    query_pattern: Optional[str]  # クエリパターン(match, create, set, etc.)
+    summary: str  # 要約メッセージ
+    suggestions: List[str]  # 修正提案のリスト
+    node_types: Optional[List[str]]  # 関連するノードタイプ
+
+
+class SHACLErrorAnalysisUnknown(TypedDict):
+    """未検出のSHACL制約違反情報"""
+    error_type: Literal["unknown"]
+    description: str  # エラーの説明
+    original_message: str  # 元のエラーメッセージ
+    query_pattern: Optional[str]  # クエリパターン
+    suggestions: List[str]  # 一般的な修正提案のリスト
+
+
+SHACLErrorAnalysisResult = Union[SHACLErrorAnalysisDetected, SHACLErrorAnalysisUnknown]
+
+
+# SHACL制約情報の型
+class SHACLNodeRequirement(TypedDict):
+    """ノードタイプごとのSHACL制約要件"""
+    required_properties: List[str]  # 必須プロパティ
+    type_values: Optional[Dict[str, str]]  # プロパティ名と期待値のマッピング
+    examples: Optional[str]  # 例文
+
+
+class SHACLRelationshipRequirement(TypedDict):
+    """関係タイプごとのSHACL制約要件"""
+    source_node: str  # ソースノードタイプ
+    target_node: str  # ターゲットノードタイプ
+    examples: Optional[str]  # 例文
+
+
+class SHACLConstraintInfo(TypedDict):
+    """SHACL制約情報"""
+    node_requirements: Dict[str, SHACLNodeRequirement]  # ノードタイプごとの要件
+    relationship_requirements: Dict[str, SHACLRelationshipRequirement]  # 関係タイプごとの要件
+    hint: str  # ヒントメッセージ
+
+
+# クエリ解析結果の型
+class QueryPatternAnalysis(TypedDict):
+    """クエリパターン解析結果"""
+    success: bool
+    query_type: str  # MATCH, CREATE, SET, etc.
+    commands: List[str]  # 含まれるコマンド
+    patterns: Dict[str, Any]  # 検出されたパターン
+    node_types: List[str]  # 含まれるノードタイプ
+    relationship_types: List[str]  # 含まれる関係タイプ
+    property_references: List[Tuple[str, str]]  # 参照されているプロパティ
 
 
 # 関数型サービスの型
@@ -172,6 +242,154 @@ class QueryExecutionError(TypedDict):
 
 
 QueryExecutionResult = Union[QueryExecutionSuccess, QueryExecutionError]
+
+
+# クエリ検証結果の型
+class QueryValidationSuccess(TypedDict):
+    """クエリ検証成功結果"""
+    is_valid: Literal[True]
+    report: str
+    details: Dict[str, Any]
+
+
+class QueryValidationFailure(TypedDict):
+    """クエリ検証失敗結果"""
+    is_valid: Literal[False]
+    report: str
+    details: Dict[str, Any]
+
+
+QueryValidationResult = Union[QueryValidationSuccess, QueryValidationFailure]
+
+
+# クエリヘルプと補完サービスの型
+class QueryHelpInfo(TypedDict):
+    """クエリヘルプ情報"""
+    description: str
+    syntax: Optional[str]
+    example: Optional[str]
+    shacl_constraints: Optional[str]
+    tips: Optional[str]
+    commands: Optional[str]
+    design_specific: Optional[str]
+    examples: Optional[str]
+
+
+class QueryHelpResult(TypedDict):
+    """クエリヘルプ結果"""
+    success: bool
+    help: QueryHelpInfo
+
+
+class SuggestionItem(TypedDict):
+    """クエリ補完候補アイテム"""
+    type: str  # keyword, pattern, node_label, property, relationship, etc.
+    value: str
+    description: str
+
+
+class SuggestionContext(TypedDict):
+    """クエリ補完コンテキスト"""
+    stage: str  # start, node_selection, query_continuation, completed, etc.
+    message: str
+    query_type: Optional[str]  # match, create, set, etc.
+    node_types: Optional[List[str]]  # 検出されたノードタイプ
+    relationship_types: Optional[List[str]]  # 検出された関係タイプ
+    properties: Optional[List[str]]  # 検出されたプロパティ
+
+
+class SuggestionResult(TypedDict):
+    """クエリ補完候補結果"""
+    success: bool
+    suggestions: List[SuggestionItem]
+    context: SuggestionContext
+    constraints: Optional[SHACLConstraintInfo]  # 関連するSHACL制約情報
+
+
+class CompletionContext(TypedDict):
+    """クエリ補完コンテキスト（詳細）"""
+    stage: str  # 補完ステージ
+    message: str
+    current_token: Optional[str]  # 現在入力中のトークン
+    current_position: Optional[int]  # 現在のカーソル位置
+
+
+class CompletionResult(TypedDict):
+    """クエリ補完結果（詳細）"""
+    success: bool
+    completions: List[SuggestionItem]
+    context: CompletionContext
+    analysis: Dict[str, Any]
+
+
+class QuerySuggestionResult(TypedDict):
+    """対話的クエリ補完結果"""
+    success: bool
+    message: str
+    suggestions: List[SuggestionItem]
+    constraints: Optional[SHACLConstraintInfo]  # 関連するSHACL制約情報
+    analysis: Optional[Dict[str, Any]]  # クエリ解析結果
+
+
+# フォールバックサジェスト用の型
+class FallbackSuggestion(TypedDict):
+    """フォールバックサジェスト項目"""
+    type: str  # fallback, hint, example, etc.
+    value: str
+    description: str
+    priority: Optional[int]  # 表示優先度
+
+
+class PatternExampleInfo(TypedDict):
+    """パターン例文情報"""
+    pattern: str  # パターン文字列
+    description: str  # 説明
+    node_types: List[str]  # 含まれるノードタイプ
+    properties: List[str]  # 含まれるプロパティ
+    constraints: List[str]  # 関連する制約
+
+
+# SHACLエラーフィードバックの拡張型
+class EnhancedSHACLViolationDisplay(TypedDict):
+    """拡張SHACL制約違反表示用データ"""
+    message: str  # 表示メッセージ
+    property: Optional[str]  # プロパティ名
+    node_type: Optional[str]  # ノードタイプ
+    value: Optional[str]  # 違反値
+    suggestion: str  # 修正提案
+    severity: Literal["error", "warning", "info"]  # 重要度
+    example: Optional[str]  # 修正例
+    query_pattern: Optional[str]  # 関連するクエリパターン
+
+
+class EnhancedSHACLFeedback(TypedDict):
+    """拡張SHACL検証フィードバック"""
+    is_valid: bool  # 検証結果
+    message: str  # 全体メッセージ
+    violations: List[EnhancedSHACLViolationDisplay]  # 違反リスト
+    suggestions: List[str]  # 修正提案リスト
+    constraint_info: Optional[SHACLConstraintInfo]  # 関連する制約情報
+    examples: List[PatternExampleInfo]  # 修正例文リスト
+
+
+# 拡張されたクエリ補完コンテキスト
+class EnhancedSuggestionContext(TypedDict):
+    """拡張されたクエリ補完コンテキスト"""
+    stage: str  # 補完ステージ
+    message: str  # メッセージ
+    pattern: Optional[str]  # 検出されたパターン
+    constraints: Optional[SHACLConstraintInfo]  # 関連する制約情報
+
+
+# 拡張されたクエリ補完結果
+class EnhancedSuggestionResult(TypedDict):
+    """拡張されたクエリ補完結果"""
+    success: bool
+    message: str
+    suggestions: List[SuggestionItem]
+    context: Optional[EnhancedSuggestionContext]
+    constraints: Optional[SHACLConstraintInfo]
+    analysis: Optional[Dict[str, Any]]
 
 
 # 初期化サービスの処理結果型
