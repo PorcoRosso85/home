@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-コマンドラインインターフェース（リファクタリング版）
-
-このモジュールは、関数型設計ツールのコマンドラインインターフェースを提供します。
-不要な機能を削除し、CLIからのCypher文字列直接実行機能に集中します。
-"""
+"""関数型設計ツールのコマンドラインインターフェース"""
 
 import argparse
 import json
@@ -30,39 +25,26 @@ from upsert.application.query_service import handle_query_command
 
 
 def handle_init_command(db_path: str, in_memory: bool) -> Dict[str, Any]:
-    """データベース初期化コマンドを処理する
+    """データベースと制約ファイルを初期化"""
     
-    Args:
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
-        
-    Returns:
-        Dict[str, Any]: 処理結果、成功時は'connection'キーに接続オブジェクトを含む
-    """
-    
-    # ディスクモードの場合のみディレクトリを作成
     if not in_memory:
-        # ディレクトリが存在しない場合は作成
         os.makedirs(db_path, exist_ok=True)
     
-    # SHACL制約ファイル作成
     shapes_result = create_design_shapes()
     if is_error(shapes_result):
         print(f"SHACL制約ファイル作成エラー: {shapes_result['message']}")
         return {"success": False, "message": f"SHACL制約ファイル作成エラー: {shapes_result['message']}"}
     
-    # データベース初期化
     db_result = init_database(db_path=db_path, in_memory=in_memory)
     if is_error(db_result):
         print(f"データベース初期化エラー: {db_result['message']}")
         return {"success": False, "message": f"データベース初期化エラー: {db_result['message']}"}
     
     print("データベースと制約ファイルの初期化が完了しました")
-    # 接続オブジェクトを含めて返す
     return {
         "success": True, 
         "message": "データベースと制約ファイルの初期化が完了しました",
-        "connection": db_result["connection"]  # 接続オブジェクトを保持
+        "connection": db_result["connection"]
     }
 
 
@@ -190,22 +172,14 @@ def handle_get_command(function_type_title: str, db_path: str, in_memory: bool) 
 
 
 def run_tests() -> bool:
-    """テストケースを実行する
-    
-    Returns:
-        bool: テスト成功時はTrue、失敗時はFalse
-    """
+    """テストケースを実行"""
     import pytest
     result = pytest.main([ROOT_DIR])
     return result == 0
 
 
 def parse_arguments() -> CommandArgs:
-    """コマンドライン引数を解析する
-    
-    Returns:
-        CommandArgs: コマンドライン引数
-    """
+    """コマンドライン引数を解析"""
     parser = argparse.ArgumentParser(description='関数型設計のためのKuzuアプリ - Function.Meta.jsonからノード追加機能')
     parser.add_argument('--init', action='store_true', help='データベース初期化（最初に実行してください）')
     parser.add_argument('--add', help='追加するFunction.Meta.jsonファイルのパス（例: example_function.json）')
@@ -223,12 +197,8 @@ def parse_arguments() -> CommandArgs:
 
 
 def display_query_result(result: Dict[str, Any]) -> None:
-    """クエリ実行結果を表示する簡素化された関数
+    """クエリ実行結果を表示"""
     
-    Args:
-        result: クエリ実行結果
-    """
-    # バリデーション結果の表示
     validation = result.get("validation", {})
     if validation.get("is_valid", False):
         print("✅ クエリは検証に成功しました")
@@ -236,21 +206,18 @@ def display_query_result(result: Dict[str, Any]) -> None:
         print("❌ クエリはSHACL検証に失敗しました:")
         print(f"  {validation.get('report', '不明なエラー')}")
         
-    # 実行結果の表示
     execution = result.get("execution", {})
     if execution.get("success", False):
         print("\n📊 クエリ実行結果:")
-        # 統計情報の表示
+        
         stats = execution.get("stats", {})
         if stats:
             print(f"  実行時間: {stats.get('execution_time_ms', 0)}ms")
             print(f"  影響を受けた行数: {stats.get('affected_rows', 0)}")
         
-        # データの表示
         data = execution.get("data", [])
         if data:
             try:
-                # 簡素化された表示
                 if isinstance(data, list):
                     for i, item in enumerate(data, 1):
                         print(f"  {i}. {item}")

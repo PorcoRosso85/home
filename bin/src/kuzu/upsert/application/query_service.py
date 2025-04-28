@@ -1,10 +1,4 @@
-"""
-クエリサービス（リファクタリング版）
-
-このモジュールでは、Cypherクエリの実行とSHACL検証を統合する基本的な機能を提供します。
-不要な機能を削除し、「queryのcypherを呼び出す」「cliからcypher文字列を受け取る」という
-コアの目的に集中しています。
-"""
+"""Cypherクエリの実行とSHACL検証を統合するサービス"""
 
 import os
 from typing import Dict, Any, List, Optional, Union
@@ -20,13 +14,9 @@ from upsert.infrastructure.database.connection import get_connection
 
 
 def parse_params(param_strings: List[str]) -> Dict[str, Any]:
-    """コマンドライン引数から渡されたパラメータ文字列をパースする
+    """パラメータ文字列をディクショナリに変換
     
-    Args:
-        param_strings: 'name=value' 形式のパラメータ文字列のリスト
-        
-    Returns:
-        Dict[str, Any]: パラメータ名と値のマッピング
+    'name=value'形式の文字列を解析し、値を適切な型に変換する
     """
     params = {}
     if not param_strings:
@@ -38,19 +28,14 @@ def parse_params(param_strings: List[str]) -> Dict[str, Any]:
             
         name, value = param_str.split('=', 1)
         
-        # 型変換を試みる（数値、真偽値など）
         try:
-            # 整数として解析を試みる
             if value.isdigit() or (value.startswith('-') and value[1:].isdigit()):
                 value = int(value)
-            # 浮動小数点数として解析を試みる
             elif '.' in value and all(p.isdigit() or p == '.' or (i == 0 and p == '-') 
                                     for i, p in enumerate(value.split('.', 1)[0] + '.' + value.split('.', 1)[1])):
                 value = float(value)
-            # 真偽値として解析を試みる
             elif value.lower() in ['true', 'false']:
                 value = value.lower() == 'true'
-            # それ以外は文字列として扱う
         except (ValueError, IndexError):
             pass
             
@@ -67,24 +52,13 @@ def execute_and_validate_query(
     connection: Any,
     validation_level: str
 ) -> Dict[str, Any]:
-    """クエリを検証して実行する統合関数
+    """クエリをSHACL検証して実行
     
-    Args:
-        query: 実行するCypherクエリ
-        params: クエリパラメータ
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
-        connection: 既存のデータベース接続
-        validation_level: 検証レベル（"strict", "standard", "warning"）
-        
-    Returns:
-        Dict[str, Any]: 検証結果と実行結果を含む辞書
+    検証に成功したクエリのみ実行し、検証と実行の両方の結果を返す
     """
-    # パラメータは必須のため、初期化は不要
-        
-    # クエリからRDFを生成（SHACLで検証するため）
+    # RDF生成と検証
     rdf_result = generate_rdf_from_cypher_query(query)
-    if "code" in rdf_result:  # エラーの場合
+    if "code" in rdf_result:
         return {
             "validation": {
                 "is_valid": False,
@@ -96,15 +70,13 @@ def execute_and_validate_query(
             }
         }
     
-    # SHACL検証
     validation_result = validate_against_shacl(rdf_result["content"])
     
-    # 検証レベルに応じた処理
+    # 検証レベル判定
     should_execute = True
     if not validation_result.get("is_valid", False):
-        if validation_level == "strict" or validation_level == "standard":
+        if validation_level in ["strict", "standard"]:
             should_execute = False
-        # warningモードでは実行するが、警告を表示
     
     if not should_execute:
         return {
@@ -115,10 +87,8 @@ def execute_and_validate_query(
             }
         }
     
-    # 検証を通過したクエリを実行
     execution_result = execute_query(query, params, db_path, in_memory, connection)
     
-    # 結果を統合して返す
     return {
         "validation": validation_result,
         "execution": execution_result
@@ -132,50 +102,32 @@ def execute_query(
     in_memory: Optional[bool],
     connection: Any
 ) -> QueryExecutionResult:
-    """クエリを実行する
+    """Cypherクエリを実行して結果を返却"""
     
-    Args:
-        query: 実行するCypherクエリ
-        params: クエリパラメータ
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
-        connection: 既存のデータベース接続
-        
-    Returns:
-        QueryExecutionResult: クエリ実行結果
-    """
+    import time
     
-    # 接続を取得
-    db_result = get_connection(db_path, True, in_memory)
-    if "code" in db_result:  # エラーの場合
-        return {
-            "success": False,
-            "message": f"データベース接続エラー: {db_result.get('message', '不明なエラー')}"
-        }
-    # 既存の接続があればそれを使用、なければ新しい接続を使用
+    # 既存の接続がなければ新規取得
     if connection is None:
+        db_result = get_connection(db_path, True, in_memory)
+        if "code" in db_result:
+            return {
+                "success": False,
+                "message": f"データベース接続エラー: {db_result.get('message', '不明なエラー')}"
+            }
         connection = db_result["connection"]
     
     try:
-        # クエリ実行
-        import time
+        # 実行時間計測
         start_time = time.time()
         
-        # パラメータ付きで実行
-        if params:
-            result = connection.execute(query, params)
-        else:
-            result = connection.execute(query)
-            
-        end_time = time.time()
-        execution_time = end_time - start_time
+        # クエリ実行
+        result = connection.execute(query, params) if params else connection.execute(query)
         
-        # 簡素化された結果整形（基本的なシリアライズのみ）
-        formatted_result = result
+        execution_time = time.time() - start_time
         
         return {
             "success": True,
-            "data": formatted_result,
+            "data": result,
             "stats": {
                 "execution_time_ms": int(execution_time * 1000),
                 "affected_rows": getattr(result, "affected_rows", 0)
@@ -197,28 +149,14 @@ def handle_query_command(
     in_memory: Optional[bool],
     validation_level: str
 ) -> Dict[str, Any]:
-    """CLIからのクエリ実行コマンドを処理する
-    
-    Args:
-        query: 実行するCypherクエリ
-        param_strings: 'name=value' 形式のパラメータ文字列のリスト
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
-        validation_level: 検証レベル（"strict", "standard", "warning"）
-        
-    Returns:
-        Dict[str, Any]: 検証結果と実行結果を含む辞書
-    """
-    # パラメータの解析
+    """CLIから送信されたクエリを処理"""
     params = parse_params(param_strings)
     
-    # クエリの実行と検証
-    # 引数名なしで順に渡す
     return execute_and_validate_query(
         query,
         params,
         db_path,
         in_memory,
-        None,  # connection（新規接続が必要）
+        None,
         validation_level
     )
