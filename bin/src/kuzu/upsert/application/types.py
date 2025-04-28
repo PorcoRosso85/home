@@ -4,7 +4,7 @@
 このモジュールでは、アプリケーションサービスで使用する型定義を行います。
 """
 
-from typing import TypedDict, Union, List, Optional, Dict, Any, Literal, Callable
+from typing import TypedDict, Union, List, Optional, Dict, Any, Literal, Callable, Set
 
 
 # データベース関連の型
@@ -172,6 +172,28 @@ class QueryExecutionError(TypedDict):
 
 
 QueryExecutionResult = Union[QueryExecutionSuccess, QueryExecutionError]
+
+
+# 初期化サービスの処理結果型
+class ProcessSuccess(TypedDict):
+    """処理成功結果"""
+    success: Literal[True]
+    message: str
+    file: Optional[str]
+    nodes_count: Optional[int]
+    edges_count: Optional[int]
+    processed_files: Optional[List[str]]
+    total_nodes: Optional[int]
+    total_edges: Optional[int]
+
+
+class ProcessError(TypedDict):
+    """処理エラー"""
+    success: Literal[False]
+    message: str
+
+
+ProcessResult = Union[ProcessSuccess, ProcessError]
 
 
 # ヘルパー関数

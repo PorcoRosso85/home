@@ -4,7 +4,21 @@
 このモジュールでは、ドメインモデルで使用する型定義を行います。
 """
 
-from typing import TypedDict, Union, List, Optional, Dict, Any
+from typing import TypedDict, Union, List, Optional, Dict, Any, Protocol
+
+
+# 基本的なエンティティとリレーションシップのインターフェース
+class Entity(Protocol):
+    """エンティティの基本インターフェース"""
+    id: str
+
+
+class Relationship(Protocol):
+    """リレーションシップの基本インターフェース"""
+    id: str
+    source_id: str
+    target_id: str
+    relation_type: str
 
 
 # 関数モデルの型

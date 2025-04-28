@@ -22,7 +22,8 @@ from upsert.application.function_type_service import (
     get_all_function_types,
     add_function_type_from_json,
 )
-from upsert.infrastructure.variables import ROOT_DIR, DB_DIR, QUERY_DIR
+from upsert.infrastructure.variables import ROOT_DIR, DB_DIR, QUERY_DIR, INIT_DIR
+from upsert.application.init_service import process_init_file, process_init_directory
 
 
 def handle_init_command(db_path: str = None, in_memory: bool = None) -> Dict[str, Any]:
@@ -129,6 +130,45 @@ def handle_list_command(db_path: str = None, in_memory: bool = None) -> None:
         print(f"- {func['title']}: {func['description']}")
 
 
+def handle_init_convention_command(file_path: str = None, db_path: str = None, in_memory: bool = None) -> Dict[str, Any]:
+    """初期化ファイル（CONVENTION.yaml等）をデータベースに永続化するコマンドを処理する
+    
+    Args:
+        file_path: 処理するファイルのパス（デフォルト: None、INIT_DIRディレクトリ全体を処理）
+        db_path: データベースディレクトリのパス（デフォルト: None、変数から取得）
+        in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
+        
+    Returns:
+        Dict[str, Any]: 処理結果
+    """
+    # 特定のファイルが指定された場合
+    if file_path:
+        if not os.path.exists(file_path):
+            print(f"ファイルが見つかりません: {file_path}")
+            return {"success": False, "message": f"ファイルが見つかりません: {file_path}"}
+        
+        # ファイルを処理
+        result = process_init_file(file_path, db_path, in_memory)
+        if result["success"]:
+            print(result["message"])
+        else:
+            print(f"エラー: {result['message']}")
+        return result
+    
+    # ディレクトリ全体を処理
+    if not os.path.exists(INIT_DIR) or not os.path.isdir(INIT_DIR):
+        print(f"初期化ディレクトリが見つかりません: {INIT_DIR}")
+        return {"success": False, "message": f"初期化ディレクトリが見つかりません: {INIT_DIR}"}
+    
+    # ディレクトリ内のすべてのYAML/JSONファイルを処理
+    result = process_init_directory(INIT_DIR, db_path, in_memory)
+    if result["success"]:
+        print(result["message"])
+    else:
+        print(f"エラー: {result['message']}")
+    return result
+
+
 def handle_get_command(function_type_title: str, db_path: str = None, in_memory: bool = None) -> None:
     """関数型詳細表示コマンドを処理する
     
@@ -177,6 +217,7 @@ def parse_arguments() -> CommandArgs:
     parser.add_argument('--add', help='追加するFunction.Meta.jsonファイルのパス（例: example_function.json）')
     parser.add_argument('--list', action='store_true', help='すべての登録済み関数を一覧表示')
     parser.add_argument('--get', help='詳細を取得する関数のタイトル（例: MapFunction）')
+    parser.add_argument('--init-convention', nargs='?', const=None, help='初期化データ（CONVENTION.yaml等）をデータベースに永続化（パス省略時はINIT_DIRディレクトリ全体を処理）')
     parser.add_argument('--create-shapes', action='store_true', help='SHACL制約ファイルを作成（通常は--initで自動作成）')
     parser.add_argument('--test', action='store_true', help='単体テスト実行（pytest実行には "uv run pytest design.py" を使用）')
     
@@ -187,8 +228,20 @@ def main() -> None:
     """メイン関数"""
     args = parse_arguments()
     
+    # デバッグログ
+    print(f"DEBUG: 引数: {args}")
+    
     # 引数がない場合はヘルプを表示
-    if not any(args.values()):
+    # 注意: 'init_convention'引数は値がNoneでも有効な引数として扱う
+    if not any([
+        args["init"], 
+        args["add"], 
+        args["list"], 
+        args["get"], 
+        "init_convention" in args, 
+        args["create_shapes"], 
+        args["test"]
+    ]):
         print_help()
         return
     
@@ -229,6 +282,32 @@ def main() -> None:
     if args["get"]:
         handle_get_command(args["get"]) # デフォルトのパスと設定を使用
         return
+    
+    # 初期化データ（CONVENTION.yaml等）の永続化
+    if "init_convention" in args:
+        print(f"DEBUG: init_convention引数の値: {args['init_convention']}")
+        print(f"DEBUG: init_conventionの型: {type(args['init_convention'])}")
+        
+        # 最初にデータベースが初期化されているかを確認して必要なら初期化する
+        init_result = handle_init_command()
+        if not init_result.get("success", False):
+            print(f"データベース初期化エラー: {init_result.get('message', '不明なエラー')}")
+            return
+            
+        # ファイルパスが指定された場合
+        if args["init_convention"] is not None:
+            print(f"DEBUG: ファイルパスを指定したinit-convention処理を開始: {args['init_convention']}")
+            result = handle_init_convention_command(args["init_convention"]) # ファイルパスを指定
+            if not result["success"]:
+                print(f"コマンド実行エラー: {result['message']}")
+            return
+        else:
+            # ディレクトリ全体を処理する場合
+            print(f"DEBUG: ディレクトリ全体を処理するinit-convention処理を開始: INIT_DIR={INIT_DIR}")
+            result = handle_init_convention_command() # デフォルトのパスを使用
+            if not result["success"]:
+                print(f"コマンド実行エラー: {result['message']}")
+            return
 
 
 def print_help() -> None:
@@ -238,6 +317,7 @@ def print_help() -> None:
     parser.add_argument('--add', help='追加するFunction.Meta.jsonファイルのパス（例: example_function.json）')
     parser.add_argument('--list', action='store_true', help='すべての登録済み関数を一覧表示')
     parser.add_argument('--get', help='詳細を取得する関数のタイトル（例: MapFunction）')
+    parser.add_argument('--init-convention', nargs='?', const=None, help='初期化データ（CONVENTION.yaml等）をデータベースに永続化（パス省略時はINIT_DIRディレクトリ全体を処理）')
     parser.add_argument('--create-shapes', action='store_true', help='SHACL制約ファイルを作成（通常は--initで自動作成）')
     parser.add_argument('--test', action='store_true', help='単体テスト実行（pytest実行には "uv run pytest design.py" を使用）')
     
@@ -253,6 +333,10 @@ def print_help() -> None:
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --list")
     print("  # MapFunction関数の詳細表示")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --get MapFunction")
+    print("  # 初期化データ（CONVENTION.yaml）を永続化")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init-convention")
+    print("  # 特定のYAMLファイルを永続化")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init-convention /path/to/file.yaml")
     print("  # 単体テスト実行（内部テスト）")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --test")
 

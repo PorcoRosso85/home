@@ -106,6 +106,7 @@ class CommandArgs(TypedDict, total=False):
     add: Optional[str]
     list: bool
     get: Optional[str]
+    init_convention: Optional[str]
     create_shapes: bool
     test: bool
 

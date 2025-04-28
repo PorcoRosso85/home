@@ -30,6 +30,9 @@ QUERY_DIR = os.path.join(DB_PARENT_DIR, "query")  # src/kuzu/query
 QUERY_DML_DIR = os.path.join(QUERY_DIR, "dml")    # src/kuzu/query/dml
 QUERY_DDL_DIR = QUERY_DIR                         # src/kuzu/query
 
+# 初期化データディレクトリ
+INIT_DIR = os.path.join(QUERY_DIR, "init")        # src/kuzu/query/init
+
 # SHACLスキーマ関連
 SHAPES_FILE = os.path.join(ROOT_DIR, "design_shapes.ttl")
 
