@@ -10,7 +10,7 @@ import os
 
 from upsert.interface.types import is_error
 from upsert.interface.commands.utils import get_connection, get_default_db_path, is_in_memory_mode
-from upsert.application.logging_support import print_cypher
+from upsert.infrastructure.logger import print_cypher
 from upsert.infrastructure.variables import QUERY_DIR
 
 def handle_list(db_path: Optional[str] = None, in_memory: Optional[bool] = None,

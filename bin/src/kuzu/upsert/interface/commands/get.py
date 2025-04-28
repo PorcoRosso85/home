@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List
 
 from upsert.interface.types import is_error
 from upsert.interface.commands.utils import get_connection, get_default_db_path, is_in_memory_mode
-from upsert.application.logging_support import print_cypher
+from upsert.infrastructure.logger import print_cypher
 
 
 def handle_get(function_type_title: str, db_path: Optional[str] = None, 

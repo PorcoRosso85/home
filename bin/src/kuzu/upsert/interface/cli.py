@@ -50,6 +50,11 @@ def create_parser() -> argparse.ArgumentParser:
         # コマンド名をハイフン付きに変換 (snake_case -> --snake-case)
         option_name = f"--{command.replace('_', '-')}"
         
+        # クエリコマンドは特殊処理（常に値を取る）
+        if command == 'query':
+            parser.add_argument(option_name, metavar='QUERY', help='Cypherクエリを実行（クエリ文字列が必要）')
+            continue
+        
         # コマンドハンドラーの関数シグネチャに基づいて引数タイプを決定
         handler = command_handlers.get(f"handle_{command}")
         if handler:
@@ -109,8 +114,25 @@ def execute_command(command_name: str, args: Dict[str, Any]) -> CommandResult:
     # コマンド実行パラメータの前処理
     # 全てのコマンド関連パラメータを除外
     command_keys = [cmd.replace('handle_', '') for cmd in get_command_handlers().keys()]
-    command_args = {k: v for k, v in args.items() 
-                   if k not in ['debug', 'verbose'] + command_keys and not k.startswith('_')}
+    
+    # クエリコマンドの場合は特殊処理
+    if command_name == "handle_query":
+        # クエリ引数を取り出す
+        query_value = args.get("query")
+        command_args = {"query": query_value}
+        
+        # パラメータを追加
+        if "param" in args:
+            command_args["param_strings"] = args["param"]
+        
+        # その他のパラメータ
+        for key in ["db_path", "in_memory", "validation_level", "pretty"]:
+            if key in args:
+                command_args[key] = args[key]
+    else:
+        # 通常のコマンド処理
+        command_args = {k: v for k, v in args.items() 
+                       if k not in ['debug', 'verbose'] + command_keys and not k.startswith('_')}
     
     # コマンドハンドラが受け付ける引数のみを渡す
     handler_params = inspect.signature(handler).parameters.keys()
@@ -208,6 +230,18 @@ def main() -> None:
     verbose = args.get("verbose", False)
     if verbose:
         print(f"DEBUG: 引数: {args}")
+        
+    # クエリコマンドの特殊処理
+    if 'query' in args and args['query'] is not None:
+        print(f"DEBUG: クエリ引数: {args['query']}")
+        # query引数に値が入るはずだが、空の場合はstring型のフラグとして処理されている可能性
+        if args['query'] is True:
+            print("WARNING: クエリ引数が値なしフラグとして処理されています")
+            # 次の引数がクエリの本体かもしれない
+            next_arg = sys.argv[sys.argv.index('--query') + 1] if '--query' in sys.argv and sys.argv.index('--query') + 1 < len(sys.argv) else None
+            if next_arg and not next_arg.startswith('--'):
+                print(f"INFO: 次の引数をクエリとして使用します: {next_arg}")
+                args['query'] = next_arg
     
     # 利用可能なコマンドハンドラーを取得して有効なコマンドをチェック
     available_handlers = get_command_handlers()
@@ -223,16 +257,22 @@ def main() -> None:
     
     # 明示的なコマンドがあるか確認 - store_trueアクションの場合はTrueかどうかも確認
     has_command = False
-    for cmd in valid_command_bases:
+    found_command = None  # 見つかったコマンドを保存
+    
+    # 優先度順にコマンドを確認
+    command_priority = ['init', 'add', 'list', 'get', 'query', 'init_convention', 'create_shapes', 'test']
+    for cmd in command_priority:
         if cmd in args and args[cmd] is not None:
             # store_true オプションの場合はTrueかどうかも確認
             if isinstance(args[cmd], bool):
                 if args[cmd]:  # Trueの場合のみ有効なコマンドとして扱う
                     has_command = True
+                    found_command = cmd
                     break
             else:
                 # 他のタイプの引数（文字列など）の場合は値があれば有効
                 has_command = True
+                found_command = cmd
                 break
     
     # 明示的なコマンドがない場合はヘルプのみ表示して終了
@@ -250,7 +290,10 @@ def main() -> None:
         return
         
     # 実行するコマンドを特定
-    command_name = find_requested_command(args)
+    if found_command:
+        command_name = f"handle_{found_command}"
+    else:
+        command_name = find_requested_command(args)
     
     # コマンドが指定されていない場合はヘルプを表示
     if not command_name:

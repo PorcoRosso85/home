@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional, Tuple, List
 
 from upsert.interface.types import is_error
 from upsert.interface.commands.utils import get_connection, get_default_db_path, is_in_memory_mode
-from upsert.application.logging_support import print_cypher
+from upsert.infrastructure.logger import print_cypher
 
 
 def read_function_type_from_json(json_file: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:

@@ -11,7 +11,7 @@ from upsert.application.validation_service import (
     validate_against_shacl,
 )
 from upsert.infrastructure.database.connection import get_connection
-from upsert.application.logging_support import print_cypher
+from upsert.infrastructure.logger import print_cypher
 
 
 def parse_params(param_strings: List[str]) -> Dict[str, Any]:
