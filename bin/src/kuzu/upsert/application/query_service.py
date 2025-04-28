@@ -11,6 +11,7 @@ from upsert.application.validation_service import (
     validate_against_shacl,
 )
 from upsert.infrastructure.database.connection import get_connection
+from upsert.application.logging_support import print_cypher
 
 
 def parse_params(param_strings: List[str]) -> Dict[str, Any]:
@@ -119,6 +120,9 @@ def execute_query(
     try:
         # 実行時間計測
         start_time = time.time()
+        
+        # クエリとパラメータを表示
+        print_cypher("直接実行クエリ", query, params if params else None)
         
         # クエリ実行
         result = connection.execute(query, params) if params else connection.execute(query)
