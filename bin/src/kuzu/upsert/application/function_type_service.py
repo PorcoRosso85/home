@@ -33,7 +33,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from query.call_dml import create_query_loader
 
 # クエリローダーを作成
-query_loader = create_query_loader(QUERY_DIR, dml_subdir="dml")
+query_loader = create_query_loader(QUERY_DIR)
 
 
 def create_function_type(conn: Any, function_type_data: Dict[str, Any]) -> FunctionTypeCreationResult:

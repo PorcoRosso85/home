@@ -1,41 +1,30 @@
 """
-クエリモジュールの型定義
+クエリモジュールの型定義（リファクタリング版）
 
-このモジュールでは、クエリエンジンで使用される型定義を提供します。
-コーディング規約に従い、すべての型定義はこのファイルに集約されています。
+このモジュールでは、クエリエンジンで使用される必要最小限の型定義を提供します。
+不要な型定義を削除し、基本的なファイルローディングに必要な型のみを残しています。
 """
 
-# パッケージのインポートパスを設定
-import sys
-import os
-# プロジェクトルートディレクトリをパスに追加
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from typing import Dict, List, Any, Optional, Union, Literal, TypedDict, Callable
+from typing import Dict, List, Any, Optional, Union, Literal, TypedDict
 
 
 # クエリタイプの定義
 QueryType = Literal["dml", "ddl", "all"]
 
-# 成功結果型
+
+# 成功結果の基本型
 class QuerySuccess(TypedDict):
     """クエリ実行の成功結果を表す型"""
     success: Literal[True]
     data: Any
 
-# エラー結果型
+
+# 基本エラー型
 class QueryError(TypedDict):
     """クエリ実行のエラー結果を表す型"""
     success: Literal[False]
     error: str
-    available_queries: List[str]
 
-# キャッシュキーが存在しないエラー
-class CacheMissError(TypedDict):
-    """キャッシュミスエラーを表す型"""
-    success: Literal[False]
-    error: str
-    key: str
 
 # クエリファイルが見つからないエラー
 class QueryNotFoundError(TypedDict):
@@ -43,16 +32,16 @@ class QueryNotFoundError(TypedDict):
     success: Literal[False]
     error: str
     query_name: str
-    query_path: str
     available_queries: List[str]
+
 
 # クエリタイプが無効なエラー
 class InvalidQueryTypeError(TypedDict):
     """無効なクエリタイプエラーを表す型"""
     success: Literal[False]
     error: str
-    query_type: str
     valid_types: List[str]
+
 
 # ファイル読み込みエラー
 class FileReadError(TypedDict):
@@ -61,18 +50,6 @@ class FileReadError(TypedDict):
     error: str
     file_path: str
 
-# データベース接続エラー
-class DatabaseConnectionError(TypedDict):
-    """データベース接続エラーを表す型"""
-    success: Literal[False]
-    error: str
-
-# クエリ実行エラー
-class QueryExecutionError(TypedDict):
-    """クエリ実行エラーを表す型"""
-    success: Literal[False]
-    error: str
-    query_name: str
 
 # 結果型の共用体
 QueryResult = Union[
@@ -80,30 +57,14 @@ QueryResult = Union[
     QueryError,
     QueryNotFoundError,
     InvalidQueryTypeError,
-    FileReadError,
-    DatabaseConnectionError,
-    QueryExecutionError,
-    CacheMissError
+    FileReadError
 ]
 
-# クエリローダーの戻り値型
+
+# クエリローダーの簡素な戻り値型
 class QueryLoaderDict(TypedDict):
-    """クエリローダーが返す関数辞書の型"""
-    get_available_queries: Callable[[Optional[QueryType]], List[str]]
-    get_query: Callable[[str, Optional[QueryType]], QueryResult]
-    execute_query: Callable[[str, Optional[List[Any]], Optional[QueryType], Any], QueryResult]
-    is_error: Callable[[QueryResult], bool]
-
-# ディレクトリ設定の戻り値型
-class DirectoryPaths(TypedDict):
-    """ディレクトリパス情報を含む辞書の型"""
-    query_dir: str
-    dml_dir: str
-    ddl_dir: str
-
-# キャッシュ操作の戻り値型
-class CacheOperations(TypedDict):
-    """キャッシュ操作関数を含む辞書の型"""
-    get: Callable[[str], Optional[str]]
-    set: Callable[[str, str], None]
-    has: Callable[[str], bool]
+    """クエリローダーが返す関数辞書の型（簡素化版）"""
+    get_available_queries: Any  # クエリ一覧取得関数
+    get_query: Any  # クエリ取得関数
+    execute_query: Any  # クエリ実行関数
+    get_success: Any  # 成功判定ヘルパー関数

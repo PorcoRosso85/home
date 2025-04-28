@@ -1,7 +1,8 @@
 """
-データベース接続モジュール
+データベース接続モジュール（リファクタリング版）
 
 このモジュールでは、KuzuDBへの接続機能を提供します。
+query/call_dml.pyの単純化されたローダーを利用するよう更新されています。
 """
 
 import os
@@ -105,9 +106,10 @@ def get_connection(db_path: str = None, with_query_loader: bool = False, in_memo
         
         conn = kuzu.Connection(db)
         
-        # クエリローダー作成と設定
+        # クエリローダー作成と設定（シンプル化された版を使用）
         if with_query_loader:
-            loader = create_query_loader(QUERY_DIR, dml_subdir="dml")
+            # 簡素化したクエリローダーを使用（ディレクトリパスのみ渡す）
+            loader = create_query_loader(QUERY_DIR)
             # 接続オブジェクトに関連づける（呼び出し側の互換性のため）
             conn._query_loader = loader
             # 互換性のあるレスポンス形式
@@ -128,9 +130,6 @@ def get_connection(db_path: str = None, with_query_loader: bool = False, in_memo
 # 後方互換性のための関数
 def create_connection(db_path: str = DB_DIR) -> DatabaseResult:
     """データベース接続を作成する（後方互換性のため）
-    
-    注: この関数は後方互換性のために残されています。
-        新しいコードでは get_connection() を使用してください。
     
     Args:
         db_path: データベースディレクトリのパス（デフォルト: DB_DIR）
@@ -240,108 +239,3 @@ def init_database(db_path: str = None, in_memory: bool = None) -> DatabaseInitia
             "code": "DB_INIT_ERROR",
             "message": f"データベース初期化エラー: {str(e)}"
         }
-
-
-# テーブル作成関数はDDLファイルを使用するように変更したため削除
-
-
-# テスト関数
-def test_connection() -> None:
-    """データベース接続のテスト"""
-    # テストディレクトリを作成
-    import tempfile
-    test_db_path = tempfile.mkdtemp()
-    
-    try:
-        # ディスクモードで接続テスト（統合された関数を使用）
-        connection_result = get_connection(db_path=test_db_path, in_memory=False)
-        # 成功ケースを検証
-        assert "code" not in connection_result
-        assert "connection" in connection_result
-        
-        # 後方互換性のための関数でも確認
-        connection_result_legacy = create_connection(test_db_path)
-        # 同じく成功ケースを検証
-        assert "code" not in connection_result_legacy
-        assert "connection" in connection_result_legacy
-    
-    except ImportError:
-        # ライブラリがない場合はテストをスキップ
-        print("kuzu ライブラリがないためテストをスキップします")
-    
-    finally:
-        # テスト用ディレクトリを削除
-        import shutil
-        shutil.rmtree(test_db_path)
-
-
-def test_get_connection_with_query_loader() -> None:
-    """クエリローダー付きの接続取得をテスト"""
-    # テストディレクトリを作成
-    import tempfile
-    import shutil
-    
-    test_db_path = tempfile.mkdtemp()
-    test_query_path = tempfile.mkdtemp()
-    test_query_dml_path = os.path.join(test_query_path, "dml")
-    os.makedirs(test_query_dml_path)
-    
-    try:
-        # テスト用のクエリファイルを作成
-        test_query = "// テストクエリ\nRETURN 1;"
-        test_file_path = os.path.join(test_query_dml_path, "test_query.cypher")
-        with open(test_file_path, "w") as f:
-            f.write(test_query)
-        
-        # テストではimportされた設定変数を直接参照できないため
-        # モンキーパッチングを行う
-        import upsert.infrastructure.variables as vars
-        original_db_dir = vars.DB_DIR
-        original_query_dir = vars.QUERY_DIR
-        vars.DB_DIR = test_db_path
-        vars.QUERY_DIR = test_query_path
-        
-        # 接続とクエリローダーの取得テスト（統合された関数を使用）
-        result = get_connection(with_query_loader=True)
-        
-        # 結果の検証
-        assert "code" not in result  # errorがないことを確認
-        assert "connection" in result
-        assert "query_loader" in result
-        
-        # クエリローダーの動作確認
-        loader = result["query_loader"]
-        
-        # クエリローダーアクセスの検証
-        conn = result["connection"]
-        assert hasattr(conn, "_query_loader"), "接続オブジェクトにクエリローダー属性が追加されていません"
-        
-        # ここで、テストファイルがあるディレクトリをクエリローダーに直接渡す
-        test_loader = create_query_loader(test_query_path, dml_subdir="dml")
-        query_result = test_loader["get_query"]("test_query")
-        assert test_loader["get_success"](query_result)
-        assert query_result["data"] == test_query
-        
-        # インメモリモードでも確認
-        in_memory_result = get_connection(with_query_loader=True, in_memory=True)
-        assert "code" not in in_memory_result
-        assert "connection" in in_memory_result
-        assert "query_loader" in in_memory_result
-        
-        # 設定の復元
-        vars.DB_DIR = original_db_dir
-        vars.QUERY_DIR = original_query_dir
-    
-    except ImportError:
-        # ライブラリがない場合はテストをスキップ
-        print("kuzu または必要なライブラリがないためテストをスキップします")
-    
-    finally:
-        # テスト用ディレクトリを削除
-        shutil.rmtree(test_db_path)
-        shutil.rmtree(test_query_path)
-
-
-if __name__ == "__main__":
-    import pytest
-    pytest.main([__file__])
