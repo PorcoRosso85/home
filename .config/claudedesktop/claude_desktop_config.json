@@ -1,11 +1,11 @@
 {
   "mcpServers": {
-    "claude_code": {
+    "desktop_commander": {
       "command": "wsl",
       "args": [
         "bash",
         "-c",
-        "ALLOWED_TOOLS='[\"GlobTool\", \"Edit\", \"GrepTool\", \"dispatch_agent\", \"LS\", \"Replace\", \"View\"]' pnpx @anthropic-ai/claude-code mcp serve"
+        "pnpx @wonderwhy-er/desktop-commander"
       ]
     },
     "llm_functions": {
