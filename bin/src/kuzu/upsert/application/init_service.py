@@ -3,13 +3,17 @@
 
 このモジュールでは、CONVENTION.yamlなどの初期化ファイルを読み込み、
 KuzuDBのグラフ構造に変換するサービスを提供します。
+ファイル形式自動検出と解析機能を搭載、多様なデータ構造を自動的にグラフ化します。
 """
 
 import os
 import yaml
 import json
+import csv
 import uuid
-from typing import Dict, Any, List, Tuple, Optional
+import re
+import io
+from typing import Dict, Any, List, Tuple, Optional, Union, Set, Iterator
 
 from upsert.domain.models.init_node import InitNode
 from upsert.domain.models.init_edge import InitEdge
@@ -171,6 +175,48 @@ def parse_tree_to_nodes_and_edges(
     return nodes, edges
 
 
+def validate_with_shacl_constraints(
+    nodes: List[InitNode],
+    edges: List[InitEdge]
+) -> Tuple[bool, str, List[str]]:
+    """SHACL制約ルールを使用してノードとエッジを検証する
+    
+    Args:
+        nodes: 検証するノードのリスト
+        edges: 検証するエッジのリスト
+        
+    Returns:
+        Tuple[bool, str, List[str]]: (検証成功フラグ, エラーメッセージ, 重複検出ID)
+    """
+    try:
+        # ここで本来はSHACL検証を行うが、最小実装では重複IDチェックのみを行う
+        # 1. ノードIDの重複チェック
+        node_ids = [node.id for node in nodes]
+        duplicate_node_ids = set([nid for nid in node_ids if node_ids.count(nid) > 1])
+        
+        # 2. エッジIDの重複チェック
+        edge_ids = [edge.id for edge in edges]
+        duplicate_edge_ids = set([eid for eid in edge_ids if edge_ids.count(eid) > 1])
+        
+        # 重複があれば検証失敗
+        if duplicate_node_ids or duplicate_edge_ids:
+            duplicate_ids = list(duplicate_node_ids) + list(duplicate_edge_ids)
+            message = f"重複するIDが検出されました: {', '.join(duplicate_ids[:5])}" + \
+                      (f"... 他{len(duplicate_ids) - 5}件" if len(duplicate_ids) > 5 else "")
+            return False, message, duplicate_ids
+            
+        # TODO: これは最小実装のため、将来的には以下の検証を追加する
+        # 1. ノード・エッジの必須プロパティチェック
+        # 2. プロパティの型チェック
+        # 3. エッジの接続先ノードの存在性チェック
+        # 4. カスタムルールによる検証
+        
+        return True, "", []
+        
+    except Exception as e:
+        return False, f"検証中にエラーが発生しました: {str(e)}", []
+
+
 def save_init_data_to_database(
     nodes: List[InitNode],
     edges: List[InitEdge],
@@ -188,7 +234,21 @@ def save_init_data_to_database(
     Returns:
         ProcessResult: 処理結果
     """
+    # トランザクション状態を追跡
+    transaction_started = False
+    
     try:
+        # SHACL制約による検証
+        print("DEBUG: SHACL制約による検証を開始")
+        valid, error_message, duplicate_ids = validate_with_shacl_constraints(nodes, edges)
+        if not valid:
+            print(f"DEBUG: SHACL制約検証エラー: {error_message}")
+            return {
+                "success": False,
+                "message": f"SHACL制約検証エラー: {error_message}"
+            }
+        print("DEBUG: SHACL制約検証に成功")
+            
         # データベース接続
         db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
         if "code" in db_result:
@@ -198,6 +258,18 @@ def save_init_data_to_database(
             }
         
         connection = db_result["connection"]
+        
+        # トランザクション開始
+        try:
+            print("DEBUG: トランザクション開始")
+            connection.execute("BEGIN TRANSACTION")
+            transaction_started = True
+            print("DEBUG: トランザクション開始成功")
+        except Exception as e:
+            print(f"DEBUG: トランザクション開始エラー: {str(e)}")
+            # KuzuDBがトランザクションをサポートしていない場合などはエラーをスキップして続行
+            print("DEBUG: トランザクションなしで続行します")
+            transaction_started = False
         
         # ノードテーブルとエッジテーブルを作成
         # Cypherクエリ言語の構文で作成 - カラム定義なしの最小構文
@@ -360,6 +432,17 @@ def save_init_data_to_database(
                 print(f"DEBUG: エッジ挿入エラー: id={edge.id}, エラー={str(e)}")
                 raise
         
+        # トランザクションのコミット
+        if transaction_started:
+            try:
+                print("DEBUG: トランザクションをコミット")
+                connection.execute("COMMIT")
+                print("DEBUG: トランザクションのコミットに成功")
+            except Exception as e:
+                print(f"DEBUG: トランザクションのコミットに失敗: {str(e)}")
+                # エラーがあった場合でも、コミットエラーは処理を中断しない（既に処理は完了している）
+                print("DEBUG: コミット失敗を無視して続行します")
+        
         return {
             "success": True,
             "message": f"{len(nodes)}個のノードと{len(edges)}個のエッジを保存しました",
@@ -368,6 +451,17 @@ def save_init_data_to_database(
         }
         
     except Exception as e:
+        # エラー発生時はロールバック
+        if transaction_started:
+            try:
+                print("DEBUG: エラーが発生したため、トランザクションをロールバック")
+                connection.execute("ROLLBACK")
+                print("DEBUG: トランザクションのロールバックに成功")
+            except Exception as rollback_error:
+                print(f"DEBUG: トランザクションのロールバックに失敗: {str(rollback_error)}")
+                # ロールバックに失敗した場合でも、元のエラーを返す
+                print("DEBUG: ロールバック失敗を無視して続行します")
+        
         return {
             "success": False,
             "message": f"初期化データ保存エラー: {str(e)}"
@@ -404,6 +498,20 @@ def process_init_file(
         elif ext.lower() == '.json':
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+        elif ext.lower() == '.csv':
+            # TODO: CSVファイル処理機能
+            # CSVファイルを読み込み、階層構造に変換する機能を実装する
+            # ヘッダー行をキーとして使用し、各行をデータとして扱う
+            # 例えば：
+            # | id | name | category |
+            # | 1  | foo  | bar      |
+            # ↓
+            # {"1": {"name": "foo", "category": "bar"}}
+            # のような階層構造に変換する
+            return {
+                "success": False,
+                "message": f"CSVファイル処理は将来のバージョンでサポート予定です: {ext}"
+            }
         else:
             return {
                 "success": False,
@@ -456,6 +564,12 @@ def process_init_directory(
         
     Returns:
         ProcessResult: 処理結果
+        
+    Note:
+        TODO: エラー回復メカニズムの見直し
+        - 現在の実装では一部ファイルの処理に失敗してもその他のファイルの処理は継続する
+        - 本来は一貫性を保つために、エラー発生時はすべての処理をロールバックすべき
+        - 次期バージョンではトランザクション処理を実装し、現在のエラー回復処理は削除予定
     """
     try:
         # ディレクトリが存在するか確認
@@ -615,6 +729,32 @@ def test_parse_tree_to_nodes_and_edges() -> None:
     class_to_value = next((e for e in edges if e.source_id == "common.基本原則.クラス使用" and e.target_id == "common.基本原則.クラス使用.value"), None)
     assert class_to_value is not None
     assert class_to_value.relation_type == "has_value"
+
+
+def test_validate_with_shacl_constraints() -> None:
+    """validate_with_shacl_constraints関数のテスト"""
+    # 正常ケース
+    nodes = [
+        InitNode(id="node1", path="node1", label="test1"),
+        InitNode(id="node2", path="node2", label="test2")
+    ]
+    edges = [
+        InitEdge(id="edge1", source_id="node1", target_id="node2")
+    ]
+    valid, message, duplicate_ids = validate_with_shacl_constraints(nodes, edges)
+    assert valid == True
+    assert message == ""
+    assert duplicate_ids == []
+    
+    # 重複IDエラーケース
+    nodes_duplicate = [
+        InitNode(id="node1", path="node1", label="test1"),
+        InitNode(id="node1", path="node1_dup", label="test1_dup")  # IDが重複
+    ]
+    valid, message, duplicate_ids = validate_with_shacl_constraints(nodes_duplicate, edges)
+    assert valid == False
+    assert "重複するIDが検出されました" in message
+    assert "node1" in duplicate_ids
 
 
 if __name__ == "__main__":

@@ -68,6 +68,9 @@ def create_parser() -> argparse.ArgumentParser:
                 # パラメータを必要とするコマンドの場合は値を受け取るオプションとして追加
                 parser.add_argument(option_name, help=f'{command}コマンドを実行（引数が必要）')
     
+    # TODO: 独立したオプション定義を削除し、サブコマンド構造に統合する
+    # 現在の実装では独立したオプションとしてヘルプに表示されるが、実際は--initのサブオプションとして機能する
+    # 今後の改善: argparseのサブパーサーを使用して、階層構造を持つコマンド体系に変更する
     # --initコマンド用の追加オプション
     parser.add_argument('--with-data', action='store_true', help='初期化時に初期データも登録する')
     parser.add_argument('--data-dir', help='初期データディレクトリのパス（デフォルト: query/init）')
@@ -133,6 +136,9 @@ def execute_command(command_name: str, args: Dict[str, Any]) -> CommandResult:
         for key in ["db_path", "in_memory", "validation_level", "pretty"]:
             if key in args:
                 command_args[key] = args[key]
+    # TODO: 独立したオプション処理の代わりに、サブコマンド構造に対応した引数処理を実装する
+    # 現在の実装では独立したオプションの処理ロジックがコード内に散在している
+    # 今後の改善: サブパーサーを使用した階層構造に対応する引数処理に統一する
     # initコマンドの場合は追加オプションを処理
     elif command_name == "handle_init":
         command_args = {}
@@ -216,6 +222,9 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
     # 明示的なコマンドオプションがあるか確認
     has_explicit_command = False
     for arg_name in args:
+        # TODO: 特殊引数リストの代わりにサブコマンド構造に対応した判定を実装する
+        # 現在の実装では独立したオプションとサブオプションの区別がハードコードされている
+        # 今後の改善: サブパーサーによる階層構造を活用してコマンド判定ロジックを簡略化する
         if arg_name in ['debug', 'verbose', 'param', 'with_data', 'data_dir'] or arg_name.startswith('_'):
             continue
             
@@ -238,6 +247,9 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
     
     # それでも見つからない場合は任意の引数を検索
     for arg_name in args:
+        # TODO: 特殊引数リストの代わりにサブコマンド構造に対応した判定を実装する
+        # 現在の実装では独立したオプションとサブオプションの区別がハードコードされている
+        # 今後の改善: サブパーサーによる階層構造を活用してコマンド判定ロジックを簡略化する
         if arg_name in ['debug', 'verbose', 'param', 'with_data', 'data_dir'] or arg_name.startswith('_'):
             continue  # 特殊な引数はスキップ
             
@@ -254,101 +266,127 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
 
 def main() -> None:
     """メイン関数"""
-    # コマンドライン引数の解析
-    args = parse_arguments()
-    
-    # デバッグ情報の表示
-    verbose = args.get("verbose", False)
-    if verbose:
-        print(f"DEBUG: 引数: {args}")
+    try:
+        # コマンドライン引数の解析
+        args = parse_arguments()
         
-    # クエリコマンドの特殊処理
-    if 'query' in args and args['query'] is not None:
-        print(f"DEBUG: クエリ引数: {args['query']}")
-        # query引数に値が入るはずだが、空の場合はstring型のフラグとして処理されている可能性
-        if args['query'] is True:
-            print("WARNING: クエリ引数が値なしフラグとして処理されています")
-            # 次の引数がクエリの本体かもしれない
-            next_arg = sys.argv[sys.argv.index('--query') + 1] if '--query' in sys.argv and sys.argv.index('--query') + 1 < len(sys.argv) else None
-            if next_arg and not next_arg.startswith('--'):
-                print(f"INFO: 次の引数をクエリとして使用します: {next_arg}")
-                args['query'] = next_arg
-    
-    # 利用可能なコマンドハンドラーを取得して有効なコマンドをチェック
-    available_handlers = get_command_handlers()
-    
-    # 有効なコマンド名のリストを作成（handle_ 接頭辞を除去）
-    valid_command_bases = [cmd_name.replace('handle_', '') for cmd_name in available_handlers.keys()]
-    
-    # デバッグ情報を表示
-    if verbose:
-        # 利用可能なコマンドハンドラー一覧
+        # デバッグ情報の表示
+        verbose = args.get("verbose", False)
+        if verbose:
+            print(f"DEBUG: 引数: {args}")
+            
+        # クエリコマンドの特殊処理
+        if 'query' in args and args['query'] is not None:
+            print(f"DEBUG: クエリ引数: {args['query']}")
+            # query引数に値が入るはずだが、空の場合はstring型のフラグとして処理されている可能性
+            if args['query'] is True:
+                print("WARNING: クエリ引数が値なしフラグとして処理されています")
+                # 次の引数がクエリの本体かもしれない
+                next_arg = sys.argv[sys.argv.index('--query') + 1] if '--query' in sys.argv and sys.argv.index('--query') + 1 < len(sys.argv) else None
+                if next_arg and not next_arg.startswith('--'):
+                    print(f"INFO: 次の引数をクエリとして使用します: {next_arg}")
+                    args['query'] = next_arg
+        
+        # 利用可能なコマンドハンドラーを取得して有効なコマンドをチェック
         available_handlers = get_command_handlers()
-        print(f"DEBUG: 利用可能なコマンドハンドラー: {list(available_handlers.keys())}")
-    
-    # 明示的なコマンドがあるか確認 - store_trueアクションの場合はTrueかどうかも確認
-    has_command = False
-    found_command = None  # 見つかったコマンドを保存
-    
-    # 優先度順にコマンドを確認
-    command_priority = ['init', 'get', 'query', 'init_convention', 'create_shapes', 'test']
-    for cmd in command_priority:
-        if cmd in args and args[cmd] is not None:
-            # store_true オプションの場合はTrueかどうかも確認
-            if isinstance(args[cmd], bool):
-                if args[cmd]:  # Trueの場合のみ有効なコマンドとして扱う
+        
+        # 有効なコマンド名のリストを作成（handle_ 接頭辞を除去）
+        valid_command_bases = [cmd_name.replace('handle_', '') for cmd_name in available_handlers.keys()]
+        
+        # デバッグ情報を表示
+        if verbose:
+            # 利用可能なコマンドハンドラー一覧
+            available_handlers = get_command_handlers()
+            print(f"DEBUG: 利用可能なコマンドハンドラー: {list(available_handlers.keys())}")
+        
+        # 明示的なコマンドがあるか確認 - store_trueアクションの場合はTrueかどうかも確認
+        has_command = False
+        found_command = None  # 見つかったコマンドを保存
+        
+        # 優先度順にコマンドを確認
+        command_priority = ['init', 'get', 'query', 'init_convention', 'create_shapes', 'test']
+        for cmd in command_priority:
+            if cmd in args and args[cmd] is not None:
+                # store_true オプションの場合はTrueかどうかも確認
+                if isinstance(args[cmd], bool):
+                    if args[cmd]:  # Trueの場合のみ有効なコマンドとして扱う
+                        has_command = True
+                        found_command = cmd
+                        break
+                else:
+                    # 他のタイプの引数（文字列など）の場合は値があれば有効
                     has_command = True
                     found_command = cmd
                     break
-            else:
-                # 他のタイプの引数（文字列など）の場合は値があれば有効
-                has_command = True
-                found_command = cmd
-                break
-    
-    # 明示的なコマンドがない場合はヘルプのみ表示して終了
-    if not has_command:
-        print("エラー: 有効なコマンドが指定されていません")
-        print("使用方法を確認するには以下のコマンドを実行してください：")
-        print("  python -m upsert --help")
-        print("\n利用可能なコマンド:")
         
-        # 動的に検出されたコマンド一覧を表示
-        valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
-        for cmd in sorted(valid_commands):
-            print(f"  {cmd}")
+        # 明示的なコマンドがない場合はヘルプのみ表示して終了
+        if not has_command:
+            print("エラー: 有効なコマンドが指定されていません")
+            print("使用方法を確認するには以下のコマンドを実行してください：")
+            print("  python -m upsert --help")
+            print("\n利用可能なコマンド:")
+            
+            # 動的に検出されたコマンド一覧を表示
+            valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
+            for cmd in sorted(valid_commands):
+                print(f"  {cmd}")
+            
+            # TODO: 各コマンドのヘルプはコマンドハンドラーから取得するように変更すべき
+            return
+            
+        # 実行するコマンドを特定
+        if found_command:
+            command_name = f"handle_{found_command}"
+        else:
+            command_name = find_requested_command(args)
         
-        return
+        # コマンドが指定されていない場合はヘルプを表示
+        if not command_name:
+            print("エラー: 有効なコマンドが指定されていません")
+            print("使用方法を確認するには以下のコマンドを実行してください：")
+            print("  python -m upsert --help")
+            print("\n利用可能なコマンド:")
+            
+            # 動的に検出されたコマンド一覧を表示
+            valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
+            for cmd in sorted(valid_commands):
+                print(f"  {cmd}")
+            
+            # TODO: 各コマンドのヘルプはコマンドハンドラーから取得するように変更すべき
+            return
         
-    # 実行するコマンドを特定
-    if found_command:
-        command_name = f"handle_{found_command}"
-    else:
-        command_name = find_requested_command(args)
-    
-    # コマンドが指定されていない場合はヘルプを表示
-    if not command_name:
-        print("エラー: 有効なコマンドが指定されていません")
-        print("使用方法を確認するには以下のコマンドを実行してください：")
-        print("  python -m upsert --help")
-        print("\n利用可能なコマンド:")
+        # コマンドを実行
+        result = execute_command(command_name, args)
         
-        # 動的に検出されたコマンド一覧を表示
-        valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
-        for cmd in sorted(valid_commands):
-            print(f"  {cmd}")
-        
-        return
-    
-    # コマンドを実行
-    result = execute_command(command_name, args)
-    
-    # 実行結果の処理
-    if not result["success"]:
-        print(f"エラー: {result.get('message', '不明なエラー')}", file=sys.stderr)
-        if args.get("debug", False) or is_debug_mode():
-            if result.get("trace"):
-                print(result["trace"], file=sys.stderr)
+        # 実行結果の処理
+        if not result["success"]:
+            print(f"エラー: {result.get('message', '不明なエラー')}", file=sys.stderr)
+            if args.get("debug", False) or is_debug_mode():
+                if result.get("trace"):
+                    print(result["trace"], file=sys.stderr)
+            sys.exit(1)
+    except argparse.ArgumentError as e:
+        print(f"引数エラー: {str(e)}", file=sys.stderr)
+        print("\n正しい使用例:", file=sys.stderr)
+        print("  * --init オプションは値が必要です。例: --init true または --init /path/to/db", file=sys.stderr)
+        print("  * --with-data は --init と一緒に使用してください", file=sys.stderr)
+        print("  * 正しい例: --init true --with-data", file=sys.stderr)
+        print("  * 誤った例: --init --with-data (エラーになります)", file=sys.stderr)
+        print("\n詳細なヘルプを表示するには:", file=sys.stderr)
+        print("  python -m upsert --help", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"予期しないエラーが発生しました: {str(e)}", file=sys.stderr)
+        print("\nコマンドの正しい使用例:", file=sys.stderr)
+        print("  * --init オプションは値が必要です。例: --init true または --init /path/to/db", file=sys.stderr)
+        print("  * --with-data は --init と一緒に使用してください", file=sys.stderr)
+        print("  * 正しい例: --init true --with-data", file=sys.stderr)
+        print("  * 誤った例: --init --with-data (エラーになります)", file=sys.stderr)
+        print("\n詳細なヘルプを表示するには:", file=sys.stderr)
+        print("  python -m upsert --help", file=sys.stderr)
+        if is_debug_mode():
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 def print_help() -> None:
@@ -359,12 +397,18 @@ def print_help() -> None:
     print("\n使用例:")
     print("  # 環境変数の設定とKuzu用ライブラリパスの追加")
     print("  LD_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib\"")
+    
+    # TODO: 各コマンドのヘルプや使用例は、対応するコマンドハンドラーに移動すべき
+    # 将来的には、cli.pyとmain.pyから特定コマンドに関する知識を排除し、
+    # 完全に命令型からオブジェクト指向の設計に移行する
+    # 各コマンドが自身のヘルプと使用例を提供できるようにする
+    
     print("  # データベース初期化")
-    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init true")
     print("  # データベース初期化と初期データ登録")
-    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init --with-data")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init true --with-data")
     print("  # 特定ディレクトリの初期データを登録")
-    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init --with-data --data-dir=/path/to/data")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init true --with-data --data-dir=/path/to/data")
     # 注: add と list コマンドは削除されました
     print("  # MapFunction関数の詳細表示")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --get MapFunction")
@@ -378,6 +422,7 @@ def print_help() -> None:
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --query help")
     print("  # 特定のキーワードのヘルプを表示")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --query MATCH --help")
+
 
 
 if __name__ == "__main__":
