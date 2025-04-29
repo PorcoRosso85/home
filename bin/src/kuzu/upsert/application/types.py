@@ -403,15 +403,77 @@ class ProcessSuccess(TypedDict):
     processed_files: Optional[List[str]]
     total_nodes: Optional[int]
     total_edges: Optional[int]
+    root_nodes: Optional[List[Dict[str, Any]]]
 
 
 class ProcessError(TypedDict):
     """処理エラー"""
     success: Literal[False]
     message: str
+    error_type: Optional[str]
+    details: Optional[Dict[str, Any]]
 
 
 ProcessResult = Union[ProcessSuccess, ProcessError]
+
+# 初期化サービスの追加型定義
+class NodeParseSuccess(TypedDict):
+    """ノード解析成功結果"""
+    nodes: List[Any]  # InitNodeリスト
+    edges: List[Any]  # InitEdgeリスト
+
+class NodeParseError(TypedDict):
+    """ノード解析エラー"""
+    code: str
+    message: str
+    details: Optional[Dict[str, Any]]
+
+NodeParseResult = Union[NodeParseSuccess, NodeParseError]
+
+class ValidationSuccess(TypedDict):
+    """検証成功結果"""
+    is_valid: Literal[True]
+    message: str
+
+class ValidationError(TypedDict):
+    """検証エラー"""
+    is_valid: Literal[False]
+    message: str
+    duplicate_ids: List[str]
+
+ValidationResult = Union[ValidationSuccess, ValidationError]
+
+class NodeInsertionSuccess(TypedDict):
+    """ノード挿入成功結果"""
+    success: Literal[True]
+    nodes_inserted: int
+    nodes_skipped: int
+
+class NodeInsertionError(TypedDict):
+    """ノード挿入エラー"""
+    success: Literal[False]
+    message: str
+    error_type: str
+    nodes_inserted: int
+    nodes_skipped: int
+
+NodeInsertionResult = Union[NodeInsertionSuccess, NodeInsertionError]
+
+class EdgeInsertionSuccess(TypedDict):
+    """エッジ挿入成功結果"""
+    success: Literal[True]
+    edges_inserted: int
+    edges_skipped: int
+
+class EdgeInsertionError(TypedDict):
+    """エッジ挿入エラー"""
+    success: Literal[False]
+    message: str
+    error_type: str
+    edges_inserted: int
+    edges_skipped: int
+
+EdgeInsertionResult = Union[EdgeInsertionSuccess, EdgeInsertionError]
 
 
 # ヘルパー関数
