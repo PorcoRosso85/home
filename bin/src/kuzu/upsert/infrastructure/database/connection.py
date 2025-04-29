@@ -70,7 +70,9 @@ def load_ddl_from_file(ddl_file_path: str) -> List[str]:
 
 
 def get_connection(db_path: str, with_query_loader: bool, in_memory: bool) -> Union[DatabaseResult, QueryLoaderResult]:
-    """データベース接続を取得する統合関数
+    """データベース接続を取得する統合関数（トランザクション状態追跡機能追加）
+    
+    KuzuDBのトランザクション処理特性に合わせて、接続状態を追跡する機能を強化しました。
     
     Args:
         db_path: データベースディレクトリのパス
@@ -82,6 +84,7 @@ def get_connection(db_path: str, with_query_loader: bool, in_memory: bool) -> Un
     """
     try:
         import kuzu
+        import time
         
         # 接続の作成（条件分岐）
         if not in_memory:
@@ -97,6 +100,79 @@ def get_connection(db_path: str, with_query_loader: bool, in_memory: bool) -> Un
             db = kuzu.Database()
         
         conn = kuzu.Connection(db)
+        
+        # トランザクション状態追跡機能を追加
+        # 接続オブジェクトを拡張して、トランザクション状態を追跡
+        conn._transaction_active = False
+        
+        # オリジナルのexecuteメソッドを保存
+        original_execute = conn.execute
+        
+        # executeメソッドをオーバーライドして、トランザクション状態を追跡する拡張版を作成
+        def execute_with_transaction_tracking(query: str, params=None):
+            # トランザクション関連コマンドの検出
+            is_begin = query.strip().upper().startswith("BEGIN")
+            is_commit = query.strip().upper().startswith("COMMIT")
+            is_rollback = query.strip().upper().startswith("ROLLBACK")
+            
+            # トランザクション開始
+            if is_begin:
+                try:
+                    result = original_execute(query, params)
+                    conn._transaction_active = True
+                    return result
+                except Exception as e:
+                    # トランザクション開始に失敗した場合は状態を更新しない
+                    print(f"DEBUG: BEGIN TRANSACTION 失敗: {str(e)}")
+                    raise
+            
+            # トランザクションコミット
+            elif is_commit:
+                if conn._transaction_active:
+                    try:
+                        result = original_execute(query, params)
+                        conn._transaction_active = False
+                        # KuzuDBの内部状態同期のために短い待機を追加
+                        time.sleep(0.1)
+                        return result
+                    except Exception as e:
+                        # コミット失敗時もトランザクション状態をリセット（安全側に倒す）
+                        print(f"DEBUG: COMMIT 失敗: {str(e)}")
+                        conn._transaction_active = False
+                        raise
+                else:
+                    # アクティブなトランザクションがない場合は警告のみ
+                    print("WARNING: アクティブなトランザクションがない状態でのCOMMITをスキップします")
+                    return None
+            
+            # トランザクションロールバック
+            elif is_rollback:
+                if conn._transaction_active:
+                    try:
+                        result = original_execute(query, params)
+                        conn._transaction_active = False
+                        # KuzuDBの内部状態同期のために短い待機を追加
+                        time.sleep(0.1)
+                        return result
+                    except Exception as e:
+                        # ロールバック失敗時もトランザクション状態をリセット（安全側に倒す）
+                        print(f"DEBUG: ROLLBACK 失敗: {str(e)}")
+                        conn._transaction_active = False
+                        raise
+                else:
+                    # アクティブなトランザクションがない場合は警告のみ
+                    print("WARNING: アクティブなトランザクションがない状態でのROLLBACKをスキップします")
+                    return None
+            
+            # その他のクエリはそのまま実行
+            else:
+                return original_execute(query, params)
+        
+        # 拡張されたexecuteメソッドで置き換え
+        conn.execute = execute_with_transaction_tracking
+        
+        # トランザクション状態確認用のヘルパーメソッドを追加
+        conn.is_transaction_active = lambda: conn._transaction_active
         
         # クエリローダー作成と設定（シンプル化された版を使用）
         if with_query_loader:

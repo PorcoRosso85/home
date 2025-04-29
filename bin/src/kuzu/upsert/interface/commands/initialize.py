@@ -7,12 +7,15 @@
 
 import os
 import glob
+import uuid
+import time
 from typing import Dict, Any, Optional, List, Union, Literal, TypedDict
 
 from upsert.interface.types import CommandSuccess, CommandError, is_error
 from upsert.infrastructure.database.connection import init_database
 from upsert.application.schema_service import create_design_shapes
-from upsert.infrastructure.variables import INIT_DIR
+from upsert.application.init_service import check_table_exists
+from upsert.infrastructure.variables import INIT_DIR, QUERY_DIR
 
 
 # 初期化コマンドのエラー型を定義
@@ -168,6 +171,63 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
     # データベース接続を保持
     connection = db_result.get("connection")
     
+    # テーブル作成後の検証プロセス - 段階的なアプローチで確実にテーブルが使用可能か確認する
+    print("DEBUG: テーブル作成後の検証プロセスを開始します")
+    
+    # 最大検証試行回数と待機間隔を設定
+    max_verification_attempts = 3
+    verification_wait_intervals = [0.5, 1.0, 2.0]  # 秒単位（徐々に待機時間を増加）
+    
+    # 主要テーブルのリスト
+    core_tables = ["FunctionType", "Parameter", "ReturnType", "HasParameter", "ReturnsType"]
+    
+    # 段階的な検証プロセス
+    verification_success = False
+    
+    for attempt in range(max_verification_attempts):
+        print(f"DEBUG: テーブル検証試行 {attempt + 1}/{max_verification_attempts}")
+        
+        # すべてのテーブルのステータスを確認
+        all_tables_exist = True
+        for table in core_tables:
+            table_exists = check_table_exists(connection, table)
+            print(f"DEBUG: テーブル {table} の存在確認: {'成功' if table_exists else '失敗'}")
+            if not table_exists:
+                all_tables_exist = False
+        
+        if all_tables_exist:
+            print("DEBUG: すべてのテーブルの存在を確認しました")
+            
+            # テーブルが実際に使用可能かをシンプルに確認
+            try:
+                # シンプルな存在確認だけを行う（テスト的なものは作成しない）
+                verification_query = "RETURN 1 AS is_connected"
+                
+                # クエリを実行
+                result = connection.execute(verification_query)
+                
+                # 結果にアクセスできることを確認（接続が生きているか）
+                if result is not None:
+                    verification_success = True
+                    print(f"DEBUG: データベース接続検証成功: 基本クエリが正常に実行されました")
+                    break
+                else:
+                    print(f"WARNING: データベース接続検証失敗: クエリの結果が空です")
+            
+            except Exception as e:
+                print(f"WARNING: テーブル検証中にエラーが発生: {str(e)}")
+        
+        # 最後の試行でなければ待機して再試行
+        if not verification_success and attempt < max_verification_attempts - 1:
+            wait_time = verification_wait_intervals[attempt]
+            print(f"DEBUG: {wait_time}秒待機して再試行します")
+            time.sleep(wait_time)
+    
+    if not verification_success:
+        print("WARNING: テーブル検証プロセスが失敗しました。処理は継続しますが、後続のクエリで問題が発生する可能性があります。")
+    else:
+        print("DEBUG: テーブル検証プロセスが成功しました。テーブルは正常に使用可能です。")
+    
     # 基本的な初期化完了メッセージ
     init_message = "データベースと制約ファイルの初期化が完了しました"
     
@@ -250,49 +310,58 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
                         else:
                             root_nodes_query = query_result["data"]
                     else:
-                        # クエリローダーが利用できない場合はハードコードされたクエリを使用
-                        print("DEBUG: クエリローダーが利用できないため、ハードコードされたクエリを使用します")
-                        root_nodes_query = """
-                        MATCH (n:InitNode)
-                        WHERE NOT EXISTS { MATCH (parent:InitNode)-[:InitEdge]->(n) }
-                        RETURN n.id, n.path, n.label, n.value, n.value_type
-                        ORDER BY n.id
-                        """
+                        # クエリローダーが利用できない場合は処理をスキップ
+                        print("WARNING: クエリローダーが利用できないため、ルートノードの取得をスキップします")
+                        root_nodes_query = None
                     
                     # ルートノードを取得して表示
                     if root_nodes_query:
-                        result = connection.execute(root_nodes_query)
-                        
-                        if result and hasattr(result, 'to_df'):
-                            # DataFrameに変換（KuzuDB結果オブジェクトの場合）
-                            df = result.to_df()
-                            if not df.empty:
-                                print("\n【ルートノード一覧】")
-                                # 見やすく整形して表示
-                                for _, row in df.iterrows():
-                                    print(f"  ID: {row['n.id']}")
-                                    print(f"  パス: {row['n.path']}")
-                                    print(f"  ラベル: {row['n.label']}")
-                                    if 'n.value' in row and row['n.value'] is not None:
-                                        print(f"  値: {row['n.value']}")
-                                    if 'n.value_type' in row and row['n.value_type'] is not None:
-                                        print(f"  値の型: {row['n.value_type']}")
-                                    print("-" * 40)
-                            else:
-                                print("ルートノードが見つかりませんでした。")
-                        elif result:
-                            # 配列やリストの場合（別の結果形式の場合）
-                            if len(result) > 0:
-                                print("\n【ルートノード一覧】")
-                                for row in result:
-                                    for key, value in row.items():
-                                        if value is not None:
-                                            print(f"  {key}: {value}")
-                                    print("-" * 40)
-                            else:
-                                print("ルートノードが見つかりませんでした。")
-                        else:
-                            print("ルートノード取得の結果が空です。")
+                        try:
+                            result = connection.execute(root_nodes_query)
+                            
+                            # 結果の処理方法を簡素化
+                            print("\n【ルートノード一覧】")
+                            
+                            # KuzuDBの結果は様々な形式になる可能性があるため、安全に処理
+                            try:
+                                # DataFrameに変換できる場合
+                                if hasattr(result, 'to_df'):
+                                    df = result.to_df()
+                                    if not df.empty:
+                                        # DataFrameから行を取得
+                                        for i in range(len(df)):
+                                            row = df.iloc[i]
+                                            # 行のデータを表示
+                                            for col in df.columns:
+                                                if col in row and row[col] is not None:
+                                                    print(f"  {col}: {row[col]}")
+                                            print("-" * 40)
+                                    else:
+                                        print("ルートノードが見つかりませんでした。")
+                                
+                                # リスト形式の場合
+                                elif hasattr(result, '__iter__'):
+                                    if len(list(result)) > 0:
+                                        for item in result:
+                                            if hasattr(item, 'items'):  # 辞書のような場合
+                                                for key, value in item.items():
+                                                    if value is not None:
+                                                        print(f"  {key}: {value}")
+                                            else:  # その他の場合
+                                                print(f"  値: {item}")
+                                            print("-" * 40)
+                                    else:
+                                        print("ルートノードが見つかりませんでした。")
+                                else:
+                                    # その他の形式の場合は単純に出力
+                                    print(f"  結果: {result}")
+                            except Exception as format_error:
+                                # 結果の処理中にエラーが発生した場合は、単純に結果を表示
+                                print(f"  結果: {result}")
+                                print(f"  注意: 結果の表示中にエラーが発生しました({str(format_error)})")
+                        except Exception as e:
+                            print(f"ルートノード取得クエリの実行中にエラーが発生しました: {str(e)}")
+                            print("ルートノードの表示をスキップします。")
                 except Exception as e:
                     print(f"ルートノードの取得・表示中にエラーが発生しました: {str(e)}")
             else:
