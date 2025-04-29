@@ -9,7 +9,7 @@ import json
 from typing import Dict, Any, Optional, Tuple, List
 
 from upsert.interface.types import is_error
-from upsert.interface.commands.utils import get_connection, get_default_db_path, is_in_memory_mode
+from upsert.interface.commands.command_parameter_handler import get_connection, get_default_db_path, is_in_memory_mode
 from upsert.infrastructure.logger import print_cypher
 
 

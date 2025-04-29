@@ -8,7 +8,7 @@ import json
 from typing import Dict, Any, List, Optional
 
 from upsert.application.query_service import handle_query_command as app_handle_query
-from upsert.interface.commands.utils import parse_param_strings, get_default_db_path, is_in_memory_mode
+from upsert.interface.commands.command_parameter_handler import parse_param_strings, get_default_db_path, is_in_memory_mode
 
 
 def handle_query(query: str = None, param_strings: Optional[List[str]] = None,
