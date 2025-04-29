@@ -7,7 +7,7 @@
 import os
 import re
 import json
-from typing import Dict, Any, list, Optional, Union, Tuple
+from typing import Dict, Any, List, Optional, Union, Tuple
 
 from upsert.application.types import (
     QueryHelpResult,
@@ -140,7 +140,17 @@ def get_query_help(keyword: str = None) -> QueryHelpResult:
     default_help = {
         "description": "Cypherクエリ言語の基本コマンドは以下の通りです",
         "commands": "\n".join([f"- {k}: {v}" for k, v in CYPHER_KEYWORDS.items()]),
-        "examples": "詳細なヘルプを見るには特定のコマンドを指定してください:\n--help-query MATCH\n--help-query CREATE",
+        "examples": """詳細なヘルプを見るには特定のコマンドを指定してください:
+--help-query MATCH
+--help-query CREATE
+
+基本的なノードクエリ例:
+- MATCH (n) RETURN n                    # データベース内のすべてのノードを取得
+- MATCH (n:Function) RETURN n           # 特定のラベルを持つノードのみを取得
+- MATCH (n) RETURN n.id, n.name         # ノードの特定プロパティのみを取得
+- MATCH (n) WHERE n.property = 'value' RETURN n   # 条件でフィルタリング
+- MATCH (n) RETURN n LIMIT 100          # 結果を制限する
+- MATCH (n:Function)-[:HAS_PARAMETER]->(p:ParameterType) RETURN n, p  # 関係を持つノードを取得""",
         "design_specific": "このシステムは関数型設計用に特化しており、以下のノードタイプが利用できます:\n- FunctionType: 関数の定義\n- ParameterType: 関数の引数\n- ReturnType: 関数の戻り値",
     }
 
@@ -180,10 +190,15 @@ def get_query_suggestions(partial_query: str) -> SuggestionResult:
             {"type": "command", "value": "MATCH", "description": CYPHER_KEYWORDS["MATCH"]},
             {"type": "command", "value": "CREATE", "description": CYPHER_KEYWORDS["CREATE"]},
             {"type": "command", "value": "MERGE", "description": CYPHER_KEYWORDS["MERGE"]},
+            {"type": "pattern", "value": "MATCH (n) RETURN n", "description": "データベース内のすべてのノードを取得"},
+            {"type": "pattern", "value": "MATCH (n:Function) RETURN n", "description": "特定のラベルを持つノードのみを取得"},
+            {"type": "pattern", "value": "MATCH (n) RETURN n.id, n.name", "description": "ノードの特定プロパティのみを取得"},
+            {"type": "pattern", "value": "MATCH (n) WHERE n.property = 'value' RETURN n", "description": "条件でフィルタリング"},
+            {"type": "pattern", "value": "MATCH (n) RETURN n LIMIT 100", "description": "結果を制限する"},
             {"type": "pattern", "value": "MATCH (f:FunctionType) RETURN f", "description": "全ての関数型を検索"},
             {"type": "pattern", "value": "MATCH (f:FunctionType)-[:HAS_PARAMETER]->(p:ParameterType) RETURN f.title, p.name", "description": "関数とパラメータの関係を検索"},
         ]
-        context = {"stage": "start", "message": "クエリを入力してください。一般的なコマンドを上に表示しています。"}
+        context = {"stage": "start", "message": "クエリを入力してください。一般的なノードクエリの例を上に表示しています。"}
         return {"success": True, "suggestions": suggestions, "context": context}
 
     # MATCHから始まるクエリの補完

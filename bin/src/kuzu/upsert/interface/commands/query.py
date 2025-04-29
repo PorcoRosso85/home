@@ -11,11 +11,25 @@ from upsert.application.query_service import handle_query_command as app_handle_
 from upsert.interface.commands.utils import parse_param_strings, get_default_db_path, is_in_memory_mode
 
 
-def handle_query(query: str, param_strings: Optional[List[str]] = None,
+def handle_query(query: str = None, param_strings: Optional[List[str]] = None,
                        db_path: Optional[str] = None, in_memory: Optional[bool] = None,
                        validation_level: str = "standard", pretty: bool = True) -> Dict[str, Any]:
     """
     Cypherクエリを実行するコマンドを処理する
+    
+    Kuzuデータベースに対してCypherクエリを実行します。
+    基本的なノードクエリから複雑な関係検索まで様々なクエリを実行できます。
+    
+    基本的なノードクエリ例:
+    - MATCH (n) RETURN n                    # データベース内のすべてのノードを取得
+    - MATCH (n:Function) RETURN n           # 特定のラベルを持つノードのみを取得
+    - MATCH (n) RETURN n.id, n.name         # ノードの特定プロパティのみを取得
+    - MATCH (n) WHERE n.age > 30 RETURN n   # 条件でフィルタリング
+    - MATCH (n) RETURN n LIMIT 100          # 結果を制限する
+    - MATCH (n:Function)-[:HAS_PARAMETER]->(p:ParameterType) RETURN n, p  # 関係を持つノードを取得
+    
+    パラメータを使用する例:
+    - MATCH (n) WHERE n.property = $value RETURN n  # --param value=search_term を使用
     
     Args:
         query: 実行するCypherクエリ
@@ -34,6 +48,37 @@ def handle_query(query: str, param_strings: Optional[List[str]] = None,
     
     if in_memory is None:
         in_memory = is_in_memory_mode()
+    
+    # "help"の場合はヘルプを表示
+    if query == "help" or query and query.lower() == "help":
+        from upsert.application.help_service import get_query_help
+        
+        # キーワードが指定されていなければ基本ヘルプを表示
+        keyword = None
+        help_result = get_query_help(keyword)
+        
+        if help_result["success"]:
+            help_data = help_result["help"]
+            print(f"\n📚 Kuzuデータベースのクエリヘルプ")
+            print(f"\n{help_data['description']}")
+            
+            if "commands" in help_data:
+                print(f"\n【基本コマンド】\n{help_data['commands']}")
+            
+            if "examples" in help_data:
+                print(f"\n【使用例】\n{help_data['examples']}")
+            
+            if "design_specific" in help_data:
+                print(f"\n【このシステム固有の情報】\n{help_data['design_specific']}")
+        
+        return {"success": True, "message": "ヘルプを表示しました"}
+    
+    # クエリが指定されていない場合はエラー
+    if query is None:
+        return {
+            "success": False,
+            "message": "クエリが指定されていません。使用例を見るには '--query help' と入力してください。"
+        }
     
     # パラメータ文字列をパース
     params = parse_param_strings(param_strings or [])

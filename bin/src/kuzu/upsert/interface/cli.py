@@ -185,7 +185,7 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
     # 明示的なコマンドオプションがあるか確認
     has_explicit_command = False
     for arg_name in args:
-        if arg_name in ['debug', 'verbose', 'param', 'help'] or arg_name.startswith('_'):
+        if arg_name in ['debug', 'verbose', 'param'] or arg_name.startswith('_'):
             continue
             
         if args[arg_name] is not None:
@@ -207,7 +207,7 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
     
     # それでも見つからない場合は任意の引数を検索
     for arg_name in args:
-        if arg_name in ['debug', 'verbose', 'param', 'help'] or arg_name.startswith('_'):
+        if arg_name in ['debug', 'verbose', 'param'] or arg_name.startswith('_'):
             continue  # 特殊な引数はスキップ
             
         if args[arg_name] is not None:
@@ -342,6 +342,10 @@ def print_help() -> None:
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --query \"MATCH (f:FunctionType) WHERE f.title = $title RETURN f\" --param title=MapFunction")
     print("  # デバッグモードで実行")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --query \"...\" --debug")
+    print("  # クエリヘルプを表示")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --query help")
+    print("  # 特定のキーワードのヘルプを表示")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --query MATCH --help")
 
 
 if __name__ == "__main__":
