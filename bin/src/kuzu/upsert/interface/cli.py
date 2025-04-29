@@ -60,6 +60,11 @@ def create_parser() -> argparse.ArgumentParser:
         if command == 'init':
             parser.add_argument(option_name, action='store_true', help='データベースを初期化')
             continue
+            
+        # 関数型プログラミング版のinitコマンド
+        if command == 'fp_init':
+            parser.add_argument(option_name, action='store_true', help='関数型プログラミングアプローチでデータベースを初期化')
+            continue
         
         # コマンドハンドラーの関数シグネチャに基づいて引数タイプを決定
         handler = command_handlers.get(f"handle_{command}")
@@ -378,7 +383,7 @@ def main() -> None:
         found_command = None  # 見つかったコマンドを保存
         
         # 優先度順にコマンドを確認
-        command_priority = ['init', 'get', 'query', 'init_convention', 'create_shapes', 'test']
+        command_priority = ['init', 'fp_init', 'get', 'query', 'init_convention', 'create_shapes', 'test']
         for cmd in command_priority:
             if cmd in args and args[cmd] is not None:
                 # store_true オプションの場合はTrueかどうかも確認
