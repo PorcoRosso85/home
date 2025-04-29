@@ -294,7 +294,7 @@ def analyze_shacl_validation_error(error_message: str) -> Dict[str, Any]:
         violations = []
         for message in shacl_messages:
             violations.append({
-                "type": "shacl_message",
+                "type": "shacl_message", 
                 "message": message,
                 "description": message
             })
@@ -566,6 +566,7 @@ def load_example_queries(category: str = "all") -> Dict[str, Any]:
     # 基本的なサンプルクエリの定義
     examples = {
         "node": [
+            # 注: add コマンドは削除されました
             {
                 "name": "ノード作成",
                 "description": "新しいFunctionTypeノードを作成します",

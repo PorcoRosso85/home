@@ -197,7 +197,7 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
         return None
     
     # 引数から対応するコマンドを検索 - 優先度順に確認
-    command_priority = ['init', 'add', 'list', 'get', 'query', 'init_convention', 'create_shapes', 'test']
+    command_priority = ['init', 'get', 'query', 'init_convention', 'create_shapes', 'test']
     
     for arg_name in command_priority:
         if arg_name in args and args[arg_name] is not None:
@@ -260,7 +260,7 @@ def main() -> None:
     found_command = None  # 見つかったコマンドを保存
     
     # 優先度順にコマンドを確認
-    command_priority = ['init', 'add', 'list', 'get', 'query', 'init_convention', 'create_shapes', 'test']
+    command_priority = ['init', 'get', 'query', 'init_convention', 'create_shapes', 'test']
     for cmd in command_priority:
         if cmd in args and args[cmd] is not None:
             # store_true オプションの場合はTrueかどうかも確認
@@ -330,10 +330,7 @@ def print_help() -> None:
     print("  LD_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib\"")
     print("  # データベース初期化")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init")
-    print("  # サンプル関数を追加")
-    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --add example_function.json")
-    print("  # 登録された関数の一覧表示")
-    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --list")
+    # 注: add と list コマンドは削除されました
     print("  # MapFunction関数の詳細表示")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --get MapFunction")
     print("  # Cypherクエリを実行")
