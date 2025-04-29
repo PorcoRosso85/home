@@ -16,6 +16,7 @@ import json
 import os
 import sys
 import inspect
+import importlib
 from typing import Dict, Any, List, Optional, Union, Callable
 
 from upsert.interface.types import (
@@ -86,7 +87,52 @@ def create_parser() -> argparse.ArgumentParser:
 def parse_arguments() -> CommandArgs:
     """コマンドライン引数を解析"""
     parser = create_parser()
-    return vars(parser.parse_args())
+    
+    # ArgumentErrorハンドリングのためにargparseのエラー処理を上書き
+    original_error = parser.error
+    def custom_error(message):
+        # initコマンドのエラーと思われる場合
+        if "--init" in message and "expected one argument" in message:
+            # 直接エラー情報を出力
+            print(f"エラー: initコマンドには値が必要です", file=sys.stderr)
+            
+            # initialize.pyモジュールから直接エラーヘルプと実行例を取得
+            try:
+                from upsert.interface.commands.initialize import get_error_help, get_command_examples
+                help_text = get_error_help("DB_PATH_ERROR")
+                examples = get_command_examples()
+                
+                # ヘルプと例を表示
+                print(f"\n{help_text}", file=sys.stderr)
+                print("\n実行例:", file=sys.stderr)
+                for example in examples:
+                    print(f"  {example}", file=sys.stderr)
+            except (ImportError, AttributeError) as e:
+                # モジュールの読み込みに失敗した場合の簡易エラーメッセージ
+                print("\n--init オプションには値が必要です。例: --init true または --init /path/to/db", file=sys.stderr)
+                print("\n詳細なヘルプを表示するには:", file=sys.stderr)
+                print("  python -m upsert --help", file=sys.stderr)
+            
+            sys.exit(1)
+        # それ以外のエラー
+        print(f"エラー: {message}", file=sys.stderr)
+        print("\n詳細なヘルプを表示するには:", file=sys.stderr)
+        print("  python -m upsert --help", file=sys.stderr)
+        sys.exit(1)
+    
+    # エラーハンドラの置き換え
+    parser.error = custom_error
+    
+    try:
+        return vars(parser.parse_args())
+    except argparse.ArgumentError as e:
+        # 直接ハンドラを呼ぶ
+        handle_cli_error("argument_error", str(e), None)
+        sys.exit(1)
+    except argparse.ArgumentError as e:
+        # 直接ハンドラを呼ぶ
+        handle_cli_error("argument_error", str(e), None)
+        sys.exit(1)
 
 
 def get_command_handlers() -> Dict[str, Callable]:
@@ -175,6 +221,7 @@ def execute_command(command_name: str, args: Dict[str, Any]) -> CommandResult:
     if "verbose" in args and args["verbose"]:
         print(f"DEBUG: 渡される引数（フィルタ後）: {command_args}")
     
+    # TODO: try/exceptは規約違反 - CONVENTION.mdで禁止されている例外処理を使用している。エラー型による明示的なエラー処理に変更する。
     try:
         # コマンドの実行
         result = safe_execute_command(handler, command_args, command_name, debug_mode)
@@ -264,8 +311,49 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
     return None
 
 
+def handle_cli_error(error_type: str, error_message: str, command_name: Optional[str] = None) -> None:
+    """CLIエラーを処理する
+    
+    Args:
+        error_type: エラータイプ
+        error_message: エラーメッセージ
+        command_name: コマンド名（オプション）
+    """
+    print(f"エラー: {error_message}", file=sys.stderr)
+    
+    # コマンド固有のエラーヘルプを取得
+    if command_name:
+        module_name = command_name.replace("handle_", "")
+        try:
+            # コマンドモジュールを動的にインポート
+            module = importlib.import_module(f"upsert.interface.commands.{module_name}")
+            
+            # エラーヘルプと実行例を取得（実装されている場合）
+            if hasattr(module, "get_error_help") and callable(getattr(module, "get_error_help")):
+                error_help = module.get_error_help(error_type)
+                print(f"\n{error_help}", file=sys.stderr)
+            
+            # 実行例を取得
+            if hasattr(module, "get_command_examples") and callable(getattr(module, "get_command_examples")):
+                examples = module.get_command_examples()
+                if examples:
+                    print("\n実行例:", file=sys.stderr)
+                    for example in examples:
+                        print(f"  {example}", file=sys.stderr)
+            
+        except (ImportError, AttributeError):
+            # モジュールや関数が見つからない場合は一般的なヘルプを表示
+            print("\n詳細なヘルプを表示するには:", file=sys.stderr)
+            print("  python -m upsert --help", file=sys.stderr)
+    else:
+        # 一般的なヘルプを表示
+        print("\n詳細なヘルプを表示するには:", file=sys.stderr)
+        print("  python -m upsert --help", file=sys.stderr)
+
+
 def main() -> None:
     """メイン関数"""
+    # TODO: try/exceptは規約違反 - CONVENTION.mdで禁止されている例外処理を使用している。各コマンドから提供されるエラー型とエラーヘルプを使用した明示的なエラー処理に変更する。
     try:
         # コマンドライン引数の解析
         args = parse_arguments()
@@ -321,7 +409,7 @@ def main() -> None:
         
         # 明示的なコマンドがない場合はヘルプのみ表示して終了
         if not has_command:
-            print("エラー: 有効なコマンドが指定されていません")
+            handle_cli_error("no_command", "有効なコマンドが指定されていません")
             print("使用方法を確認するには以下のコマンドを実行してください：")
             print("  python -m upsert --help")
             print("\n利用可能なコマンド:")
@@ -331,7 +419,6 @@ def main() -> None:
             for cmd in sorted(valid_commands):
                 print(f"  {cmd}")
             
-            # TODO: 各コマンドのヘルプはコマンドハンドラーから取得するように変更すべき
             return
             
         # 実行するコマンドを特定
@@ -342,7 +429,7 @@ def main() -> None:
         
         # コマンドが指定されていない場合はヘルプを表示
         if not command_name:
-            print("エラー: 有効なコマンドが指定されていません")
+            handle_cli_error("no_command", "有効なコマンドが指定されていません")
             print("使用方法を確認するには以下のコマンドを実行してください：")
             print("  python -m upsert --help")
             print("\n利用可能なコマンド:")
@@ -352,7 +439,6 @@ def main() -> None:
             for cmd in sorted(valid_commands):
                 print(f"  {cmd}")
             
-            # TODO: 各コマンドのヘルプはコマンドハンドラーから取得するように変更すべき
             return
         
         # コマンドを実行
@@ -360,33 +446,25 @@ def main() -> None:
         
         # 実行結果の処理
         if not result["success"]:
-            print(f"エラー: {result.get('message', '不明なエラー')}", file=sys.stderr)
+            # エラー表示・ヘルプ表示
+            base_command = command_name.replace("handle_", "")
+            handle_cli_error(result.get("error_type", "unknown"), result.get("message", "不明なエラー"), base_command)
+            
+            # デバッグ情報（トレース）の表示
             if args.get("debug", False) or is_debug_mode():
                 if result.get("trace"):
                     print(result["trace"], file=sys.stderr)
+            
             sys.exit(1)
-    except argparse.ArgumentError as e:
-        print(f"引数エラー: {str(e)}", file=sys.stderr)
-        print("\n正しい使用例:", file=sys.stderr)
-        print("  * --init オプションは値が必要です。例: --init true または --init /path/to/db", file=sys.stderr)
-        print("  * --with-data は --init と一緒に使用してください", file=sys.stderr)
-        print("  * 正しい例: --init true --with-data", file=sys.stderr)
-        print("  * 誤った例: --init --with-data (エラーになります)", file=sys.stderr)
-        print("\n詳細なヘルプを表示するには:", file=sys.stderr)
-        print("  python -m upsert --help", file=sys.stderr)
-        sys.exit(1)
     except Exception as e:
-        print(f"予期しないエラーが発生しました: {str(e)}", file=sys.stderr)
-        print("\nコマンドの正しい使用例:", file=sys.stderr)
-        print("  * --init オプションは値が必要です。例: --init true または --init /path/to/db", file=sys.stderr)
-        print("  * --with-data は --init と一緒に使用してください", file=sys.stderr)
-        print("  * 正しい例: --init true --with-data", file=sys.stderr)
-        print("  * 誤った例: --init --with-data (エラーになります)", file=sys.stderr)
-        print("\n詳細なヘルプを表示するには:", file=sys.stderr)
-        print("  python -m upsert --help", file=sys.stderr)
+        # 例外をキャッチしてエラーメッセージを表示
+        handle_cli_error("unexpected_error", f"予期しないエラーが発生しました: {str(e)}")
+        
+        # デバッグモードの場合はスタックトレースを表示
         if is_debug_mode():
             import traceback
             traceback.print_exc()
+        
         sys.exit(1)
 
 def print_help() -> None:
