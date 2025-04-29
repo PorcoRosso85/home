@@ -1,41 +1,509 @@
 """
-初期化サービス
+初期化操作モジュール
 
-このモジュールでは、CONVENTION.yamlなどの初期化ファイルを読み込み、
-KuzuDBのグラフ構造に変換するサービスを提供します。
-ファイル形式自動検出と解析機能を搭載、多様なデータ構造を自動的にグラフ化します。
+CONVENTION.yamlの規約に沿って、関数型プログラミングのアプローチで
+データベースの初期化と初期データの登録を行う操作を提供します。
 """
 
 import os
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Callable, TypedDict, Union, Literal, Optional
 
-# ドメインモデル
 from upsert.domain.models.init_node import InitNode
 from upsert.domain.models.init_edge import InitEdge
-
-# インフラ層のサービス
-from upsert.infrastructure.database.connection import (
-    get_connection, start_transaction, commit_transaction, rollback_transaction,
-    check_table_exists, check_node_exists, check_edge_exists, create_init_tables
+from upsert.infrastructure.database.functional import (
+    OperationResult, create_success, create_error, is_error, 
+    with_transaction, retry_with_backoff, create_db_operations
 )
 from upsert.infrastructure.fs_io import load_yaml_file, load_json_file
 from upsert.infrastructure.logger import log_debug, log_info, log_warning, log_error
-from upsert.infrastructure.variables import MAX_TREE_DEPTH, SUPPORTED_FILE_FORMATS
-
-# アプリケーション層の型定義
-from upsert.application.types import (
-    ProcessResult, NodeParseResult, ValidationResult, 
-    NodeInsertionResult, EdgeInsertionResult
-)
+from upsert.infrastructure.variables import MAX_TREE_DEPTH
 
 
+# 初期化テーブルを作成する関数
+def initialize_tables(connection: Any) -> OperationResult:
+    """初期化用テーブルを作成
+    
+    Args:
+        connection: データベース接続
+        
+    Returns:
+        OperationResult: 初期化結果
+    """
+    # データベース操作関数セットを作成
+    db_ops = create_db_operations(connection)
+    
+    # 初期化テーブルを作成（トランザクションなしで直接実行）
+    # DDL操作はトランザクション外で実行
+    result = db_ops["create_init_tables"]()
+    
+    return result
+
+
+# ノードを挿入する関数
+def insert_nodes(
+    connection: Any, 
+    nodes: List[InitNode], 
+    query_loader: Dict[str, Any]
+) -> OperationResult:
+    """ノードをデータベースに挿入
+    
+    Args:
+        connection: データベース接続
+        nodes: 挿入するノードのリスト
+        query_loader: クエリローダー
+        
+    Returns:
+        OperationResult: 挿入結果
+    """
+    # データベース操作関数セットを作成
+    db_ops = create_db_operations(connection)
+    
+    # ノード挿入クエリを取得
+    query_result = query_loader["get_query"]("init_node")
+    if not query_loader["get_success"](query_result):
+        return create_error(
+            "QUERY_LOAD_ERROR",
+            f"ノード挿入クエリの取得に失敗: {query_result.get('error', '不明なエラー')}",
+            {"query_name": "init_node"}
+        )
+    
+    insert_node_query = query_result["data"]
+    
+    # 挿入結果の集計
+    nodes_inserted = 0
+    nodes_skipped = 0
+    errors = []
+    
+    # 各ノードを挿入
+    for node in nodes:
+        # ノードが既に存在するか確認
+        exists_result = db_ops["check_node_exists"](node.id)
+        
+        # 存在確認中にエラーが発生した場合
+        if is_error(exists_result) and exists_result["error_type"] != "TABLE_NOT_FOUND":
+            return create_error(
+                "NODE_CHECK_ERROR",
+                f"ノード存在確認エラー: {exists_result['message']}",
+                {"node_id": node.id, "details": exists_result["details"]}
+            )
+        
+        # テーブルがなければスキップ（エラーにはせず続行）
+        if is_error(exists_result) and exists_result["error_type"] == "TABLE_NOT_FOUND":
+            log_warning("ノードテーブルが見つかりません")
+            continue
+        
+        # ノードが既に存在する場合はスキップ
+        if exists_result["data"]["exists"]:
+            log_debug(f"ノード {node.id} は既に存在するためスキップします")
+            nodes_skipped += 1
+            continue
+        
+        # ノード挿入を実行
+        try:
+            # パラメータ設定
+            parameters = {
+                "1": node.id, 
+                "2": node.path,
+                "3": node.label,
+                "4": node.value,
+                "5": node.value_type
+            }
+            
+            # クエリ実行
+            query_result = db_ops["execute_query"](insert_node_query, parameters)
+            
+            # 挿入成功の確認
+            if query_result["success"]:
+                nodes_inserted += 1
+            else:
+                errors.append({
+                    "node_id": node.id,
+                    "error": query_result["message"]
+                })
+        except Exception as e:
+            error_message = str(e)
+            
+            # プライマリキー制約違反の場合は特別に処理（既に存在する場合）
+            if "duplicated primary key" in error_message:
+                log_debug(f"ノード挿入時の主キー重複エラー: id={node.id}")
+                nodes_skipped += 1
+                continue
+            
+            # その他のエラーは記録
+            log_error(f"ノード挿入エラー (id={node.id}): {error_message}")
+            errors.append({
+                "node_id": node.id,
+                "error": error_message
+            })
+    
+    # 結果の判定
+    if not errors:
+        return create_success(
+            f"{nodes_inserted}個のノードを挿入しました（スキップ: {nodes_skipped}個）",
+            {
+                "nodes_inserted": nodes_inserted,
+                "nodes_skipped": nodes_skipped
+            }
+        )
+    else:
+        # エラーがあっても部分的に成功した場合は成功として扱う
+        if nodes_inserted > 0:
+            return create_success(
+                f"{nodes_inserted}個のノードを挿入しました（スキップ: {nodes_skipped}個、エラー: {len(errors)}個）",
+                {
+                    "nodes_inserted": nodes_inserted,
+                    "nodes_skipped": nodes_skipped,
+                    "errors": errors
+                }
+            )
+        else:
+            # 完全に失敗した場合
+            return create_error(
+                "NODE_INSERTION_ERROR",
+                f"ノード挿入に失敗しました（スキップ: {nodes_skipped}個、エラー: {len(errors)}個）",
+                {
+                    "nodes_inserted": 0,
+                    "nodes_skipped": nodes_skipped,
+                    "errors": errors
+                }
+            )
+
+
+# エッジを挿入する関数
+def insert_edges(
+    connection: Any, 
+    edges: List[InitEdge], 
+    query_loader: Dict[str, Any]
+) -> OperationResult:
+    """エッジをデータベースに挿入
+    
+    Args:
+        connection: データベース接続
+        edges: 挿入するエッジのリスト
+        query_loader: クエリローダー
+        
+    Returns:
+        OperationResult: 挿入結果
+    """
+    # データベース操作関数セットを作成
+    db_ops = create_db_operations(connection)
+    
+    # エッジ挿入クエリを取得
+    query_result = query_loader["get_query"]("init_edge")
+    if not query_loader["get_success"](query_result):
+        return create_error(
+            "QUERY_LOAD_ERROR",
+            f"エッジ挿入クエリの取得に失敗: {query_result.get('error', '不明なエラー')}",
+            {"query_name": "init_edge"}
+        )
+    
+    insert_edge_query = query_result["data"]
+    
+    # 挿入結果の集計
+    edges_inserted = 0
+    edges_skipped = 0
+    errors = []
+    
+    # まずテーブルの存在を明示的に確認
+    log_debug("エッジ挿入前のテーブル存在確認を実行")
+    tables_result = db_ops["verify_tables"](["InitNode", "InitEdge"])
+    
+    # テーブル確認結果の詳細なログ出力
+    if is_error(tables_result):
+        table_details = tables_result["details"]["tables"]
+        log_debug(f"テーブル確認結果: InitNode={table_details.get('InitNode', False)}, InitEdge={table_details.get('InitEdge', False)}")
+        
+        if not table_details.get("InitEdge", False):
+            log_error("エッジテーブルが見つかりません。エッジ挿入をスキップします。")
+            return create_success(
+                "エッジテーブルが見つからないため、エッジ挿入をスキップしました",
+                {
+                    "edges_inserted": 0,
+                    "edges_skipped": len(edges),
+                    "table_missing": True
+                }
+            )
+    else:
+        log_debug("テーブル確認成功: InitNodeとInitEdgeの両方が存在します")
+    
+    # 各エッジを挿入
+    for edge in edges:
+        # エッジが既に存在するか確認
+        exists_result = db_ops["check_edge_exists"](edge.id)
+        
+        # 存在確認中にエラーが発生した場合
+        if is_error(exists_result) and exists_result["error_type"] != "TABLE_NOT_FOUND":
+            return create_error(
+                "EDGE_CHECK_ERROR",
+                f"エッジ存在確認エラー: {exists_result['message']}",
+                {"edge_id": edge.id, "details": exists_result["details"]}
+            )
+        
+        # テーブルがなければスキップ（エラーにはせず続行）
+        if is_error(exists_result) and exists_result["error_type"] == "TABLE_NOT_FOUND":
+            log_warning("エッジテーブルが見つかりません")
+            continue
+        
+        # エッジが既に存在する場合はスキップ
+        if exists_result["data"]["exists"]:
+            log_debug(f"エッジ {edge.id} は既に存在するためスキップします")
+            edges_skipped += 1
+            continue
+        
+        # エッジ挿入を実行
+        try:
+            # パラメータ設定
+            parameters = {
+                "1": edge.source_id,
+                "2": edge.target_id,
+                "3": edge.id,
+                "4": edge.relation_type or ""
+            }
+            
+            # クエリ実行
+            query_result = db_ops["execute_query"](insert_edge_query, parameters)
+            
+            # 挿入成功の確認
+            if query_result["success"]:
+                edges_inserted += 1
+            else:
+                errors.append({
+                    "edge_id": edge.id,
+                    "error": query_result["message"]
+                })
+        except Exception as e:
+            error_message = str(e)
+            
+            # プライマリキー制約違反の場合は特別に処理（既に存在する場合）
+            if "duplicated primary key" in error_message:
+                log_debug(f"エッジ挿入時の主キー重複エラー: id={edge.id}")
+                edges_skipped += 1
+                continue
+            
+            # その他のエラーは記録
+            log_error(f"エッジ挿入エラー (id={edge.id}): {error_message}")
+            errors.append({
+                "edge_id": edge.id,
+                "error": error_message
+            })
+    
+    # 結果の判定
+    if not errors:
+        return create_success(
+            f"{edges_inserted}個のエッジを挿入しました（スキップ: {edges_skipped}個）",
+            {
+                "edges_inserted": edges_inserted,
+                "edges_skipped": edges_skipped
+            }
+        )
+    else:
+        # エラーがあっても部分的に成功した場合は成功として扱う
+        if edges_inserted > 0:
+            return create_success(
+                f"{edges_inserted}個のエッジを挿入しました（スキップ: {edges_skipped}個、エラー: {len(errors)}個）",
+                {
+                    "edges_inserted": edges_inserted,
+                    "edges_skipped": edges_skipped,
+                    "errors": errors
+                }
+            )
+        else:
+            # 完全に失敗した場合
+            return create_error(
+                "EDGE_INSERTION_ERROR",
+                f"エッジ挿入に失敗しました（スキップ: {edges_skipped}個、エラー: {len(errors)}個）",
+                {
+                    "edges_inserted": 0,
+                    "edges_skipped": edges_skipped,
+                    "errors": errors
+                }
+            )
+
+
+# データ検証を行う関数
+def validate_data(
+    nodes: List[InitNode], 
+    edges: List[InitEdge]
+) -> OperationResult:
+    """ノードとエッジの整合性を検証
+    
+    Args:
+        nodes: 検証するノードのリスト
+        edges: 検証するエッジのリスト
+        
+    Returns:
+        OperationResult: 検証結果
+    """
+    # 1. ノードIDの重複チェック
+    node_ids = [node.id for node in nodes]
+    node_id_counts = {}
+    for nid in node_ids:
+        if nid in node_id_counts:
+            node_id_counts[nid] += 1
+        else:
+            node_id_counts[nid] = 1
+    
+    duplicate_node_ids = [nid for nid, count in node_id_counts.items() if count > 1]
+    
+    # 2. エッジIDの重複チェック
+    edge_ids = [edge.id for edge in edges]
+    edge_id_counts = {}
+    for eid in edge_ids:
+        if eid in edge_id_counts:
+            edge_id_counts[eid] += 1
+        else:
+            edge_id_counts[eid] = 1
+    
+    duplicate_edge_ids = [eid for eid, count in edge_id_counts.items() if count > 1]
+    
+    # 重複があれば検証失敗
+    duplicate_ids = duplicate_node_ids + duplicate_edge_ids
+    if duplicate_ids:
+        message = f"重複するIDが検出されました: {', '.join(duplicate_ids[:5])}" + \
+                 (f"... 他{len(duplicate_ids) - 5}件" if len(duplicate_ids) > 5 else "")
+        
+        log_warning(f"検証エラー: {message}")
+        
+        return create_error(
+            "VALIDATION_ERROR",
+            message,
+            {"duplicate_node_ids": duplicate_node_ids, "duplicate_edge_ids": duplicate_edge_ids}
+        )
+    
+    # 3. エッジの接続元ノードと接続先ノードの存在確認
+    node_id_set = set(node_ids)
+    invalid_edges = []
+    
+    for edge in edges:
+        source_exists = edge.source_id in node_id_set
+        target_exists = edge.target_id in node_id_set
+        
+        if not source_exists or not target_exists:
+            invalid_edges.append({
+                "edge_id": edge.id,
+                "source_id": edge.source_id,
+                "source_exists": source_exists,
+                "target_id": edge.target_id,
+                "target_exists": target_exists
+            })
+    
+    if invalid_edges:
+        return create_error(
+            "VALIDATION_ERROR",
+            f"接続元または接続先ノードが存在しないエッジがあります: {len(invalid_edges)}件",
+            {"invalid_edges": invalid_edges}
+        )
+    
+    # すべての検証に成功
+    return create_success(
+        "データ検証に成功しました",
+        {
+            "node_count": len(nodes),
+            "edge_count": len(edges)
+        }
+    )
+
+
+# 初期データをデータベースに保存する関数
+def save_init_data(
+    connection: Any,
+    nodes: List[InitNode],
+    edges: List[InitEdge],
+    query_loader: Dict[str, Any]
+) -> OperationResult:
+    """初期データをデータベースに保存
+    
+    Args:
+        connection: データベース接続
+        nodes: 保存するノードのリスト
+        edges: 保存するエッジのリスト
+        query_loader: クエリローダー
+        
+    Returns:
+        OperationResult: 保存結果
+    """
+    # 1. データの検証
+    validation_result = validate_data(nodes, edges)
+    if is_error(validation_result):
+        return validation_result
+    
+    # 2. テーブルの初期化（トランザクション外で実行）
+    tables_result = initialize_tables(connection)
+    if is_error(tables_result):
+        return tables_result
+    
+    # 3. データの挿入（DML操作）
+    # トランザクション内でノードとエッジを挿入する関数を定義
+    def insert_data(conn):
+        # ノード挿入
+        node_result = insert_nodes(conn, nodes, query_loader)
+        if is_error(node_result):
+            return node_result
+        
+        # 成功した場合、ノード挿入の結果を一時保存
+        nodes_inserted = node_result["data"]["nodes_inserted"]
+        nodes_skipped = node_result["data"]["nodes_skipped"]
+        
+        # エッジ挿入
+        edge_result = insert_edges(conn, edges, query_loader)
+        if is_error(edge_result):
+            # エッジ挿入に失敗してもノード挿入は成功しているため、部分成功として扱う
+            return create_success(
+                f"{nodes_inserted}個のノードを挿入しましたが、エッジ挿入に失敗しました",
+                {
+                    "nodes_inserted": nodes_inserted,
+                    "nodes_skipped": nodes_skipped,
+                    "edges_inserted": 0,
+                    "edges_skipped": 0,
+                    "edge_error": edge_result["message"]
+                }
+            )
+        
+        # すべて成功した場合
+        edges_inserted = edge_result["data"]["edges_inserted"]
+        edges_skipped = edge_result["data"]["edges_skipped"]
+        
+        return create_success(
+            f"{nodes_inserted}個のノードと{edges_inserted}個のエッジを挿入しました",
+            {
+                "nodes_inserted": nodes_inserted,
+                "nodes_skipped": nodes_skipped,
+                "edges_inserted": edges_inserted,
+                "edges_skipped": edges_skipped
+            }
+        )
+    
+    # トランザクション内でデータ挿入を実行
+    result = with_transaction(connection, insert_data)
+    
+    # 最終的なテーブル存在確認 - トランザクション完了後の状態を詳細に検証
+    log_debug("トランザクション完了後のテーブル存在確認を実行")
+    db_ops = create_db_operations(connection)
+    tables_check = db_ops["verify_tables"](["InitNode", "InitEdge"])
+    
+    # テーブル検証結果の詳細なログ出力
+    if tables_check["success"]:
+        log_debug(f"テーブル最終確認: 両テーブルが正常に存在しています")
+        table_status = tables_check["data"]["tables"]
+    else:
+        table_status = tables_check["details"]["tables"]
+        log_error(f"テーブル最終確認: InitNode={table_status.get('InitNode', False)}, InitEdge={table_status.get('InitEdge', False)}")
+    
+    # 結果に追加情報を付加
+    if result["success"]:
+        result["data"]["tables_status"] = table_status
+    
+    return result
+
+
+# ツリー構造をノードとエッジのリストに変換する関数
 def parse_tree_to_nodes_and_edges(
     data: Dict[str, Any],
     parent_path: str,
     max_depth: int
-) -> NodeParseResult:
-    """ツリー構造をノードとエッジのリストに変換する
+) -> OperationResult:
+    """ツリー構造をノードとエッジのリストに変換
     
     Args:
         data: 変換するデータ
@@ -43,25 +511,25 @@ def parse_tree_to_nodes_and_edges(
         max_depth: 最大再帰深度
         
     Returns:
-        NodeParseResult: 成功時はノードとエッジのリスト、失敗時はエラー情報
+        OperationResult: 変換結果
     """
     # 再帰深度チェック - 無限ループ防止
     if len(parent_path.split('.')) > max_depth:
         log_debug(f"最大再帰深度に達しました: {parent_path}")
-        return {
-            "code": "MAX_DEPTH_EXCEEDED",
-            "message": f"最大再帰深度({max_depth})に達しました: {parent_path}",
-            "details": {"path": parent_path, "max_depth": max_depth}
-        }
+        return create_error(
+            "MAX_DEPTH_EXCEEDED",
+            f"最大再帰深度({max_depth})に達しました: {parent_path}",
+            {"path": parent_path, "max_depth": max_depth}
+        )
     
     # 入力チェック
     if not isinstance(data, dict):
         log_debug(f"dictでないデータが渡されました: {type(data)}")
-        return {
-            "code": "INVALID_DATA_TYPE",
-            "message": f"dictでないデータが渡されました: {type(data)}",
-            "details": {"type": str(type(data))}
-        }
+        return create_error(
+            "INVALID_DATA_TYPE",
+            f"dictでないデータが渡されました: {type(data)}",
+            {"type": str(type(data))}
+        )
     
     # ノードとエッジのリストを初期化
     nodes = []
@@ -100,13 +568,13 @@ def parse_tree_to_nodes_and_edges(
             child_result = parse_tree_to_nodes_and_edges(value, current_path, max_depth)
             
             # エラーチェック
-            if "code" in child_result:
+            if is_error(child_result):
                 # 子要素の処理でエラーが発生した場合はそのエラーを返す
                 return child_result
             
             # 成功した場合は結果を統合
-            child_nodes = child_result["nodes"]
-            child_edges = child_result["edges"]
+            child_nodes = child_result["data"]["nodes"]
+            child_edges = child_result["data"]["edges"]
             
             log_debug(f"子要素処理完了: {current_path}, ノード数={len(child_nodes)}, エッジ数={len(child_edges)}")
             
@@ -151,551 +619,38 @@ def parse_tree_to_nodes_and_edges(
     log_debug(f"ノード変換完了: パス={parent_path or 'root'}, ノード数={len(nodes)}, エッジ数={len(edges)}")
     
     # 成功結果を返す
-    return {
-        "nodes": nodes,
-        "edges": edges
-    }
-
-
-def validate_with_shacl_constraints(
-    nodes: List[InitNode],
-    edges: List[InitEdge]
-) -> ValidationResult:
-    """SHACL制約ルールを使用してノードとエッジを検証する
-    
-    Args:
-        nodes: 検証するノードのリスト
-        edges: 検証するエッジのリスト
-        
-    Returns:
-        ValidationResult: 検証結果
-    """
-    # 1. ノードIDの重複チェック
-    node_ids = [node.id for node in nodes]
-    node_id_counts = {}
-    for nid in node_ids:
-        if nid in node_id_counts:
-            node_id_counts[nid] += 1
-        else:
-            node_id_counts[nid] = 1
-    
-    duplicate_node_ids = [nid for nid, count in node_id_counts.items() if count > 1]
-    
-    # 2. エッジIDの重複チェック
-    edge_ids = [edge.id for edge in edges]
-    edge_id_counts = {}
-    for eid in edge_ids:
-        if eid in edge_id_counts:
-            edge_id_counts[eid] += 1
-        else:
-            edge_id_counts[eid] = 1
-    
-    duplicate_edge_ids = [eid for eid, count in edge_id_counts.items() if count > 1]
-    
-    # 重複があれば検証失敗
-    duplicate_ids = duplicate_node_ids + duplicate_edge_ids
-    if duplicate_ids:
-        message = f"重複するIDが検出されました: {', '.join(duplicate_ids[:5])}" + \
-                 (f"... 他{len(duplicate_ids) - 5}件" if len(duplicate_ids) > 5 else "")
-        
-        log_warning(f"SHACL制約検証エラー: {message}")
-        
-        return {
-            "is_valid": False,
-            "message": message,
-            "duplicate_ids": duplicate_ids
+    return create_success(
+        "ツリー構造の変換に成功しました",
+        {
+            "nodes": nodes,
+            "edges": edges
         }
-    
-    # TODO: これは最小実装のため、将来的には以下の検証を追加する
-    # 1. ノード・エッジの必須プロパティチェック
-    # 2. プロパティの型チェック
-    # 3. エッジの接続先ノードの存在性チェック
-    # 4. カスタムルールによる検証
-    
-    log_debug("SHACL制約検証に成功")
-    
-    return {
-        "is_valid": True,
-        "message": "検証に成功しました"
-    }
+    )
 
 
-def insert_nodes(
-    connection: Any,
-    nodes: List[InitNode],
-    query_loader: Dict[str, Any]
-) -> NodeInsertionResult:
-    """ノードをデータベースに挿入する
-    
-    Args:
-        connection: データベース接続
-        nodes: 挿入するノードのリスト
-        query_loader: クエリローダー
-        
-    Returns:
-        NodeInsertionResult: 挿入結果
-    """
-    nodes_inserted = 0
-    nodes_skipped = 0
-    
-    # ノード挿入クエリを取得
-    query_result = query_loader["get_query"]("init_node")
-    if not query_loader["get_success"](query_result):
-        log_error(f"ノード挿入クエリの取得に失敗: {query_result.get('message', '不明なエラー')}")
-        return {
-            "success": False,
-            "message": f"ノード挿入クエリの取得に失敗: {query_result.get('message', '不明なエラー')}",
-            "error_type": "QueryLoadError",
-            "nodes_inserted": 0,
-            "nodes_skipped": 0
-        }
-    
-    insert_node_query = query_result["data"]
-    
-    # 各ノードを処理
-    for node in nodes:
-        # ノードが既に存在するか確認
-        exists_result = check_node_exists(connection, node.id)
-        if exists_result.get("error"):
-            # 重大なエラーの場合は処理中断
-            log_error(f"ノード存在確認エラー: {exists_result['error']}")
-            return {
-                "success": False,
-                "message": f"ノード存在確認エラー: {exists_result['error']}",
-                "error_type": "NodeCheckError",
-                "nodes_inserted": nodes_inserted,
-                "nodes_skipped": nodes_skipped
-            }
-        
-        if exists_result.get("exists", False):
-            # ノードが既に存在する場合はスキップ
-            log_debug(f"ノード {node.id} は既に存在するためスキップします")
-            nodes_skipped += 1
-            continue
-        
-        # ノード挿入を実行
-        try:
-            # パラメータ設定
-            parameters = {
-                "1": node.id, 
-                "2": node.path,
-                "3": node.label,
-                "4": node.value,
-                "5": node.value_type
-            }
-            
-            connection.execute(insert_node_query, parameters)
-            nodes_inserted += 1
-        except Exception as e:
-            error_message = str(e)
-            
-            # プライマリキー制約違反の場合は特別に処理
-            if "duplicated primary key" in error_message:
-                log_debug(f"ノード挿入時の主キー重複エラー: id={node.id}")
-                nodes_skipped += 1
-                continue
-            
-            # その他のエラーは処理中断
-            log_error(f"ノード挿入エラー (id={node.id}): {error_message}")
-            return {
-                "success": False,
-                "message": f"ノード挿入エラー (id={node.id}): {error_message}",
-                "error_type": "NodeInsertionError",
-                "nodes_inserted": nodes_inserted,
-                "nodes_skipped": nodes_skipped
-            }
-    
-    # 成功結果を返す
-    return {
-        "success": True,
-        "nodes_inserted": nodes_inserted,
-        "nodes_skipped": nodes_skipped
-    }
-
-
-def insert_edges(
-    connection: Any,
-    edges: List[InitEdge],
-    query_loader: Dict[str, Any]
-) -> EdgeInsertionResult:
-    """エッジをデータベースに挿入する
-    
-    Args:
-        connection: データベース接続
-        edges: 挿入するエッジのリスト
-        query_loader: クエリローダー
-        
-    Returns:
-        EdgeInsertionResult: 挿入結果
-    """
-    edges_inserted = 0
-    edges_skipped = 0
-    
-    # エッジ挿入クエリを取得
-    query_result = query_loader["get_query"]("init_edge")
-    if not query_loader["get_success"](query_result):
-        log_error(f"エッジ挿入クエリの取得に失敗: {query_result.get('message', '不明なエラー')}")
-        return {
-            "success": False,
-            "message": f"エッジ挿入クエリの取得に失敗: {query_result.get('message', '不明なエラー')}",
-            "error_type": "QueryLoadError",
-            "edges_inserted": 0,
-            "edges_skipped": 0
-        }
-    
-    insert_edge_query = query_result["data"]
-    
-    # 各エッジを処理
-    for edge in edges:
-        # エッジが既に存在するか確認
-        exists_result = check_edge_exists(connection, edge.id)
-        if exists_result.get("error"):
-            # 重大なエラーの場合は処理中断
-            log_error(f"エッジ存在確認エラー: {exists_result['error']}")
-            return {
-                "success": False,
-                "message": f"エッジ存在確認エラー: {exists_result['error']}",
-                "error_type": "EdgeCheckError",
-                "edges_inserted": edges_inserted,
-                "edges_skipped": edges_skipped
-            }
-        
-        if exists_result.get("exists", False):
-            # エッジが既に存在する場合はスキップ
-            log_debug(f"エッジ {edge.id} は既に存在するためスキップします")
-            edges_skipped += 1
-            continue
-        
-        # エッジ挿入を実行
-        try:
-            # パラメータ設定
-            parameters = {
-                "1": edge.source_id,
-                "2": edge.target_id,
-                "3": edge.id,
-                "4": edge.relation_type
-            }
-            
-            connection.execute(insert_edge_query, parameters)
-            edges_inserted += 1
-        except Exception as e:
-            error_message = str(e)
-            
-            # プライマリキー制約違反の場合は特別に処理
-            if "duplicated primary key" in error_message:
-                log_debug(f"エッジ挿入時の主キー重複エラー: id={edge.id}")
-                edges_skipped += 1
-                continue
-            
-            # その他のエラーは処理中断
-            log_error(f"エッジ挿入エラー (id={edge.id}): {error_message}")
-            return {
-                "success": False,
-                "message": f"エッジ挿入エラー (id={edge.id}): {error_message}",
-                "error_type": "EdgeInsertionError",
-                "edges_inserted": edges_inserted,
-                "edges_skipped": edges_skipped
-            }
-    
-    # 成功結果を返す
-    return {
-        "success": True,
-        "edges_inserted": edges_inserted,
-        "edges_skipped": edges_skipped
-    }
-
-
-def save_init_data_to_database(
-    nodes: List[InitNode],
-    edges: List[InitEdge],
-    db_path: str,
-    in_memory: bool
-) -> ProcessResult:
-    """初期化データをデータベースに保存する
-    
-    Args:
-        nodes: 保存するノードのリスト
-        edges: 保存するエッジのリスト
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
-        
-    Returns:
-        ProcessResult: 処理結果
-    """
-    # SHACL制約による検証
-    log_debug("SHACL制約による検証を開始")
-    validation_result = validate_with_shacl_constraints(nodes, edges)
-    if not validation_result["is_valid"]:
-        log_debug(f"SHACL制約検証エラー: {validation_result['message']}")
-        return {
-            "success": False,
-            "message": f"SHACL制約検証エラー: {validation_result['message']}",
-            "error_type": "ValidationError",
-            "details": {"duplicate_ids": validation_result.get("duplicate_ids", [])}
-        }
-    log_debug("SHACL制約検証に成功")
-        
-    # データベース接続
-    db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
-    if "code" in db_result:
-        return {
-            "success": False,
-            "message": f"データベース接続エラー: {db_result['message']}",
-            "error_type": "ConnectionError",
-            "details": {"code": db_result["code"]}
-        }
-    
-    connection = db_result["connection"]
-    query_loader = db_result["query_loader"]
-    
-    # トランザクション開始前に状態確認
-    # 既存のアクティブなトランザクションがある場合は新たに開始しない
-    if hasattr(connection, 'is_transaction_active') and connection.is_transaction_active():
-        log_debug("既存のアクティブなトランザクションが見つかりました。新たに開始しません。")
-    else:
-        # トランザクション開始
-        log_debug("新しいトランザクションを開始します")
-        tx_result = start_transaction(connection)
-        if not tx_result["success"]:
-            log_warning(f"トランザクション開始に失敗しました: {tx_result['message']}。トランザクションなしで続行します。")
-            # トランザクションなしでも続行する - エラーを返さない
-    
-    # テーブル作成 - create_init_tablesはクエリ実行を含むため、
-    # トランザクション内で実行すると暗黙的にトランザクションが終了する可能性がある
-    # トランザクション外でテーブルを作成し、その後データ挿入用の新しいトランザクションを開始
-    tables_result = create_init_tables(connection)
-    if not tables_result["success"]:
-        return {
-            "success": False,
-            "message": tables_result["message"],
-            "error_type": "TableCreationError",
-            "details": tables_result.get("details", {})
-        }
-    
-    # データ操作用に新しいトランザクションを開始
-    log_debug("データ挿入用の新しいトランザクションを開始します")
-    tx_result = start_transaction(connection)
-    if not tx_result["success"]:
-        return {
-            "success": False,
-            "message": f"データ挿入用トランザクション開始エラー: {tx_result['message']}",
-            "error_type": "TransactionError"
-        }
-    
-    # ノード挿入
-    nodes_result = insert_nodes(connection, nodes, query_loader)
-    if not nodes_result["success"]:
-        rollback_result = rollback_transaction(connection)
-        if not rollback_result["success"]:
-            log_warning(f"{rollback_result['message']}")
-        
-        return {
-            "success": False,
-            "message": nodes_result["message"],
-            "error_type": nodes_result.get("error_type", "NodeInsertionError"),
-            "details": {
-                "nodes_inserted": nodes_result.get("nodes_inserted", 0),
-                "nodes_skipped": nodes_result.get("nodes_skipped", 0)
-            }
-        }
-    
-    nodes_inserted = nodes_result["nodes_inserted"]
-    nodes_skipped = nodes_result["nodes_skipped"]
-    
-    # エッジ挿入
-    edges_result = insert_edges(connection, edges, query_loader)
-    if not edges_result["success"]:
-        rollback_result = rollback_transaction(connection)
-        if not rollback_result["success"]:
-            log_warning(f"{rollback_result['message']}")
-        
-        return {
-            "success": False,
-            "message": edges_result["message"],
-            "error_type": edges_result.get("error_type", "EdgeInsertionError"),
-            "details": {
-                "nodes_inserted": nodes_inserted,
-                "nodes_skipped": nodes_skipped,
-                "edges_inserted": edges_result.get("edges_inserted", 0),
-                "edges_skipped": edges_result.get("edges_skipped", 0)
-            }
-        }
-    
-    edges_inserted = edges_result["edges_inserted"]
-    edges_skipped = edges_result["edges_skipped"]
-    
-    # トランザクション状態を確認してからコミット
-    if hasattr(connection, 'is_transaction_active') and connection.is_transaction_active():
-        log_debug("アクティブなトランザクションをコミットします")
-        commit_result = commit_transaction(connection)
-        if not commit_result["success"]:
-            log_warning(f"コミットエラー: {commit_result['message']}")
-            # エラーがあってもロールバックせず続行（データは既に保存されている可能性が高い）
-    else:
-        log_debug("アクティブなトランザクションが見つからないため、コミットをスキップします")
-    
-    # 最終的なテーブル存在確認
-    time.sleep(0.5)  # データベース状態同期待機
-    
-    node_table_result = check_table_exists(connection, "InitNode")
-    edge_table_result = check_table_exists(connection, "InitEdge")
-    
-    if not (node_table_result["success"] and edge_table_result["success"]):
-        log_warning("コミット後、一部のテーブルが見つかりません")
-    
-    return {
-        "success": True,
-        "message": f"{nodes_inserted}個のノードと{edges_inserted}個のエッジを保存しました (スキップ: ノード{nodes_skipped}個, エッジ{edges_skipped}個)",
-        "nodes_count": nodes_inserted,
-        "edges_count": edges_inserted,
-        "nodes_skipped": nodes_skipped,
-        "edges_skipped": edges_skipped
-    }
-
-
-def get_root_nodes(connection: Any) -> List[Dict[str, Any]]:
-    """データベースからルートノードを取得する
-    
-    Args:
-        connection: データベース接続
-        
-    Returns:
-        List[Dict[str, Any]]: ルートノード情報のリスト
-    """
-    root_nodes = []
-    
-    # まずテーブルの存在を確認する
-    node_table_result = check_table_exists(connection, "InitNode")
-    edge_table_result = check_table_exists(connection, "InitEdge")
-    
-    if not (node_table_result["success"] and edge_table_result["success"]):
-        log_debug(f"ルートノード取得前のテーブル存在確認: InitNode={node_table_result['success']}, InitEdge={edge_table_result['success']}")
-        
-        # テーブルが見つからない場合は少し待ってから再確認
-        time.sleep(1)
-        
-        # 再度確認
-        node_table_result = check_table_exists(connection, "InitNode")
-        edge_table_result = check_table_exists(connection, "InitEdge")
-        log_debug(f"待機後のテーブル再確認: InitNode={node_table_result['success']}, InitEdge={edge_table_result['success']}")
-        
-        if not (node_table_result["success"] and edge_table_result["success"]):
-            # 再試行してもテーブルが見つからない場合は空リストを返す
-            return root_nodes
-    
-    # クエリローダーからルートノード取得クエリを取得
-    if hasattr(connection, '_query_loader') and connection._query_loader:
-        loader = connection._query_loader
-        query_result = loader["get_query"]("get_root_init_nodes")
-        
-        if loader["get_success"](query_result):
-            root_nodes_query = query_result["data"]
-            
-            # クエリを実行してルートノード情報を取得
-            try:
-                result = connection.execute(root_nodes_query)
-                if result and hasattr(result, 'to_df'):
-                    # DataFrameに変換（KuzuDB結果オブジェクトの場合）
-                    df = result.to_df()
-                    if not df.empty:
-                        for _, row in df.iterrows():
-                            root_node = {
-                                "id": row.get('n.id'),
-                                "path": row.get('n.path'),
-                                "label": row.get('n.label'),
-                                "value": row.get('n.value'),
-                                "value_type": row.get('n.value_type')
-                            }
-                            root_nodes.append(root_node)
-                elif result:
-                    # リスト形式の結果の場合
-                    for row in result:
-                        root_node = {}
-                        for key, value in row.items():
-                            root_node[key.replace('n.', '')] = value
-                        root_nodes.append(root_node)
-            except Exception as query_error:
-                log_debug(f"ルートノードクエリ実行エラー: {str(query_error)}")
-                
-                # テーブルが存在するはずなのにクエリが失敗した場合、もう一度待機して再試行
-                if node_table_result["success"] and edge_table_result["success"] and "table not found" in str(query_error).lower():
-                    time.sleep(1.5)
-                    
-                    try:
-                        # 再度クエリを実行
-                        result = connection.execute(root_nodes_query)
-                        if result and hasattr(result, 'to_df'):
-                            df = result.to_df()
-                            if not df.empty:
-                                for _, row in df.iterrows():
-                                    root_node = {
-                                        "id": row.get('n.id'),
-                                        "path": row.get('n.path'),
-                                        "label": row.get('n.label'),
-                                        "value": row.get('n.value'),
-                                        "value_type": row.get('n.value_type')
-                                    }
-                                    root_nodes.append(root_node)
-                        log_debug("再試行後、ルートノードを正常に取得しました")
-                    except Exception as retry_error:
-                        log_debug(f"ルートノード再試行でもエラー: {str(retry_error)}")
-    else:
-        # クエリローダーが利用できない場合はハードコードされたクエリを使用
-        hardcoded_query = """
-        MATCH (n:InitNode)
-        WHERE NOT EXISTS { MATCH (parent:InitNode)-[:InitEdge]->(n) }
-        RETURN n.id, n.path, n.label, n.value, n.value_type
-        ORDER BY n.id
-        """
-        
-        try:
-            result = connection.execute(hardcoded_query)
-            if result and hasattr(result, 'to_df'):
-                df = result.to_df()
-                if not df.empty:
-                    for _, row in df.iterrows():
-                        root_node = {
-                            "id": row.get('n.id'),
-                            "path": row.get('n.path'),
-                            "label": row.get('n.label'),
-                            "value": row.get('n.value'),
-                            "value_type": row.get('n.value_type')
-                        }
-                        root_nodes.append(root_node)
-            elif result:
-                for row in result:
-                    root_node = {}
-                    for key, value in row.items():
-                        root_node[key.replace('n.', '')] = value
-                    root_nodes.append(root_node)
-        except Exception as query_error:
-            log_debug(f"ハードコードクエリでのルートノード取得エラー: {str(query_error)}")
-    
-    return root_nodes
-
-
+# 初期化ファイルを処理する関数
 def process_init_file(
     file_path: str,
-    db_path: str,
-    in_memory: bool
-) -> ProcessResult:
-    """初期化ファイルを処理する
+    connection: Any,
+    query_loader: Dict[str, Any]
+) -> OperationResult:
+    """初期化ファイルを処理
     
     Args:
         file_path: 処理するファイルのパス
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
+        connection: データベース接続
+        query_loader: クエリローダー
         
     Returns:
-        ProcessResult: 処理結果（成功時はルートノード情報も含む）
+        OperationResult: 処理結果
     """
     # ファイルが存在するか確認
     if not os.path.exists(file_path):
-        return {
-            "success": False,
-            "message": f"ファイルが見つかりません: {file_path}",
-            "error_type": "FileNotFound"
-        }
+        return create_error(
+            "FILE_NOT_FOUND",
+            f"ファイルが見つかりません: {file_path}",
+            {"file_path": file_path}
+        )
     
     # ファイル拡張子に基づいて処理
     _, ext = os.path.splitext(file_path)
@@ -705,290 +660,184 @@ def process_init_file(
         yaml_result = load_yaml_file(file_path)
         if "code" in yaml_result:
             # エラーがあれば処理中止
-            return {
-                "success": False,
-                "message": yaml_result["message"],
-                "error_type": "FileLoadError",
-                "details": yaml_result.get("details", {})
-            }
+            return create_error(
+                "FILE_LOAD_ERROR",
+                yaml_result["message"],
+                {"file_path": file_path, "details": yaml_result.get("details", {})}
+            )
         data = yaml_result["data"]
     elif ext.lower() == '.json':
         json_result = load_json_file(file_path)
         if "code" in json_result:
             # エラーがあれば処理中止
-            return {
-                "success": False,
-                "message": json_result["message"],
-                "error_type": "FileLoadError",
-                "details": json_result.get("details", {})
-            }
+            return create_error(
+                "FILE_LOAD_ERROR",
+                json_result["message"],
+                {"file_path": file_path, "details": json_result.get("details", {})}
+            )
         data = json_result["data"]
     elif ext.lower() == '.csv':
         # CSVファイル処理は未実装
-        return {
-            "success": False,
-            "message": f"CSVファイル処理は将来のバージョンでサポート予定です: {ext}",
-            "error_type": "UnsupportedFormat"
-        }
+        return create_error(
+            "UNSUPPORTED_FORMAT",
+            f"CSVファイル処理は将来のバージョンでサポート予定です: {ext}",
+            {"file_path": file_path, "format": ext}
+        )
     else:
-        return {
-            "success": False,
-            "message": f"サポートされていないファイル形式です: {ext}",
-            "error_type": "UnsupportedFormat"
-        }
+        return create_error(
+            "UNSUPPORTED_FORMAT",
+            f"サポートされていないファイル形式です: {ext}",
+            {"file_path": file_path, "format": ext}
+        )
     
     # ツリー構造をノードとエッジに変換
     log_debug(f"ツリー構造をノードとエッジに変換します: {os.path.basename(file_path)}")
     
     parse_result = parse_tree_to_nodes_and_edges(data, "", MAX_TREE_DEPTH)
-    if "code" in parse_result:
+    if is_error(parse_result):
         # パース処理でエラーが発生した場合
         log_debug(f"変換エラー: {parse_result['message']}")
-        return {
-            "success": False,
-            "message": f"ノード・エッジ変換エラー: {parse_result['message']}",
-            "error_type": "ParseError",
-            "details": parse_result.get("details", {})
-        }
+        return create_error(
+            "PARSE_ERROR",
+            f"ノード・エッジ変換エラー: {parse_result['message']}",
+            {"file_path": file_path, "details": parse_result["details"]}
+        )
     
-    nodes = parse_result["nodes"]
-    edges = parse_result["edges"]
+    nodes = parse_result["data"]["nodes"]
+    edges = parse_result["data"]["edges"]
     log_debug(f"変換完了: {len(nodes)}個のノード, {len(edges)}個のエッジ")
     
     # データベースに保存
-    save_result = save_init_data_to_database(nodes, edges, db_path, in_memory)
-    if not save_result["success"]:
+    save_result = save_init_data(connection, nodes, edges, query_loader)
+    if is_error(save_result):
         return save_result
     
-    # 新しいデータベース接続を取得してルートノードを検索
-    # この時点では接続はdb_resultから取得し、トランザクションは使用しない
-    db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
-    if "code" in db_result:
-        # 接続エラーだが、データ保存は成功しているので処理は継続
-        log_warning(f"ルートノード取得時のDB接続エラー: {db_result['message']}")
-        root_nodes = []
-    else:
-        connection = db_result["connection"]
-        log_debug("新しいコネクションを使用してルートノードを取得します")
-        root_nodes = get_root_nodes(connection)
+    # ルートノード情報を取得
+    root_nodes = get_root_nodes(connection, query_loader)
     
-    return {
-        "success": True,
-        "message": f"{os.path.basename(file_path)}を正常に処理しました。{save_result['nodes_count']}個のノードと{save_result['edges_count']}個のエッジを保存しました。",
-        "file": os.path.basename(file_path),
-        "nodes_count": save_result["nodes_count"],
-        "edges_count": save_result["edges_count"],
-        "nodes_skipped": save_result.get("nodes_skipped", 0),
-        "edges_skipped": save_result.get("edges_skipped", 0),
-        "root_nodes": root_nodes
-    }
+    # 結果を整形して返す
+    return create_success(
+        f"{os.path.basename(file_path)}を正常に処理しました。"
+        f"{save_result['data']['nodes_inserted']}個のノードと"
+        f"{save_result['data']['edges_inserted']}個のエッジを保存しました。",
+        {
+            "file": os.path.basename(file_path),
+            "nodes_count": save_result["data"]["nodes_inserted"],
+            "edges_count": save_result["data"]["edges_inserted"],
+            "nodes_skipped": save_result["data"]["nodes_skipped"],
+            "edges_skipped": save_result["data"]["edges_skipped"],
+            "root_nodes": root_nodes
+        }
+    )
 
 
-def process_init_directory(
-    directory_path: str,
-    db_path: str,
-    in_memory: bool
-) -> ProcessResult:
-    """指定ディレクトリ内の初期化ファイルをすべて処理する
+# ルートノードを取得する関数
+def get_root_nodes(
+    connection: Any,
+    query_loader: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """ルートノード情報を取得
     
     Args:
-        directory_path: 処理するディレクトリのパス
-        db_path: データベースディレクトリのパス
-        in_memory: インメモリモードで接続するかどうか
+        connection: データベース接続
+        query_loader: クエリローダー
         
     Returns:
-        ProcessResult: 処理結果（成功時はルートノード情報も含む）
+        List[Dict[str, Any]]: ルートノード情報のリスト
     """
-    # ディレクトリが存在するか確認
-    log_debug(f"ディレクトリチェック: {directory_path}")
-    if not os.path.exists(directory_path) or not os.path.isdir(directory_path):
-        log_debug(f"ディレクトリが存在しません: {directory_path}")
-        return {
-            "success": True,  # エラーではなく成功として扱う
-            "message": f"ディレクトリが見つかりません: {directory_path}",
-            "processed_files": [],
-            "total_nodes": 0,
-            "total_edges": 0
-        }
+    root_nodes = []
+    db_ops = create_db_operations(connection)
     
-    # 対象ファイルの収集
-    target_files = []
-    for filename in os.listdir(directory_path):
-        filepath = os.path.join(directory_path, filename)
-        if os.path.isfile(filepath):
-            _, ext = os.path.splitext(filepath)
-            if ext.lower() in SUPPORTED_FILE_FORMATS:
-                target_files.append(filepath)
+    # テーブルの存在確認 - ルートノード取得前に各テーブルの状態を詳細に検証
+    log_debug("ルートノード取得前のテーブル存在確認を実行")
+    tables_result = db_ops["verify_tables"](["InitNode", "InitEdge"])
     
-    log_debug(f"処理対象ファイル: {target_files}")
-    
-    if not target_files:
-        log_debug(f"処理対象ファイルがありません: {directory_path}")
-        return {
-            "success": True,  # エラーではなく成功として扱う
-            "message": f"処理対象のファイルが見つかりません: {directory_path}",
-            "processed_files": [],
-            "total_nodes": 0,
-            "total_edges": 0
-        }
-    
-    # 各ファイルを処理
-    processed_files = []
-    failed_files = []
-    error_messages = []
-    total_nodes = 0
-    total_edges = 0
-    all_root_nodes = []  # 全ファイルのルートノードを格納
-    
-    for file_path in target_files:
-        log_debug(f"ファイル処理開始: {file_path}")
-        result = process_init_file(file_path, db_path, in_memory)
+    if is_error(tables_result):
+        table_details = tables_result["details"]["tables"]
+        # 各テーブルの存在状態を明示的にログ出力
+        log_debug(f"ルートノード取得前のテーブル確認: InitNode={table_details.get('InitNode', False)}, InitEdge={table_details.get('InitEdge', False)}")
         
-        if result["success"]:
-            processed_files.append(os.path.basename(file_path))
-            total_nodes += result.get("nodes_count", 0)
-            total_edges += result.get("edges_count", 0)
-            
-            # ルートノード情報があれば追加
-            if "root_nodes" in result and result["root_nodes"]:
-                # ファイル名も情報に追加
-                for root_node in result["root_nodes"]:
-                    root_node["source_file"] = os.path.basename(file_path)
-                all_root_nodes.extend(result["root_nodes"])
-        else:
-            failed_files.append(os.path.basename(file_path))
-            error_messages.append(f"{os.path.basename(file_path)}: {result['message']}")
-            log_debug(f"ファイル処理失敗: {file_path} - {result['message']}")
-    
-    # 初期化処理は部分的な成功でも成功扱いとし、詳細を付記
-    result_message = ""
-    if processed_files:
-        result_message = f"{len(processed_files)}個のファイルを処理しました。合計{total_nodes}個のノードと{total_edges}個のエッジを保存しました。"
+        if not table_details.get("InitNode", False) or not table_details.get("InitEdge", False):
+            log_error("必要なテーブルが存在しないため、ルートノード取得をスキップします")
+            return root_nodes  # テーブルがなければ空リスト
     else:
-        result_message = "処理に成功したファイルはありませんでした。"
+        log_debug("テーブル確認成功: ルートノード取得のための準備が整っています")
     
-    if failed_files:
-        result_message += f" {len(failed_files)}個のファイルは処理に失敗しました。"
-        if error_messages:
-            result_message += " エラー詳細: " + ", ".join(error_messages[:3])
-            if len(error_messages) > 3:
-                result_message += f" 他{len(error_messages) - 3}件"
+    # クエリローダーからクエリを取得
+    query_result = query_loader["get_query"]("get_root_init_nodes")
     
-    # すべてのファイル処理が終わった後にデータベースから最新のルートノード情報を取得
-    if not all_root_nodes:
-        # ルートノード情報が取得できていない場合、新しい接続で再取得を試みる
-        # トランザクションを使用せず、読み取り専用の操作として実行
-        log_debug("全ファイル処理後に新しいコネクションでルートノード情報を取得します")
-        db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
-        if "code" not in db_result:
-            connection = db_result["connection"]
-            # トランザクションは開始せず、単純なクエリとして実行
-            all_root_nodes = get_root_nodes(connection)
-            log_debug(f"ルートノード情報取得成功: {len(all_root_nodes)}個のルートノードを取得")
-        else:
-            log_warning(f"ルートノード情報取得用の接続に失敗: {db_result.get('message', '不明なエラー')}")
+    if not query_loader["get_success"](query_result):
+        log_warning(f"ルートノード取得クエリの読み込みに失敗: {query_result.get('error', '不明なエラー')}")
+        return root_nodes
     
-    return {
-        "success": True,
-        "message": result_message,
-        "processed_files": processed_files,
-        "total_nodes": total_nodes,
-        "total_edges": total_edges,
-        "root_nodes": all_root_nodes,
-        "failed_files": failed_files if failed_files else None
-    }
-
-
-# 単体テスト
-def test_parse_tree_to_nodes_and_edges() -> None:
-    """parse_tree_to_nodes_and_edges関数のテスト"""
-    # テスト用データ
-    test_data = {
-        "common": {
-            "基本原則": {
-                "クラス使用": "可能ならクラスは使わない"
-            }
-        }
-    }
+    root_nodes_query = query_result["data"]
     
-    # 関数実行
-    result = parse_tree_to_nodes_and_edges(test_data, "", MAX_TREE_DEPTH)
+    # リトライ処理でクエリを実行
+    def execute_root_query():
+        try:
+            # クエリ実行
+            result = db_ops["execute_query"](root_nodes_query)
+            
+            if is_error(result):
+                return create_error(
+                    "QUERY_ERROR",
+                    f"ルートノード取得クエリ実行エラー: {result['message']}",
+                    {"query": root_nodes_query}
+                )
+            
+            # 結果の解析
+            query_result = result["data"]["result"]
+            nodes = []
+            
+            if query_result and hasattr(query_result, 'to_df'):
+                # DataFrameに変換（KuzuDB結果オブジェクトの場合）
+                df = query_result.to_df()
+                if not df.empty:
+                    for _, row in df.iterrows():
+                        root_node = {
+                            "id": row.get('n.id'),
+                            "path": row.get('n.path'),
+                            "label": row.get('n.label'),
+                            "value": row.get('n.value'),
+                            "value_type": row.get('n.value_type')
+                        }
+                        nodes.append(root_node)
+            elif query_result:
+                # リスト形式の結果の場合
+                for row in query_result:
+                    root_node = {}
+                    for key, value in row.items():
+                        root_node[key.replace('n.', '')] = value
+                    nodes.append(root_node)
+            
+            return create_success(
+                f"{len(nodes)}個のルートノードを取得しました",
+                {"nodes": nodes}
+            )
+        except Exception as e:
+            error_message = str(e)
+            
+            # テーブルが存在しない場合
+            if "does not exist" in error_message:
+                return create_error(
+                    "TABLE_NOT_FOUND",
+                    "テーブルが存在しません",
+                    {"error": error_message}
+                )
+            
+            # その他のエラー
+            return create_error(
+                "QUERY_ERROR",
+                f"ルートノード取得エラー: {error_message}",
+                {"error": error_message}
+            )
     
-    # エラーが出ていないか確認
-    assert "code" not in result
+    # 再試行付きでクエリを実行
+    result = retry_with_backoff(execute_root_query, max_attempts=3, base_delay=1.0)
     
-    # ノードとエッジが正しく取得できているか確認
-    nodes = result["nodes"]
-    edges = result["edges"]
-    
-    # ノード数の確認
-    assert len(nodes) >= 4  # common, 基本原則, クラス使用, value
-    
-    # commonノードの検証
-    common_node = next((n for n in nodes if n.id == "common"), None)
-    assert common_node is not None
-    assert common_node.label == "common"
-    
-    # 基本原則ノードの検証
-    basic_node = next((n for n in nodes if n.id == "common.基本原則"), None)
-    assert basic_node is not None
-    assert basic_node.label == "基本原則"
-    
-    # クラス使用ノードの検証
-    class_node = next((n for n in nodes if n.id == "common.基本原則.クラス使用"), None)
-    assert class_node is not None
-    assert class_node.label == "クラス使用"
-    
-    # 値ノードの検証
-    value_node = next((n for n in nodes if n.id == "common.基本原則.クラス使用.value"), None)
-    assert value_node is not None
-    assert value_node.label == "value"
-    assert value_node.value == "可能ならクラスは使わない"
-    
-    # エッジの検証
-    assert len(edges) >= 3  # common->基本原則, 基本原則->クラス使用, クラス使用->value
-    
-    # common->基本原則エッジの検証
-    common_to_basic = next((e for e in edges if e.source_id == "common" and e.target_id == "common.基本原則"), None)
-    assert common_to_basic is not None
-    
-    # 基本原則->クラス使用エッジの検証
-    basic_to_class = next((e for e in edges if e.source_id == "common.基本原則" and e.target_id == "common.基本原則.クラス使用"), None)
-    assert basic_to_class is not None
-    
-    # クラス使用->valueエッジの検証
-    class_to_value = next((e for e in edges if e.source_id == "common.基本原則.クラス使用" and e.target_id == "common.基本原則.クラス使用.value"), None)
-    assert class_to_value is not None
-    assert class_to_value.relation_type == "has_value"
-
-
-def test_validate_with_shacl_constraints() -> None:
-    """validate_with_shacl_constraints関数のテスト"""
-    # 正常ケース
-    nodes = [
-        InitNode(id="node1", path="node1", label="test1"),
-        InitNode(id="node2", path="node2", label="test2")
-    ]
-    edges = [
-        InitEdge(id="edge1", source_id="node1", target_id="node2")
-    ]
-    
-    result = validate_with_shacl_constraints(nodes, edges)
-    assert result["is_valid"] == True
-    assert result["message"] == "検証に成功しました"
-    
-    # 重複IDエラーケース
-    nodes_duplicate = [
-        InitNode(id="node1", path="node1", label="test1"),
-        InitNode(id="node1", path="node1_dup", label="test1_dup")  # IDが重複
-    ]
-    
-    result = validate_with_shacl_constraints(nodes_duplicate, edges)
-    assert result["is_valid"] == False
-    assert "重複するIDが検出されました" in result["message"]
-    assert "node1" in result["duplicate_ids"]
-
-
-if __name__ == "__main__":
-    import pytest
-    pytest.main([__file__])
+    # 結果の解析
+    if result["success"]:
+        return result["data"]["nodes"]
+    else:
+        log_warning(f"ルートノード取得に失敗: {result['message']}")
+        return []  # エラー時は空リスト

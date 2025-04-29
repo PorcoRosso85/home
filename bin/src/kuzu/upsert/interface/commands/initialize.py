@@ -1,24 +1,25 @@
 """
-初期化コマンドモジュール
+関数型プログラミングを使用した初期化コマンドモジュール
 
-データベースと制約ファイルを初期化する機能を提供します。
---register-dataフラグを指定すると、初期データの検出と登録も同時に行います。
+CONVENTION.yamlの規約に従い、純粋関数と不変性に基づいて
+データベースの初期化と初期データの登録を行います。
 """
 
 import os
 import glob
-import uuid
-import time
-from typing import Dict, Any, Optional, List, Union, Literal, TypedDict
+from typing import Dict, Any, List, Union, Literal, TypedDict, Optional
 
 from upsert.interface.types import CommandSuccess, CommandError, is_error
-from upsert.infrastructure.database.connection import init_database, check_table_exists
+from upsert.infrastructure.database.connection import get_connection
+from upsert.infrastructure.database.functional import (
+    OperationResult, create_success, create_error, is_error as fp_is_error
+)
 from upsert.application.schema_service import create_design_shapes
+from upsert.application.init_service import (
+    initialize_tables, process_init_file
+)
 from upsert.infrastructure.variables import INIT_DIR, QUERY_DIR
 from upsert.infrastructure.logger import log_debug, log_info, log_warning, log_error
-
-# 統一クエリローダーを直接インポート
-from query.call_cypher import get_query
 
 
 # 初期化コマンドのエラー型を定義
@@ -67,9 +68,9 @@ def get_command_examples() -> List[str]:
     ]
 
 
+# 初期データファイルを取得する関数
 def get_init_files(data_dir: str, recursive: bool = False) -> List[str]:
-    """
-    指定ディレクトリから初期データファイルの一覧を取得
+    """初期データファイルのリストを取得
     
     Args:
         data_dir: 初期データディレクトリのパス
@@ -81,7 +82,7 @@ def get_init_files(data_dir: str, recursive: bool = False) -> List[str]:
     supported_extensions = ['.yaml', '.yml', '.json', '.csv']
     files = []
     
-    # ディレクトリが存在しない場合はエラー情報を返す
+    # ディレクトリが存在しない場合は空リストを返す
     if not os.path.exists(data_dir) or not os.path.isdir(data_dir):
         return []
     
@@ -104,11 +105,11 @@ def get_init_files(data_dir: str, recursive: bool = False) -> List[str]:
     return sorted(files)
 
 
+# 関数型プログラミングを用いた初期化コマンドハンドラ
 def handle_init(db_path: Optional[str] = None, in_memory: bool = False, 
-               register_data: bool = False, data_dir: Optional[str] = None, 
-               recursive: bool = False, **kwargs) -> Union[CommandSuccess, InitError]:
-    """
-    データベースと制約ファイルを初期化
+                 register_data: bool = False, data_dir: Optional[str] = None, 
+                 recursive: bool = False, **kwargs) -> Union[CommandSuccess, InitError]:
+    """関数型プログラミングアプローチでデータベースと制約ファイルを初期化
     
     Args:
         db_path: データベースディレクトリのパス
@@ -147,7 +148,7 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
                 trace=None
             )
     
-    # 制約ファイルの作成
+    # 制約ファイルの作成 - 純粋関数として実装済み
     shapes_result = create_design_shapes()
     if is_error(shapes_result):
         return InitError(
@@ -159,85 +160,51 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
             trace=None
         )
     
-    # データベース初期化
-    db_result = init_database(db_path=db_path, in_memory=in_memory)
-    if is_error(db_result):
+    # データベース接続取得 - 既存の関数を使用
+    db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
+    if "code" in db_result:
         return InitError(
             success=False,
             command="handle_init",
             error_type="DB_PATH_ERROR",
-            message=f"データベース初期化エラー: {db_result['message']}",
+            message=f"データベース接続エラー: {db_result['message']}",
             details={"db_path": db_path, "in_memory": in_memory},
             trace=None
         )
     
-    # データベース接続を保持
-    connection = db_result.get("connection")
+    # 接続とクエリローダーを取得
+    connection = db_result["connection"]
+    query_loader = db_result["query_loader"]
     
-    # テーブル作成後の検証プロセス - 段階的なアプローチで確実にテーブルが使用可能か確認する
-    log_debug("テーブル作成後の検証プロセスを開始します")
+    # テーブル初期化 - 詳細なデバッグ情報を出力しながら実行
+    log_debug("データベーステーブルの初期化を開始します")
+    tables_result = initialize_tables(connection)
     
-    # 最大検証試行回数と待機間隔を設定
-    max_verification_attempts = 3
-    verification_wait_intervals = [0.5, 1.0, 2.0]  # 秒単位（徐々に待機時間を増加）
-    
-    # 主要テーブルのリスト
-    core_tables = ["FunctionType", "Parameter", "ReturnType", "HasParameter", "ReturnsType"]
-    
-    # 段階的な検証プロセス
-    verification_success = False
-    
-    for attempt in range(max_verification_attempts):
-        print(f"DEBUG: テーブル検証試行 {attempt + 1}/{max_verification_attempts}")
+    if fp_is_error(tables_result):
+        # エラーの詳細な情報をログに出力
+        log_error(f"テーブル初期化失敗: {tables_result['error_type']}")
+        log_error(f"エラーメッセージ: {tables_result['message']}")
+        log_debug(f"エラー詳細: {tables_result['details']}")
         
-        # すべてのテーブルのステータスを確認
-        all_tables_exist = True
-        for table in core_tables:
-            table_exists = check_table_exists(connection, table)
-            print(f"DEBUG: テーブル {table} の存在確認: {'成功' if table_exists else '失敗'}")
-            if not table_exists:
-                all_tables_exist = False
-        
-        if all_tables_exist:
-            print("DEBUG: すべてのテーブルの存在を確認しました")
-            
-            # テーブルが実際に使用可能かをシンプルに確認
-            try:
-                # シンプルな存在確認だけを行う（テスト的なものは作成しない）
-                verification_query = "RETURN 1 AS is_connected"
-                
-                # クエリを実行
-                result = connection.execute(verification_query)
-                
-                # 結果にアクセスできることを確認（接続が生きているか）
-                if result is not None:
-                    verification_success = True
-                    print(f"DEBUG: データベース接続検証成功: 基本クエリが正常に実行されました")
-                    break
-                else:
-                    print(f"WARNING: データベース接続検証失敗: クエリの結果が空です")
-            
-            except Exception as e:
-                print(f"WARNING: テーブル検証中にエラーが発生: {str(e)}")
-        
-        # 最後の試行でなければ待機して再試行
-        if not verification_success and attempt < max_verification_attempts - 1:
-            wait_time = verification_wait_intervals[attempt]
-            print(f"DEBUG: {wait_time}秒待機して再試行します")
-            time.sleep(wait_time)
-    
-    if not verification_success:
-        print("WARNING: テーブル検証プロセスが失敗しました。処理は継続しますが、後続のクエリで問題が発生する可能性があります。")
+        return InitError(
+            success=False,
+            command="handle_init",
+            error_type="DB_PATH_ERROR",
+            message=f"テーブル初期化エラー: {tables_result['message']}",
+            details=tables_result["details"],
+            trace=None
+        )
     else:
-        print("DEBUG: テーブル検証プロセスが成功しました。テーブルは正常に使用可能です。")
+        log_debug("データベーステーブルの初期化が成功しました")
+        if "data" in tables_result:
+            log_debug(f"テーブル作成結果: {tables_result['data']}")
     
     # 基本的な初期化完了メッセージ
     init_message = "データベースと制約ファイルの初期化が完了しました"
     
-    # デフォルト値で初期化
+    # 結果オブジェクト初期化
     process_result = {
         "success": True,
-        "message": "初期データ登録がスキップされました",
         "processed_count": 0,
         "failed_count": 0,
         "skipped_count": 0,
@@ -245,7 +212,7 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
         "edges_count": 0
     }
     
-    # --register-dataフラグが指定されている場合は初期データの検出と登録を行う
+    # 初期データ登録
     if register_data:
         log_debug(f"register_data=True, data_dir={data_dir}, recursive={recursive}")
         
@@ -254,7 +221,7 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
             log_warning(f"初期データディレクトリが存在しません: {data_dir}")
             log_info("初期データ登録をスキップして初期化処理を続行します")
         else:
-            # 初期データファイルの一覧を取得（再帰的探索オプション付き）
+            # 初期データファイルの一覧を取得
             init_files = get_init_files(data_dir, recursive=recursive)
             
             if not init_files:
@@ -268,187 +235,78 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
                     rel_path = os.path.relpath(file_path, data_dir)
                     log_info(f"  - {rel_path}")
                 
-                # データをデータベースに登録
-                # init_service.pyの関数を呼び出す
-                from upsert.application.init_service import process_init_directory, process_init_file
+                # 各ファイルを処理
+                processed_count = 0
+                failed_count = 0
+                nodes_count = 0
+                edges_count = 0
+                skipped_nodes = 0
+                skipped_edges = 0
                 
-                if recursive:
-                    # 再帰的に検出した場合はディレクトリ全体を処理
-                    log_debug(f"ディレクトリ全体を処理: {data_dir}")
-                    process_result = process_init_directory(data_dir, db_path, in_memory)
-                else:
-                    # 個別のファイルを処理
-                    log_debug("個別のファイルを処理")
-                    processed_count = 0
-                    failed_count = 0
-                    skipped_count = 0
-                    nodes_count = 0
-                    edges_count = 0
+                for file_path in init_files:
+                    log_debug(f"ファイル処理: {file_path}")
                     
-                    for file_path in init_files:
-                        log_debug(f"ファイル処理: {file_path}")
-                        try:
-                            # ファイル処理の詳細なデバッグ
-                            log_debug(f"process_init_file呼び出し: {file_path}")
-                            file_result = process_init_file(file_path, db_path, in_memory)
-                            log_debug(f"process_init_file結果: {file_result}")
-                            
-                            # 成功/失敗の判断
-                            if not file_result.get("success", False):
-                                failed_count += 1
-                                log_warning(f"ファイル処理失敗: {file_path} - {file_result.get('message', '不明なエラー')}")
-                            else:
-                                processed_count += 1
-                                nodes_count += file_result.get("nodes_count", 0)
-                                edges_count += file_result.get("edges_count", 0)
-                                
-                                # スキップされたノードとエッジの数を収集
-                                skipped_nodes = file_result.get("nodes_skipped", 0)
-                                skipped_edges = file_result.get("edges_skipped", 0)
-                                skipped_count += skipped_nodes + skipped_edges
-                                
-                                if skipped_nodes > 0 or skipped_edges > 0:
-                                    log_info(f"スキップされたデータ: ノード {skipped_nodes}個, エッジ {skipped_edges}個")
-                        except Exception as e:
-                            # 例外処理の改善
-                            failed_count += 1
-                            log_error(f"ファイル処理中に例外が発生: {file_path} - {str(e)}")
-                            # スタックトレースも出力
-                            import traceback
-                            traceback.print_exc()
+                    # 関数型実装を使用してファイルを処理
+                    # ファイル処理の詳細なデバッグ情報を出力
+                    log_debug(f"ファイル処理開始: {file_path}")
+                    file_result = process_init_file(file_path, connection, query_loader)
+                    log_debug(f"ファイル処理完了: {os.path.basename(file_path)}")
                     
-                    # 詳細なステータス情報を含む処理結果
-                    process_result = {
-                        "success": True,  # 初期データファイルの処理に失敗してもデータベース初期化自体は成功とする
-                        "message": f"{len(init_files)}個のファイルを処理しました（成功: {processed_count}個, 失敗: {failed_count}個, スキップされたデータ: {skipped_count}個）",
-                        "processed_count": processed_count,
-                        "failed_count": failed_count,
-                        "skipped_count": skipped_count,
-                        "nodes_count": nodes_count,
-                        "edges_count": edges_count
-                    }
-                    
-                    if processed_count > 0:
-                        init_message = f"{init_message}（{process_result.get('message', '')}）"
+                    # 結果の判定と詳細なエラー情報の出力
+                    if fp_is_error(file_result):
+                        failed_count += 1
+                        # エラーレベルを WARNING から ERROR に変更し、より詳細な情報を出力
+                        log_error(f"ファイル処理失敗: {file_path}")
+                        log_error(f"エラータイプ: {file_result['error_type']}")
+                        log_error(f"エラーメッセージ: {file_result['message']}")
                         
-                        # データ登録後にルートノードの取得処理を行う
-                        log_info("\n各ルートノードを取得します...")
+                        # エラー詳細が存在すれば出力
+                        if 'details' in file_result and file_result['details']:
+                            log_debug(f"エラー詳細: {file_result['details']}")
+                    else:
+                        processed_count += 1
+                        current_nodes = file_result["data"]["nodes_count"]
+                        current_edges = file_result["data"]["edges_count"]
+                        nodes_count += current_nodes
+                        edges_count += current_edges
                         
-                        # より安全なルートノード取得処理
-                        try:
-                            # クエリを直接取得する（接続オブジェクト経由ではなく）
-                            query_result = get_query("get_root_init_nodes")
-                            
-                            if not query_result.get("success", False):
-                                log_warning(f"ルートノード取得クエリの読み込みに失敗しました: {query_result.get('error', '不明なエラー')}")
-                                # ルートノード取得失敗はエラーではなく警告として扱う
-                                log_info("ルートノード情報なしで処理を続行します")
-                            else:
-                                # クエリ内容を取得
-                                root_nodes_query = query_result.get("data")
-                                
-                                # テーブルの存在確認
-                                node_table_exists = check_table_exists(connection, "InitNode")
-                                edge_table_exists = check_table_exists(connection, "InitEdge")
-                                
-                                if not (node_table_exists["success"] and edge_table_exists["success"]):
-                                    log_warning(f"テーブルが見つかりません: InitNode={node_table_exists['success']}, InitEdge={edge_table_exists['success']}")
-                                    log_info("テーブルが見つからないためルートノード取得をスキップします")
-                                else:
-                                    try:
-                                        # ルートノードを取得して表示
-                                        result = connection.execute(root_nodes_query)
-                                        
-                                        # 結果の処理方法を簡素化
-                                        log_info("\n【ルートノード一覧】")
-                                        
-                                        # KuzuDBの結果は様々な形式になる可能性があるため、安全に処理
-                                        if result and hasattr(result, 'to_df'):
-                                            df = result.to_df()
-                                            if not df.empty:
-                                                # DataFrameから行を取得
-                                                for i in range(len(df)):
-                                                    row = df.iloc[i]
-                                                    # 行のデータを表示
-                                                    for col in df.columns:
-                                                        if col in row and row[col] is not None:
-                                                            log_info(f"  {col}: {row[col]}")
-                                                    log_info("-" * 40)
-                                            else:
-                                                log_info("ルートノードが見つかりませんでした。")
-                                        else:
-                                            # QueryResultオブジェクトを直接処理（to_df()がない場合）
-                                            log_info("  QueryResultオブジェクトを直接処理します")
-                                            log_info(f"  結果の型: {type(result).__name__}")
-                                            log_info(f"  結果の文字列表現: {str(result)}")
-                                    except Exception as query_error:
-                                        log_warning(f"ルートノードクエリ実行エラー: {str(query_error)}")
-                                        
-                                        # テーブル同期待機
-                                        if "does not exist" in str(query_error):
-                                            log_info("テーブルの同期を待機してから再試行します")
-                                            import time
-                                            time.sleep(1.0)
-                                            
-                                            try:
-                                                result = connection.execute(root_nodes_query)
-                                                log_info("再試行が成功しました")
-                                                
-                                                # 結果の表示（簡略化）
-                                                log_info("\n【ルートノード一覧（再試行後）】")
-                                                if result and hasattr(result, 'to_df'):
-                                                    df = result.to_df()
-                                                    if not df.empty:
-                                                        log_info(f"  {len(df)}個のルートノードが見つかりました")
-                                                    else:
-                                                        log_info("  ルートノードが見つかりませんでした")
-                                                else:
-                                                    log_info("  QueryResultオブジェクトを直接処理します")
-                                                    log_info(f"  結果の型: {type(result).__name__}")
-                                            except Exception as retry_error:
-                                                log_warning(f"ルートノード再試行でもエラー: {str(retry_error)}")
-                        except Exception as e:
-                            log_info(f"ルートノードの取得・表示中にエラーが発生しました: {str(e)}")
-                            log_info("ルートノード情報なしで処理を続行します")
+                        # 処理成功の詳細なデバッグ情報を出力
+                        log_debug(f"ファイル {os.path.basename(file_path)} の処理成功:")
+                        log_debug(f"  - ノード数: {current_nodes}個")
+                        log_debug(f"  - エッジ数: {current_edges}個")
+                        
+                        # スキップされたノードとエッジの数を収集
+                        current_skipped_nodes = file_result["data"]["nodes_skipped"]
+                        current_skipped_edges = file_result["data"]["edges_skipped"]
+                        skipped_nodes += current_skipped_nodes
+                        skipped_edges += current_skipped_edges
+                        
+                        if current_skipped_nodes > 0 or current_skipped_edges > 0:
+                            log_info(f"スキップされたデータ: ノード {current_skipped_nodes}個, エッジ {current_skipped_edges}個")
+                            log_debug(f"スキップ理由: 既存データとの重複またはテーブル不在")
+                
+                # 詳細なステータス情報を含む処理結果
+                process_result = {
+                    "success": True,
+                    "processed_count": processed_count,
+                    "failed_count": failed_count,
+                    "nodes_count": nodes_count,
+                    "edges_count": edges_count,
+                    "skipped_count": skipped_nodes + skipped_edges
+                }
+                
+                # 結果メッセージを更新
+                init_message = f"{init_message}（{len(init_files)}個のファイルを処理しました（成功: {processed_count}個, 失敗: {failed_count}個, スキップされたデータ: {process_result['skipped_count']}個））"
     
+    # 最終的な結果を返す
     log_info(init_message)
     return CommandSuccess(
         success=True, 
         message=init_message,
         data={
             "connection": connection,
-            "nodes_count": process_result.get("nodes_count", 0) if register_data else 0,
-            "edges_count": process_result.get("edges_count", 0) if register_data else 0,
-            "skipped_count": process_result.get("skipped_count", 0) if register_data else 0
+            "nodes_count": process_result["nodes_count"] if register_data else 0,
+            "edges_count": process_result["edges_count"] if register_data else 0,
+            "skipped_count": process_result["skipped_count"] if register_data else 0
         }
-    )
-
-
-def handle_create_shapes(**kwargs) -> Union[CommandSuccess, InitError]:
-    """
-    SHACL制約ファイルのみを作成
-    
-    Args:
-        **kwargs: CLI引数から渡されるパラメータ
-        
-    Returns:
-        Union[CommandSuccess, InitError]: 処理結果
-    """
-    result = create_design_shapes()
-    if is_error(result):
-        return InitError(
-            success=False,
-            command="handle_create_shapes",
-            error_type="VALIDATION_ERROR",
-            message=f"SHACL制約ファイル作成エラー: {result['message']}",
-            details={"error": result},
-            trace=None
-        )
-    
-    success_message = "SHACL制約ファイルの作成が完了しました"
-    log_info(success_message)
-    return CommandSuccess(
-        success=True, 
-        message=success_message,
-        data=None
     )

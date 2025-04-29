@@ -88,11 +88,13 @@ def with_transaction(connection: Any, operation_fn: Callable[[Any], OperationRes
         OperationResult: 操作の結果
     """
     # トランザクションがすでにアクティブかどうかを確認
+    # これはKuzuDBのトランザクション状態を確認するために重要
     tx_active = False
     if hasattr(connection, 'is_transaction_active') and callable(connection.is_transaction_active):
         tx_active = connection.is_transaction_active()
     
     # すでにアクティブな場合は新しくトランザクションを開始しない
+    # 既存トランザクションのコンテキスト内で操作を実行するため
     if tx_active:
         log_debug("既存のトランザクションを使用します")
         result = operation_fn(connection)
@@ -107,7 +109,7 @@ def with_transaction(connection: Any, operation_fn: Callable[[Any], OperationRes
         tx_start_success = True
     except Exception as tx_start_error:
         # 例外をキャッチしてエラー結果に変換
-        log_warning(f"トランザクション開始失敗: {str(tx_start_error)}")
+        log_error(f"トランザクション開始失敗: {str(tx_start_error)}")
         return create_error(
             "TX_START_ERROR",
             f"トランザクション開始エラー: {str(tx_start_error)}",
@@ -117,30 +119,39 @@ def with_transaction(connection: Any, operation_fn: Callable[[Any], OperationRes
     # 操作実行
     result = operation_fn(connection)
     
-    # 結果に基づいてコミットまたはロールバック
-    if result["success"]:
-        # 成功時はコミット
-        try:
-            connection.execute("COMMIT")
-            log_debug("トランザクションをコミットしました")
-        except Exception as commit_error:
-            # コミットエラーを記録するが、操作自体は成功として扱う
-            log_warning(f"コミットエラー: {str(commit_error)} (操作自体は成功)")
-            # 元の成功結果にコミット警告を追加
-            result_with_warning = dict(result)
-            result_with_warning["commit_warning"] = str(commit_error)
-            return result_with_warning
-    else:
-        # 失敗時はロールバック
-        try:
-            connection.execute("ROLLBACK")
-            log_debug("トランザクションをロールバックしました")
-        except Exception as rollback_error:
-            # ロールバックエラーを記録
-            log_warning(f"ロールバックエラー: {str(rollback_error)}")
-            # エラー結果にロールバック失敗情報を追加
-            result["rollback_failed"] = True
-            result["rollback_error"] = str(rollback_error)
+    # トランザクション状態の再確認
+    # 操作内でトランザクションが終了していないことを確認
+    should_commit = True
+    if hasattr(connection, 'is_transaction_active') and callable(connection.is_transaction_active):
+        should_commit = connection.is_transaction_active()
+        if not should_commit:
+            log_debug("操作内でトランザクションが既に終了しているため、コミット/ロールバックをスキップします")
+    
+    # 結果に基づいてコミットまたはロールバック（トランザクションがまだアクティブな場合のみ）
+    if should_commit:
+        if result["success"]:
+            # 成功時はコミット
+            try:
+                connection.execute("COMMIT")
+                log_debug("トランザクションをコミットしました")
+            except Exception as commit_error:
+                # コミットエラーをERRORレベルで記録
+                log_error(f"コミットエラー: {str(commit_error)} (操作自体は成功)")
+                # 元の成功結果にコミット警告を追加
+                result_with_warning = dict(result)
+                result_with_warning["commit_warning"] = str(commit_error)
+                return result_with_warning
+        else:
+            # 失敗時はロールバック
+            try:
+                connection.execute("ROLLBACK")
+                log_debug("トランザクションをロールバックしました")
+            except Exception as rollback_error:
+                # ロールバックエラーをERRORレベルで記録
+                log_error(f"ロールバックエラー: {str(rollback_error)}")
+                # エラー結果にロールバック失敗情報を追加
+                result["rollback_failed"] = True
+                result["rollback_error"] = str(rollback_error)
     
     return result
 
