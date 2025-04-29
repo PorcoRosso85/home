@@ -448,27 +448,38 @@ def save_init_data_to_database(
     connection = db_result["connection"]
     query_loader = db_result["query_loader"]
     
-    # トランザクション開始
-    tx_result = start_transaction(connection)
-    if not tx_result["success"]:
-        return {
-            "success": False,
-            "message": tx_result["message"],
-            "error_type": "TransactionError"
-        }
+    # トランザクション開始前に状態確認
+    # 既存のアクティブなトランザクションがある場合は新たに開始しない
+    if hasattr(connection, 'is_transaction_active') and connection.is_transaction_active():
+        log_debug("既存のアクティブなトランザクションが見つかりました。新たに開始しません。")
+    else:
+        # トランザクション開始
+        log_debug("新しいトランザクションを開始します")
+        tx_result = start_transaction(connection)
+        if not tx_result["success"]:
+            log_warning(f"トランザクション開始に失敗しました: {tx_result['message']}。トランザクションなしで続行します。")
+            # トランザクションなしでも続行する - エラーを返さない
     
-    # テーブル作成
+    # テーブル作成 - create_init_tablesはクエリ実行を含むため、
+    # トランザクション内で実行すると暗黙的にトランザクションが終了する可能性がある
+    # トランザクション外でテーブルを作成し、その後データ挿入用の新しいトランザクションを開始
     tables_result = create_init_tables(connection)
     if not tables_result["success"]:
-        rollback_result = rollback_transaction(connection)
-        if not rollback_result["success"]:
-            log_warning(f"{rollback_result['message']}")
-        
         return {
             "success": False,
             "message": tables_result["message"],
             "error_type": "TableCreationError",
             "details": tables_result.get("details", {})
+        }
+    
+    # データ操作用に新しいトランザクションを開始
+    log_debug("データ挿入用の新しいトランザクションを開始します")
+    tx_result = start_transaction(connection)
+    if not tx_result["success"]:
+        return {
+            "success": False,
+            "message": f"データ挿入用トランザクション開始エラー: {tx_result['message']}",
+            "error_type": "TransactionError"
         }
     
     # ノード挿入
@@ -513,11 +524,15 @@ def save_init_data_to_database(
     edges_inserted = edges_result["edges_inserted"]
     edges_skipped = edges_result["edges_skipped"]
     
-    # トランザクションのコミット
-    commit_result = commit_transaction(connection)
-    if not commit_result["success"]:
-        log_warning(f"{commit_result['message']}")
-        # コミットエラーでも成功扱いにする（データは既に保存されている可能性が高い）
+    # トランザクション状態を確認してからコミット
+    if hasattr(connection, 'is_transaction_active') and connection.is_transaction_active():
+        log_debug("アクティブなトランザクションをコミットします")
+        commit_result = commit_transaction(connection)
+        if not commit_result["success"]:
+            log_warning(f"コミットエラー: {commit_result['message']}")
+            # エラーがあってもロールバックせず続行（データは既に保存されている可能性が高い）
+    else:
+        log_debug("アクティブなトランザクションが見つからないため、コミットをスキップします")
     
     # 最終的なテーブル存在確認
     time.sleep(0.5)  # データベース状態同期待機
@@ -745,7 +760,8 @@ def process_init_file(
     if not save_result["success"]:
         return save_result
     
-    # データベース接続を取得してルートノードを検索
+    # 新しいデータベース接続を取得してルートノードを検索
+    # この時点では接続はdb_resultから取得し、トランザクションは使用しない
     db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
     if "code" in db_result:
         # 接続エラーだが、データ保存は成功しているので処理は継続
@@ -753,6 +769,7 @@ def process_init_file(
         root_nodes = []
     else:
         connection = db_result["connection"]
+        log_debug("新しいコネクションを使用してルートノードを取得します")
         root_nodes = get_root_nodes(connection)
     
     return {
@@ -859,11 +876,17 @@ def process_init_directory(
     
     # すべてのファイル処理が終わった後にデータベースから最新のルートノード情報を取得
     if not all_root_nodes:
-        # データベース接続を取得
+        # ルートノード情報が取得できていない場合、新しい接続で再取得を試みる
+        # トランザクションを使用せず、読み取り専用の操作として実行
+        log_debug("全ファイル処理後に新しいコネクションでルートノード情報を取得します")
         db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
         if "code" not in db_result:
             connection = db_result["connection"]
+            # トランザクションは開始せず、単純なクエリとして実行
             all_root_nodes = get_root_nodes(connection)
+            log_debug(f"ルートノード情報取得成功: {len(all_root_nodes)}個のルートノードを取得")
+        else:
+            log_warning(f"ルートノード情報取得用の接続に失敗: {db_result.get('message', '不明なエラー')}")
     
     return {
         "success": True,
