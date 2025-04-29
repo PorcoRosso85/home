@@ -17,6 +17,9 @@ from upsert.application.schema_service import create_design_shapes
 from upsert.application.init_service import check_table_exists
 from upsert.infrastructure.variables import INIT_DIR, QUERY_DIR
 
+# 統一クエリローダーを直接インポート
+from query.call_cypher import get_query
+
 
 # 初期化コマンドのエラー型を定義
 class InitError(TypedDict):
@@ -231,154 +234,192 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
     # 基本的な初期化完了メッセージ
     init_message = "データベースと制約ファイルの初期化が完了しました"
     
+    # デフォルト値で初期化
+    process_result = {
+        "success": True,
+        "message": "初期データ登録がスキップされました",
+        "processed_count": 0,
+        "failed_count": 0,
+        "skipped_count": 0,
+        "nodes_count": 0,
+        "edges_count": 0
+    }
+    
     # --register-dataフラグが指定されている場合は初期データの検出と登録を行う
     if register_data:
         print(f"DEBUG: register_data=True, data_dir={data_dir}, recursive={recursive}")
         
         # データディレクトリの存在確認
         if not os.path.exists(data_dir) or not os.path.isdir(data_dir):
-            return InitError(
-                success=False,
-                command="handle_init",
-                error_type="DATA_DIR_ERROR",
-                message=f"初期データディレクトリが存在しません: {data_dir}",
-                details={"data_dir": data_dir},
-                trace=None
-            )
-        
-        # 初期データファイルの一覧を取得（再帰的探索オプション付き）
-        init_files = get_init_files(data_dir, recursive=recursive)
-        
-        if not init_files:
-            return InitError(
-                success=False,
-                command="handle_init",
-                error_type="INIT_DATA_ERROR",
-                message=f"初期データファイルが見つかりません: {data_dir}",
-                details={"data_dir": data_dir, "recursive": recursive},
-                trace=None
-            )
-        
-        # ファイル一覧を表示
-        search_mode = "再帰的" if recursive else "フラット"
-        print(f"{search_mode}検索で初期データファイルが{len(init_files)}個見つかりました:")
-        for file_path in init_files:
-            rel_path = os.path.relpath(file_path, data_dir)
-            print(f"  - {rel_path}")
-        
-        # データをデータベースに登録
-        from upsert.application.init_service import process_init_directory, process_init_file
-        
-        if recursive:
-            # 再帰的に検出した場合はディレクトリ全体を処理
-            print(f"DEBUG: ディレクトリ全体を処理: {data_dir}")
-            process_result = process_init_directory(data_dir, db_path, in_memory)
+            print(f"WARNING: 初期データディレクトリが存在しません: {data_dir}")
+            print("INFO: 初期データ登録をスキップして初期化処理を続行します")
         else:
-            # 個別のファイルを処理
-            print(f"DEBUG: 個別のファイルを処理")
-            processed_count = 0
-            failed_count = 0
+            # 初期データファイルの一覧を取得（再帰的探索オプション付き）
+            init_files = get_init_files(data_dir, recursive=recursive)
             
-            for file_path in init_files:
-                print(f"DEBUG: ファイル処理: {file_path}")
-                file_result = process_init_file(file_path, db_path, in_memory)
-                if is_error(file_result):
-                    failed_count += 1
-                    print(f"警告: ファイル処理失敗: {file_path} - {file_result['message']}")
-                else:
-                    processed_count += 1
-            
-            process_result = {
-                "success": processed_count > 0,
-                "message": f"{processed_count}個のファイルを処理しました（失敗: {failed_count}個）"
-            }
-            
-            if process_result.get("success", False):
-                init_message = f"{init_message}（{process_result.get('message', '')}）"
-                
-                # データ登録後にルートノードの取得処理を行う
-                print("\n各ルートノードを取得します...")
-                
-                try:
-                    # クエリローダーの確認
-                    if hasattr(connection, '_query_loader') and connection._query_loader:
-                        loader = connection._query_loader
-                        query_result = loader["get_query"]("get_root_init_nodes")
-                        if not loader["get_success"](query_result):
-                            print(f"警告: ルートノード取得クエリの読み込みに失敗しました: {query_result.get('message', '不明なエラー')}")
-                            root_nodes_query = None
-                        else:
-                            root_nodes_query = query_result["data"]
-                    else:
-                        # クエリローダーが利用できない場合は処理をスキップ
-                        print("WARNING: クエリローダーが利用できないため、ルートノードの取得をスキップします")
-                        root_nodes_query = None
-                    
-                    # ルートノードを取得して表示
-                    if root_nodes_query:
-                        try:
-                            result = connection.execute(root_nodes_query)
-                            
-                            # 結果の処理方法を簡素化
-                            print("\n【ルートノード一覧】")
-                            
-                            # KuzuDBの結果は様々な形式になる可能性があるため、安全に処理
-                            try:
-                                # DataFrameに変換できる場合
-                                if hasattr(result, 'to_df'):
-                                    df = result.to_df()
-                                    if not df.empty:
-                                        # DataFrameから行を取得
-                                        for i in range(len(df)):
-                                            row = df.iloc[i]
-                                            # 行のデータを表示
-                                            for col in df.columns:
-                                                if col in row and row[col] is not None:
-                                                    print(f"  {col}: {row[col]}")
-                                            print("-" * 40)
-                                    else:
-                                        print("ルートノードが見つかりませんでした。")
-                                
-                                # リスト形式の場合
-                                elif hasattr(result, '__iter__'):
-                                    if len(list(result)) > 0:
-                                        for item in result:
-                                            if hasattr(item, 'items'):  # 辞書のような場合
-                                                for key, value in item.items():
-                                                    if value is not None:
-                                                        print(f"  {key}: {value}")
-                                            else:  # その他の場合
-                                                print(f"  値: {item}")
-                                            print("-" * 40)
-                                    else:
-                                        print("ルートノードが見つかりませんでした。")
-                                else:
-                                    # その他の形式の場合は単純に出力
-                                    print(f"  結果: {result}")
-                            except Exception as format_error:
-                                # 結果の処理中にエラーが発生した場合は、単純に結果を表示
-                                print(f"  結果: {result}")
-                                print(f"  注意: 結果の表示中にエラーが発生しました({str(format_error)})")
-                        except Exception as e:
-                            print(f"ルートノード取得クエリの実行中にエラーが発生しました: {str(e)}")
-                            print("ルートノードの表示をスキップします。")
-                except Exception as e:
-                    print(f"ルートノードの取得・表示中にエラーが発生しました: {str(e)}")
+            if not init_files:
+                print(f"WARNING: 初期データファイルが見つかりません: {data_dir}")
+                print("INFO: 初期データ登録をスキップして初期化処理を続行します")
             else:
-                return InitError(
-                    success=False,
-                    command="handle_init",
-                    error_type="INIT_DATA_ERROR",
-                    message=f"データ登録エラー: {process_result.get('message', '不明なエラー')}",
-                    details={"data_dir": data_dir, "files": init_files},
-                    trace=None
-                )
+                # ファイル一覧を表示
+                search_mode = "再帰的" if recursive else "フラット"
+                print(f"{search_mode}検索で初期データファイルが{len(init_files)}個見つかりました:")
+                for file_path in init_files:
+                    rel_path = os.path.relpath(file_path, data_dir)
+                    print(f"  - {rel_path}")
+                
+                # データをデータベースに登録
+                from upsert.application.init_service import process_init_directory, process_init_file
+                
+                if recursive:
+                    # 再帰的に検出した場合はディレクトリ全体を処理
+                    print(f"DEBUG: ディレクトリ全体を処理: {data_dir}")
+                    process_result = process_init_directory(data_dir, db_path, in_memory)
+                else:
+                    # 個別のファイルを処理
+                    print(f"DEBUG: 個別のファイルを処理")
+                    processed_count = 0
+                    failed_count = 0
+                    skipped_count = 0
+                    nodes_count = 0
+                    edges_count = 0
+                    
+                    for file_path in init_files:
+                        print(f"DEBUG: ファイル処理: {file_path}")
+                        try:
+                            # ファイル処理の詳細なデバッグ
+                            print(f"DEBUG: process_init_file呼び出し: {file_path}")
+                            file_result = process_init_file(file_path, db_path, in_memory)
+                            print(f"DEBUG: process_init_file結果: {file_result}")
+                            
+                            # 成功/失敗の判断
+                            if not file_result.get("success", False):
+                                failed_count += 1
+                                print(f"警告: ファイル処理失敗: {file_path} - {file_result.get('message', '不明なエラー')}")
+                            else:
+                                processed_count += 1
+                                nodes_count += file_result.get("nodes_count", 0)
+                                edges_count += file_result.get("edges_count", 0)
+                                
+                                # スキップされたノードとエッジの数を収集
+                                skipped_nodes = file_result.get("nodes_skipped", 0)
+                                skipped_edges = file_result.get("edges_skipped", 0)
+                                skipped_count += skipped_nodes + skipped_edges
+                                
+                                if skipped_nodes > 0 or skipped_edges > 0:
+                                    print(f"INFO: スキップされたデータ: ノード {skipped_nodes}個, エッジ {skipped_edges}個")
+                        except Exception as e:
+                            # 例外処理の改善
+                            failed_count += 1
+                            print(f"ERROR: ファイル処理中に例外が発生: {file_path} - {str(e)}")
+                            # スタックトレースも出力
+                            import traceback
+                            traceback.print_exc()
+                    
+                    # 詳細なステータス情報を含む処理結果
+                    process_result = {
+                        "success": True,  # 初期データファイルの処理に失敗してもデータベース初期化自体は成功とする
+                        "message": f"{len(init_files)}個のファイルを処理しました（成功: {processed_count}個, 失敗: {failed_count}個, スキップされたデータ: {skipped_count}個）",
+                        "processed_count": processed_count,
+                        "failed_count": failed_count,
+                        "skipped_count": skipped_count,
+                        "nodes_count": nodes_count,
+                        "edges_count": edges_count
+                    }
+                    
+                    if processed_count > 0:
+                        init_message = f"{init_message}（{process_result.get('message', '')}）"
+                        
+                        # データ登録後にルートノードの取得処理を行う
+                        print("\n各ルートノードを取得します...")
+                        
+                        # より安全なルートノード取得処理
+                        try:
+                            # クエリを直接取得する（接続オブジェクト経由ではなく）
+                            query_result = get_query("get_root_init_nodes")
+                            
+                            if not query_result.get("success", False):
+                                print(f"WARNING: ルートノード取得クエリの読み込みに失敗しました: {query_result.get('error', '不明なエラー')}")
+                                # ルートノード取得失敗はエラーではなく警告として扱う
+                                print(f"INFO: ルートノード情報なしで処理を続行します")
+                            else:
+                                # クエリ内容を取得
+                                root_nodes_query = query_result.get("data")
+                                
+                                # テーブルの存在確認
+                                node_table_exists = check_table_exists(connection, "InitNode")
+                                edge_table_exists = check_table_exists(connection, "InitEdge")
+                                
+                                if not (node_table_exists and edge_table_exists):
+                                    print(f"WARNING: テーブルが見つかりません: InitNode={node_table_exists}, InitEdge={edge_table_exists}")
+                                    print(f"INFO: テーブルが見つからないためルートノード取得をスキップします")
+                                else:
+                                    try:
+                                        # ルートノードを取得して表示
+                                        result = connection.execute(root_nodes_query)
+                                        
+                                        # 結果の処理方法を簡素化
+                                        print("\n【ルートノード一覧】")
+                                        
+                                        # KuzuDBの結果は様々な形式になる可能性があるため、安全に処理
+                                        if result and hasattr(result, 'to_df'):
+                                            df = result.to_df()
+                                            if not df.empty:
+                                                # DataFrameから行を取得
+                                                for i in range(len(df)):
+                                                    row = df.iloc[i]
+                                                    # 行のデータを表示
+                                                    for col in df.columns:
+                                                        if col in row and row[col] is not None:
+                                                            print(f"  {col}: {row[col]}")
+                                                    print("-" * 40)
+                                            else:
+                                                print("ルートノードが見つかりませんでした。")
+                                        else:
+                                            # QueryResultオブジェクトを直接処理（to_df()がない場合）
+                                            print("  QueryResultオブジェクトを直接処理します")
+                                            print(f"  結果の型: {type(result).__name__}")
+                                            print(f"  結果の文字列表現: {str(result)}")
+                                    except Exception as query_error:
+                                        print(f"WARNING: ルートノードクエリ実行エラー: {str(query_error)}")
+                                        
+                                        # テーブル同期待機
+                                        if "does not exist" in str(query_error):
+                                            print("INFO: テーブルの同期を待機してから再試行します")
+                                            import time
+                                            time.sleep(1.0)
+                                            
+                                            try:
+                                                result = connection.execute(root_nodes_query)
+                                                print("INFO: 再試行が成功しました")
+                                                
+                                                # 結果の表示（簡略化）
+                                                print("\n【ルートノード一覧（再試行後）】")
+                                                if result and hasattr(result, 'to_df'):
+                                                    df = result.to_df()
+                                                    if not df.empty:
+                                                        print(f"  {len(df)}個のルートノードが見つかりました")
+                                                    else:
+                                                        print("  ルートノードが見つかりませんでした")
+                                                else:
+                                                    print("  QueryResultオブジェクトを直接処理します")
+                                                    print(f"  結果の型: {type(result).__name__}")
+                                            except Exception as retry_error:
+                                                print(f"WARNING: ルートノード再試行でもエラー: {str(retry_error)}")
+                        except Exception as e:
+                            print(f"INFO: ルートノードの取得・表示中にエラーが発生しました: {str(e)}")
+                            print(f"INFO: ルートノード情報なしで処理を続行します")
     
     print(init_message)
     return CommandSuccess(
         success=True, 
         message=init_message,
-        data={"connection": connection}
+        data={
+            "connection": connection,
+            "nodes_count": process_result.get("nodes_count", 0) if register_data else 0,
+            "edges_count": process_result.get("edges_count", 0) if register_data else 0,
+            "skipped_count": process_result.get("skipped_count", 0) if register_data else 0
+        }
     )
 
 
