@@ -26,7 +26,16 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
 LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python -m upsert --help
 ```
 
-upsertの詳細な使用方法については、上記の `--help` オプションでヘルプを参照してください。
+### upsertコマンドの使用方法
+
+コマンドヘルプを表示するには以下のコマンドを実行してください：
+
+```bash
+# コマンドヘルプの表示
+LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --help
+```
+
+使用可能なコマンドの詳細については、上記のヘルプコマンドを参照してください。
 
 ### browseモジュールの実行方法
 
