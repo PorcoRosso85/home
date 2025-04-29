@@ -167,7 +167,7 @@ def init_database(db_path: str, in_memory: bool) -> DatabaseInitializationResult
         
         # DDLファイルのパスを取得
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-        ddl_file_path = os.path.join(project_root, "query", "function_schema_ddl.cypher")
+        ddl_file_path = os.path.join(project_root, "query", "ddl", "function_schema.cypher")
         
         # DDLファイルが存在するか確認
         if not os.path.exists(ddl_file_path):

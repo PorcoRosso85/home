@@ -139,4 +139,15 @@ def display_query_result(result: Dict[str, Any], pretty: bool = True) -> None:
             except Exception as e:
                 print(f"  [データの表示エラー: {str(e)}]")
     else:
-        print(f"\n❌ クエリ実行エラー: {execution.get('message', '不明なエラー')}")
+        error_message = execution.get('message', '不明なエラー')
+        print(f"\n❌ クエリ実行エラー: {error_message}")
+        
+        # 型不一致エラーが発生した場合、役立つヒントを表示
+        if "Expected the same data type for property id but found STRING and INT32" in error_message:
+            print("\n💡 ヒント: IDプロパティの型不一致エラーが発生しました。")
+            print("  このエラーは、異なるノードタイプが混在するクエリでIDの型が一致しないために発生します。")
+            print("  特定のノードタイプを指定して検索するか、型変換を行ってください。")
+            print("\n  代替クエリ例:")
+            print("  - MATCH (n:FunctionType) RETURN n           # 特定のノードタイプのみを検索")
+            print("  - MATCH (n:Example) RETURN n                # Exampleノードのみを検索")
+            print("  - MATCH (n) RETURN n.title, n.description   # IDを含まないプロパティのみを取得")

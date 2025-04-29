@@ -2,8 +2,6 @@
 
 READMEやヘルプの情報と実際の動作に不一致がある箇所：
 
-0. `--add` および `--list` 機能の削除を検討する - 現状の実装に問題があり、使用できない
-
 2. `--query` コマンドで `MATCH (n) RETURN n` のような汎用的なクエリを実行すると `Binder exception: Expected the same data type for property id but found STRING and INT32.` というエラーが発生する
 
 3. READMEにはコマンドの詳細な使用例が記載されているが、実際には引数の渡し方に問題があり動作しない例がある

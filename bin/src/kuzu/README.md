@@ -43,8 +43,7 @@ browseモジュールは、Kuzuグラフデータベースの内容をブラウ�
 
 ```bash
 # 開発サーバーの実行
-cd /home/nixos/bin/src/kuzu/browse
-deno run -A build.ts
+LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":$LD_LIBRARY_PATH deno run -A /home/nixos/bin/src/kuzu/browse/build.ts
 
 # アクセス
 # http://localhost:8000/
