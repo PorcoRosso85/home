@@ -2,7 +2,7 @@
 初期化コマンドモジュール
 
 データベースと制約ファイルを初期化する機能を提供します。
---with-dataフラグを指定すると、初期データの登録も同時に行います。
+--register-dataフラグを指定すると、初期データの検出と登録も同時に行います。
 """
 
 import os
@@ -37,7 +37,7 @@ def get_error_help(error_type: str) -> str:
     """
     error_help = {
         "DB_PATH_ERROR": "データベースパスの指定に問題があります。有効なパスを指定してください。\n"
-                        "例: --init true または --init /path/to/db",
+                        "例: --init または --init --register-data",
         "VALIDATION_ERROR": "SHACL検証エラーが発生しました。データモデルを確認してください。\n"
                            "制約ファイルが正しく作成されているか確認してください。",
         "INIT_DATA_ERROR": "初期データの登録に失敗しました。データファイルを確認してください。\n"
@@ -56,8 +56,8 @@ def get_command_examples() -> List[str]:
         List[str]: コマンド実行例のリスト
     """
     return [
-        "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --init true --with-data",
-        "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --init /path/to/db --with-data"
+        "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --init --register-data",
+        "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --init --register-data --data-dir=/path/to/data"
     ]
 
 
@@ -99,18 +99,17 @@ def get_init_files(data_dir: str, recursive: bool = False) -> List[str]:
 
 
 def handle_init(db_path: Optional[str] = None, in_memory: bool = False, 
-               with_data: bool = False, data_dir: Optional[str] = None, 
-               recursive: bool = False, register_data: bool = False, **kwargs) -> Union[CommandSuccess, InitError]:
+               register_data: bool = False, data_dir: Optional[str] = None, 
+               recursive: bool = False, **kwargs) -> Union[CommandSuccess, InitError]:
     """
     データベースと制約ファイルを初期化
     
     Args:
         db_path: データベースディレクトリのパス
         in_memory: インメモリモードで接続するかどうか
-        with_data: 初期データを登録するかどうか
+        register_data: 初期データを検出して登録するかどうか
         data_dir: 初期データディレクトリのパス
         recursive: 再帰的にサブディレクトリを探索するかどうか
-        register_data: 検出したデータを実際にデータベースに登録するかどうか
         **kwargs: その他のCLI引数
         
     Returns:
@@ -121,7 +120,7 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
         data_dir = INIT_DIR
         
     # デバッグログ
-    print(f"DEBUG: handle_init 関数パラメータ: db_path={db_path}, in_memory={in_memory}, with_data={with_data}, data_dir={data_dir}, recursive={recursive}, register_data={register_data}")
+    print(f"DEBUG: handle_init 関数パラメータ: db_path={db_path}, in_memory={in_memory}, register_data={register_data}, data_dir={data_dir}, recursive={recursive}")
     
     # db_pathがNoneの場合はインフラストラクチャ層のデフォルト値が使用される
     if db_path is None:
@@ -166,12 +165,15 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
             trace=None
         )
     
+    # データベース接続を保持
+    connection = db_result.get("connection")
+    
     # 基本的な初期化完了メッセージ
     init_message = "データベースと制約ファイルの初期化が完了しました"
     
-    # --with-dataフラグが指定されている場合は初期データの登録も行う
-    if with_data:
-        print(f"DEBUG: with_data=True, data_dir={data_dir}, recursive={recursive}")
+    # --register-dataフラグが指定されている場合は初期データの検出と登録を行う
+    if register_data:
+        print(f"DEBUG: register_data=True, data_dir={data_dir}, recursive={recursive}")
         
         # データディレクトリの存在確認
         if not os.path.exists(data_dir) or not os.path.isdir(data_dir):
@@ -204,37 +206,95 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
             rel_path = os.path.relpath(file_path, data_dir)
             print(f"  - {rel_path}")
         
-        # 実際にデータを登録するかどうか
-        if register_data:
-            # 検出したファイルを処理
-            from upsert.application.init_service import process_init_directory, process_init_file
+        # データをデータベースに登録
+        from upsert.application.init_service import process_init_directory, process_init_file
+        
+        if recursive:
+            # 再帰的に検出した場合はディレクトリ全体を処理
+            print(f"DEBUG: ディレクトリ全体を処理: {data_dir}")
+            process_result = process_init_directory(data_dir, db_path, in_memory)
+        else:
+            # 個別のファイルを処理
+            print(f"DEBUG: 個別のファイルを処理")
+            processed_count = 0
+            failed_count = 0
             
-            if recursive:
-                # 再帰的に検出した場合はディレクトリ全体を処理
-                print(f"DEBUG: ディレクトリ全体を処理: {data_dir}")
-                process_result = process_init_directory(data_dir, db_path, in_memory)
-            else:
-                # 個別のファイルを処理
-                print(f"DEBUG: 個別のファイルを処理")
-                processed_count = 0
-                failed_count = 0
-                
-                for file_path in init_files:
-                    print(f"DEBUG: ファイル処理: {file_path}")
-                    file_result = process_init_file(file_path, db_path, in_memory)
-                    if is_error(file_result):
-                        failed_count += 1
-                        print(f"警告: ファイル処理失敗: {file_path} - {file_result['message']}")
-                    else:
-                        processed_count += 1
-                
-                process_result = {
-                    "success": processed_count > 0,
-                    "message": f"{processed_count}個のファイルを処理しました（失敗: {failed_count}個）"
-                }
+            for file_path in init_files:
+                print(f"DEBUG: ファイル処理: {file_path}")
+                file_result = process_init_file(file_path, db_path, in_memory)
+                if is_error(file_result):
+                    failed_count += 1
+                    print(f"警告: ファイル処理失敗: {file_path} - {file_result['message']}")
+                else:
+                    processed_count += 1
+            
+            process_result = {
+                "success": processed_count > 0,
+                "message": f"{processed_count}個のファイルを処理しました（失敗: {failed_count}個）"
+            }
             
             if process_result.get("success", False):
                 init_message = f"{init_message}（{process_result.get('message', '')}）"
+                
+                # データ登録後にルートノードの取得処理を行う
+                print("\n各ルートノードを取得します...")
+                
+                try:
+                    # クエリローダーの確認
+                    if hasattr(connection, '_query_loader') and connection._query_loader:
+                        loader = connection._query_loader
+                        query_result = loader["get_query"]("get_root_init_nodes")
+                        if not loader["get_success"](query_result):
+                            print(f"警告: ルートノード取得クエリの読み込みに失敗しました: {query_result.get('message', '不明なエラー')}")
+                            root_nodes_query = None
+                        else:
+                            root_nodes_query = query_result["data"]
+                    else:
+                        # クエリローダーが利用できない場合はハードコードされたクエリを使用
+                        print("DEBUG: クエリローダーが利用できないため、ハードコードされたクエリを使用します")
+                        root_nodes_query = """
+                        MATCH (n:InitNode)
+                        WHERE NOT EXISTS { MATCH (parent:InitNode)-[:InitEdge]->(n) }
+                        RETURN n.id, n.path, n.label, n.value, n.value_type
+                        ORDER BY n.id
+                        """
+                    
+                    # ルートノードを取得して表示
+                    if root_nodes_query:
+                        result = connection.execute(root_nodes_query)
+                        
+                        if result and hasattr(result, 'to_df'):
+                            # DataFrameに変換（KuzuDB結果オブジェクトの場合）
+                            df = result.to_df()
+                            if not df.empty:
+                                print("\n【ルートノード一覧】")
+                                # 見やすく整形して表示
+                                for _, row in df.iterrows():
+                                    print(f"  ID: {row['n.id']}")
+                                    print(f"  パス: {row['n.path']}")
+                                    print(f"  ラベル: {row['n.label']}")
+                                    if 'n.value' in row and row['n.value'] is not None:
+                                        print(f"  値: {row['n.value']}")
+                                    if 'n.value_type' in row and row['n.value_type'] is not None:
+                                        print(f"  値の型: {row['n.value_type']}")
+                                    print("-" * 40)
+                            else:
+                                print("ルートノードが見つかりませんでした。")
+                        elif result:
+                            # 配列やリストの場合（別の結果形式の場合）
+                            if len(result) > 0:
+                                print("\n【ルートノード一覧】")
+                                for row in result:
+                                    for key, value in row.items():
+                                        if value is not None:
+                                            print(f"  {key}: {value}")
+                                    print("-" * 40)
+                            else:
+                                print("ルートノードが見つかりませんでした。")
+                        else:
+                            print("ルートノード取得の結果が空です。")
+                except Exception as e:
+                    print(f"ルートノードの取得・表示中にエラーが発生しました: {str(e)}")
             else:
                 return InitError(
                     success=False,
@@ -244,15 +304,12 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
                     details={"data_dir": data_dir, "files": init_files},
                     trace=None
                 )
-        else:
-            # データ登録はせず、ファイル検出のみ
-            init_message = f"{init_message}（初期データファイル{len(init_files)}個を検出）"
     
     print(init_message)
     return CommandSuccess(
         success=True, 
         message=init_message,
-        data={"connection": db_result.get("connection")}
+        data={"connection": connection}
     )
 
 

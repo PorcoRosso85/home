@@ -481,7 +481,7 @@ def process_init_file(
         in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
         
     Returns:
-        ProcessResult: 処理結果
+        ProcessResult: 処理結果（成功時はルートノード情報も含む）
     """
     try:
         # ファイルが存在するか確認
@@ -535,12 +535,81 @@ def process_init_file(
         if not save_result["success"]:
             return save_result
         
+        # データベース接続を取得してルートノードを検索
+        root_nodes = []
+        try:
+            # データベース接続を取得
+            db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
+            if not "code" in db_result:
+                connection = db_result["connection"]
+                
+                # クエリローダーまたはハードコードされたクエリを使用
+                if hasattr(connection, '_query_loader') and connection._query_loader:
+                    loader = connection._query_loader
+                    query_result = loader["get_query"]("get_root_init_nodes")
+                    if loader["get_success"](query_result):
+                        root_nodes_query = query_result["data"]
+                        # クエリを実行してルートノード情報を取得
+                        result = connection.execute(root_nodes_query)
+                        if result and hasattr(result, 'to_df'):
+                            # DataFrameに変換（KuzuDB結果オブジェクトの場合）
+                            df = result.to_df()
+                            if not df.empty:
+                                for _, row in df.iterrows():
+                                    root_node = {
+                                        "id": row.get('n.id'),
+                                        "path": row.get('n.path'),
+                                        "label": row.get('n.label'),
+                                        "value": row.get('n.value'),
+                                        "value_type": row.get('n.value_type')
+                                    }
+                                    root_nodes.append(root_node)
+                        elif result:
+                            # リスト形式の結果の場合
+                            for row in result:
+                                root_node = {}
+                                for key, value in row.items():
+                                    root_node[key.replace('n.', '')] = value
+                                root_nodes.append(root_node)
+                else:
+                    # クエリローダーが利用できない場合はハードコードされたクエリを使用
+                    hardcoded_query = """
+                    MATCH (n:InitNode)
+                    WHERE NOT EXISTS { MATCH (parent:InitNode)-[:InitEdge]->(n) }
+                    RETURN n.id, n.path, n.label, n.value, n.value_type
+                    ORDER BY n.id
+                    """
+                    result = connection.execute(hardcoded_query)
+                    if result and hasattr(result, 'to_df'):
+                        df = result.to_df()
+                        if not df.empty:
+                            for _, row in df.iterrows():
+                                root_node = {
+                                    "id": row.get('n.id'),
+                                    "path": row.get('n.path'),
+                                    "label": row.get('n.label'),
+                                    "value": row.get('n.value'),
+                                    "value_type": row.get('n.value_type')
+                                }
+                                root_nodes.append(root_node)
+                    elif result:
+                        for row in result:
+                            root_node = {}
+                            for key, value in row.items():
+                                root_node[key.replace('n.', '')] = value
+                            root_nodes.append(root_node)
+        except Exception as e:
+            print(f"DEBUG: ルートノード取得中にエラーが発生しました: {str(e)}")
+            # ルートノード取得の失敗はファイル処理自体の成功には影響しない
+            pass
+        
         return {
             "success": True,
             "message": f"{os.path.basename(file_path)}を正常に処理しました。{save_result['nodes_count']}個のノードと{save_result['edges_count']}個のエッジを保存しました。",
             "file": os.path.basename(file_path),
             "nodes_count": save_result["nodes_count"],
-            "edges_count": save_result["edges_count"]
+            "edges_count": save_result["edges_count"],
+            "root_nodes": root_nodes  # ルートノード情報を追加
         }
         
     except Exception as e:
@@ -563,7 +632,7 @@ def process_init_directory(
         in_memory: インメモリモードで接続するかどうか（デフォルト: None、変数から取得）
         
     Returns:
-        ProcessResult: 処理結果
+        ProcessResult: 処理結果（成功時はルートノード情報も含む）
         
     Note:
         TODO: エラー回復メカニズムの見直し
@@ -605,6 +674,7 @@ def process_init_directory(
         error_messages = []
         total_nodes = 0
         total_edges = 0
+        all_root_nodes = []  # 全ファイルのルートノードを格納
         
         for file_path in target_files:
             try:
@@ -614,6 +684,13 @@ def process_init_directory(
                     processed_files.append(os.path.basename(file_path))
                     total_nodes += result.get("nodes_count", 0)
                     total_edges += result.get("edges_count", 0)
+                    
+                    # ルートノード情報があれば追加
+                    if "root_nodes" in result and result["root_nodes"]:
+                        # ファイル名も情報に追加
+                        for root_node in result["root_nodes"]:
+                            root_node["source_file"] = os.path.basename(file_path)
+                        all_root_nodes.extend(result["root_nodes"])
                 else:
                     failed_files.append(os.path.basename(file_path))
                     error_messages.append(f"{os.path.basename(file_path)}: {result['message']}")
@@ -635,12 +712,53 @@ def process_init_directory(
                 "error_messages": error_messages
             }
         
+        # すべてのファイル処理が終わった後にデータベースから最新のルートノード情報を取得
+        if not all_root_nodes:
+            try:
+                # データベース接続を取得
+                db_result = get_connection(db_path=db_path, with_query_loader=True, in_memory=in_memory)
+                if not "code" in db_result:
+                    connection = db_result["connection"]
+                    
+                    # ルートノード取得クエリを実行
+                    hardcoded_query = """
+                    MATCH (n:InitNode)
+                    WHERE NOT EXISTS { MATCH (parent:InitNode)-[:InitEdge]->(n) }
+                    RETURN n.id, n.path, n.label, n.value, n.value_type
+                    ORDER BY n.id
+                    """
+                    result = connection.execute(hardcoded_query)
+                    if result and hasattr(result, 'to_df'):
+                        df = result.to_df()
+                        if not df.empty:
+                            for _, row in df.iterrows():
+                                root_node = {
+                                    "id": row.get('n.id'),
+                                    "path": row.get('n.path'),
+                                    "label": row.get('n.label'),
+                                    "value": row.get('n.value'),
+                                    "value_type": row.get('n.value_type')
+                                }
+                                all_root_nodes.append(root_node)
+                    elif result:
+                        for row in result:
+                            root_node = {}
+                            for key, value in row.items():
+                                root_node[key.replace('n.', '')] = value
+                            all_root_nodes.append(root_node)
+            except Exception as e:
+                print(f"DEBUG: ディレクトリ処理後のルートノード取得でエラー: {str(e)}")
+                # ルートノード取得の失敗はディレクトリ処理自体の成功には影響しない
+                pass
+        
         return {
             "success": True,
             "message": f"{len(processed_files)}個のファイルを処理しました。合計{total_nodes}個のノードと{total_edges}個のエッジを保存しました。",
             "processed_files": processed_files,
             "total_nodes": total_nodes,
-            "total_edges": total_edges
+            "total_edges": total_edges,
+            "root_nodes": all_root_nodes,  # ルートノード情報を追加
+            "failed_files": failed_files if failed_files else None  # 失敗したファイルがあれば情報を追加
         }
         
     except Exception as e:

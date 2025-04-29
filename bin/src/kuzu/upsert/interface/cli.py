@@ -55,6 +55,11 @@ def create_parser() -> argparse.ArgumentParser:
         if command == 'query':
             parser.add_argument(option_name, metavar='QUERY', help='Cypherクエリを実行（クエリ文字列が必要）')
             continue
+            
+        # initコマンドは特殊処理（値を取らないフラグとして処理）
+        if command == 'init':
+            parser.add_argument(option_name, action='store_true', help='データベースを初期化')
+            continue
         
         # コマンドハンドラーの関数シグネチャに基づいて引数タイプを決定
         handler = command_handlers.get(f"handle_{command}")
@@ -73,7 +78,7 @@ def create_parser() -> argparse.ArgumentParser:
     # 現在の実装では独立したオプションとしてヘルプに表示されるが、実際は--initのサブオプションとして機能する
     # 今後の改善: argparseのサブパーサーを使用して、階層構造を持つコマンド体系に変更する
     # --initコマンド用の追加オプション
-    parser.add_argument('--with-data', action='store_true', help='初期化時に初期データも登録する')
+    parser.add_argument('--register-data', action='store_true', help='初期化時に初期データを検出して登録する')
     parser.add_argument('--data-dir', help='初期データディレクトリのパス（デフォルト: query/init）')
     
     # クエリパラメータとデバッグオプションの追加（共通）
@@ -91,30 +96,7 @@ def parse_arguments() -> CommandArgs:
     # ArgumentErrorハンドリングのためにargparseのエラー処理を上書き
     original_error = parser.error
     def custom_error(message):
-        # initコマンドのエラーと思われる場合
-        if "--init" in message and "expected one argument" in message:
-            # 直接エラー情報を出力
-            print(f"エラー: initコマンドには値が必要です", file=sys.stderr)
-            
-            # initialize.pyモジュールから直接エラーヘルプと実行例を取得
-            try:
-                from upsert.interface.commands.initialize import get_error_help, get_command_examples
-                help_text = get_error_help("DB_PATH_ERROR")
-                examples = get_command_examples()
-                
-                # ヘルプと例を表示
-                print(f"\n{help_text}", file=sys.stderr)
-                print("\n実行例:", file=sys.stderr)
-                for example in examples:
-                    print(f"  {example}", file=sys.stderr)
-            except (ImportError, AttributeError) as e:
-                # モジュールの読み込みに失敗した場合の簡易エラーメッセージ
-                print("\n--init オプションには値が必要です。例: --init true または --init /path/to/db", file=sys.stderr)
-                print("\n詳細なヘルプを表示するには:", file=sys.stderr)
-                print("  python -m upsert --help", file=sys.stderr)
-            
-            sys.exit(1)
-        # それ以外のエラー
+        # 共通のエラーハンドリング
         print(f"エラー: {message}", file=sys.stderr)
         print("\n詳細なヘルプを表示するには:", file=sys.stderr)
         print("  python -m upsert --help", file=sys.stderr)
@@ -195,9 +177,13 @@ def execute_command(command_name: str, args: Dict[str, Any]) -> CommandResult:
                 command_args[key] = args[key]
         
         # 初期データ関連の追加パラメータ
-        for key in ["with_data", "data_dir"]:
-            if key in args and args[key] is not None:
-                command_args[key] = args[key]
+        # register_dataパラメータの処理
+        if "register_data" in args and args["register_data"]:
+            command_args["register_data"] = True
+        
+        # data_dirパラメータの処理
+        if "data_dir" in args and args["data_dir"] is not None:
+            command_args["data_dir"] = args["data_dir"]
         
         # デバッグログ
         if "verbose" in args and args["verbose"]:
@@ -272,7 +258,7 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
         # TODO: 特殊引数リストの代わりにサブコマンド構造に対応した判定を実装する
         # 現在の実装では独立したオプションとサブオプションの区別がハードコードされている
         # 今後の改善: サブパーサーによる階層構造を活用してコマンド判定ロジックを簡略化する
-        if arg_name in ['debug', 'verbose', 'param', 'with_data', 'data_dir'] or arg_name.startswith('_'):
+        if arg_name in ['debug', 'verbose', 'param', 'register_data', 'data_dir'] or arg_name.startswith('_'):
             continue
             
         if args[arg_name] is not None:
@@ -297,7 +283,7 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
         # TODO: 特殊引数リストの代わりにサブコマンド構造に対応した判定を実装する
         # 現在の実装では独立したオプションとサブオプションの区別がハードコードされている
         # 今後の改善: サブパーサーによる階層構造を活用してコマンド判定ロジックを簡略化する
-        if arg_name in ['debug', 'verbose', 'param', 'with_data', 'data_dir'] or arg_name.startswith('_'):
+        if arg_name in ['debug', 'verbose', 'param', 'register_data', 'data_dir'] or arg_name.startswith('_'):
             continue  # 特殊な引数はスキップ
             
         if args[arg_name] is not None:
@@ -482,11 +468,11 @@ def print_help() -> None:
     # 各コマンドが自身のヘルプと使用例を提供できるようにする
     
     print("  # データベース初期化")
-    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init true")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init")
     print("  # データベース初期化と初期データ登録")
-    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init true --with-data")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init --register-data")
     print("  # 特定ディレクトリの初期データを登録")
-    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init true --with-data --data-dir=/path/to/data")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init --register-data --data-dir=/path/to/data")
     # 注: add と list コマンドは削除されました
     print("  # MapFunction関数の詳細表示")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --get MapFunction")
