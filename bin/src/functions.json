@@ -41,46 +41,6 @@
     }
   },
   {
-    "name": "extension_search",
-    "description": "テキスト検索ツール - ファイルやディレクトリ内でテキストパターンを検索します",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "pattern": {
-          "type": "string",
-          "description": "検索するテキストパターン（正規表現使用可）"
-        },
-        "path": {
-          "type": "string",
-          "description": "ディレクトリパス (デフォルト: カレントディレクトリ)"
-        },
-        "file_pattern": {
-          "type": "string",
-          "description": "検索対象のファイルパターン（例: \"*.txt\", \"*.{js,ts}\"）"
-        },
-        "case_sensitive": {
-          "type": "boolean",
-          "description": "大文字と小文字を区別する"
-        },
-        "only_filenames": {
-          "type": "boolean",
-          "description": "ファイル名のみを表示する"
-        },
-        "fuzzy": {
-          "type": "boolean",
-          "description": "ファジーマッチングを有効にする（単語の間に任意文字を許容）"
-        },
-        "show_help": {
-          "type": "boolean",
-          "description": "マッチしたファイルの -h/--help 出力も表示する"
-        }
-      },
-      "required": [
-        "pattern"
-      ]
-    }
-  },
-  {
     "name": "another_aichat",
     "description": "Set AI provider and model, then execute aichat with a prompt.",
     "parameters": {
@@ -177,7 +137,7 @@
   },
   {
     "name": "sitemcp",
-    "description": "ウェブサイト全体を取得してMCPサーバー用のキャッシュを作成するツール\nargcビルド実行時は execute_command関数を使用し、以下のように適切なディレクトリで実行してください:\ncd /home/nixos/bin && argc build",
+    "description": "ウェブサイト全体を取得してMCPサーバー用のキャッシュを作成するツールです。キャッシュ結果は `~/.cache/sitemcp` に保存されます。もしキャッシュ先が出力されなかったらこちらを探索してください。",
     "parameters": {
       "type": "object",
       "properties": {
@@ -212,10 +172,47 @@
         "no_cache": {
           "type": "boolean",
           "description": "キャッシングを無効にする"
+        },
+        "show_config": {
+          "type": "boolean",
+          "description": "MCPサーバー設定情報を表示する"
         }
       },
       "required": [
         "url"
+      ]
+    }
+  },
+  {
+    "name": "github_repo_info",
+    "description": "GitHub repository information tool - Gets basic information about a GitHub repository",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "Repository owner/organization name (e.g., \"kuzudb\")"
+        },
+        "repo": {
+          "type": "string",
+          "description": "Repository name (e.g., \"kuzu\")"
+        },
+        "full=false": {
+          "type": "boolean",
+          "description": "Whether to get full information (false for basic info only)"
+        },
+        "format=\"json\"": {
+          "type": "string",
+          "description": "Output format (\"json\", \"text\", or \"csv\")"
+        },
+        "raw=false": {
+          "type": "boolean",
+          "description": "Whether to return the raw response from GitHub\n"
+        }
+      },
+      "required": [
+        "owner",
+        "repo"
       ]
     }
   }

@@ -8,6 +8,14 @@
         "ALLOWED_TOOLS='[\"GlobTool\", \"Edit\", \"GrepTool\", \"dispatch_agent\", \"LS\", \"Replace\", \"View\"]' pnpx @anthropic-ai/claude-code mcp serve"
       ]
     },
+    "llm_functions": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "pnpx mcp-llm-functions /home/nixos/bin/src"
+      ]
+    },
     "excel": {
       "command": "wsl",
       "args": [
