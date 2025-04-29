@@ -68,6 +68,10 @@ def create_parser() -> argparse.ArgumentParser:
                 # パラメータを必要とするコマンドの場合は値を受け取るオプションとして追加
                 parser.add_argument(option_name, help=f'{command}コマンドを実行（引数が必要）')
     
+    # --initコマンド用の追加オプション
+    parser.add_argument('--with-data', action='store_true', help='初期化時に初期データも登録する')
+    parser.add_argument('--data-dir', help='初期データディレクトリのパス（デフォルト: query/init）')
+    
     # クエリパラメータとデバッグオプションの追加（共通）
     parser.add_argument('--param', action='append', help='クエリパラメータ（例: name=value 形式で指定、複数指定可能）')
     parser.add_argument('--debug', action='store_true', help='デバッグモードで実行（エラー時に詳細情報を表示）')
@@ -129,6 +133,23 @@ def execute_command(command_name: str, args: Dict[str, Any]) -> CommandResult:
         for key in ["db_path", "in_memory", "validation_level", "pretty"]:
             if key in args:
                 command_args[key] = args[key]
+    # initコマンドの場合は追加オプションを処理
+    elif command_name == "handle_init":
+        command_args = {}
+        
+        # 基本パラメータ
+        for key in ["db_path", "in_memory"]:
+            if key in args:
+                command_args[key] = args[key]
+        
+        # 初期データ関連の追加パラメータ
+        for key in ["with_data", "data_dir"]:
+            if key in args and args[key] is not None:
+                command_args[key] = args[key]
+        
+        # デバッグログ
+        if "verbose" in args and args["verbose"]:
+            print(f"DEBUG: init command_args: {command_args}")
     else:
         # 通常のコマンド処理
         command_args = {k: v for k, v in args.items() 
@@ -136,7 +157,17 @@ def execute_command(command_name: str, args: Dict[str, Any]) -> CommandResult:
     
     # コマンドハンドラが受け付ける引数のみを渡す
     handler_params = inspect.signature(handler).parameters.keys()
+    
+    # デバッグ出力
+    if "verbose" in args and args["verbose"]:
+        print(f"DEBUG: 許可される引数一覧: {list(handler_params)}")
+        print(f"DEBUG: 渡される引数（フィルタ前）: {command_args}")
+    
     command_args = {k: v for k, v in command_args.items() if k in handler_params}
+    
+    # デバッグ出力
+    if "verbose" in args and args["verbose"]:
+        print(f"DEBUG: 渡される引数（フィルタ後）: {command_args}")
     
     try:
         # コマンドの実行
@@ -185,7 +216,7 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
     # 明示的なコマンドオプションがあるか確認
     has_explicit_command = False
     for arg_name in args:
-        if arg_name in ['debug', 'verbose', 'param'] or arg_name.startswith('_'):
+        if arg_name in ['debug', 'verbose', 'param', 'with_data', 'data_dir'] or arg_name.startswith('_'):
             continue
             
         if args[arg_name] is not None:
@@ -207,7 +238,7 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
     
     # それでも見つからない場合は任意の引数を検索
     for arg_name in args:
-        if arg_name in ['debug', 'verbose', 'param'] or arg_name.startswith('_'):
+        if arg_name in ['debug', 'verbose', 'param', 'with_data', 'data_dir'] or arg_name.startswith('_'):
             continue  # 特殊な引数はスキップ
             
         if args[arg_name] is not None:
@@ -330,6 +361,10 @@ def print_help() -> None:
     print("  LD_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib\"")
     print("  # データベース初期化")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init")
+    print("  # データベース初期化と初期データ登録")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init --with-data")
+    print("  # 特定ディレクトリの初期データを登録")
+    print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --init --with-data --data-dir=/path/to/data")
     # 注: add と list コマンドは削除されました
     print("  # MapFunction関数の詳細表示")
     print("  LD_LIBRARY_PATH=\"$LD_PATH\":$LD_LIBRARY_PATH python -m upsert --get MapFunction")
