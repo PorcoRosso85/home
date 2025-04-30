@@ -841,26 +841,28 @@ def get_root_nodes(
             query_result = result["data"]["result"]
             nodes = []
             
-            if query_result and hasattr(query_result, 'to_df'):
-                # DataFrameに変換（KuzuDB結果オブジェクトの場合）
-                df = query_result.to_df()
-                if not df.empty:
-                    for _, row in df.iterrows():
-                        root_node = {
-                            "id": row.get('n.id'),
-                            "path": row.get('n.path'),
-                            "label": row.get('n.label'),
-                            "value": row.get('n.value'),
-                            "value_type": row.get('n.value_type')
-                        }
-                        nodes.append(root_node)
-            elif query_result:
-                # リスト形式の結果の場合
-                for row in query_result:
-                    root_node = {}
-                    for key, value in row.items():
-                        root_node[key.replace('n.', '')] = value
-                    nodes.append(root_node)
+            # QueryResultオブジェクトの正しい処理方法
+            try:
+                if query_result:
+                    # KuzuDB QueryResultオブジェクトは.has_next()と.get_next()メソッドで処理
+                    while query_result.has_next():
+                        row = query_result.get_next()
+                        if row and len(row) >= 5:
+                            # クエリ結果の順序: n.id, n.path, n.label, n.value, n.value_type
+                            root_node = {
+                                "id": row[0],
+                                "path": row[1],
+                                "label": row[2],
+                                "value": row[3],
+                                "value_type": row[4]
+                            }
+                            nodes.append(root_node)
+                        elif row:
+                            # フィールド数が足りない場合は警告
+                            log_warning(f"ルートノード行の形式が不正: {row}")
+            except Exception as e:
+                log_warning(f"QueryResult処理エラー: {str(e)}")
+                # エラーが発生した場合は空のリストを返す
             
             return create_success(
                 f"{len(nodes)}個のルートノードを取得しました",

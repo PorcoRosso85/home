@@ -149,32 +149,17 @@ def get_query(query_name: str, fallback_query: Optional[str] = None) -> QueryRes
         QueryResult: 成功時は {"success": True, "data": クエリ内容}
                     失敗時は {"success": False, "error": エラーメッセージ}
     """
-    # 特定のクエリ名に対するハードコード対応
-    if query_name == "get_root_init_nodes":
-        hardcoded_query = """
-        // ルートノードの取得（親ノードを持たないInitNode）
-        MATCH (n:InitNode)
-        WHERE NOT EXISTS { MATCH (parent:InitNode)-[:InitEdge]->(n) }
-        RETURN n.id, n.path, n.label, n.value, n.value_type
-        ORDER BY n.id
-        """
-        # ファイルが見つからない場合もハードコードされたクエリを返す
-        found, file_path = find_query_file(query_name)
-        if not found:
-            print(f"INFO: クエリ '{query_name}' のファイルが見つからないため、ハードコードされたクエリを使用します")
-            return create_success_result(hardcoded_query)
-    else:
-        # 通常のクエリファイル検索
-        found, file_path = find_query_file(query_name)
-        if not found:
-            if fallback_query is not None:
-                print(f"INFO: クエリ '{query_name}' が見つからないため、フォールバッククエリを使用します")
-                return create_success_result(fallback_query)
-            available = get_available_queries()
-            return create_error_result(
-                f"クエリ '{query_name}' が見つかりません", 
-                available_queries=available
-            )
+    # 通常のクエリファイル検索
+    found, file_path = find_query_file(query_name)
+    if not found:
+        if fallback_query is not None:
+            print(f"INFO: クエリ '{query_name}' が見つからないため、フォールバッククエリを使用します")
+            return create_success_result(fallback_query)
+        available = get_available_queries()
+        return create_error_result(
+            f"クエリ '{query_name}' が見つかりません", 
+            available_queries=available
+        )
     
     # ファイルを読み込む
     return read_query_file(file_path)
