@@ -229,25 +229,36 @@ def insert_edges(
     
     # テーブル内の既存エッジIDを一度に取得して効率化
     try:
-        existing_ids_query = "MATCH ()-[r:InitEdge]->() RETURN r.id AS id"
+        # より厳密なエッジID取得クエリ - source_idとtarget_idも確認
+        existing_ids_query = "MATCH ()-[r:InitEdge]->() RETURN r.id AS id, r.source_id AS source_id, r.target_id AS target_id"
         ids_result = db_ops["execute_query"](existing_ids_query)
+        
+        existing_ids = set()  # IDのみのセット
+        existing_edges = {}   # ID、source_id、target_idの組み合わせを保持する辞書
         
         if not is_error(ids_result) and "result" in ids_result["data"]:
             query_result = ids_result["data"]["result"]
-            existing_ids = set()
             
-            if query_result and hasattr(query_result, 'to_df'):
-                df = query_result.to_df()
-                if not df.empty and 'id' in df.columns:
-                    existing_ids = set(df['id'].tolist())
+            # 結果からデータを抽出
+            if hasattr(query_result, 'has_next') and hasattr(query_result, 'get_next'):
+                # QueryResultオブジェクトを直接処理
+                while query_result.has_next():
+                    row = query_result.get_next()
+                    if len(row) >= 3:
+                        edge_id, source_id, target_id = row[0], row[1], row[2]
+                        existing_ids.add(edge_id)
+                        # ソースとターゲットの組み合わせも保存
+                        key = f"{source_id}->{target_id}"
+                        existing_edges[key] = edge_id
             
             log_debug(f"既存エッジID数: {len(existing_ids)}")
+            log_debug(f"既存エッジの関係数: {len(existing_edges)}")
         else:
-            existing_ids = set()
             log_debug("既存エッジIDの取得に失敗しました。個別チェックを行います。")
     except Exception as e:
         log_warning(f"既存エッジID取得エラー: {str(e)}。個別チェックに切り替えます。")
         existing_ids = set()
+        existing_edges = {}
     
     # ノードIDセットの取得 - エッジの整合性検証に使用
     try:
@@ -273,12 +284,27 @@ def insert_edges(
     
     # 各エッジを挿入
     for edge in edges:
-        # 既存ID一覧を使用して高速チェック
+        # IDとソース・ターゲットの両方で重複チェック
+        is_duplicate = False
+        
+        # 既存ID一覧を使用してID重複チェック
         if edge.id in existing_ids:
             log_debug(f"エッジ {edge.id} は既に存在するためスキップします")
             edges_skipped += 1
-            continue
+            is_duplicate = True
         
+        # ソースとターゲットの組み合わせによる重複チェック
+        key = f"{edge.source_id}->{edge.target_id}"
+        if not is_duplicate and key in existing_edges:
+            existing_edge_id = existing_edges[key]
+            log_debug(f"エッジ {edge.id} と同じソース・ターゲット関係を持つエッジ {existing_edge_id} が既に存在するためスキップします")
+            edges_skipped += 1
+            is_duplicate = True
+        
+        # 重複の場合はスキップ
+        if is_duplicate:
+            continue
+            
         # 接続元と接続先ノードの存在確認（ノードIDセットを使用）
         if node_ids and (edge.source_id not in node_ids or edge.target_id not in node_ids):
             log_warning(f"エッジ {edge.id} の接続元または接続先ノードが存在しません（source={edge.source_id}, target={edge.target_id}）")
@@ -303,6 +329,9 @@ def insert_edges(
                 edges_inserted += 1
                 # 新しく挿入したエッジIDを既存IDセットに追加
                 existing_ids.add(edge.id)
+                # ソースとターゲットの組み合わせも追加
+                key = f"{edge.source_id}->{edge.target_id}"
+                existing_edges[key] = edge.id
             else:
                 # エラーメッセージを確認して特別なハンドリングを行う
                 error_message = query_result["message"]
@@ -328,6 +357,9 @@ def insert_edges(
                 edges_skipped += 1
                 # 重複IDを既存IDセットに追加
                 existing_ids.add(edge.id)
+                # ソースとターゲットの組み合わせも追加
+                key = f"{edge.source_id}->{edge.target_id}"
+                existing_edges[key] = edge.id
                 continue
             
             # 参照整合性エラーの特別処理
