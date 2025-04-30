@@ -120,8 +120,8 @@ def get_default_db_path() -> str:
     Returns:
         str: デフォルトのデータベースパス
     """
-    from upsert.infrastructure.variables import get_db_dir
-    return get_db_dir()
+    from upsert.infrastructure.variables import DB_DIR
+    return DB_DIR
 
 
 def is_in_memory_mode() -> bool:
@@ -131,8 +131,8 @@ def is_in_memory_mode() -> bool:
     Returns:
         bool: インメモリモードならTrue
     """
-    from upsert.infrastructure.variables import IN_MEMORY_MODE
-    return IN_MEMORY_MODE
+    from upsert.infrastructure.variables import DEFAULT_IN_MEMORY
+    return DEFAULT_IN_MEMORY
 
 
 def get_connection(db_path: Optional[str] = None, in_memory: Optional[bool] = None, 

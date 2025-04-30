@@ -129,9 +129,26 @@ def execute_query(
         
         execution_time = time.time() - start_time
         
+        # QueryResultオブジェクトをJSONに変換可能な形式に変換
+        processed_result = result
+        if hasattr(result, 'to_df'):
+            try:
+                # DataFrameに変換
+                df = result.to_df()
+                # レコードのリストに変換
+                if not df.empty:
+                    processed_result = df.to_dict('records')
+                else:
+                    processed_result = []
+            except Exception as e:
+                # 変換に失敗した場合は元のオブジェクトを使用
+                print(f"警告: 結果の変換中にエラーが発生しました: {e}")
+                processed_result = {"error": "結果の変換に失敗しました", "type": str(type(result))}
+        
         return {
             "success": True,
-            "data": result,
+            "data": processed_result,
+            "original_result_type": str(type(result)),
             "stats": {
                 "execution_time_ms": int(execution_time * 1000),
                 "affected_rows": getattr(result, "affected_rows", 0)

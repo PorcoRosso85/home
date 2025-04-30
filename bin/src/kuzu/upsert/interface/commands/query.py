@@ -122,22 +122,69 @@ def display_query_result(result: Dict[str, Any], pretty: bool = True) -> None:
             print(f"  実行時間: {stats.get('execution_time_ms', 0)}ms")
             print(f"  影響を受けた行数: {stats.get('affected_rows', 0)}")
         
-        data = execution.get("data", [])
-        if data:
-            try:
-                if pretty:
-                    # データをJSON形式で整形表示
-                    formatted_data = json.dumps(data, indent=2, ensure_ascii=False)
-                    print(f"\n{formatted_data}")
-                else:
-                    # 簡易表示
-                    if isinstance(data, list):
-                        for i, item in enumerate(data, 1):
-                            print(f"  {i}. {item}")
+        # データを取得
+        data = execution.get("data", None)
+        
+        print("\nクエリ結果:")
+        
+        try:
+            # KuzuDBのQueryResultオブジェクトから行ごとにデータを取得
+            if hasattr(data, 'has_next') and hasattr(data, 'get_next'):
+                # 単一のQueryResultオブジェクト
+                while data.has_next():
+                    row = data.get_next()
+                    print(row)
+            elif isinstance(data, list) and len(data) > 0:
+                # QueryResultオブジェクトのリスト（複数クエリの場合）
+                for i, result in enumerate(data, 1):
+                    print(f"\n結果セット {i}:")
+                    if hasattr(result, 'has_next') and hasattr(result, 'get_next'):
+                        while result.has_next():
+                            row = result.get_next()
+                            print(row)
                     else:
-                        print(f"  データ: {data}")
-            except Exception as e:
-                print(f"  [データの表示エラー: {str(e)}]")
+                        # リスト内の通常のデータ
+                        print(result)
+            else:
+                # その他のデータ形式
+                if data is None:
+                    print("データなし")
+                else:
+                    # ディクショナリや通常のリストの場合
+                    if pretty and isinstance(data, (dict, list)):
+                        formatted_data = json.dumps(data, indent=2, ensure_ascii=False)
+                        print(formatted_data)
+                    else:
+                        print(data)
+        except Exception as e:
+            print(f"[データの表示エラー: {str(e)}]")
+            print(f"データタイプ: {type(data)}")
+            # KuzuDBのQueryResultオブジェクトに対する一般的な処理を試みる
+            try:
+                if data is not None:
+                    # 直接文字列として出力
+                    print(str(data))
+                    
+                    # データにメソッドがあれば試行
+                    available_methods = [method for method in dir(data) 
+                                        if callable(getattr(data, method)) 
+                                        and not method.startswith('_')]
+                    if available_methods:
+                        print(f"\n利用可能なメソッド: {', '.join(available_methods)}")
+                        
+                        # 一般的なメソッドを試してみる
+                        if 'to_string' in available_methods:
+                            print("\nto_string()の結果:")
+                            print(data.to_string())
+                        if 'to_df' in available_methods:
+                            print("\nDataFrameに変換を試みます...")
+                            try:
+                                df = data.to_df()
+                                print(df)
+                            except Exception as df_err:
+                                print(f"DataFrame変換エラー: {df_err}")
+            except Exception as inner_e:
+                print(f"追加の処理中にエラーが発生: {inner_e}")
     else:
         error_message = execution.get('message', '不明なエラー')
         print(f"\n❌ クエリ実行エラー: {error_message}")
