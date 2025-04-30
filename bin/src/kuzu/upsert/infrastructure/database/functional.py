@@ -147,11 +147,18 @@ def with_transaction(connection: Any, operation_fn: Callable[[Any], OperationRes
                 connection.execute("ROLLBACK")
                 log_debug("トランザクションをロールバックしました")
             except Exception as rollback_error:
-                # ロールバックエラーをERRORレベルで記録
-                log_error(f"ロールバックエラー: {str(rollback_error)}")
-                # エラー結果にロールバック失敗情報を追加
-                result["rollback_failed"] = True
-                result["rollback_error"] = str(rollback_error)
+                # ロールバックエラーの処理を改善
+                error_message = str(rollback_error)
+                log_error(f"ロールバックエラー: {error_message}")
+                
+                # アクティブなトランザクションがない場合は特別処理
+                if "No active transaction" in error_message:
+                    log_debug("アクティブなトランザクションがないため、ロールバックは不要です")
+                    # このケースはエラーとして扱わない
+                else:
+                    # その他のロールバックエラーは結果に記録
+                    result["rollback_failed"] = True
+                    result["rollback_error"] = error_message
     
     return result
 

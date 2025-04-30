@@ -59,6 +59,23 @@ def insert_nodes(
     # データベース操作関数セットを作成
     db_ops = create_db_operations(connection)
     
+    # 事前にノードテーブルの存在確認
+    log_debug("テーブル InitNode の存在を確認します")
+    verify_result = db_ops["verify_tables"](["InitNode"])
+    
+    if is_error(verify_result):
+        table_exists = verify_result["details"]["tables"].get("InitNode", False)
+        if not table_exists:
+            log_warning("ノードテーブルが存在しません。ノード挿入をスキップします。")
+            return create_success(
+                "ノードテーブルが存在しないため、ノード挿入をスキップしました",
+                {
+                    "nodes_inserted": 0,
+                    "nodes_skipped": len(nodes),
+                    "table_missing": True
+                }
+            )
+    
     # ノード挿入クエリを取得
     query_result = query_loader["get_query"]("init_node")
     if not query_loader["get_success"](query_result):
@@ -75,26 +92,32 @@ def insert_nodes(
     nodes_skipped = 0
     errors = []
     
+    # テーブル内の既存ノードIDを一度に取得して効率化
+    try:
+        existing_ids_query = "MATCH (n:InitNode) RETURN n.id AS id"
+        ids_result = db_ops["execute_query"](existing_ids_query)
+        
+        if not is_error(ids_result) and "result" in ids_result["data"]:
+            query_result = ids_result["data"]["result"]
+            existing_ids = set()
+            
+            if query_result and hasattr(query_result, 'to_df'):
+                df = query_result.to_df()
+                if not df.empty and 'id' in df.columns:
+                    existing_ids = set(df['id'].tolist())
+            
+            log_debug(f"既存ノードID数: {len(existing_ids)}")
+        else:
+            existing_ids = set()
+            log_debug("既存ノードIDの取得に失敗しました。個別チェックを行います。")
+    except Exception as e:
+        log_warning(f"既存ノードID取得エラー: {str(e)}。個別チェックに切り替えます。")
+        existing_ids = set()
+    
     # 各ノードを挿入
     for node in nodes:
-        # ノードが既に存在するか確認
-        exists_result = db_ops["check_node_exists"](node.id)
-        
-        # 存在確認中にエラーが発生した場合
-        if is_error(exists_result) and exists_result["error_type"] != "TABLE_NOT_FOUND":
-            return create_error(
-                "NODE_CHECK_ERROR",
-                f"ノード存在確認エラー: {exists_result['message']}",
-                {"node_id": node.id, "details": exists_result["details"]}
-            )
-        
-        # テーブルがなければスキップ（エラーにはせず続行）
-        if is_error(exists_result) and exists_result["error_type"] == "TABLE_NOT_FOUND":
-            log_warning("ノードテーブルが見つかりません")
-            continue
-        
-        # ノードが既に存在する場合はスキップ
-        if exists_result["data"]["exists"]:
+        # 既存ID一覧を使用して高速チェック
+        if node.id in existing_ids:
             log_debug(f"ノード {node.id} は既に存在するためスキップします")
             nodes_skipped += 1
             continue
@@ -116,11 +139,21 @@ def insert_nodes(
             # 挿入成功の確認
             if query_result["success"]:
                 nodes_inserted += 1
+                # 新しく挿入したノードIDを既存IDセットに追加
+                existing_ids.add(node.id)
             else:
-                errors.append({
-                    "node_id": node.id,
-                    "error": query_result["message"]
-                })
+                # エラーメッセージを確認して特別なハンドリングを行う
+                error_message = query_result["message"]
+                if "duplicated primary key" in error_message:
+                    log_debug(f"ノード挿入時の主キー重複エラー: id={node.id}")
+                    nodes_skipped += 1
+                    # 重複IDを既存IDセットに追加
+                    existing_ids.add(node.id)
+                else:
+                    errors.append({
+                        "node_id": node.id,
+                        "error": error_message
+                    })
         except Exception as e:
             error_message = str(e)
             
@@ -128,6 +161,8 @@ def insert_nodes(
             if "duplicated primary key" in error_message:
                 log_debug(f"ノード挿入時の主キー重複エラー: id={node.id}")
                 nodes_skipped += 1
+                # 重複IDを既存IDセットに追加
+                existing_ids.add(node.id)
                 continue
             
             # その他のエラーは記録
