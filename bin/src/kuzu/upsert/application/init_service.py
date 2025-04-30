@@ -628,7 +628,8 @@ def save_init_data(
 def parse_tree_to_nodes_and_edges(
     data: Dict[str, Any],
     parent_path: str,
-    max_depth: int
+    max_depth: int,
+    root_name: Optional[str] = None
 ) -> OperationResult:
     """ツリー構造をノードとエッジのリストに変換
     
@@ -636,6 +637,7 @@ def parse_tree_to_nodes_and_edges(
         data: 変換するデータ
         parent_path: 親パス
         max_depth: 最大再帰深度
+        root_name: ルートノード名（指定された場合、これをルートノードとして使用）
         
     Returns:
         OperationResult: 変換結果
@@ -662,6 +664,18 @@ def parse_tree_to_nodes_and_edges(
     nodes = []
     edges = []
     
+    # root_nameが指定されている場合、ルートノードを作成
+    if root_name and not parent_path:
+        # ルートノードを作成
+        root_node = InitNode(
+            id=root_name,
+            path=root_name,
+            label=root_name
+        )
+        # ノードリストに追加
+        nodes = [root_node]
+        log_debug(f"ルートノード作成: {root_name}")
+    
     log_debug(f"ノード変換開始: パス={parent_path or 'root'}, キー数={len(data)}")
     
     # 各キーと値のペアを処理
@@ -678,11 +692,21 @@ def parse_tree_to_nodes_and_edges(
         # 不変性を保持するためにノードリストをコピーして追加
         nodes = [*nodes, current_node]
         
-        # 親ノードとの関係エッジを作成（ルート以外）
+        # 親ノードとの関係エッジを作成
         if parent_path:
+            # 通常の親子関係
             edge = InitEdge(
                 id=f"{parent_path}->{current_path}",
                 source_id=parent_path,
+                target_id=current_path
+            )
+            # 不変性を保持するためにエッジリストをコピーして追加
+            edges = [*edges, edge]
+        elif root_name and root_name != current_path:
+            # ルートノードとの親子関係
+            edge = InitEdge(
+                id=f"{root_name}->{current_path}",
+                source_id=root_name,
                 target_id=current_path
             )
             # 不変性を保持するためにエッジリストをコピーして追加
@@ -800,6 +824,7 @@ def process_init_file(
             )
         data = yaml_result["data"]
         file_size = yaml_result.get("file_size", "不明")
+        file_name = yaml_result.get("file_name", os.path.basename(file_path).split('.')[0])
         log_debug(f"ファイル読み込み完了: サイズ {file_size} bytes")
         log_debug(f"YAML解析完了: {len(data) if isinstance(data, dict) else '不明'} key(s) at root level")
     elif ext.lower() == '.json':
@@ -814,6 +839,7 @@ def process_init_file(
                 {"file_path": file_path, "details": json_result.get("details", {})}
             )
         data = json_result["data"]
+        file_name = json_result.get("file_name", os.path.basename(file_path).split('.')[0])
         log_debug(f"JSON解析完了: {len(data) if isinstance(data, dict) else '不明'} key(s) at root level")
     elif ext.lower() == '.csv':
         # CSVファイル処理は未実装
@@ -834,7 +860,9 @@ def process_init_file(
     # ツリー構造をノードとエッジに変換
     log_debug(f"ツリー構造をノードとエッジに変換します: {os.path.basename(file_path)}")
     
-    parse_result = parse_tree_to_nodes_and_edges(data, "", MAX_TREE_DEPTH)
+    # ファイル名をルートノードとして使用
+    file_name = os.path.basename(file_path).split('.')[0]
+    parse_result = parse_tree_to_nodes_and_edges(data, "", MAX_TREE_DEPTH, root_name=file_name)
     if is_error(parse_result):
         # パース処理でエラーが発生した場合
         log_error(f"変換エラー: {parse_result['message']}")

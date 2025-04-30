@@ -56,9 +56,12 @@ def load_yaml_file(file_path: str) -> YAMLLoadResult:
                         "details": {"path": file_path}
                     }
                 
-                # 成功結果を返す
+                # 成功結果を返す際にファイル名も含める
+                file_name = os.path.basename(file_path).split('.')[0]
                 return {
-                    "data": data
+                    "data": data,
+                    "file_name": file_name,
+                    "file_size": len(file_content)
                 }
                 
             except yaml.YAMLError as yaml_error:
@@ -114,9 +117,13 @@ def load_json_file(file_path: str) -> JSONLoadResult:
                         "details": {"path": file_path}
                     }
                 
-                # 成功結果を返す
+                # 成功結果を返す際にファイル名も含める
+                file_name = os.path.basename(file_path).split('.')[0]
+                file_content = f.read()
                 return {
-                    "data": data
+                    "data": data,
+                    "file_name": file_name,
+                    "file_size": len(file_content)
                 }
                 
             except json.JSONDecodeError as json_error:
