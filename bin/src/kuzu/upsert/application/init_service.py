@@ -795,8 +795,7 @@ def process_init_file(
     Returns:
         OperationResult: 処理結果
     """
-    # ファイル処理開始をログに記録
-    log_debug(f"ファイル処理開始: {file_path}")
+    # 注意: ファイル処理の開始・終了のログは呼び出し側の責務とするため、ここではログ出力しない
     
     # ファイルが存在するか確認
     if not os.path.exists(file_path):
@@ -812,7 +811,7 @@ def process_init_file(
     
     # データの読み込み
     if ext.lower() in ['.yml', '.yaml']:
-        log_debug(f"YAMLファイル読み込み開始: {file_path}")
+        # 注意: YAMLファイル読み込み開始のログは被呼び出し側で出力するため、ここでは出力しない
         yaml_result = load_yaml_file(file_path)
         if "code" in yaml_result:
             # エラーがあれば処理中止
@@ -828,7 +827,7 @@ def process_init_file(
         log_debug(f"ファイル読み込み完了: サイズ {file_size} bytes")
         log_debug(f"YAML解析完了: {len(data) if isinstance(data, dict) else '不明'} key(s) at root level")
     elif ext.lower() == '.json':
-        log_debug(f"JSONファイル読み込み開始: {file_path}")
+        # 注意: JSONファイル読み込み開始のログは被呼び出し側で出力するため、ここでは出力しない
         json_result = load_json_file(file_path)
         if "code" in json_result:
             # エラーがあれば処理中止
@@ -965,7 +964,7 @@ def process_init_file(
     # ルートノード情報を取得
     root_nodes = get_root_nodes(connection, query_loader)
     
-    log_debug(f"ファイル処理完了: {os.path.basename(file_path)}")
+    # 注意: ファイル処理完了のログは呼び出し側の責務とするため、ここではログ出力しない
     
     # 結果を整形して返す
     return create_success(

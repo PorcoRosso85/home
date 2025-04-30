@@ -247,7 +247,7 @@ def handle_init(db_path: Optional[str] = None, in_memory: bool = False,
                     log_debug(f"ファイル処理: {file_path}")
                     
                     # 関数型実装を使用してファイルを処理
-                    # ファイル処理の詳細なデバッグ情報を出力
+                    # ファイル処理の開始・終了は呼び出し側の責務
                     log_debug(f"ファイル処理開始: {file_path}")
                     file_result = process_init_file(file_path, connection, query_loader)
                     log_debug(f"ファイル処理完了: {os.path.basename(file_path)}")

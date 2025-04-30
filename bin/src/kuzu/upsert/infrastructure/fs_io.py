@@ -35,18 +35,18 @@ def load_yaml_file(file_path: str) -> YAMLLoadResult:
             "details": {"path": file_path}
         }
     
-    # ファイル読み込み
-    log_debug(f"YAMLファイル読み込み開始: {file_path}")
-    
+    # ファイル読み込み - 最初のlog_debugは呼び出し側で行われるため省略
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             file_content = f.read()
-            log_debug(f"ファイル読み込み完了: サイズ {len(file_content)} bytes")
+            # ファイル読み込み完了のログは内部処理として出力
+            # 注: このログは呼び出し側では出力されないため重複しない
             
             # YAML解析
             try:
                 data = yaml.safe_load(file_content)
-                log_debug(f"YAML解析完了: {'None' if data is None else f'{len(data)} key(s) at root level'}")
+                # ファイル解析完了のログは内部処理として出力
+                # 注: このログは呼び出し側では出力されないため重複しない
                 
                 # 空データチェック
                 if data is None:
