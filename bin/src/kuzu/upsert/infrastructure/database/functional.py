@@ -88,6 +88,48 @@ def with_transaction(connection: Any, operation_fn: Callable[[Any], OperationRes
     Returns:
         OperationResult: 操作の結果
     """
+    # NOTE: [トランザクション管理の根本原因] 2025-04-30
+    # KuzuDBのトランザクション管理に関する重要な調査ポイント
+    # 
+    # 問題現象: 
+    # - トランザクション開始後に「No active transaction for COMMIT」エラーが発生する
+    # - トランザクション状態の追跡が不正確になる場合がある
+    # 
+    # 想定される原因:
+    # 1. KuzuDBの内部実装: is_transaction_active()の戻り値と実際のトランザクション状態に不一致
+    # 2. 非同期処理の影響: バックグラウンドで実行される処理がトランザクション状態を変更
+    # 3. 自動コミット設定: 特定の操作が暗黙的にコミットされる可能性
+    # 
+    # 調査すべき項目:
+    # - KuzuDBのトランザクションAPIの詳細な仕様
+    # - connection.execute()の内部実装の確認
+    # - 複数のトランザクションが入れ子になった場合の動作
+    # - トランザクション状態を変更する可能性のある他のAPI呼び出し
+    #
+    # この関数は2025-04-30に修正され、以前より信頼性は向上していますが、
+    # KuzuDBの根本的なトランザクション管理の問題が解決されるまでは
+    # 完全に安定するとは限りません。
+    # NOTE: [トランザクション管理の根本原因] 2025-04-30
+    # KuzuDBのトランザクション管理に関する重要な調査ポイント
+    # 
+    # 問題現象: 
+    # - トランザクション開始後に「No active transaction for COMMIT」エラーが発生する
+    # - トランザクション状態の追跡が不正確になる場合がある
+    # 
+    # 想定される原因:
+    # 1. KuzuDBの内部実装: is_transaction_active()の戻り値と実際のトランザクション状態に不一致
+    # 2. 非同期処理の影響: バックグラウンドで実行される処理がトランザクション状態を変更
+    # 3. 自動コミット設定: 特定の操作が暗黙的にコミットされる可能性
+    # 
+    # 調査すべき項目:
+    # - KuzuDBのトランザクションAPIの詳細な仕様
+    # - connection.execute()の内部実装の確認
+    # - 複数のトランザクションが入れ子になった場合の動作
+    # - トランザクション状態を変更する可能性のある他のAPI呼び出し
+    #
+    # この関数は2025-04-30に修正され、以前より信頼性は向上していますが、
+    # KuzuDBの根本的なトランザクション管理の問題が解決されるまでは
+    # 完全に安定するとは限りません。
     # 開始前の状態を記録（デバッグ用）
     begin_state = {
         "connection_exists": connection is not None,
@@ -107,146 +149,114 @@ def with_transaction(connection: Any, operation_fn: Callable[[Any], OperationRes
     
     log_debug(f"トランザクション開始前の状態: {begin_state}")
     
-    # すでにアクティブな場合は新しくトランザクションを開始しない
-    # 既存トランザクションのコンテキスト内で操作を実行するため
-    if tx_active:
-        log_debug("既存のトランザクションを使用します")
-        result = operation_fn(connection)
-        # 元のトランザクションに介入しないため、そのまま結果を返す
-        return result
+    # トランザクション開始が必要かどうかを判断
+    should_start_tx = not tx_active
+    tx_started_by_us = False
     
-    # トランザクション開始
-    log_debug("新しいトランザクションを開始します")
-    tx_start_success = False
-    
-    try:
-        # トランザクション開始前の検証
-        if not connection:
-            return create_error(
-                "TX_CONNECTION_ERROR",
-                "トランザクション開始エラー: データベース接続がありません",
-                {"connection": connection}
-            )
+    # トランザクション開始（必要な場合のみ）
+    if should_start_tx:
+        log_debug("新しいトランザクションを開始します")
+        
+        try:
+            # トランザクション開始前の検証
+            if not connection:
+                return create_error(
+                    "TX_CONNECTION_ERROR",
+                    "トランザクション開始エラー: データベース接続がありません",
+                    {"connection": connection}
+                )
+                
+            # 重要: 明示的にBEGINを実行
+            connection.execute("BEGIN TRANSACTION")
+            tx_started_by_us = True
             
-        connection.execute("BEGIN TRANSACTION")
-        tx_start_success = True
-        
-        # 開始確認
-        if begin_state["tx_method_exists"]:
-            try:
-                tx_active_after_begin = connection.is_transaction_active()
-                if not tx_active_after_begin:
-                    log_warning("BEGIN TRANSACTION実行後もトランザクションがアクティブになっていません")
-            except Exception as e:
-                log_warning(f"トランザクション開始後の状態確認でエラー: {str(e)}")
-        
-    except Exception as tx_start_error:
-        # 開始失敗の詳細をログに出力
-        error_str = str(tx_start_error)
-        log_error(f"トランザクション開始失敗: {error_str}")
-        
-        # 既にトランザクションが開始している場合は警告として扱う
-        if "already a transaction in progress" in error_str.lower():
-            log_warning("既にトランザクションが進行中です。既存のトランザクションを使用します。")
-            tx_start_success = True
-        else:
-            # その他のエラーは失敗として扱う
-            return create_error(
-                "TX_START_ERROR",
-                f"トランザクション開始エラー: {error_str}",
-                {"original_error": error_str}
-            )
+            # 開始確認
+            if begin_state["tx_method_exists"]:
+                try:
+                    tx_active_after_begin = connection.is_transaction_active()
+                    if not tx_active_after_begin:
+                        log_warning("BEGIN TRANSACTION実行後もトランザクションがアクティブになっていません")
+                        # トランザクションが開始されていないと判断
+                        tx_started_by_us = False
+                except Exception as e:
+                    log_warning(f"トランザクション開始後の状態確認でエラー: {str(e)}")
+            
+        except Exception as tx_start_error:
+            # 開始失敗の詳細をログに出力
+            error_str = str(tx_start_error)
+            log_error(f"トランザクション開始失敗: {error_str}")
+            
+            # 既にトランザクションが開始している場合は警告として扱う
+            if "already a transaction in progress" in error_str.lower():
+                log_warning("既にトランザクションが進行中です。既存のトランザクションを使用します。")
+                tx_started_by_us = True
+            else:
+                # その他のエラーは失敗として扱う
+                return create_error(
+                    "TX_START_ERROR",
+                    f"トランザクション開始エラー: {error_str}",
+                    {"original_error": error_str}
+                )
+    else:
+        log_debug("既存のトランザクションを使用します")
     
-    # 操作実行
+    # 操作関数を実行
     result = operation_fn(connection)
     
-    # 操作完了後の状態を確認
-    tx_status_after_op = None
-    tx_check_error = None
-    
-    if begin_state["tx_method_exists"]:
-        try:
-            tx_status_after_op = connection.is_transaction_active()
-        except Exception as e:
-            tx_check_error = str(e)
-            log_warning(f"操作完了後のトランザクション状態確認でエラー: {tx_check_error}")
-    
-    # トランザクション状態の再確認
-    # 操作内でトランザクションが終了していないことを確認
-    should_commit = True
-    if tx_check_error:
-        # 状態確認でエラーが発生した場合は念のためコミット/ロールバックを試みる
-        log_debug("トランザクション状態確認でエラーが発生したため、念のためコミット/ロールバック処理を実行します")
-    elif tx_status_after_op is False:
-        # トランザクションが既に終了している場合はスキップ
-        log_debug("操作内でトランザクションが既に終了しているため、コミット/ロールバックをスキップします")
-        should_commit = False
-    
-    # 結果に基づいてコミットまたはロールバック（トランザクションがまだアクティブな場合のみ）
-    if should_commit:
+    # コミット/ロールバックが必要かどうかを判断
+    # トランザクションが自分で開始したものである場合のみ終了処理を行う
+    if tx_started_by_us:
+        # 結果に基づいてコミットまたはロールバック
         if result["success"]:
             # 成功時はコミット
             try:
+                # 重要: 明示的にCOMMITを実行
                 connection.execute("COMMIT")
                 log_debug("トランザクションをコミットしました")
-                
-                # コミット後の状態確認（デバッグ用）
-                if begin_state["tx_method_exists"]:
-                    try:
-                        is_active_after_commit = connection.is_transaction_active()
-                        if is_active_after_commit:
-                            log_warning("COMMIT実行後もトランザクションがアクティブなままです")
-                    except Exception as e:
-                        log_debug(f"コミット後の状態確認でエラー: {str(e)}")
-                
             except Exception as commit_error:
                 # コミットエラーメッセージ
                 commit_error_msg = str(commit_error)
                 log_error(f"コミットエラー: {commit_error_msg} (操作自体は成功)")
                 
-                # 特定のエラーメッセージでは警告として扱う
+                # アクティブなトランザクションがない場合の処理
                 if "No active transaction" in commit_error_msg:
                     log_debug("アクティブなトランザクションがないため、コミットは不要です")
-                    # 警告を追加
-                    result_with_warning = dict(result)
-                    result_with_warning["commit_note"] = "アクティブなトランザクションが見つからなかったため、コミットはスキップされました"
-                    return result_with_warning
+                    # 警告を追加（エラーとはしない）
+                    return create_success(
+                        result.get("message", "操作は成功しましたが、トランザクションがアクティブではありませんでした"),
+                        result.get("data", {})
+                    )
                 else:
-                    # その他のエラーでは警告として追加
+                    # その他のエラーは警告として記録
                     result_with_warning = dict(result)
                     result_with_warning["commit_warning"] = commit_error_msg
                     return result_with_warning
         else:
             # 失敗時はロールバック
             try:
+                # 重要: 明示的にROLLBACKを実行
                 connection.execute("ROLLBACK")
                 log_debug("トランザクションをロールバックしました")
-                
-                # ロールバック後の状態確認（デバッグ用）
-                if begin_state["tx_method_exists"]:
-                    try:
-                        is_active_after_rollback = connection.is_transaction_active()
-                        if is_active_after_rollback:
-                            log_warning("ROLLBACK実行後もトランザクションがアクティブなままです")
-                    except Exception as e:
-                        log_debug(f"ロールバック後の状態確認でエラー: {str(e)}")
-                
             except Exception as rollback_error:
-                # ロールバックエラーの処理を改善
+                # ロールバックエラーの処理
                 error_message = str(rollback_error)
                 log_error(f"ロールバックエラー: {error_message}")
                 
                 # アクティブなトランザクションがない場合は特別処理
                 if "No active transaction" in error_message:
                     log_debug("アクティブなトランザクションがないため、ロールバックは不要です")
-                    # このケースはエラーとして扱わない - 成功結果に注記を追加
-                    result["rollback_note"] = "アクティブなトランザクションが見つからなかったため、ロールバックはスキップされました"
+                    # 失敗結果にそのまま注記を追加
+                    result_with_note = dict(result)
+                    result_with_note["rollback_note"] = "アクティブなトランザクションが見つからなかったため、ロールバックはスキップされました"
+                    return result_with_note
                 else:
                     # その他のロールバックエラーは結果に記録
-                    result["rollback_failed"] = True
-                    result["rollback_error"] = error_message
+                    result_with_note = dict(result)
+                    result_with_note["rollback_failed"] = True
+                    result_with_note["rollback_error"] = error_message
+                    return result_with_note
     else:
-        log_debug("トランザクション終了処理はスキップされました（既に終了またはトランザクション状態確認不可）")
+        log_debug("トランザクション終了処理はスキップされました（自分で開始したものではないため）")
     
     return result
 

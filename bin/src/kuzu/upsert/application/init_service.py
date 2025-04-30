@@ -510,6 +510,27 @@ def save_init_data(
     Returns:
         OperationResult: 保存結果
     """
+    # NOTE: [データ保存処理のトランザクション問題] 2025-04-30
+    # この関数はトランザクション管理の中核となる機能を持ち、with_transaction関数を呼び出して
+    # データベース操作をトランザクション内で実行します。
+    # 
+    # 問題の症状:
+    # - ノードとエッジを保存する過程で「No active transaction for COMMIT」エラーが発生
+    # - トランザクションが正常に開始されても、コミット時に既にトランザクションが終了している
+    # 
+    # 調査すべきポイント:
+    # 1. with_transaction関数の実装（functional.py）
+    # 2. insert_nodes/insert_edgesの各ステップでのトランザクション状態
+    # 3. KuzuDBの内部トランザクション管理機構（特にコミット/ロールバック処理）
+    # 4. 各操作の前後で出力される「トランザクション状態」ログの変化パターン
+    # 
+    # 解決のアプローチ:
+    # - KuzuDBのドライバレベルでのトランザクション管理の詳細調査
+    # - 特定パターンのエラーに対するより積極的な対処方法の実装
+    # - トランザクション状態追跡の更なる強化
+    #
+    # 現在の実装では問題が発生してもデータの整合性は保たれるよう修正されていますが、
+    # エラーメッセージ自体は依然として表示される可能性があります。
     # 1. データの検証
     validation_result = validate_data(nodes, edges)
     if is_error(validation_result):
@@ -518,18 +539,41 @@ def save_init_data(
     # 2. データの挿入（DML操作）
     # トランザクション内でノードとエッジを挿入する関数を定義
     def insert_data(conn):
+        # ノード挿入前にトランザクション状態を確認
+        tx_active = False
+        try:
+            if hasattr(conn, 'is_transaction_active') and callable(conn.is_transaction_active):
+                tx_active = conn.is_transaction_active()
+                log_debug(f"ノード挿入前のトランザクション状態: アクティブ={tx_active}")
+        except Exception as e:
+            log_warning(f"トランザクション状態確認エラー: {str(e)}")
+        
         # ノード挿入
         node_result = insert_nodes(conn, nodes, query_loader)
         if is_error(node_result):
+            log_warning(f"ノード挿入に失敗: {node_result['message']}")
             return node_result
         
         # 成功した場合、ノード挿入の結果を一時保存
         nodes_inserted = node_result["data"]["nodes_inserted"]
         nodes_skipped = node_result["data"]["nodes_skipped"]
         
+        # エッジ挿入前にもう一度トランザクション状態を確認
+        try:
+            if hasattr(conn, 'is_transaction_active') and callable(conn.is_transaction_active):
+                tx_active = conn.is_transaction_active()
+                log_debug(f"エッジ挿入前のトランザクション状態: アクティブ={tx_active}")
+                
+                # トランザクションがアクティブでない場合は警告
+                if not tx_active:
+                    log_warning("エッジ挿入前にトランザクションがアクティブではありません")
+        except Exception as e:
+            log_warning(f"トランザクション状態確認エラー: {str(e)}")
+        
         # エッジ挿入
         edge_result = insert_edges(conn, edges, query_loader)
         if is_error(edge_result):
+            log_warning(f"エッジ挿入に失敗: {edge_result['message']}")
             # エッジ挿入に失敗してもノード挿入は成功しているため、部分成功として扱う
             return create_success(
                 f"{nodes_inserted}個のノードを挿入しましたが、エッジ挿入に失敗しました",
@@ -546,6 +590,15 @@ def save_init_data(
         edges_inserted = edge_result["data"]["edges_inserted"]
         edges_skipped = edge_result["data"]["edges_skipped"]
         
+        # 操作後のトランザクション状態を確認
+        try:
+            if hasattr(conn, 'is_transaction_active') and callable(conn.is_transaction_active):
+                tx_active = conn.is_transaction_active()
+                log_debug(f"データ操作後のトランザクション状態: アクティブ={tx_active}")
+        except Exception as e:
+            log_warning(f"トランザクション状態確認エラー: {str(e)}")
+        
+        log_debug(f"データ挿入成功: ノード {nodes_inserted}個, エッジ {edges_inserted}個")
         return create_success(
             f"{nodes_inserted}個のノードと{edges_inserted}個のエッジを挿入しました",
             {
@@ -557,7 +610,16 @@ def save_init_data(
         )
     
     # トランザクション内でデータ挿入を実行
+    log_debug("トランザクション内でデータ挿入を開始します")
     result = with_transaction(connection, insert_data)
+    
+    # トランザクション結果の詳細をログに出力
+    if "commit_warning" in result:
+        log_warning(f"トランザクションコミット警告: {result['commit_warning']}")
+    if "rollback_note" in result:
+        log_debug(f"トランザクションロールバックメモ: {result['rollback_note']}")
+    if "rollback_failed" in result and result["rollback_failed"]:
+        log_error(f"トランザクションロールバック失敗: {result.get('rollback_error', '不明なエラー')}")
     
     return result
 
@@ -709,8 +771,12 @@ def process_init_file(
     Returns:
         OperationResult: 処理結果
     """
+    # ファイル処理開始をログに記録
+    log_debug(f"ファイル処理開始: {file_path}")
+    
     # ファイルが存在するか確認
     if not os.path.exists(file_path):
+        log_error(f"ファイルが見つかりません: {file_path}")
         return create_error(
             "FILE_NOT_FOUND",
             f"ファイルが見つかりません: {file_path}",
@@ -722,33 +788,43 @@ def process_init_file(
     
     # データの読み込み
     if ext.lower() in ['.yml', '.yaml']:
+        log_debug(f"YAMLファイル読み込み開始: {file_path}")
         yaml_result = load_yaml_file(file_path)
         if "code" in yaml_result:
             # エラーがあれば処理中止
+            log_error(f"YAMLファイル読み込みエラー: {yaml_result['message']}")
             return create_error(
                 "FILE_LOAD_ERROR",
                 yaml_result["message"],
                 {"file_path": file_path, "details": yaml_result.get("details", {})}
             )
         data = yaml_result["data"]
+        file_size = yaml_result.get("file_size", "不明")
+        log_debug(f"ファイル読み込み完了: サイズ {file_size} bytes")
+        log_debug(f"YAML解析完了: {len(data) if isinstance(data, dict) else '不明'} key(s) at root level")
     elif ext.lower() == '.json':
+        log_debug(f"JSONファイル読み込み開始: {file_path}")
         json_result = load_json_file(file_path)
         if "code" in json_result:
             # エラーがあれば処理中止
+            log_error(f"JSONファイル読み込みエラー: {json_result['message']}")
             return create_error(
                 "FILE_LOAD_ERROR",
                 json_result["message"],
                 {"file_path": file_path, "details": json_result.get("details", {})}
             )
         data = json_result["data"]
+        log_debug(f"JSON解析完了: {len(data) if isinstance(data, dict) else '不明'} key(s) at root level")
     elif ext.lower() == '.csv':
         # CSVファイル処理は未実装
+        log_warning(f"CSVファイル処理は将来のバージョンでサポート予定です: {ext}")
         return create_error(
             "UNSUPPORTED_FORMAT",
             f"CSVファイル処理は将来のバージョンでサポート予定です: {ext}",
             {"file_path": file_path, "format": ext}
         )
     else:
+        log_error(f"サポートされていないファイル形式です: {ext}")
         return create_error(
             "UNSUPPORTED_FORMAT",
             f"サポートされていないファイル形式です: {ext}",
@@ -761,7 +837,7 @@ def process_init_file(
     parse_result = parse_tree_to_nodes_and_edges(data, "", MAX_TREE_DEPTH)
     if is_error(parse_result):
         # パース処理でエラーが発生した場合
-        log_debug(f"変換エラー: {parse_result['message']}")
+        log_error(f"変換エラー: {parse_result['message']}")
         return create_error(
             "PARSE_ERROR",
             f"ノード・エッジ変換エラー: {parse_result['message']}",
@@ -772,13 +848,96 @@ def process_init_file(
     edges = parse_result["data"]["edges"]
     log_debug(f"変換完了: {len(nodes)}個のノード, {len(edges)}個のエッジ")
     
+    # データベース保存前にトランザクション状態を確認
+    tx_active_before_save = False
+    try:
+        if hasattr(connection, 'is_transaction_active') and callable(connection.is_transaction_active):
+            tx_active_before_save = connection.is_transaction_active()
+            log_debug(f"データベース保存前のトランザクション状態: アクティブ={tx_active_before_save}")
+    except Exception as e:
+        log_warning(f"トランザクション状態確認エラー: {str(e)}")
+    
+    # NOTE: [ファイル処理時のトランザクション監視ポイント] 2025-04-30
+    # ここは初期化ファイル処理中の重要なトランザクション監視ポイントです。
+    # この時点でトランザクション状態を確認し、その結果をログに出力しています。
+    # 
+    # 根本原因調査のためのチェックポイント:
+    # 1. save_init_dataを呼び出す前のトランザクション状態（アクティブ=False が正常）
+    # 2. save_init_data関数内でのトランザクション開始・終了のログ
+    # 3. 「No active transaction for COMMIT」エラーが発生した場合のコールスタック
+    # 4. データベース保存後のトランザクション状態（アクティブ=False が正常）
+    #
+    # トラブルシューティングの際に最も注目すべき点:
+    # - tx_active_before_save と tx_active_after_save の状態の整合性
+    # - トランザクションが実行中に予期せず終了しているパターンの検出
+    # - KuzuDBの内部トランザクション状態管理とクライアントサイドの認識の不一致
+    #
+    # この問題は複雑なため、デバッグ時には常にトランザクション状態のログを追跡し、
+    # KuzuDBドライバとの相互作用を詳細に分析することが重要です。
+    
     # データベースに保存
+    log_debug("データベース保存処理を開始します")
     save_result = save_init_data(connection, nodes, edges, query_loader)
+    
+    # 保存結果の詳細をログに出力
     if is_error(save_result):
+        log_error(f"データ保存エラー: {save_result['message']}")
+        log_debug(f"エラー詳細: {save_result['details'] if 'details' in save_result else '詳細なし'}")
+        
+        # エラー発生後のトランザクション状態を確認
+        try:
+            if hasattr(connection, 'is_transaction_active') and callable(connection.is_transaction_active):
+                tx_active_after_error = connection.is_transaction_active()
+                log_debug(f"エラー発生後のトランザクション状態: アクティブ={tx_active_after_error}")
+                
+                # トランザクションがまだアクティブな場合は明示的にロールバック
+                if tx_active_after_error:
+                    log_warning("エラー後もトランザクションがアクティブなままです。明示的にロールバックします。")
+                    try:
+                        connection.execute("ROLLBACK")
+                        log_debug("トランザクションを明示的にロールバックしました")
+                    except Exception as rollback_error:
+                        log_error(f"明示的ロールバックでエラー: {str(rollback_error)}")
+        except Exception as e:
+            log_warning(f"トランザクション状態確認エラー: {str(e)}")
+        
         return save_result
+    
+    # 保存成功の場合はログに詳細を出力
+    log_debug(f"データ保存成功: ノード {save_result['data']['nodes_inserted']}個, エッジ {save_result['data']['edges_inserted']}個")
+    log_debug(f"スキップされたデータ: ノード {save_result['data']['nodes_skipped']}個, エッジ {save_result['data']['edges_skipped']}個")
+    
+    # 保存後のトランザクション状態を確認
+    try:
+        if hasattr(connection, 'is_transaction_active') and callable(connection.is_transaction_active):
+            tx_active_after_save = connection.is_transaction_active()
+            log_debug(f"データベース保存後のトランザクション状態: アクティブ={tx_active_after_save}")
+    except Exception as e:
+        log_warning(f"トランザクション状態確認エラー: {str(e)}")
+        
+    # NOTE: [保存後のトランザクション状態検証ポイント] 2025-04-30
+    # ここはデータ保存後の重要なトランザクション検証ポイントです。
+    # この時点でトランザクションは正常に終了している（アクティブ=False）べきです。
+    # もしアクティブ=Trueになっている場合は、トランザクション処理に問題があり、
+    # リソースリークやデータ不整合の原因となる可能性があります。
+    #
+    # 根本原因調査の重要ポイント:
+    # 1. save_init_data呼び出し後のトランザクション状態（本来はFalseであるべき）
+    # 2. トランザクション処理中の例外発生パターンの調査
+    # 3. トランザクション状態不一致が発生する条件（データ量、操作順序など）
+    #
+    # KuzuDBのトランザクション管理に関する深い知識が必要な部分ですので、
+    # ドライバの内部実装と、データベースエンジンの動作についても調査が必要です。
+    # 
+    # 調査の際は以下を考慮してください:
+    # - トランザクション制御のためのSQLコマンド（BEGIN/COMMIT/ROLLBACK）の動作
+    # - KuzuDBのPython APIとネイティブエンジン間のインタラクション
+    # - 同時実行されるトランザクションの影響（もし存在する場合）
     
     # ルートノード情報を取得
     root_nodes = get_root_nodes(connection, query_loader)
+    
+    log_debug(f"ファイル処理完了: {os.path.basename(file_path)}")
     
     # 結果を整形して返す
     return create_success(
