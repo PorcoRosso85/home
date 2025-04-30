@@ -59,22 +59,7 @@ def insert_nodes(
     # データベース操作関数セットを作成
     db_ops = create_db_operations(connection)
     
-    # 事前にノードテーブルの存在確認
-    log_debug("テーブル InitNode の存在を確認します")
-    verify_result = db_ops["verify_tables"](["InitNode"])
-    
-    if is_error(verify_result):
-        table_exists = verify_result["details"]["tables"].get("InitNode", False)
-        if not table_exists:
-            log_warning("ノードテーブルが存在しません。ノード挿入をスキップします。")
-            return create_success(
-                "ノードテーブルが存在しないため、ノード挿入をスキップしました",
-                {
-                    "nodes_inserted": 0,
-                    "nodes_skipped": len(nodes),
-                    "table_missing": True
-                }
-            )
+    # ノードテーブルは初期化済みと仮定
     
     # ノード挿入クエリを取得
     query_result = query_loader["get_query"]("init_node")
@@ -224,6 +209,8 @@ def insert_edges(
     # データベース操作関数セットを作成
     db_ops = create_db_operations(connection)
     
+    # エッジテーブルは初期化済みと仮定
+    
     # エッジ挿入クエリを取得
     query_result = query_loader["get_query"]("init_edge")
     if not query_loader["get_success"](query_result):
@@ -240,49 +227,61 @@ def insert_edges(
     edges_skipped = 0
     errors = []
     
-    # まずテーブルの存在を明示的に確認
-    log_debug("エッジ挿入前のテーブル存在確認を実行")
-    tables_result = db_ops["verify_tables"](["InitNode", "InitEdge"])
-    
-    # テーブル確認結果の詳細なログ出力
-    if is_error(tables_result):
-        table_details = tables_result["details"]["tables"]
-        log_debug(f"テーブル確認結果: InitNode={table_details.get('InitNode', False)}, InitEdge={table_details.get('InitEdge', False)}")
+    # テーブル内の既存エッジIDを一度に取得して効率化
+    try:
+        existing_ids_query = "MATCH ()-[r:InitEdge]->() RETURN r.id AS id"
+        ids_result = db_ops["execute_query"](existing_ids_query)
         
-        if not table_details.get("InitEdge", False):
-            log_error("エッジテーブルが見つかりません。エッジ挿入をスキップします。")
-            return create_success(
-                "エッジテーブルが見つからないため、エッジ挿入をスキップしました",
-                {
-                    "edges_inserted": 0,
-                    "edges_skipped": len(edges),
-                    "table_missing": True
-                }
-            )
-    else:
-        log_debug("テーブル確認成功: InitNodeとInitEdgeの両方が存在します")
+        if not is_error(ids_result) and "result" in ids_result["data"]:
+            query_result = ids_result["data"]["result"]
+            existing_ids = set()
+            
+            if query_result and hasattr(query_result, 'to_df'):
+                df = query_result.to_df()
+                if not df.empty and 'id' in df.columns:
+                    existing_ids = set(df['id'].tolist())
+            
+            log_debug(f"既存エッジID数: {len(existing_ids)}")
+        else:
+            existing_ids = set()
+            log_debug("既存エッジIDの取得に失敗しました。個別チェックを行います。")
+    except Exception as e:
+        log_warning(f"既存エッジID取得エラー: {str(e)}。個別チェックに切り替えます。")
+        existing_ids = set()
+    
+    # ノードIDセットの取得 - エッジの整合性検証に使用
+    try:
+        node_ids_query = "MATCH (n:InitNode) RETURN n.id AS id"
+        node_ids_result = db_ops["execute_query"](node_ids_query)
+        
+        if not is_error(node_ids_result) and "result" in node_ids_result["data"]:
+            query_result = node_ids_result["data"]["result"]
+            node_ids = set()
+            
+            if query_result and hasattr(query_result, 'to_df'):
+                df = query_result.to_df()
+                if not df.empty and 'id' in df.columns:
+                    node_ids = set(df['id'].tolist())
+            
+            log_debug(f"ノードID数: {len(node_ids)}")
+        else:
+            node_ids = set()
+            log_debug("ノードIDの取得に失敗しました。エッジの整合性検証はスキップします。")
+    except Exception as e:
+        log_warning(f"ノードID取得エラー: {str(e)}。エッジの整合性検証はスキップします。")
+        node_ids = set()
     
     # 各エッジを挿入
     for edge in edges:
-        # エッジが既に存在するか確認
-        exists_result = db_ops["check_edge_exists"](edge.id)
-        
-        # 存在確認中にエラーが発生した場合
-        if is_error(exists_result) and exists_result["error_type"] != "TABLE_NOT_FOUND":
-            return create_error(
-                "EDGE_CHECK_ERROR",
-                f"エッジ存在確認エラー: {exists_result['message']}",
-                {"edge_id": edge.id, "details": exists_result["details"]}
-            )
-        
-        # テーブルがなければスキップ（エラーにはせず続行）
-        if is_error(exists_result) and exists_result["error_type"] == "TABLE_NOT_FOUND":
-            log_warning("エッジテーブルが見つかりません")
+        # 既存ID一覧を使用して高速チェック
+        if edge.id in existing_ids:
+            log_debug(f"エッジ {edge.id} は既に存在するためスキップします")
+            edges_skipped += 1
             continue
         
-        # エッジが既に存在する場合はスキップ
-        if exists_result["data"]["exists"]:
-            log_debug(f"エッジ {edge.id} は既に存在するためスキップします")
+        # 接続元と接続先ノードの存在確認（ノードIDセットを使用）
+        if node_ids and (edge.source_id not in node_ids or edge.target_id not in node_ids):
+            log_warning(f"エッジ {edge.id} の接続元または接続先ノードが存在しません（source={edge.source_id}, target={edge.target_id}）")
             edges_skipped += 1
             continue
         
@@ -302,11 +301,24 @@ def insert_edges(
             # 挿入成功の確認
             if query_result["success"]:
                 edges_inserted += 1
+                # 新しく挿入したエッジIDを既存IDセットに追加
+                existing_ids.add(edge.id)
             else:
-                errors.append({
-                    "edge_id": edge.id,
-                    "error": query_result["message"]
-                })
+                # エラーメッセージを確認して特別なハンドリングを行う
+                error_message = query_result["message"]
+                if "duplicated primary key" in error_message:
+                    log_debug(f"エッジ挿入時の主キー重複エラー: id={edge.id}")
+                    edges_skipped += 1
+                    # 重複IDを既存IDセットに追加
+                    existing_ids.add(edge.id)
+                elif "not found referenced" in error_message or "cannot reference" in error_message:
+                    log_warning(f"エッジ {edge.id} の接続先または接続元が見つかりません: {error_message}")
+                    edges_skipped += 1
+                else:
+                    errors.append({
+                        "edge_id": edge.id,
+                        "error": error_message
+                    })
         except Exception as e:
             error_message = str(e)
             
@@ -314,8 +326,16 @@ def insert_edges(
             if "duplicated primary key" in error_message:
                 log_debug(f"エッジ挿入時の主キー重複エラー: id={edge.id}")
                 edges_skipped += 1
+                # 重複IDを既存IDセットに追加
+                existing_ids.add(edge.id)
                 continue
             
+            # 参照整合性エラーの特別処理
+            if "not found referenced" in error_message or "cannot reference" in error_message:
+                log_warning(f"エッジ {edge.id} の接続先または接続元が見つかりません: {error_message}")
+                edges_skipped += 1
+                continue
+                
             # その他のエラーは記録
             log_error(f"エッジ挿入エラー (id={edge.id}): {error_message}")
             errors.append({
@@ -463,12 +483,7 @@ def save_init_data(
     if is_error(validation_result):
         return validation_result
     
-    # 2. テーブルの初期化（トランザクション外で実行）
-    tables_result = initialize_tables(connection)
-    if is_error(tables_result):
-        return tables_result
-    
-    # 3. データの挿入（DML操作）
+    # 2. データの挿入（DML操作）
     # トランザクション内でノードとエッジを挿入する関数を定義
     def insert_data(conn):
         # ノード挿入
@@ -511,23 +526,6 @@ def save_init_data(
     
     # トランザクション内でデータ挿入を実行
     result = with_transaction(connection, insert_data)
-    
-    # 最終的なテーブル存在確認 - トランザクション完了後の状態を詳細に検証
-    log_debug("トランザクション完了後のテーブル存在確認を実行")
-    db_ops = create_db_operations(connection)
-    tables_check = db_ops["verify_tables"](["InitNode", "InitEdge"])
-    
-    # テーブル検証結果の詳細なログ出力
-    if tables_check["success"]:
-        log_debug(f"テーブル最終確認: 両テーブルが正常に存在しています")
-        table_status = tables_check["data"]["tables"]
-    else:
-        table_status = tables_check["details"]["tables"]
-        log_error(f"テーブル最終確認: InitNode={table_status.get('InitNode', False)}, InitEdge={table_status.get('InitEdge', False)}")
-    
-    # 結果に追加情報を付加
-    if result["success"]:
-        result["data"]["tables_status"] = table_status
     
     return result
 
@@ -783,20 +781,7 @@ def get_root_nodes(
     root_nodes = []
     db_ops = create_db_operations(connection)
     
-    # テーブルの存在確認 - ルートノード取得前に各テーブルの状態を詳細に検証
-    log_debug("ルートノード取得前のテーブル存在確認を実行")
-    tables_result = db_ops["verify_tables"](["InitNode", "InitEdge"])
-    
-    if is_error(tables_result):
-        table_details = tables_result["details"]["tables"]
-        # 各テーブルの存在状態を明示的にログ出力
-        log_debug(f"ルートノード取得前のテーブル確認: InitNode={table_details.get('InitNode', False)}, InitEdge={table_details.get('InitEdge', False)}")
-        
-        if not table_details.get("InitNode", False) or not table_details.get("InitEdge", False):
-            log_error("必要なテーブルが存在しないため、ルートノード取得をスキップします")
-            return root_nodes  # テーブルがなければ空リスト
-    else:
-        log_debug("テーブル確認成功: ルートノード取得のための準備が整っています")
+    # テーブルは初期化済みと仮定
     
     # クエリローダーからクエリを取得
     query_result = query_loader["get_query"]("get_root_init_nodes")
