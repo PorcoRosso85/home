@@ -2,27 +2,37 @@
 SHACLバリデーションサービス
 
 このモジュールは、RDFデータをSHACL制約に対して検証するためのコア機能を提供します。
-アプリケーション層のサービスからSHACL検証ロジックを分離し、再利用性を高めます。
 """
 
 import os
 import re
 import rdflib
 import pyshacl
-from typing import Dict, Any, Union, Optional, List, Literal
+from pathlib import Path
+from typing import Dict, Any, Union, Optional, List, Literal, Tuple
 
-# モジュールの型をインポート（まだ作成していないが、後で実装）
-from upsert.domain.types import (
+# 型定義のインポート
+from upsert.domain.validation.types import (
     SHACLValidationResult,
     ValidationDetails,
 )
 
+# SHACL制約ファイルパス解決モジュールのインポート
+try:
+    from query.schema.shacl import get_shapes_file_path, load_shapes_file as load_shapes_content
+except ImportError:
+    # 開発時にローカルで実行する場合のパス
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '../../../../'))
+    from query.schema.shacl import get_shapes_file_path, load_shapes_file as load_shapes_content
 
-def load_shapes_file(shapes_file_path: str) -> rdflib.Graph:
+
+def load_shapes_file(shapes_type: str = "all") -> rdflib.Graph:
     """SHACL制約ファイルを読み込む
     
     Args:
-        shapes_file_path: SHACL制約ファイルのパス
+        shapes_type: 取得する制約ファイルのタイプ ("function", "parameter", "return", "all")
     
     Returns:
         rdflib.Graph: 読み込まれたSHACL制約グラフ
@@ -31,15 +41,18 @@ def load_shapes_file(shapes_file_path: str) -> rdflib.Graph:
         FileNotFoundError: ファイルが存在しない場合
         Exception: その他の読み込みエラー
     """
-    if not os.path.exists(shapes_file_path):
-        raise FileNotFoundError(f"SHACL制約ファイルが見つかりません: {shapes_file_path}")
+    # ファイルパスの取得
+    file_path = get_shapes_file_path(shapes_type)
+    
+    if not file_path.exists():
+        raise FileNotFoundError(f"SHACL制約ファイルが見つかりません: {file_path}")
     
     shapes_graph = rdflib.Graph()
-    shapes_graph.parse(shapes_file_path, format="turtle")
+    shapes_graph.parse(str(file_path), format="turtle")
     return shapes_graph
 
 
-def validate_rdf_data(rdf_data: str, shapes_graph: rdflib.Graph) -> tuple[bool, rdflib.Graph, str]:
+def validate_rdf_data(rdf_data: str, shapes_graph: rdflib.Graph) -> Tuple[bool, rdflib.Graph, str]:
     """RDFデータをSHACL制約に対して検証する
     
     Args:
@@ -47,7 +60,7 @@ def validate_rdf_data(rdf_data: str, shapes_graph: rdflib.Graph) -> tuple[bool, 
         shapes_graph: SHACL制約グラフ
     
     Returns:
-        tuple[bool, rdflib.Graph, str]: 検証結果のタプル
+        Tuple[bool, rdflib.Graph, str]: 検証結果のタプル
             - conforms (bool): 検証に成功したかどうか
             - result_graph (rdflib.Graph): 検証結果グラフ
             - report_text (str): 検証結果のテキスト
@@ -154,7 +167,7 @@ def analyze_validation_report(result_graph: rdflib.Graph, report_text: str) -> V
             validation_details["violations"].append(violation)
             
             # 修正提案
-            validation_details["suggestions"].append(f"有効なノードタイプ（FunctionType, ParameterType, ReturnType）を使用してください")
+            validation_details["suggestions"].append(f"有効なノードタイプ（Function, Parameter, ReturnType）を使用してください")
             
         # 違反検出：カーディナリティ違反
         for match in re.findall(cardinality_pattern, report_text):
@@ -185,16 +198,10 @@ def analyze_validation_report(result_graph: rdflib.Graph, report_text: str) -> V
                 "プロパティの値が正しい型であるか確認してください",
                 "ノード間の関係が正しく定義されているか確認してください"
             ]
-            
-        # クエリタイプに基づく追加の提案
-        if "Match" in report_text and "FunctionType" in report_text:
-            validation_details["suggestions"].append("FunctionTypeノードを検索する場合は、title プロパティでフィルタリングすることを検討してください")
-        elif "Create" in report_text and "FunctionType" in report_text:
-            validation_details["suggestions"].append("FunctionTypeノード作成時は、title と type プロパティを必ず指定してください")
     
     except Exception as e:
         # エラー解析中に例外が発生した場合は、基本的なエラー情報のみ返す
-        validation_details: ValidationDetails = {
+        validation_details = {
             "message": "SHACL制約に違反がありますが、詳細な解析中にエラーが発生しました",
             "source": "shacl_validator",
             "violations": [{
@@ -211,19 +218,19 @@ def analyze_validation_report(result_graph: rdflib.Graph, report_text: str) -> V
     return validation_details
 
 
-def validate_against_shacl(rdf_data: str, shapes_file_path: str) -> SHACLValidationResult:
+def validate_against_shacl(rdf_data: str, shapes_type: str = "all") -> SHACLValidationResult:
     """RDFデータをSHACL制約に対して検証する統合関数
     
     Args:
         rdf_data: 検証対象のRDFデータ（Turtle形式）
-        shapes_file_path: SHACL制約ファイルのパス
+        shapes_type: 使用する制約ファイルのタイプ ("function", "parameter", "return", "all")
     
     Returns:
         SHACLValidationResult: 検証結果
     """
     try:
         # SHACL制約ファイルを読み込む
-        shapes_graph = load_shapes_file(shapes_file_path)
+        shapes_graph = load_shapes_file(shapes_type)
         
         # 検証実行
         conforms, result_graph, report_text = validate_rdf_data(rdf_data, shapes_graph)
@@ -274,3 +281,39 @@ def is_valid_result(result: SHACLValidationResult) -> bool:
         bool: 検証に成功していればTrue、それ以外はFalse
     """
     return isinstance(result, dict) and "is_valid" in result and result["is_valid"] is True
+
+
+def test_is_valid_result():
+    """is_valid_result関数のテスト"""
+    # 成功結果
+    success_result: SHACLValidationResult = {
+        "is_valid": True,
+        "report": "検証成功",
+        "details": {"message": "すべての検証に成功しました", "source": "test"}
+    }
+    assert is_valid_result(success_result) is True
+    
+    # 失敗結果
+    failure_result: SHACLValidationResult = {
+        "is_valid": False,
+        "report": "検証失敗",
+        "details": {
+            "message": "検証に失敗しました",
+            "source": "test",
+            "violations": [{"type": "test", "message": "テストエラー", "severity": "error"}],
+            "suggestions": ["テスト提案"]
+        }
+    }
+    assert is_valid_result(failure_result) is False
+    
+    # エラー結果
+    error_result: SHACLValidationResult = {
+        "code": "TEST_ERROR",
+        "message": "テストエラー"
+    }
+    assert is_valid_result(error_result) is False
+
+
+if __name__ == "__main__":
+    import pytest
+    pytest.main([__file__])

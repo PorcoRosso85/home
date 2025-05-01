@@ -63,28 +63,13 @@ class SHACLValidationDetails(TypedDict):
     summary: str  # 要約
 
 
-class SHACLValidationSuccess(TypedDict):
-    """SHACL検証成功"""
-    is_valid: Literal[True]
-    report: str
-    details: Dict[str, Any]
-
-
-class SHACLValidationFailure(TypedDict):
-    """SHACL検証失敗"""
-    is_valid: Literal[False]
-    report: str
-    details: SHACLValidationDetails
-    error_type: str  # エラータイプ (shacl_violation, validation_error, etc.)
-
-
-class SHACLValidationError(TypedDict):
-    """SHACL検証エラー"""
-    code: str
-    message: str
-
-
-SHACLValidationResult = Union[SHACLValidationSuccess, SHACLValidationFailure, SHACLValidationError]
+# SHACL検証型は domain.validation.types に移動しました
+from upsert.domain.validation.types import (
+    SHACLValidationSuccess,
+    SHACLValidationFailure,
+    SHACLValidationError,
+    SHACLValidationResult,
+)
 
 
 # クエリ検証と補完の拡張型

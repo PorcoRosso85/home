@@ -38,26 +38,13 @@ class DatabaseInitializationError(TypedDict):
 DatabaseInitializationResult = Union[DatabaseInitializationSuccess, DatabaseInitializationError]
 
 
-# SHACL検証サービスの型
-class SHACLValidationSuccess(TypedDict):
-    """SHACL検証成功結果"""
-    is_valid: Literal[True]
-    report: str
-
-
-class SHACLValidationFailure(TypedDict):
-    """SHACL検証失敗結果"""
-    is_valid: Literal[False]
-    report: str
-
-
-class SHACLValidationError(TypedDict):
-    """SHACL検証エラー（例：ファイルが見つからないなど）"""
-    code: str
-    message: str
-
-
-SHACLValidationResult = Union[SHACLValidationSuccess, SHACLValidationFailure, SHACLValidationError]
+# SHACL検証サービスの型は domain.validation.types に移動しました
+from upsert.domain.validation.types import (
+    SHACLValidationSuccess,
+    SHACLValidationFailure,
+    SHACLValidationError,
+    SHACLValidationResult,
+)
 
 
 # SHACLエラーと制約に関する拡張型定義

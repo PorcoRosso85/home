@@ -1,0 +1,37 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex: <http://example.org/> .
+
+# Parameter型の制約
+ex:ParameterShape
+    a sh:NodeShape ;
+    sh:targetClass ex:Parameter ;
+    sh:property [
+        sh:path ex:name ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:message "パラメータには必ずnameプロパティが必要です" ;
+    ] ;
+    sh:property [
+        sh:path ex:type ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:message "パラメータには必ずtypeプロパティが必要です" ;
+    ] ;
+    sh:property [
+        sh:path ex:description ;
+        sh:datatype xsd:string ;
+        sh:message "パラメータの説明を記述するdescriptionプロパティは省略可能です" ;
+    ] ;
+    sh:property [
+        sh:path ex:required ;
+        sh:datatype xsd:boolean ;
+        sh:message "requiredプロパティはboolean型である必要があります" ;
+    ] ;
+    sh:property [
+        sh:path ex:order_index ;
+        sh:datatype xsd:integer ;
+        sh:message "order_indexプロパティは整数型である必要があります" ;
+    ] .

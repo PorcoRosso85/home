@@ -14,24 +14,24 @@ from upsert.application.types import (
     RDFGenerationError,
     RDFGenerationResult,
 )
-from upsert.domain.types import (
+from upsert.domain.validation.types import (
     SHACLValidationResult,
     SHACLValidationSuccess,
     SHACLValidationFailure,
     SHACLValidationError,
 )
-from upsert.domain.services.shacl_validator import (
+from upsert.domain.validation.shacl_validator import (
     validate_against_shacl as domain_validate_against_shacl,
 )
-from upsert.infrastructure.schemas.shacl_loader import (
-    get_default_shapes_path,
-    ensure_shapes_file_exists,
+from query.schema.shacl import (
+    get_shapes_file_path,
+    ensure_shapes_files_exist,
 )
 
 
 # 定数の初期化
-SHAPES_PATH = get_default_shapes_path()
-ensure_shapes_file_exists(SHAPES_PATH)
+SHAPES_PATH = "all"  # すべての制約ファイルを使用
+ensure_shapes_files_exist()
 
 
 def generate_rdf_from_function_type(function_type_data: Dict[str, Any]) -> RDFGenerationResult:
@@ -200,20 +200,20 @@ def generate_rdf_from_cypher_query(query: str) -> RDFGenerationResult:
         }
 
 
-def validate_against_shacl(rdf_data: str, shapes_file: str = SHAPES_PATH) -> SHACLValidationResult:
+def validate_against_shacl(rdf_data: str, shapes_type: str = SHAPES_PATH) -> SHACLValidationResult:
     """RDFデータをSHACL制約に対して検証する
     
     アプリケーションレイヤーのインターフェースとして、ドメインレイヤーの検証機能を呼び出す
     
     Args:
         rdf_data: 検証対象のRDFデータ（Turtle形式）
-        shapes_file: SHACL制約ファイルのパス（デフォルト: design_shapes.ttl）
+        shapes_type: 使用する制約ファイルのタイプ ("function", "parameter", "return", "all")
     
     Returns:
         SHACLValidationResult: 検証結果（詳細な解析結果を含む）
     """
     # ドメインレイヤーの検証機能を呼び出す
-    return domain_validate_against_shacl(rdf_data, shapes_file)
+    return domain_validate_against_shacl(rdf_data, shapes_type)
         
         
 # テスト関数
@@ -259,16 +259,15 @@ def test_generate_rdf_from_function_type() -> None:
 
 def test_validate_against_shacl() -> None:
     """validate_against_shacl関数のテスト"""
-    # ファイルが存在しない場合のテスト
-    result = validate_against_shacl("", "/path/to/nonexistent/file.ttl")
+    # 不正なSHAPESタイプのテスト
+    result = validate_against_shacl("", "invalid_type")
     assert "code" in result
     assert result["code"] == "SHAPES_FILE_NOT_FOUND"
     
     # 不正なRDFデータのテスト
-    if os.path.exists(SHAPES_PATH):
-        result = validate_against_shacl("invalid turtle syntax")
-        assert "code" in result
-        assert result["code"] == "VALIDATION_ERROR"
+    result = validate_against_shacl("invalid turtle syntax")
+    assert "code" in result
+    assert result["code"] == "VALIDATION_ERROR"
 
 
 if __name__ == "__main__":

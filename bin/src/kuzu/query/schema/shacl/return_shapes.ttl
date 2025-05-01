@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex: <http://example.org/> .
+
+# ReturnType型の制約
+ex:ReturnTypeShape
+    a sh:NodeShape ;
+    sh:targetClass ex:ReturnType ;
+    sh:property [
+        sh:path ex:type ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:message "戻り値には必ずtypeプロパティが必要です" ;
+    ] ;
+    sh:property [
+        sh:path ex:description ;
+        sh:datatype xsd:string ;
+        sh:message "戻り値の説明を記述するdescriptionプロパティは省略可能です" ;
+    ] .
