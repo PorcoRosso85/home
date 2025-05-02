@@ -211,13 +211,17 @@
   rules:
     - すべての関数にユニットテストを書くこと
     - テストは関数の入出力のみに焦点を当てること
-    - モックやスタブを活用して依存関係を分離すること
-    - 別途テストファイルは作成せず、実装ファイル内に単体テストを記述すること
     - テストは目的を明確に示す命名を使用すること
     - テストはpytestの規約に従って記述すること（assert文を使用）
+    - 以下の2種類のテストを区別すること:
+      - 単体テスト: 実装ファイル内に記述し、if __name__ == "__main__"ブロック内で実行
+      - E2Eテスト: tests/e2e ディレクトリ内の専用ファイルに記述
+    - 単体テストは別途テストファイルは作成せず、実装ファイル内に記述すること
+    - E2Eテストは tests/e2e 内の適切なサブディレクトリに配置すること（例: interface, application）
+    - E2Eテストは必ずpytestのフィクスチャ機能を活用してクリーンアップメカニズムを実装し、テスト実行時に作成されたファイルを削除すること
     - if __name__ == "__main__"ブロック内にテストケースを記述し、ファイル単体実行時にテストが実行されるようにすること
   examples:
-    good: |
+    unit_test: |
       # 実装例
       def add(a: int, b: int) -> int:
           return a + b
@@ -235,10 +239,80 @@
           
           # このモジュールのテストを実行
           pytest.main([__file__])
+    
+    e2e_test: |
+      """
+      CLIのE2Eテスト
+      
+      このモジュールはCLIインターフェースのエンドツーエンドテストを提供します。
+      """
+      
+      import os
+      import pytest
+      
+      # ファイルクリーンアップを管理するフィクスチャ
+      @pytest.fixture(scope="session", autouse=True)
+      def cleanup_test_files():
+          temp_files = []
           
-          # または以下のように独自のテスト実行ロジックを実装することも可能
-          # verify_addition()
-          # print("All tests passed!")
+          # 前処理
+          yield temp_files
+          
+          # 後処理: 作成したファイルをクリーンアップ
+          for file_path in temp_files:
+              if os.path.exists(file_path):
+                  os.remove(file_path)
+                  print(f"削除: {file_path}")
+      
+      # テストケース
+      def test_command_execution(tmp_path, cleanup_test_files):
+          # 一時ファイルのパスを設定
+          temp_file = tmp_path / "test_file.txt"
+          cleanup_test_files.append(str(temp_file))
+          
+          # テスト実行
+          # ...
+          
+          # 検証
+          assert temp_file.exists()
+
+## 最小構成の記述:
+  rules:
+    - 各テストは単一の機能や動作に焦点を当てること
+    - テストコードは簡潔かつ明確に保ち、過度な複雑さを避けること
+    - テストの前提条件、実行内容、期待される結果を明確にすること
+    - 冗長なアサーションや検証は避け、必要最小限のチェックに留めること
+    - テスト間の依存関係を最小限に抑え、独立して実行可能な構造にすること
+    - pytestの標準機能（tmp_path、monkeypatchなど）を最大限に活用すること
+  examples:
+    good: |
+      def test_init_command_creates_database(tmp_path, cleanup_test_files):
+          # 前提条件
+          db_dir = tmp_path / "test_db"
+          db_dir.mkdir()
+          cleanup_test_files.append(str(db_dir))
+          
+          # 実行
+          result = execute_init_command(str(db_dir))
+          
+          # 検証（最小限のチェック）
+          assert result["success"] is True
+          assert (db_dir / "database.kuzu").exists()
+    
+    avoid: |
+      # 避けるべき例: 複数の機能を一度にテストしている
+      def test_multiple_features():
+          # 初期化をテスト
+          result1 = execute_init_command()
+          assert result1["success"] is True
+          
+          # クエリ実行もテスト
+          result2 = execute_query_command("MATCH (n) RETURN n")
+          assert result2["success"] is True
+          
+          # データ取得もテスト
+          result3 = execute_get_command("function1")
+          assert result3["success"] is True
 
 ## ドキュメント:
   rules:
