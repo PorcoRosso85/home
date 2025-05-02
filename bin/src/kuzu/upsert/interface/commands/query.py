@@ -158,22 +158,26 @@ def handle_query(query: str = None, param_strings: Optional[List[str]] = None,
         validation_level=validation_level
     )
     
-    # エラーがあるか確認
-    if not result.get("success", False):
+    # 修正: 実行結果に基づいて成功・失敗を判断
+    execution = result.get("execution", {})
+    execution_success = execution.get("success", False)
+    
+    # エラーがあるか確認 - executionの成功・失敗に基づく
+    if not execution_success:
         error_type = ErrorCode.QUERY_EXECUTION_ERROR
         
         # エラータイプの詳細な判定
         if "validation" in result and not result["validation"].get("is_valid", False):
             error_type = ErrorCode.QUERY_VALIDATION_ERROR
-        elif "execution" in result and not result["execution"].get("success", False):
-            error_message = result["execution"].get("message", "")
+        elif "execution" in result:
+            error_message = execution.get("message", "")
             if "syntax" in error_message.lower():
                 error_type = ErrorCode.QUERY_SYNTAX_ERROR
         
         return create_command_error(
             command="query",
             error_type=error_type,
-            message=result.get("message", ERROR_MESSAGES[error_type]),
+            message=execution.get("message", ERROR_MESSAGES[error_type]),
             details=result
         )
     
