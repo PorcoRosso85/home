@@ -9,8 +9,6 @@ CONVENTION.yamlの規約に準拠し、関数型プログラミングアプロ�
 from upsert.infrastructure.service import yaml_service
 from upsert.infrastructure.service import json_service
 from upsert.infrastructure.service import json5_service
-from upsert.infrastructure.service import jsonl_service
-from upsert.infrastructure.service import csv_service
 from upsert.infrastructure.service.file_loader import (
     load_file, 
     get_supported_extensions, 

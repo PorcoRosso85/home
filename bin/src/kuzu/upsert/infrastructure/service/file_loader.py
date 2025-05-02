@@ -10,12 +10,12 @@ from typing import Dict, Any, List, Optional, Callable, Union
 
 from upsert.infrastructure.types import (
     FileLoadResult, FileLoadError,
-    YAMLLoadResult, JSONLoadResult, JSON5LoadResult, JSONLLoadResult, CSVLoadResult
+    YAMLLoadResult, JSONLoadResult, JSON5LoadResult
 )
 from upsert.infrastructure.logger import log_debug, log_warning
 
 # 各サービスモジュールをインポート
-from upsert.infrastructure.service import yaml_service, json_service, json5_service, jsonl_service, csv_service
+from upsert.infrastructure.service import yaml_service, json_service, json5_service
 
 
 def get_supported_extensions() -> Dict[str, List[str]]:
@@ -27,9 +27,7 @@ def get_supported_extensions() -> Dict[str, List[str]]:
     return {
         "yaml": yaml_service.get_supported_extensions(),
         "json": json_service.get_supported_extensions(),
-        "json5": json5_service.get_supported_extensions(),
-        "jsonl": jsonl_service.get_supported_extensions(),
-        "csv": csv_service.get_supported_extensions()
+        "json5": json5_service.get_supported_extensions()
     }
 
 
@@ -69,14 +67,6 @@ def get_loader_function_for_extension(extension: str) -> Optional[Callable[[str]
     for ext in json5_service.get_supported_extensions():
         if extension == ext:
             return json5_service.load_json5_file
-    
-    for ext in jsonl_service.get_supported_extensions():
-        if extension == ext:
-            return jsonl_service.load_jsonl_file
-    
-    for ext in csv_service.get_supported_extensions():
-        if extension == ext:
-            return csv_service.load_csv_file
     
     return None
 
