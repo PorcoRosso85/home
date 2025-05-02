@@ -26,6 +26,12 @@ from upsert.interface.types import (
     CommandResult,
     CommandError,
     CommandSuccess,
+    ErrorCode,
+    ERROR_MESSAGES,
+    get_error_code,
+    get_error_message,
+    create_command_error,
+    create_command_success
 )
 from upsert.infrastructure.variables import ROOT_DIR, DB_DIR, QUERY_DIR, INIT_DIR
 from upsert.interface.commands import get_command, get_command_names, get_all_commands
@@ -35,6 +41,7 @@ from upsert.interface.commands.error_handler import (
     is_debug_mode,
     safe_execute_command,
     handle_command_error,
+    display_command_error_help
 )
 
 
@@ -140,13 +147,12 @@ def execute_command(command_name: str, args: Dict[str, Any]) -> CommandResult:
     handler = command_handlers.get(command_name)
     
     if not handler:
-        return {
-            "success": False,
-            "command": command_name,
-            "error_type": "UnknownCommand",
-            "message": f"不明なコマンド: {command_name}",
-            "trace": None
-        }
+        return create_command_error(
+            command=command_name,
+            error_type=ErrorCode.UNKNOWN_COMMAND,
+            message=f"不明なコマンド: {command_name}",
+            details={"available_commands": list(command_handlers.keys())}
+        )
     
     # デバッグモードの設定
     debug_mode = args.get("debug", False) or is_debug_mode()
@@ -212,35 +218,30 @@ def execute_command(command_name: str, args: Dict[str, Any]) -> CommandResult:
     if "verbose" in args and args["verbose"]:
         print(f"DEBUG: 渡される引数（フィルタ後）: {command_args}")
     
-    # TODO: try/exceptは規約違反 - CONVENTION.mdで禁止されている例外処理を使用している。エラー型による明示的なエラー処理に変更する。
-    try:
-        # コマンドの実行
-        result = safe_execute_command(handler, command_args, command_name, debug_mode)
-        
-        # 結果の整形
-        if isinstance(result, dict) and "success" in result:
-            if result["success"]:
-                # 既に適切な形式の場合
-                return result
-            else:
-                # エラー結果を適切な形式に整形
-                return {
-                    "success": False,
-                    "command": command_name,
-                    "error_type": result.get("error_type", "CommandError"),
-                    "message": result.get("message", "不明なエラー"),
-                    "trace": result.get("trace", None)
-                }
-        else:
-            # 成功結果を適切な形式に整形
-            return {
-                "success": True,
-                "message": "コマンドが正常に実行されました",
-                "data": result
-            }
-    except Exception as e:
-        # 予期しない例外を処理
-        return handle_command_error(e, command_name, debug_mode)
+    # コマンドの実行（try/exceptを使わない安全な実行関数を使用）
+    result = safe_execute_command(handler, command_args, command_name, debug_mode)
+    
+    # 結果の確認と標準形式への変換
+    if isinstance(result, dict) and "success" in result:
+        # 既に適切な形式の場合はそのまま返す
+        return result
+    
+    # 結果がエラーかどうかを確認
+    if is_error(result):
+        # エラー結果を適切な形式に整形
+        return create_command_error(
+            command=command_name,
+            error_type=get_error_code(result) or ErrorCode.UNEXPECTED_ERROR,
+            message=get_error_message(result) or "不明なエラー",
+            details=result.get("details", {}),
+            trace=None
+        )
+    
+    # 成功結果を適切な形式に整形
+    return create_command_success(
+        message="コマンドが正常に実行されました",
+        data=result
+    )
 
 
 def find_requested_command(args: CommandArgs) -> Optional[str]:
@@ -302,159 +303,138 @@ def find_requested_command(args: CommandArgs) -> Optional[str]:
     return None
 
 
-def handle_cli_error(error_type: str, error_message: str, command_name: Optional[str] = None) -> None:
-    """CLIエラーを処理する
-    
-    Args:
-        error_type: エラータイプ
-        error_message: エラーメッセージ
-        command_name: コマンド名（オプション）
-    """
-    print(f"エラー: {error_message}", file=sys.stderr)
-    
-    # コマンド固有のエラーヘルプを取得
-    if command_name:
-        module_name = command_name.replace("handle_", "")
-        try:
-            # コマンドモジュールを動的にインポート
-            module = importlib.import_module(f"upsert.interface.commands.{module_name}")
-            
-            # エラーヘルプと実行例を取得（実装されている場合）
-            if hasattr(module, "get_error_help") and callable(getattr(module, "get_error_help")):
-                error_help = module.get_error_help(error_type)
-                print(f"\n{error_help}", file=sys.stderr)
-            
-            # 実行例を取得
-            if hasattr(module, "get_command_examples") and callable(getattr(module, "get_command_examples")):
-                examples = module.get_command_examples()
-                if examples:
-                    print("\n実行例:", file=sys.stderr)
-                    for example in examples:
-                        print(f"  {example}", file=sys.stderr)
-            
-        except (ImportError, AttributeError):
-            # モジュールや関数が見つからない場合は一般的なヘルプを表示
-            print("\n詳細なヘルプを表示するには:", file=sys.stderr)
-            print("  python -m upsert --help", file=sys.stderr)
-    else:
-        # 一般的なヘルプを表示
-        print("\n詳細なヘルプを表示するには:", file=sys.stderr)
-        print("  python -m upsert --help", file=sys.stderr)
+
+# エラーハンドリング関数は error_handler モジュールに移動しました
+# 古い handle_cli_error 関数は削除しました
 
 
 def main() -> None:
     """メイン関数"""
-    # TODO: try/exceptは規約違反 - CONVENTION.mdで禁止されている例外処理を使用している。各コマンドから提供されるエラー型とエラーヘルプを使用した明示的なエラー処理に変更する。
-    try:
-        # コマンドライン引数の解析
-        args = parse_arguments()
+    # コマンドライン引数の解析
+    args = parse_arguments()
+    
+    # デバッグ情報の表示
+    verbose = args.get("verbose", False)
+    if verbose:
+        print(f"DEBUG: 引数: {args}")
         
-        # デバッグ情報の表示
-        verbose = args.get("verbose", False)
-        if verbose:
-            print(f"DEBUG: 引数: {args}")
-            
-        # クエリコマンドの特殊処理
-        if 'query' in args and args['query'] is not None:
-            print(f"DEBUG: クエリ引数: {args['query']}")
-            # query引数に値が入るはずだが、空の場合はstring型のフラグとして処理されている可能性
-            if args['query'] is True:
-                print("WARNING: クエリ引数が値なしフラグとして処理されています")
-                # 次の引数がクエリの本体かもしれない
-                next_arg = sys.argv[sys.argv.index('--query') + 1] if '--query' in sys.argv and sys.argv.index('--query') + 1 < len(sys.argv) else None
-                if next_arg and not next_arg.startswith('--'):
-                    print(f"INFO: 次の引数をクエリとして使用します: {next_arg}")
-                    args['query'] = next_arg
-        
-        # 利用可能なコマンドハンドラーを取得して有効なコマンドをチェック
-        available_handlers = get_command_handlers()
-        
-        # 有効なコマンド名のリストを作成（handle_ 接頭辞を除去）
-        valid_command_bases = [cmd_name.replace('handle_', '') for cmd_name in available_handlers.keys()]
-        
-        # デバッグ情報を表示
-        if verbose:
-            # 利用可能なコマンドハンドラー一覧
-            available_handlers = get_command_handlers()
-            print(f"DEBUG: 利用可能なコマンドハンドラー: {list(available_handlers.keys())}")
-        
-        # 明示的なコマンドがあるか確認 - store_trueアクションの場合はTrueかどうかも確認
-        has_command = False
-        found_command = None  # 見つかったコマンドを保存
-        
-        # 優先度順にコマンドを確認
-        command_priority = ['init', 'get', 'query', 'init_convention', 'create_shapes', 'test']
-        for cmd in command_priority:
-            if cmd in args and args[cmd] is not None:
-                # store_true オプションの場合はTrueかどうかも確認
-                if isinstance(args[cmd], bool):
-                    if args[cmd]:  # Trueの場合のみ有効なコマンドとして扱う
-                        has_command = True
-                        found_command = cmd
-                        break
-                else:
-                    # 他のタイプの引数（文字列など）の場合は値があれば有効
+    # クエリコマンドの特殊処理
+    if 'query' in args and args['query'] is not None:
+        print(f"DEBUG: クエリ引数: {args['query']}")
+        # query引数に値が入るはずだが、空の場合はstring型のフラグとして処理されている可能性
+        if args['query'] is True:
+            print("WARNING: クエリ引数が値なしフラグとして処理されています")
+            # 次の引数がクエリの本体かもしれない
+            next_arg = sys.argv[sys.argv.index('--query') + 1] if '--query' in sys.argv and sys.argv.index('--query') + 1 < len(sys.argv) else None
+            if next_arg and not next_arg.startswith('--'):
+                print(f"INFO: 次の引数をクエリとして使用します: {next_arg}")
+                args['query'] = next_arg
+    
+    # 利用可能なコマンドハンドラーを取得して有効なコマンドをチェック
+    available_handlers = get_command_handlers()
+    
+    # 有効なコマンド名のリストを作成（handle_ 接頭辞を除去）
+    valid_command_bases = [cmd_name.replace('handle_', '') for cmd_name in available_handlers.keys()]
+    
+    # デバッグ情報を表示
+    if verbose:
+        # 利用可能なコマンドハンドラー一覧
+        print(f"DEBUG: 利用可能なコマンドハンドラー: {list(available_handlers.keys())}")
+    
+    # 明示的なコマンドがあるか確認 - store_trueアクションの場合はTrueかどうかも確認
+    has_command = False
+    found_command = None  # 見つかったコマンドを保存
+    
+    # 優先度順にコマンドを確認
+    command_priority = ['init', 'get', 'query', 'init_convention', 'create_shapes', 'test']
+    for cmd in command_priority:
+        if cmd in args and args[cmd] is not None:
+            # store_true オプションの場合はTrueかどうかも確認
+            if isinstance(args[cmd], bool):
+                if args[cmd]:  # Trueの場合のみ有効なコマンドとして扱う
                     has_command = True
                     found_command = cmd
                     break
+            else:
+                # 他のタイプの引数（文字列など）の場合は値があれば有効
+                has_command = True
+                found_command = cmd
+                break
+    
+    # 明示的なコマンドがない場合はヘルプのみ表示して終了
+    if not has_command:
+        # エラー情報を作成
+        error_info = create_command_error(
+            command="main",
+            error_type=ErrorCode.MISSING_REQUIRED_ARGUMENT,
+            message="有効なコマンドが指定されていません",
+            details={"available_commands": valid_command_bases}
+        )
         
-        # 明示的なコマンドがない場合はヘルプのみ表示して終了
-        if not has_command:
-            handle_cli_error("no_command", "有効なコマンドが指定されていません")
-            print("使用方法を確認するには以下のコマンドを実行してください：")
-            print("  python -m upsert --help")
-            print("\n利用可能なコマンド:")
-            
-            # 動的に検出されたコマンド一覧を表示
-            valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
-            for cmd in sorted(valid_commands):
-                print(f"  {cmd}")
-            
-            return
-            
-        # 実行するコマンドを特定
-        if found_command:
-            command_name = f"handle_{found_command}"
-        else:
-            command_name = find_requested_command(args)
+        # エラーの表示
+        print(f"エラー: {error_info['message']}", file=sys.stderr)
         
-        # コマンドが指定されていない場合はヘルプを表示
-        if not command_name:
-            handle_cli_error("no_command", "有効なコマンドが指定されていません")
-            print("使用方法を確認するには以下のコマンドを実行してください：")
-            print("  python -m upsert --help")
-            print("\n利用可能なコマンド:")
-            
-            # 動的に検出されたコマンド一覧を表示
-            valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
-            for cmd in sorted(valid_commands):
-                print(f"  {cmd}")
-            
-            return
+        # 使用方法と利用可能なコマンドを表示
+        print("使用方法を確認するには以下のコマンドを実行してください：", file=sys.stderr)
+        print("  python -m upsert --help", file=sys.stderr)
+        print("\n利用可能なコマンド:", file=sys.stderr)
         
-        # コマンドを実行
-        result = execute_command(command_name, args)
+        # 動的に検出されたコマンド一覧を表示
+        valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
+        for cmd in sorted(valid_commands):
+            print(f"  {cmd}", file=sys.stderr)
         
-        # 実行結果の処理
-        if not result["success"]:
-            # エラー表示・ヘルプ表示
-            base_command = command_name.replace("handle_", "")
-            handle_cli_error(result.get("error_type", "unknown"), result.get("message", "不明なエラー"), base_command)
-            
-            # デバッグ情報（トレース）の表示
-            if args.get("debug", False) or is_debug_mode():
-                if result.get("trace"):
-                    print(result["trace"], file=sys.stderr)
-            
-            sys.exit(1)
-    except Exception as e:
-        # 例外をキャッチしてエラーメッセージを表示
-        handle_cli_error("unexpected_error", f"予期しないエラーが発生しました: {str(e)}")
+        sys.exit(1)
         
-        # デバッグモードの場合はスタックトレースを表示
-        if is_debug_mode():
-            import traceback
-            traceback.print_exc()
+    # 実行するコマンドを特定
+    if found_command:
+        command_name = f"handle_{found_command}"
+    else:
+        command_name = find_requested_command(args)
+    
+    # コマンドが指定されていない場合はヘルプを表示
+    if not command_name:
+        # エラー情報を作成
+        error_info = create_command_error(
+            command="main",
+            error_type=ErrorCode.UNKNOWN_COMMAND,
+            message="有効なコマンドが指定されていません",
+            details={"available_commands": valid_command_bases}
+        )
+        
+        # エラーの表示
+        print(f"エラー: {error_info['message']}", file=sys.stderr)
+        
+        # 使用方法と利用可能なコマンドを表示
+        print("使用方法を確認するには以下のコマンドを実行してください：", file=sys.stderr)
+        print("  python -m upsert --help", file=sys.stderr)
+        print("\n利用可能なコマンド:", file=sys.stderr)
+        
+        # 動的に検出されたコマンド一覧を表示
+        valid_commands = [f"--{cmd}" for cmd in valid_command_bases]
+        for cmd in sorted(valid_commands):
+            print(f"  {cmd}", file=sys.stderr)
+        
+        sys.exit(1)
+    
+    # コマンドを実行
+    result = execute_command(command_name, args)
+    
+    # 実行結果の処理
+    if not result["success"]:
+        # エラー表示・ヘルプ表示
+        base_command = command_name.replace("handle_", "")
+        
+        # エラーの表示
+        print(f"エラー: {result['message']}", file=sys.stderr)
+        
+        # コマンド固有のエラーヘルプを表示
+        display_command_error_help(command_name, result.get("error_type", "unknown"))
+        
+        # デバッグ情報（トレース）の表示
+        if args.get("debug", False) or is_debug_mode():
+            if result.get("trace"):
+                print(result["trace"], file=sys.stderr)
         
         sys.exit(1)
 

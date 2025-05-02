@@ -2,18 +2,74 @@
 クエリ実行コマンドモジュール
 
 Cypherクエリを実行する機能を提供します。
+統一されたエラーハンドリング規約に準拠したエラー処理も含まれています。
 """
 
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union, Literal, TypedDict
+
+from upsert.interface.types import CommandSuccess, CommandError, ErrorCode, create_command_error, create_command_success
 
 from upsert.application.query_service import handle_query_command as app_handle_query
 from upsert.interface.commands.command_parameter_handler import parse_param_strings, get_default_db_path, is_in_memory_mode
 
 
+# クエリコマンドのエラー型を定義
+class QueryError(TypedDict):
+    """クエリコマンドエラー"""
+    error_type: Literal["QUERY_SYNTAX_ERROR", "QUERY_VALIDATION_ERROR", "QUERY_EXECUTION_ERROR", "PARAM_PARSE_ERROR", "DB_CONNECTION_ERROR"]
+    message: str
+    details: Dict[str, Any]
+
+
+# エラーヘルプメッセージを提供する関数
+def get_error_help(error_type: str) -> str:
+    """エラータイプに応じたヘルプメッセージを取得
+    
+    Args:
+        error_type: エラータイプ
+        
+    Returns:
+        str: ヘルプメッセージ
+    """
+    error_help = {
+        "QUERY_SYNTAX_ERROR": "クエリの構文にエラーがあります。正しいCypher構文であることを確認してください。\n"
+                             "コマンドの詳細なヘルプを表示するには '--query help' を実行してください。",
+        "QUERY_VALIDATION_ERROR": "クエリがSHACL検証に失敗しました。データモデルに適合するクエリであることを確認してください。\n"
+                                 "一般的な問題には以下が含まれます:\n"
+                                 "- 存在しないノードラベルやプロパティの使用\n"
+                                 "- データ型の不一致\n"
+                                 "- 無効な関係パターン",
+        "QUERY_EXECUTION_ERROR": "クエリの実行中にエラーが発生しました。以下を確認してください:\n"
+                                "- データベース接続が有効か\n"
+                                "- 参照しているデータが存在するか\n"
+                                "- パラメータが正しく指定されているか",
+        "PARAM_PARSE_ERROR": "クエリパラメータの解析に失敗しました。正しい形式は '--param name=value' です。\n"
+                            "複数のパラメータを指定する場合は '--param name1=value1 --param name2=value2' のように指定してください。",
+        "DB_CONNECTION_ERROR": "データベースへの接続に失敗しました。以下を確認してください:\n"
+                              "- データベースパスが正しいか\n"
+                              "- データベースが初期化されているか\n"
+                              "- 必要なライブラリパスが設定されているか"
+    }
+    return error_help.get(error_type, "不明なエラーが発生しました。コマンドの使用方法を確認してください。")
+
+
+# コマンド実行例を提供する関数
+def get_command_examples() -> List[str]:
+    """コマンド実行例のリストを取得
+    
+    Returns:
+        List[str]: コマンド実行例のリスト
+    """
+    return [
+        "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --query \"MATCH (n) RETURN n LIMIT 10\"",
+        "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --query \"MATCH (f:FunctionType) WHERE f.title = $title RETURN f\" --param title=MapFunction"
+    ]
+
+
 def handle_query(query: str = None, param_strings: Optional[List[str]] = None,
-                       db_path: Optional[str] = None, in_memory: Optional[bool] = None,
-                       validation_level: str = "standard", pretty: bool = True) -> Dict[str, Any]:
+                      db_path: Optional[str] = None, in_memory: Optional[bool] = None,
+                      validation_level: str = "standard", pretty: bool = True) -> Union[CommandSuccess, CommandError]:
     """
     Cypherクエリを実行するコマンドを処理する
     
@@ -40,7 +96,7 @@ def handle_query(query: str = None, param_strings: Optional[List[str]] = None,
         pretty: 結果を整形して表示するかどうか
         
     Returns:
-        Dict[str, Any]: 処理結果
+        Union[CommandSuccess, CommandError]: 処理結果
     """
     # デフォルト値の適用
     if db_path is None:
@@ -71,17 +127,27 @@ def handle_query(query: str = None, param_strings: Optional[List[str]] = None,
             if "design_specific" in help_data:
                 print(f"\n【このシステム固有の情報】\n{help_data['design_specific']}")
         
-        return {"success": True, "message": "ヘルプを表示しました"}
+        return create_command_success("ヘルプを表示しました")
     
     # クエリが指定されていない場合はエラー
     if query is None:
-        return {
-            "success": False,
-            "message": "クエリが指定されていません。使用例を見るには '--query help' と入力してください。"
-        }
+        return create_command_error(
+            command="query",
+            error_type=ErrorCode.MISSING_REQUIRED_ARGUMENT,
+            message="クエリが指定されていません。使用例を見るには '--query help' と入力してください。",
+            details={"required_argument": "query"}
+        )
     
     # パラメータ文字列をパース
-    params = parse_param_strings(param_strings or [])
+    try:
+        params = parse_param_strings(param_strings or [])
+    except Exception as e:
+        return create_command_error(
+            command="query",
+            error_type=ErrorCode.PARAM_PARSE_ERROR,
+            message=f"パラメータの解析に失敗しました: {str(e)}",
+            details={"param_strings": param_strings}
+        )
     
     # クエリサービスを呼び出し
     result = app_handle_query(
@@ -92,10 +158,33 @@ def handle_query(query: str = None, param_strings: Optional[List[str]] = None,
         validation_level=validation_level
     )
     
+    # エラーがあるか確認
+    if not result.get("success", False):
+        error_type = ErrorCode.QUERY_EXECUTION_ERROR
+        
+        # エラータイプの詳細な判定
+        if "validation" in result and not result["validation"].get("is_valid", False):
+            error_type = ErrorCode.QUERY_VALIDATION_ERROR
+        elif "execution" in result and not result["execution"].get("success", False):
+            error_message = result["execution"].get("message", "")
+            if "syntax" in error_message.lower():
+                error_type = ErrorCode.QUERY_SYNTAX_ERROR
+        
+        return create_command_error(
+            command="query",
+            error_type=error_type,
+            message=result.get("message", ERROR_MESSAGES[error_type]),
+            details=result
+        )
+    
     # 結果の表示
     display_query_result(result, pretty)
     
-    return result
+    # 成功結果を返す
+    return create_command_success(
+        message="クエリが正常に実行されました",
+        data=result
+    )
 
 
 def display_query_result(result: Dict[str, Any], pretty: bool = True) -> None:

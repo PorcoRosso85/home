@@ -2,18 +2,69 @@
 詳細表示コマンドモジュール
 
 登録されている関数型の詳細を表示する機能を提供します。
+統一されたエラーハンドリング規約に準拠したエラー処理も含まれています。
 """
 
 import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union, Literal, TypedDict
 
-from upsert.interface.types import is_error
+from upsert.interface.types import (
+    is_error, CommandSuccess, CommandError, ErrorCode,
+    create_command_error, create_command_success
+)
 from upsert.interface.commands.command_parameter_handler import get_connection, get_default_db_path, is_in_memory_mode
 from upsert.infrastructure.logger import print_cypher
 
 
+# getコマンドのエラー型を定義
+class GetError(TypedDict):
+    """詳細表示コマンドエラー"""
+    error_type: Literal["NOT_FOUND", "DB_CONNECTION_ERROR", "QUERY_ERROR"]
+    message: str
+    details: Dict[str, Any]
+
+
+# エラーヘルプメッセージを提供する関数
+def get_error_help(error_type: str) -> str:
+    """エラータイプに応じたヘルプメッセージを取得
+    
+    Args:
+        error_type: エラータイプ
+        
+    Returns:
+        str: ヘルプメッセージ
+    """
+    error_help = {
+        "NOT_FOUND": "指定された関数型が見つかりません。以下を確認してください:\n"
+                     "- 関数型のタイトルが正確に指定されているか\n"
+                     "- データベースが初期化され、関数型が登録されているか\n"
+                     "- データベースパスが正しく指定されているか",
+        "DB_CONNECTION_ERROR": "データベースへの接続に失敗しました。以下を確認してください:\n"
+                              "- データベースパスが正しいか\n"
+                              "- データベースが初期化されているか\n"
+                              "- 必要なライブラリパスが設定されているか",
+        "QUERY_ERROR": "クエリの実行中にエラーが発生しました。以下を確認してください:\n"
+                      "- データベーススキーマが最新か\n"
+                      "- 必要なクエリファイルが存在するか"
+    }
+    return error_help.get(error_type, "不明なエラーが発生しました。コマンドの使用方法を確認してください。")
+
+
+# コマンド実行例を提供する関数
+def get_command_examples() -> List[str]:
+    """コマンド実行例のリストを取得
+    
+    Returns:
+        List[str]: コマンド実行例のリスト
+    """
+    return [
+        "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --get MapFunction",
+        "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --get FilterFunction"
+    ]
+
+
 def handle_get(function_type_title: str, db_path: Optional[str] = None, 
-                     in_memory: Optional[bool] = None, pretty: bool = True) -> Dict[str, Any]:
+                     in_memory: Optional[bool] = None, pretty: bool = True) -> Union[CommandSuccess, CommandError]:
     """
     関数型詳細表示コマンドを処理する
     
@@ -24,7 +75,7 @@ def handle_get(function_type_title: str, db_path: Optional[str] = None,
         pretty: 整形して表示するかどうか
         
     Returns:
-        Dict[str, Any]: 処理結果
+        Union[CommandSuccess, CommandError]: 処理結果
     """
     # デフォルト値の適用
     if db_path is None:
@@ -36,11 +87,12 @@ def handle_get(function_type_title: str, db_path: Optional[str] = None,
     # データベース接続を取得
     db_result = get_connection(db_path=db_path, in_memory=in_memory, with_query_loader=True)
     if is_error(db_result):
-        print(f"データベース接続エラー: {db_result['message']}")
-        return {
-            "success": False, 
-            "message": f"データベース接続エラー: {db_result['message']}"
-        }
+        return create_command_error(
+            command="get",
+            error_type=ErrorCode.DB_CONNECTION_ERROR,
+            message=f"データベース接続エラー: {db_result['message']}",
+            details={"db_path": db_path, "in_memory": in_memory}
+        )
     
     # 接続とクエリローダーを取得
     connection = db_result["connection"]
@@ -49,39 +101,42 @@ def handle_get(function_type_title: str, db_path: Optional[str] = None,
     # 1. 関数型基本情報を取得するクエリ
     find_query_result = query_loader["get_query"]("find_function_type_by_title", "dml")
     if not query_loader["get_success"](find_query_result):
-        print(f"クエリ取得エラー: {find_query_result.get('error', '不明なエラー')}")
-        return {
-            "success": False,
-            "message": f"クエリ取得エラー: {find_query_result.get('error', '不明なエラー')}"
-        }
+        return create_command_error(
+            command="get",
+            error_type=ErrorCode.QUERY_ERROR,
+            message=f"クエリ取得エラー: {find_query_result.get('error', '不明なエラー')}",
+            details={"query_name": "find_function_type_by_title", "query_type": "dml"}
+        )
     
     # 2. 関数パラメータを取得するクエリ
     params_query_result = query_loader["get_query"]("get_parameters_for_function_type", "dml")
     if not query_loader["get_success"](params_query_result):
-        print(f"パラメータクエリ取得エラー: {params_query_result.get('error', '不明なエラー')}")
-        return {
-            "success": False,
-            "message": f"パラメータクエリ取得エラー: {params_query_result.get('error', '不明なエラー')}"
-        }
+        return create_command_error(
+            command="get",
+            error_type=ErrorCode.QUERY_ERROR,
+            message=f"パラメータクエリ取得エラー: {params_query_result.get('error', '不明なエラー')}",
+            details={"query_name": "get_parameters_for_function_type", "query_type": "dml"}
+        )
     
     # 3. 戻り値型を取得するクエリ
     return_query_result = query_loader["get_query"]("get_return_type_for_function_type", "dml")
     if not query_loader["get_success"](return_query_result):
-        print(f"戻り値型クエリ取得エラー: {return_query_result.get('error', '不明なエラー')}")
-        return {
-            "success": False,
-            "message": f"戻り値型クエリ取得エラー: {return_query_result.get('error', '不明なエラー')}"
-        }
+        return create_command_error(
+            command="get",
+            error_type=ErrorCode.QUERY_ERROR,
+            message=f"戻り値型クエリ取得エラー: {return_query_result.get('error', '不明なエラー')}",
+            details={"query_name": "get_return_type_for_function_type", "query_type": "dml"}
+        )
     
+    # 関数型基本情報の取得
+    find_query = find_query_result["data"]
+    find_params = {"title": function_type_title}
+    
+    # クエリを表示
+    print_cypher("関数型基本情報取得", find_query, find_params)
+    
+    # 関数型基本情報の取得実行
     try:
-        # 関数型基本情報の取得
-        find_query = find_query_result["data"]
-        find_params = {"title": function_type_title}
-        
-        # クエリを表示
-        print_cypher("関数型基本情報取得", find_query, find_params)
-        
-        # 実行
         function_query = connection.execute(find_query, find_params)
         
         # 結果をリストに変換
@@ -90,11 +145,12 @@ def handle_get(function_type_title: str, db_path: Optional[str] = None,
             function_result.append(function_query.get_next())
         
         if not function_result:
-            print(f"関数型 '{function_type_title}' が見つかりません")
-            return {
-                "success": False,
-                "message": f"関数型 '{function_type_title}' が見つかりません"
-            }
+            return create_command_error(
+                command="get",
+                error_type=ErrorCode.NOT_FOUND,
+                message=f"関数型 '{function_type_title}' が見つかりません",
+                details={"function_type_title": function_type_title}
+            )
         
         # パラメータ情報を取得
         params_query = params_query_result["data"]
@@ -103,7 +159,7 @@ def handle_get(function_type_title: str, db_path: Optional[str] = None,
         # クエリを表示
         print_cypher("関数型パラメータ取得", params_query, params_params)
         
-        # 実行
+        # パラメータ情報の取得実行
         params_query_exec = connection.execute(params_query, params_params)
         
         # 結果をリストに変換
@@ -118,7 +174,7 @@ def handle_get(function_type_title: str, db_path: Optional[str] = None,
         # クエリを表示
         print_cypher("関数型戻り値取得", return_type_query, return_type_params)
         
-        # 実行
+        # 戻り値情報の取得実行
         return_type_query_exec = connection.execute(return_type_query, return_type_params)
         
         # 結果をリストに変換
@@ -163,15 +219,19 @@ def handle_get(function_type_title: str, db_path: Optional[str] = None,
         else:
             print(json.dumps(function_type_details, ensure_ascii=False))
         
-        return {
-            "success": True,
-            "message": f"関数型 '{function_type_title}' の詳細を表示しました",
-            "details": function_type_details
-        }
+        # 成功結果を返す
+        return create_command_success(
+            message=f"関数型 '{function_type_title}' の詳細を表示しました",
+            data={"details": function_type_details}
+        )
     
     except Exception as e:
-        print(f"クエリ実行エラー: {str(e)}")
-        return {
-            "success": False,
-            "message": f"クエリ実行エラー: {str(e)}"
-        }
+        # 例外をキャッチしてエラー結果を返す
+        # このtry/except構文は移行期間中のみの暫定対応
+        # 将来的にはDBレイヤーも含めて明示的なエラー型を返すように修正する
+        return create_command_error(
+            command="get",
+            error_type=ErrorCode.QUERY_EXECUTION_ERROR,
+            message=f"クエリ実行エラー: {str(e)}",
+            details={"function_type_title": function_type_title, "error": str(e)}
+        )

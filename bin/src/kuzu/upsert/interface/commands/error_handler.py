@@ -2,12 +2,20 @@
 エラーハンドリングモジュール
 
 CLIコマンドでのエラー発生時の処理機能を提供します。
+統一されたエラーハンドリング規約に準拠した実装となっています。
 """
 
 import sys
-import traceback
+import os
+import importlib
 import difflib
-from typing import Dict, List, Any, Callable, Optional, Tuple
+from typing import Dict, List, Any, Callable, Optional, Tuple, TypedDict, Union
+
+from upsert.interface.types import (
+    ErrorCode, ERROR_MESSAGES, CommandResult, CommandError, CommandSuccess,
+    is_error, get_error_code, get_error_message,
+    create_command_error, create_command_success
+)
 
 
 def handle_unknown_option(option: str, commands: List[str]) -> None:
@@ -18,12 +26,12 @@ def handle_unknown_option(option: str, commands: List[str]) -> None:
         option: 無効なオプション
         commands: 有効なコマンドのリスト
     """
-    print(f"エラー: 無効なオプション '{option}' が指定されました")
+    print(f"エラー: 無効なオプション '{option}' が指定されました", file=sys.stderr)
     
     # 類似したコマンドを提案
     suggestion = suggest_similar_command(option, commands)
     if suggestion:
-        print(f"もしかして: {suggestion}")
+        print(f"もしかして: {suggestion}", file=sys.stderr)
     
     print_available_commands(commands)
 
@@ -57,39 +65,106 @@ def suggest_similar_command(invalid_option: str, commands: List[str]) -> Optiona
     return None
 
 
-def handle_command_error(error: Exception, command_name: str, debug_mode: bool = False) -> Dict[str, Any]:
+def format_error_message(result: Union[CommandError, Dict[str, Any]]) -> str:
+    """
+    エラーメッセージを整形
+    
+    Args:
+        result: エラー結果
+        
+    Returns:
+        str: 整形されたエラーメッセージ
+    """
+    # エラータイプとメッセージを取得
+    error_type = result.get("error_type", "UnknownError")
+    message = result.get("message", ERROR_MESSAGES.get(error_type, "不明なエラーが発生しました"))
+    
+    # 詳細情報があれば追加
+    if "details" in result and result["details"]:
+        details_str = ", ".join(f"{k}: {v}" for k, v in result["details"].items())
+        return f"{message} ({details_str})"
+    
+    return message
+
+
+def handle_command_error(result: Union[CommandError, Dict[str, Any]], command_name: str, debug_mode: bool = False) -> CommandError:
     """
     コマンド実行中のエラー処理
     
     Args:
-        error: 発生した例外
+        result: エラー結果
         command_name: 実行中のコマンド名
         debug_mode: デバッグモードかどうか
         
     Returns:
-        Dict[str, Any]: エラー情報
+        CommandError: エラー情報
     """
-    error_type = type(error).__name__
-    error_message = str(error)
+    # 既にCommandError形式の場合はそのまま利用
+    if "success" in result and result.get("success") is False and "error_type" in result:
+        error_info = result
+    else:
+        # 古い形式のエラーを新しい形式に変換
+        error_type = result.get("error_type", ErrorCode.UNEXPECTED_ERROR)
+        message = result.get("message", ERROR_MESSAGES.get(error_type, "不明なエラーが発生しました"))
+        
+        error_info = create_command_error(
+            command=command_name,
+            error_type=error_type,
+            message=message,
+            details=result.get("details", {}),
+            trace=result.get("trace", None)
+        )
     
     # エラーメッセージの整形
-    formatted_message = f"{error_type}: {error_message}"
+    formatted_message = format_error_message(error_info)
     
-    # デバッグモードの場合はスタックトレースも表示
-    if debug_mode:
-        print(f"コマンド '{command_name}' の実行中にエラーが発生しました:", file=sys.stderr)
-        traceback.print_exc()
-    else:
-        print(f"エラー: コマンド '{command_name}' の実行中に問題が発生しました: {formatted_message}", file=sys.stderr)
-        print("詳細なエラー情報を表示するには、DEBUG=true 環境変数を設定してください", file=sys.stderr)
+    # エラーの表示
+    print(f"エラー: {formatted_message}", file=sys.stderr)
     
-    return {
-        "success": False,
-        "command": command_name,
-        "error_type": error_type,
-        "message": error_message,
-        "trace": traceback.format_exc() if debug_mode else None
-    }
+    # コマンド固有のエラーヘルプを表示
+    display_command_error_help(command_name, error_info.get("error_type", "UnknownError"))
+    
+    # デバッグモードの場合はトレース情報も表示
+    if debug_mode and "trace" in error_info and error_info["trace"]:
+        print("\nデバッグ情報:", file=sys.stderr)
+        print(error_info["trace"], file=sys.stderr)
+    
+    return error_info
+
+
+def display_command_error_help(command_name: str, error_type: str) -> None:
+    """
+    コマンド固有のエラーヘルプを表示
+    
+    Args:
+        command_name: コマンド名
+        error_type: エラータイプ
+    """
+    # コマンド名からモジュール名を取得
+    # handle_init -> init
+    module_name = command_name.replace("handle_", "")
+    
+    try:
+        # コマンドモジュールを動的にインポート
+        module = importlib.import_module(f"upsert.interface.commands.{module_name}")
+        
+        # エラーヘルプと実行例を取得
+        if hasattr(module, "get_error_help") and callable(getattr(module, "get_error_help")):
+            error_help = module.get_error_help(error_type)
+            if error_help:
+                print(f"\n{error_help}", file=sys.stderr)
+        
+        # 実行例を取得
+        if hasattr(module, "get_command_examples") and callable(getattr(module, "get_command_examples")):
+            examples = module.get_command_examples()
+            if examples:
+                print("\n実行例:", file=sys.stderr)
+                for example in examples:
+                    print(f"  {example}", file=sys.stderr)
+    except (ImportError, AttributeError):
+        # モジュールや関数が見つからない場合は一般的なヘルプを表示
+        print("\n詳細なヘルプを表示するには:", file=sys.stderr)
+        print("  python -m upsert --help", file=sys.stderr)
 
 
 def print_available_commands(commands: List[str]) -> None:
@@ -100,21 +175,21 @@ def print_available_commands(commands: List[str]) -> None:
         commands: 有効なコマンドのリスト
     """
     if not commands:
-        print("利用可能なコマンドはありません")
+        print("利用可能なコマンドはありません", file=sys.stderr)
         return
     
-    print("\n利用可能なコマンド:")
+    print("\n利用可能なコマンド:", file=sys.stderr)
     for cmd in sorted(commands):
-        print(f"  --{cmd.replace('_', '-')}")
+        print(f"  --{cmd.replace('_', '-')}", file=sys.stderr)
     
-    print("\n詳細なヘルプを表示するには:")
-    print("  python -m upsert --help")
+    print("\n詳細なヘルプを表示するには:", file=sys.stderr)
+    print("  python -m upsert --help", file=sys.stderr)
 
 
 def safe_execute_command(command_func: Callable, args: Dict[str, Any], command_name: str, 
-                         debug_mode: bool = False) -> Dict[str, Any]:
+                         debug_mode: bool = False) -> CommandResult:
     """
-    コマンドを安全に実行し、例外をキャッチする
+    コマンドを安全に実行する
     
     Args:
         command_func: コマンド関数
@@ -123,12 +198,25 @@ def safe_execute_command(command_func: Callable, args: Dict[str, Any], command_n
         debug_mode: デバッグモードかどうか
         
     Returns:
-        Dict[str, Any]: 実行結果またはエラー情報
+        CommandResult: 実行結果
     """
-    try:
-        return command_func(**args)
-    except Exception as e:
-        return handle_command_error(e, command_name, debug_mode)
+    # 関数を呼び出し、エラーチェックを行う
+    # 注意: try/except は使用しない
+    result = command_func(**args)
+    
+    # 結果がエラーかどうかをチェック
+    if is_error(result):
+        # エラー結果を標準化
+        return handle_command_error(result, command_name, debug_mode)
+    
+    # 正常結果を返す
+    if isinstance(result, dict) and "success" in result and result["success"] is True:
+        # 既にCommandSuccess形式の場合はそのまま返す
+        return result
+    else:
+        # 古い形式の成功結果を新しい形式に変換
+        message = result.get("message", "コマンドが正常に実行されました")
+        return create_command_success(message=message, data=result)
 
 
 def format_command_help(commands_help: Dict[str, str]) -> str:
@@ -156,5 +244,4 @@ def is_debug_mode() -> bool:
     Returns:
         bool: デバッグモードならTrue
     """
-    import os
     return os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
