@@ -806,55 +806,37 @@ def process_init_file(
             {"file_path": file_path}
         )
     
-    # ファイル拡張子に基づいて処理
-    _, ext = os.path.splitext(file_path)
+    # インフラストラクチャ層のファイルローダーサービスを使用
+    from upsert.infrastructure.service.file_loader import load_file
     
-    # データの読み込み
-    if ext.lower() in ['.yml', '.yaml']:
-        # 注意: YAMLファイル読み込み開始のログは被呼び出し側で出力するため、ここでは出力しない
-        yaml_result = load_yaml_file(file_path)
-        if "code" in yaml_result:
-            # エラーがあれば処理中止
-            log_error(f"YAMLファイル読み込みエラー: {yaml_result['message']}")
-            return create_error(
-                "FILE_LOAD_ERROR",
-                yaml_result["message"],
-                {"file_path": file_path, "details": yaml_result.get("details", {})}
-            )
-        data = yaml_result["data"]
-        file_size = yaml_result.get("file_size", "不明")
-        file_name = yaml_result.get("file_name", os.path.basename(file_path).split('.')[0])
-        log_debug(f"ファイル読み込み完了: サイズ {file_size} bytes")
-        log_debug(f"YAML解析完了: {len(data) if isinstance(data, dict) else '不明'} key(s) at root level")
-    elif ext.lower() == '.json':
-        # 注意: JSONファイル読み込み開始のログは被呼び出し側で出力するため、ここでは出力しない
-        json_result = load_json_file(file_path)
-        if "code" in json_result:
-            # エラーがあれば処理中止
-            log_error(f"JSONファイル読み込みエラー: {json_result['message']}")
-            return create_error(
-                "FILE_LOAD_ERROR",
-                json_result["message"],
-                {"file_path": file_path, "details": json_result.get("details", {})}
-            )
-        data = json_result["data"]
-        file_name = json_result.get("file_name", os.path.basename(file_path).split('.')[0])
-        log_debug(f"JSON解析完了: {len(data) if isinstance(data, dict) else '不明'} key(s) at root level")
-    elif ext.lower() == '.csv':
-        # CSVファイル処理は未実装
-        log_warning(f"CSVファイル処理は将来のバージョンでサポート予定です: {ext}")
+    # 統合されたファイルローダーを使用
+    file_result = load_file(file_path)
+    
+    # エラーチェック
+    if "code" in file_result:
+        # エラーがあれば処理中止
+        log_error(f"ファイル読み込みエラー: {file_result['message']}")
         return create_error(
-            "UNSUPPORTED_FORMAT",
-            f"CSVファイル処理は将来のバージョンでサポート予定です: {ext}",
-            {"file_path": file_path, "format": ext}
+            "FILE_LOAD_ERROR",
+            file_result["message"],
+            {"file_path": file_path, "details": file_result.get("details", {})}
         )
+    
+    # 読み込んだデータを取得
+    data = file_result["data"]
+    file_name = file_result.get("file_name", os.path.basename(file_path).split('.')[0])
+    
+    # ファイル形式に応じたログ出力
+    if "file_size" in file_result:
+        log_debug(f"ファイル読み込み完了: サイズ {file_result['file_size']} bytes")
+    
+    # データ構造のログ出力
+    if isinstance(data, dict):
+        log_debug(f"データ解析完了: {len(data)} key(s) at root level")
+    elif isinstance(data, list):
+        log_debug(f"データ解析完了: {len(data)} record(s)")
     else:
-        log_error(f"サポートされていないファイル形式です: {ext}")
-        return create_error(
-            "UNSUPPORTED_FORMAT",
-            f"サポートされていないファイル形式です: {ext}",
-            {"file_path": file_path, "format": ext}
-        )
+        log_debug(f"データ解析完了: {type(data).__name__} タイプのデータ")
     
     # ツリー構造をノードとエッジに変換
     log_debug(f"ツリー構造をノードとエッジに変換します: {os.path.basename(file_path)}")

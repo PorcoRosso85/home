@@ -79,7 +79,10 @@ def get_init_files(data_dir: str, recursive: bool = False) -> List[str]:
     Returns:
         List[str]: 初期データファイルのパスリスト
     """
-    supported_extensions = ['.yaml', '.yml', '.json', '.csv']
+    # インフラストラクチャ層のファイルローダーサービスからサポートされている拡張子を取得
+    from upsert.infrastructure.service.file_loader import get_flat_supported_extensions
+    
+    supported_extensions = get_flat_supported_extensions()
     files = []
     
     # ディレクトリが存在しない場合は空リストを返す

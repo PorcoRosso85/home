@@ -7,44 +7,58 @@
 
 from typing import TypedDict, Union, List, Optional, Dict, Any, Literal, Callable, Set, Tuple
 
-# ファイル操作関連の型定義
-class FileLoadSuccess(TypedDict):
-    """ファイル読み込み成功結果"""
-    content: Any
-
+# ファイル操作関連の共通型定義
 class FileLoadError(TypedDict):
-    """ファイル読み込みエラー"""
-    code: Literal["FILE_NOT_FOUND", "PARSE_ERROR", "EMPTY_DATA", "ENCODING_ERROR"]
+    """ファイル読み込みエラー共通型"""
+    code: Literal["FILE_NOT_FOUND", "PARSE_ERROR", "EMPTY_DATA", "ENCODING_ERROR", 
+                 "UNSUPPORTED_FORMAT", "IMPLEMENTATION_PENDING"]
     message: str
-    details: Optional[Dict[str, Any]]
+    details: Dict[str, Any]
 
-FileLoadResult = Union[FileLoadSuccess, FileLoadError]
+# 各ファイル形式の型定義
+class GenericFileLoadSuccess(TypedDict):
+    """汎用ファイル読み込み成功結果"""
+    data: Any
+    file_name: str
+    file_path: str
+    file_size: int
 
-# YAML特有の型定義
-class YAMLLoadSuccess(TypedDict):
+class YAMLLoadSuccess(GenericFileLoadSuccess):
     """YAML読み込み成功結果"""
-    data: Dict[str, Any]
+    pass
 
-class YAMLLoadError(TypedDict):
-    """YAML読み込みエラー"""
-    code: Literal["FILE_NOT_FOUND", "PARSE_ERROR", "EMPTY_DATA", "ENCODING_ERROR"]
-    message: str
-    details: Optional[Dict[str, Any]]
-
-YAMLLoadResult = Union[YAMLLoadSuccess, YAMLLoadError]
-
-# JSON特有の型定義
-class JSONLoadSuccess(TypedDict):
+class JSONLoadSuccess(GenericFileLoadSuccess):
     """JSON読み込み成功結果"""
-    data: Dict[str, Any]
+    pass
 
-class JSONLoadError(TypedDict):
-    """JSON読み込みエラー"""
-    code: Literal["FILE_NOT_FOUND", "PARSE_ERROR", "EMPTY_DATA", "ENCODING_ERROR"]
-    message: str
-    details: Optional[Dict[str, Any]]
+class JSON5LoadSuccess(GenericFileLoadSuccess):
+    """JSON5読み込み成功結果"""
+    pass
 
-JSONLoadResult = Union[JSONLoadSuccess, JSONLoadError]
+class JSONLLoadSuccess(GenericFileLoadSuccess):
+    """JSONL読み込み成功結果"""
+    pass
+
+class CSVLoadSuccess(GenericFileLoadSuccess):
+    """CSV読み込み成功結果"""
+    pass
+
+# 各ファイル形式の結果型定義
+YAMLLoadResult = Union[YAMLLoadSuccess, FileLoadError]
+JSONLoadResult = Union[JSONLoadSuccess, FileLoadError]
+JSON5LoadResult = Union[JSON5LoadSuccess, FileLoadError]
+JSONLLoadResult = Union[JSONLLoadSuccess, FileLoadError]
+CSVLoadResult = Union[CSVLoadSuccess, FileLoadError]
+
+# 汎用ファイル読み込み結果型
+FileLoadResult = Union[
+    YAMLLoadSuccess, 
+    JSONLoadSuccess, 
+    JSON5LoadSuccess, 
+    JSONLLoadSuccess, 
+    CSVLoadSuccess, 
+    FileLoadError
+]
 
 # データベース関連の型定義
 class DBTransactionSuccess(TypedDict):
