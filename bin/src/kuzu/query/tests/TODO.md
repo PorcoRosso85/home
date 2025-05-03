@@ -11,9 +11,9 @@ LD_LIBRARY_PATH=/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/:
 ```
 
 ## フェーズ2: 既存機能の移行
-- [ ] `/home/nixos/bin/src/kuzu/query/tests/implementation_support/code_to_requirements.ts` - 「特定コードの対応要件群の確認（逆引き）」機能のテスト
-- [ ] `/home/nixos/bin/src/kuzu/query/tests/implementation_support/requirement_implementation.ts` - 「特定要件の実装状況の追跡」機能のテスト
-- [ ] `/home/nixos/bin/src/kuzu/query/tests/implementation_support/unimplemented_requirements.ts` - 「未実装要件の特定」機能のテスト
+- [x] `/home/nixos/bin/src/kuzu/query/tests/implementation_support/code_to_requirements.ts` - 「特定コードの対応要件群の確認（逆引き）」機能のテスト
+- [x] `/home/nixos/bin/src/kuzu/query/tests/implementation_support/requirement_implementation.ts` - 「特定要件の実装状況の追跡」機能のテスト
+- [x] `/home/nixos/bin/src/kuzu/query/tests/implementation_support/unimplemented_requirements.ts` - 「未実装要件の特定」機能のテスト
 
 **確認コマンド**:
 ```
