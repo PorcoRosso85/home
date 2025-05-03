@@ -9,7 +9,9 @@
 
 import os
 import kuzu
+import pytest
 from typing import List, Dict, Any, Tuple
+
 
 def create_schema(conn: kuzu.Connection) -> None:
     """データベーススキーマを作成します"""
@@ -79,6 +81,7 @@ def create_schema(conn: kuzu.Connection) -> None:
     )
     """)
 
+
 def insert_sample_data(conn: kuzu.Connection) -> None:
     """サンプルデータを挿入します"""
     
@@ -132,6 +135,7 @@ def insert_sample_data(conn: kuzu.Connection) -> None:
     conn.execute("MATCH (c1:CodeEntity {persistent_id: 'CODE-001'}), (c2:CodeEntity {persistent_id: 'CODE-003'}) CREATE (c1)-[:CONTAINS]->(c2)")
     conn.execute("MATCH (c1:CodeEntity {persistent_id: 'CODE-001'}), (c2:CodeEntity {persistent_id: 'CODE-006'}) CREATE (c1)-[:CONTAINS]->(c2)")
     conn.execute("MATCH (c1:CodeEntity {persistent_id: 'CODE-001'}), (c2:CodeEntity {persistent_id: 'CODE-007'}) CREATE (c1)-[:CONTAINS]->(c2)")
+
 
 def find_requirements_for_code(conn: kuzu.Connection, code_id: str) -> List[Dict[str, Any]]:
     """指定したコードIDに関連する要件を検索して結果を返します"""
@@ -203,28 +207,75 @@ def find_requirements_for_code(conn: kuzu.Connection, code_id: str) -> List[Dict
     
     return results
 
-def format_requirements_for_code(results: List[Dict[str, Any]]) -> None:
-    """コードに関連する要件の結果を整形して表示します"""
+
+def format_requirements_for_code(results: List[Dict[str, Any]]) -> str:
+    """コードに関連する要件の結果を整形して返します"""
     
     if not results:
-        print("指定されたコードに関連する要件は見つかりませんでした。")
-        return
+        return "指定されたコードに関連する要件は見つかりませんでした。"
     
-    print("\n関連する要件:")
-    print("=" * 80)
-    print(f"{'要件ID':<10} {'タイトル':<30} {'タイプ':<10} {'優先度':<10} {'関連タイプ':<20} {'場所'}")
-    print("-" * 80)
+    output = []
+    output.append("\n関連する要件:")
+    output.append("=" * 80)
+    output.append(f"{'要件ID':<10} {'タイトル':<30} {'タイプ':<10} {'優先度':<10} {'関連タイプ':<20} {'場所'}")
+    output.append("-" * 80)
     
     # 優先度順にソート（HIGH、MEDIUM、LOW）
     priority_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
     sorted_results = sorted(results, key=lambda x: priority_order.get(x["requirement_priority"], 99))
     
     for result in sorted_results:
-        print(f"{result['requirement_id']:<10} {result['requirement_title'][:30]:<30} "
-              f"{result['requirement_type']:<10} {result['requirement_priority']:<10} "
-              f"{result['relation_type'][:20]:<20} {result['requirement_location']}")
+        output.append(f"{result['requirement_id']:<10} {result['requirement_title'][:30]:<30} "
+                     f"{result['requirement_type']:<10} {result['requirement_priority']:<10} "
+                     f"{result['relation_type'][:20]:<20} {result['requirement_location']}")
+    
+    return "\n".join(output)
 
-def main() -> None:
+
+def find_requirements_for_path(conn: kuzu.Connection, path: str) -> List[Dict[str, Any]]:
+    """指定したパスのコードが実装している要件とその数を返します"""
+    
+    query = """
+    MATCH (c:CodeEntity)-[:HAS_LOCATION_URI]->(loc:LocationURI)
+    WHERE loc.path = $path
+    MATCH (c)-[impl:IMPLEMENTS]->(r:RequirementEntity)
+    RETURN r.id as requirement_id, COUNT(c) as implementation_count
+    """
+    
+    response = conn.execute(query, {"path": path})
+    
+    results = []
+    while response.has_next():
+        row = response.get_next()
+        results.append({
+            "requirement_id": row[0],
+            "implementation_count": row[1]
+        })
+    
+    return results
+
+
+def format_path_requirements(results: List[Dict[str, Any]], path: str) -> str:
+    """パスに関連する要件結果を整形して返します"""
+    
+    output = []
+    output.append(f"'{path}'パスに関連する要件:")
+    
+    if not results:
+        output.append("関連する要件はありません。")
+        return "\n".join(output)
+    
+    output.append(f"{'要件ID':<10} {'実装数'}")
+    output.append("-" * 20)
+    
+    for result in results:
+        output.append(f"{result['requirement_id']:<10} {result['implementation_count']}")
+    
+    return "\n".join(output)
+
+
+def setup_database():
+    """テスト用データベースをセットアップして接続を返します"""
     # データベースディレクトリ
     db_path = "./traceability_db_code_to_req"
     
@@ -243,41 +294,67 @@ def main() -> None:
     # サンプルデータ挿入
     insert_sample_data(conn)
     
-    # コードから要件を検索するサンプル
+    return conn
+
+
+@pytest.fixture
+def db_connection():
+    """pytestフィクスチャ: データベース接続を提供"""
+    return setup_database()
+
+
+def test_single_code_requirements(db_connection, capsys):
+    """単一のコードエンティティに関連する要件を検索するテスト"""
     print("\n==== ユースケース: 特定コードの対応要件群の確認（逆引き） ====\n")
     
-    # メソッド単位の検索例: validatePassword関数
-    print("コードID 'CODE-006' (validatePassword関数) の関連要件:")
-    results = find_requirements_for_code(conn, "CODE-006")
-    format_requirements_for_code(results)
+    # validatePassword関数のテスト
+    code_id = 'CODE-006'
+    print(f"コードID '{code_id}' (validatePassword関数) の関連要件:")
+    results = find_requirements_for_code(db_connection, code_id)
+    formatted_output = format_requirements_for_code(results)
+    print(formatted_output)
     
-    print("\n")
+    # 結果の検証
+    assert len(results) == 1, "validatePassword関数は1つの要件と関連すべき"
+    assert results[0]["requirement_id"] == "REQ-003", "validatePassword関数はREQ-003と関連すべき"
+    assert "パスワードポリシー" in results[0]["requirement_title"], "要件タイトルが正しくない"
+    assert results[0]["relation_type"] == "direct", "関連タイプが'direct'であるべき"
+
+
+def test_parent_code_requirements(db_connection, capsys):
+    """親コードエンティティに関連する要件を検索するテスト"""
+    print("\nコードID 'CODE-001' (UserServiceクラス) の関連要件:")
+    results = find_requirements_for_code(db_connection, 'CODE-001')
+    formatted_output = format_requirements_for_code(results)
+    print(formatted_output)
     
-    # クラス単位の検索例: UserService
-    print("コードID 'CODE-001' (UserServiceクラス) の関連要件:")
-    results = find_requirements_for_code(conn, "CODE-001")
-    format_requirements_for_code(results)
-    
-    # 実践的なユースケースのために追加クエリも示す
+    # 結果の検証
+    assert len(results) == 4, "UserServiceクラスは4つの要件と関連すべき"
+    # 優先度の高い要件が含まれているか確認
+    high_priority_reqs = [r for r in results if r["requirement_priority"] == "HIGH"]
+    assert len(high_priority_reqs) == 2, "高優先度の要件が2つあるべき"
+    # セキュリティ要件が含まれているか確認
+    security_reqs = [r for r in results if r["requirement_type"] == "security"]
+    assert len(security_reqs) == 2, "セキュリティ要件が2つあるべき"
+
+
+def test_path_requirements(db_connection, capsys):
+    """特定パス内のコードすべての関連要件を検索するテスト"""
     print("\n==== 追加機能: 特定パス内のコードすべての関連要件 ====\n")
     
-    query = """
-    MATCH (c:CodeEntity)-[:HAS_LOCATION_URI]->(loc:LocationURI)
-    WHERE loc.path = '/src/main/java/com/example/service'
-    MATCH (c)-[impl:IMPLEMENTS]->(r:RequirementEntity)
-    RETURN r.id as requirement_id, COUNT(c) as implementation_count
-    """
+    path = '/src/main/java/com/example/service'
+    results = find_requirements_for_path(db_connection, path)
+    formatted_output = format_path_requirements(results, path)
+    print(formatted_output)
     
-    response = conn.execute(query)
-    print("'/src/main/java/com/example/service'パスに関連する要件:")
-    if not response.has_next():
-        print("関連する要件はありません。")
-    else:
-        print(f"{'要件ID':<10} {'実装数'}")
-        print("-" * 20)
-        while response.has_next():
-            row = response.get_next()
-            print(f"{row[0]:<10} {row[1]}")
+    # 結果の検証
+    assert len(results) == 4, "Serviceパスには4つの要件の実装があるべき"
+    # 要件IDの確認
+    req_ids = [r["requirement_id"] for r in results]
+    assert all(req_id in req_ids for req_id in ["REQ-001", "REQ-002", "REQ-003", "REQ-004"]), \
+           "すべての要件IDが含まれているべき"
+
 
 if __name__ == "__main__":
-    main()
+    # pytestで実行される場合はこのブロックは実行されない
+    pytest.main(["-v", __file__])

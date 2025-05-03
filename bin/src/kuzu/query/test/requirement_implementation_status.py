@@ -9,6 +9,7 @@
 
 import os
 import kuzu
+import pytest
 from typing import List, Dict, Any, Tuple
 
 def create_schema(conn: kuzu.Connection) -> None:
@@ -149,28 +150,69 @@ def track_requirement_implementation(conn: kuzu.Connection, requirement_id: str)
     
     return results
 
-def format_implementation_status(results: List[Dict[str, Any]]) -> None:
-    """実装状況結果を整形して表示します"""
+def format_implementation_status(results: List[Dict[str, Any]]) -> str:
+    """実装状況結果を整形して文字列として返します"""
     
     if not results:
-        print("指定された要件の実装は見つかりませんでした。")
-        return
+        return "指定された要件の実装は見つかりませんでした。"
     
+    output = []
     # 要件情報を取得（すべての結果で同じ）
     req_info = results[0]
-    print(f"要件ID: {req_info['requirement_id']}")
-    print(f"タイトル: {req_info['requirement_title']}")
-    print(f"タイプ: {req_info['requirement_type']}")
-    print("\n実装状況:")
-    print("=" * 80)
-    print(f"{'コードID':<10} {'名前':<20} {'種類':<10} {'実装タイプ':<20} {'場所'}")
-    print("-" * 80)
+    output.append(f"要件ID: {req_info['requirement_id']}")
+    output.append(f"タイトル: {req_info['requirement_title']}")
+    output.append(f"タイプ: {req_info['requirement_type']}")
+    output.append("\n実装状況:")
+    output.append("=" * 80)
+    output.append(f"{'コードID':<10} {'名前':<20} {'種類':<10} {'実装タイプ':<20} {'場所'}")
+    output.append("-" * 80)
     
     for result in results:
-        print(f"{result['code_id']:<10} {result['code_name']:<20} {result['code_type']:<10} "
+        output.append(f"{result['code_id']:<10} {result['code_name']:<20} {result['code_type']:<10} "
               f"{result['implementation_type']:<20} {result['code_location']}")
+    
+    return "\n".join(output)
 
-def main() -> None:
+def find_unimplemented_requirements(conn: kuzu.Connection) -> List[Dict[str, Any]]:
+    """未実装の要件を検索して結果を返します"""
+    
+    query = """
+    MATCH (r:RequirementEntity)
+    WHERE NOT EXISTS {
+        MATCH (r)<-[:IMPLEMENTS]-(c:CodeEntity)
+        WHERE c.type <> 'test'
+    }
+    RETURN r.id as requirement_id, r.title as title
+    """
+    
+    response = conn.execute(query)
+    
+    results = []
+    while response.has_next():
+        row = response.get_next()
+        results.append({
+            "requirement_id": row[0],
+            "title": row[1]
+        })
+    
+    return results
+
+def format_unimplemented_requirements(results: List[Dict[str, Any]]) -> str:
+    """未実装要件の結果を整形して文字列として返します"""
+    
+    output = []
+    output.append("未実装の要件:")
+    
+    if not results:
+        output.append("すべての要件が実装されています。")
+    else:
+        for result in results:
+            output.append(f"- {result['requirement_id']}: {result['title']}")
+    
+    return "\n".join(output)
+
+def setup_database():
+    """テスト用データベースをセットアップして接続を返します"""
     # データベースディレクトリ
     db_path = "./traceability_db"
     
@@ -189,41 +231,58 @@ def main() -> None:
     # サンプルデータ挿入
     insert_sample_data(conn)
     
-    # 要件実装状況を追跡するサンプル
+    return conn
+
+@pytest.fixture
+def db_connection():
+    """pytestフィクスチャ: データベース接続を提供"""
+    return setup_database()
+
+def test_requirement_implementation_tracking(db_connection, capsys):
+    """要件の実装状況追跡のテスト"""
     print("\n==== ユースケース: 特定要件の実装状況の追跡 ====\n")
     
     # REQ-001の実装状況を確認
     print("REQ-001の実装状況:")
-    results = track_requirement_implementation(conn, "REQ-001")
-    format_implementation_status(results)
+    results = track_requirement_implementation(db_connection, "REQ-001")
+    formatted_output = format_implementation_status(results)
+    print(formatted_output)
     
-    print("\n")
+    # 結果の検証
+    assert len(results) == 2, "REQ-001は2つのコードエンティティによって実装されるべき"
+    code_ids = [r["code_id"] for r in results]
+    assert "CODE-002" in code_ids, "CODE-002がREQ-001を実装すべき"
+    assert "CODE-005" in code_ids, "CODE-005がREQ-001をテストすべき"
     
+    implementation_types = {r["code_id"]: r["implementation_type"] for r in results}
+    assert implementation_types["CODE-002"] == "IMPLEMENTS", "CODE-002の実装タイプはIMPLEMENTSであるべき"
+    assert implementation_types["CODE-005"] == "TESTS", "CODE-005の実装タイプはTESTSであるべき"
+
+def test_requirement_implementation_tracking_security(db_connection, capsys):
+    """セキュリティ要件の実装状況追跡のテスト"""
     # REQ-003の実装状況を確認
-    print("REQ-003の実装状況:")
-    results = track_requirement_implementation(conn, "REQ-003")
-    format_implementation_status(results)
+    print("\nREQ-003の実装状況:")
+    results = track_requirement_implementation(db_connection, "REQ-003")
+    formatted_output = format_implementation_status(results)
+    print(formatted_output)
     
-    # 実践的なユースケースのために追加クエリも示す
+    # 結果の検証
+    assert len(results) == 1, "REQ-003は1つのコードエンティティによって実装されるべき"
+    assert results[0]["code_id"] == "CODE-006", "CODE-006がREQ-003を実装すべき"
+    assert results[0]["implementation_type"] == "IMPLEMENTS", "実装タイプはIMPLEMENTSであるべき"
+    assert "validatePassword" in results[0]["code_name"], "実装はvalidatePassword関数であるべき"
+
+def test_unimplemented_requirements(db_connection, capsys):
+    """未実装要件の特定のテスト"""
     print("\n==== 追加機能: 未実装要件の特定 ====\n")
     
-    query = """
-    MATCH (r:RequirementEntity)
-    WHERE NOT EXISTS {
-        MATCH (r)<-[:IMPLEMENTS]-(c:CodeEntity)
-        WHERE c.type <> 'test'
-    }
-    RETURN r.id as requirement_id, r.title as title
-    """
+    results = find_unimplemented_requirements(db_connection)
+    formatted_output = format_unimplemented_requirements(results)
+    print(formatted_output)
     
-    response = conn.execute(query)
-    print("未実装の要件:")
-    if not response.has_next():
-        print("すべての要件が実装されています。")
-    else:
-        while response.has_next():
-            row = response.get_next()
-            print(f"- {row[0]}: {row[1]}")
+    # 結果の検証 - このサンプルデータではすべての要件が実装されている
+    assert len(results) == 0, "すべての要件が実装されているべき"
 
 if __name__ == "__main__":
-    main()
+    # pytestで実行される場合はこのブロックは実行されない
+    pytest.main(["-v", __file__])
