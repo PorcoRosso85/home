@@ -18,39 +18,162 @@ RETURN prev.id AS previous_version, prev.timestamp, prev.commit_id;
 
 // 指定したバージョンで更新したlocationuriを一覧で取得するクエリ（前バージョンとの差分）
 // @name: get_updated_locations_by_version
+// 新規追加されたエンティティ（前バージョンには存在しないが現バージョンに存在するエンティティ）を取得
 MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
-MATCH (curr)-[:TRACKS_STATE_OF_CODE {change_type: $change_type}]->(c:CodeEntity)-[:HAS_LOCATION]->(l:LocationURI)
+MATCH (curr)-[:TRACKS_STATE_OF_CODE]->(c:CodeEntity)-[:HAS_LOCATION]->(l:LocationURI)
+WHERE NOT EXISTS {
+  MATCH (prev)-[:TRACKS_STATE_OF_CODE]->(c)
+}
+AND $change_type = 'added'
 RETURN DISTINCT 'code' AS entity_type, c.persistent_id AS entity_id, c.name, l.uri_id, l.path
+
 UNION
+
+// 削除されたエンティティ（前バージョンには存在するが現バージョンには存在しないか、特別な削除マーカーがあるエンティティ）を取得
 MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
-MATCH (curr)-[:TRACKS_STATE_OF_REQ {change_type: $change_type}]->(r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)
+MATCH (prev)-[:TRACKS_STATE_OF_CODE]->(c:CodeEntity)-[:HAS_LOCATION]->(l:LocationURI)
+WHERE (
+  NOT EXISTS { MATCH (curr)-[:TRACKS_STATE_OF_CODE]->(c) }
+  OR EXISTS { MATCH (curr)-[:TRACKS_STATE_OF_CODE]->(c:CodeEntity) WHERE c.name CONTAINS '_v' }
+)
+AND $change_type = 'deleted'
+RETURN DISTINCT 'code' AS entity_type, c.persistent_id AS entity_id, c.name, l.uri_id, l.path
+
+UNION
+
+// 変更されたエンティティ（前バージョンにも現バージョンにも存在するが変更されたエンティティ）を取得
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (prev)-[:TRACKS_STATE_OF_CODE]->(c:CodeEntity)
+MATCH (curr)-[:TRACKS_STATE_OF_CODE]->(c)
+MATCH (c)-[:HAS_LOCATION]->(l:LocationURI)
+WHERE $change_type = 'modified'
+RETURN DISTINCT 'code' AS entity_type, c.persistent_id AS entity_id, c.name, l.uri_id, l.path
+
+UNION
+
+// 要件の差分 - 新規追加
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (curr)-[:TRACKS_STATE_OF_REQ]->(r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)
+WHERE NOT EXISTS {
+  MATCH (prev)-[:TRACKS_STATE_OF_REQ]->(r)
+}
+AND $change_type = 'added'
 RETURN DISTINCT 'requirement' AS entity_type, r.id AS entity_id, r.title, l.uri_id, l.path
+
 UNION
+
+// 要件の差分 - 削除
 MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
-MATCH (curr)-[:TRACKS_STATE_OF_REF {change_type: $change_type}]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
+MATCH (prev)-[:TRACKS_STATE_OF_REQ]->(r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)
+WHERE NOT EXISTS {
+  MATCH (curr)-[:TRACKS_STATE_OF_REQ]->(r)
+}
+AND $change_type = 'deleted'
+RETURN DISTINCT 'requirement' AS entity_type, r.id AS entity_id, r.title, l.uri_id, l.path
+
+UNION
+
+// 要件の差分 - 変更
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (prev)-[:TRACKS_STATE_OF_REQ]->(r:RequirementEntity)
+MATCH (curr)-[:TRACKS_STATE_OF_REQ]->(r)
+MATCH (r)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)
+WHERE $change_type = 'modified'
+RETURN DISTINCT 'requirement' AS entity_type, r.id AS entity_id, r.title, l.uri_id, l.path
+
+UNION
+
+// 参照の差分 - 新規追加
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (curr)-[:TRACKS_STATE_OF_REF]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
+WHERE NOT EXISTS {
+  MATCH (prev)-[:TRACKS_STATE_OF_REF]->(ref)
+}
+AND $change_type = 'added'
+RETURN DISTINCT 'reference' AS entity_type, ref.id AS entity_id, ref.description, l.uri_id, l.path
+
+UNION
+
+// 参照の差分 - 削除
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (prev)-[:TRACKS_STATE_OF_REF]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
+WHERE NOT EXISTS {
+  MATCH (curr)-[:TRACKS_STATE_OF_REF]->(ref)
+}
+AND $change_type = 'deleted'
+RETURN DISTINCT 'reference' AS entity_type, ref.id AS entity_id, ref.description, l.uri_id, l.path
+
+UNION
+
+// 参照の差分 - 変更
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (prev)-[:TRACKS_STATE_OF_REF]->(ref:ReferenceEntity)
+MATCH (curr)-[:TRACKS_STATE_OF_REF]->(ref)
+MATCH (ref)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
+WHERE $change_type = 'modified'
 RETURN DISTINCT 'reference' AS entity_type, ref.id AS entity_id, ref.description, l.uri_id, l.path;
 
 // 設計表：バージョン間の変更を表示するクエリ
 // @name: get_design_table
+// 新規追加されたコード
 MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
-MATCH (curr)-[:TRACKS_STATE_OF_CODE {change_type: $change_type}]->(c:CodeEntity)-[:HAS_LOCATION]->(l:LocationURI)
-RETURN l.path AS file_path, 
-       CASE $change_type 
-         WHEN 'added' THEN '新規追加: ' + c.name + ' (' + c.type + ')'
-         WHEN 'modified' THEN '更新: ' + c.name + ' (' + c.type + ')'
-         WHEN 'deleted' THEN '削除: ' + c.name + ' (' + c.type + ')'
-         ELSE c.name + ' (' + c.type + ')'
-       END AS change_summary
+MATCH (curr)-[:TRACKS_STATE_OF_CODE]->(c:CodeEntity)-[:HAS_LOCATION]->(l:LocationURI)
+WHERE NOT EXISTS {
+  MATCH (prev)-[:TRACKS_STATE_OF_CODE]->(c)
+}
+AND $change_type = 'added'
+RETURN l.path AS file_path, '新規追加: ' + c.name + ' (' + c.type + ')' AS change_summary
+
 UNION
+
+// 変更されたコード
 MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
-MATCH (curr)-[:TRACKS_STATE_OF_REQ {change_type: $change_type}]->(r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)
-RETURN l.path AS file_path,
-       CASE $change_type
-         WHEN 'added' THEN '新規要件: ' + r.title + ' (' + r.priority + ')'
-         WHEN 'modified' THEN '要件更新: ' + r.title + ' (' + r.priority + ')'
-         WHEN 'deleted' THEN '要件削除: ' + r.title + ' (' + r.priority + ')'
-         ELSE r.title + ' (' + r.priority + ')'
-       END AS change_summary;
+MATCH (prev)-[:TRACKS_STATE_OF_CODE]->(c:CodeEntity)
+MATCH (curr)-[:TRACKS_STATE_OF_CODE]->(c)-[:HAS_LOCATION]->(l:LocationURI)
+WHERE $change_type = 'modified'
+RETURN l.path AS file_path, '更新: ' + c.name + ' (' + c.type + ')' AS change_summary
+
+UNION
+
+// 削除されたコード
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (prev)-[:TRACKS_STATE_OF_CODE]->(c:CodeEntity)-[:HAS_LOCATION]->(l:LocationURI)
+WHERE NOT EXISTS {
+  MATCH (curr)-[:TRACKS_STATE_OF_CODE]->(c)
+}
+AND $change_type = 'deleted'
+RETURN l.path AS file_path, '削除: ' + c.name + ' (' + c.type + ')' AS change_summary
+
+UNION
+
+// 新規追加された要件
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (curr)-[:TRACKS_STATE_OF_REQ]->(r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)
+WHERE NOT EXISTS {
+  MATCH (prev)-[:TRACKS_STATE_OF_REQ]->(r)
+}
+AND $change_type = 'added'
+RETURN l.path AS file_path, '新規要件: ' + r.title + ' (' + r.priority + ')' AS change_summary
+
+UNION
+
+// 変更された要件
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (prev)-[:TRACKS_STATE_OF_REQ]->(r:RequirementEntity)
+MATCH (curr)-[:TRACKS_STATE_OF_REQ]->(r)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)
+WHERE $change_type = 'modified'
+RETURN l.path AS file_path, '要件更新: ' + r.title + ' (' + r.priority + ')' AS change_summary
+
+UNION
+
+// 削除された要件
+MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
+MATCH (prev)-[:TRACKS_STATE_OF_REQ]->(r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)
+WHERE NOT EXISTS {
+  MATCH (curr)-[:TRACKS_STATE_OF_REQ]->(r)
+}
+AND $change_type = 'deleted'
+RETURN l.path AS file_path, '要件削除: ' + r.title + ' (' + r.priority + ')' AS change_summary;
 
 // 特定バージョンの全ファイルと変更概要一覧
 // @name: get_version_changes_summary

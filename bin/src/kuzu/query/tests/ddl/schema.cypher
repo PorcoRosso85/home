@@ -133,20 +133,17 @@ CREATE REL TABLE FOLLOWS (
 
 // 13. TRACKS_STATE_OF_CODE: バージョンとコードの状態追跡
 CREATE REL TABLE TRACKS_STATE_OF_CODE (
-  FROM VersionState TO CodeEntity,
-  change_type STRING
+  FROM VersionState TO CodeEntity
 );
 
 // 14. TRACKS_STATE_OF_REQ: バージョンと要件の状態追跡
 CREATE REL TABLE TRACKS_STATE_OF_REQ (
-  FROM VersionState TO RequirementEntity,
-  change_type STRING
+  FROM VersionState TO RequirementEntity
 );
 
 // 15. TRACKS_STATE_OF_REF: バージョンと参照の状態追跡
 CREATE REL TABLE TRACKS_STATE_OF_REF (
-  FROM VersionState TO ReferenceEntity,
-  change_type STRING
+  FROM VersionState TO ReferenceEntity
 );
 
 // 16. USES: 集計ビューとURI階層の関連付け

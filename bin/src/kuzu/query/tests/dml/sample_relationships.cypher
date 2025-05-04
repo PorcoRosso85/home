@@ -200,19 +200,19 @@ CREATE (v1)-[:FOLLOWS]->(v2);
 
 // バージョン管理関係
 MATCH (v:VersionState {id: 'v1.0.0'}), (c:CodeEntity {persistent_id: 'CODE-001'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'added'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 MATCH (v:VersionState {id: 'v1.0.0'}), (c:CodeEntity {persistent_id: 'CODE-002'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'added'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 MATCH (v:VersionState {id: 'v1.0.0'}), (r:RequirementEntity {id: 'REQ-001'}) 
-CREATE (v)-[:TRACKS_STATE_OF_REQ {change_type: 'added'}]->(r);
+CREATE (v)-[:TRACKS_STATE_OF_REQ]->(r);
 
 MATCH (v:VersionState {id: 'v1.1.0'}), (c:CodeEntity {persistent_id: 'CODE-003'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'added'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 MATCH (v:VersionState {id: 'v1.1.0'}), (c:CodeEntity {persistent_id: 'CODE-002'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'modified'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 // 集計関係
 MATCH (v:EntityAggregationView {id: 'VIEW-001'}), (l:LocationURI {uri_id: 'loc_func_req'}) 

@@ -58,17 +58,14 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log("カラム:", ["uri_id", "scheme", "path"].join(", "));
       console.log("-".repeat(50));
       
-      // 各行のデータを直接アクセス
-      for (let i = 0; i < v1LocationsResult.getNumTuples(); i++) {
+      // 正しい方法でデータを表示
+      v1LocationsResult.resetIterator();
+      while (v1LocationsResult.hasNext()) {
         try {
-          const row = v1LocationsResult.getRow(i);
-          if (row && row.length > 0) {
-            console.log([row[0], row[1], row[2]].join(", "));
-          } else {
-            console.log(`行 ${i}: データなし`);
-          }
+          const row = v1LocationsResult.getNextSync();
+          console.log([row["l.uri_id"], row["l.scheme"], row["l.path"]].join(", "));
         } catch (e) {
-          console.error(`行 ${i} の取得中にエラー: ${e && e.message ? e.message : "不明なエラー"}`);
+          console.error(`データ取得中にエラー: ${e && e.message ? e.message : "不明なエラー"}`);
         }
       }
       
@@ -102,17 +99,14 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log("カラム:", ["previous_version", "timestamp", "commit_id"].join(", "));
       console.log("-".repeat(80));
       
-      // 各行のデータを直接アクセス
-      for (let i = 0; i < prevVersionResult.getNumTuples(); i++) {
+      // 正しい方法でデータを表示
+      prevVersionResult.resetIterator();
+      while (prevVersionResult.hasNext()) {
         try {
-          const row = prevVersionResult.getRow(i);
-          if (row && row.length > 0) {
-            console.log([row[0], row[1], row[2]].join(", "));
-          } else {
-            console.log(`行 ${i}: データなし`);
-          }
+          const row = prevVersionResult.getNextSync();
+          console.log([row["previous_version"], row["prev.timestamp"], row["prev.commit_id"]].join(", "));
         } catch (e) {
-          console.error(`行 ${i} の取得中にエラー: ${e && e.message ? e.message : "不明なエラー"}`);
+          console.error(`データ取得中にエラー: ${e && e.message ? e.message : "不明なエラー"}`);
         }
       }
       
@@ -147,17 +141,20 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log("カラム:", ["entity_type", "entity_id", "name", "uri_id", "path"].join(", "));
       console.log("-".repeat(80));
       
-      // 各行のデータを直接アクセス
-      for (let i = 0; i < addedLocationsResult.getNumTuples(); i++) {
+      // 正しい方法でデータを表示
+      addedLocationsResult.resetIterator();
+      while (addedLocationsResult.hasNext()) {
         try {
-          const row = addedLocationsResult.getRow(i);
-          if (row && row.length > 0) {
-            console.log([row[0], row[1], row[2], row[3], row[4]].join(", "));
-          } else {
-            console.log(`行 ${i}: データなし`);
-          }
+          const row = addedLocationsResult.getNextSync();
+          console.log([
+            row["entity_type"], 
+            row["entity_id"], 
+            row["c.name"] || row["r.title"] || row["ref.description"], 
+            row["l.uri_id"], 
+            row["l.path"]
+          ].join(", "));
         } catch (e) {
-          console.error(`行 ${i} の取得中にエラー: ${e && e.message ? e.message : "不明なエラー"}`);
+          console.error(`データ取得中にエラー: ${e && e.message ? e.message : "不明なエラー"}`);
         }
       }
       
@@ -226,9 +223,14 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log(`\n【v1.1.0の設計表（変更項目）】 ${designTableResult2.getNumTuples()}件`);
       console.log("ファイルパス | 変更概要");
       console.log("-----------|-----------");
-      for (let i = 0; i < designTableResult2.getNumTuples(); i++) {
-        const row = designTableResult2.getRow(i);
-        console.log(`${row[0]} | ${row[1]}`);
+      
+      // 正しい方法でデータを表示
+      designTableResult2.resetIterator();
+      while (designTableResult2.hasNext()) {
+        const row = designTableResult2.getNextSync();
+        const filePath = row.file_path || "";
+        const changeSummary = row.change_summary || "";
+        console.log(`${filePath} | ${changeSummary}`);
       }
       
       const designTableResult3 = await callNamedDml(conn, "version_queries.cypher", "get_design_table", {
@@ -239,9 +241,14 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log(`\n【v1.3.0の設計表（追加項目）】 ${designTableResult3.getNumTuples()}件`);
       console.log("ファイルパス | 変更概要");
       console.log("-----------|-----------");
-      for (let i = 0; i < designTableResult3.getNumTuples(); i++) {
-        const row = designTableResult3.getRow(i);
-        console.log(`${row[0]} | ${row[1]}`);
+      
+      // 正しい方法でデータを表示
+      designTableResult3.resetIterator();
+      while (designTableResult3.hasNext()) {
+        const row = designTableResult3.getNextSync();
+        const filePath = row.file_path || "";
+        const changeSummary = row.change_summary || "";
+        console.log(`${filePath} | ${changeSummary}`);
       }
       
       const designTableResult4 = await callNamedDml(conn, "version_queries.cypher", "get_design_table", {
@@ -252,9 +259,14 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log(`\n【v1.3.0の設計表（変更項目）】 ${designTableResult4.getNumTuples()}件`);
       console.log("ファイルパス | 変更概要");
       console.log("-----------|-----------");
-      for (let i = 0; i < designTableResult4.getNumTuples(); i++) {
-        const row = designTableResult4.getRow(i);
-        console.log(`${row[0]} | ${row[1]}`);
+      
+      // 正しい方法でデータを表示
+      designTableResult4.resetIterator();
+      while (designTableResult4.hasNext()) {
+        const row = designTableResult4.getNextSync();
+        const filePath = row.file_path || "";
+        const changeSummary = row.change_summary || "";
+        console.log(`${filePath} | ${changeSummary}`);
       }
       
       const designTableResult5 = await callNamedDml(conn, "version_queries.cypher", "get_design_table", {
@@ -265,9 +277,14 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log(`\n【v1.3.0の設計表（削除項目）】 ${designTableResult5.getNumTuples()}件`);
       console.log("ファイルパス | 変更概要");
       console.log("-----------|-----------");
-      for (let i = 0; i < designTableResult5.getNumTuples(); i++) {
-        const row = designTableResult5.getRow(i);
-        console.log(`${row[0]} | ${row[1]}`);
+      
+      // 正しい方法でデータを表示
+      designTableResult5.resetIterator();
+      while (designTableResult5.hasNext()) {
+        const row = designTableResult5.getNextSync();
+        const filePath = row.file_path || "";
+        const changeSummary = row.change_summary || "";
+        console.log(`${filePath} | ${changeSummary}`);
       }
     } catch (error) {
       console.error(`  クエリエラー: ${error}`);

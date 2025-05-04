@@ -72,13 +72,13 @@ MATCH (v1:VersionState {id: 'v1.1.0'}), (v2:VersionState {id: 'v1.2.0'})
 CREATE (v1)-[:FOLLOWS]->(v2);
 
 MATCH (v:VersionState {id: 'v1.2.0'}), (r:RequirementEntity {id: 'REQ-006'}) 
-CREATE (v)-[:TRACKS_STATE_OF_REQ {change_type: 'added'}]->(r);
+CREATE (v)-[:TRACKS_STATE_OF_REQ]->(r);
 
 MATCH (v:VersionState {id: 'v1.2.0'}), (r:RequirementEntity {id: 'REQ-008'}) 
-CREATE (v)-[:TRACKS_STATE_OF_REQ {change_type: 'added'}]->(r);
+CREATE (v)-[:TRACKS_STATE_OF_REQ]->(r);
 
 MATCH (v:VersionState {id: 'v1.2.0'}), (c:CodeEntity {persistent_id: 'CODE-010'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'added'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 MATCH (v:VersionState {id: 'v1.2.0'}), (c:CodeEntity {persistent_id: 'CODE-011'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'added'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);

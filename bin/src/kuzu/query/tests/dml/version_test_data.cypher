@@ -61,30 +61,30 @@ CREATE (c1)-[:CONTAINS_CODE]->(c2);
 MATCH (c1:CodeEntity {persistent_id: 'CODE-012'}), (c2:CodeEntity {persistent_id: 'CODE-014'}) 
 CREATE (c1)-[:CONTAINS_CODE]->(c2);
 
-// バージョン管理 - 追加エンティティ
+// バージョン管理 - エンティティの関連付け
 MATCH (v:VersionState {id: 'v1.3.0'}), (c:CodeEntity {persistent_id: 'CODE-012'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'added'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 MATCH (v:VersionState {id: 'v1.3.0'}), (c:CodeEntity {persistent_id: 'CODE-013'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'added'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 MATCH (v:VersionState {id: 'v1.3.0'}), (c:CodeEntity {persistent_id: 'CODE-014'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'added'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 MATCH (v:VersionState {id: 'v1.3.0'}), (r:RequirementEntity {id: 'REQ-009'}) 
-CREATE (v)-[:TRACKS_STATE_OF_REQ {change_type: 'added'}]->(r);
+CREATE (v)-[:TRACKS_STATE_OF_REQ]->(r);
 
 MATCH (v:VersionState {id: 'v1.3.0'}), (r:RequirementEntity {id: 'REQ-010'}) 
-CREATE (v)-[:TRACKS_STATE_OF_REQ {change_type: 'added'}]->(r);
+CREATE (v)-[:TRACKS_STATE_OF_REQ]->(r);
 
-// バージョン管理 - 修正エンティティ
-// CODE-001(UserService)がv1.3.0でCODE-015(UserService_v1.3)に更新されたことを示す
+// CODE-001(UserService)がv1.3.0でCODE-015(UserService_v1.3)に更新された
+// 注: v1.3.0で両方のエンティティに言及することで変更を表現
 MATCH (v:VersionState {id: 'v1.3.0'}), (c:CodeEntity {persistent_id: 'CODE-001'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'deleted'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 MATCH (v:VersionState {id: 'v1.3.0'}), (c:CodeEntity {persistent_id: 'CODE-015'}) 
-CREATE (v)-[:TRACKS_STATE_OF_CODE {change_type: 'added'}]->(c);
+CREATE (v)-[:TRACKS_STATE_OF_CODE]->(c);
 
 // 修正した要件を追加
 MATCH (v:VersionState {id: 'v1.3.0'}), (r:RequirementEntity {id: 'REQ-002'}) 
-CREATE (v)-[:TRACKS_STATE_OF_REQ {change_type: 'modified'}]->(r);
+CREATE (v)-[:TRACKS_STATE_OF_REQ]->(r);
