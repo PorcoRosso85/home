@@ -84,10 +84,31 @@ export async function callNamedDml(
     console.log(`名前付きDMLクエリ実行: ${dmlFileName} -> ${queryName}`);
     
     // DMLファイルの完全パスを構築
-    const dmlFilePath = path.resolve(
+    // 注: queriesディレクトリも検索する
+    let dmlFilePath = path.resolve(
       Deno.cwd(),
       `/home/nixos/bin/src/kuzu/query/tests/dml/${dmlFileName}`
     );
+    
+    // ファイルが存在するか確認
+    let fileExists = false;
+    try {
+      await Deno.stat(dmlFilePath);
+      fileExists = true;
+    } catch {
+      // dmlディレクトリになければqueriesディレクトリを試す
+      dmlFilePath = path.resolve(
+        Deno.cwd(),
+        `/home/nixos/bin/src/kuzu/query/tests/queries/${dmlFileName}`
+      );
+      
+      try {
+        await Deno.stat(dmlFilePath);
+        fileExists = true;
+      } catch {
+        throw new Error(`DMLファイルが見つかりません: ${dmlFileName}`);
+      }
+    }
     
     // ファイルを読み込む
     const content = await Deno.readTextFile(dmlFilePath);

@@ -96,6 +96,45 @@ export interface AggregationViewResult {
 // ===== 整形関数 =====
 
 /**
+ * クエリ結果を単純にフォーマットする関数
+ * @param result クエリ結果オブジェクト
+ */
+export function formatQueryResult(result: any): void {
+  if (!result || result.getNumTuples() === 0) {
+    console.log("結果がありません");
+    return;
+  }
+
+  const columnCount = result.getNumColumns();
+  const columnNames = [];
+  
+  // カラム名を取得（可能であれば）
+  try {
+    for (let j = 0; j < columnCount; j++) {
+      columnNames.push(result.getColumnName(j));
+    }
+    console.log(columnNames.join(" | "));
+    console.log("-".repeat(80));
+  } catch (e) {
+    // カラム名が取得できない場合は無視
+    console.log("-".repeat(80));
+  }
+  
+  // 行データを表示
+  for (let i = 0; i < result.getNumTuples(); i++) {
+    const row = result.getRow(i);
+    let rowOutput = "";
+    
+    for (let j = 0; j < columnCount; j++) {
+      rowOutput += `${j > 0 ? " | " : ""}${row[j] !== null && row[j] !== undefined ? row[j] : "null"}`;
+    }
+    
+    console.log(rowOutput);
+  }
+  console.log("-".repeat(80));
+}
+
+/**
  * コードに関連する要件の結果を整形する関数
  * @param results 要件検索結果の配列
  * @returns 整形された文字列

@@ -87,3 +87,22 @@ export async function insertExtendedSampleData(conn: any): Promise<void> {
   
   console.log("拡張サンプルデータの挿入が完了しました");
 }
+
+/**
+ * バージョン管理テスト用の拡張データを挿入する関数
+ * @param conn データベース接続オブジェクト
+ */
+export async function insertVersionTestData(conn: any): Promise<void> {
+  // まず拡張サンプルデータを挿入
+  await insertExtendedSampleData(conn);
+  
+  console.log("バージョン管理テスト用データを挿入中...");
+  
+  // バージョンテスト用データのCypherファイルパス
+  const versionTestDataFilePath = path.resolve(Deno.cwd(), "/home/nixos/bin/src/kuzu/query/tests/dml/version_test_data.cypher");
+  
+  // テストデータを実行
+  await executeCypherFile(conn, versionTestDataFilePath);
+  
+  console.log("バージョン管理テスト用データの挿入が完了しました");
+}
