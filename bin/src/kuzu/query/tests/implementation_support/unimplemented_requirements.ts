@@ -121,14 +121,14 @@ async function runUnimplementedRequirementsTest(): Promise<boolean> {
     
     console.log("\n全てのテストが成功しました");
     return true;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("テスト実行中にエラーが発生しました:", error);
     return false;
   } finally {
     // データベース接続を閉じる
     try {
       await closeDatabase(db, conn);
-    } catch (error) {
+    } catch (error: unknown) {
       // 既に閉じている場合は無視
     }
   }
@@ -153,9 +153,25 @@ if (import.meta.main) {
 }
 
 // Deno.testでのテスト定義（外部からのインポート用）
-Deno.test("未実装要件特定機能", async () => {
-  const success = await runUnimplementedRequirementsTest();
-  if (!success) {
-    throw new Error("未実装要件特定テストが失敗しました");
-  }
+Deno.test({
+  name: "未実装要件特定機能",
+  fn: async () => {
+    try {
+      const success = await runUnimplementedRequirementsTest();
+      if (!success) {
+        throw new Error("未実装要件特定テストが失敗しました");
+      }
+    } catch (error: unknown) {
+      console.error("テスト実行中にエラーが発生しました:", error);
+      if (error instanceof Error) {
+        console.error("スタックトレース:", error.stack);
+      }
+      throw error;
+    }
+  },
+  permissions: {
+    read: true,
+    write: true,
+    net: true,
+  },
 });

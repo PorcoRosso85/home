@@ -155,7 +155,7 @@ async function runCodeToRequirementsTest(): Promise<boolean> {
     
     console.log("\n全てのテストが成功しました");
     return true;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("テスト実行中にエラーが発生しました:", error);
     return false;
   } finally {
@@ -183,9 +183,25 @@ if (import.meta.main) {
 }
 
 // Deno.testでのテスト定義（外部からのインポート用）
-Deno.test("コードから要件への逆引き機能", async () => {
-  const success = await runCodeToRequirementsTest();
-  if (!success) {
-    throw new Error("コードから要件への逆引きテストが失敗しました");
-  }
+Deno.test({
+  name: "コードから要件への逆引き機能",
+  fn: async () => {
+    try {
+      const success = await runCodeToRequirementsTest();
+      if (!success) {
+        throw new Error("コードから要件への逆引きテストが失敗しました");
+      }
+    } catch (error: unknown) {
+      console.error("テスト実行中にエラーが発生しました:", error);
+      if (error instanceof Error) {
+        console.error("スタックトレース:", error.stack);
+      }
+      throw error;
+    }
+  },
+  permissions: {
+    read: true,
+    write: true,
+    net: true,
+  },
 });

@@ -22,9 +22,11 @@ export async function loadKuzuModule() {
     const module = await import("kuzu");
     console.log("KuzuDBモジュールをロードしました、使用可能なメソッド:", Object.keys(module));
     return module;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("KuzuDBモジュールのロード失敗:", error);
-    console.error("スタックトレース:", error.stack);
+    if (error instanceof Error) {
+      console.error("スタックトレース:", error.stack);
+    }
     return null;
   }
 }
@@ -57,9 +59,13 @@ export async function cleanDatabase(dbPath: string) {
   try {
     await Deno.remove(dbPath, { recursive: true });
     console.log(`既存のデータベースを削除しました: ${dbPath}`);
-  } catch (error) {
+  } catch (error: unknown) {
     if (!(error instanceof Deno.errors.NotFound)) {
-      console.warn(`データベース削除時の警告: ${error.message}`);
+      if (error instanceof Error) {
+        console.warn(`データベース削除時の警告: ${error.message}`);
+      } else {
+        console.warn(`データベース削除時の警告: ${String(error)}`);
+      }
     }
   }
 }
@@ -89,13 +95,30 @@ export async function setupDatabase(dbName: string): Promise<any> {
     
     // データベースの初期化
     console.log(`データベースを初期化中... パス: ${dbPath}`);
-    const db = new kuzu.Database(dbPath);
-    const conn = new kuzu.Connection(db);
-    console.log("データベース初期化完了");
-    
-    return { db, conn, kuzu };
-  } catch (error) {
-    console.error("データベースセットアップ中にエラーが発生しました:", error);
+    try {
+      const db = new kuzu.Database(dbPath);
+      const conn = new kuzu.Connection(db);
+      console.log("データベース初期化完了");
+      
+      return { db, conn, kuzu };
+    } catch (dbError: unknown) {
+      console.error("データベースインスタンス作成中にエラーが発生しました:");
+      if (dbError instanceof Error) {
+        console.error("エラーメッセージ:", dbError.message);
+        console.error("スタックトレース:", dbError.stack);
+      } else {
+        console.error("不明なエラー:", dbError);
+      }
+      throw dbError;
+    }
+  } catch (error: unknown) {
+    console.error("データベースセットアップ中にエラーが発生しました:");
+    if (error instanceof Error) {
+      console.error("エラーメッセージ:", error.message);
+      console.error("スタックトレース:", error.stack);
+    } else {
+      console.error("不明なエラー:", error);
+    }
     throw error;
   }
 }
