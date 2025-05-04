@@ -87,24 +87,3 @@ export async function insertExtendedSampleData(conn: any): Promise<void> {
   
   console.log("拡張サンプルデータの挿入が完了しました");
 }
-
-/**
- * レガシーデータを挿入する関数
- * 旧スキーマとの互換性のために使用
- * @param conn データベース接続オブジェクト
- */
-export async function insertLegacySampleData(conn: any): Promise<void> {
-  console.log("レガシーサンプルデータを挿入中...");
-  
-  // レガシーデータのCypherファイルパス
-  const legacyDataFilePath = path.resolve(Deno.cwd(), "/home/nixos/bin/src/kuzu/query/tests/dml/legacy/legacy_data.cypher");
-  const legacyRelationshipsFilePath = path.resolve(Deno.cwd(), "/home/nixos/bin/src/kuzu/query/tests/dml/legacy/legacy_relationships.cypher");
-  
-  // データノードの作成
-  await executeCypherFile(conn, legacyDataFilePath);
-  
-  // 関係の作成
-  await executeCypherFile(conn, legacyRelationshipsFilePath);
-  
-  console.log("レガシーサンプルデータの挿入が完了しました");
-}

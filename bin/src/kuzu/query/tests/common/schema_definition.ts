@@ -9,7 +9,7 @@
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
 
 /**
- * 新しいスキーマ定義に基づくデータベーススキーマを作成する関数
+ * スキーマ定義ファイルに基づくデータベーススキーマを作成する関数
  * @param conn データベース接続オブジェクト
  */
 export async function createSchema(conn: any): Promise<void> {
@@ -42,72 +42,5 @@ export async function createSchema(conn: any): Promise<void> {
     console.error(`スキーマ定義ファイルの読み込みまたは実行中にエラーが発生しました: ${error.message}`);
     throw error;
   }
-}
-
-/**
- * 旧スキーマとの互換性のためのレガシースキーマを作成する関数
- * 注: 過渡期にのみ使用。将来的には削除予定
- * @param conn データベース接続オブジェクト
- */
-export async function createLegacySchema(conn: any): Promise<void> {
-  // ノードテーブル
-  await conn.query(`
-    CREATE NODE TABLE LocationURI (
-      uri_id STRING PRIMARY KEY,
-      scheme STRING,
-      authority STRING,
-      path STRING,
-      fragment STRING,
-      query STRING
-    )
-  `);
-  
-  await conn.query(`
-    CREATE NODE TABLE CodeEntity (
-      persistent_id STRING PRIMARY KEY,
-      name STRING,
-      type STRING,
-      signature STRING,
-      complexity INT64,
-      start_position INT64,
-      end_position INT64
-    )
-  `);
-  
-  await conn.query(`
-    CREATE NODE TABLE RequirementEntity (
-      id STRING PRIMARY KEY,
-      title STRING,
-      description STRING,
-      priority STRING,
-      requirement_type STRING
-    )
-  `);
-  
-  // 旧エッジテーブル
-  await conn.query(`
-    CREATE REL TABLE HAS_LOCATION_URI (
-      FROM CodeEntity TO LocationURI
-    )
-  `);
-  
-  await conn.query(`
-    CREATE REL TABLE REQUIREMENT_HAS_LOCATION_URI (
-      FROM RequirementEntity TO LocationURI
-    )
-  `);
-  
-  await conn.query(`
-    CREATE REL TABLE IMPLEMENTS (
-      FROM CodeEntity TO RequirementEntity,
-      implementation_type STRING
-    )
-  `);
-  
-  await conn.query(`
-    CREATE REL TABLE CONTAINS (
-      FROM CodeEntity TO CodeEntity
-    )
-  `);
 }
 
