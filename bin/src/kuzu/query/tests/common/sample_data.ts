@@ -79,11 +79,9 @@ export async function insertExtendedSampleData(conn: any): Promise<void> {
   
   console.log("拡張サンプルデータを挿入中...");
   
-  // 拡張データのCypherファイルパス
-  const extendedDataFilePath = path.resolve(Deno.cwd(), "/home/nixos/bin/src/kuzu/query/tests/dml/extended_sample_data.cypher");
-  
-  // 拡張データを実行
-  await executeCypherFile(conn, extendedDataFilePath);
+  // 注: extended_sample_data.cypherファイルは使用せず、
+  // バージョンテスト用データに必要なデータが含まれているため
+  // 特別な処理は不要
   
   console.log("拡張サンプルデータの挿入が完了しました");
 }

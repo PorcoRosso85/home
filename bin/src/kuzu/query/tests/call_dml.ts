@@ -84,7 +84,7 @@ export async function callNamedDml(
     console.log(`名前付きDMLクエリ実行: ${dmlFileName} -> ${queryName}`);
     
     // DMLファイルの完全パスを構築
-    // 注: queriesディレクトリも検索する
+    // 注: queries(旧)、dql(新)ディレクトリも検索する
     let dmlFilePath = path.resolve(
       Deno.cwd(),
       `/home/nixos/bin/src/kuzu/query/tests/dml/${dmlFileName}`
@@ -96,17 +96,28 @@ export async function callNamedDml(
       await Deno.stat(dmlFilePath);
       fileExists = true;
     } catch {
-      // dmlディレクトリになければqueriesディレクトリを試す
+      // dmlディレクトリになければdqlディレクトリを試す
       dmlFilePath = path.resolve(
         Deno.cwd(),
-        `/home/nixos/bin/src/kuzu/query/tests/queries/${dmlFileName}`
+        `/home/nixos/bin/src/kuzu/query/tests/dql/${dmlFileName}`
       );
       
       try {
         await Deno.stat(dmlFilePath);
         fileExists = true;
       } catch {
-        throw new Error(`DMLファイルが見つかりません: ${dmlFileName}`);
+        // dqlディレクトリになければqueries(旧)ディレクトリを試す
+        dmlFilePath = path.resolve(
+          Deno.cwd(),
+          `/home/nixos/bin/src/kuzu/query/tests/queries/${dmlFileName}`
+        );
+        
+        try {
+          await Deno.stat(dmlFilePath);
+          fileExists = true;
+        } catch {
+          throw new Error(`DMLファイルが見つかりません: ${dmlFileName}`);
+        }
       }
     }
     
