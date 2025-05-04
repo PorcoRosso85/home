@@ -105,33 +105,36 @@ export function formatQueryResult(result: any): void {
     return;
   }
 
-  const columnCount = result.getNumColumns();
-  const columnNames = [];
-  
-  // カラム名を取得（可能であれば）
+  // 利用可能なメソッドを確認
   try {
-    for (let j = 0; j < columnCount; j++) {
-      columnNames.push(result.getColumnName(j));
+    // リセットして先頭から読み取る
+    result.resetIterator();
+    
+    // 結果を一行ずつ処理
+    let rowCount = 0;
+    while (result.hasNext()) {
+      // 次の行を取得
+      const row = result.getNextSync();
+      
+      // 最初の行でヘッダーを表示
+      if (rowCount === 0) {
+        const headers = Object.keys(row);
+        console.log(headers.join(" | "));
+        console.log("-".repeat(80));
+      }
+      
+      // 行データを表示
+      const values = Object.values(row);
+      console.log(values.join(" | "));
+      
+      rowCount++;
     }
-    console.log(columnNames.join(" | "));
+    
     console.log("-".repeat(80));
   } catch (e) {
-    // カラム名が取得できない場合は無視
-    console.log("-".repeat(80));
+    // エラーがあった場合はメッセージを表示
+    console.error("結果のフォーマット中にエラーが発生しました:", e);
   }
-  
-  // 行データを表示
-  for (let i = 0; i < result.getNumTuples(); i++) {
-    const row = result.getRow(i);
-    let rowOutput = "";
-    
-    for (let j = 0; j < columnCount; j++) {
-      rowOutput += `${j > 0 ? " | " : ""}${row[j] !== null && row[j] !== undefined ? row[j] : "null"}`;
-    }
-    
-    console.log(rowOutput);
-  }
-  console.log("-".repeat(80));
 }
 
 /**

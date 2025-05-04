@@ -207,9 +207,15 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log(`【v1.2.0の設計表（追加項目）】 ${designTableResult.getNumTuples()}件`);
       console.log("ファイルパス | 変更概要");
       console.log("-----------|-----------");
-      for (let i = 0; i < designTableResult.getNumTuples(); i++) {
-        const row = designTableResult.getRow(i);
-        console.log(`${row[0]} | ${row[1]}`);
+      
+      // 正しい方法でデータを表示
+      designTableResult.resetIterator();
+      while (designTableResult.hasNext()) {
+        const row = designTableResult.getNextSync();
+        // row はオブジェクト形式 (例: { file_path: "xxx", change_summary: "yyy" })
+        const filePath = row.file_path || "";
+        const changeSummary = row.change_summary || "";
+        console.log(`${filePath} | ${changeSummary}`);
       }
       
       const designTableResult2 = await callNamedDml(conn, "version_queries.cypher", "get_design_table", {
@@ -277,9 +283,15 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log(`【v1.2.0のバージョン変更概要】 ${versionSummaryResult.getNumTuples()}件`);
       console.log("ファイルパス | エンティティ説明");
       console.log("-----------|-----------");
-      for (let i = 0; i < versionSummaryResult.getNumTuples(); i++) {
-        const row = versionSummaryResult.getRow(i);
-        console.log(`${row[0]} | ${row[1]}`);
+      
+      // 正しい方法でデータを表示
+      versionSummaryResult.resetIterator();
+      while (versionSummaryResult.hasNext()) {
+        const row = versionSummaryResult.getNextSync();
+        // row はオブジェクト形式 (例: { file_path: "xxx", entity_description: "yyy" })
+        const filePath = row.file_path || "";
+        const entityDescription = row.entity_description || "";
+        console.log(`${filePath} | ${entityDescription}`);
       }
       
       const versionSummaryResult2 = await callNamedDml(conn, "version_queries.cypher", "get_version_changes_summary", {
@@ -289,9 +301,15 @@ const TEST_DB_NAME = "version_queries_test_db";
       console.log(`\n【v1.3.0のバージョン変更概要】 ${versionSummaryResult2.getNumTuples()}件`);
       console.log("ファイルパス | エンティティ説明");
       console.log("-----------|-----------");
-      for (let i = 0; i < versionSummaryResult2.getNumTuples(); i++) {
-        const row = versionSummaryResult2.getRow(i);
-        console.log(`${row[0]} | ${row[1]}`);
+      
+      // 正しい方法でデータを表示
+      versionSummaryResult2.resetIterator();
+      while (versionSummaryResult2.hasNext()) {
+        const row = versionSummaryResult2.getNextSync();
+        // row はオブジェクト形式 (例: { file_path: "xxx", entity_description: "yyy" })
+        const filePath = row.file_path || "";
+        const entityDescription = row.entity_description || "";
+        console.log(`${filePath} | ${entityDescription}`);
       }
     } catch (error) {
       console.error(`  クエリエラー: ${error}`);
