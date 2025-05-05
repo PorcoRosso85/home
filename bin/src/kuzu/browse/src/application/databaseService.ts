@@ -130,22 +130,52 @@ export class DatabaseService {
    */
   public async getStats(): Promise<DatabaseOperationResult> {
     try {
-      // ノード数を取得
-      const nodeCountResult = await this.executeDirectQuery("MATCH (n) RETURN COUNT(n) AS nodeCount");
-      if (!nodeCountResult.success) return nodeCountResult;
+      if (!this.conn) {
+        return {
+          success: false,
+          error: "データベース接続がありません"
+        };
+      }
       
-      // エッジ数を取得
-      const edgeCountResult = await this.executeDirectQuery("MATCH ()-[r]->() RETURN COUNT(r) AS edgeCount");
-      if (!edgeCountResult.success) return edgeCountResult;
-      
-      // 結果を整形
-      const nodeCount = nodeCountResult.data[0]?.nodeCount || 0;
-      const edgeCount = edgeCountResult.data[0]?.edgeCount || 0;
-      
-      return {
-        success: true,
-        data: { nodeCount, edgeCount }
-      };
+      try {
+        // ノード数を取得
+        const nodeCountResult = await this.executeDirectQuery("MATCH (n) RETURN COUNT(n) AS nodeCount");
+        if (!nodeCountResult.success) {
+          return {
+            success: false,
+            error: nodeCountResult.error || "ノード数の取得に失敗しました"
+          };
+        }
+        
+        // エッジ数を取得
+        const edgeCountResult = await this.executeDirectQuery("MATCH ()-[r]->() RETURN COUNT(r) AS edgeCount");
+        if (!edgeCountResult.success) {
+          return {
+            success: false,
+            error: edgeCountResult.error || "エッジ数の取得に失敗しました"
+          };
+        }
+        
+        // 結果を整形
+        const nodeCount = nodeCountResult.data && nodeCountResult.data[0] ? 
+          parseInt(nodeCountResult.data[0].nodeCount) : 0;
+        const edgeCount = edgeCountResult.data && edgeCountResult.data[0] ? 
+          parseInt(edgeCountResult.data[0].edgeCount) : 0;
+        
+        return {
+          success: true,
+          data: { 
+            nodeCount: isNaN(nodeCount) ? 0 : nodeCount, 
+            edgeCount: isNaN(edgeCount) ? 0 : edgeCount 
+          }
+        };
+      } catch (queryError) {
+        console.error('データベース統計取得クエリエラー:', queryError);
+        return {
+          success: false,
+          error: `統計クエリエラー: ${queryError.message}`
+        };
+      }
     } catch (error) {
       console.error('データベース統計取得エラー:', error);
       return {
