@@ -335,10 +335,27 @@ export async function executeNamedQuery(
   // クエリの実行
   try {
     console.log(`クエリを実行: ${processedQuery}`);
-    const result = await conn.query(processedQuery);
+    
+    // Denoでワーカーの問題を回避するため、実行方法を調整
+    let result;
+    if (typeof conn.querySync === 'function') {
+      // 同期APIを試す（存在する場合）
+      console.log("同期APIでクエリを実行します");
+      result = conn.querySync(processedQuery);
+    } else if (typeof conn.querySingleThreaded === 'function') {
+      // シングルスレッドAPIを試す（存在する場合）
+      console.log("シングルスレッドAPIでクエリを実行します");
+      result = await conn.querySingleThreaded(processedQuery);
+    } else {
+      // 標準のqueryメソッドを使用
+      console.log("標準APIでクエリを実行します");
+      result = await conn.query(processedQuery);
+    }
+    
     console.log(`クエリの実行が完了しました: ${queryName}`);
     return result;
   } catch (error) {
+    console.error(`クエリ実行エラー: ${error}`);
     return {
       code: "QUERY_EXECUTION_ERROR",
       message: `クエリの実行に失敗しました: ${error.message}`,
@@ -378,11 +395,27 @@ export async function executeQueryFile(
   // クエリの実行
   try {
     const results = [];
+    // シングルスレッドで連続的に実行（ワーカーを使わない）
     for (const query of processedQueries) {
       try {
-        const result = await conn.query(query);
+        // Denoでワーカーの問題を回避するため、実行方法を調整
+        let result;
+        if (typeof conn.querySync === 'function') {
+          // 同期APIを試す（存在する場合）
+          console.log("同期APIでクエリを実行します");
+          result = conn.querySync(query);
+        } else if (typeof conn.querySingleThreaded === 'function') {
+          // シングルスレッドAPIを試す（存在する場合）
+          console.log("シングルスレッドAPIでクエリを実行します");
+          result = await conn.querySingleThreaded(query);
+        } else {
+          // 標準のqueryメソッドを使用
+          console.log("標準APIでクエリを実行します");
+          result = await conn.query(query);
+        }
         results.push(result);
       } catch (error) {
+        console.error(`クエリ実行エラー: ${error}`);
         return {
           code: "QUERY_EXECUTION_ERROR",
           message: `クエリの実行に失敗しました: ${error.message}`,
