@@ -83,55 +83,14 @@ const TEST_DB_NAME = "implementation_traceability_test_db";
     console.log("\n5. 実装トレーサビリティテスト（要件からコード）");
     try {
       // 新しい要件とコードを作成して関連付ける
-      const createReqAndCodeQuery = `
-        // 新しい要件を作成
-        CREATE (r:RequirementEntity {
-          id: 'REQ-IMPL-001',
-          title: 'データエクスポート機能',
-          description: 'ユーザーはデータをCSV形式でエクスポートできること',
-          priority: 'medium',
-          requirement_type: 'functional'
-        })
-        
-        // 新しいコードエンティティを作成
-        CREATE (c1:CodeEntity {
-          persistent_id: 'CODE-EXPORT-001',
-          name: 'exportToCSV',
-          type: 'function',
-          signature: 'public void exportToCSV(Data data, String filename)',
-          complexity: 3,
-          start_position: 200,
-          end_position: 300
-        })
-        
-        CREATE (c2:CodeEntity {
-          persistent_id: 'CODE-EXPORT-002',
-          name: 'CSVFormatter',
-          type: 'class',
-          signature: 'public class CSVFormatter',
-          complexity: 5,
-          start_position: 400,
-          end_position: 800
-        })
-        
-        // 要件からコードへの実装関係を作成
-        CREATE (r)-[:IS_IMPLEMENTED_BY {implementation_type: 'direct'}]->(c1)
-        CREATE (r)-[:IS_IMPLEMENTED_BY {implementation_type: 'support'}]->(c2)
-        
-        RETURN r.id, c1.persistent_id, c2.persistent_id;
-      `;
-      const createResult = await conn.query(createReqAndCodeQuery);
+      const createResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "create_requirement_and_code", {});
       
       createResult.resetIterator();
       const createRow = createResult.getNextSync();
       console.log(`  要件「${createRow["r.id"]}」をコード「${createRow["c1.persistent_id"]}」と「${createRow["c2.persistent_id"]}」に関連付けました`);
       
       // 要件からコードを取得するクエリ
-      const reqToCodeQuery = `
-        MATCH (r:RequirementEntity {id: 'REQ-IMPL-001'})-[rel:IS_IMPLEMENTED_BY]->(c:CodeEntity)
-        RETURN r.id, r.title, c.persistent_id, c.name, rel.implementation_type;
-      `;
-      const reqToCodeResult = await conn.query(reqToCodeQuery);
+      const reqToCodeResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "trace_requirement_to_code", {});
       
       console.log("\n  要件からのコード実装トレーサビリティ:");
       reqToCodeResult.resetIterator();
@@ -147,11 +106,7 @@ const TEST_DB_NAME = "implementation_traceability_test_db";
     console.log("\n6. 実装トレーサビリティテスト（コードから要件）");
     try {
       // コードから要件を取得するクエリ
-      const codeToReqQuery = `
-        MATCH (c:CodeEntity {persistent_id: 'CODE-EXPORT-001'})<-[rel:IS_IMPLEMENTED_BY]-(r:RequirementEntity)
-        RETURN c.persistent_id, c.name, r.id, r.title, rel.implementation_type;
-      `;
-      const codeToReqResult = await conn.query(codeToReqQuery);
+      const codeToReqResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "trace_code_to_requirement", {});
       
       console.log("\n  コードからの要件トレーサビリティ:");
       codeToReqResult.resetIterator();
@@ -167,29 +122,14 @@ const TEST_DB_NAME = "implementation_traceability_test_db";
     console.log("\n7. 未実装の要件を検出");
     try {
       // 追加の未実装要件を作成
-      const createUnimplementedReqQuery = `
-        CREATE (r:RequirementEntity {
-          id: 'REQ-UNIMPLEMENTED',
-          title: '未実装の要件',
-          description: 'これはまだ実装されていない要件です',
-          priority: 'high',
-          requirement_type: 'functional'
-        })
-        RETURN r.id, r.title;
-      `;
-      const createUnimplementedResult = await conn.query(createUnimplementedReqQuery);
+      const createUnimplementedResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "create_unimplemented_requirement", {});
       
       createUnimplementedResult.resetIterator();
       const unimplementedRow = createUnimplementedResult.getNextSync();
       console.log(`  未実装の要件を作成: ${unimplementedRow["r.title"]} (${unimplementedRow["r.id"]})`);
       
       // 未実装の要件を検出するクエリ
-      const unimplementedReqQuery = `
-        MATCH (r:RequirementEntity)
-        WHERE NOT EXISTS { MATCH (r)-[:IS_IMPLEMENTED_BY]->() }
-        RETURN r.id, r.title, r.priority;
-      `;
-      const unimplementedReqResult = await conn.query(unimplementedReqQuery);
+      const unimplementedReqResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "find_unimplemented_requirements", {});
       
       console.log("\n  未実装の要件一覧:");
       unimplementedReqResult.resetIterator();
@@ -207,25 +147,14 @@ const TEST_DB_NAME = "implementation_traceability_test_db";
     console.log("\n8. 関連コードが存在しない要件の影響分析");
     try {
       // 関連要件間の依存関係を作成
-      const createDependencyQuery = `
-        MATCH (req1:RequirementEntity {id: 'REQ-UNIMPLEMENTED'}), (req2:RequirementEntity {id: 'REQ-IMPL-001'})
-        CREATE (req1)-[:DEPENDS_ON {dependency_type: 'functional'}]->(req2)
-        RETURN req1.id, req2.id;
-      `;
-      const createDependencyResult = await conn.query(createDependencyQuery);
+      const createDependencyResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "create_requirement_dependency", {});
       
       createDependencyResult.resetIterator();
       const depRow = createDependencyResult.getNextSync();
       console.log(`  依存関係を作成: ${depRow["req1.id"]} -> ${depRow["req2.id"]}`);
       
       // 影響分析クエリ（依存する要件と、その実装コード）
-      const impactAnalysisQuery = `
-        MATCH (r:RequirementEntity {id: 'REQ-UNIMPLEMENTED'})-[:DEPENDS_ON*1..3]->(dep:RequirementEntity)
-        OPTIONAL MATCH (dep)-[:IS_IMPLEMENTED_BY]->(c:CodeEntity)
-        RETURN r.id AS source_req, dep.id AS dependency, 
-               collect(DISTINCT c.persistent_id) AS affected_code;
-      `;
-      const impactAnalysisResult = await conn.query(impactAnalysisQuery);
+      const impactAnalysisResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "analyze_requirement_impact", {});
       
       console.log("\n  影響分析結果:");
       impactAnalysisResult.resetIterator();
@@ -242,26 +171,14 @@ const TEST_DB_NAME = "implementation_traceability_test_db";
     console.log("\n9. コード変更時の要件追跡");
     try {
       // コード変更のシミュレーション（既存コードを修正）
-      const updateCodeQuery = `
-        MATCH (c:CodeEntity {persistent_id: 'CODE-EXPORT-001'})
-        SET c.name = 'exportToCSV_v2',
-            c.signature = 'public void exportToCSV(Data data, String filename, ExportOptions options)'
-        RETURN c.persistent_id, c.name, c.signature;
-      `;
-      const updateCodeResult = await conn.query(updateCodeQuery);
+      const updateCodeResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "update_code", {});
       
       updateCodeResult.resetIterator();
       const updateRow = updateCodeResult.getNextSync();
       console.log(`  コード変更: ${updateRow["c.persistent_id"]} -> ${updateRow["c.name"]}, ${updateRow["c.signature"]}`);
       
       // 変更されたコードに関連する要件を追跡
-      const codeChangeImpactQuery = `
-        MATCH (c:CodeEntity {persistent_id: 'CODE-EXPORT-001'})<-[:IS_IMPLEMENTED_BY]-(r:RequirementEntity)
-        OPTIONAL MATCH (r)<-[:DEPENDS_ON]-(depReq:RequirementEntity)
-        RETURN c.persistent_id, c.name, r.id AS direct_req, 
-               collect(DISTINCT depReq.id) AS dependent_reqs;
-      `;
-      const codeChangeImpactResult = await conn.query(codeChangeImpactQuery);
+      const codeChangeImpactResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "analyze_code_change_impact", {});
       
       console.log("\n  コード変更の影響を受ける要件:");
       codeChangeImpactResult.resetIterator();
@@ -279,15 +196,7 @@ const TEST_DB_NAME = "implementation_traceability_test_db";
     console.log("\n10. 実装カバレッジの測定");
     try {
       // 全要件数と実装済み要件数を取得
-      const coverageQuery = `
-        MATCH (r:RequirementEntity)
-        WITH count(r) AS total
-        MATCH (r2:RequirementEntity)
-        WHERE EXISTS { MATCH (r2)-[:IS_IMPLEMENTED_BY]->() }
-        WITH total, count(r2) AS implemented
-        RETURN total, implemented, 1.0 * implemented / total * 100 AS coverage_percentage;
-      `;
-      const coverageResult = await conn.query(coverageQuery);
+      const coverageResult = await callNamedDml(conn, "implementation_traceability_queries.cypher", "measure_implementation_coverage", {});
       
       coverageResult.resetIterator();
       const coverageRow = coverageResult.getNextSync();
