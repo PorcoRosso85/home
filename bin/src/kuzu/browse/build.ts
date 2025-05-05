@@ -64,6 +64,11 @@ async function createViteDevServer() {
         usePolling: true,
         interval: 100
       },
+      fs: {
+        // Viteのファイルシステムアクセスを設定
+        strict: false,
+        allow: ['..', '.', '/'],
+      },
       headers: {
         // クロスオリジン分離の設定（SharedArrayBuffer対応に必須）
         'Cross-Origin-Embedder-Policy': 'require-corp',

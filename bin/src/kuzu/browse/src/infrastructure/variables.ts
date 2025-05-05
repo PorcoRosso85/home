@@ -6,5 +6,5 @@
 
 import * as path from 'path';
 
-// データベースの相対パス（upsertモジュールと同じDBを参照）
-export const DB_DIR = "../../../../db";  // src/kuzu/db への相対パス
+// データベースパスをシンボリックリンクしたtest_dbディレクトリに設定
+export const DB_DIR = "/test_db";  // publicディレクトリ内のシンボリックリンク
