@@ -1,14 +1,12 @@
-/**
- * 階層型トレーサビリティモデル - データベース関連の共通処理
- * 
- * このファイルはデータベース操作に関する共通関数を提供します。
- * - KuzuDBモジュールのロード (browseコンポーネントとの共通化)
- * - データベースディレクトリの作成
- * - データベースの初期化と接続
- * - データベースのクリーンアップ
- * 
- * TODO: kuzu/browse/**/database.tsに統合し削除予定
- */
+// 階層型トレーサビリティモデル - データベース関連の共通処理
+//
+// このファイルはデータベース操作に関する共通関数を提供します。
+// - KuzuDBモジュールのロード (browseコンポーネントとの共通化)
+// - データベースディレクトリの作成
+// - データベースの初期化と接続
+// - データベースのクリーンアップ
+// 
+// TODO: kuzu/browse/**/database.tsに統合し削除予定
 
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
 
@@ -149,34 +147,26 @@ export async function ensureDir(dir: string): Promise<void> {
 }
 
 /**
- * 既存のデータベースを削除してクリーンな状態から始める関数
- * @param dbPath データベースディレクトリのパス
+ * データベースをクリーンアップする関数 - 実際の削除は行わず警告のみ表示
+ * @param dbPath データベースディレクトリのパス（現在は使用されない）
  */
 export async function cleanDatabase(dbPath: string) {
-  try {
-    await Deno.remove(dbPath, { recursive: true });
-    console.log(`既存のデータベースを削除しました: ${dbPath}`);
-  } catch (error: unknown) {
-    if (!(error instanceof Deno.errors.NotFound)) {
-      if (error instanceof Error) {
-        console.warn(`データベース削除時の警告: ${error.message}`);
-      } else {
-        console.warn(`データベース削除時の警告: ${String(error)}`);
-      }
-    }
-  }
+  const actualDbPath = "/home/nixos/bin/src/kuzu/db";
+  console.log(`共通データベースディレクトリを使用しているため削除は行いません: ${actualDbPath}`);
+  console.log('注意: すべてのテストが同じデータベースを共有するため、テスト間の分離はありません');
+  // 削除操作は行わない
 }
 
 /**
  * トレーサビリティテスト用のデータベースをセットアップする関数
- * @param dbName データベース名
+ * @param dbName データベース名（使用されないが互換性のために維持）
  * @returns データベース接続オブジェクト
  */
 export async function setupDatabase(dbName: string): Promise<any> {
-  // データベースの基本ディレクトリを ../../../db に設定
-  // これにより、/home/nixos/bin/src/kuzu/db/ ディレクトリにデータが保存される
-  const baseDir = "../../../db";
-  const dbPath = path.resolve(Deno.cwd(), baseDir, dbName);
+  // データベースの基本ディレクトリを絶対パスで指定
+  // 相対パスは環境によって解決が異なるため
+  const dbPath = "/home/nixos/bin/src/kuzu/db";
+  console.log(`データベースパス: ${dbPath}`);
 
   // 既存の共有接続がある場合は再利用
   if (sharedDb && sharedConn) {
@@ -225,11 +215,13 @@ export async function setupDatabase(dbName: string): Promise<any> {
     console.warn("Windowオブジェクトからの接続取得エラー:", windowError);
   }
 
-  // データベースをクリーンな状態から開始する
-  await cleanDatabase(dbPath);
-  
-  // テスト用ディレクトリの作成
-  await ensureDir(dbPath);
+  // ディレクトリが存在することを確認
+  try {
+    await ensureDir(dbPath);
+  } catch (dirError) {
+    console.warn(`ディレクトリ確認エラー: ${dbPath}`, dirError);
+    // エラーがあっても続行（デノがファイルシステムにアクセスできない場合でもモックとして動作可能）
+  }
   
   try {
     // KuzuDBモジュールをロード
