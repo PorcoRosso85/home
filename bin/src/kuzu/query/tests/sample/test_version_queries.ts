@@ -10,11 +10,11 @@ import {
   setupDatabase, 
   closeDatabase 
 } from "../common/db_connection.ts";
-import { createSchema } from "../common/schema_definition.ts";
 import { insertSampleData, insertExtendedSampleData, insertVersionTestData } from "../common/sample_data.ts";
 import { 
   callNamedDml
 } from "../call_dml.ts";
+import { callDdl } from "../call_ddl.ts";
 import { formatQueryResult } from "../common/result_formatter.ts";
 
 // テスト用DBの名前
@@ -37,7 +37,7 @@ const TEST_DB_NAME = "version_queries_test_db";
     
     // 2. スキーマ定義
     console.log("\n2. スキーマ定義");
-    await createSchema(conn);
+    await callDdl(conn, "schema.cypher");
     console.log("✓ スキーマ定義完了");
     
     // 3. バージョン管理テスト用データ挿入
