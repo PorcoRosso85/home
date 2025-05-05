@@ -2,21 +2,7 @@
 
 | 機能 | DQL ファイルパス | テスト実装用 TS ファイル | この機能追加で達成できる目的 | 完了 |
 |------|------------|------------|------------|------|
-| 要件とコードの階層関係をLocationURIで一元管理 | /home/nixos/bin/src/kuzu/query/tests/dql/basic_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_hierarchy_relation.ts | 複雑な要件とコードの階層構造を統一的に管理し、ナビゲーションを容易にする | ✅ |
-| 要件から検証方法（テスト）の双方向トレーサビリティ | /home/nixos/bin/src/kuzu/query/tests/dql/exclusive_relation_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_verification_traceability.ts | 要件から検証方法、検証方法から要件へと双方向に追跡でき、検証漏れを防止する | ✅ |
-| 要件からコード実装への双方向トレーサビリティ | /home/nixos/bin/src/kuzu/query/tests/dql/implementation_traceability_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_implementation_traceability.ts | 要件の実装状況を把握し、未実装要件を検出できる | ✅ |
-| テスト名・説明による要件の文書化 | /home/nixos/bin/src/kuzu/query/tests/dql/exclusive_relation_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_documentation.ts | テストコード自体が仕様書として機能し、ドキュメントの一貫性を保つ | ✅ |
-| バージョン管理によるすべての要素の変更履歴追跡 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_version_queries.ts | 時間経過による変更を追跡し、任意の時点での状態を復元できる | ✅ |
-| LocationURI階層を通じた要件構造の柔軟な表現 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_location_hierarchy.ts | 複雑な要件階層を表現し、大規模プロジェクトの構造化が可能になる |  |
-| 依存関係の分析と影響範囲の可視化 | /home/nixos/bin/src/kuzu/query/tests/dql/dependency_analysis_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_dependency_analysis.ts | 変更の影響範囲を把握し、リスク評価や適切なテスト範囲の特定ができる | ✅ |
-| 実装・テストの進捗状況の集計と分析 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_progress_analysis.ts | プロジェクトの進捗を正確に把握し、適切なリソース配分や計画調整ができる | ✅ |
-| 要件カバレッジの測定と可視化 | /home/nixos/bin/src/kuzu/query/tests/dql/exclusive_relation_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_coverage_measurement.ts | 要件の実装・検証カバレッジを数値化し、品質保証の指標として活用できる |  |
-| 外部参照との関係性の管理 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_external_reference.ts | 外部APIや依存ライブラリとの関係を明確にし、外部変更の影響を把握できる |  |
-| 特定バージョン時点での全要件・全コードの状態復元 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_version_state_restore.ts | 過去の任意の時点での全体像を再現し、比較分析や問題追跡が可能になる |  |
-| 孤立実装・要件の検出と防止 | /home/nixos/bin/src/kuzu/query/tests/dql/exclusive_relation_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_exclusive_relations.ts | 未紐付けの実装や要件を検出し、トレーサビリティの完全性を確保する | ✅ |
-| テスト実行結果と要件の充足状況の紐付け | /home/nixos/bin/src/kuzu/query/tests/dql/exclusive_relation_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_result_binding.ts | テスト実行結果から要件の達成状況を直接把握でき、品質評価が容易になる |  |
 | 循環依存の検出と防止 | 追加実装が必要 | /home/nixos/bin/src/kuzu/query/tests/sample/test_circular_dependency.ts | 循環参照による設計の複雑化やデッドロックを防止し、システムの安定性を高める |  |
-| 動く設計書としての一貫性維持 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_living_documentation.ts | ドキュメントとコードの乖離をなくし、常に最新の設計情報を維持できる |  |
 | 必須プロパティの検証 | 追加実装が必要 | /home/nixos/bin/src/kuzu/query/tests/sample/test_property_constraints.ts | データの完全性を保証し、不完全なノードによるエラーを防止する |  |
 | エッジ属性の値域制限 | 追加実装が必要 | /home/nixos/bin/src/kuzu/query/tests/sample/test_edge_attribute_constraints.ts | 関係の種類を標準化し、一貫性のある分析と可視化を可能にする |  |
 | イミュータブルな履歴保証 | 追加実装が必要 | /home/nixos/bin/src/kuzu/query/tests/sample/test_immutable_history.ts | 過去のバージョン情報が改変されないことを保証し、監査証跡の信頼性を高める |  |
