@@ -1,23 +1,14 @@
 /**
  * アプリケーション層のデータベースサービス
  * 
- * インフラストラクチャ層のデータベースサービスとクエリサービスを組み合わせ、
- * データベース操作を一元管理するサービス
+ * データベース接続と基本操作を管理するシンプルなサービス
  */
 
 import { 
   initializeDatabase, 
-  isError, 
-  setupUserTable, 
-  cleanupDatabaseResources 
+  isError,
+  cleanupDatabaseResources
 } from '../infrastructure/database/databaseService';
-
-import { 
-  executeQuery, 
-  QueryType, 
-  QueryParams,
-  QueryServiceResult 
-} from './queryService';
 
 /**
  * データベース操作の結果型
@@ -26,13 +17,12 @@ export interface DatabaseOperationResult {
   success: boolean;
   data?: any;
   error?: string;
-  query?: string;
 }
 
 /**
  * データベースサービスクラス
  * 
- * データベース接続とクエリ実行を管理する
+ * データベース接続のみを管理する最小構成
  */
 export class DatabaseService {
   private conn: any = null;
@@ -51,8 +41,7 @@ export class DatabaseService {
         return {
           success: true,
           data: { 
-            message: 'データベースに既に接続されています',
-            connection: this.conn
+            message: 'データベースに既に接続されています'
           }
         };
       }
@@ -73,15 +62,6 @@ export class DatabaseService {
       this.db = db;
       this.conn = conn;
       
-      // Userテーブルセットアップ（必要に応じて）
-      const setupError = await setupUserTable(conn);
-      if (setupError) {
-        return {
-          success: false,
-          error: setupError.message
-        };
-      }
-      
       // グローバル変数として保存（デバッグ用）
       window.kuzu = kuzu;
       window.db = db;
@@ -90,8 +70,7 @@ export class DatabaseService {
       return {
         success: true,
         data: {
-          message: 'データベースに接続しました',
-          connection: conn
+          message: 'データベースに接続しました'
         }
       };
     } catch (error) {
@@ -104,16 +83,12 @@ export class DatabaseService {
   }
   
   /**
-   * クエリを実行する
+   * 直接Cypherクエリを実行する
    * 
-   * @param queryType クエリタイプ
-   * @param params クエリパラメータ
+   * @param query 実行するCypherクエリ
    * @returns クエリ実行結果
    */
-  public async executeQuery(
-    queryType: QueryType, 
-    params: QueryParams = {}
-  ): Promise<DatabaseOperationResult> {
+  public async executeDirectQuery(query: string): Promise<DatabaseOperationResult> {
     try {
       // データベース接続確認
       if (!this.conn) {
@@ -124,27 +99,58 @@ export class DatabaseService {
       }
       
       // クエリ実行
-      const { result, query } = await executeQuery(this.conn, queryType, params);
+      console.log(`クエリ実行: ${query}`);
+      const queryResult = await this.conn.query(query);
       
-      // エラー処理
-      if ('code' in result) {
-        return {
-          success: false,
-          error: result.message,
-          query
-        };
+      // 結果の変換
+      let resultData;
+      if (queryResult.getAllObjects) {
+        resultData = await queryResult.getAllObjects();
+      } else {
+        resultData = queryResult;
       }
       
       return {
         success: true,
-        data: result,
-        query
+        data: resultData
       };
     } catch (error) {
       console.error('クエリ実行エラー:', error);
       return {
         success: false,
         error: `クエリ実行に失敗しました: ${error.message}`
+      };
+    }
+  }
+  
+  /**
+   * データベースのノード数とエッジ数を取得する
+   * 
+   * @returns ノード数とエッジ数
+   */
+  public async getStats(): Promise<DatabaseOperationResult> {
+    try {
+      // ノード数を取得
+      const nodeCountResult = await this.executeDirectQuery("MATCH (n) RETURN COUNT(n) AS nodeCount");
+      if (!nodeCountResult.success) return nodeCountResult;
+      
+      // エッジ数を取得
+      const edgeCountResult = await this.executeDirectQuery("MATCH ()-[r]->() RETURN COUNT(r) AS edgeCount");
+      if (!edgeCountResult.success) return edgeCountResult;
+      
+      // 結果を整形
+      const nodeCount = nodeCountResult.data[0]?.nodeCount || 0;
+      const edgeCount = edgeCountResult.data[0]?.edgeCount || 0;
+      
+      return {
+        success: true,
+        data: { nodeCount, edgeCount }
+      };
+    } catch (error) {
+      console.error('データベース統計取得エラー:', error);
+      return {
+        success: false,
+        error: `データベース統計の取得に失敗しました: ${error.message}`
       };
     }
   }
@@ -191,19 +197,6 @@ export class DatabaseService {
         error: `データベース接続の切断に失敗しました: ${error.message}`
       };
     }
-  }
-  
-  /**
-   * データベース接続の状態を取得する
-   * 
-   * @returns 接続状態
-   */
-  public getConnectionStatus(): any {
-    return {
-      isConnected: !!this.conn,
-      databaseInstance: this.db,
-      connection: this.conn
-    };
   }
 }
 

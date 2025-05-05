@@ -1,16 +1,9 @@
 /**
- * Kuzu データベースサービス
+ * 最小構成のKuzuデータベースサービス
  * データベースの初期化と接続管理を担当します
  */
 
-/**
- * 統一されたインターフェースでデータベースとの連携を行うためのモジュール
- */
-
 import { DB_DIR } from '../variables';
-
-// WARN: npm呼び出しだとうまくいかないためモジュールを直接指定している
-// 注: ここでは実際のインポートは行わず、initializeDatabase内で動的にインポートします
 
 /**
  * データベース初期化の戻り値型
@@ -62,17 +55,15 @@ export const initializeDatabase = async (): Promise<DatabaseResult> => {
     console.log('Kuzu-Wasmモジュールのロード開始...');
     
     // Kuzu-Wasmのロード
-    // WARN: npm呼び出しだとうまくいかないためモジュールを直接指定している
     const kuzuWasm = await import("../../../node_modules/kuzu-wasm");
     console.log('Kuzu-Wasmモジュールのロード完了');
     
     // Kuzuインスタンス化
     console.log('Kuzuインスタンス化開始...');
-    // kuzuWasmモジュールの処理 - デフォルトエクスポートまたはモジュール自体を使用
     const kuzu = kuzuWasm.default || kuzuWasm;
     console.log('Kuzuインスタンス化完了');
     
-    // 実DBファイルを参照
+    // DBファイルを参照
     console.log(`データベース作成開始...パス: ${DB_DIR}`);
     const db = new kuzu.Database(DB_DIR);
     console.log('データベース作成完了');
@@ -91,137 +82,6 @@ export const initializeDatabase = async (): Promise<DatabaseResult> => {
     return createError(
       'DB_INIT_ERROR',
       `Kuzuの初期化中にエラーが発生しました: ${error.message}`,
-      error
-    );
-  }
-};
-
-/**
- * ユーザーテーブルを作成し、初期データを設定する
- * @param conn データベース接続
- * @returns エラーがあればDatabaseError、なければnull
- */
-export const setupUserTable = async (conn: any): Promise<DatabaseError | null> => {
-  try {
-    // 統一されたユーザーテーブルスキーマ
-    const createUserTable = "CREATE NODE TABLE User(id INT64, name STRING, country STRING, PRIMARY KEY (id))";
-    
-    try {
-      await conn.query(createUserTable);
-      console.log("Userテーブルを作成しました");
-      
-      // サンプルデータの挿入（新規テーブル作成時のみ）
-      await conn.query(`CREATE (u:User {id: 1, name: 'Alice', country: 'Japan'})`);
-      await conn.query(`CREATE (u:User {id: 2, name: 'Bob', country: 'USA'})`);
-      console.log("サンプルデータを挿入しました");
-    } catch (tableError) {
-      // テーブルが既に存在する場合はエラーを無視
-      if (tableError.message && tableError.message.includes("already exists")) {
-        console.log("Userテーブルは既に存在します。スキップします");
-      } else {
-        // その他のエラーは再スローして外側のcatchで処理
-        throw tableError;
-      }
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('テーブル作成エラー:', error);
-    return createError(
-      'TABLE_SETUP_ERROR',
-      `ユーザーテーブルの作成中にエラーが発生しました: ${error.message}`,
-      error
-    );
-  }
-};
-
-/**
- * CSVからデータをロードする
- * @param conn データベース接続
- * @param kuzu Kuzuインスタンス
- * @param csvPath CSVのパス
- * @returns エラーがあればDatabaseError、なければnull
- */
-export const loadCsvData = async (
-  conn: any, 
-  kuzu: any, 
-  csvPath: string = '/remote_data.csv'
-): Promise<DatabaseError | null> => {
-  try {
-    console.log('CSVファイルを読み込み中...');
-    const response = await fetch(csvPath);
-    const csvData = await response.text();
-    console.log(`CSVデータ: ${csvData.substring(0, 100)}...`);
-    
-    // CSVをkuzu FS領域に書き込む
-    if (kuzu.FS) {
-      kuzu.FS.writeFile(csvPath, csvData);
-      console.log('CSVファイルをkuzu FSに書き込みました');
-      
-      // CSVデータの読み込み
-      // 1. CSVファイルの内容を解析して主キー値を抽出
-      const csvLines = csvData.split('\n');
-      const headerLine = csvLines[0];
-      const dataLines = csvLines.slice(1);
-      
-      // 2. ヘッダーから主キーのインデックスを特定
-      const headers = headerLine.split(',');
-      const idIndex = headers.indexOf('id');
-      
-      if (idIndex >= 0) {
-        // 3. CSVから主キー値を抽出
-        const primaryKeys = dataLines
-          .filter(line => line.trim() !== '')
-          .map(line => {
-            const values = line.split(',');
-            return values[idIndex];
-          });
-        
-        // 4. CSVデータを優先するため、重複する可能性のある既存レコードを削除
-        if (primaryKeys.length > 0) {
-          const deleteQuery = `MATCH (u:User) WHERE u.id IN [${primaryKeys.join(', ')}] DELETE u`;
-          console.log(`重複防止のためのレコード削除: ${deleteQuery}`);
-          try {
-            await conn.query(deleteQuery);
-            console.log('既存の重複レコードを削除しました');
-          } catch (deleteError) {
-            console.error('既存レコードの削除エラー:', deleteError.message);
-            return createError(
-              'DELETE_ERROR',
-              deleteError.message,
-              deleteError
-            );
-          }
-        }
-      }
-      
-      // 5. CSVデータの読み込み
-      const loadData = `COPY User FROM '${csvPath}'`;
-      console.log(`クエリ実行: ${loadData}`);
-      try {
-        const loadResult = await conn.query(loadData);
-        console.log('CSVデータ読み込み完了:', loadResult);
-      } catch (loadError) {
-        // エラーメッセージはそのまま出力（ライブラリのエラーを保持）
-        console.error('CSVデータ読み込みエラー:', loadError.message);
-        return createError(
-          'CSV_IMPORT_ERROR',
-          loadError.message,
-          loadError
-        );
-      }
-      return null;
-    } else {
-      return createError(
-        'FS_NOT_AVAILABLE',
-        'kuzu.FSが利用できません。ファイルシステムアクセスをスキップします'
-      );
-    }
-  } catch (error) {
-    console.error('CSVデータロードエラー:', error);
-    return createError(
-      'CSV_LOAD_ERROR',
-      `CSVデータの読み込み中にエラーが発生しました: ${error.message}`,
       error
     );
   }

@@ -75,7 +75,7 @@ export async function cleanDatabase(dbPath: string) {
  */
 export async function setupDatabase(dbName: string): Promise<any> {
   // データベースの基本ディレクトリ
-  const baseDir = "./test_db";
+  const baseDir = "../../db";
   const dbPath = path.resolve(Deno.cwd(), baseDir, dbName);
 
   // データベースをクリーンな状態から開始する

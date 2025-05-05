@@ -6,5 +6,5 @@
 
 import * as path from 'path';
 
-// データベースパスをシンボリックリンクしたtest_dbディレクトリに設定
-export const DB_DIR = "/test_db";  // publicディレクトリ内のシンボリックリンク
+// データベースパスをシンボリックリンクしたdbディレクトリに設定
+export const DB_DIR = "/db";  // publicディレクトリ内のシンボリックリンク
