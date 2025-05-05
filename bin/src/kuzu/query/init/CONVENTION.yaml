@@ -27,6 +27,13 @@
       - 成功時の戻り値型
       - 例外時の戻り値型
       - (オプション)副作用型
+    - 全言語共通で以下の形式を採用すること:
+      - 成功時は元の型をそのまま返す
+      - 失敗時は特定のエラー型を返す
+      - 型の判定はプロパティの有無などで行う
+      - TypeScriptでは: 成功型 | エラー型A | エラー型B | ...
+      - Pythonでは: Union[成功型, エラー型A, エラー型B, ...]
+      - 言語を問わず同様の共用体型パターンを使用する
   examples:
     good: |
       from typing import TypedDict, Union, Literal
@@ -58,6 +65,41 @@
       # エラーかどうかの判別関数
       def is_error(result: FunctionResult) -> bool:
           return "code" in result and "message" in result
+    
+    typescript: |
+      // TypeScriptでの例
+      interface FunctionData {
+          title: string;
+          description: string;
+          parameters: string[];
+      }
+      
+      interface FunctionError {
+          code: string;
+          message: string;
+      }
+      
+      // 成功型とエラー型の共用体型として定義
+      type FunctionResult = FunctionData | FunctionError;
+      
+      function addFunction(data: any): FunctionResult {
+          if (!validateData(data)) {
+              return { code: "INVALID_DATA", message: "Invalid data" };
+          }
+          
+          // 処理...
+          
+          return {
+              title: resultTitle,
+              description: resultDescription,
+              parameters: resultParameters
+          };
+      }
+      
+      // エラーかどうかの判別関数
+      function isError(result: FunctionResult): result is FunctionError {
+          return 'code' in result && 'message' in result;
+      }
 
 ## エラーメッセージの責務:
   rules:
