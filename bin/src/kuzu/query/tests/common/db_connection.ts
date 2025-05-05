@@ -9,6 +9,7 @@
 // TODO: kuzu/browse/**/database.tsに統合し削除予定
 
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
+import { initNodePolyfill } from "./node_polyfill.ts";
 
 // browseコンポーネントから再利用するための変数
 let sharedKuzu: any = null;
@@ -29,31 +30,34 @@ export async function loadKuzuModule() {
       return sharedKuzu;
     }
     
-    // KuzuDBモジュールをロードを試みる - 標準バージョンを優先
+    // KuzuDBモジュールをロードを試みる - Node.js互換アプローチ
     try {
-      console.log("標準バージョンのkuzu-wasmモジュールをロードを試みます...");
-      const standardPath = "/home/nixos/bin/src/kuzu/browse/node_modules/kuzu-wasm/index.js";
-      console.log(`標準バージョンのパス: ${standardPath}`);
+      console.log("Node.js互換モードでkuzu-wasmモジュールをロードを試みます...");
       
-      // ファイルの存在を確認
+      // Node.js環境のポリフィルをセットアップ
+      console.log("Node.js環境のポリフィルをセットアップします...");
+      initNodePolyfill();
+      
+      // 直接ESMスタイルでインポート
+      console.log("ESMスタイルでモジュールをロードします...");
+      const kuzuModulePath = "/home/nixos/bin/src/kuzu/browse/node_modules/kuzu-wasm/index.js";
+      
       try {
-        const standardStat = await Deno.stat(standardPath);
-        console.log("標準バージョンのパスが存在します:", standardStat.isFile ? "ファイルです" : "ディレクトリです");
-      } catch (standardStatErr) {
-        console.warn("標準バージョンのパス確認エラー:", standardStatErr);
-        throw new Error(`kuzu-wasmモジュールが見つかりません: ${standardPath}`);
+        const kuzuStat = await Deno.stat(kuzuModulePath);
+        console.log("KuzuモジュールESMパスが存在します:", kuzuStat.isFile ? "ファイルです" : "ディレクトリです");
+      } catch (kuzuStatErr) {
+        console.warn("KuzuモジュールESMパス確認エラー:", kuzuStatErr);
+        throw new Error(`KuzuモジュールESMパスが見つかりません: ${kuzuModulePath}`);
       }
       
-      // 標準バージョンをロード
-      console.log("標準バージョンをロードしています...");
-      const kuzu = await import(standardPath);
-      console.log("標準バージョンのロード完了");
+      // モジュールをロード
+      const kuzu = await import(kuzuModulePath);
+      console.log("KuzuモジュールESMロード完了");
       
       // モジュールの形式を確認
       sharedKuzu = kuzu.default || kuzu;
-      console.log("kuzu-wasmモジュールをロードしました");
+      console.log("Kuzuモジュールをロードしました");
       
-      // モジュールを返す
       return sharedKuzu;
     } catch (importError) {
       console.warn("kuzu-wasmモジュールのロードに失敗しました:", importError);
@@ -232,61 +236,68 @@ export async function setupDatabase(dbName: string): Promise<any> {
         maxNumThreads: 0, // ワーカーを使用しない
         enableCompression: true,
         readOnly: false,
-        useWorker: false // ワーカーを明示的に無効化
+        useWorker: false, // ワーカーを明示的に無効化
+        enableThreading: false // スレッドを完全に無効化
       };
+      
+      // WebWorkerの使用を避けるため環境変数を設定
+      if (typeof globalThis.process !== 'undefined' && globalThis.process.env) {
+        globalThis.process.env.KUZU_DISABLE_WORKERS = "1";
+        console.log("KuzuDBワーカーを環境変数で無効化しました");
+      }
+      
+      // ワーカーオプションはすでに上で設定済み
       console.log("データベースオプション:", options);
       
-      // データベースの選択（同期APIが利用可能な場合はそちらを使う）
+      // データベースの選択（ESMスタイルのAPI）
       let db, conn;
       
-      if (typeof kuzu.SyncDatabase === 'function' && typeof kuzu.SyncConnection === 'function') {
-        console.log("同期APIを使用します");
-        db = new kuzu.SyncDatabase(dbPath, options);
-        console.log("同期データベースの作成に成功しました");
+      console.log("ESMスタイルのAPIを使用します");
+      try {
+        console.log("Node.js環境のポリフィルを適用します...");
+        // Node.js環境と互換性を持たせるためのグローバル変数
+        if (typeof globalThis.process === 'undefined') {
+          (globalThis as any).process = { 
+            env: {},
+            type: "browser" // ブラウザ環境をエミュレート
+          };
+        }
+
+        console.log("Databaseを作成します...");
+        if (typeof kuzu.Database !== 'function') {
+          console.error("Databaseが利用できません");
+          throw new Error("Databaseクラスが見つかりません");
+        }
         
-        conn = new kuzu.SyncConnection(db);
-        console.log("同期接続の作成に成功しました");
-      } else {
-        console.log("標準APIを使用します");
-        // 標準APIでデータベースを作成
+        // ブラウザ環境と同じ方法で実行
         db = new kuzu.Database(dbPath, options);
-        console.log("標準データベースの作成に成功しました");
+        console.log("ESMスタイルデータベースの作成に成功しました");
         
-        // 接続パラメータを調整（ワーカーなし）
-        const connectionOptions = {
+        console.log("Connectionを作成します...");
+        if (typeof kuzu.Connection !== 'function') {
+          console.error("Connectionが利用できません");
+          throw new Error("Connectionクラスが見つかりません");
+        }
+        
+        const connOptions = {
           useWorker: false,
-          maxNumThreads: 0
-        };
-        conn = new kuzu.Connection(db, connectionOptions);
-        
-        // 接続オブジェクトにカスタムクエリメソッドを追加
-        conn.querySafe = async function(query: string) {
-          try {
-            // シングルスレッドで実行
-            console.log("シングルスレッドでクエリを実行します:", query.substring(0, 50) + (query.length > 50 ? "..." : ""));
-            // 元のクエリメソッドを使用
-            return await this.query(query);
-          } catch (error) {
-            if (error.message && error.message.includes("Classic workers are not supported")) {
-              console.warn("ワーカーエラーが発生しました。回避策を試みます...");
-              
-              // Denoフォールバック：文字列をJSONに変換して返す
-              const mockResult = {
-                getAllObjects: async () => [],
-                getNextSync: () => ({}),
-                hasNext: () => false,
-                resetIterator: () => {},
-                toString: async () => "Mock query result - worker error workaround",
-                close: async () => {}
-              };
-              
-              return mockResult;
-            }
-            throw error;
-          }
+          maxNumThreads: 0,
+          enableThreading: false
         };
         
-        console.log("標準接続とセーフクエリ機能を作成しました");
+        console.log("接続オプション:", connOptions);
+        
+        // WebWorkerの使用を避けるため環境変数を設定
+        if (typeof globalThis.process !== 'undefined' && globalThis.process.env) {
+          globalThis.process.env.KUZU_DISABLE_WORKERS = "1";
+          console.log("KuzuDBワーカーを環境変数で無効化しました");
+        }
+        
+        conn = new kuzu.Connection(db, connOptions);
+        console.log("ESMスタイル接続の作成に成功しました");
+      } catch (apiErr) {
+        console.error("ESMスタイルAPI使用エラー:", apiErr);
+        throw new Error(`ESMスタイルAPIの使用に失敗しました: ${apiErr.message}`);
       }
       console.log("データベース接続完了");
       
