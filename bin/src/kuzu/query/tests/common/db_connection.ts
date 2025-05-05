@@ -1,5 +1,3 @@
-#!/usr/bin/env -S deno run --allow-all
-
 /**
  * 階層型トレーサビリティモデル - データベース関連の共通処理
  * 

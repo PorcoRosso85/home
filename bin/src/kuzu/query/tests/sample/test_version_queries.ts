@@ -1,5 +1,3 @@
-#!/usr/bin/env -S deno run --allow-all
-
 /**
  * 階層型トレーサビリティモデル - バージョン管理クエリテスト
  * 
