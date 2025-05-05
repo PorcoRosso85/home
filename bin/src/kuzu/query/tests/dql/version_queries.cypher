@@ -11,6 +11,188 @@ UNION
 MATCH (v:VersionState {id: $version})-[:TRACKS_STATE_OF_REF]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
 RETURN DISTINCT l.uri_id, l.scheme, l.path;
 
+// 要件の進捗状況を集計するクエリ
+// @name: get_requirement_progress
+MATCH (r:RequirementEntity)
+OPTIONAL MATCH (r)-[:IS_IMPLEMENTED_BY]->(code:CodeEntity)
+OPTIONAL MATCH (r)-[:VERIFIED_BY]->(ver:RequirementVerification)
+WITH r, 
+  CASE 
+    WHEN code IS NOT NULL AND ver IS NOT NULL THEN 'completed'
+    WHEN code IS NOT NULL OR ver IS NOT NULL THEN 'in_progress'
+    ELSE 'not_started'
+  END AS status
+WITH status, count(r) AS count
+RETURN status, count
+ORDER BY CASE status
+  WHEN 'completed' THEN 1
+  WHEN 'in_progress' THEN 2
+  WHEN 'not_started' THEN 3
+  ELSE 4
+END;
+
+// モジュール別の進捗状況を分析するクエリ
+// @name: get_module_progress
+MATCH (mod:LocationURI)<-[:REQUIREMENT_HAS_LOCATION]-(r:RequirementEntity)
+WHERE mod.uri_id IN $module_ids OR $module_ids IS NULL
+OPTIONAL MATCH (r)-[:IS_IMPLEMENTED_BY]->(code:CodeEntity)
+OPTIONAL MATCH (r)-[:VERIFIED_BY]->(ver:RequirementVerification)
+WITH mod.path AS module, r,
+  CASE 
+    WHEN code IS NOT NULL AND ver IS NOT NULL THEN 'completed'
+    WHEN code IS NOT NULL OR ver IS NOT NULL THEN 'in_progress'
+    ELSE 'not_started'
+  END AS status
+WITH module, status, count(r) AS count
+WITH module, 
+  sum(CASE WHEN status = 'completed' THEN count ELSE 0 END) AS completed,
+  sum(CASE WHEN status = 'in_progress' THEN count ELSE 0 END) AS in_progress,
+  sum(CASE WHEN status = 'not_started' THEN count ELSE 0 END) AS not_started,
+  sum(count) AS total
+RETURN 
+  module,
+  completed,
+  in_progress,
+  not_started,
+  total
+ORDER BY module;
+
+// 優先度による進捗状況分析クエリ
+// @name: get_priority_progress
+MATCH (r:RequirementEntity)
+WHERE r.priority IN $priorities OR $priorities IS NULL
+OPTIONAL MATCH (r)-[:IS_IMPLEMENTED_BY]->(code:CodeEntity)
+OPTIONAL MATCH (r)-[:VERIFIED_BY]->(ver:RequirementVerification)
+WITH r.priority AS priority, r,
+  CASE 
+    WHEN code IS NOT NULL AND ver IS NOT NULL THEN 'completed'
+    WHEN code IS NOT NULL OR ver IS NOT NULL THEN 'in_progress'
+    ELSE 'not_started'
+  END AS status
+WITH priority, status, count(r) AS count
+WITH priority, 
+  sum(CASE WHEN status = 'completed' THEN count ELSE 0 END) AS completed,
+  sum(CASE WHEN status = 'in_progress' THEN count ELSE 0 END) AS in_progress,
+  sum(CASE WHEN status = 'not_started' THEN count ELSE 0 END) AS not_started,
+  sum(count) AS total
+RETURN 
+  priority,
+  completed,
+  in_progress,
+  not_started,
+  total
+ORDER BY CASE priority
+  WHEN 'high' THEN 1
+  WHEN 'medium' THEN 2
+  WHEN 'low' THEN 3
+  ELSE 4
+END;
+
+// 検証の進捗状況分析クエリ
+// @name: get_verification_progress
+MATCH (v:RequirementVerification)
+OPTIONAL MATCH (v)-[:VERIFICATION_IS_IMPLEMENTED_BY]->(c:CodeEntity)
+WITH v, 
+  CASE 
+    WHEN c IS NOT NULL THEN 'passed'
+    ELSE 'not_started'
+  END AS status
+WITH status, count(v) AS count
+RETURN status, count
+ORDER BY CASE status
+  WHEN 'passed' THEN 1
+  WHEN 'in_progress' THEN 2
+  WHEN 'not_started' THEN 3
+  ELSE 4
+END;
+
+// コード実装の進捗状況分析クエリ
+// @name: get_code_progress
+MATCH (c:CodeEntity)
+WITH c, 
+  CASE 
+    WHEN c.complexity > 5 THEN 'completed'
+    WHEN c.complexity > 3 THEN 'in_progress'
+    ELSE 'not_started'
+  END AS status
+WITH status, count(c) AS count
+RETURN status, count
+ORDER BY CASE status
+  WHEN 'completed' THEN 1
+  WHEN 'in_progress' THEN 2
+  WHEN 'not_started' THEN 3
+  ELSE 4
+END;
+
+// 要件の完了率クエリ
+// @name: get_requirement_completion_rate
+MATCH (r:RequirementEntity)
+OPTIONAL MATCH (r)-[:IS_IMPLEMENTED_BY]->(code:CodeEntity)
+OPTIONAL MATCH (r)-[:VERIFIED_BY]->(ver:RequirementVerification)
+WITH r,
+  CASE 
+    WHEN code IS NOT NULL AND ver IS NOT NULL THEN 'completed'
+    WHEN code IS NOT NULL OR ver IS NOT NULL THEN 'in_progress'
+    ELSE 'not_started'
+  END AS status
+RETURN 
+  count(r) AS total_requirements,
+  sum(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_requirements,
+  1.0 * sum(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) / count(r) * 100 AS requirements_completion_rate,
+  sum(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_requirements,
+  sum(CASE WHEN status = 'not_started' THEN 1 ELSE 0 END) AS not_started_requirements;
+
+// 検証の完了率クエリ
+// @name: get_verification_completion_rate
+MATCH (v:RequirementVerification)
+OPTIONAL MATCH (v)-[:VERIFICATION_IS_IMPLEMENTED_BY]->(c:CodeEntity)
+WITH v, 
+  CASE 
+    WHEN c IS NOT NULL THEN 'passed'
+    ELSE 'not_started'
+  END AS status
+RETURN 
+  count(v) AS total_verifications,
+  sum(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) AS passed_verifications,
+  1.0 * sum(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) / count(v) * 100 AS verification_pass_rate,
+  0 AS in_progress_verifications,
+  sum(CASE WHEN status = 'not_started' THEN 1 ELSE 0 END) AS not_started_verifications;
+
+// コード実装の完了率クエリ
+// @name: get_code_completion_rate
+MATCH (c:CodeEntity)
+WITH c, 
+  CASE 
+    WHEN c.complexity > 5 THEN 'completed'
+    WHEN c.complexity > 3 THEN 'in_progress'
+    ELSE 'not_started'
+  END AS status
+RETURN 
+  count(c) AS total_code,
+  sum(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_code,
+  1.0 * sum(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) / count(c) * 100 AS code_completion_rate,
+  sum(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_code,
+  sum(CASE WHEN status = 'not_started' THEN 1 ELSE 0 END) AS not_started_code;
+
+// トレーサビリティの状況クエリ
+// @name: get_traceability_status
+MATCH (r:RequirementEntity)
+OPTIONAL MATCH (r)-[:IS_IMPLEMENTED_BY]->(c:CodeEntity)
+OPTIONAL MATCH (r)-[:VERIFIED_BY]->(v:RequirementVerification)
+
+WITH 
+  count(r) AS total_requirements,
+  count(DISTINCT r) - count(DISTINCT CASE WHEN c IS NULL THEN null ELSE r END) AS requirements_without_code,
+  count(DISTINCT r) - count(DISTINCT CASE WHEN v IS NULL THEN null ELSE r END) AS requirements_without_verification,
+  count(DISTINCT CASE WHEN c IS NOT NULL AND v IS NOT NULL THEN r ELSE null END) AS requirements_with_both
+
+RETURN 
+  total_requirements,
+  requirements_without_code,
+  requirements_without_verification,
+  requirements_with_both,
+  1.0 * requirements_with_both / total_requirements * 100 AS full_traceability_rate;
+
 // 指定したバージョンの一つ前のバージョンを取得するクエリ
 // @name: get_previous_version
 MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})

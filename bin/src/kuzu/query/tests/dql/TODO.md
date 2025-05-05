@@ -9,7 +9,7 @@
 | バージョン管理によるすべての要素の変更履歴追跡 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_version_queries.ts | 時間経過による変更を追跡し、任意の時点での状態を復元できる | ✅ |
 | LocationURI階層を通じた要件構造の柔軟な表現 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_location_hierarchy.ts | 複雑な要件階層を表現し、大規模プロジェクトの構造化が可能になる |  |
 | 依存関係の分析と影響範囲の可視化 | /home/nixos/bin/src/kuzu/query/tests/dql/basic_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_dependency_analysis.ts | 変更の影響範囲を把握し、リスク評価や適切なテスト範囲の特定ができる | ✅ |
-| 実装・テストの進捗状況の集計と分析 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_progress_analysis.ts | プロジェクトの進捗を正確に把握し、適切なリソース配分や計画調整ができる |  |
+| 実装・テストの進捗状況の集計と分析 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_progress_analysis.ts | プロジェクトの進捗を正確に把握し、適切なリソース配分や計画調整ができる | ✅ |
 | 要件カバレッジの測定と可視化 | /home/nixos/bin/src/kuzu/query/tests/dql/exclusive_relation_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_coverage_measurement.ts | 要件の実装・検証カバレッジを数値化し、品質保証の指標として活用できる |  |
 | 外部参照との関係性の管理 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_external_reference.ts | 外部APIや依存ライブラリとの関係を明確にし、外部変更の影響を把握できる |  |
 | 特定バージョン時点での全要件・全コードの状態復元 | /home/nixos/bin/src/kuzu/query/tests/dql/version_queries.cypher | /home/nixos/bin/src/kuzu/query/tests/sample/test_version_state_restore.ts | 過去の任意の時点での全体像を再現し、比較分析や問題追跡が可能になる |  |

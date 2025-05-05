@@ -57,16 +57,7 @@ const TEST_DB_NAME = "hierarchy_relation_test_db";
     console.log("\n5. LocationURI階層構造のテスト");
     // 新しいLocationURIを作成し、既存のLocationURIと階層関係を作成する
     try {
-      const createLocationQuery = `
-        CREATE (l:LocationURI {
-          uri_id: 'hierarchy-test-uri',
-          scheme: 'file',
-          path: '/src/components/user/profile.ts',
-          fragment: 'UserProfile'
-        })
-        RETURN l.uri_id, l.path;
-      `;
-      const createResult = await conn.query(createLocationQuery);
+      const createResult = await callNamedDml(conn, "hierarchy_test_queries.cypher", "create_test_location", {});
       
       createResult.resetIterator();
       const locationRow = createResult.getNextSync();
@@ -74,15 +65,7 @@ const TEST_DB_NAME = "hierarchy_relation_test_db";
       console.log(`  新しいLocationURIを作成: ${newLocationId}, パス: ${locationRow["l.path"]}`);
       
       // 親ディレクトリのLocationURIを作成
-      const createParentQuery = `
-        CREATE (l:LocationURI {
-          uri_id: 'hierarchy-parent-uri',
-          scheme: 'file',
-          path: '/src/components/user'
-        })
-        RETURN l.uri_id, l.path;
-      `;
-      const parentResult = await conn.query(createParentQuery);
+      const parentResult = await callNamedDml(conn, "hierarchy_test_queries.cypher", "create_parent_location", {});
       
       parentResult.resetIterator();
       const parentRow = parentResult.getNextSync();
@@ -90,13 +73,7 @@ const TEST_DB_NAME = "hierarchy_relation_test_db";
       console.log(`  親LocationURIを作成: ${parentLocationId}, パス: ${parentRow["l.path"]}`);
       
       // 階層関係を作成
-      const createRelationshipQuery = `
-        MATCH (parent:LocationURI {uri_id: 'hierarchy-parent-uri'}),
-              (child:LocationURI {uri_id: 'hierarchy-test-uri'})
-        CREATE (parent)-[:CONTAINS_LOCATION {relation_type: 'directory'}]->(child)
-        RETURN parent.uri_id, child.uri_id;
-      `;
-      const relationshipResult = await conn.query(createRelationshipQuery);
+      const relationshipResult = await callNamedDml(conn, "hierarchy_test_queries.cypher", "create_hierarchy_relationship", {});
       
       relationshipResult.resetIterator();
       const relRow = relationshipResult.getNextSync();
@@ -108,11 +85,7 @@ const TEST_DB_NAME = "hierarchy_relation_test_db";
     // 6. 子階層の取得テスト
     console.log("\n6. 子階層の取得テスト");
     try {
-      const getChildrenQuery = `
-        MATCH (parent:LocationURI {uri_id: 'hierarchy-parent-uri'})-[:CONTAINS_LOCATION]->(child:LocationURI)
-        RETURN parent.path AS parent_path, child.path AS child_path;
-      `;
-      const childrenResult = await conn.query(getChildrenQuery);
+      const childrenResult = await callNamedDml(conn, "hierarchy_test_queries.cypher", "get_child_locations", {});
       
       childrenResult.resetIterator();
       if (childrenResult.hasNext()) {
@@ -136,42 +109,14 @@ const TEST_DB_NAME = "hierarchy_relation_test_db";
     console.log("\n7. 要件とコードの階層関係のテスト");
     try {
       // 要件とLocationURIの関連付け
-      const createReqLocationQuery = `
-        CREATE (r:RequirementEntity {
-          id: 'REQ-HIERARCHY-TEST',
-          title: '階層テスト要件',
-          description: 'これは階層関係テスト用の要件です',
-          priority: 'high',
-          requirement_type: 'functional'
-        })
-        WITH r
-        MATCH (l:LocationURI {uri_id: 'hierarchy-test-uri'})
-        CREATE (r)-[:REQUIREMENT_HAS_LOCATION]->(l)
-        RETURN r.id, l.uri_id;
-      `;
-      const reqLocationResult = await conn.query(createReqLocationQuery);
+      const reqLocationResult = await callNamedDml(conn, "hierarchy_test_queries.cypher", "create_test_requirement_with_location", {});
       
       reqLocationResult.resetIterator();
       const reqRow = reqLocationResult.getNextSync();
       console.log(`  要件と階層の関連付け: ${reqRow["r.id"]} -> ${reqRow["l.uri_id"]}`);
       
       // コードエンティティとLocationURIの関連付け
-      const createCodeLocationQuery = `
-        CREATE (c:CodeEntity {
-          persistent_id: 'CODE-HIERARCHY-TEST',
-          name: 'UserProfileComponent',
-          type: 'component',
-          signature: 'class UserProfileComponent',
-          complexity: 5,
-          start_position: 100,
-          end_position: 500
-        })
-        WITH c
-        MATCH (l:LocationURI {uri_id: 'hierarchy-test-uri'})
-        CREATE (c)-[:HAS_LOCATION]->(l)
-        RETURN c.persistent_id, l.uri_id;
-      `;
-      const codeLocationResult = await conn.query(createCodeLocationQuery);
+      const codeLocationResult = await callNamedDml(conn, "hierarchy_test_queries.cypher", "create_test_code_with_location", {});
       
       codeLocationResult.resetIterator();
       const codeRow = codeLocationResult.getNextSync();
@@ -183,13 +128,7 @@ const TEST_DB_NAME = "hierarchy_relation_test_db";
     // 8. 同一階層に属する要件とコードの検索
     console.log("\n8. 同一階層に属する要件とコードの検索");
     try {
-      const sameLocationQuery = `
-        MATCH (r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)<-[:HAS_LOCATION]-(c:CodeEntity)
-        RETURN r.id AS requirement_id, r.title AS requirement_title, 
-               l.uri_id AS location_uri, l.path AS location_path,
-               c.persistent_id AS code_id, c.name AS code_name;
-      `;
-      const sameLocationResult = await conn.query(sameLocationQuery);
+      const sameLocationResult = await callNamedDml(conn, "hierarchy_test_queries.cypher", "find_requirements_code_same_location", {});
       
       console.log(`  同一階層の要件とコードのペア数: ${sameLocationResult.getNumTuples()}`);
       
@@ -205,16 +144,7 @@ const TEST_DB_NAME = "hierarchy_relation_test_db";
     // 9. 階層構造を活用した複雑なナビゲーションテスト
     console.log("\n9. 階層構造を活用した複雑なナビゲーションテスト");
     try {
-      const navigationQuery = `
-        MATCH (parent:LocationURI)-[:CONTAINS_LOCATION*]->(child:LocationURI)
-        OPTIONAL MATCH (r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(child)
-        OPTIONAL MATCH (c:CodeEntity)-[:HAS_LOCATION]->(child)
-        RETURN parent.path AS parent_directory,
-               child.path AS file_path,
-               collect(DISTINCT r.title) AS requirements,
-               collect(DISTINCT c.name) AS code_entities;
-      `;
-      const navigationResult = await conn.query(navigationQuery);
+      const navigationResult = await callNamedDml(conn, "hierarchy_test_queries.cypher", "navigate_hierarchy_structure", {});
       
       console.log(`  階層ナビゲーション結果: ${navigationResult.getNumTuples()}件`);
       

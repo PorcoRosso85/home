@@ -61,11 +61,7 @@ const TEST_DB_NAME = "verification_traceability_test_db";
       }
       
       // 検証一覧を表示
-      const verificationsQuery = `
-        MATCH (v:RequirementVerification)
-        RETURN v.id, v.name, v.description, v.verification_type;
-      `;
-      const verificationsResult = await conn.query(verificationsQuery);
+      const verificationsResult = await callNamedDml(conn, "verification_traceability_queries.cypher", "get_all_verifications", {});
       
       console.log("\n検証一覧:");
       verificationsResult.resetIterator();
@@ -83,49 +79,14 @@ const TEST_DB_NAME = "verification_traceability_test_db";
     console.log("\n5. 双方向トレーサビリティテスト（要件から検証）");
     try {
       // 追加の要件と検証を作成
-      const createReqAndVerificationQuery = `
-        // 新しい要件を作成
-        CREATE (r:RequirementEntity {
-          id: 'REQ-TRACE-001',
-          title: 'ユーザー認証要件',
-          description: 'ユーザーはIDとパスワードで認証できること',
-          priority: 'high',
-          requirement_type: 'functional'
-        })
-        
-        // 新しい検証を作成
-        CREATE (v1:RequirementVerification {
-          id: 'VERIFY-001',
-          name: 'ユーザー認証テスト',
-          description: '有効なIDとパスワードで認証できることを確認',
-          verification_type: 'automated_test'
-        })
-        
-        CREATE (v2:RequirementVerification {
-          id: 'VERIFY-002',
-          name: 'ユーザー認証エラーテスト',
-          description: '無効なIDとパスワードでエラーになることを確認',
-          verification_type: 'automated_test'
-        })
-        
-        // 要件と検証の関連付け
-        CREATE (r)-[:VERIFIED_BY]->(v1)
-        CREATE (r)-[:VERIFIED_BY]->(v2)
-        
-        RETURN r.id, v1.id, v2.id;
-      `;
-      const createResult = await conn.query(createReqAndVerificationQuery);
+      const createResult = await callNamedDml(conn, "verification_traceability_queries.cypher", "create_req_and_verification", {});
       
       createResult.resetIterator();
       const createRow = createResult.getNextSync();
       console.log(`  要件「${createRow["r.id"]}」を検証「${createRow["v1.id"]}」と「${createRow["v2.id"]}」に関連付けました`);
       
       // 要件から検証を取得するクエリ
-      const reqToVerificationQuery = `
-        MATCH (r:RequirementEntity {id: 'REQ-TRACE-001'})-[:VERIFIED_BY]->(v:RequirementVerification)
-        RETURN r.id, r.title, collect(v.id) AS verification_ids, collect(v.name) AS verification_names;
-      `;
-      const reqToVerificationResult = await conn.query(reqToVerificationQuery);
+      const reqToVerificationResult = await callNamedDml(conn, "verification_traceability_queries.cypher", "get_verifications_for_requirement", {});
       
       console.log("\n  要件からの検証トレーサビリティ:");
       reqToVerificationResult.resetIterator();
@@ -140,11 +101,7 @@ const TEST_DB_NAME = "verification_traceability_test_db";
     console.log("\n6. 双方向トレーサビリティテスト（検証から要件）");
     try {
       // 検証から要件を取得するクエリ
-      const verificationToReqQuery = `
-        MATCH (v:RequirementVerification {id: 'VERIFY-001'})<-[:VERIFIED_BY]-(r:RequirementEntity)
-        RETURN v.id, v.name, collect(r.id) AS requirement_ids, collect(r.title) AS requirement_titles;
-      `;
-      const verificationToReqResult = await conn.query(verificationToReqQuery);
+      const verificationToReqResult = await callNamedDml(conn, "verification_traceability_queries.cypher", "get_requirements_for_verification", {});
       
       console.log("\n  検証からの要件トレーサビリティ:");
       verificationToReqResult.resetIterator();
@@ -159,29 +116,14 @@ const TEST_DB_NAME = "verification_traceability_test_db";
     console.log("\n7. 検証カバレッジの確認（未検証の要件を検出）");
     try {
       // 追加の未検証要件を作成
-      const createUnverifiedReqQuery = `
-        CREATE (r:RequirementEntity {
-          id: 'REQ-UNVERIFIED',
-          title: '未検証の要件',
-          description: 'これはまだ検証が作成されていない要件です',
-          priority: 'medium',
-          requirement_type: 'functional'
-        })
-        RETURN r.id, r.title;
-      `;
-      const createUnverifiedResult = await conn.query(createUnverifiedReqQuery);
+      const createUnverifiedResult = await callNamedDml(conn, "verification_traceability_queries.cypher", "create_unverified_requirement", {});
       
       createUnverifiedResult.resetIterator();
       const unverifiedRow = createUnverifiedResult.getNextSync();
       console.log(`  未検証の要件を作成: ${unverifiedRow["r.title"]} (${unverifiedRow["r.id"]})`);
       
       // 未検証の要件を検出するクエリ
-      const unverifiedReqQuery = `
-        MATCH (r:RequirementEntity)
-        WHERE NOT EXISTS { MATCH (r)-[:VERIFIED_BY]->() }
-        RETURN r.id, r.title, r.priority;
-      `;
-      const unverifiedReqResult = await conn.query(unverifiedReqQuery);
+      const unverifiedReqResult = await callNamedDml(conn, "verification_traceability_queries.cypher", "find_unverified_requirements", {});
       
       console.log("\n  未検証の要件一覧:");
       unverifiedReqResult.resetIterator();
@@ -199,33 +141,14 @@ const TEST_DB_NAME = "verification_traceability_test_db";
     console.log("\n8. 検証方法の実装コードへのトレーサビリティ");
     try {
       // 検証の実装コードを作成
-      const createVerificationCodeQuery = `
-        CREATE (c:CodeEntity {
-          persistent_id: 'TEST-AUTH-001',
-          name: 'testUserAuthentication',
-          type: 'function',
-          signature: 'void testUserAuthentication()',
-          complexity: 2,
-          start_position: 100,
-          end_position: 150
-        })
-        WITH c
-        MATCH (v:RequirementVerification {id: 'VERIFY-001'})
-        CREATE (v)-[:VERIFICATION_IS_IMPLEMENTED_BY {implementation_type: 'unit_test'}]->(c)
-        RETURN v.id, c.persistent_id;
-      `;
-      const createVerificationCodeResult = await conn.query(createVerificationCodeQuery);
+      const createVerificationCodeResult = await callNamedDml(conn, "verification_traceability_queries.cypher", "create_verification_code", {});
       
       createVerificationCodeResult.resetIterator();
       const codeRow = createVerificationCodeResult.getNextSync();
       console.log(`  検証「${codeRow["v.id"]}」を実装コード「${codeRow["c.persistent_id"]}」に関連付けました`);
       
       // トレーサビリティチェーン（要件→検証→コード）を取得するクエリ
-      const traceabilityChainQuery = `
-        MATCH (r:RequirementEntity)-[:VERIFIED_BY]->(v:RequirementVerification)-[:VERIFICATION_IS_IMPLEMENTED_BY]->(c:CodeEntity)
-        RETURN r.id, r.title, v.id, v.name, c.persistent_id, c.name;
-      `;
-      const traceabilityChainResult = await conn.query(traceabilityChainQuery);
+      const traceabilityChainResult = await callNamedDml(conn, "verification_traceability_queries.cypher", "get_traceability_chain", {});
       
       console.log("\n  トレーサビリティチェーン（要件→検証→コード）:");
       traceabilityChainResult.resetIterator();
@@ -246,12 +169,7 @@ const TEST_DB_NAME = "verification_traceability_test_db";
     console.log("\n9. 実装が欠けている検証の検出");
     try {
       // 実装が欠けている検証を検出するクエリ
-      const unimplementedVerificationQuery = `
-        MATCH (v:RequirementVerification)
-        WHERE NOT EXISTS { MATCH (v)-[:VERIFICATION_IS_IMPLEMENTED_BY]->() }
-        RETURN v.id, v.name, v.verification_type;
-      `;
-      const unimplementedVerificationResult = await conn.query(unimplementedVerificationQuery);
+      const unimplementedVerificationResult = await callNamedDml(conn, "verification_traceability_queries.cypher", "find_unimplemented_verifications", {});
       
       console.log("\n  実装が欠けている検証一覧:");
       unimplementedVerificationResult.resetIterator();
