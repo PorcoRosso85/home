@@ -1,8 +1,0 @@
-{
-  "imports": {
-    "kuzu": "npm:kuzu@^0.9.0"
-  },
-  "tasks": {
-    "start": "deno run --allow-all --node-modules-dir init.ts"
-  }
-}
