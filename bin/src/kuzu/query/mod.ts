@@ -3,6 +3,7 @@
  */
 
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
+import { createDatabase, closeConnection, getDatabaseInstance } from "./services/databaseService.ts";
 
 // 定数の抽象化
 export const DML_DIR_NAME = "dml";  // DMLクエリのディレクトリ名
@@ -76,17 +77,8 @@ export interface QueryExecutionError {
 // 共用体型として定義（成功時は直接型、失敗時はエラー型）
 export type QueryResult<T> = T | FileNotFoundError | QueryNotFoundError | InvalidQueryTypeError | QueryExecutionError;
 
-// KuzuDBモジュールをロード
-export async function loadKuzuModule() {
-  try {
-    console.log("KuzuDBモジュールをロード試行中...");
-    const module = await import("kuzu");
-    return module;
-  } catch (error) {
-    console.error("KuzuDBモジュールのロード失敗:", error);
-    return null;
-  }
-}
+// データベースサービスをエクスポート（利便性のため）
+export { createDatabase, closeConnection, getDatabaseInstance };
 
 // ディレクトリ存在確認・作成
 export async function ensureDir(dir: string): Promise<void> {

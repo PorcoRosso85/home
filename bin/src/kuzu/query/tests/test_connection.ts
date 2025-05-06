@@ -2,7 +2,7 @@
  * KuzuDBのデータベース接続テスト - DDL/DML/DQLのみの最小構成
  */
 
-import { loadKuzuModule, setupDatabase, closeDatabase } from "./common/db_connection.ts";
+import { createDatabase, closeConnection } from "../services/databaseService.ts";
 import { dirname, join } from "https://deno.land/std@0.177.0/path/mod.ts";
 
 // 現在のファイルのディレクトリパスを取得
@@ -26,14 +26,12 @@ const readFileContent = async (filePath: string): Promise<string> => {
 async function main() {
   console.log("KuzuDBテスト開始");
   
-  let db: any = null;
-  let conn: any = null;
+  let connection = null;
   
   try {
     // データベース接続を設定
-    const { db: database, conn: connection } = await setupDatabase("test_connection");
-    db = database;
-    conn = connection;
+    connection = await createDatabase("test_connection");
+    const { db, conn } = connection;
     
     // 各クエリファイルのパスを取得
     const currentDir = getCurrentDirectory();
@@ -139,15 +137,15 @@ async function main() {
     }
     
     // データベース接続をクローズ
-    await closeDatabase(db, conn);
+    await closeConnection(connection);
     console.log("テスト完了");
   } catch (error) {
     console.error("エラー:", error);
     
     // エラー発生時も接続をクローズ
-    if (db || conn) {
+    if (connection) {
       try {
-        await closeDatabase(db, conn);
+        await closeConnection(connection);
       } catch (closeError) {
         console.error("クローズ中にエラー:", closeError);
       }
@@ -157,4 +155,9 @@ async function main() {
   }
 }
 
-await main();
+// メイン関数を実行
+if (import.meta.main) {
+  await main();
+}
+
+export { main };
