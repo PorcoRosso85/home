@@ -46,6 +46,25 @@ const closeDatabase = (db: any) => {
   // 永続化モードの場合はチェックポイントを発行してデータをディスクに完全に書き込む
   if (db.isPersistent) {
     console.log(`チェックポイントを発行して永続データを保存`);
+    
+    // 永続化の確認
+    try {
+      // 永続化されたファイルの存在確認
+      const entries = Array.from(Deno.readDirSync(db.path));
+      const dbFiles = entries.filter(entry => 
+        entry.name.endsWith('.db') || 
+        entry.name.endsWith('.db-wal') ||
+        entry.name.endsWith('.db-shm')
+      );
+      
+      // データベースファイルが存在しない場合はエラー
+      if (dbFiles.length === 0) {
+        throw new Error("永続化に失敗: データベースファイルが見つかりません");
+      }
+    } catch (e) {
+      console.error("永続化の確認中にエラーが発生:", e);
+      throw new Error(`データベースの永続化に失敗しました: ${e.message}`);
+    }
   }
   return { ...db, isOpen: false };
 };
@@ -61,7 +80,6 @@ const createConnection = (db: any) => {
 
 const closeConnection = (conn: any) => {
   console.log(`接続をクローズ: ${conn.dbRef.path}`);
-  // トランザクションがあれば明示的にコミット
   if (conn.transactions.length > 0) {
     console.log(`${conn.transactions.length}件の未コミットトランザクションをコミット`);
   }
@@ -89,6 +107,34 @@ const commitTransaction = (conn: any) => {
   // 永続化モードの場合、WALにログを書き込む
   if (conn.dbRef.isPersistent) {
     console.log(`WALにログを書き込み: ${lastTxn.operations.length}操作`);
+    
+    // WALファイルの確認
+    try {
+      const walPath = `${conn.dbRef.path}/kuzu.db-wal`;
+      
+      // ファイルが存在するか確認（書き込み権限のテスト）
+      try {
+        // ファイル存在確認のテスト - 成功したら実際のDBファイルが存在することになるため正しい動作ではない
+        // このテストは失敗することを期待している
+        Deno.statSync(walPath);
+        
+        // ここに到達した場合、実際のファイルが存在するため、このシミュレーションとは矛盾する
+        // 実際のKuzuDBのWALファイルが存在するなら、現在のコードは使用できない
+        console.warn("WALファイルが既に存在します。実際のKuzuDBを使用していますか？");
+      } catch (e) {
+        // ファイルが存在しない場合（正常）
+        if (e instanceof Deno.errors.NotFound) {
+          // 永続化が正しく行われていないため、明示的にエラーを投げる
+          throw new Error("WALファイルが見つかりません。永続化が行われていません。");
+        } else {
+          // その他のエラー
+          throw e;
+        }
+      }
+    } catch (e) {
+      console.error("WAL処理中にエラー:", e);
+      throw new Error(`トランザクション永続化に失敗しました: ${e.message}`);
+    }
   }
   
   return {
@@ -284,35 +330,54 @@ async function main() {
         }
       }
       
-      // トランザクションをコミット
-      console.log("トランザクションをコミット");
-      const connAfterCommit = commitTransaction(currentConn);
-      
-      // クリーンアップ - 不変性を持った状態更新
-      const closedConn = closeConnection(connAfterCommit);
-      const closedDb = closeDatabase(db);
-      console.log("リソースをクリーンアップしました");
-      console.log("データベース状態:", closedDb.isOpen ? "開" : "閉");
-      console.log("接続状態:", closedConn.isConnected ? "接続中" : "切断");
-      
-      // 永続化の確認メッセージ
-      console.log(`データは ${DB_PATH} に永続化されました`);
-      
-      // 永続化ファイルの一覧を表示
       try {
-        console.log("永続化されたファイル一覧:");
-        const entries = Array.from(Deno.readDirSync(DB_PATH));
-        for (const entry of entries) {
-          const filePath = join(DB_PATH, entry.name);
-          const fileInfo = Deno.statSync(filePath);
-          console.log(`- ${entry.name} (${fileInfo.size} bytes)`);
+        // トランザクションをコミット
+        console.log("トランザクションをコミット");
+        const connAfterCommit = commitTransaction(currentConn);
+        
+        // クリーンアップ - 不変性を持った状態更新
+        const closedConn = closeConnection(connAfterCommit);
+        const closedDb = closeDatabase(db);
+        console.log("リソースをクリーンアップしました");
+        console.log("データベース状態:", closedDb.isOpen ? "開" : "閉");
+        console.log("接続状態:", closedConn.isConnected ? "接続中" : "切断");
+        
+        // 永続化の確認メッセージ
+        console.log(`データは ${DB_PATH} に永続化されました`);
+        
+        // 永続化ファイルの一覧を表示
+        try {
+          console.log("永続化されたファイル一覧:");
+          const entries = Array.from(Deno.readDirSync(DB_PATH));
+          
+          // データベース関連ファイルがない場合はエラー
+          const dbFiles = entries.filter(entry => 
+            entry.name.endsWith('.db') || 
+            entry.name.endsWith('.db-wal') || 
+            entry.name.endsWith('.db-shm')
+          );
+          
+          if (dbFiles.length === 0) {
+            throw new Error("永続化に失敗: データベースファイルが見つかりません");
+          }
+          
+          for (const entry of entries) {
+            const filePath = join(DB_PATH, entry.name);
+            const fileInfo = Deno.statSync(filePath);
+            console.log(`- ${entry.name} (${fileInfo.size} bytes)`);
+          }
+        } catch (e) {
+          console.error("永続化ファイル一覧の表示に失敗しました:", e);
+          throw new Error(`永続化の検証に失敗しました: ${e.message}`);
         }
-      } catch (e) {
-        console.error("永続化ファイル一覧の表示に失敗しました:", e);
+      } catch (persistError) {
+        console.error("永続化処理中にエラーが発生しました:", persistError);
+        throw persistError; // 永続化失敗エラーを再スロー
       }
       
     } catch (dbError) {
       console.error("データベース操作エラー:", dbError);
+      throw new Error(`データベース操作に失敗したため、永続化できませんでした: ${dbError.message}`);
     }
     
     console.log("テスト完了");
@@ -321,6 +386,8 @@ async function main() {
     if (error instanceof Error) {
       console.error("スタックトレース:", error.stack);
     }
+    // 明示的なプロセス終了コードでエラーを示す
+    Deno.exit(1);
   }
 }
 
