@@ -10,14 +10,7 @@ interface StatusMessage {
 
 // ステータス表示関数
 function updateStatus(message: StatusMessage): void {
-  const rootElement = document.getElementById('root');
-  if (!rootElement) return;
-
-  const statusDiv = document.createElement('div');
-  statusDiv.className = `status ${message.type}`;
-  statusDiv.textContent = message.text;
-  
-  rootElement.appendChild(statusDiv);
+  // コンソールログのみ残す
   console.log(`[${message.type}] ${message.text}`);
 }
 
@@ -229,14 +222,8 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
             const result = await conn.query(command);
             const resultData = await result.getAllObjects();
             
-            // 実行結果を表示
-            const resultDiv = document.createElement('div');
-            resultDiv.className = 'result-block';
-            resultDiv.innerHTML = `
-              <h4>Parquetファイル読み込み結果:</h4>
-              <pre>${JSON.stringify(resultData, null, 2)}</pre>
-            `;
-            document.getElementById('root')?.appendChild(resultDiv);
+            // 結果をコンソールに出力
+            console.log(`Parquetファイル読み込み結果:`, resultData);
             
             successCount++;
             
@@ -253,17 +240,6 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
             
             updateStatus({ text: errorMessage, type: 'error' });
             
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'status error';
-            errorDiv.innerHTML = `
-              <h4>Parquetファイル読み込みエラー:</h4>
-              <p><strong>テーブル:</strong> ${tableName}</p>
-              <p><strong>ファイルパス:</strong> ${filePath}</p>
-              <p><strong>エラー:</strong> ${copyError.message}</p>
-              <p><strong>原因:</strong> ファイルが存在しないか、形式が不正、またはパスが正しくない可能性があります。</p>
-            `;
-            document.getElementById('root')?.appendChild(errorDiv);
-            
             // エラーは記録するが、処理は続行
           }
         } else {
@@ -274,80 +250,13 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
             const result = await conn.query(command);
             const resultData = await result.getAllObjects();
             
-            // 結果データを判断して適切な表示方法を選択
-            const resultDiv = document.createElement('div');
-            resultDiv.className = 'result-block';
+            // コンソールにのみデータを出力
+            console.log(`クエリ実行結果:`, command);
+            console.log(resultData);
             
-            // テーブル状のデータかどうかを判断
-            const isTableData = Array.isArray(resultData) && 
-                              resultData.length > 0 && 
-                              typeof resultData[0] === 'object';
-            
-            // データがテーブル形式で、かつ空でない場合
-            if (isTableData && resultData.length > 0) {
-              try {
-                // テーブルのヘッダー行を取得
-                const headers = Object.keys(resultData[0]);
-                
-                let tableHtml = '<table><thead><tr>';
-                // ヘッダー行を作成
-                headers.forEach(header => {
-                  tableHtml += `<th>${header}</th>`;
-                });
-                tableHtml += '</tr></thead><tbody>';
-                
-                // データ行を作成
-                resultData.forEach(row => {
-                  tableHtml += '<tr>';
-                  headers.forEach(header => {
-                    // 複雑なオブジェクトの場合はJSON文字列に変換
-                    const cellValue = typeof row[header] === 'object' && row[header] !== null
-                      ? JSON.stringify(row[header])
-                      : row[header];
-                    tableHtml += `<td>${cellValue}</td>`;
-                  });
-                  tableHtml += '</tr>';
-                });
-                
-                tableHtml += '</tbody></table>';
-                
-                resultDiv.innerHTML = `
-                  <h4>クエリ実行結果:</h4>
-                  <div class="query-info">${command}</div>
-                  ${tableHtml}
-                  <pre style="display: none;">${JSON.stringify(resultData, null, 2)}</pre>
-                `;
-              } catch (tableErr) {
-                // テーブル変換に失敗した場合は通常のJSON表示にフォールバック
-                resultDiv.innerHTML = `
-                  <h4>クエリ実行結果:</h4>
-                  <div class="query-info">${command}</div>
-                  <pre>${JSON.stringify(resultData, null, 2)}</pre>
-                `;
-              }
-            } else {
-              // テーブル形式でない場合は通常のJSON表示
-              resultDiv.innerHTML = `
-                <h4>クエリ実行結果:</h4>
-                <div class="query-info">${command}</div>
-                <pre>${JSON.stringify(resultData, null, 2)}</pre>
-              `;
-            }
-            
-            document.getElementById('root')?.appendChild(resultDiv);
             successCount++;
           } catch (queryError) {
             failureCount++;
-            
-            // エラーメッセージを表示
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'status error';
-            errorDiv.innerHTML = `
-              <h4>クエリ実行エラー:</h4>
-              <div class="query-info">${command}</div>
-              <p><strong>エラー:</strong> ${queryError.message}</p>
-            `;
-            document.getElementById('root')?.appendChild(errorDiv);
             
             console.error(`クエリ実行エラー: ${queryError.message} (${command})`);
             updateStatus({ text: `クエリ実行エラー: ${queryError.message}`, type: 'error' });
@@ -356,22 +265,14 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
       } catch (cmdError) {
         failureCount++;
         updateStatus({ text: `コマンド実行エラー: ${cmdError.message}`, type: 'error' });
-        
-        // エラーメッセージを表示
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'status error';
-        errorDiv.innerHTML = `
-          <h4>コマンド実行エラー:</h4>
-          <div class="query-info">${command}</div>
-          <p><strong>エラー:</strong> ${cmdError.message}</p>
-        `;
-        document.getElementById('root')?.appendChild(errorDiv);
+        console.error(`コマンド実行エラー:`, command);
+        console.error(`エラー内容:`, cmdError.message);
         
         // エラーは記録するが、処理は続行
       }
     }
     
-    // 結果のサマリーを表示
+    // 結果のサマリーをコンソールにのみ表示
     if (failureCount > 0) {
       if (parquetImportFailed) {
         // Parquetファイルの読み込み失敗
@@ -380,21 +281,12 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
           type: 'error' 
         });
         
-        // 詳細なエラーサマリーを表示
-        const errorSummaryDiv = document.createElement('div');
-        errorSummaryDiv.className = 'status error';
-        errorSummaryDiv.innerHTML = `
-          <h3>Parquetファイルの読み込みに失敗しました</h3>
-          <p>以下の理由が考えられます:</p>
-          <ul>
-            <li>指定されたパスにParquetファイルが存在しない</li>
-            <li>Parquetファイルの形式が正しくない</li>
-            <li>ファイルへのアクセス権限がない</li>
-            <li>テーブル定義とParquetファイルの構造が一致していない</li>
-          </ul>
-          <p>コンソールログを確認して詳細なエラー情報を参照してください。</p>
-        `;
-        document.getElementById('root')?.appendChild(errorSummaryDiv);
+        console.error(`Parquetファイルの読み込みに失敗しました。以下の理由が考えられます:
+- 指定されたパスにParquetファイルが存在しない
+- Parquetファイルの形式が正しくない
+- ファイルへのアクセス権限がない
+- テーブル定義とParquetファイルの構造が一致していない
+コンソールログを確認して詳細なエラー情報を参照してください。`);
         
         return false;
       } else {
@@ -411,16 +303,10 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
         type: 'success' 
       });
       
-      // 成功した場合は総括メッセージを表示
-      const summaryDiv = document.createElement('div');
-      summaryDiv.className = 'status success';
-      summaryDiv.innerHTML = `
-        <h3>すべてのクエリが正常に実行されました</h3>
-        <p>Parquetファイルからのデータ読み込みが完了しました。上記の結果を確認してください。</p>
-        <p>各テーブルにデータが表示されていれば、Parquetファイルが正常に読み込まれています。</p>
-        <p>テーブルは存在するがレコード数が0の場合は、Parquetファイルは存在するが中身が空である可能性があります。</p>
-      `;
-      document.getElementById('root')?.appendChild(summaryDiv);
+      console.log(`すべてのクエリが正常に実行されました。
+Parquetファイルからのデータ読み込みが完了しました。
+各テーブルにデータが表示されていれば、Parquetファイルが正常に読み込まれています。
+テーブルは存在するがレコード数が0の場合は、Parquetファイルは存在するが中身が空である可能性があります。`);
     }
     
     return failureCount === 0;
@@ -433,32 +319,8 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
 // アプリケーション初期化
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    // タイトルと説明を追加
-    const rootElement = document.getElementById('root');
-    if (rootElement) {
-      rootElement.innerHTML = `
-        <h1>KuzuDB Parquet Viewer</h1>
-        <p>import.cypherに基づくParquetファイルの読み込みツール</p>
-        <style>
-          .query-info {
-            background-color: #f0f0f0;
-            padding: 8px;
-            margin-bottom: 8px;
-            border-left: 3px solid #007bff;
-            font-family: monospace;
-            white-space: pre-wrap;
-            word-break: break-all;
-          }
-          pre {
-            background-color: #f5f5f5;
-            padding: 8px;
-            border-radius: 4px;
-            overflow-x: auto;
-            font-family: monospace;
-          }
-        </style>
-      `;
-    }
+    console.log("KuzuDB Parquet Viewer - コマンドライン版");
+    console.log("import.cypherに基づくParquetファイルの読み込みツール");
     
     // ファイルパス確認のためにフェッチテスト
     console.log("=== ファイルパステスト開始 ===");
@@ -559,25 +421,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         text: `Parquetファイルのインポートに失敗しました: ${error.message}`, 
         type: 'error' 
       });
-      
-      // エラーサマリーを表示
-      const errorSummaryDiv = document.createElement('div');
-      errorSummaryDiv.className = 'status error';
-      errorSummaryDiv.innerHTML = `
-        <h3>Parquetファイルの読み込みに失敗しました</h3>
-        <p>ファイルが見つからないか、アクセスできません。以下を確認してください:</p>
-        <ul>
-          <li>指定されたパスにParquetファイルが存在するか</li>
-          <li>ファイルへのアクセス権限があるか</li>
-          <li>ファイルパスが正しく指定されているか</li>
-        </ul>
-      `;
-      document.getElementById('root')?.appendChild(errorSummaryDiv);
+      console.error(`Parquetファイルの読み込みに失敗しました
+ファイルが見つからないか、アクセスできません。以下を確認してください:
+- 指定されたパスにParquetファイルが存在するか
+- ファイルへのアクセス権限があるか
+- ファイルパスが正しく指定されているか`);
     }
   } catch (error) {
     console.error('初期化エラー:', error);
     updateStatus({ text: `初期化中にエラーが発生しました: ${error.message}`, type: 'error' });
   }
+  
+  console.log("KuzuDB Parquet Viewerの処理が完了しました。console.logを確認してください。");
 });
 
 // グローバル定義（TypeScript用）
