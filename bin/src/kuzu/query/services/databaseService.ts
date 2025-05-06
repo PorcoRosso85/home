@@ -77,11 +77,20 @@ export function getDefaultConnectionOptions(): ConnectionOptions {
 /**
  * データベースのパスを取得する
  * @param dbName データベース名
- * @param baseDir ベースディレクトリ（任意）
  * @returns データベースのフルパス
  */
-export function getDatabasePath(dbName: string, baseDir: string = "src/kuzu/db"): string {
-  return path.join(Deno.cwd(), baseDir, dbName);
+export function getDatabasePath(dbName: string): string {
+  // このファイル（databaseService.ts）のディレクトリパスを取得
+  const currentFilePath = new URL(import.meta.url).pathname;
+  const currentDir = path.dirname(currentFilePath);
+  
+  // このファイルから見た相対パスで/home/nixos/bin/src/kuzu/dbへ移動
+  const dbDir = path.resolve(currentDir, "../../db");
+  
+  console.log("現在のファイルパス:", currentFilePath);
+  console.log("データベースディレクトリ:", dbDir);
+  
+  return path.join(dbDir, dbName);
 }
 
 /**
@@ -134,18 +143,16 @@ export async function createDatabase(
   options: {
     dbOptions?: DatabaseOptions;
     connOptions?: ConnectionOptions;
-    baseDir?: string;
     clean?: boolean;
   } = {}
 ): Promise<DatabaseConnection> {
   // デフォルトオプションをマージ
   const dbOptions = { ...getDefaultDatabaseOptions(), ...options.dbOptions };
   const connOptions = { ...getDefaultConnectionOptions(), ...options.connOptions };
-  const baseDir = options.baseDir || "src/kuzu/db";
   const clean = options.clean !== undefined ? options.clean : true;
   
-  // データベースパスを取得
-  const dbPath = getDatabasePath(dbName, baseDir);
+  // データベースパスを取得（baseDir引数は無視）
+  const dbPath = getDatabasePath(dbName);
   console.log(`データベースパス: ${dbPath}`);
 
   // クリーンフラグが有効なら既存DBを削除
