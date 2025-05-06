@@ -8,6 +8,8 @@
  */
 
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
+import * as logger from '../common/infrastructure/logger';
+import { DB_HOST, DB_PORT, DB_PATH, DB_IN_MEMORY } from '../common/infrastructure/variables';
 
 /**
  * KuzuDBモジュールをロードする関数
@@ -15,15 +17,15 @@ import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
  * @throws npm:kuzuモジュールが見つからない場合にエラーをスロー
  */
 export async function loadKuzuModule() {
-  console.log("KuzuDBモジュールをロード試行中...");
+  logger.info("KuzuDBモジュールをロード試行中...");
 
   // npm:kuzu からインポート
   const importPath = "npm:kuzu";
-  console.log(`モジュールパス: ${importPath}`);
+  logger.debug(`モジュールパス: ${importPath}`);
   
   // モジュールをインポート
   const kuzu = await import(importPath);
-  console.log("KuzuDBモジュールをロードしました:", Object.keys(kuzu));
+  logger.info("KuzuDBモジュールをロードしました:", Object.keys(kuzu));
   
   return kuzu;
 }
@@ -79,6 +81,12 @@ export function getDefaultConnectionOptions(): ConnectionOptions {
  * @returns データベースのフルパス
  */
 export function getDatabasePath(): string {
+  // DBパスが環境変数で指定されている場合はそれを使用
+  if (DB_PATH) {
+    logger.info(`環境変数から指定されたDBパスを使用: ${DB_PATH}`);
+    return DB_PATH;
+  }
+  
   // このファイル（databaseService.ts）のディレクトリパスを取得
   const currentFilePath = new URL(import.meta.url).pathname;
   const currentDir = path.dirname(currentFilePath);
@@ -86,8 +94,8 @@ export function getDatabasePath(): string {
   // このファイルから見た相対パスで/home/nixos/bin/src/kuzu/dbへ移動
   const dbDir = path.resolve(currentDir, "../../db");
   
-  console.log("現在のファイルパス:", currentFilePath);
-  console.log("データベースディレクトリ:", dbDir);
+  logger.debug("現在のファイルパス:", currentFilePath);
+  logger.info("データベースディレクトリ:", dbDir);
   
   return dbDir;
 }
@@ -104,7 +112,7 @@ export async function ensureDir(dir: string): Promise<void> {
     }
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      console.log(`${dir}ディレクトリを作成します`);
+      logger.info(`${dir}ディレクトリを作成します`);
       await Deno.mkdir(dir, { recursive: true });
     } else {
       throw error;
@@ -119,13 +127,13 @@ export async function ensureDir(dir: string): Promise<void> {
 export async function cleanDatabase(dbPath: string) {
   try {
     await Deno.remove(dbPath, { recursive: true });
-    console.log(`既存のデータベースを削除しました: ${dbPath}`);
+    logger.info(`既存のデータベースを削除しました: ${dbPath}`);
   } catch (error: unknown) {
     if (!(error instanceof Deno.errors.NotFound)) {
       if (error instanceof Error) {
-        console.warn(`データベース削除時の警告: ${error.message}`);
+        logger.warn(`データベース削除時の警告: ${error.message}`);
       } else {
-        console.warn(`データベース削除時の警告: ${String(error)}`);
+        logger.warn(`データベース削除時の警告: ${String(error)}`);
       }
     }
   }
@@ -167,7 +175,7 @@ export async function createDatabase(
       throw new Error("KuzuDBモジュールをロードできませんでした。");
     }
     
-    console.log("KuzuDBモジュール診断:", {
+    logger.debug("KuzuDBモジュール診断:", {
       hasDatabase: !!kuzu.Database,
       hasConnection: !!kuzu.Connection,
       hasSyncDatabase: kuzu.SyncDatabase != null,

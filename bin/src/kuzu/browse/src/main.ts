@@ -1,7 +1,10 @@
 // KuzuDBデータブラウザ - シンプル版
 // parquetファイルを読み込むためのライト版アプリケーション
 
-console.log("KuzuDB Parquet Viewer - 初期化中...");
+import * as logger from '../../common/infrastructure/logger';
+import { APP_NAME, APP_VERSION } from '../../common/infrastructure/variables';
+
+logger.info(`${APP_NAME} Parquet Viewer v${APP_VERSION} - 初期化中...`);
 
 interface StatusMessage {
   text: string;
@@ -10,8 +13,21 @@ interface StatusMessage {
 
 // ステータス表示関数
 function updateStatus(message: StatusMessage): void {
-  // コンソールログのみ残す
-  console.log(`[${message.type}] ${message.text}`);
+  // 新しいロガーを使用
+  switch (message.type) {
+    case 'info':
+      logger.info(message.text);
+      break;
+    case 'success':
+      logger.info(`✓ ${message.text}`);
+      break;
+    case 'error':
+      logger.error(message.text);
+      break;
+    case 'loading':
+      logger.info(`⟳ ${message.text}`);
+      break;
+  }
 }
 
 // Parquetファイルをfetchしてwasm ファイルシステムに書き込む
