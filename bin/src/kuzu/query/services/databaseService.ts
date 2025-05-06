@@ -76,10 +76,9 @@ export function getDefaultConnectionOptions(): ConnectionOptions {
 
 /**
  * データベースのパスを取得する
- * @param dbName データベース名
  * @returns データベースのフルパス
  */
-export function getDatabasePath(dbName: string): string {
+export function getDatabasePath(): string {
   // このファイル（databaseService.ts）のディレクトリパスを取得
   const currentFilePath = new URL(import.meta.url).pathname;
   const currentDir = path.dirname(currentFilePath);
@@ -90,7 +89,7 @@ export function getDatabasePath(dbName: string): string {
   console.log("現在のファイルパス:", currentFilePath);
   console.log("データベースディレクトリ:", dbDir);
   
-  return path.join(dbDir, dbName);
+  return dbDir;
 }
 
 /**
@@ -134,12 +133,10 @@ export async function cleanDatabase(dbPath: string) {
 
 /**
  * データベースを作成し、接続する
- * @param dbName データベース名
  * @param options オプション
  * @returns データベース接続オブジェクト
  */
 export async function createDatabase(
-  dbName: string, 
   options: {
     dbOptions?: DatabaseOptions;
     connOptions?: ConnectionOptions;
@@ -151,8 +148,8 @@ export async function createDatabase(
   const connOptions = { ...getDefaultConnectionOptions(), ...options.connOptions };
   const clean = options.clean !== undefined ? options.clean : true;
   
-  // データベースパスを取得（baseDir引数は無視）
-  const dbPath = getDatabasePath(dbName);
+  // データベースパスを取得（dbNameは無視して共通ディレクトリを使用）
+  const dbPath = getDatabasePath();
   console.log(`データベースパス: ${dbPath}`);
 
   // クリーンフラグが有効なら既存DBを削除
@@ -312,8 +309,8 @@ export async function closeConnection(...args: any[]): Promise<void> {
 /**
  * @deprecated createDatabase関数を使用してください
  */
-export async function setupDatabase(dbName: string): Promise<DatabaseConnection> {
-  return createDatabase(dbName);
+export async function setupDatabase(): Promise<DatabaseConnection> {
+  return createDatabase();
 }
 
 /**
@@ -328,12 +325,11 @@ let databaseInstance: DatabaseConnection | null = null;
 
 /**
  * データベースインスタンスを取得（シングルトンパターン）
- * @param dbName データベース名
  * @returns データベース接続オブジェクト
  */
-export async function getDatabaseInstance(dbName: string = "default"): Promise<DatabaseConnection> {
+export async function getDatabaseInstance(): Promise<DatabaseConnection> {
   if (!databaseInstance) {
-    databaseInstance = await createDatabase(dbName);
+    databaseInstance = await createDatabase();
   }
   return databaseInstance;
 }
