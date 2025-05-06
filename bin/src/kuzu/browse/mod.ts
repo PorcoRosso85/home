@@ -1,12 +1,9 @@
-// mod.ts - Kuzu-Wasm Denoパッケージのエントリーポイント
+// mod.ts - KuzuDB Parquet Viewer モジュール
 
 // build.tsからメイン関数と開発サーバー作成関数をエクスポート
 export { createViteDevServer, main } from "./build.ts";
 
-// 必要に応じてsrc/main.tsからも機能をエクスポート可能
-// export * from "./src/main.ts";
-
-// 直接実行された場合、アクセスをログに残すだけ
+// 直接実行された場合、アクセスをログに残す
 if (import.meta.main) {
   // 現在のディレクトリ名を取得
   const currentDir = Deno.cwd().split('/').pop();
@@ -16,8 +13,9 @@ if (import.meta.main) {
 }
 
 /**
- * Kuzu-Wasm Deno Demo
- * WASMを使用したKuzuグラフデータベースのDenoによる実装例
+ * KuzuDB Parquet Viewer
+ * 
+ * import.cypherスクリプトに基づいたParquetファイル読み込みツール
  * 
  * @example
  * // パッケージとして実行

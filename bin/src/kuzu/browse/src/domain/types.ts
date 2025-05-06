@@ -1,9 +1,40 @@
-// Kuzuで使用する基本的な型定義
+/**
+ * KuzuDB Parquet Viewer の基本型定義
+ */
 
-// クエリ結果のJSON構造
-export interface QueryResult {
-  columns: string[];
-  rows: any[][];
+/**
+ * データベース操作結果
+ */
+export interface DatabaseResult {
+  success: boolean;
+  data?: any;
+  error?: string;
 }
 
-// 最小限の型定義のみ維持
+/**
+ * グラフノード
+ */
+export interface GraphNode {
+  id: string | number;
+  type: string;
+  properties: Record<string, any>;
+}
+
+/**
+ * グラフエッジ
+ */
+export interface GraphEdge {
+  id?: string | number;
+  type: string;
+  source: string | number;
+  target: string | number;
+  properties?: Record<string, any>;
+}
+
+/**
+ * ステータスメッセージ
+ */
+export interface StatusMessage {
+  text: string;
+  type: 'info' | 'success' | 'error' | 'loading';
+}

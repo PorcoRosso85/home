@@ -3,8 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kuzu-Wasm データベースブラウザ</title>
-    <!-- Cross-Origin-Isolation設定は build.ts のヘッダーで設定されています -->
+    <title>KuzuDB Parquet Viewer</title>
     <style>
       body {
         font-family: sans-serif;
@@ -20,12 +19,29 @@
         overflow: auto;
         max-height: 400px;
       }
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+      }
+      .error {
+        background-color: #ffebee;
+        color: #c62828;
+      }
+      .loading {
+        background-color: #e3f2fd;
+        color: #1565c0;
+      }
     </style>
     <!-- メインアプリケーションスクリプト (ESMとして読み込み) -->
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
-    <!-- Reactアプリケーションのマウントポイント -->
+    <!-- シンプルなアプリケーションのマウントポイント -->
     <div id="root"></div>
   </body>
 </html>
