@@ -1,0 +1,26 @@
+CREATE NODE TABLE `EntityAggregationView` (id STRING,view_type STRING, PRIMARY KEY(id));
+CREATE NODE TABLE `RequirementVerification` (id STRING,name STRING,description STRING,verification_type STRING, PRIMARY KEY(id));
+CREATE NODE TABLE `LocationURI` (uri_id STRING,scheme STRING,authority STRING,path STRING,fragment STRING,query STRING, PRIMARY KEY(uri_id));
+CREATE NODE TABLE `VersionState` (id STRING,timestamp STRING,commit_id STRING,branch_name STRING, PRIMARY KEY(id));
+CREATE NODE TABLE `ReferenceEntity` (id STRING,description STRING,uri STRING,type STRING,source_type STRING, PRIMARY KEY(id));
+CREATE NODE TABLE `CodeEntity` (persistent_id STRING,name STRING,type STRING,signature STRING,complexity INT64,start_position INT64,end_position INT64, PRIMARY KEY(persistent_id));
+CREATE NODE TABLE `RequirementEntity` (id STRING,title STRING,description STRING,priority STRING,requirement_type STRING, PRIMARY KEY(id));
+CREATE REL TABLE `DEPENDS_ON` (FROM RequirementEntity TO RequirementEntity, dependency_type STRING,MANY_MANY);
+CREATE REL TABLE `VERIFICATION_IS_IMPLEMENTED_BY` (FROM RequirementVerification TO CodeEntity, implementation_type STRING,MANY_MANY);
+CREATE REL TABLE `AGGREGATES_CODE` (FROM EntityAggregationView TO CodeEntity, aggregation_method STRING,MANY_MANY);
+CREATE REL TABLE `IS_IMPLEMENTED_BY` (FROM RequirementEntity TO CodeEntity, implementation_type STRING,MANY_MANY);
+CREATE REL TABLE `CONTAINS_LOCATION` (FROM LocationURI TO LocationURI, relation_type STRING,MANY_MANY);
+CREATE REL TABLE `HAS_LOCATION` (FROM CodeEntity TO LocationURI, MANY_MANY);
+CREATE REL TABLE `REQUIREMENT_HAS_LOCATION` (FROM RequirementEntity TO LocationURI, MANY_MANY);
+CREATE REL TABLE `TRACKS_STATE_OF_REF` (FROM VersionState TO ReferenceEntity, MANY_MANY);
+CREATE REL TABLE `USES` (FROM EntityAggregationView TO LocationURI, MANY_MANY);
+CREATE REL TABLE `AGGREGATES_REQ` (FROM EntityAggregationView TO RequirementEntity, aggregation_method STRING,MANY_MANY);
+CREATE REL TABLE `TRACKS_STATE_OF_REQ` (FROM VersionState TO RequirementEntity, MANY_MANY);
+CREATE REL TABLE `FOLLOWS` (FROM VersionState TO VersionState, MANY_MANY);
+CREATE REL TABLE `TRACKS_STATE_OF_CODE` (FROM VersionState TO CodeEntity, MANY_MANY);
+CREATE REL TABLE `CONTAINS_CODE` (FROM CodeEntity TO CodeEntity, MANY_MANY);
+CREATE REL TABLE `REFERENCES_CODE` (FROM CodeEntity TO CodeEntity, ref_type STRING,MANY_MANY);
+CREATE REL TABLE `VERIFIED_BY` (FROM RequirementEntity TO RequirementVerification, MANY_MANY);
+CREATE REL TABLE `REFERENCES_EXTERNAL` (FROM CodeEntity TO ReferenceEntity, ref_type STRING,MANY_MANY);
+CREATE REL TABLE `REFERENCE_HAS_LOCATION` (FROM ReferenceEntity TO LocationURI, MANY_MANY);
+

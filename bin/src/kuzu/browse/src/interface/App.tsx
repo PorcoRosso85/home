@@ -32,49 +32,33 @@ const App = () => {
       setLoading(true);
       setError(null);
       
-      // すでに接続済みの場合は接続テストで確認
-      if (connectionStatus.connected && window.conn) {
-        console.log('接続済みと表示されています。接続確認テストを実行...');
-        const testResult = await databaseService.testConnection();
-        if (testResult.success) {
-          console.log('既存の接続でテスト成功');
-          setLoading(false);
-          return true;
-        } else {
-          console.warn('既存の接続でテスト失敗。再接続を試みます:', testResult.error);
-          // 接続が機能していないので再接続を試みる
-        }
-      }
-      
       // アプリケーション層のデータベースサービスを使用して接続
-      const connectResult = await databaseService.connect();
+      // importParquet=true でサンプルデータを自動的にインポート
+      const connectResult = await databaseService.connect(true);
       
       if (!connectResult.success) {
         setError(connectResult.error || 'データベース接続に失敗しました');
+        console.error('データベース接続エラー:', connectResult.error);
         setConnectionStatus({ connected: false, dbPath: '' });
         setLoading(false);
         return false;
       }
       
-      // 重要: 接続が実際に機能するか検証テストを実行
-      console.log('接続後の検証テストを実行...');
-      const testResult = await databaseService.testConnection();
-      
-      if (!testResult.success) {
-        setError(testResult.error || 'データベース接続テストに失敗しました');
-        setConnectionStatus({ connected: false, dbPath: '' });
-        setLoading(false);
-        return false;
-      }
-      
-      // テスト成功後に接続情報を更新
-      const dbPath = window.db_path || 'unknown';
+      // 接続情報を更新
+      const dbPath = window.db_path || 'memory';
       setConnectionStatus({ 
         connected: true, 
         dbPath: dbPath
       });
       
-      console.log('データベースに接続しました: ' + dbPath);
+      console.log('インメモリモードでデータベースに接続しました', dbPath);
+      
+      // 接続成功後にデータベース統計を再取得
+      try {
+        await fetchDatabaseStats();
+      } catch (statsErr) {
+        console.warn('データベース統計取得エラー:', statsErr);
+      }
       
       // 接続成功を返す
       setLoading(false);
@@ -307,7 +291,7 @@ const App = () => {
   useEffect(() => {
     const initApp = async () => {
       try {
-        // データベースに接続
+        // データベースに接続 (Parquetデータを自動的にインポート)
         const connected = await connectToDatabase();
         
         // データベース統計を取得
@@ -315,6 +299,17 @@ const App = () => {
           await fetchDatabaseStats();
           // 接続状態の定期確認を開始
           startConnectionCheck();
+          
+          // インポートの状態を表示
+          const dbStats = await databaseService.getStats();
+          if (dbStats.success && dbStats.data) {
+            if (dbStats.data.nodeCount === 0 || dbStats.data.edgeCount === 0) {
+              console.log('データベースは空のようです。Parquetデータのインポートが必要かもしれません。');
+              setError('データベースは空です。Parquetデータのインポートが必要かもしれません。');
+            } else {
+              console.log('データベースには既にデータが存在します。', dbStats.data);
+            }
+          }
         }
       } catch (error) {
         console.error('初期化エラー:', error);
@@ -396,6 +391,37 @@ const App = () => {
                     disabled={loading}
                   >
                     再検証
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setLoading(true);
+                      setError(null);
+                      databaseService.importParquetData()
+                        .then(result => {
+                          if (result.success) {
+                            setResult(result.data);
+                            setQuery('サンプルデータ初期化');
+                            fetchDatabaseStats();
+                          } else {
+                            setError(result.error);
+                          }
+                        })
+                        .catch(err => setError(`サンプルデータ初期化エラー: ${err.message}`))
+                        .finally(() => setLoading(false));
+                    }}
+                    style={{ 
+                      marginLeft: '10px',
+                      padding: '4px 8px', 
+                      backgroundColor: '#7e57c2',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem'
+                    }}
+                    disabled={loading}
+                  >
+                    サンプルデータを作成
                   </button>
                 </> : 
                 <>
@@ -598,7 +624,22 @@ const App = () => {
           <li style={{ padding: '5px 0' }}>
             <strong>Cross-Origin-Isolation:</strong> {window.crossOriginIsolated ? '✅ 有効' : '❌ 無効'}
           </li>
+          <li style={{ padding: '5px 0' }}>
+            <strong>動作モード:</strong> 簡易インメモリモード（Parquetファイルではなくサンプルデータを使用）
+          </li>
         </ul>
+        <div style={{ 
+          marginTop: '10px', 
+          padding: '8px', 
+          backgroundColor: 'rgba(255, 248, 225, 0.7)', 
+          borderLeft: '3px solid #ffa000',
+          borderRadius: '2px'
+        }}>
+          <p style={{ margin: '0', fontSize: '0.9rem' }}>
+            <strong>注意:</strong> 現在、簡易インメモリモードで動作しています。Parquetファイルからのインポートではなく、最小限のサンプルデータを使用しています。
+            リアルデータを表示する場合は、サンプルデータ作成ボタンをクリックして、サンプルグラフを生成してください。
+          </p>
+        </div>
       </div>
     </div>
   );

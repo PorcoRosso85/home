@@ -26,11 +26,15 @@ export const DB_CONNECTION = {
   // データベース設定
   DEFAULT_OPTIONS: {
     readOnly: true,           // 公開ディレクトリからのファイルは読み取り専用が安全
-    bufferPoolSize: 256 * 1024 * 1024,
-    maxNumThreads: 2,
-    enableCompression: true
+    bufferPoolSize: 16 * 1024 * 1024,  // 16MB（最小構成）
+    maxNumThreads: 1,         // 最小スレッド数
+    enableCompression: false  // 圧縮を無効化（シンプルな構成）
   },
   
-  // 必須ファイル
-  REQUIRED_DB_FILES: ['MANIFEST', 'database.ini', 'catalog.kz', 'data.kz', 'metadata.kz']
+  // 必須ファイル（従来の方法）
+  REQUIRED_DB_FILES: ['MANIFEST', 'database.ini', 'catalog.kz', 'data.kz', 'metadata.kz'],
+  
+  // パケットフォーマットファイル（新しい方法）
+  PARQUET_FILES_PATH: 'export_data',
+  PARQUET_SCRIPT_PATH: 'dql/import.cypher'
 };

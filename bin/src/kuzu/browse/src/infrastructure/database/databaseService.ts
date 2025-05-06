@@ -128,250 +128,42 @@ export const initializeDatabase = async (): Promise<DatabaseResult> => {
     const kuzu = kuzuWasm.default || kuzuWasm;
     console.log('Kuzuインスタンス化完了');
     
-    // パスのバリデーション
-    if (!DB_DIR || DB_DIR === '/' || DB_DIR === 'dbb' || DB_DIR === '/dbb') {
-      console.error(`無効なデータベースパス: "${DB_DIR}"`);
-      return createError(
-        'INVALID_DB_PATH',
-        `"${DB_DIR}"は有効なデータベースパスではありません。`
-      );
-    }
-    
-    // 実際のパスを確認
-    console.log(`データベースディレクトリパス: ${DB_DIR}`);
-    console.log(`絶対パスへの変換: ${DB_DIR.startsWith('/') ? DB_DIR : '/' + DB_DIR}`);
-    console.log(`Kuzuオブジェクト:`, kuzu);
-    
-    // ファイルの存在をHTTPリクエストで確認（公開ディレクトリ経由の場合）
-    const fileCheck = await checkDbFilesExistence(DB_DIR);
-    if (!fileCheck.valid) {
-      // ファイル確認に失敗してもエラーを返さない（エラーをログに記録するだけ）
-      console.warn('データベースファイル確認警告:', fileCheck.error);
-      console.warn('ファイル確認に失敗しましたが、接続を続行します。');
-    }
-    
-    // パスが存在するか確認
-    let pathExists = false;
-    let isValidDb = false;
-    
     try {
-      if (kuzu.FS) {
-        try {
-          console.log('Kuzuファイルシステムを使用したパス確認試行...');
-          const fsStats = kuzu.FS.stat(DB_DIR);
-          console.log('パス存在確認結果:', fsStats);
-          pathExists = true;
-          
-          try {
-            console.log('ディレクトリ内容の確認試行...');
-            const dirContents = kuzu.FS.readdir(DB_DIR);
-            console.log(`${DB_DIR}内のファイル一覧:`, dirContents);
-            
-            // KuzuDBディレクトリには特定のファイルが含まれているはず
-            const requiredFiles = DB_CONNECTION.REQUIRED_DB_FILES;
-            const hasRequiredFiles = requiredFiles.some(file => 
-              dirContents.includes(file)
-            );
-            
-            if (hasRequiredFiles) {
-              console.log('✅ 有効なKuzuDBディレクトリを検出');
-              isValidDb = true;
-            } else {
-              console.warn('⚠️ KuzuDB関連ファイルが見つかりません');
-            }
-          } catch (readErr) {
-            console.warn('ディレクトリ内容確認エラー:', readErr);
-          }
-        } catch (statErr) {
-          console.warn('パス存在確認エラー:', statErr);
-          return createError(
-            'DB_PATH_NOT_FOUND',
-            `データベースパス "${DB_DIR}" が見つかりません。シンボリックリンクが正しく設定されているか確認してください。`
-          );
-        }
-      }
-    } catch (fsErr) {
-      console.warn('ファイルシステムアクセスエラー:', fsErr);
-    }
-    
-    if (!pathExists) {
-      console.error(`データベースパス "${DB_DIR}" が存在しません`);
-      return createError(
-        'DB_PATH_NOT_FOUND',
-        `データベースパス "${DB_DIR}" が見つかりません。シンボリックリンクが正しく設定されているか確認してください。`
-      );
-    }
-    
-    try {
-      // Kuzuのデータベースオプションを設定
-      console.log('データベースオプションを設定:', DB_CONNECTION.DEFAULT_OPTIONS);
-      
-      // DBファイルを参照（読み取り専用モードで）
-      console.log(`データベース作成開始...パス: ${DB_DIR}`);
-      const db = new kuzu.Database(DB_DIR, {
-        readOnly: true,  // 公開ディレクトリからのファイルは読み取り専用が安全
-        bufferPoolSize: DB_CONNECTION.DEFAULT_OPTIONS.bufferPoolSize,
-        maxNumThreads: DB_CONNECTION.DEFAULT_OPTIONS.maxNumThreads,
-        enableCompression: DB_CONNECTION.DEFAULT_OPTIONS.enableCompression
-      });
+      // オプションなしでインメモリデータベースを作成
+      console.log('インメモリデータベース作成開始... (オプションなし)');
+      const db = new kuzu.Database("");
       console.log('データベース作成完了');
       
       // グローバルにDBパスを保存（UI表示用）
-      window.db_path = DB_DIR;
-      
-      // データベースが正しく初期化できたか確認
-      let dbInitSuccess = false;
-      
-      try {
-        // データベースバージョン情報を取得（APIの互換性を確保）
-        let options;
-        try {
-          // 新しいAPIでのオプション取得を試みる
-          if (typeof db.getOptions === 'function') {
-            options = db.getOptions();
-            console.log('データベースオプション (getOptions):', options);
-          } else {
-            // getOptionsメソッドが存在しない場合は代替チェック
-            console.log('getOptions関数が存在しません - 代替チェックを使用します');
-            
-            // dbオブジェクトが存在することを確認するだけでも良い
-            if (db) {
-              console.log('データベースオブジェクトは存在します:', typeof db);
-              options = {
-                readOnly: true,
-                bufferPoolSize: DB_CONNECTION.DEFAULT_OPTIONS.bufferPoolSize,
-                maxNumThreads: DB_CONNECTION.DEFAULT_OPTIONS.maxNumThreads,
-                enableCompression: DB_CONNECTION.DEFAULT_OPTIONS.enableCompression,
-                isCompatibilityMode: true  // 互換モードであることを示すフラグ
-              };
-            }
-          }
-        } catch (apiErr) {
-          console.warn('APIの互換性エラー:', apiErr);
-          // APIエラーが発生した場合は代替チェックを使用
-          if (db) {
-            console.log('代替：データベースオブジェクトは存在します');
-            options = {
-              readOnly: true,
-              isCompatibilityMode: true
-            };
-          }
-        }
-        
-        if (options) {
-          console.log('使用するデータベースオプション:', options);
-          dbInitSuccess = true;
-        } else {
-          console.error('データベースオプションが取得できませんでした');
-        }
-      } catch (optErr) {
-        console.warn('オプション取得エラー:', optErr);
-        // エラーを返さず、警告だけ表示して続行
-        console.warn(`データベースオプションの取得に失敗しました: ${optErr.message}`);
-        
-        // 代替チェック - dbオブジェクトが存在するかどうか
-        if (db) {
-          console.log('代替：データベースオブジェクトは存在します - 処理を続行します');
-          dbInitSuccess = true;
-        } else {
-          return createError(
-            'DB_OPTIONS_ERROR',
-            `データベースオプションの取得に失敗し、データベースオブジェクトも無効です: ${optErr.message}`,
-            optErr
-          );
-        }
-      }
-      
-      if (!dbInitSuccess) {
-        return createError(
-          'DB_INIT_ERROR',
-          'データベースの初期化に失敗しました。オプションが取得できません。'
-        );
-      }
+      window.db_path = "memory";
       
       // データベース接続の作成
       console.log('データベース接続開始...');
       const conn = new kuzu.Connection(db);
       console.log('データベース接続完了');
       
-      // 接続確認
-      let connectionSuccess = false;
+      // 接続テスト
+      const testQuery = "RETURN 1 AS test";
+      console.log(`接続テストクエリ実行: ${testQuery}`);
       
       try {
-        // 接続テスト（タイムアウトつき）
-        const testQuery = DB_CONNECTION.BASIC_TEST_QUERY;
-        console.log(`接続テストクエリ実行: ${testQuery}`);
-        
-        // APIの互換性を確認
-        if (typeof conn.query !== 'function') {
-          console.warn('conn.queryメソッドが存在しません - 代替チェックを使用します');
-          
-          // 代替チェック - connオブジェクトが存在することを確認
-          if (conn) {
-            console.log('接続オブジェクトは存在します - 接続成功とみなします');
-            connectionSuccess = true;
-            return { kuzu, db, conn };
-          } else {
-            return createError(
-              'DB_CONNECTION_ERROR',
-              'データベース接続オブジェクトが無効です'
-            );
-          }
-        }
-        
-        // タイムアウト付きのプロミスを作成
-        const testPromise = conn.query(testQuery);
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('接続テストがタイムアウトしました')), 
-            DB_CONNECTION.CONNECTION_TEST_TIMEOUT_MS);
-        });
-        
-        // どちらか早い方のプロミスを待つ
-        const testResult = await Promise.race([testPromise, timeoutPromise]);
+        const testResult = await conn.query(testQuery);
         console.log('接続テスト結果:', testResult);
         
-        if (testResult) {
-          connectionSuccess = true;
-        }
+        return { kuzu, db, conn };
       } catch (testErr) {
-        console.error('接続テストエラー:', testErr);
-        
-        // エラーの詳細を確認して互換性問題かどうか判断
-        if (testErr.message && (
-            testErr.message.includes('is not a function') || 
-            testErr.message.includes('undefined method') ||
-            testErr.message.includes('version') ||
-            testErr.message.includes('compatibility')
-          )) {
-          console.warn('API互換性の問題が検出されました - 代替チェックを使用します');
-          
-          // 代替チェック - オブジェクトの存在確認
-          if (conn && db) {
-            console.log('接続およびDBオブジェクトは存在します - 接続成功とみなします');
-            connectionSuccess = true;
-            return { kuzu, db, conn };
-          }
-        }
-        
+        console.error('テストクエリ実行中のエラー:', testErr);
         return createError(
-          'DB_CONNECTION_ERROR',
-          `データベース接続テストに失敗しました: ${testErr.message}`
+          'QUERY_ERROR',
+          `テストクエリの実行中にエラーが発生しました: ${testErr.message}`,
+          testErr
         );
       }
-      
-      if (!connectionSuccess) {
-        return createError(
-          'DB_CONNECTION_ERROR',
-          'データベース接続が確立されましたが、テストクエリの実行に失敗しました。'
-        );
-      }
-
-      return { kuzu, db, conn };
     } catch (dbError) {
-      console.error('データベース初期化エラー:', dbError);
+      console.error('データベース作成エラー:', dbError);
       return createError(
-        'DB_INIT_ERROR',
-        `データベースの初期化中にエラーが発生しました: ${dbError.message}`,
+        'DB_CREATION_ERROR',
+        `データベースの作成中にエラーが発生しました: ${dbError.message}`,
         dbError
       );
     }
@@ -380,6 +172,102 @@ export const initializeDatabase = async (): Promise<DatabaseResult> => {
     return createError(
       'KUZU_INIT_ERROR',
       `Kuzuの初期化中にエラーが発生しました: ${error.message}`,
+      error
+    );
+  }
+};
+
+/**
+ * Cypherスクリプトを実行する関数
+ * 
+ * @param conn データベース接続
+ * @param scriptPath スクリプトパス（URLまたはファイルパス）
+ * @returns 成功時はtrue、失敗時はエラー
+ */
+export const executeCypherScript = async (
+  conn: any, 
+  scriptPath: string
+): Promise<boolean | DatabaseError> => {
+  try {
+    console.log(`Cypherスクリプトを読み込み中: ${scriptPath}`);
+    
+    // ファイルを取得
+    const response = await fetch(scriptPath);
+    if (!response.ok) {
+      console.error(`スクリプトロードエラー: ステータス ${response.status} - ${response.statusText}`);
+      console.error(`スクリプトパス: ${scriptPath}`);
+      return createError(
+        'SCRIPT_LOAD_ERROR',
+        `スクリプトのロードに失敗しました: ${response.status} ${response.statusText}`
+      );
+    }
+    
+    const scriptContent = await response.text();
+    console.log(`スクリプト読み込み成功: ${scriptPath}, 長さ: ${scriptContent.length}文字`);
+    console.log(`スクリプト内容のプレビュー: ${scriptContent.substring(0, 100)}...`);
+    
+    // スクリプトを行ごとに分割し、コマンドを抽出
+    const commands = scriptContent
+      .split(';')
+      .map(cmd => cmd.trim())
+      .filter(cmd => cmd.length > 0 && !cmd.startsWith('--'));
+    
+    console.log(`実行するコマンド数: ${commands.length}`);
+    
+    // 各コマンドを順番に実行
+    for (const command of commands) {
+      try {
+        console.log(`Cypherコマンド実行: ${command}`);
+        
+        if (command.toLowerCase().startsWith('source')) {
+          // SOURCEコマンドはファイルの読み込みを行うため、再帰的に実行
+          const sourceFilePath = command.match(/['"]([^'"]+)['"]/)?.[1];
+          if (sourceFilePath) {
+            console.log(`SOURCEコマンドを検出: ${sourceFilePath}`);
+            const sourceResult = await executeCypherScript(conn, sourceFilePath);
+            if (sourceResult !== true) {
+              console.warn(`SOURCEファイルの実行に失敗: ${sourceFilePath}`, sourceResult);
+            }
+          } else {
+            console.warn(`SOURCEコマンドの形式が不正: ${command}`);
+          }
+        } else {
+          // 通常のCypherコマンドを実行
+          try {
+            console.log(`クエリ実行前 (${command.length}文字)...`);
+            const result = await conn.query(command);
+            console.log(`クエリ実行成功: ${command.substring(0, 50)}${command.length > 50 ? '...' : ''}`);
+            
+            if (result && result.getAllObjects) {
+              const objects = await result.getAllObjects();
+              console.log('クエリ結果 (objects):', objects);
+            }
+          } catch (queryErr) {
+            console.error(`クエリ実行エラー: ${queryErr.message}`);
+            console.error(`問題のクエリ: ${command}`);
+            throw queryErr;  // エラーを再スローして上位でキャッチ
+          }
+        }
+      } catch (cmdError) {
+        console.error(`コマンド実行エラー: ${cmdError.message}`);
+        console.error(`問題のコマンド: ${command}`);
+        // エラーを返して処理を中断
+        return createError(
+          'COMMAND_EXECUTION_ERROR',
+          `コマンド実行中にエラーが発生しました: ${cmdError.message}\nコマンド: ${command}`,
+          cmdError
+        );
+      }
+    }
+    
+    console.log(`スクリプト実行完了: ${scriptPath}`);
+    return true;
+  } catch (error) {
+    console.error(`スクリプト実行エラー: ${error.message}`);
+    console.error(`スクリプトパス: ${scriptPath}`);
+    return createError(
+      'SCRIPT_EXECUTION_ERROR',
+      `スクリプト実行中にエラーが発生しました: ${error.message}`,
       error
     );
   }
