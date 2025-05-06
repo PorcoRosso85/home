@@ -8,3 +8,29 @@ import * as path from 'path';
 
 // データベースパスをシンボリックリンクしたdbディレクトリに設定
 export const DB_DIR = "/db";  // publicディレクトリ内のシンボリックリンク
+
+// データベース接続設定
+export const DB_CONNECTION = {
+  // 接続テスト関連
+  BASIC_TEST_QUERY: "RETURN 1 AS test",
+  CONNECTION_TEST_TIMEOUT_MS: 5000,
+  CONNECTION_CHECK_INTERVAL_MS: 30000,
+  
+  // 再接続関連
+  MAX_RETRY_COUNT: 3,
+  RETRY_DELAY_MS: 1000,
+  
+  // キャッシュ関連
+  CONNECTION_STATE_CACHE_MS: 10000,  // 接続状態をキャッシュする時間（ミリ秒）
+  
+  // データベース設定
+  DEFAULT_OPTIONS: {
+    readOnly: true,           // 公開ディレクトリからのファイルは読み取り専用が安全
+    bufferPoolSize: 256 * 1024 * 1024,
+    maxNumThreads: 2,
+    enableCompression: true
+  },
+  
+  // 必須ファイル
+  REQUIRED_DB_FILES: ['MANIFEST', 'database.ini', 'catalog.kz', 'data.kz', 'metadata.kz']
+};

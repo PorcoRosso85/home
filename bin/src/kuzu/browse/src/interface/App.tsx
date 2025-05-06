@@ -32,10 +32,18 @@ const App = () => {
       setLoading(true);
       setError(null);
       
-      // すでに接続済みの場合は処理をスキップ
+      // すでに接続済みの場合は接続テストで確認
       if (connectionStatus.connected && window.conn) {
-        setLoading(false);
-        return true;
+        console.log('接続済みと表示されています。接続確認テストを実行...');
+        const testResult = await databaseService.testConnection();
+        if (testResult.success) {
+          console.log('既存の接続でテスト成功');
+          setLoading(false);
+          return true;
+        } else {
+          console.warn('既存の接続でテスト失敗。再接続を試みます:', testResult.error);
+          // 接続が機能していないので再接続を試みる
+        }
       }
       
       // アプリケーション層のデータベースサービスを使用して接続
@@ -48,7 +56,18 @@ const App = () => {
         return false;
       }
       
-      // 接続情報を更新
+      // 重要: 接続が実際に機能するか検証テストを実行
+      console.log('接続後の検証テストを実行...');
+      const testResult = await databaseService.testConnection();
+      
+      if (!testResult.success) {
+        setError(testResult.error || 'データベース接続テストに失敗しました');
+        setConnectionStatus({ connected: false, dbPath: '' });
+        setLoading(false);
+        return false;
+      }
+      
+      // テスト成功後に接続情報を更新
       const dbPath = window.db_path || 'unknown';
       setConnectionStatus({ 
         connected: true, 
@@ -112,11 +131,43 @@ const App = () => {
       
       // データベース接続がない場合は接続
       if (!connectionStatus.connected) {
+        console.log('クエリ実行前に接続が必要です');
         const connected = await connectToDatabase();
-        if (!connected) return;
+        if (!connected) {
+          setError('データベースに接続できないためクエリを実行できません');
+          setLoading(false);
+          return;
+        }
+      } else {
+        // 接続済みの場合も軽量な接続確認を行う
+        console.log('クエリ実行前の接続状態確認');
+        try {
+          // クイックチェック
+          const quickCheck = await databaseService.executeDirectQuery('RETURN 1 AS test');
+          if (!quickCheck.success) {
+            console.warn('クイック接続チェック失敗 - 再接続が必要です');
+            setConnectionStatus({ connected: false, dbPath: '' });
+            const reconnected = await connectToDatabase();
+            if (!reconnected) {
+              setError('データベース接続が切断されていて再接続できませんでした');
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (checkErr) {
+          console.warn('クイック接続チェックエラー - 再接続を試みます:', checkErr);
+          setConnectionStatus({ connected: false, dbPath: '' });
+          const reconnected = await connectToDatabase();
+          if (!reconnected) {
+            setError('データベース接続の検証に失敗し、再接続もできませんでした');
+            setLoading(false);
+            return;
+          }
+        }
       }
       
       // クエリを実行
+      console.log(`クエリを実行: ${queryString}`);
       const queryResult = await databaseService.executeDirectQuery(queryString);
       
       if (!queryResult.success) {
@@ -147,7 +198,63 @@ const App = () => {
   };
   
   // 接続テスト
-  const checkConnection = () => executeQuery(predefinedQueries.connectionTest);
+  const checkConnection = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // データベース接続テスト
+      const testResult = await databaseService.testConnection();
+      
+      if (!testResult.success) {
+        setError(testResult.error || 'データベース接続テストに失敗しました');
+        return;
+      }
+      
+      // 接続情報を更新
+      setConnectionStatus({ 
+        connected: true, 
+        dbPath: window.db_path || 'unknown'
+      });
+      
+      // 結果を表示
+      if (testResult.data) {
+        setResult(testResult.data);
+        setQuery('データベース接続診断');
+        
+        // より詳細な接続状態を設定
+        const diagnosticData = testResult.data;
+        setConnectionStatus({ 
+          connected: testResult.success, 
+          dbPath: diagnosticData.dbPath || window.db_path || 'unknown'
+        });
+        
+        // データベース統計も更新
+        if (typeof diagnosticData.nodeCount !== 'undefined' && 
+            typeof diagnosticData.edgeCount !== 'undefined') {
+          setDbStats({
+            nodeCount: diagnosticData.nodeCount,
+            edgeCount: diagnosticData.edgeCount
+          });
+        } else {
+          // 診断データにない場合は別途取得
+          await fetchDatabaseStats();
+        }
+      } else {
+        setResult({
+          message: testResult.error || 'データベース接続診断結果が不明です',
+          success: false
+        });
+        setQuery('データベース接続診断');
+      }
+      
+    } catch (error) {
+      console.error('接続テストエラー:', error);
+      setError(`接続テストに失敗しました: ${error.message || '不明なエラー'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // 全ノードIDを取得
   const fetchAllNodeIds = () => executeQuery(predefinedQueries.allNodes);
@@ -158,6 +265,44 @@ const App = () => {
   // エッジ一覧を取得
   const listRelationships = () => executeQuery(predefinedQueries.relationshipsSample);
   
+  // 定期的な接続状態確認用の変数
+  const [connectionCheckTimer, setConnectionCheckTimer] = useState<number | null>(null);
+
+  // 定期的に接続状態を確認する関数
+  const startConnectionCheck = () => {
+    console.log('定期的な接続状態確認を開始');
+    
+    // 既存のタイマーをクリア
+    if (connectionCheckTimer !== null) {
+      clearInterval(connectionCheckTimer);
+    }
+    
+    // 30秒ごとに接続状態を確認
+    const timerId = window.setInterval(async () => {
+      // すでに接続済みと表示されている場合に限り確認
+      if (connectionStatus.connected) {
+        console.log('定期的な接続状態確認を実行中...');
+        try {
+          // 簡易的な接続テスト (エラー表示なし)
+          const testResult = await databaseService.testConnection();
+          
+          if (!testResult.success) {
+            console.warn('定期チェックで接続エラーを検出:', testResult.error);
+            // 接続が失敗している場合は状態を更新
+            setConnectionStatus({ connected: false, dbPath: '' });
+            // エラーメッセージを表示 (静かに行う)
+            setError('自動チェックで接続状態の問題を検出しました。再接続してください。');
+          }
+        } catch (error) {
+          console.error('定期的接続チェックエラー:', error);
+          setConnectionStatus({ connected: false, dbPath: '' });
+        }
+      }
+    }, 30000); // 30秒ごと
+    
+    setConnectionCheckTimer(timerId);
+  };
+
   // Kuzuの初期化
   useEffect(() => {
     const initApp = async () => {
@@ -168,6 +313,8 @@ const App = () => {
         // データベース統計を取得
         if (connected) {
           await fetchDatabaseStats();
+          // 接続状態の定期確認を開始
+          startConnectionCheck();
         }
       } catch (error) {
         console.error('初期化エラー:', error);
@@ -178,6 +325,11 @@ const App = () => {
     
     // クリーンアップ関数
     return () => {
+      // 接続確認タイマーをクリア
+      if (connectionCheckTimer !== null) {
+        clearInterval(connectionCheckTimer);
+      }
+      
       // コンポーネントのアンマウント時にリソースをクリーンアップ
       databaseService.disconnect()
         .catch(err => console.error('クリーンアップエラー:', err));
@@ -212,7 +364,61 @@ const App = () => {
         }}>
           <h3>データベース接続情報</h3>
           <div>
-            <p><strong>接続状態:</strong> {connectionStatus.connected ? '✅ 接続済み' : '❌ 未接続'}</p>
+            <p>
+              <strong>接続状態:</strong> 
+              {connectionStatus.connected ? 
+                <>
+                  ✅ 接続済み 
+                  <span style={{ 
+                    display: 'inline-block',
+                    marginLeft: '5px', 
+                    backgroundColor: '#e0f2f1', 
+                    padding: '2px 6px', 
+                    borderRadius: '3px',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    color: '#00796b'
+                  }}>
+                    読み取り専用
+                  </span>
+                  <button 
+                    onClick={checkConnection}
+                    style={{ 
+                      marginLeft: '10px',
+                      padding: '4px 8px', 
+                      backgroundColor: '#81c784',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem'
+                    }}
+                    disabled={loading}
+                  >
+                    再検証
+                  </button>
+                </> : 
+                <>
+                  ❌ 未接続
+                  <button 
+                    onClick={connectToDatabase}
+                    style={{ 
+                      marginLeft: '10px',
+                      padding: '4px 8px', 
+                      backgroundColor: '#ef5350',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem'
+                    }}
+                    disabled={loading}
+                  >
+                    接続する
+                  </button>
+                </>
+              }
+            </p>
             <p><strong>データベースパス:</strong> {connectionStatus.dbPath || '不明'}</p>
             
             {/* 統計情報表示 */}
@@ -220,6 +426,23 @@ const App = () => {
               <p><strong>ノード数:</strong> {dbStats.nodeCount !== null ? String(dbStats.nodeCount) : '取得中...'}</p>
               <p><strong>エッジ数:</strong> {dbStats.edgeCount !== null ? String(dbStats.edgeCount) : '取得中...'}</p>
             </div>
+            
+            {/* 接続エラー時のヒント */}
+            {!connectionStatus.connected && error && (
+              <div style={{ 
+                marginTop: '10px', 
+                padding: '8px', 
+                backgroundColor: 'rgba(255, 236, 236, 0.5)', 
+                borderLeft: '3px solid #f44336',
+                borderRadius: '2px'
+              }}>
+                <p style={{ margin: '0', fontSize: '0.9rem' }}>
+                  <strong>ヒント:</strong> データベースファイルが正しく配置されているか確認してください。
+                  公開サーバー上の <code>/db</code> ディレクトリには、Kuzuのデータベースファイル
+                  （MANIFEST、database.iniなど）が含まれている必要があります。
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
