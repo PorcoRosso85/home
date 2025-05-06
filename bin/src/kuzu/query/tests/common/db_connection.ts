@@ -9,7 +9,6 @@
 // TODO: kuzu/browse/**/database.tsに統合し削除予定
 
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
-import { initNodePolyfill } from "./node_polyfill.ts";
 
 // browseコンポーネントから再利用するための変数
 let sharedKuzu: any = null;
@@ -36,7 +35,6 @@ export async function loadKuzuModule() {
       
       // Node.js環境のポリフィルをセットアップ
       console.log("Node.js環境のポリフィルをセットアップします...");
-      initNodePolyfill();
       
       // 直接ESMスタイルでインポート
       console.log("ESMスタイルでモジュールをロードします...");

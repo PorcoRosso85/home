@@ -332,16 +332,16 @@ export async function executeNamedQuery(
   // パラメータを適用
   const processedQuery = applyParamsToQuery(query, params);
   
-  // クエリの実行 - 同期APIのみ使用
+  // クエリの実行 - ESMスタイルのAPIを使用
   try {
     console.log(`クエリを実行: ${processedQuery}`);
     
-    // 同期APIを使用（Deno環境では必須）
-    console.log("同期APIでクエリを実行します");
-    if (typeof conn.querySync !== 'function') {
-      throw new Error("querySync関数が見つかりません。SyncConnectionが正しく初期化されていない可能性があります。");
+    // ESMスタイルのAPIを使用
+    console.log("ESMスタイルのAPIでクエリを実行します");
+    if (typeof conn.query !== 'function') {
+      throw new Error("query関数が見つかりません。Connectionが正しく初期化されていない可能性があります。");
     }
-    const result = conn.querySync(processedQuery);
+    const result = await conn.query(processedQuery);
     
     console.log(`クエリの実行が完了しました: ${queryName}`);
     return result;
@@ -389,12 +389,12 @@ export async function executeQueryFile(
     // シングルスレッドで連続的に実行（ワーカーを使わない）
     for (const query of processedQueries) {
       try {
-        // 同期APIのみ使用（Deno環境では必須）
-        console.log("同期APIでクエリを実行します");
-        if (typeof conn.querySync !== 'function') {
-          throw new Error("querySync関数が見つかりません。SyncConnectionが正しく初期化されていない可能性があります。");
+        // ESMスタイルのAPIを使用
+        console.log("ESMスタイルのAPIでクエリを実行します");
+        if (typeof conn.query !== 'function') {
+          throw new Error("query関数が見つかりません。Connectionが正しく初期化されていない可能性があります。");
         }
-        const result = conn.querySync(query);
+        const result = await conn.query(query);
         results.push(result);
       } catch (error) {
         console.error(`クエリ実行エラー: ${error}`);
