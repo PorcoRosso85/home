@@ -332,11 +332,28 @@ Parquetファイルからのデータ読み込みが完了しました。
   }
 }
 
+// React関連のimport
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './interface/App';
+
 // アプリケーション初期化
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("KuzuDB Parquet Viewer - コマンドライン版");
     console.log("import.cypherに基づくParquetファイルの読み込みツール");
+    
+    // Reactアプリをマウント
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      // @ts-ignore - React/JSXのエラーを無視
+      const root = createRoot(rootElement);
+      // @ts-ignore - React/JSXのエラーを無視
+      root.render(React.createElement(App))
+      console.log('Reactアプリがマウントされました');
+    } else {
+      console.error('エラー: rootエレメントが見つかりません。');
+    }
     
     // ファイルパス確認のためにフェッチテスト
     console.log("=== ファイルパステスト開始 ===");

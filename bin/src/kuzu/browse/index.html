@@ -3,66 +3,17 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KuzuDB Parquet Viewer</title>
-    <style>
-      body {
-        font-family: sans-serif;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-      }
-      pre {
-        margin-top: 10px; 
-        padding: 10px; 
-        border: 1px solid #ccc; 
-        background-color: #f9f9f9; 
-        overflow: auto;
-        max-height: 400px;
-      }
-      .status {
-        padding: 10px;
-        margin: 10px 0;
-        border-radius: 4px;
-      }
-      .success {
-        background-color: #e8f5e9;
-        color: #2e7d32;
-      }
-      .error {
-        background-color: #ffebee;
-        color: #c62828;
-      }
-      .loading {
-        background-color: #e3f2fd;
-        color: #1565c0;
-      }
-      .result-block {
-        margin: 20px 0;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 15px;
-      }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        margin: 10px 0;
-      }
-      th, td {
-        border: 1px solid #ddd;
-        padding: 8px;
-        text-align: left;
-      }
-      th {
-        background-color: #f5f5f5;
-      }
-      tr:nth-child(even) {
-        background-color: #f9f9f9;
-      }
-    </style>
-    <!-- メインアプリケーションスクリプト (ESMとして読み込み) -->
-    <script type="module" src="/src/main.ts"></script>
+    <title>KuzuDB Browser</title>
+    <!-- React と React DOM の CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX -->
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- メインアプリケーションスクリプト -->
+    <script type="module" src="./src/main.ts"></script>
   </head>
   <body>
-    <!-- シンプルなアプリケーションのマウントポイント -->
+    <!-- アプリケーションのマウントポイント -->
     <div id="root"></div>
   </body>
 </html>
