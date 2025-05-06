@@ -7,7 +7,31 @@ const App = () => {
     message: 'データベース初期化中...',
     type: 'loading'
   });
-  const [results, setResults] = useState<any[]>([]);
+  const [importCypherScript, setImportCypherScript] = useState<string>('');
+
+  // Cypherスクリプトを読み込む関数
+  const loadCypherScript = async (path: string): Promise<string> => {
+    try {
+      const response = await fetch(path);
+      if (!response.ok) {
+        throw new Error(`ファイル読み込みエラー: ${response.status} ${response.statusText}`);
+      }
+      return await response.text();
+    } catch (error) {
+      console.error(`スクリプト読み込みエラー: ${error.message}`);
+      return '';
+    }
+  };
+
+  // import.cypherスクリプトを読み込む
+  useEffect(() => {
+    const loadScript = async () => {
+      const script = await loadCypherScript('/dql/import.cypher');
+      setImportCypherScript(script);
+    };
+    
+    loadScript();
+  }, []);
 
   // データベースの初期化と接続
   useEffect(() => {
@@ -38,33 +62,11 @@ const App = () => {
             message: `スクリプト実行エラー: ${scriptResult.error}`,
             type: 'error'
           });
-          return;
-        }
-        
-        setStatus({
-          message: 'Parquetファイルの読み込みが完了しました',
-          type: 'success'
-        });
-        
-        // データベースの基本情報を取得
-        try {
-          const nodeCountResult = await conn.query('MATCH (n) RETURN count(n) AS nodeCount');
-          const edgeCountResult = await conn.query('MATCH ()-[r]->() RETURN count(r) AS relationshipCount');
-          
-          const nodeCountData = await nodeCountResult.getAllObjects();
-          const edgeCountData = await edgeCountResult.getAllObjects();
-          
-          setResults([
-            {
-              title: 'データベース統計情報',
-              data: {
-                nodeCount: nodeCountData[0]?.nodeCount || 0,
-                relationshipCount: edgeCountData[0]?.relationshipCount || 0
-              }
-            }
-          ]);
-        } catch (statsError) {
-          console.error('統計情報取得エラー:', statsError);
+        } else {
+          setStatus({
+            message: 'Parquetファイルの読み込みが完了しました',
+            type: 'success'
+          });
         }
       } catch (error) {
         setStatus({
@@ -96,23 +98,19 @@ const App = () => {
         <p>{status.message}</p>
       </div>
       
-      {/* 結果表示 */}
-      {results.length > 0 && (
-        <div>
-          {results.map((result, index) => (
-            <div key={index} style={{ marginBottom: '20px' }}>
-              <h3>{result.title}</h3>
-              <pre style={{ 
-                padding: '10px', 
-                borderRadius: '4px',
-                backgroundColor: '#f5f5f5',
-                overflow: 'auto'
-              }}>
-                {JSON.stringify(result.data, (key, value) => 
-                  typeof value === 'bigint' ? value.toString() : value, 2)}
-              </pre>
-            </div>
-          ))}
+      {/* import.cypherスクリプト表示 */}
+      {importCypherScript && (
+        <div style={{ marginTop: '30px' }}>
+          <h3>実行されたimport.cypherスクリプト:</h3>
+          <pre style={{ 
+            padding: '10px', 
+            borderRadius: '4px',
+            backgroundColor: '#f5f5f5',
+            overflow: 'auto',
+            maxHeight: '400px'
+          }}>
+            {importCypherScript}
+          </pre>
         </div>
       )}
     </div>
