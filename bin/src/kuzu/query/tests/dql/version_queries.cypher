@@ -8,7 +8,8 @@ UNION
 MATCH (v:VersionState {id: $version})-[:TRACKS_STATE_OF_REQ]->(r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(l:LocationURI)
 RETURN DISTINCT l.uri_id, l.scheme, l.path
 UNION
-MATCH (v:VersionState {id: $version})-[:TRACKS_STATE_OF_REF]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
+// FIXME: 旧名称 "TRACKS_STATE_OF_REF" から "TRACKS_STATE_OF_REFERENCE" に変更。省略形を避けて完全名称に統一
+MATCH (v:VersionState {id: $version})-[:TRACKS_STATE_OF_REFERENCE]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
 RETURN DISTINCT l.uri_id, l.scheme, l.path;
 
 // 要件の進捗状況を集計するクエリ
@@ -266,10 +267,11 @@ RETURN DISTINCT 'requirement' AS entity_type, r.id AS entity_id, r.title, l.uri_
 UNION
 
 // 参照の差分 - 新規追加
+// FIXME: 旧名称 "TRACKS_STATE_OF_REF" から "TRACKS_STATE_OF_REFERENCE" に変更。省略形を避けて完全名称に統一
 MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
-MATCH (curr)-[:TRACKS_STATE_OF_REF]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
+MATCH (curr)-[:TRACKS_STATE_OF_REFERENCE]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
 WHERE NOT EXISTS {
-  MATCH (prev)-[:TRACKS_STATE_OF_REF]->(ref)
+  MATCH (prev)-[:TRACKS_STATE_OF_REFERENCE]->(ref)
 }
 AND $change_type = 'added'
 RETURN DISTINCT 'reference' AS entity_type, ref.id AS entity_id, ref.description, l.uri_id, l.path
@@ -277,10 +279,11 @@ RETURN DISTINCT 'reference' AS entity_type, ref.id AS entity_id, ref.description
 UNION
 
 // 参照の差分 - 削除
+// FIXME: 旧名称 "TRACKS_STATE_OF_REF" から "TRACKS_STATE_OF_REFERENCE" に変更。省略形を避けて完全名称に統一
 MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
-MATCH (prev)-[:TRACKS_STATE_OF_REF]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
+MATCH (prev)-[:TRACKS_STATE_OF_REFERENCE]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
 WHERE NOT EXISTS {
-  MATCH (curr)-[:TRACKS_STATE_OF_REF]->(ref)
+  MATCH (curr)-[:TRACKS_STATE_OF_REFERENCE]->(ref)
 }
 AND $change_type = 'deleted'
 RETURN DISTINCT 'reference' AS entity_type, ref.id AS entity_id, ref.description, l.uri_id, l.path
@@ -288,9 +291,10 @@ RETURN DISTINCT 'reference' AS entity_type, ref.id AS entity_id, ref.description
 UNION
 
 // 参照の差分 - 変更
+// FIXME: 旧名称 "TRACKS_STATE_OF_REF" から "TRACKS_STATE_OF_REFERENCE" に変更。省略形を避けて完全名称に統一
 MATCH (prev:VersionState)-[:FOLLOWS]->(curr:VersionState {id: $version})
-MATCH (prev)-[:TRACKS_STATE_OF_REF]->(ref:ReferenceEntity)
-MATCH (curr)-[:TRACKS_STATE_OF_REF]->(ref)
+MATCH (prev)-[:TRACKS_STATE_OF_REFERENCE]->(ref:ReferenceEntity)
+MATCH (curr)-[:TRACKS_STATE_OF_REFERENCE]->(ref)
 MATCH (ref)-[:REFERENCE_HAS_LOCATION]->(l:LocationURI)
 WHERE $change_type = 'modified'
 RETURN DISTINCT 'reference' AS entity_type, ref.id AS entity_id, ref.description, l.uri_id, l.path;
@@ -362,7 +366,8 @@ RETURN l.path AS file_path, '要件削除: ' + r.title + ' (' + r.priority + ')'
 MATCH (curr:VersionState {id: $version})
 OPTIONAL MATCH (curr)-[:TRACKS_STATE_OF_CODE]->(c:CodeEntity)-[:HAS_LOCATION]->(l1:LocationURI)
 OPTIONAL MATCH (curr)-[:TRACKS_STATE_OF_REQ]->(r:RequirementEntity)-[:REQUIREMENT_HAS_LOCATION]->(l2:LocationURI)
-OPTIONAL MATCH (curr)-[:TRACKS_STATE_OF_REF]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l3:LocationURI)
+// FIXME: 旧名称 "TRACKS_STATE_OF_REF" から "TRACKS_STATE_OF_REFERENCE" に変更。省略形を避けて完全名称に統一
+OPTIONAL MATCH (curr)-[:TRACKS_STATE_OF_REFERENCE]->(ref:ReferenceEntity)-[:REFERENCE_HAS_LOCATION]->(l3:LocationURI)
 WITH l1, l2, l3, c, r, ref
 WHERE l1 IS NOT NULL OR l2 IS NOT NULL OR l3 IS NOT NULL
 RETURN 

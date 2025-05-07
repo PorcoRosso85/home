@@ -104,8 +104,9 @@ CREATE REL TABLE REFERENCES_CODE (
   ref_type STRING
 );
 
-// 8. REFERENCES_EXTERNAL: 外部参照への関係
-CREATE REL TABLE REFERENCES_EXTERNAL (
+// 8. REFERS_TO: 外部参照への関係
+// FIXME: 旧名称 "REFERENCES_EXTERNAL" から変更。コードエンティティが参照エンティティを参照する関係を表現
+CREATE REL TABLE REFERS_TO (
   FROM CodeEntity TO ReferenceEntity,
   ref_type STRING
 );
@@ -141,8 +142,9 @@ CREATE REL TABLE TRACKS_STATE_OF_REQ (
   FROM VersionState TO RequirementEntity
 );
 
-// 15. TRACKS_STATE_OF_REF: バージョンと参照の状態追跡
-CREATE REL TABLE TRACKS_STATE_OF_REF (
+// 15. TRACKS_STATE_OF_REFERENCE: バージョンと参照の状態追跡
+// FIXME: 旧名称 "TRACKS_STATE_OF_REF" から変更。省略形を避け、完全な名前に統一
+CREATE REL TABLE TRACKS_STATE_OF_REFERENCE (
   FROM VersionState TO ReferenceEntity
 );
 

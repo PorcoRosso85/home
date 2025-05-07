@@ -187,12 +187,13 @@ CREATE (c1)-[:REFERENCES_CODE {ref_type: 'call'}]->(c2);
 MATCH (c1:CodeEntity {persistent_id: 'CODE-002'}), (c2:CodeEntity {persistent_id: 'CODE-009'}) 
 CREATE (c1)-[:REFERENCES_CODE {ref_type: 'call'}]->(c2);
 
-// REFERENCES_EXTERNAL関係 - 外部参照
+// REFERS_TO関係 - 外部参照
+// FIXME: 旧名称 "REFERENCES_EXTERNAL" から変更。コードエンティティが参照エンティティを参照することを明確化
 MATCH (c:CodeEntity {persistent_id: 'CODE-003'}), (r:ReferenceEntity {id: 'REF-001'}) 
-CREATE (c)-[:REFERENCES_EXTERNAL {ref_type: 'api'}]->(r);
+CREATE (c)-[:REFERS_TO {ref_type: 'api'}]->(r);
 
 MATCH (c:CodeEntity {persistent_id: 'CODE-006'}), (r:ReferenceEntity {id: 'REF-002'}) 
-CREATE (c)-[:REFERENCES_EXTERNAL {ref_type: 'document'}]->(r);
+CREATE (c)-[:REFERS_TO {ref_type: 'document'}]->(r);
 
 // FOLLOWS関係 - バージョンの順序
 MATCH (v1:VersionState {id: 'v1.0.0'}), (v2:VersionState {id: 'v1.1.0'}) 

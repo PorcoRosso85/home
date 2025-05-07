@@ -164,16 +164,18 @@ CREATE (req3)-[:IS_IMPLEMENTED_BY {implementation_type: 'direct'}]->(code3)
 CREATE (req4)-[:IS_IMPLEMENTED_BY {implementation_type: 'direct'}]->(code4)
 
 // コードと外部参照の関連付け
-CREATE (code1)-[:DEPENDS_ON_EXTERNAL {dependency_type: 'imports'}]->(api1)
-CREATE (code2)-[:DEPENDS_ON_EXTERNAL {dependency_type: 'imports'}]->(api2)
-CREATE (code3)-[:DEPENDS_ON_EXTERNAL {dependency_type: 'imports'}]->(lib1)
-CREATE (code4)-[:DEPENDS_ON_EXTERNAL {dependency_type: 'imports'}]->(lib2)
+// FIXME: 旧リレーション "DEPENDS_ON_EXTERNAL" は "REFERS_TO" との一貫性のために変更を検討
+// "DEPENDS_ON_EXTERNAL" はクエリの一部でのみ使用され、スキーマで定義された "REFERENCES_EXTERNAL"/"REFERS_TO" とは異なる
+CREATE (code1)-[:REFERS_TO {dependency_type: 'imports'}]->(api1)
+CREATE (code2)-[:REFERS_TO {dependency_type: 'imports'}]->(api2)
+CREATE (code3)-[:REFERS_TO {dependency_type: 'imports'}]->(lib1)
+CREATE (code4)-[:REFERS_TO {dependency_type: 'imports'}]->(lib2)
 
 // すべてのコードはフレームワークに依存
-CREATE (code1)-[:DEPENDS_ON_EXTERNAL {dependency_type: 'extends'}]->(framework)
-CREATE (code2)-[:DEPENDS_ON_EXTERNAL {dependency_type: 'extends'}]->(framework)
-CREATE (code3)-[:DEPENDS_ON_EXTERNAL {dependency_type: 'extends'}]->(framework)
-CREATE (code4)-[:DEPENDS_ON_EXTERNAL {dependency_type: 'extends'}]->(framework)
+CREATE (code1)-[:REFERS_TO {dependency_type: 'extends'}]->(framework)
+CREATE (code2)-[:REFERS_TO {dependency_type: 'extends'}]->(framework)
+CREATE (code3)-[:REFERS_TO {dependency_type: 'extends'}]->(framework)
+CREATE (code4)-[:REFERS_TO {dependency_type: 'extends'}]->(framework)
 
 RETURN 4 AS created_requirements, 4 AS created_code;
 
@@ -205,7 +207,8 @@ ORDER BY req.priority, req.id;
 
 // コードから外部参照への依存関係を追跡
 // @name: trace_code_to_external
-MATCH (code:CodeEntity)-[rel:DEPENDS_ON_EXTERNAL]->(ref:ReferenceEntity)
+// FIXME: 旧リレーション "DEPENDS_ON_EXTERNAL" から "REFERS_TO" に変更
+MATCH (code:CodeEntity)-[rel:REFERS_TO]->(ref:ReferenceEntity)
 RETURN 
   code.persistent_id AS code_id,
   code.name AS code_name,
@@ -220,8 +223,9 @@ ORDER BY code.name, ref.reference_type;
 // 特定の外部参照に依存するすべての要件とコードを取得
 // @name: get_dependencies_for_reference
 MATCH (ref:ReferenceEntity {id: $referenceId})
+// FIXME: 要件では "DEPENDS_ON_EXTERNAL" を使用し、コードでは "REFERS_TO" に変更
 OPTIONAL MATCH (req:RequirementEntity)-[reqRel:DEPENDS_ON_EXTERNAL]->(ref)
-OPTIONAL MATCH (code:CodeEntity)-[codeRel:DEPENDS_ON_EXTERNAL]->(ref)
+OPTIONAL MATCH (code:CodeEntity)-[codeRel:REFERS_TO]->(ref)
 
 WITH 
   ref,
@@ -250,9 +254,11 @@ MATCH (ref:ReferenceEntity {id: $referenceId})
 // 要件への依存関係を取得
 OPTIONAL MATCH (req:RequirementEntity)-[:DEPENDS_ON_EXTERNAL]->(ref)
 // コードへの依存関係を取得
-OPTIONAL MATCH (code:CodeEntity)-[:DEPENDS_ON_EXTERNAL]->(ref)
+// FIXME: 旧リレーション "DEPENDS_ON_EXTERNAL" から "REFERS_TO" に変更
+OPTIONAL MATCH (code:CodeEntity)-[:REFERS_TO]->(ref)
 // 間接的に依存するコードを取得（要件を通じて）
-OPTIONAL MATCH (indirectReq:RequirementEntity)-[:DEPENDS_ON_EXTERNAL]->(ref)<-[:DEPENDS_ON_EXTERNAL]-(otherCode:CodeEntity)
+// FIXME: 片方のリレーションを "REFERS_TO" に変更
+OPTIONAL MATCH (indirectReq:RequirementEntity)-[:DEPENDS_ON_EXTERNAL]->(ref)<-[:REFERS_TO]-(otherCode:CodeEntity)
 WHERE indirectReq <> req AND otherCode <> code
 
 WITH 
@@ -316,7 +322,8 @@ RETURN newRef.id, newRef.name, newRef.version;
 MATCH (oldRef:ReferenceEntity {id: $oldReferenceId})
 MATCH (newRef:ReferenceEntity {id: $newReferenceId})
 OPTIONAL MATCH (req:RequirementEntity)-[reqRel:DEPENDS_ON_EXTERNAL]->(oldRef)
-OPTIONAL MATCH (code:CodeEntity)-[codeRel:DEPENDS_ON_EXTERNAL]->(oldRef)
+// FIXME: 旧リレーション "DEPENDS_ON_EXTERNAL" から "REFERS_TO" に変更
+OPTIONAL MATCH (code:CodeEntity)-[codeRel:REFERS_TO]->(oldRef)
 
 WITH 
   oldRef, newRef,
