@@ -46,7 +46,6 @@ async function createViteDevServer() {
       jsxImportSource: "https://esm.sh/react@18.2.0"
     },
     server: {
-      port: 8000,
       watch: {
         usePolling: true,
         interval: 100
