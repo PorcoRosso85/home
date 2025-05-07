@@ -8,8 +8,14 @@
  */
 
 import * as path from "https://deno.land/std@0.177.0/path/mod.ts";
-import * as logger from '../common/infrastructure/logger';
-import { DB_HOST, DB_PORT, DB_PATH, DB_IN_MEMORY } from '../common/infrastructure/variables';
+
+// シンプルなロガー代替機能
+const logger = {
+  info: console.log,
+  debug: console.debug,
+  warn: console.warn,
+  error: console.error
+};
 
 /**
  * KuzuDBモジュールをロードする関数
@@ -80,13 +86,7 @@ export function getDefaultConnectionOptions(): ConnectionOptions {
  * データベースのパスを取得する
  * @returns データベースのフルパス
  */
-export function getDatabasePath(): string {
-  // DBパスが環境変数で指定されている場合はそれを使用
-  if (DB_PATH) {
-    logger.info(`環境変数から指定されたDBパスを使用: ${DB_PATH}`);
-    return DB_PATH;
-  }
-  
+export function getDatabasePath(dbName: string = "default", baseDir: string = "src/kuzu/db"): string {
   // このファイル（databaseService.ts）のディレクトリパスを取得
   const currentFilePath = new URL(import.meta.url).pathname;
   const currentDir = path.dirname(currentFilePath);
@@ -97,7 +97,11 @@ export function getDatabasePath(): string {
   logger.debug("現在のファイルパス:", currentFilePath);
   logger.info("データベースディレクトリ:", dbDir);
   
-  return dbDir;
+  // dbNameを使用してデータベースパスを構築
+  const fullDbPath = path.join(dbDir, dbName);
+  logger.info(`データベースフルパス: ${fullDbPath}`);
+  
+  return fullDbPath;
 }
 
 /**
@@ -145,19 +149,22 @@ export async function cleanDatabase(dbPath: string) {
  * @returns データベース接続オブジェクト
  */
 export async function createDatabase(
+  dbName: string = "default",
   options: {
     dbOptions?: DatabaseOptions;
     connOptions?: ConnectionOptions;
+    baseDir?: string;
     clean?: boolean;
   } = {}
 ): Promise<DatabaseConnection> {
   // デフォルトオプションをマージ
   const dbOptions = { ...getDefaultDatabaseOptions(), ...options.dbOptions };
   const connOptions = { ...getDefaultConnectionOptions(), ...options.connOptions };
+  const baseDir = options.baseDir || "src/kuzu/db";
   const clean = options.clean !== undefined ? options.clean : true;
   
-  // データベースパスを取得（dbNameは無視して共通ディレクトリを使用）
-  const dbPath = getDatabasePath();
+  // データベースパスを取得
+  const dbPath = getDatabasePath(dbName, baseDir);
   console.log(`データベースパス: ${dbPath}`);
 
   // クリーンフラグが有効なら既存DBを削除
