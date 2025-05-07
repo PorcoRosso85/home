@@ -44,7 +44,8 @@ CREATE NODE TABLE VersionState (
 CREATE NODE TABLE ReferenceEntity (
   id STRING PRIMARY KEY,
   description STRING,
-  uri STRING,
+  // DEPRECATED: uriプロパティとurlプロパティは使用禁止となりました
+  // uri STRING, -- 削除
   type STRING,
   source_type STRING
 );

@@ -56,8 +56,10 @@ CREATE (code8:CodeEntity {persistent_id: 'CODE-008', name: 'UserRepository', typ
 CREATE (code9:CodeEntity {persistent_id: 'CODE-009', name: 'findUserById', type: 'function', signature: 'public User findUserById(Long id)', complexity: 2, start_position: 1350, end_position: 1400});
 
 // ===== ReferenceEntityデータ =====
-CREATE (ref1:ReferenceEntity {id: 'REF-001', description: 'Spring Security API', uri: 'https://docs.spring.io/spring-security/site/docs/current/api/', type: 'api', source_type: 'external'});
-CREATE (ref2:ReferenceEntity {id: 'REF-002', description: 'OWASP Password Guidelines', uri: 'https://owasp.org/www-community/references/Password_Guidelines', type: 'document', source_type: 'external'});
+// DEPRECATED: ReferenceEntityからuriプロパティとurlプロパティは削除されました
+// 外部参照先のURLは別の方法で管理してください
+CREATE (ref1:ReferenceEntity {id: 'REF-001', description: 'Spring Security API', type: 'api', source_type: 'external'});
+CREATE (ref2:ReferenceEntity {id: 'REF-002', description: 'OWASP Password Guidelines', type: 'document', source_type: 'external'});
 
 // ===== VersionStateデータ =====
 CREATE (vs1:VersionState {id: 'v1.0.0', timestamp: '2023-01-15T10:00:00Z', commit_id: 'a1b2c3d4', branch_name: 'main'});

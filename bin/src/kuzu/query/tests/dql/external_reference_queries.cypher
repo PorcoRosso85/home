@@ -3,13 +3,15 @@
 // 外部参照（APIやライブラリ）のノードとそれらへの依存関係を作成
 // @name: create_external_references
 // 外部API参照の作成
+// DEPRECATED: ReferenceEntityからuriプロパティとurlプロパティは削除されました
+// 外部参照先のURLは別の方法で管理してください
 CREATE (api1:ReferenceEntity {
   id: 'EXT-API-001',
   name: 'Payment Gateway API',
   description: '決済処理用の外部API',
   reference_type: 'external_api',
-  version: '2.1',
-  url: 'https://api.payment-gateway.example.com/v2'
+  version: '2.1'
+  // url: 'https://api.payment-gateway.example.com/v2' -- 削除
 })
 
 CREATE (api2:ReferenceEntity {
@@ -17,8 +19,8 @@ CREATE (api2:ReferenceEntity {
   name: 'Geolocation API',
   description: '位置情報取得用の外部API',
   reference_type: 'external_api',
-  version: '1.5',
-  url: 'https://api.geolocation.example.com/v1'
+  version: '1.5'
+  // url: 'https://api.geolocation.example.com/v1' -- 削除
 })
 
 // 外部ライブラリの作成
@@ -27,8 +29,8 @@ CREATE (lib1:ReferenceEntity {
   name: 'AuthLibrary',
   description: '認証・認可用ライブラリ',
   reference_type: 'external_library',
-  version: '3.2.1',
-  url: 'https://github.com/example/auth-library'
+  version: '3.2.1'
+  // url: 'https://github.com/example/auth-library' -- 削除
 })
 
 CREATE (lib2:ReferenceEntity {
@@ -36,8 +38,8 @@ CREATE (lib2:ReferenceEntity {
   name: 'DataProcessorLibrary',
   description: 'データ処理用ライブラリ',
   reference_type: 'external_library',
-  version: '2.4.0',
-  url: 'https://github.com/example/data-processor'
+  version: '2.4.0'
+  // url: 'https://github.com/example/data-processor' -- 削除
 })
 
 // 外部フレームワークの作成
@@ -46,8 +48,8 @@ CREATE (framework:ReferenceEntity {
   name: 'WebAppFramework',
   description: 'Webアプリケーション開発フレームワーク',
   reference_type: 'framework',
-  version: '5.1.3',
-  url: 'https://github.com/example/web-framework'
+  version: '5.1.3'
+  // url: 'https://github.com/example/web-framework' -- 削除
 })
 
 // LocationURIの作成（管理用）
@@ -188,8 +190,8 @@ RETURN
   ref.name AS reference_name,
   ref.description AS reference_description,
   ref.reference_type AS reference_type,
-  ref.version AS reference_version,
-  ref.url AS reference_url
+  ref.version AS reference_version
+  // DEPRECATED: ref.url AS reference_url -- 削除されました 
 ORDER BY ref.reference_type, ref.name;
 
 // 要件から外部参照への依存関係を追跡
@@ -295,13 +297,14 @@ RETURN ref.id, ref.name, ref.deprecated, ref.deprecation_date, ref.replacement_i
 // 廃止された外部参照とその代替手段の関連付け
 // @name: create_replacement_reference
 // 代替の外部参照を作成
+// DEPRECATED: ReferenceEntityからurlプロパティとuriプロパティは削除されました
 CREATE (newRef:ReferenceEntity {
   id: $newReferenceId,
   name: $newReferenceName,
   description: $newReferenceDescription,
   reference_type: $referenceType,
-  version: $version,
-  url: $url
+  version: $version
+  // url: $url -- 削除されました
 })
 
 // 既存の場所と関連付け

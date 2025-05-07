@@ -146,9 +146,10 @@ flowchart TD
    - branch_name属性: ブランチ名 [例: 'main', 'feature/auth']
 
 5. **ReferenceEntity**: コードが参照する要件以外情報（規約やライブラリ公式ドキュメントなど）を保持するノード
-   - uri属性: 参照先のURI [例: 'https://api.example.com/v2', '../common/utils.js']
    - type属性: 参照種別 [選択: 'api', 'library', 'document', 'dependency']
    - source_type属性: ソース種別 [選択: 'internal', 'external', 'third-party']
+   - description属性: 参照の説明 [例: 'xxxの公式SDK/API参照', 'xxxの公式ドキュメント']
+   - **注意**: uri/url属性は削除されました（DEPRECATED）- 外部参照先URLは別の方法で管理してください
 
 6. **RequirementVerification**: 要件の検証方法を定義するノード（フェーズ0の拡張）
    - id属性: 検証の識別子 [例: 'TEST-001', 'VER-123']
@@ -166,8 +167,10 @@ flowchart TD
 
 #### 基本的な関係
 - **HAS_LOCATION**: エンティティ（コード/要件/参照）の位置情報を関連付ける
-- **REFERENCES**: コード間の参照関係や外部参照への関係
-  - ref_type属性で参照種別を区別 [選択: 'code', 'external', 'import', 'call']
+- **REFERENCES_CODE**: コード間の参照関係
+  - ref_type属性で参照種別を区別 [選択: 'import', 'call', 'extends']
+- **REFERS_TO**: コードエンティティから外部参照への関係
+  - ref_type属性で参照種別を区別 [選択: 'api', 'document', 'convention']
 
 #### 要件間の関係
 - **DEPENDS_ON**: ある要件が別の要件に依存していることを表す関係
@@ -187,7 +190,7 @@ flowchart TD
 - **FOLLOWS**: バージョン間の順序関係
 - **TRACKS_STATE_OF_CODE**: バージョンとコードエンティティの状態追跡関係
 - **TRACKS_STATE_OF_REQ**: バージョンと要件エンティティの状態追跡関係
-- **TRACKS_STATE_OF_REF**: バージョンと参照エンティティの状態追跡関係
+- **TRACKS_STATE_OF_REFERENCE**: バージョンと参照エンティティの状態追跡関係
 
 #### 集計ビュー関連
 - **USES**: 集計ビューとURI階層の関連付け
@@ -200,3 +203,11 @@ flowchart TD
 - 要件とコードの階層構造はすべてLocationURIノードと、そのノード間のCONTAINS関係で表現します
 - エッジ名は簡潔にし、詳細はエッジの属性で区別します
 - 循環依存の検出には注意が必要です
+- **CodeEntityは実際にファイル（納品物）として残す実コードに限定して使用すること**
+  - 規約の例示コードやドキュメントサンプルなどはCodeEntityとして格納してはならない
+  - これらは参照情報としてReferenceEntityとして格納する
+- **階層構造はエンティティではなく、LocationURIのパス表現で管理すること**
+  - カテゴリ自体をエンティティとして扱わない
+  - 実エンティティは最深ネスト（リーフ）のみに配置
+  - URIのfragment部分で階層を表現（例: `file:///path/to/file#category0.category00.category000.value`）
+  - これにより、データ冗長性を避け、階層変更の柔軟性を確保する
