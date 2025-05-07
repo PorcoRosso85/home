@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import TreeNode, { TreeNodeData } from './components/TreeNode';
-import MinimalRpcButton from '../../rpc/components/MinimalRpcButton';
 
 // FIXME: ダミーデータをグラフデータへ移行
 const dummyUris = [
@@ -72,61 +71,46 @@ const App = () => {
   return (
     <div style={{ 
       display: 'flex', 
-      flexDirection: 'column',
       height: '100vh', 
       padding: '20px',
       fontFamily: 'Arial, sans-serif'
     }}>
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        marginBottom: '20px',
-        padding: '10px',
-        backgroundColor: '#f0f0f0',
-        borderRadius: '8px'
-      }}>
-        <h2 style={{ margin: '0' }}>KuzuDB Graph Browser</h2>
-        <MinimalRpcButton />
+      <div style={{ flex: 1, overflowY: 'auto', marginRight: '20px' }}>
+        <h2>KuzuDB Graph Browser</h2>
+        {treeData.map((node, index) => (
+          <TreeNode
+            key={`root-${index}`}
+            node={node}
+            onNodeClick={handleNodeClick}
+          />
+        ))}
       </div>
       
-      <div style={{ display: 'flex', flex: 1, overflowY: 'auto' }}>
-        <div style={{ flex: 1, overflowY: 'auto', marginRight: '20px' }}>
-          {treeData.map((node, index) => (
-            <TreeNode
-              key={`root-${index}`}
-              node={node}
-              onNodeClick={handleNodeClick}
-            />
-          ))}
-        </div>
-        
-        {selectedNode && (
-          <div style={{ 
-            flex: 1, 
-            padding: '15px',
-            backgroundColor: '#f5f5f5',
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}>
-            <h3>Node Details</h3>
-            <div>
-              <p><strong>ID:</strong> {selectedNode.id}</p>
-              <p><strong>Type:</strong> {selectedNode.type}</p>
-              <p><strong>Name:</strong> {selectedNode.name}</p>
-              <p><strong>URI:</strong> {selectedNode.uri}</p>
-              <h4>Properties:</h4>
-              <pre style={{ 
-                backgroundColor: '#e8e8e8', 
-                padding: '10px', 
-                borderRadius: '4px' 
-              }}>
-                {JSON.stringify(selectedNode.properties, null, 2)}
-              </pre>
-            </div>
+      {selectedNode && (
+        <div style={{ 
+          flex: 1, 
+          padding: '15px',
+          backgroundColor: '#f5f5f5',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          <h3>Node Details</h3>
+          <div>
+            <p><strong>ID:</strong> {selectedNode.id}</p>
+            <p><strong>Type:</strong> {selectedNode.type}</p>
+            <p><strong>Name:</strong> {selectedNode.name}</p>
+            <p><strong>URI:</strong> {selectedNode.uri}</p>
+            <h4>Properties:</h4>
+            <pre style={{ 
+              backgroundColor: '#e8e8e8', 
+              padding: '10px', 
+              borderRadius: '4px' 
+            }}>
+              {JSON.stringify(selectedNode.properties, null, 2)}
+            </pre>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
