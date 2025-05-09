@@ -198,6 +198,7 @@ def get_connection(with_query_loader: bool = False, db_path: str = None, in_memo
         if not with_query_loader:
             return {"connection": conn}
         
+        # FIXME: クエリローダー部分は、query/{ddl,dml,dql}ディレクトリが空になっているため動作しません
         # クエリローダー用のパスを設定
         sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
         from query.call_dml import create_query_loader

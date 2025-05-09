@@ -34,7 +34,8 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(o
 # 絶対パスをsys.pathに追加
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-# 統一されたクエリローダーをインポート
+
+# FIXME: この依存関係は削除予定。query/{ddl,dml,dql}ディレクトリを空にしたため現在は動作しません
 from query.call_cypher import create_query_loader
 
 
@@ -187,7 +188,7 @@ def get_connection(db_path: str, with_query_loader: bool = True, in_memory: bool
         # トランザクション状態確認用のヘルパーメソッドを追加
         conn.is_transaction_active = lambda: conn._transaction_active
         
-        # クエリローダー作成と設定（常に初期化）
+        # FIXME: クエリローダー作成と設定 - query/{ddl,dml,dql}ディレクトリは現在空なのでエラーになります
         # 統一されたクエリローダーを使用（with_query_loader引数は後方互換性のため残すが無視）
         loader = create_query_loader(QUERY_DIR)
         
@@ -852,7 +853,7 @@ def init_database(db_path: str, in_memory: bool) -> DatabaseInitializationResult
             "message": f"データベース接続の作成に失敗しました: {str(db_error)}"
         }
     
-    # クエリローダーを初期化して関数スキーマクエリを取得する
+    # FIXME: クエリローダーを初期化して関数スキーマクエリを取得するが、query/ディレクトリは空なのでエラーになります
     log_info("DDLクエリをローダー経由で読み込みます: function_schema")
     
     # クエリローダー作成

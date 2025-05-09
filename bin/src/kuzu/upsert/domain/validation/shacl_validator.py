@@ -19,12 +19,14 @@ from upsert.domain.validation.types import (
 
 # SHACL制約ファイルパス解決モジュールのインポート
 try:
+    # FIXME: この依存関係はquery/{ddl,dml,dql}ディレクトリを空にしたため現在は動作しません
     from query.schema.shacl import get_shapes_file_path, load_shapes_file as load_shapes_content
 except ImportError:
     # 開発時にローカルで実行する場合のパス
     import sys
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '../../../../'))
+    # FIXME: この依存関係はquery/{ddl,dml,dql}ディレクトリを空にしたため現在は動作しません
     from query.schema.shacl import get_shapes_file_path, load_shapes_file as load_shapes_content
 
 

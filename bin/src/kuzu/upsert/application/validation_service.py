@@ -23,6 +23,8 @@ from upsert.domain.validation.types import (
 from upsert.domain.validation.shacl_validator import (
     validate_against_shacl as domain_validate_against_shacl,
 )
+
+# FIXME: この依存関係はquery/{ddl,dml,dql}ディレクトリを空にしたため現在は動作しません
 from query.schema.shacl import (
     get_shapes_file_path,
     ensure_shapes_files_exist,
@@ -31,6 +33,7 @@ from query.schema.shacl import (
 
 # 定数の初期化
 SHAPES_PATH = "all"  # すべての制約ファイルを使用
+# FIXME: SHACLシェイプファイルの存在確認は現在エラーになります
 ensure_shapes_files_exist()
 
 

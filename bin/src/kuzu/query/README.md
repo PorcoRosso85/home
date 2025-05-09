@@ -1,103 +1,92 @@
-# KuzuDB 関数型メタスキーマ クエリモジュール
+# KuzuDB クエリモジュール
 
-このディレクトリには、関数型プログラミングのためのメタスキーマをグラフデータベース（KuzuDB）で実装するためのスクリプトが含まれています。
+このディレクトリには、KuzuDBデータベースに対するCypherクエリファイルが含まれています。
 
 ## ディレクトリ構造
 
 ```
 /home/nixos/bin/src/kuzu/query/
-├── function_schema_ddl.cypher  # スキーマ定義（DDL）
-├── dml/                       # 個別のDMLクエリファイル
-│   ├── insert_map_function.cypher
-│   ├── insert_map_parameters.cypher
-│   ├── ...
-├── call_dml.py                # Cypherクエリローダー（DML・DDL対応）
+├── ddl/                       # データ定義言語（DDL）クエリファイル
+│   ├── function_schema.cypher
+│   └── ...
+├── dml/                       # データ操作言語（DML）クエリファイル
+│   ├── create_function_type.cypher
+│   ├── create_parameter.cypher
+│   └── ...
+├── dql/                       # データ照会言語（DQL）クエリファイル
+│   ├── find_function.cypher
+│   └── ...
+├── call_cypher.py             # 統一CypherクエリローダーAPI
+├── call_dml.py                # 従来のCypherクエリローダー（後方互換性用）
 └── README.md                  # このファイル
 ```
 
+## 再構成中のお知らせ
+
+**注意**: 2025年5月10日現在、このディレクトリは再構成中であり、クエリファイルは一時的に削除されています。すべてのPython依存コードには`FIXME`コメントが付けられています。
+
 ## 使用方法
 
-### クエリローダーの使用
+### 統一CypherクエリローダーAPI
 
-`call_dml.py` を使用して、DMLおよびDDLクエリを簡単に取得できます：
+`call_cypher.py` は、DDL、DML、DQLのすべてのクエリタイプに対応した統一されたAPIを提供します：
 
 ```python
-from call_dml import QueryLoader
+from query.call_cypher import create_query_loader
 
-# 初期化
-loader = QueryLoader()
+# クエリディレクトリのパスを指定して初期化
+loader = create_query_loader("/path/to/query/dir")
 
-# 利用可能なクエリを表示
-dml_queries = loader.get_available_queries()  # デフォルトでDMLクエリを取得
-ddl_queries = loader.get_available_queries("ddl")  # DDLクエリを取得
-all_queries = loader.get_available_queries("all")  # すべてのクエリを取得
+# 利用可能なすべてのクエリを取得
+available_queries = loader["get_available_queries"]()
+print("Available queries:", available_queries)
 
-print("DML Queries:", dml_queries)
-print("DDL Queries:", ddl_queries)
+# クエリの取得（自動的にddl/dml/dqlディレクトリを検索）
+result = loader["get_query"]("function_schema")
+if loader["get_success"](result):
+    query_content = result["data"]
+    print(query_content)
+else:
+    print("Error:", result["error"])
 
-# クエリコンテンツの取得
-query_content = loader.get_query("insert_map_function")  # DMLクエリの取得
-ddl_content = loader.get_query("function_schema_ddl", query_type="ddl")  # DDLクエリの取得
-
-# クエリの実行
-# 注: クエリローダーではDBへの接続機能は含まれていないため、別途接続が必要
+# クエリの実行（データベース接続が必要）
 from kuzu import Database, Connection
-
 db = Database("/path/to/kuzu_db")
-conn = db.get_connection()
+conn = Connection(db)
 
-# 取得したクエリを実行
-conn.execute(query_content)
+execution_result = loader["execute_query"](conn, "create_function_type", {"param1": "value1"})
+if loader["get_success"](execution_result):
+    print("Query executed successfully:", execution_result["data"])
+else:
+    print("Execution error:", execution_result["error"])
 ```
 
 ### 後方互換性のためのDMLQueryExecutor
 
-クラス名の後方互換性のために、従来の `DMLQueryExecutor` も引き続き使用できます：
+レガシーコードとの互換性のために、従来の `call_dml.py` も引き続き利用できます：
 
 ```python
-from call_dml import DMLQueryExecutor  # QueryLoaderのエイリアス
+from query.call_dml import create_query_loader
 
 # 初期化
-executor = DMLQueryExecutor("/path/to/kuzu_db")
+loader = create_query_loader("/path/to/query/dir")
 
-# 利用可能なクエリを表示
-available_queries = executor.get_available_queries()
-print("Available queries:", available_queries)
-
-# クエリの取得
-query_content = executor.get_query("insert_map_function")
+# DMLクエリの取得
+dml_query = loader["get_query"]("query_name", "dml")
 ```
 
 ### 新しいクエリの追加方法
 
 新しいクエリを追加するには：
 
-1. `/home/nixos/bin/src/kuzu/query/dml/` ディレクトリに適切な名前の `.cypher` ファイルを作成（DMLクエリの場合）
-2. `/home/nixos/bin/src/kuzu/query/` ディレクトリのルートに `.cypher` ファイルを作成（DDLクエリの場合）
-3. クエリの内容を記述
-4. Python コードから以下のようにクエリを取得:
-   ```python
-   # DMLクエリの場合
-   query_content = loader.get_query("your_query_name", query_type="dml")
-   
-   # DDLクエリの場合
-   query_content = loader.get_query("your_query_name", query_type="ddl")
-   ```
-
-### テスト
-
-テストを実行するには以下のコマンドを使用します：
-
-```bash
-# call_dmlモジュールのテスト実行
-/home/nixos/bin/src/kuzu/upsert/.venv/bin/python -m pytest ../query/call_dml.py
-```
-
-テストは自動的にすべてのテスト関数を実行します。
+1. 適切なサブディレクトリ（`ddl/`, `dml/`, `dql/`）に `.cypher` 拡張子のファイルを作成
+2. クエリの内容を記述
+3. Pythonコードからクエリローダーを使用してクエリを参照
 
 ## クエリの命名規則
 
-クエリファイルは以下の命名規則に従っています：
+クエリファイルの命名規則：
 
-- `insert_[entity]_[type].cypher` - エンティティの挿入
-- `link_[entity1]_[entity2].cypher` - エンティティ間のリレーションシップの作成
+- DDLクエリ: `<entity>_schema.cypher`（例: `function_schema.cypher`）
+- DMLクエリ: `create_<entity>.cypher`, `update_<entity>.cypher`, `delete_<entity>.cypher`
+- DQLクエリ: `find_<entity>.cypher`, `get_<entity>_by_<attribute>.cypher`
