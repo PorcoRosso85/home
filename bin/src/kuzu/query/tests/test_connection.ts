@@ -2,7 +2,7 @@
  * KuzuDBのデータベース接続テスト - DDL/DML/DQLのみの最小構成
  */
 
-import { createDatabase, closeConnection } from "../services/databaseService.ts";
+import { createDatabase, closeConnection } from "./services/databaseService.ts";
 import { dirname, join } from "https://deno.land/std@0.177.0/path/mod.ts";
 
 // 現在のファイルのディレクトリパスを取得

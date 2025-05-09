@@ -7,7 +7,7 @@
 import { 
   createDatabase, 
   closeConnection 
-} from "../../services/databaseService.ts";
+} from "../services/databaseService.ts";
 import { callDdl } from "../call_ddl.ts";
 import { callDml, callNamedDml } from "../call_dml.ts";
 import { callNamedDql } from "../call_dql.ts";

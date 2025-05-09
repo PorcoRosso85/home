@@ -18,7 +18,7 @@ import {
   DDL_DIR_NAME,
   QUERY_FILE_EXTENSION,
   BASE_QUERY_DIR
-} from "../mod.ts";
+} from "./mod.ts";
 
 /**
  * 名前付きDDLクエリを実行する関数

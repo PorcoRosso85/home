@@ -20,7 +20,7 @@ import {
   QUERIES_DIR_NAME,
   BASE_QUERY_DIR,
   QUERY_FILE_EXTENSION
-} from "../mod.ts";
+} from "./mod.ts";
 
 /**
  * 名前付きDMLクエリを実行する関数
