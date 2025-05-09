@@ -5,9 +5,9 @@
  */
 
 import { 
-  setupDatabase, 
-  closeDatabase 
-} from "../common/db_connection.ts";
+  createDatabase, 
+  closeConnection 
+} from "../../services/databaseService.ts";
 import { callDdl } from "../call_ddl.ts";
 import { callDml, callNamedDml } from "../call_dml.ts";
 import { formatQueryResult } from "../common/result_formatter.ts";
@@ -25,7 +25,7 @@ const TEST_DB_NAME = "coverage_measurement_test_db";
   try {
     // 1. データベースセットアップ
     console.log("\n1. データベースセットアップ");
-    const result = await setupDatabase(TEST_DB_NAME);
+    const result = await createDatabase(TEST_DB_NAME);
     db = result.db;
     conn = result.conn;
     console.log("✓ データベースセットアップ完了");
@@ -211,7 +211,7 @@ const TEST_DB_NAME = "coverage_measurement_test_db";
     if (db && conn) {
       console.log("\nデータベース接続をクローズしています...");
       try {
-        await closeDatabase(db, conn);
+        await closeConnection(db, conn);
         console.log("データベース接続のクローズに成功しました");
       } catch (closeError) {
         console.error("データベース接続のクローズ中にエラーが発生しました:", closeError);
