@@ -5,6 +5,37 @@ import path from "node:path";
 import { parse } from "https://deno.land/std@0.180.0/flags/mod.ts";
 
 /**
+ * マウント定義の型
+ */
+interface MountDefinition {
+  sourcePath: string;  // マウント元パス（実ファイルシステム上）
+  targetPath: string;  // マウント先パス（URL上）
+  filePattern?: string; // ファイルパターン（例: *.cypher）
+}
+
+/**
+ * マウント文字列をパースする
+ * 
+ * 形式: "ソースパス:ターゲットパス[:ファイルパターン]"
+ * 例: "/home/user/queries:/queries:*.cypher"
+ * 
+ * @param mountString マウント文字列
+ * @returns マウント定義オブジェクト
+ */
+function parseMountString(mountString: string): MountDefinition {
+  const parts = mountString.split(':');
+  if (parts.length < 2) {
+    throw new Error(`無効なマウント文字列です: ${mountString}。'ソースパス:ターゲットパス[:ファイルパターン]'の形式で指定してください。`);
+  }
+
+  const sourcePath = parts[0];
+  const targetPath = parts[1].startsWith('/') ? parts[1] : `/${parts[1]}`;
+  const filePattern = parts[2] || '*';
+
+  return { sourcePath, targetPath, filePattern };
+}
+
+/**
  * コマンドライン引数を解析する
  * 
  * @returns 引数の解析結果
@@ -12,13 +43,13 @@ import { parse } from "https://deno.land/std@0.180.0/flags/mod.ts";
 function parseCommandLineArgs() {
   // 引数の解析
   const args = parse(Deno.args, {
-    string: ["public", "query"],
+    string: ["mount"],
     boolean: ["help"],
     alias: {
-      "p": "public",
-      "q": "query",
+      "m": "mount",
       "h": "help",
     },
+    collect: ["mount"], // 複数の--mountオプションを配列として収集
   });
 
   // ヘルプの表示
@@ -27,58 +58,86 @@ function parseCommandLineArgs() {
 KuzuDB ブラウザ - 開発サーバー
 
 使用方法:
-  deno run -A build.ts --public=PATH --query=PATH
+  deno run -A build.ts --mount SOURCE_PATH:TARGET_PATH[:FILE_PATTERN] [--mount ...]
 
-必須オプション:
-  --public=PATH, -p PATH   静的ファイルのパス（例: /home/nixos/bin/src/kuzu/browse/public）
-  --query=PATH, -q PATH    KuzuDBクエリディレクトリのパス（例: /home/nixos/bin/src/kuzu/query）
+オプション:
+  --mount SOURCE_PATH:TARGET_PATH[:PATTERN], -m   マウント設定（複数指定可能）
+    SOURCE_PATH: マウント元のファイルシステムパス（例: /home/nixos/bin/src/kuzu/query/ddl）
+    TARGET_PATH: マウント先のURLパス（例: /ddl）
+    FILE_PATTERN: オプションのファイルパターン（例: *.cypher、デフォルト: *）
 
-その他のオプション:
+  例:
+    --mount /home/nixos/bin/src/kuzu/query/ddl:/ddl:*.cypher
+    --mount /home/nixos/bin/src/kuzu/query/dml:/dml
+    --mount /path/to/public:/
+
+  複数のマウント指定:
+    --mount /path1:/api --mount /path2:/data
+
   --help, -h              このヘルプメッセージを表示
 `);
     Deno.exit(0);
   }
 
-  // 必須オプションのチェック
-  const errors = [];
-  if (!args.public) {
-    errors.push("エラー: --public オプションが指定されていません。静的ファイルのパス（例: /home/nixos/bin/src/kuzu/browse/public）を指定してください。");
-  }
-  if (!args.query) {
-    errors.push("エラー: --query オプションが指定されていません。KuzuDBクエリディレクトリのパス（例: /home/nixos/bin/src/kuzu/query）を指定してください。");
+  // mount オプションのデフォルト値を設定（空の配列）
+  if (!args.mount || (Array.isArray(args.mount) && args.mount.length === 0)) {
+    args.mount = [];
+  } else if (!Array.isArray(args.mount)) {
+    // 単一の値を配列に変換
+    args.mount = [args.mount];
   }
 
-  // エラーがある場合
-  if (errors.length > 0) {
-    console.error(errors.join("\n"));
-    console.error("\n詳細については --help オプションを指定して実行してください。");
+  // マウント設定のパース
+  const mounts: MountDefinition[] = [];
+  try {
+    for (const mountStr of args.mount) {
+      mounts.push(parseMountString(mountStr));
+    }
+  } catch (error) {
+    console.error(`マウント設定のパースエラー: ${error.message}`);
     Deno.exit(1);
   }
 
-  // パスの存在チェック
-  for (const [name, dir] of Object.entries({ public: args.public, query: args.query })) {
+  // マウント元パスの存在チェック
+  const invalidMounts: MountDefinition[] = [];
+  for (const mount of mounts) {
     try {
-      const stat = Deno.statSync(dir);
+      const stat = Deno.statSync(mount.sourcePath);
       if (!stat.isDirectory) {
-        console.error(`エラー: ${name} パス "${dir}" はディレクトリではありません。`);
-        Deno.exit(1);
+        invalidMounts.push(mount);
+        console.error(`エラー: マウント元パス "${mount.sourcePath}" はディレクトリではありません。`);
       }
     } catch (e) {
-      console.error(`エラー: ${name} パス "${dir}" が存在しないか、アクセスできません。`);
-      Deno.exit(1);
+      invalidMounts.push(mount);
+      console.error(`エラー: マウント元パス "${mount.sourcePath}" が存在しないか、アクセスできません。`);
     }
   }
 
-  return args;
+  // 無効なマウントがある場合はエラー終了
+  if (invalidMounts.length > 0) {
+    console.error(`\n${invalidMounts.length} 個の無効なマウント設定がありました。`);
+    console.error('詳細については --help オプションを指定して実行してください。');
+    Deno.exit(1);
+  }
+
+  return { mounts };
 }
 
 // 開発サーバーの起動
-async function createViteDevServer(publicDir: string, queryDir: string) {
+async function createViteDevServer(mounts: MountDefinition[]) {
+  // 許可するファイルシステムパスのリスト
+  const allowPaths = ['.', '..', '/'];
+  
+  // マウント設定をfsAllowパスリストに追加
+  for (const mount of mounts) {
+    allowPaths.push(mount.sourcePath);
+  }
+
   // Vite設定
   const config = {
     configFile: false,
     root: ".",
-    publicDir: publicDir, // 公開ディレクトリを指定
+    publicDir: "public", // デフォルトのpublicディレクトリを使用
     plugins: [
       // NOTE: プラグインの順番が重要 - wasmプラグインを先に適用し、次にtopLevelAwaitプラグインを適用
       wasmPlugin(),  // WASMモジュールをESM形式で使用可能にする
@@ -199,19 +258,22 @@ async function createViteDevServer(publicDir: string, queryDir: string) {
           console.log('Browser console redirection enabled - browser logs will be shown in the server terminal');
         }
       },
-      // カスタムプラグイン：kuzuQueryパスの各ディレクトリをマウント
+      // カスタムプラグイン：指定されたディレクトリをマウント
       {
-        name: 'vite-plugin-kuzudb-query',
+        name: 'vite-plugin-custom-mount',
         configureServer(server) {
-          // DDL, DML, DQL ディレクトリをマウント
-          ['ddl', 'dml', 'dql'].forEach(dir => {
-            const queryTypeDir = path.join(queryDir, dir);
-            server.middlewares.use(`/${dir}`, (req, res, next) => {
+          // 各マウント設定に対してミドルウェアを設定
+          for (const mount of mounts) {
+            const sourcePath = mount.sourcePath;
+            const targetPath = mount.targetPath;
+            const filePattern = mount.filePattern || '*';
+            
+            server.middlewares.use(targetPath, (req, res, next) => {
               // リクエストパスを取得
               const reqPath = req.url || '';
               
-              // .cypherファイルのみを許可
-              if (!reqPath.endsWith('.cypher') && reqPath !== '/') {
+              // ファイルパターンに一致するかチェック
+              if (filePattern !== '*' && !reqPath.endsWith('/') && !reqPath.match(new RegExp(filePattern.replace('*', '.*')))) {
                 return next();
               }
               
@@ -219,44 +281,47 @@ async function createViteDevServer(publicDir: string, queryDir: string) {
               if (reqPath === '/') {
                 // ディレクトリリストを提供
                 try {
-                  const files = Deno.readDirSync(queryTypeDir);
+                  const files = Deno.readDirSync(sourcePath);
                   const fileList = Array.from(files)
-                    .filter(entry => entry.isFile && entry.name.endsWith('.cypher'))
+                    .filter(entry => entry.isFile && (filePattern === '*' || entry.name.match(new RegExp(filePattern.replace('*', '.*')))))
                     .map(entry => entry.name);
                   
                   res.setHeader('Content-Type', 'application/json');
                   res.end(JSON.stringify(fileList));
                 } catch (error) {
-                  console.error(`ディレクトリ読み取りエラー ${queryTypeDir}:`, error);
+                  console.error(`ディレクトリ読み取りエラー ${sourcePath}:`, error);
                   res.statusCode = 500;
                   res.end(JSON.stringify({ error: `ディレクトリの読み取りに失敗しました: ${error.message}` }));
                 }
               } else {
                 // 個別のファイルを提供
                 try {
-                  const filePath = path.join(queryTypeDir, reqPath);
+                  const filePath = path.join(sourcePath, reqPath);
                   const content = Deno.readTextFileSync(filePath);
                   res.setHeader('Content-Type', 'text/plain');
                   res.end(content);
                 } catch (error) {
-                  console.error(`ファイル読み取りエラー ${path.join(queryTypeDir, reqPath)}:`, error);
+                  console.error(`ファイル読み取りエラー ${path.join(sourcePath, reqPath)}:`, error);
                   res.statusCode = 404;
                   res.end(JSON.stringify({ error: `ファイルが見つかりません: ${error.message}` }));
                 }
               }
             });
             
-            console.log(`マウント完了: KuzuDBクエリディレクトリ ${queryTypeDir} -> /${dir}`);
-          });
+            console.log(`マウント完了: ${sourcePath} -> ${targetPath} (パターン: ${filePattern})`);
+          }
         }
       }
     ],
     define: {
       'process.env.NODE_ENV': '\"development\"',
       'import.meta.env.DEV': 'true',
-      // 環境変数としてパスを追加
-      'import.meta.env.KUZU_QUERY_PATH': JSON.stringify(queryDir),
-      'import.meta.env.KUZU_PUBLIC_PATH': JSON.stringify(publicDir),
+      // 環境変数としてマウント情報を追加
+      'import.meta.env.KUZU_MOUNTS': JSON.stringify(mounts.map(m => ({ 
+        source: m.sourcePath, 
+        target: m.targetPath,
+        pattern: m.filePattern
+      }))),
     },
     resolve: {
       dedupe: ['react', 'react-dom'],
@@ -290,7 +355,7 @@ async function createViteDevServer(publicDir: string, queryDir: string) {
       watch: {
         usePolling: true,
         interval: 100,
-        // kuzu/queryディレクトリも監視対象に追加
+        // マウントしたディレクトリも監視対象に追加
         include: [
           "**/*.ts",
           "**/*.tsx",
@@ -299,13 +364,13 @@ async function createViteDevServer(publicDir: string, queryDir: string) {
           "**/*.json",
           "**/*.html",
           "**/*.css",
-          `${queryDir}/**/*.cypher`
+          ...mounts.map(m => `${m.sourcePath}/**/*`)
         ]
       },
       fs: {
         // Viteのファイルシステムアクセスを設定
         strict: false,
-        allow: ['..', '.', '/', queryDir, publicDir],
+        allow: allowPaths,
       },
       headers: {
         // クロスオリジン分離の設定（SharedArrayBuffer対応に必須）
@@ -324,15 +389,20 @@ async function main() {
   
   try {
     // コマンドライン引数の解析
-    const args = parseCommandLineArgs();
-    const publicDir = args.public;
-    const queryDir = args.query;
+    const { mounts } = parseCommandLineArgs();
     
-    console.log(`公開ディレクトリ: ${publicDir}`);
-    console.log(`クエリディレクトリ: ${queryDir}`);
+    if (mounts.length === 0) {
+      console.log("警告: マウント設定が指定されていません。デフォルトの public ディレクトリのみがマウントされます。");
+      console.log("--mount オプションを使用してディレクトリをマウントすることができます。詳細は --help を参照してください。");
+    } else {
+      console.log(`${mounts.length} 個のディレクトリをマウント設定:`);
+      for (const mount of mounts) {
+        console.log(`  ${mount.sourcePath} -> ${mount.targetPath} (パターン: ${mount.filePattern || '*'})`);
+      }
+    }
     
     // 開発サーバーを起動
-    const devServer = await createViteDevServer(publicDir, queryDir);
+    const devServer = await createViteDevServer(mounts);
     await devServer.listen();
     console.log("サーバー起動完了");
     devServer.printUrls();
@@ -349,4 +419,4 @@ if (import.meta.main) {
 }
 
 // 関数をエクスポート
-export { createViteDevServer, main };
+export { createViteDevServer, main, parseMountString };
