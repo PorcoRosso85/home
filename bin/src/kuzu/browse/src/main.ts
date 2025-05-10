@@ -91,6 +91,118 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       // テーブル確認
       logger.debug('テーブル確認中...');
+      // DMLの実行: LocationURIノードとその他のデータを作成
+      logger.debug('DML実行中...');
+      
+      // ブラウザー用のDMLクエリ実行関数をインポート
+      const { executeQuery } = await import('../../query/dmlGeneratorBrowser');
+      
+      try {
+        // 1. LocationURIノードを作成
+        logger.debug('LocationURIノードを作成中...');
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'file:///src/main.ts',
+          scheme: 'file',
+          authority: '',
+          path: '/src/main.ts',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'file:///src/utils.ts',
+          scheme: 'file',
+          authority: '',
+          path: '/src/utils.ts',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'file:///src/components/app.tsx',
+          scheme: 'file',
+          authority: '',
+          path: '/src/components/app.tsx',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'file:///src/components/header.tsx',
+          scheme: 'file',
+          authority: '',
+          path: '/src/components/header.tsx',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'file:///src/services/api.ts',
+          scheme: 'file',
+          authority: '',
+          path: '/src/services/api.ts',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'file:///src/types/index.ts',
+          scheme: 'file',
+          authority: '',
+          path: '/src/types/index.ts',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'file:///src/styles/globals.css',
+          scheme: 'file',
+          authority: '',
+          path: '/src/styles/globals.css',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'file:///tests/unit/utils.test.ts',
+          scheme: 'file',
+          authority: '',
+          path: '/tests/unit/utils.test.ts',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'file:///docs/architecture.md',
+          scheme: 'file',
+          authority: '',
+          path: '/docs/architecture.md',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'http://localhost:3000/api/data',
+          scheme: 'http',
+          authority: 'localhost:3000',
+          path: '/api/data',
+          fragment: '',
+          query: ''
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'https://api.example.com/v1/users?page=1',
+          scheme: 'https',
+          authority: 'api.example.com',
+          path: '/v1/users',
+          fragment: '',
+          query: 'page=1'
+        });
+        await executeQuery(conn, 'create_locationuri', {
+          uri_id: 'vscode://file/home/user/project/src/main.ts',
+          scheme: 'vscode',
+          authority: 'file',
+          path: '/home/user/project/src/main.ts',
+          fragment: '',
+          query: ''
+        });
+        
+        logger.debug('DML実行完了');
+      } catch (error) {
+        logger.error('DML実行エラー:', error);
+      }
+      
+      // テーブル確認
       const checkResult = await conn.query("MATCH (n:LocationURI) RETURN count(n) as count");
       const checkData = await checkResult.getAllObjects();
       logger.debug(`LocationURIノード数: ${JSON.stringify(checkData)}`);
