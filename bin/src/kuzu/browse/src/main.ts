@@ -81,10 +81,10 @@ async function preloadParquetFiles(kuzu: any) {
       kuzu.FS.writeFile(`/${fileName}`, new Uint8Array(fileData));
       
       successCount++;
-      console.log(`Parquetファイルプリロード成功: ${fileName}`);
+      logger.info(`Parquetファイルプリロード成功: ${fileName}`);
     } catch (error) {
       failCount++;
-      console.error(`Parquetファイルプリロード失敗: ${fileName} - ${error.message}`);
+      logger.error(`Parquetファイルプリロード失敗: ${fileName} - ${error.message}`);
       updateStatus({ text: `Parquetファイルプリロード失敗: ${fileName} - ${error.message}`, type: 'error' });
     }
   }
@@ -92,9 +92,9 @@ async function preloadParquetFiles(kuzu: any) {
   // WASM FSの内容を確認（デバッグ用）
   try {
     const files = kuzu.FS.readdir('/');
-    console.log("WASM FSのファイル一覧:", files);
+    logger.info("WASM FSのファイル一覧:", files);
   } catch (err) {
-    console.error("WASM FSの内容確認エラー:", err);
+    logger.error("WASM FSの内容確認エラー:", err);
   }
   
   updateStatus({ 
@@ -189,13 +189,13 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
     }
     
     const scriptContent = await response.text();
-    console.log(`読み込まれたCypherスクリプト(${scriptPath}):\n${scriptContent}`);
+    logger.info(`読み込まれたCypherスクリプト(${scriptPath}):\n${scriptContent}`);
     updateStatus({ text: `スクリプト読み込み成功: ${scriptPath}`, type: 'info' });
     
     // 改良: 新しい方法でスクリプトをコマンドに分割
     const commands = extractCommands(scriptContent);
     
-    console.log("分割されたコマンド:", commands);
+    logger.info("分割されたコマンド:", commands);
     
     if (commands.length === 0) {
       throw new Error(`スクリプトに有効なコマンドが含まれていません: ${scriptPath}`);
@@ -232,14 +232,14 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
           const tableName = command.match(/COPY\s+[`"]?([^`"\s(]+)[`"]?/i)?.[1];
           
           updateStatus({ text: `Parquetファイル読み込み中: ${tableName} (${filePath})`, type: 'loading' });
-          console.log(`Parquetファイル読み込みクエリ: ${command}`);
+          logger.info(`Parquetファイル読み込みクエリ: ${command}`);
           
           try {
             const result = await conn.query(command);
             const resultData = await result.getAllObjects();
             
-            // 結果をコンソールに出力
-            console.log(`Parquetファイル読み込み結果:`, resultData);
+            // 結果をログに出力
+            logger.info(`Parquetファイル読み込み結果:`, resultData);
             
             successCount++;
             
@@ -251,8 +251,8 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
             const filePath = command.match(/FROM\s+["']([^"']+)["']/i)?.[1] || 'Unknown';
             const errorMessage = `Parquetファイル読み込みエラー: テーブル=${tableName}, ファイル=${filePath} - ${copyError.message}`;
             
-            console.error(`COPY失敗: ${errorMessage}`, copyError);
-            console.error(`実行されたクエリ: ${command}`);
+            logger.error(`COPY失敗: ${errorMessage}`, copyError);
+            logger.error(`実行されたクエリ: ${command}`);
             
             updateStatus({ text: errorMessage, type: 'error' });
             
@@ -266,29 +266,29 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
             const result = await conn.query(command);
             const resultData = await result.getAllObjects();
             
-            // コンソールにのみデータを出力
-            console.log(`クエリ実行結果:`, command);
-            console.log(resultData);
+            // ログにのみデータを出力
+            logger.info(`クエリ実行結果:`, command);
+            logger.info(resultData);
             
             successCount++;
           } catch (queryError) {
             failureCount++;
             
-            console.error(`クエリ実行エラー: ${queryError.message} (${command})`);
+            logger.error(`クエリ実行エラー: ${queryError.message} (${command})`);
             updateStatus({ text: `クエリ実行エラー: ${queryError.message}`, type: 'error' });
           }
         }
       } catch (cmdError) {
         failureCount++;
         updateStatus({ text: `コマンド実行エラー: ${cmdError.message}`, type: 'error' });
-        console.error(`コマンド実行エラー:`, command);
-        console.error(`エラー内容:`, cmdError.message);
+        logger.error(`コマンド実行エラー:`, command);
+        logger.error(`エラー内容:`, cmdError.message);
         
         // エラーは記録するが、処理は続行
       }
     }
     
-    // 結果のサマリーをコンソールにのみ表示
+    // 結果のサマリーをログにのみ表示
     if (failureCount > 0) {
       if (parquetImportFailed) {
         // Parquetファイルの読み込み失敗
@@ -297,12 +297,12 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
           type: 'error' 
         });
         
-        console.error(`Parquetファイルの読み込みに失敗しました。以下の理由が考えられます:
+        logger.error(`Parquetファイルの読み込みに失敗しました。以下の理由が考えられます:
 - 指定されたパスにParquetファイルが存在しない
 - Parquetファイルの形式が正しくない
 - ファイルへのアクセス権限がない
 - テーブル定義とParquetファイルの構造が一致していない
-コンソールログを確認して詳細なエラー情報を参照してください。`);
+ログを確認して詳細なエラー情報を参照してください。`);
         
         return false;
       } else {
@@ -319,7 +319,7 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
         type: 'success' 
       });
       
-      console.log(`すべてのクエリが正常に実行されました。
+      logger.info(`すべてのクエリが正常に実行されました。
 Parquetファイルからのデータ読み込みが完了しました。
 各テーブルにデータが表示されていれば、Parquetファイルが正常に読み込まれています。
 テーブルは存在するがレコード数が0の場合は、Parquetファイルは存在するが中身が空である可能性があります。`);
@@ -340,8 +340,8 @@ import App from './interface/App';
 // アプリケーション初期化
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    console.log("KuzuDB Parquet Viewer - コマンドライン版");
-    console.log("import.cypherに基づくParquetファイルの読み込みツール");
+    logger.info("KuzuDB クエリブラウザ - 開発者版");
+    logger.info("kuzu/query ディレクトリのCypherクエリファイルを使用します");
     
     // Reactアプリをマウント
     const rootElement = document.getElementById('root');
@@ -350,122 +350,136 @@ document.addEventListener("DOMContentLoaded", async () => {
       const root = createRoot(rootElement);
       // @ts-ignore - React/JSXのエラーを無視
       root.render(React.createElement(App))
-      console.log('Reactアプリがマウントされました');
+      logger.info('Reactアプリがマウントされました');
     } else {
-      console.error('エラー: rootエレメントが見つかりません。');
+      logger.error('エラー: rootエレメントが見つかりません。');
     }
     
-    // ファイルパス確認のためにフェッチテスト
-    console.log("=== ファイルパステスト開始 ===");
+    // クエリディレクトリのマウント確認テスト
+    logger.info("=== クエリディレクトリテスト開始 ===");
     
-    // 様々なパスパターンでフェッチしてみる
-    const pathsToTest = [
-      '/export_data/EntityAggregationView.parquet',
-      './export_data/EntityAggregationView.parquet',
-      '../export_data/EntityAggregationView.parquet',
-      '/public/export_data/EntityAggregationView.parquet',
-      'public/export_data/EntityAggregationView.parquet',
-      '/home/nixos/bin/src/kuzu/db/export_data/EntityAggregationView.parquet',
-      '/home/nixos/bin/src/kuzu/browse/public/export_data/EntityAggregationView.parquet'
-    ];
-    
-    for (const path of pathsToTest) {
+    // 各クエリディレクトリの確認
+    const queryDirs = ['ddl', 'dml', 'dql'];
+    for (const dir of queryDirs) {
       try {
-        const response = await fetch(path, { method: 'HEAD' });
-        console.log(`パステスト: ${path} - ${response.ok ? '成功' : '失敗'} (${response.status})`);
-      } catch (error) {
-        console.log(`パステスト: ${path} - エラー (${error.message})`);
-      }
-    }
-    
-    // export_dataディレクトリ一覧の取得を試みる
-    try {
-      const indexResponse = await fetch('/export_data/');
-      console.log(`/export_data/ ディレクトリインデックス取得: ${indexResponse.ok ? '成功' : '失敗'} (${indexResponse.status})`);
-      if (indexResponse.ok) {
-        const html = await indexResponse.text();
-        console.log("ディレクトリ内容:", html);
-      }
-    } catch (error) {
-      console.log(`ディレクトリインデックス取得エラー: ${error.message}`);
-    }
-    
-    try {
-      const publicDirResponse = await fetch('/public/');
-      console.log(`/public/ ディレクトリインデックス取得: ${publicDirResponse.ok ? '成功' : '失敗'} (${publicDirResponse.status})`);
-      if (publicDirResponse.ok) {
-        const html = await publicDirResponse.text();
-        console.log("ディレクトリ内容:", html);
-      }
-    } catch (error) {
-      console.log(`ディレクトリインデックス取得エラー: ${error.message}`);
-    }
-    
-    // ファイルが実際に存在するか確認するため、schema.cypherを取得してみる
-    try {
-      const schemaResponse = await fetch('/export_data/schema.cypher');
-      console.log(`/export_data/schema.cypher 取得: ${schemaResponse.ok ? '成功' : '失敗'} (${schemaResponse.status})`);
-      if (schemaResponse.ok) {
-        const content = await schemaResponse.text();
-        console.log("schema.cypher内容:", content.substring(0, 200) + "...");
-      }
-    } catch (error) {
-      console.log(`schema.cypher取得エラー: ${error.message}`);
-    }
-    
-    console.log("=== ファイルパステスト終了 ===");
-    
-    // データベース初期化（KuzuとFS APIを含む）
-    console.log("データベースとWASM FS初期化中...");
-    const { conn } = await initializeDatabase();
-    
-    // WASM FSの内容を確認
-    console.log("=== WASM FSテスト開始 ===");
-    try {
-      if (window.kuzu && window.kuzu.FS) {
-        const files = window.kuzu.FS.readdir('/');
-        console.log("WASM FSのファイル一覧:", files);
-        
-        // 特定のファイルの存在を確認
-        const testFiles = ['EntityAggregationView.parquet', 'CodeEntity.parquet'];
-        for (const file of testFiles) {
-          try {
-            const stat = window.kuzu.FS.stat(`/${file}`);
-            console.log(`WASM FS内ファイル確認: /${file} - 存在します (サイズ: ${stat.size} バイト)`);
-          } catch (statErr) {
-            console.error(`WASM FS内ファイル確認: /${file} - 存在しません (${statErr.message})`);
+        const response = await fetch(`/${dir}/`);
+        logger.info(`/${dir}/ ディレクトリ取得: ${response.ok ? '成功' : '失敗'} (${response.status})`);
+        if (response.ok) {
+          const files = await response.json();
+          logger.info(`/${dir}/ 内のファイル:`, files);
+          
+          // 各ディレクトリ内の最初のCypherファイルを取得してみる
+          if (files.length > 0) {
+            const firstCypher = files[0];
+            try {
+              const cypherResponse = await fetch(`/${dir}/${firstCypher}`);
+              if (cypherResponse.ok) {
+                const content = await cypherResponse.text();
+                logger.info(`/${dir}/${firstCypher} の内容:`, content.substring(0, 100) + (content.length > 100 ? '...' : ''));
+              }
+            } catch (cypherError) {
+              logger.error(`/${dir}/${firstCypher} の取得に失敗:`, cypherError);
+            }
           }
         }
-      } else {
-        console.error("WASM FSがまだ初期化されていません");
+      } catch (error) {
+        logger.info(`/${dir}/ ディレクトリ取得エラー: ${error.message}`);
       }
-    } catch (err) {
-      console.error("WASM FSテストエラー:", err);
     }
-    console.log("=== WASM FSテスト終了 ===");
     
-    // デフォルトのインポートスクリプトを実行し、失敗したらエラーを表示する
+    logger.info("=== クエリディレクトリテスト終了 ===");
+    
+    // データベース初期化（KuzuとFS APIを含む）
+    logger.info("データベースとWASM FS初期化中...");
+    const { conn } = await initializeDatabase();
+    
+    // DDL, DML, DQLファイルを直接実行する
+    logger.info("=== DDL, DML, DQLファイルの実行開始 ===");
+    
     try {
-      // 通常のインポート処理を試す
-      await loadAndExecuteCypherScript(conn, '/dql/import.cypher');
+      // DDLファイルを実行
+      updateStatus({ text: 'DDLスキーマファイルを実行中...', type: 'loading' });
+      const ddlResponse = await fetch('/ddl/');
+      if (ddlResponse.ok) {
+        const ddlFiles = await ddlResponse.json();
+        logger.info('利用可能なDDLファイル:', ddlFiles);
+        
+        // スキーマファイルを優先して実行
+        for (const file of ddlFiles) {
+          if (file.endsWith('_schema.cypher')) {
+            logger.info(`DDLスキーマを実行中: ${file}`);
+            await loadAndExecuteCypherScript(conn, `/ddl/${file}`);
+          }
+        }
+      }
+      
+      // DMLファイルを実行
+      updateStatus({ text: 'DMLデータファイルを実行中...', type: 'loading' });
+      const dmlResponse = await fetch('/dml/');
+      if (dmlResponse.ok) {
+        const dmlFiles = await dmlResponse.json();
+        logger.info('利用可能なDMLファイル:', dmlFiles);
+        
+        // create_で始まるファイルを優先して実行
+        for (const file of dmlFiles) {
+          if (file.startsWith('create_')) {
+            logger.info(`DMLデータ作成を実行中: ${file}`);
+            await loadAndExecuteCypherScript(conn, `/dml/${file}`);
+          }
+        }
+      }
+      
+      // DQLファイルを実行（後方互換性のため）
+      updateStatus({ text: 'DQLクエリファイルを実行中...', type: 'loading' });
+      const dqlResponse = await fetch('/dql/');
+      if (dqlResponse.ok) {
+        const dqlFiles = await dqlResponse.json();
+        if (dqlFiles.includes('import.cypher')) {
+          logger.info('DQLインポートスクリプトを実行中: import.cypher');
+          await loadAndExecuteCypherScript(conn, `/dql/import.cypher`);
+        } else {
+          logger.info('DQLインポートスクリプトが見つかりません。');
+        }
+      }
+      
+      // データ検証
+      logger.info("=== データベース検証 ===");
+      try {
+        const countQuery = "MATCH (n) RETURN count(n) as NodeCount";
+        const relCountQuery = "MATCH ()-[r]->() RETURN count(r) as RelCount";
+        
+        const nodeResult = await conn.query(countQuery);
+        const nodeData = await nodeResult.getAllObjects();
+        logger.info("ノード数:", nodeData);
+        
+        const relResult = await conn.query(relCountQuery);
+        const relData = await relResult.getAllObjects();
+        logger.info("リレーションシップ数:", relData);
+        
+        updateStatus({ 
+          text: `データベースロード完了: ${nodeData[0]?.NodeCount || 0} ノード, ${relData[0]?.RelCount || 0} リレーションシップ`, 
+          type: 'success' 
+        });
+      } catch (verifyError) {
+        logger.error("データベース検証エラー:", verifyError);
+      }
+      
     } catch (error) {
-      console.error("Parquetファイルのインポートに失敗しました:", error);
+      logger.error("クエリファイル実行エラー:", error);
       updateStatus({ 
-        text: `Parquetファイルのインポートに失敗しました: ${error.message}`, 
+        text: `クエリファイルの実行に失敗しました: ${error.message}`, 
         type: 'error' 
       });
-      console.error(`Parquetファイルの読み込みに失敗しました
-ファイルが見つからないか、アクセスできません。以下を確認してください:
-- 指定されたパスにParquetファイルが存在するか
-- ファイルへのアクセス権限があるか
-- ファイルパスが正しく指定されているか`);
     }
+    
+    logger.info("=== DDL, DML, DQLファイルの実行終了 ===");
+    
   } catch (error) {
-    console.error('初期化エラー:', error);
+    logger.error('初期化エラー:', error);
     updateStatus({ text: `初期化中にエラーが発生しました: ${error.message}`, type: 'error' });
   }
   
-  console.log("KuzuDB Parquet Viewerの処理が完了しました。console.logを確認してください。");
+  logger.info("KuzuDB ブラウザの処理が完了しました。ログを確認してください。");
 });
 
 // グローバル定義（TypeScript用）
