@@ -3,7 +3,7 @@ import { executeQuery } from '../../infrastructure/repository/queryExecutor';
 import { VersionedLocationData, LocationURI } from '../../domain/types';
 
 export async function seedDefaultData(conn: any): Promise<void> {
-  logger.debug('DML実行中（3バージョン分のデータ）...');
+  logger.debug('DML実行中（4バージョン分のデータ）...');
   
   try {
     // v1.0.0のバージョンデータ
@@ -53,11 +53,46 @@ export async function seedDefaultData(conn: any): Promise<void> {
       previous_version_id: 'v1.1.0'
     };
 
+    // v1.2.1のバージョンデータ（v1.2.0からの変更）
+    const version4Data: VersionedLocationData = {
+      version_id: 'v1.2.1',
+      location_uris: [
+        // 継続するファイル
+        { uri_id: 'file:///src/main.ts', scheme: 'file', authority: '', path: '/src/main.ts', fragment: 'main_v1.2.1', query: '' },
+        { uri_id: 'file:///src/utils.ts', scheme: 'file', authority: '', path: '/src/utils.ts', fragment: 'updated_utils', query: '' },
+        { uri_id: 'file:///src/services/api.ts', scheme: 'file', authority: '', path: '/src/services/api.ts', fragment: '', query: '' },
+        { uri_id: 'file:///src/types/index.ts', scheme: 'file', authority: '', path: '/src/types/index.ts', fragment: '', query: '' },
+        { uri_id: 'file:///tests/unit/utils.test.ts', scheme: 'file', authority: '', path: '/tests/unit/utils.test.ts', fragment: '', query: '' },
+        { uri_id: 'file:///docs/architecture.md', scheme: 'file', authority: '', path: '/docs/architecture.md', fragment: '', query: '' },
+        { uri_id: 'vscode://file/project/src/main.ts', scheme: 'vscode', authority: 'file', path: '/project/src/main.ts', fragment: '', query: '' },
+        
+        // 新規追加: kuzu/browseディレクトリ構造
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/application', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/application/hooks', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/application/usecase', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/domain', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/entity', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/domain/entity', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/domain/service', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/infrastructure', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/infrastructure/database', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/interface', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/interface/components', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/public', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/public', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/public/dql', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/public/dql', fragment: '', query: '' },
+        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/public/export_data', fragment: '', query: '' },
+      ],
+      previous_version_id: 'v1.2.0'
+    };
+
     // 各バージョンを順次作成
     // NOTE: 2025-05-10 - 複雑な処理を分離
     // 経緯: FOREACHによる条件付きFOLLOWS関係作成がparserエラーで失敗
     // 対策: 1) VersionState+LocationURI作成 2) FOLLOWS関係作成 の2段階に分離
-    const versions = [version1Data, version2Data, version3Data];
+    const versions = [version1Data, version2Data, version3Data, version4Data];
     
     for (const versionData of versions) {
       logger.debug(`${versionData.version_id}のデータ作成中...`);
@@ -94,6 +129,25 @@ export async function seedDefaultData(conn: any): Promise<void> {
       { parent_uri: 'file:///src/components', child_uri: 'file:///src/components/header.tsx', relation_type: 'file_hierarchy' },
       { parent_uri: 'file:///src/services', child_uri: 'file:///src/services/api.ts', relation_type: 'file_hierarchy' },
       { parent_uri: 'file:///tests/unit', child_uri: 'file:///tests/unit/utils.test.ts', relation_type: 'file_hierarchy' },
+      
+      // v1.2.1で追加されたkuzu/browseディレクトリ構造の階層
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu', child_uri: 'file:///home/nixos/bin/src/kuzu/browse', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/public', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/entity', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/public', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/public/dql', relation_type: 'directory_hierarchy' },
+      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/public', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data', relation_type: 'directory_hierarchy' },
     ];
     
     // 階層構造を作成
@@ -118,7 +172,7 @@ export async function seedDefaultData(conn: any): Promise<void> {
     await locationCheckResult.close();
     await relationshipCheckResult.close();
     
-    logger.debug('データベース初期化完了（3バージョン分のデータ挿入完了）');
+    logger.debug('データベース初期化完了（4バージョン分のデータ挿入完了）');
   } catch (error) {
     logger.error('DML実行エラー:', error);
     throw error;
