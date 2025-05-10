@@ -6,6 +6,18 @@
 // デバッグモード
 export const DEBUG = process.env.DEBUG === 'true';
 
+// ログレベル
+export enum LogLevel {
+  ERROR = 1,
+  WARN = 2,
+  INFO = 3,
+  DEBUG = 4
+}
+
+export const LOG_LEVEL = process.env.LOG_LEVEL ? 
+  parseInt(process.env.LOG_LEVEL, 10) : 
+  LogLevel.ERROR; // デフォルトはERRORレベル
+
 // アプリケーション設定
 export const APP_NAME = 'KuzuDB';
 export const APP_VERSION = '1.0.0';
