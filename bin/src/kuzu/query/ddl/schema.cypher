@@ -36,7 +36,7 @@ CREATE NODE TABLE RequirementEntity (
 CREATE NODE TABLE VersionState (
   id STRING PRIMARY KEY,
   timestamp STRING,
-  description STRING,
+  description STRING
 );
 
 // 5. ReferenceEntityノード - 外部参照情報

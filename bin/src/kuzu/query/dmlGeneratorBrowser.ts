@@ -135,20 +135,27 @@ export async function executeQuery(
   queryName: string, 
   params: Record<string, any> = {}
 ): Promise<QueryResult<any>> {
+  console.log(`executeQuery called: queryName=${queryName}, params=`, params);
+  
   // クエリを取得
   const queryResult = await getQuery(queryName);
   if (!queryResult.success) {
+    console.log(`getQuery failed:`, queryResult);
     return queryResult;
   }
   
   const query = queryResult.data!;
+  console.log(`Query to execute: "${query}"`);
+  console.log(`Query params:`, params);
   
   // クエリを実行
   try {
     // Kuzuのコネクションオブジェクトに応じてメソッド名を調整
     const result = await (connection.query ? connection.query(query, params) : connection.executeQuery(query, params));
+    console.log(`Query executed successfully:`, result);
     return { success: true, data: result };
   } catch (e) {
+    console.error(`Query execution failed:`, e);
     return { 
       success: false, 
       error: `クエリ '${queryName}' の実行に失敗しました: ${e instanceof Error ? e.message : String(e)}` 

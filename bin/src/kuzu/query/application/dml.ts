@@ -37,14 +37,20 @@ async function createLocationURI(
   fragment?: string,
   query?: string
 ): Promise<void> {
-  const result = await executeQuery(connection, 'create_locationuri', {
+  const params = {
     uri_id: uriId,
     scheme: scheme,
     authority: authority || '',
     path: path,
     fragment: fragment || '',
     query: query || ''
-  });
+  };
+  
+  console.log('createLocationURI params:', params);
+  
+  const result = await executeQuery(connection, 'create_locationuri', params);
+  
+  console.log('createLocationURI result:', result);
   
   handleResult(result, `LocationURI: ${uriId}`);
 }
