@@ -117,6 +117,28 @@ async function initializeDatabase() {
     // グローバルにkuzuオブジェクトを設定（FS APIのために必要）
     window.kuzu = kuzu;
     
+    // ------- 修正: WebAssemblyモジュールの初期化を完了するための待機 -------
+    // モジュール初期化が確実に完了するのを待つ
+    if (typeof kuzu.onRuntimeInitialized !== 'undefined') {
+      logger.info('WebAssemblyモジュールの初期化を待機中...');
+      await new Promise(resolve => {
+        if (kuzu.calledRun) {
+          logger.info('WebAssemblyモジュールはすでに初期化されています');
+          resolve(true);
+        } else {
+          kuzu.onRuntimeInitialized = () => {
+            logger.info('WebAssemblyモジュールの初期化が完了しました');
+            resolve(true);
+          };
+        }
+      });
+    } else {
+      // 小さな遅延を入れて、モジュールが完全に初期化されるのを待つ
+      logger.info('WebAssemblyモジュールの初期化を確認するための短い遅延を挿入...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    // ------- 修正ここまで -------
+    
     updateStatus({ text: 'Parquetファイルを仮想ファイルシステムに転送中...', type: 'loading' });
     
     // Parquetファイルをプリロード
@@ -130,6 +152,21 @@ async function initializeDatabase() {
     
     // データベース接続の作成
     const conn = new kuzu.Connection(db);
+    
+    // ------- 修正: 接続が完了したことを確認するためのテスト -------
+    try {
+      logger.info('データベース接続をテスト中...');
+      const testQuery = "RETURN 1 as test";
+      const result = await conn.query(testQuery);
+      const data = await result.getAllObjects();
+      logger.info('データベース接続テスト結果:', data);
+      await result.close();
+      logger.info('データベース接続テスト成功');
+    } catch (error) {
+      logger.error('データベース接続テスト失敗:', error);
+      throw new Error(`データベース接続テストに失敗しました: ${error.message}`);
+    }
+    // ------- 修正ここまで -------
     
     updateStatus({ text: 'データベース初期化完了', type: 'success' });
     
@@ -152,7 +189,7 @@ function extractCommands(scriptContent: string): string[] {
   // 各行を処理
   for (let line of lines) {
     // コメント行や空行はスキップ
-    if (line.trim().startsWith('--') || line.trim() === '') {
+    if (line.trim().startsWith('--') || line.trim().startsWith('//') || line.trim() === '') {
       continue;
     }
     
@@ -176,6 +213,75 @@ function extractCommands(scriptContent: string): string[] {
   // 空ではないコマンドのみを返す
   return commands.filter(cmd => cmd.trim() !== '');
 }
+
+// ------- 修正: SOURCEコマンドの直接処理を行う関数 -------
+// SOURCEコマンドを分解して直接ファイルの内容を取得する関数
+async function processSourceCommand(conn: any, command: string): Promise<boolean> {
+  try {
+    // SOURCEコマンドからファイルパスを抽出
+    const sourceFilePath = command.match(/['"]([^'"]+)['"]/)?.[1];
+    if (!sourceFilePath) {
+      throw new Error(`SOURCEコマンドの形式が不正: ${command}`);
+    }
+    
+    updateStatus({ text: `SOURCEコマンドを処理中: ${sourceFilePath}`, type: 'info' });
+    logger.info(`SOURCEファイルを読み込み中: ${sourceFilePath}`);
+    
+    // ファイルを取得
+    const response = await fetch(sourceFilePath);
+    if (!response.ok) {
+      throw new Error(`SOURCEファイル読み込みエラー: ${response.status} ${response.statusText}`);
+    }
+    
+    const scriptContent = await response.text();
+    logger.info(`SOURCEファイルの内容(${sourceFilePath}):\n${scriptContent.substring(0, 200)}...`);
+    
+    // ファイルの内容からコマンドを抽出
+    const commands = extractCommands(scriptContent);
+    logger.info(`SOURCEファイルから抽出されたコマンド数: ${commands.length}`);
+    
+    if (commands.length === 0) {
+      logger.warn(`SOURCEファイルに有効なコマンドが含まれていません: ${sourceFilePath}`);
+      return true; // 空のファイルは成功として扱う
+    }
+    
+    // 抽出されたコマンドを一つずつ実行
+    let successCount = 0;
+    let failureCount = 0;
+    
+    for (const cmd of commands) {
+      try {
+        // SOURCEコマンドをネストして処理
+        if (cmd.toLowerCase().startsWith('source')) {
+          const nestedResult = await processSourceCommand(conn, cmd);
+          if (nestedResult) {
+            successCount++;
+          } else {
+            failureCount++;
+          }
+        } else {
+          // 通常のクエリを実行
+          updateStatus({ text: `SOURCEファイルからのクエリを実行中: ${cmd.substring(0, 50)}${cmd.length > 50 ? '...' : ''}`, type: 'loading' });
+          
+          const result = await conn.query(cmd);
+          await result.close();
+          successCount++;
+        }
+      } catch (cmdError) {
+        failureCount++;
+        logger.error(`SOURCEファイルのクエリ実行エラー: ${cmdError.message} (${cmd})`);
+        // エラーは記録するが、処理は続行
+      }
+    }
+    
+    logger.info(`SOURCEファイル処理完了: ${sourceFilePath} (${successCount}成功/${failureCount}失敗)`);
+    return failureCount === 0;
+  } catch (error) {
+    logger.error(`SOURCEコマンド処理エラー: ${error.message}`);
+    return false;
+  }
+}
+// ------- 修正ここまで -------
 
 // Cypherスクリプトファイルを読み込み、実行する関数
 async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
@@ -210,22 +316,20 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
     // 各コマンドを順番に実行
     for (const command of commands) {
       try {
-        // SOURCEコマンドの処理
+        // ------- 修正: SOURCEコマンドの処理を改善 -------
         if (command.toLowerCase().startsWith('source')) {
-          const sourceFilePath = command.match(/['"]([^'"]+)['"]/)?.[1];
-          if (sourceFilePath) {
-            updateStatus({ text: `SOURCEコマンドを検出: ${sourceFilePath}`, type: 'info' });
-            const sourceResult = await loadAndExecuteCypherScript(conn, sourceFilePath);
-            if (!sourceResult) {
-              failureCount++;
-              throw new Error(`SOURCEファイルの実行に失敗しました: ${sourceFilePath}`);
-            }
-            successCount++;
-          } else {
+          updateStatus({ text: `SOURCEコマンドを検出: ${command}`, type: 'info' });
+          // 新しいSOURCE処理関数を使用
+          const sourceResult = await processSourceCommand(conn, command);
+          if (!sourceResult) {
             failureCount++;
-            throw new Error(`SOURCEコマンドの形式が不正: ${command}`);
+            logger.error(`SOURCEファイルの処理に失敗しました: ${command}`);
+          } else {
+            successCount++;
           }
-        } else if (command.toLowerCase().startsWith('copy')) {
+        }
+        // ------- 修正ここまで -------
+        else if (command.toLowerCase().startsWith('copy')) {
           // COPYコマンドはparquetファイルを処理している
           // ファイルパスを抽出
           const filePath = command.match(/FROM\s+["']([^"']+)["']/i)?.[1];
@@ -355,6 +459,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       logger.error('エラー: rootエレメントが見つかりません。');
     }
     
+    // ------- 修正: 実行順序の変更 -------
+    // データベース初期化（KuzuとFS APIを含む）を先に行う
+    logger.info("データベースとWASM FS初期化中...");
+    const { conn } = await initializeDatabase();
+    
     // クエリディレクトリのマウント確認テスト
     logger.info("=== クエリディレクトリテスト開始 ===");
     
@@ -388,15 +497,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     logger.info("=== クエリディレクトリテスト終了 ===");
-    
-    // データベース初期化（KuzuとFS APIを含む）
-    logger.info("データベースとWASM FS初期化中...");
-    const { conn } = await initializeDatabase();
+    // ------- 修正ここまで -------
     
     // DDL, DML, DQLファイルを直接実行する
     logger.info("=== DDL, DML, DQLファイルの実行開始 ===");
     
     try {
+      // ------- 修正: 追加の待機とデータベース接続テスト -------
+      // もう一度データベース接続をテスト
+      try {
+        logger.info('実行前に接続状態をもう一度テスト中...');
+        const testQuery = "RETURN 2 as test";
+        const result = await conn.query(testQuery);
+        const data = await result.getAllObjects();
+        logger.info('事前接続テスト結果:', data);
+        await result.close();
+        logger.info('接続テスト成功、クエリ実行を開始します');
+      } catch (error) {
+        logger.error('接続テスト失敗:', error);
+        throw new Error(`接続テストに失敗しました: ${error.message}`);
+      }
+      // ------- 修正ここまで -------
+      
       // DDLファイルを実行
       updateStatus({ text: 'DDLスキーマファイルを実行中...', type: 'loading' });
       const ddlResponse = await fetch('/ddl/');
@@ -406,7 +528,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         // スキーマファイルを優先して実行
         for (const file of ddlFiles) {
-          if (file.endsWith('_schema.cypher')) {
+          if (file.endsWith('_schema.cypher') || file.endsWith('schema.cypher')) {
             logger.info(`DDLスキーマを実行中: ${file}`);
             await loadAndExecuteCypherScript(conn, `/ddl/${file}`);
           }
@@ -422,21 +544,60 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         // create_で始まるファイルを優先して実行
         for (const file of dmlFiles) {
-          if (file.startsWith('create_')) {
+          if (file.startsWith('create_') || file.includes('sample_data')) {
             logger.info(`DMLデータ作成を実行中: ${file}`);
             await loadAndExecuteCypherScript(conn, `/dml/${file}`);
           }
         }
       }
       
-      // DQLファイルを実行（後方互換性のため）
+      // DQLファイルを実行
       updateStatus({ text: 'DQLクエリファイルを実行中...', type: 'loading' });
       const dqlResponse = await fetch('/dql/');
       if (dqlResponse.ok) {
         const dqlFiles = await dqlResponse.json();
         if (dqlFiles.includes('import_parquet.cypher')) {
           logger.info('DQLインポートスクリプトを実行中: import_parquet.cypher');
-          await loadAndExecuteCypherScript(conn, `/dql/import_parquet.cypher`);
+          
+          // ------- 修正: SOURCEの直接処理 -------
+          // import_parquet.cypherの内容を取得して分解処理する
+          const importParquetResponse = await fetch('/dql/import_parquet.cypher');
+          if (importParquetResponse.ok) {
+            const importParquetContent = await importParquetResponse.text();
+            logger.info('import_parquet.cypherの内容を取得しました');
+            
+            // SOURCEコマンドを抽出
+            const sourceCommands = importParquetContent
+              .split('\n')
+              .filter(line => line.trim().toLowerCase().startsWith('source'))
+              .map(line => line.trim());
+            
+            logger.info(`${sourceCommands.length}個のSOURCEコマンドを検出しました`);
+            
+            // 各SOURCEコマンドを個別に処理
+            for (const sourceCmd of sourceCommands) {
+              await processSourceCommand(conn, sourceCmd);
+            }
+            
+            // 残りの通常のクエリを実行（最後の集計クエリなど）
+            const normalQueries = extractCommands(importParquetContent)
+              .filter(cmd => !cmd.toLowerCase().startsWith('source'));
+            
+            for (const query of normalQueries) {
+              try {
+                logger.info(`通常クエリを実行: ${query}`);
+                const result = await conn.query(query);
+                const data = await result.getAllObjects();
+                logger.info('クエリ結果:', data);
+                await result.close();
+              } catch (queryError) {
+                logger.error(`クエリ実行エラー: ${queryError.message}`);
+              }
+            }
+          } else {
+            logger.error('import_parquet.cypherの内容取得に失敗しました');
+          }
+          // ------- 修正ここまで -------
         } else {
           logger.info('DQLインポートスクリプトが見つかりません。');
         }
