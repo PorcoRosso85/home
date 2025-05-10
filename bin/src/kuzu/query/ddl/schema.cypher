@@ -65,19 +65,23 @@ CREATE NODE TABLE EntityAggregationView (
 
 // ===== エッジテーブル =====
 
-// 1. HAS_LOCATION: コードエンティティの位置情報関連付け
-CREATE REL TABLE HAS_LOCATION (
-  FROM CodeEntity TO LocationURI
+// 1. LOCATED_WITH: 位置情報とエンティティの関連付け（統一版）
+// LocationURIから各種エンティティへの関係を表す
+CREATE REL TABLE LOCATED_WITH (
+  FROM LocationURI TO CodeEntity,
+  entity_type STRING
 );
 
-// 2. REQUIREMENT_HAS_LOCATION: 要件エンティティの位置情報関連付け
-CREATE REL TABLE REQUIREMENT_HAS_LOCATION (
-  FROM RequirementEntity TO LocationURI
+// 2. LOCATED_WITH_REQUIREMENT: 位置情報と要件エンティティの関連付け
+CREATE REL TABLE LOCATED_WITH_REQUIREMENT (
+  FROM LocationURI TO RequirementEntity,
+  entity_type STRING
 );
 
-// 3. REFERENCE_HAS_LOCATION: 参照エンティティの位置情報関連付け
-CREATE REL TABLE REFERENCE_HAS_LOCATION (
-  FROM ReferenceEntity TO LocationURI
+// 3. LOCATED_WITH_REFERENCE: 位置情報と参照エンティティの関連付け
+CREATE REL TABLE LOCATED_WITH_REFERENCE (
+  FROM LocationURI TO ReferenceEntity,
+  entity_type STRING
 );
 
 // 4. IS_IMPLEMENTED_BY: 要件の実装関係
@@ -132,34 +136,24 @@ CREATE REL TABLE FOLLOWS (
   FROM VersionState TO VersionState
 );
 
-// 13. TRACKS_STATE_OF_CODE: バージョンとコードの状態追跡
-CREATE REL TABLE TRACKS_STATE_OF_CODE (
-  FROM VersionState TO CodeEntity
+// 13. TRACKS_STATE_OF_LOCATED_ENTITY: バージョンと位置情報の状態追跡
+// LocationURIを介してエンティティの状態を追跡する
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+  FROM VersionState TO LocationURI
 );
 
-// 14. TRACKS_STATE_OF_REQ: バージョンと要件の状態追跡
-CREATE REL TABLE TRACKS_STATE_OF_REQ (
-  FROM VersionState TO RequirementEntity
-);
-
-// 15. TRACKS_STATE_OF_REFERENCE: バージョンと参照の状態追跡
-// FIXME: 旧名称 "TRACKS_STATE_OF_REF" から変更。省略形を避け、完全な名前に統一
-CREATE REL TABLE TRACKS_STATE_OF_REFERENCE (
-  FROM VersionState TO ReferenceEntity
-);
-
-// 16. USES: 集計ビューとURI階層の関連付け
+// 14. USES: 集計ビューとURI階層の関連付け
 CREATE REL TABLE USES (
   FROM EntityAggregationView TO LocationURI
 );
 
-// 17. AGGREGATES_REQ: 要件の集計関係
+// 15. AGGREGATES_REQ: 要件の集計関係
 CREATE REL TABLE AGGREGATES_REQ (
   FROM EntityAggregationView TO RequirementEntity,
   aggregation_method STRING
 );
 
-// 18. AGGREGATES_CODE: コードの集計関係
+// 16. AGGREGATES_CODE: コードの集計関係
 CREATE REL TABLE AGGREGATES_CODE (
   FROM EntityAggregationView TO CodeEntity,
   aggregation_method STRING
