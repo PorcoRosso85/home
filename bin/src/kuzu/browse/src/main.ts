@@ -3,6 +3,8 @@
 
 import * as logger from '../../common/infrastructure/logger';
 import { APP_NAME, APP_VERSION } from '../../common/infrastructure/variables';
+// DMLアプリケーションのインポートを追加
+import { runDMLDemo } from '../../query/application/dml';
 
 logger.info(`${APP_NAME} Parquet Viewer v${APP_VERSION} - 初期化中...`);
 
@@ -214,75 +216,6 @@ function extractCommands(scriptContent: string): string[] {
   return commands.filter(cmd => cmd.trim() !== '');
 }
 
-// ------- 修正: SOURCEコマンドの直接処理を行う関数 -------
-// SOURCEコマンドを分解して直接ファイルの内容を取得する関数
-async function processSourceCommand(conn: any, command: string): Promise<boolean> {
-  try {
-    // SOURCEコマンドからファイルパスを抽出
-    const sourceFilePath = command.match(/['"]([^'"]+)['"]/)?.[1];
-    if (!sourceFilePath) {
-      throw new Error(`SOURCEコマンドの形式が不正: ${command}`);
-    }
-    
-    updateStatus({ text: `SOURCEコマンドを処理中: ${sourceFilePath}`, type: 'info' });
-    logger.info(`SOURCEファイルを読み込み中: ${sourceFilePath}`);
-    
-    // ファイルを取得
-    const response = await fetch(sourceFilePath);
-    if (!response.ok) {
-      throw new Error(`SOURCEファイル読み込みエラー: ${response.status} ${response.statusText}`);
-    }
-    
-    const scriptContent = await response.text();
-    logger.info(`SOURCEファイルの内容(${sourceFilePath}):\n${scriptContent.substring(0, 200)}...`);
-    
-    // ファイルの内容からコマンドを抽出
-    const commands = extractCommands(scriptContent);
-    logger.info(`SOURCEファイルから抽出されたコマンド数: ${commands.length}`);
-    
-    if (commands.length === 0) {
-      logger.warn(`SOURCEファイルに有効なコマンドが含まれていません: ${sourceFilePath}`);
-      return true; // 空のファイルは成功として扱う
-    }
-    
-    // 抽出されたコマンドを一つずつ実行
-    let successCount = 0;
-    let failureCount = 0;
-    
-    for (const cmd of commands) {
-      try {
-        // SOURCEコマンドをネストして処理
-        if (cmd.toLowerCase().startsWith('source')) {
-          const nestedResult = await processSourceCommand(conn, cmd);
-          if (nestedResult) {
-            successCount++;
-          } else {
-            failureCount++;
-          }
-        } else {
-          // 通常のクエリを実行
-          updateStatus({ text: `SOURCEファイルからのクエリを実行中: ${cmd.substring(0, 50)}${cmd.length > 50 ? '...' : ''}`, type: 'loading' });
-          
-          const result = await conn.query(cmd);
-          await result.close();
-          successCount++;
-        }
-      } catch (cmdError) {
-        failureCount++;
-        logger.error(`SOURCEファイルのクエリ実行エラー: ${cmdError.message} (${cmd})`);
-        // エラーは記録するが、処理は続行
-      }
-    }
-    
-    logger.info(`SOURCEファイル処理完了: ${sourceFilePath} (${successCount}成功/${failureCount}失敗)`);
-    return failureCount === 0;
-  } catch (error) {
-    logger.error(`SOURCEコマンド処理エラー: ${error.message}`);
-    return false;
-  }
-}
-// ------- 修正ここまで -------
-
 // Cypherスクリプトファイルを読み込み、実行する関数
 async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
   try {
@@ -311,111 +244,36 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
     
     let successCount = 0;
     let failureCount = 0;
-    let parquetImportFailed = false;
     
     // 各コマンドを順番に実行
     for (const command of commands) {
       try {
-        // ------- 修正: SOURCEコマンドの処理を改善 -------
-        if (command.toLowerCase().startsWith('source')) {
-          updateStatus({ text: `SOURCEコマンドを検出: ${command}`, type: 'info' });
-          // 新しいSOURCE処理関数を使用
-          const sourceResult = await processSourceCommand(conn, command);
-          if (!sourceResult) {
-            failureCount++;
-            logger.error(`SOURCEファイルの処理に失敗しました: ${command}`);
-          } else {
-            successCount++;
-          }
-        }
-        // ------- 修正ここまで -------
-        else if (command.toLowerCase().startsWith('copy')) {
-          // COPYコマンドはparquetファイルを処理している
-          // ファイルパスを抽出
-          const filePath = command.match(/FROM\s+["']([^"']+)["']/i)?.[1];
-          const tableName = command.match(/COPY\s+[`"]?([^`"\s(]+)[`"]?/i)?.[1];
-          
-          updateStatus({ text: `Parquetファイル読み込み中: ${tableName} (${filePath})`, type: 'loading' });
-          logger.info(`Parquetファイル読み込みクエリ: ${command}`);
-          
-          try {
-            const result = await conn.query(command);
-            const resultData = await result.getAllObjects();
-            
-            // 結果をログに出力
-            logger.info(`Parquetファイル読み込み結果:`, resultData);
-            
-            successCount++;
-            
-            updateStatus({ text: `Parquetファイル読み込み成功: ${filePath}`, type: 'success' });
-          } catch (copyError) {
-            failureCount++;
-            parquetImportFailed = true;
-            const tableName = command.match(/COPY\s+[`"]?([^`"\s(]+)[`"]?/i)?.[1] || 'Unknown';
-            const filePath = command.match(/FROM\s+["']([^"']+)["']/i)?.[1] || 'Unknown';
-            const errorMessage = `Parquetファイル読み込みエラー: テーブル=${tableName}, ファイル=${filePath} - ${copyError.message}`;
-            
-            logger.error(`COPY失敗: ${errorMessage}`, copyError);
-            logger.error(`実行されたクエリ: ${command}`);
-            
-            updateStatus({ text: errorMessage, type: 'error' });
-            
-            // エラーは記録するが、処理は続行
-          }
-        } else {
-          // 通常のCypherコマンドを実行
-          updateStatus({ text: `クエリ実行中: ${command.substring(0, 50)}${command.length > 50 ? '...' : ''}`, type: 'loading' });
-          
-          try {
-            const result = await conn.query(command);
-            const resultData = await result.getAllObjects();
-            
-            // ログにのみデータを出力
-            logger.info(`クエリ実行結果:`, command);
-            logger.info(resultData);
-            
-            successCount++;
-          } catch (queryError) {
-            failureCount++;
-            
-            logger.error(`クエリ実行エラー: ${queryError.message} (${command})`);
-            updateStatus({ text: `クエリ実行エラー: ${queryError.message}`, type: 'error' });
-          }
-        }
-      } catch (cmdError) {
-        failureCount++;
-        updateStatus({ text: `コマンド実行エラー: ${cmdError.message}`, type: 'error' });
-        logger.error(`コマンド実行エラー:`, command);
-        logger.error(`エラー内容:`, cmdError.message);
+        // 通常のCypherコマンドを実行
+        updateStatus({ text: `クエリ実行中: ${command.substring(0, 50)}${command.length > 50 ? '...' : ''}`, type: 'loading' });
         
-        // エラーは記録するが、処理は続行
+        const result = await conn.query(command);
+        const resultData = await result.getAllObjects();
+        
+        // ログにのみデータを出力
+        logger.info(`クエリ実行結果:`, command);
+        logger.info(resultData);
+        
+        successCount++;
+      } catch (queryError) {
+        failureCount++;
+        
+        logger.error(`クエリ実行エラー: ${queryError.message} (${command})`);
+        updateStatus({ text: `クエリ実行エラー: ${queryError.message}`, type: 'error' });
       }
     }
     
     // 結果のサマリーをログにのみ表示
     if (failureCount > 0) {
-      if (parquetImportFailed) {
-        // Parquetファイルの読み込み失敗
-        updateStatus({ 
-          text: `スクリプト実行完了 (${successCount}成功/${failureCount}失敗): Parquetファイルの読み込みに失敗しました`, 
-          type: 'error' 
-        });
-        
-        logger.error(`Parquetファイルの読み込みに失敗しました。以下の理由が考えられます:
-- 指定されたパスにParquetファイルが存在しない
-- Parquetファイルの形式が正しくない
-- ファイルへのアクセス権限がない
-- テーブル定義とParquetファイルの構造が一致していない
-ログを確認して詳細なエラー情報を参照してください。`);
-        
-        return false;
-      } else {
-        // その他のエラー
-        updateStatus({ 
-          text: `スクリプト実行完了 (${successCount}成功/${failureCount}失敗): 一部のコマンドでエラーが発生しました`, 
-          type: 'error' 
-        });
-      }
+      // その他のエラー
+      updateStatus({ 
+        text: `スクリプト実行完了 (${successCount}成功/${failureCount}失敗): 一部のコマンドでエラーが発生しました`, 
+        type: 'error' 
+      });
     } else {
       // すべて成功
       updateStatus({ 
@@ -423,10 +281,7 @@ async function loadAndExecuteCypherScript(conn: any, scriptPath: string) {
         type: 'success' 
       });
       
-      logger.info(`すべてのクエリが正常に実行されました。
-Parquetファイルからのデータ読み込みが完了しました。
-各テーブルにデータが表示されていれば、Parquetファイルが正常に読み込まれています。
-テーブルは存在するがレコード数が0の場合は、Parquetファイルは存在するが中身が空である可能性があります。`);
+      logger.info(`すべてのクエリが正常に実行されました。`);
     }
     
     return failureCount === 0;
@@ -499,8 +354,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     logger.info("=== クエリディレクトリテスト終了 ===");
     // ------- 修正ここまで -------
     
-    // DDL, DML, DQLファイルを直接実行する
-    logger.info("=== DDL, DML, DQLファイルの実行開始 ===");
+    // DDL実行とDMLアプリケーション実行
+    logger.info("=== DDLファイルの実行開始 ===");
     
     try {
       // ------- 修正: 追加の待機とデータベース接続テスト -------
@@ -535,72 +390,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
       
-      // DMLファイルを実行
-      updateStatus({ text: 'DMLデータファイルを実行中...', type: 'loading' });
-      const dmlResponse = await fetch('/dml/');
-      if (dmlResponse.ok) {
-        const dmlFiles = await dmlResponse.json();
-        logger.info('利用可能なDMLファイル:', dmlFiles);
+      // DDL実行後、DMLアプリケーションを実行
+      try {
+        updateStatus({ text: 'DMLアプリケーションを実行中...', type: 'loading' });
+        logger.info('DMLアプリケーションの実行を開始します...');
         
-        // create_で始まるファイルを優先して実行
-        for (const file of dmlFiles) {
-          if (file.startsWith('create_') || file.includes('sample_data')) {
-            logger.info(`DMLデータ作成を実行中: ${file}`);
-            await loadAndExecuteCypherScript(conn, `/dml/${file}`);
-          }
-        }
-      }
-      
-      // DQLファイルを実行
-      updateStatus({ text: 'DQLクエリファイルを実行中...', type: 'loading' });
-      const dqlResponse = await fetch('/dql/');
-      if (dqlResponse.ok) {
-        const dqlFiles = await dqlResponse.json();
-        if (dqlFiles.includes('import_parquet.cypher')) {
-          logger.info('DQLインポートスクリプトを実行中: import_parquet.cypher');
-          
-          // ------- 修正: SOURCEの直接処理 -------
-          // import_parquet.cypherの内容を取得して分解処理する
-          const importParquetResponse = await fetch('/dql/import_parquet.cypher');
-          if (importParquetResponse.ok) {
-            const importParquetContent = await importParquetResponse.text();
-            logger.info('import_parquet.cypherの内容を取得しました');
-            
-            // SOURCEコマンドを抽出
-            const sourceCommands = importParquetContent
-              .split('\n')
-              .filter(line => line.trim().toLowerCase().startsWith('source'))
-              .map(line => line.trim());
-            
-            logger.info(`${sourceCommands.length}個のSOURCEコマンドを検出しました`);
-            
-            // 各SOURCEコマンドを個別に処理
-            for (const sourceCmd of sourceCommands) {
-              await processSourceCommand(conn, sourceCmd);
-            }
-            
-            // 残りの通常のクエリを実行（最後の集計クエリなど）
-            const normalQueries = extractCommands(importParquetContent)
-              .filter(cmd => !cmd.toLowerCase().startsWith('source'));
-            
-            for (const query of normalQueries) {
-              try {
-                logger.info(`通常クエリを実行: ${query}`);
-                const result = await conn.query(query);
-                const data = await result.getAllObjects();
-                logger.info('クエリ結果:', data);
-                await result.close();
-              } catch (queryError) {
-                logger.error(`クエリ実行エラー: ${queryError.message}`);
-              }
-            }
-          } else {
-            logger.error('import_parquet.cypherの内容取得に失敗しました');
-          }
-          // ------- 修正ここまで -------
-        } else {
-          logger.info('DQLインポートスクリプトが見つかりません。');
-        }
+        await runDMLDemo(conn);
+        
+        updateStatus({ text: 'DMLアプリケーション実行完了', type: 'success' });
+        logger.info('DMLアプリケーションの実行が完了しました');
+      } catch (error) {
+        updateStatus({ text: `DMLアプリケーション実行エラー: ${error.message}`, type: 'error' });
+        logger.error('DMLアプリケーション実行エラー:', error);
       }
       
       // データ検証
@@ -633,7 +434,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
     
-    logger.info("=== DDL, DML, DQLファイルの実行終了 ===");
+    logger.info("=== DDLファイルとDMLアプリケーションの実行終了 ===");
     
   } catch (error) {
     logger.error('初期化エラー:', error);

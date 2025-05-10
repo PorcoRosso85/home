@@ -5,7 +5,7 @@
  * 階層型トレーサビリティモデルのデータを構築します。
  */
 
-import { executeQuery } from '../dmlGenerator.ts';
+import { executeQuery } from '../dmlGeneratorBrowser';
 
 type QueryResult<T> = {
   success: boolean;
