@@ -1,17 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TreeNode, { TreeNodeData } from './components/TreeNode';
+import { fetchAndBuildTree } from '../application/dataFetcher';
 
-// FIXME: ダミーデータをグラフデータへ移行
-const dummyUris = [
-  '/nodes/person/1/knows/person/2',
-  '/nodes/person/1/lives_in/city/3',
-  '/nodes/person/2/works_at/company/4',
-  '/nodes/person/1/friend_of/person/5',
-  '/nodes/person/5/owns/product/6',
-  '/nodes/company/4/located_in/city/3'
-];
-
-// URIの配列からツリー構造を構築する関数
+// URIの配列からツリー構造を構築する関数（後方互換性のため残す）
 const buildTreeFromUris = (uris: string[]): TreeNodeData[] => {
   const treeMap: Record<string, TreeNodeData> = {};
   const rootNodes: TreeNodeData[] = [];
@@ -60,13 +51,65 @@ const buildTreeFromUris = (uris: string[]): TreeNodeData[] => {
 };
 
 const App = () => {
-  const [treeData, setTreeData] = useState<TreeNodeData[]>(buildTreeFromUris(dummyUris));
+  const [treeData, setTreeData] = useState<TreeNodeData[]>([]);
   const [selectedNode, setSelectedNode] = useState<TreeNodeData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // データ取得の副作用
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await fetchAndBuildTree();
+        setTreeData(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+        console.error('Failed to load tree data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
 
   const handleNodeClick = (node: TreeNodeData) => {
     setSelectedNode(node);
     console.log('Selected node:', node);
   };
+
+  // ローディング表示
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontFamily: 'Arial, sans-serif'
+      }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  // エラー表示
+  if (error) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontFamily: 'Arial, sans-serif',
+        color: 'red'
+      }}>
+        <div>Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ 
@@ -77,13 +120,17 @@ const App = () => {
     }}>
       <div style={{ flex: 1, overflowY: 'auto', marginRight: '20px' }}>
         <h2>KuzuDB Graph Browser</h2>
-        {treeData.map((node, index) => (
-          <TreeNode
-            key={`root-${index}`}
-            node={node}
-            onNodeClick={handleNodeClick}
-          />
-        ))}
+        {treeData.length === 0 ? (
+          <p>No data available</p>
+        ) : (
+          treeData.map((node, index) => (
+            <TreeNode
+              key={`root-${index}`}
+              node={node}
+              onNodeClick={handleNodeClick}
+            />
+          ))
+        )}
       </div>
       
       {selectedNode && (

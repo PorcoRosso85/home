@@ -6,6 +6,8 @@
  */
 
 import { executeQuery } from '../dmlGeneratorBrowser';
+import { validateLocationUri, validateLocationUriObject } from '../domain/validateUri';
+import type { LocationUri } from '../domain/uriTypes';
 
 type QueryResult<T> = {
   success: boolean;
@@ -37,7 +39,14 @@ async function createLocationURI(
   fragment?: string,
   query?: string
 ): Promise<void> {
-  const params = {
+  // バリデーション：入力URIの検証
+  const parsedUri = validateLocationUri(uriId);
+  if (!parsedUri.isValid) {
+    throw new Error(`Invalid URI: ${uriId} - ${parsedUri.error}`);
+  }
+
+  // LocationUriオブジェクトの構築
+  const locationUri: LocationUri = {
     uri_id: uriId,
     scheme: scheme,
     authority: authority || '',
@@ -45,6 +54,14 @@ async function createLocationURI(
     fragment: fragment || '',
     query: query || ''
   };
+
+  // バリデーション：LocationUriオブジェクトの検証
+  const objectValidation = validateLocationUriObject(locationUri);
+  if (!objectValidation.isValid) {
+    throw new Error(`Invalid LocationUri object: ${objectValidation.error}`);
+  }
+
+  const params = locationUri;
   
   console.log('createLocationURI params:', params);
   
