@@ -14,9 +14,9 @@ export enum LogLevel {
   DEBUG = 4
 }
 
-export const LOG_LEVEL = process.env.LOG_LEVEL ? 
+export const LOG_LEVEL = typeof process !== 'undefined' && process.env?.LOG_LEVEL ? 
   parseInt(process.env.LOG_LEVEL, 10) : 
-  LogLevel.ERROR; // デフォルトはERRORレベル
+  (window as any).LOG_LEVEL ?? LogLevel.ERROR; // デフォルトはERRORレベル
 
 // アプリケーション設定
 export const APP_NAME = 'KuzuDB';

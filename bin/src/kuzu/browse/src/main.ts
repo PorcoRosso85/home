@@ -4,6 +4,17 @@ import { createRoot } from 'react-dom/client';
 import App from './interface/App';
 import * as logger from '../../common/infrastructure/logger';
 
+// ブラウザ用にログレベルを設定
+(window as any).LOG_LEVEL = 4; // DEBUG level
+console.log('LOG_LEVEL設定:', (window as any).LOG_LEVEL);
+
+// loggerをテスト
+console.log('Testing logger functions...');
+logger.error('Test error log');
+logger.warn('Test warn log');
+logger.info('Test info log');
+logger.debug('Test debug log');
+
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     logger.debug('Reactアプリをマウント中...');
