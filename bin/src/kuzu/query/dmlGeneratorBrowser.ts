@@ -23,9 +23,11 @@ async function findQueryFile(queryName: string): Promise<[boolean, string]> {
   const searchPaths = [
     // 1. DMLディレクトリ内
     `/dml/${queryName}.cypher`,
-    // 2. DDLディレクトリ内
+    // 2. DQLディレクトリ内
+    `/dql/${queryName}.cypher`,
+    // 3. DDLディレクトリ内
     `/ddl/${queryName}.cypher`,
-    // 3. クエリディレクトリ直下（互換性のため）
+    // 4. クエリディレクトリ直下（互換性のため）
     `/${queryName}.cypher`
   ];
   

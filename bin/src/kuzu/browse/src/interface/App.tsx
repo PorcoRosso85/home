@@ -2,15 +2,21 @@ import React from 'react';
 import { LoadingView } from './components/LoadingView';
 import { ErrorView } from './components/ErrorView';
 import { TreeView } from './components/TreeView';
-// import { NodeDetailsPanel } from './components/NodeDetailsPanel';
 import { useDatabaseConnection } from '../infrastructure/database/useDatabaseConnection';
-import { useTreeData } from '../application/hooks/useTreeData';
+import { useVersionData } from '../application/hooks/useVersionData';
 
 const App = () => {
-  const { isConnected, error: dbError } = useDatabaseConnection();
-  const { treeData, /* selectedNode, handleNodeClick, */ isLoading, error } = useTreeData();
+  const { dbConnection, isConnected, error: dbError } = useDatabaseConnection();
+  const { 
+    versions, 
+    selectedVersionId, 
+    setSelectedVersionId, 
+    treeData, 
+    loading, 
+    error 
+  } = useVersionData(dbConnection);
 
-  if (!isConnected || isLoading) {
+  if (!isConnected || loading) {
     return <LoadingView />;
   }
 
@@ -21,15 +27,47 @@ const App = () => {
   return (
     <div style={{ 
       display: 'flex', 
+      flexDirection: 'column',
       height: '100vh', 
       padding: '20px',
       fontFamily: 'Arial, sans-serif'
     }}>
-      <TreeView 
-        treeData={treeData} 
-        // onNodeClick={handleNodeClick} 
-      />
-      {/* <NodeDetailsPanel selectedNode={selectedNode} /> */}
+      {/* バージョンセレクター */}
+      <div style={{ marginBottom: '20px' }}>
+        <label htmlFor="version-select" style={{ marginRight: '10px' }}>
+          バージョン:
+        </label>
+        <select 
+          id="version-select"
+          value={selectedVersionId} 
+          onChange={(e) => setSelectedVersionId(e.target.value)}
+          style={{
+            padding: '5px',
+            minWidth: '200px'
+          }}
+        >
+          {versions.length === 0 ? (
+            <option value="">バージョンが見つかりません</option>
+          ) : (
+            versions.map(version => (
+              <option key={version.id} value={version.id}>
+                {version.id} - {version.description}
+              </option>
+            ))
+          )}
+        </select>
+      </div>
+      
+      {/* ツリービュー */}
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {selectedVersionId && treeData.length > 0 ? (
+          <TreeView treeData={treeData} />
+        ) : (
+          <div style={{ padding: '20px', color: '#666' }}>
+            {selectedVersionId ? 'データを読み込んでいます...' : 'バージョンを選択してください'}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

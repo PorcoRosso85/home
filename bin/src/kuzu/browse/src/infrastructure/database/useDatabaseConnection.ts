@@ -6,11 +6,13 @@ import { onDatabaseReady } from './databaseEvent';
 import * as logger from '../../../../common/infrastructure/logger';
 
 interface DatabaseConnectionState {
+  dbConnection: any | null;
   isConnected: boolean;
   error: Error | null;
 }
 
 export function useDatabaseConnection(): DatabaseConnectionState {
+  const [dbConnection, setDbConnection] = useState<any | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -24,6 +26,7 @@ export function useDatabaseConnection(): DatabaseConnectionState {
           throw new Error('データベース接続が初期化されていません');
         }
         
+        setDbConnection(window.conn);
         setIsConnected(true);
         setError(null);
       } catch (err) {
@@ -39,5 +42,5 @@ export function useDatabaseConnection(): DatabaseConnectionState {
     return cleanup;
   }, []);
 
-  return { isConnected, error };
+  return { dbConnection, isConnected, error };
 }

@@ -35,9 +35,6 @@ function mountReactApp(): void {
  * アプリの初期化処理
  */
 async function initializeApp(): Promise<void> {
-  logger.debug('Reactアプリをマウント中...');
-  mountReactApp();
-  
   try {
     // 1. データベース初期化
     const conn = await createConnection();
@@ -50,6 +47,10 @@ async function initializeApp(): Promise<void> {
     
     // 4. database-readyイベントを発火
     dispatchDatabaseReady();
+    
+    // 5. Reactアプリをマウント（データベース準備完了後）
+    logger.debug('Reactアプリをマウント中...');
+    mountReactApp();
     
   } catch (error) {
     logger.error('初期化エラー:', error);

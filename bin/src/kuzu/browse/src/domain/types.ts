@@ -66,3 +66,12 @@ export interface LocationHierarchy {
   child_uri: string;
   relation_type: 'file_hierarchy' | 'requirement_hierarchy';
 }
+
+/**
+ * ツリーノード型定義（UI用）
+ */
+export interface TreeNode {
+  id: string;
+  name: string;
+  children: TreeNode[];
+}
