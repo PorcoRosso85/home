@@ -434,9 +434,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const dqlResponse = await fetch('/dql/');
       if (dqlResponse.ok) {
         const dqlFiles = await dqlResponse.json();
-        if (dqlFiles.includes('import.cypher')) {
-          logger.info('DQLインポートスクリプトを実行中: import.cypher');
-          await loadAndExecuteCypherScript(conn, `/dql/import.cypher`);
+        if (dqlFiles.includes('import_parquet.cypher')) {
+          logger.info('DQLインポートスクリプトを実行中: import_parquet.cypher');
+          await loadAndExecuteCypherScript(conn, `/dql/import_parquet.cypher`);
         } else {
           logger.info('DQLインポートスクリプトが見つかりません。');
         }

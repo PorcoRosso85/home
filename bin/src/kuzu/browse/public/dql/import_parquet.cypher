@@ -2,10 +2,10 @@
 -- エクスポートされたParquetファイルをkuzu-wasmにインポートします
 
 -- エクスポートされたスキーマファイルを使用してテーブルを作成
-SOURCE '/export_data/schema.cypher';
+SOURCE '/export_data/schema_parquet.cypher';
 
--- エクスポートされたcopy.cypherを使用してデータをインポート
-SOURCE '/export_data/copy.cypher';
+-- エクスポートされたcopy_parquet.cypherを使用してデータをインポート
+SOURCE '/export_data/copy_parquet.cypher';
 
 -- インポート結果の確認
 MATCH (n) RETURN count(n) as NodeCount;
