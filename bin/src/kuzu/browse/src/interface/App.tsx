@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TreeNode, { TreeNodeData } from './components/TreeNode';
 import { fetchAndBuildTree } from '../application/dataFetcher';
+import * as logger from '../../../common/infrastructure/logger';
 
 // URIの配列からツリー構造を構築する関数（後方互換性のため残す）
 const buildTreeFromUris = (uris: string[]): TreeNodeData[] => {
@@ -61,51 +62,46 @@ const App = () => {
     // データベースの初期化完了を待つ
     const handleDatabaseReady = async () => {
       try {
-        console.log('✓ database-ready イベントを受信しました');
+        logger.debug('database-ready イベントを受信しました');
         setIsLoading(true);
         setError(null);
-        console.log('✓ データ取得を開始します...');
+        logger.debug('データ取得を開始します...');
         const data = await fetchAndBuildTree();
-        console.log('✓ データ取得成功:', data);
+        logger.info(`データ取得成功: ${data.length}件`);
         setTreeData(data);
       } catch (err) {
-        console.error('✗ データ取得エラー:', err);
+        logger.error('データ取得エラー:', err);
         const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
         setError(errorMessage);
-        console.error('詳細エラー情報:', {
-          message: err.message,
-          stack: err.stack,
-          name: err.name
-        });
       } finally {
         setIsLoading(false);
-        console.log('✓ データ取得処理完了');
+        logger.debug('データ取得処理完了');
       }
     };
 
     // カスタムイベントでデータベース初期化の完了を待つ
     const eventName = 'database-ready';
-    console.log(`✓ ${eventName} イベントリスナーを設定します`);
+    logger.debug(`${eventName} イベントリスナーを設定します`);
     document.addEventListener(eventName, handleDatabaseReady);
 
     // 初期状態でデータベースが準備済みの場合を考慮
     if (window.conn) {
-      console.log('✓ データベースは既に準備済み、直接データを読み込みます');
+      logger.debug('データベースは既に準備済み、直接データを読み込みます');
       handleDatabaseReady();
     } else {
-      console.log('✓ データベース初期化を待機中...');
+      logger.debug('データベース初期化を待機中...');
     }
 
     // クリーンアップ
     return () => {
-      console.log(`✓ ${eventName} イベントリスナーを削除します`);
+      logger.debug(`${eventName} イベントリスナーを削除します`);
       document.removeEventListener(eventName, handleDatabaseReady);
     };
   }, []);
 
   const handleNodeClick = (node: TreeNodeData) => {
     setSelectedNode(node);
-    console.log('Selected node:', node);
+    logger.debug(`Selected node: ${node.id}`);
   };
 
   // ローディング表示
