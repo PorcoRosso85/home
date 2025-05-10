@@ -3,7 +3,7 @@ import { executeQuery } from '../../infrastructure/repository/queryExecutor';
 import { VersionState, TreeNode } from '../../domain/types';
 import * as logger from '../../../../common/infrastructure/logger';
 
-export const useVersionData = (dbConnection: any | null, showLatestOnly: boolean = false) => {
+export const useVersionData = (dbConnection: any | null) => {
   const [versions, setVersions] = useState<VersionState[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState<string>('');
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
@@ -68,16 +68,10 @@ export const useVersionData = (dbConnection: any | null, showLatestOnly: boolean
       try {
         setLoading(true);
         
-        let result;
-        if (showLatestOnly) {
-          // 全期間での最新バージョンのみ表示
-          result = await executeQuery(dbConnection, 'get_latest_locationuris', {});
-        } else {
-          // 指定バージョン以前の各URIの最新状態を取得
-          result = await executeQuery(dbConnection, 'get_uris_up_to_version', { 
-            version_id: selectedVersionId 
-          });
-        }
+        // 指定バージョン以前の各URIの最新状態を取得
+        const result = await executeQuery(dbConnection, 'get_uris_up_to_version', { 
+          version_id: selectedVersionId 
+        });
         
         if (result.success && result.data) {
           const queryResult = await result.data.getAllObjects();
@@ -90,11 +84,11 @@ export const useVersionData = (dbConnection: any | null, showLatestOnly: boolean
             path: row.path,
             fragment: row.fragment || '',
             query: row.query || '',
-            from_version: row.from_version || row.latest_version_id,
+            from_version: row.from_version,
             version_description: row.version_description
           }));
           
-          // 簡易的な階層構造変換（パスベース）
+          // 階層構造変換（パスベース）
           const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris, selectedVersionId);
           setTreeData(treeNodes);
         }
@@ -107,7 +101,7 @@ export const useVersionData = (dbConnection: any | null, showLatestOnly: boolean
     };
 
     fetchTreeData();
-  }, [dbConnection, selectedVersionId, showLatestOnly]);
+  }, [dbConnection, selectedVersionId]);
 
   return {
     versions,

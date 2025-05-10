@@ -5,9 +5,15 @@ import { TreeView } from './components/TreeView';
 import { useDatabaseConnection } from '../infrastructure/database/useDatabaseConnection';
 import { useVersionData } from '../application/hooks/useVersionData';
 
+import React from 'react';
+import { LoadingView } from './components/LoadingView';
+import { ErrorView } from './components/ErrorView';
+import { TreeView } from './components/TreeView';
+import { useDatabaseConnection } from '../infrastructure/database/useDatabaseConnection';
+import { useVersionData } from '../application/hooks/useVersionData';
+
 const App = () => {
   const { dbConnection, isConnected, error: dbError } = useDatabaseConnection();
-  const [showLatestOnly, setShowLatestOnly] = useState(false); // デフォルトはバージョン指定表示
   
   const { 
     versions, 
@@ -16,7 +22,7 @@ const App = () => {
     treeData, 
     loading, 
     error 
-  } = useVersionData(dbConnection, showLatestOnly);
+  } = useVersionData(dbConnection);
 
   if (!isConnected || loading) {
     return <LoadingView />;
@@ -34,22 +40,10 @@ const App = () => {
       padding: '20px',
       fontFamily: 'Arial, sans-serif'
     }}>
-      {/* 表示モード切り替え */}
-      <div style={{ marginBottom: '10px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <input
-            type="checkbox"
-            checked={showLatestOnly}
-            onChange={(e) => setShowLatestOnly(e.target.checked)}
-          />
-          全期間での最新バージョンのみ表示
-        </label>
-      </div>
-      
       {/* バージョンセレクター */}
       <div style={{ marginBottom: '20px' }}>
         <label htmlFor="version-select" style={{ marginRight: '10px' }}>
-          {showLatestOnly ? '(表示専用)最新バージョン:' : '指定バージョン以前の状態を表示:'}
+          バージョン選択（指定バージョン以前の各URIの最新状態を表示）:
         </label>
         <select 
           id="version-select"
@@ -59,7 +53,6 @@ const App = () => {
             padding: '5px',
             minWidth: '200px'
           }}
-          disabled={showLatestOnly}
         >
           {versions.length === 0 ? (
             <option value="">バージョンが見つかりません</option>
