@@ -6,7 +6,7 @@ import * as logger from '../../common/infrastructure/logger';
 import { dispatchDatabaseReady } from './infrastructure/database/databaseEvent';
 import { createConnection } from './infrastructure/repository/databaseConnection';
 import { createSchema } from './application/usecase/createSchema';
-import { seedLocationUris } from './application/usecase/seedLocationUris';
+import { seedDefaultData } from './application/usecase/seedDefaultData';
 
 // ブラウザ用にログレベルを設定
 (window as any).LOG_LEVEL = 4; // DEBUG level
@@ -45,8 +45,8 @@ async function initializeApp(): Promise<void> {
     // 2. DDL実行
     await createSchema(conn);
     
-    // 3. サンプルデータ挿入
-    await seedLocationUris(conn);
+    // 3. デフォルトデータ挿入
+    await seedDefaultData(conn);
     
     // 4. database-readyイベントを発火
     dispatchDatabaseReady();
