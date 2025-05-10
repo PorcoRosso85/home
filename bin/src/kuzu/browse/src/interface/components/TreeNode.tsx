@@ -1,17 +1,5 @@
 import React from 'react';
-import { GraphNode } from '../../domain/types';
-
-/**
- * ツリーノード表示用の型定義
- */
-export interface TreeNodeData {
-  id: string | number;
-  type: string;
-  name: string;
-  uri: string;
-  properties: Record<string, any>;
-  children?: TreeNodeData[];
-}
+import type { TreeNodeData } from '../../domain/entity/locationUri';
 
 interface TreeNodeProps {
   node: TreeNodeData;
@@ -70,7 +58,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       
       {hasChildren && (
         <div style={{ paddingLeft: '20px', marginTop: '4px' }}>
-          {node.children.map((child, index) => (
+          {node.children!.map((child, index) => (
             <TreeNode
               key={`${child.id}-${index}`}
               node={child}

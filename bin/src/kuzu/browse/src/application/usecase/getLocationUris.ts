@@ -1,22 +1,15 @@
-import type { LocationUri } from '../../../query/domain/uriTypes';
-import type { TreeNodeData } from '../interface/components/TreeNode';
-import { buildDynamicTree } from './uriParser';
-import * as logger from '../../../common/infrastructure/logger';
+import type { LocationUri } from '../../domain/entity/locationUri';
+import * as logger from '../../../../common/infrastructure/logger';
 
-// グローバル定義（TypeScript用）
 declare global {
   interface Window {
-    kuzu: any; // Kuzuモジュールのみグローバルに保持
-    conn: any; // グローバル接続
+    kuzu: any;
+    conn: any;
   }
 }
 
-/**
- * KuzuDBからLocationUri一覧を取得
- */
-export async function fetchLocationUris(): Promise<LocationUri[]> {
+export async function getLocationUris(): Promise<LocationUri[]> {
   try {
-    // グローバルに保存された接続を使用
     if (!window.conn) {
       logger.error('データベース接続が初期化されていません');
       throw new Error('データベース接続が初期化されていません');
@@ -59,28 +52,7 @@ export async function fetchLocationUris(): Promise<LocationUri[]> {
     logger.info(`LocationUri取得完了: ${locationUris.length}件`);
     return locationUris;
   } catch (error) {
-    logger.error('fetchLocationUris エラー:', error);
+    logger.error('getLocationUris エラー:', error);
     throw error;
   }
-}
-
-/**
- * LocationUriからツリーデータを構築
- */
-export async function fetchAndBuildTree(): Promise<TreeNodeData[]> {
-  logger.debug('ツリーデータ構築開始');
-  const locationUris = await fetchLocationUris();
-  const tree = buildDynamicTree(locationUris);
-  logger.debug(`ツリーデータ構築完了: ${tree.length}ノード`);
-  return tree;
-}
-
-/**
- * 特定のスキームのLocationUriを取得
- */
-export async function fetchLocationUrisByScheme(scheme: string): Promise<LocationUri[]> {
-  const allUris = await fetchLocationUris();
-  const filtered = allUris.filter(uri => uri.scheme === scheme);
-  logger.info(`フィルタリング結果: ${filtered.length}件（scheme=${scheme}）`);
-  return filtered;
 }

@@ -12,26 +12,6 @@ export interface DatabaseResult {
 }
 
 /**
- * グラフノード
- */
-export interface GraphNode {
-  id: string | number;
-  type: string;
-  properties: Record<string, any>;
-}
-
-/**
- * グラフエッジ
- */
-export interface GraphEdge {
-  id?: string | number;
-  type: string;
-  source: string | number;
-  target: string | number;
-  properties?: Record<string, any>;
-}
-
-/**
  * ステータスメッセージ
  */
 export interface StatusMessage {

@@ -2,7 +2,7 @@
  * ノード詳細表示パネルコンポーネント
  */
 import React from 'react';
-import { TreeNodeData } from './TreeNode';
+import type { TreeNodeData } from '../../domain/entity/locationUri';
 
 interface NodeDetailsPanelProps {
   selectedNode: TreeNodeData | null;

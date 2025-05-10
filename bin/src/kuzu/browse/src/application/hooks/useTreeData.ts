@@ -2,8 +2,8 @@
  * データ取得・状態管理のカスタムフック
  */
 import { useState, useEffect, useCallback } from 'react';
-import type { TreeNodeData } from '../../interface/components/TreeNode';
-import { fetchAndBuildTree } from '../dataFetcher';
+import type { TreeNodeData } from '../../domain/entity/locationUri';
+import { buildLocationTree } from '../usecase/buildLocationTree';
 import { onDatabaseReady } from '../../infrastructure/database/databaseEvent';
 import * as logger from '../../../../common/infrastructure/logger';
 
@@ -31,7 +31,7 @@ export function useTreeData(): TreeDataState {
       setIsLoading(true);
       setError(null);
       logger.debug('データ取得を開始します...');
-      const data = await fetchAndBuildTree();
+      const data = await buildLocationTree();
       logger.info(`データ取得成功: ${data.length}件`);
       setTreeData(data);
     } catch (err) {
