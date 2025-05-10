@@ -37,12 +37,12 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         padding: '8px',
         margin: '4px 0',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        cursor: 'pointer'
+        // cursor: 'pointer'
       }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onNodeClick && onNodeClick(node);
-      }}
+      // onClick={(e) => {
+      //   e.stopPropagation();
+      //   onNodeClick && onNodeClick(node);
+      // }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <div>
@@ -64,7 +64,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               node={child}
               level={level + 1}
               maxDepth={maxDepth}
-              onNodeClick={onNodeClick}
+              // onNodeClick={onNodeClick}
             />
           ))}
         </div>

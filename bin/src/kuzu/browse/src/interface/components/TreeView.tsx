@@ -7,7 +7,7 @@ import type { TreeNodeData } from '../../domain/entity/locationUri';
 
 interface TreeViewProps {
   treeData: TreeNodeData[];
-  onNodeClick: (node: TreeNodeData) => void;
+  onNodeClick?: (node: TreeNodeData) => void;
 }
 
 export const TreeView: React.FC<TreeViewProps> = ({ treeData, onNodeClick }) => {
@@ -21,7 +21,7 @@ export const TreeView: React.FC<TreeViewProps> = ({ treeData, onNodeClick }) => 
           <TreeNode
             key={`root-${index}`}
             node={node}
-            onNodeClick={onNodeClick}
+            // onNodeClick={onNodeClick}
           />
         ))
       )}
