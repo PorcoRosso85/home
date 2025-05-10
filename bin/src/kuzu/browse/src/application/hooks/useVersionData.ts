@@ -122,8 +122,7 @@ export const useVersionData = (dbConnection: any | null, showLatestOnly: boolean
 // LocationURIからツリー構造を構築する簡易実装
 function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: string): TreeNode[] {
   const tree: TreeNode[] = [];
-  const nodeMap = new Map<string, TreeNode>();
-
+  
   // スキーム別にグループ化
   const schemeGroups = locationUris.reduce((acc, uri) => {
     if (!acc[uri.scheme]) {
@@ -141,20 +140,72 @@ function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: stri
       children: []
     };
     
-    // 各URIをツリーに追加
-    uris.forEach(uri => {
-      const leafNode: TreeNode = {
-        id: uri.uri_id,
-        name: `${uri.path}${uri.fragment ? '#' + uri.fragment : ''}${uri.query ? '?' + uri.query : ''}`,
-        children: [],
-        from_version: uri.from_version,
-        isCurrentVersion: uri.from_version === selectedVersionId
-      };
-      rootNode.children.push(leafNode);
-    });
+    // ファイルシステムの場合は階層構造を構築
+    if (scheme === 'file') {
+      buildFileHierarchy(rootNode, uris, selectedVersionId);
+    } else {
+      // その他のスキームは単純にリスト表示
+      uris.forEach(uri => {
+        const leafNode: TreeNode = {
+          id: uri.uri_id,
+          name: `${uri.path}${uri.fragment ? '#' + uri.fragment : ''}${uri.query ? '?' + uri.query : ''}`,
+          children: [],
+          from_version: uri.from_version,
+          isCurrentVersion: uri.from_version === selectedVersionId
+        };
+        rootNode.children.push(leafNode);
+      });
+    }
     
     tree.push(rootNode);
   });
 
   return tree;
+}
+
+// ファイル階層を構築する関数
+function buildFileHierarchy(rootNode: TreeNode, uris: any[], selectedVersionId?: string) {
+  const pathMap = new Map<string, TreeNode>();
+  
+  // ルートノードをマップに追加
+  pathMap.set('/', rootNode);
+  
+  // パスをソートして親から順に処理
+  const sortedUris = uris.sort((a, b) => a.path.localeCompare(b.path));
+  
+  sortedUris.forEach(uri => {
+    const pathParts = uri.path.split('/').filter(part => part !== '');
+    let currentPath = '';
+    let parentNode = rootNode;
+    
+    // パスの各部分を処理
+    for (let i = 0; i < pathParts.length; i++) {
+      currentPath += '/' + pathParts[i];
+      
+      // 既存のノードを探す
+      let currentNode = pathMap.get(currentPath);
+      
+      if (!currentNode) {
+        // 新規ノードを作成
+        currentNode = {
+          id: currentPath,
+          name: pathParts[i],
+          children: [],
+          from_version: uri.from_version,
+          isCurrentVersion: uri.from_version === selectedVersionId
+        };
+        parentNode.children.push(currentNode);
+        pathMap.set(currentPath, currentNode);
+      }
+      
+      // 最後の部分（ファイル名）の場合は、フラグメントやクエリを追加
+      if (i === pathParts.length - 1) {
+        currentNode.name += uri.fragment ? '#' + uri.fragment : '';
+        currentNode.name += uri.query ? '?' + uri.query : '';
+        currentNode.id = uri.uri_id;
+      }
+      
+      parentNode = currentNode;
+    }
+  });
 }
