@@ -58,21 +58,49 @@ const App = () => {
 
   // データ取得の副作用
   useEffect(() => {
-    async function loadData() {
+    // データベースの初期化完了を待つ
+    const handleDatabaseReady = async () => {
       try {
+        console.log('✓ database-ready イベントを受信しました');
         setIsLoading(true);
         setError(null);
+        console.log('✓ データ取得を開始します...');
         const data = await fetchAndBuildTree();
+        console.log('✓ データ取得成功:', data);
         setTreeData(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-        console.error('Failed to load tree data:', err);
+        console.error('✗ データ取得エラー:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
+        setError(errorMessage);
+        console.error('詳細エラー情報:', {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        });
       } finally {
         setIsLoading(false);
+        console.log('✓ データ取得処理完了');
       }
+    };
+
+    // カスタムイベントでデータベース初期化の完了を待つ
+    const eventName = 'database-ready';
+    console.log(`✓ ${eventName} イベントリスナーを設定します`);
+    document.addEventListener(eventName, handleDatabaseReady);
+
+    // 初期状態でデータベースが準備済みの場合を考慮
+    if (window.conn) {
+      console.log('✓ データベースは既に準備済み、直接データを読み込みます');
+      handleDatabaseReady();
+    } else {
+      console.log('✓ データベース初期化を待機中...');
     }
 
-    loadData();
+    // クリーンアップ
+    return () => {
+      console.log(`✓ ${eventName} イベントリスナーを削除します`);
+      document.removeEventListener(eventName, handleDatabaseReady);
+    };
   }, []);
 
   const handleNodeClick = (node: TreeNodeData) => {

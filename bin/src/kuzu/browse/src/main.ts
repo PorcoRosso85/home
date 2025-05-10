@@ -3,8 +3,6 @@
 
 import * as logger from '../../common/infrastructure/logger';
 import { APP_NAME, APP_VERSION } from '../../common/infrastructure/variables';
-// DMLアプリケーションのインポートを追加
-import { runDMLDemo } from '../../query/application/dml';
 
 logger.info(`${APP_NAME} Parquet Viewer v${APP_VERSION} - 初期化中...`);
 
@@ -30,81 +28,6 @@ function updateStatus(message: StatusMessage): void {
       logger.info(`⟳ ${message.text}`);
       break;
   }
-}
-
-// Parquetファイルをfetchしてwasm ファイルシステムに書き込む
-async function preloadParquetFiles(kuzu: any) {
-  updateStatus({ text: 'Parquetファイルをプリロード中...', type: 'loading' });
-  
-  // 必要なParquetファイルのリスト
-  const parquetFiles = [
-    'EntityAggregationView.parquet',
-    'RequirementVerification.parquet',
-    'LocationURI.parquet',
-    'VersionState.parquet',
-    'ReferenceEntity.parquet',
-    'CodeEntity.parquet',
-    'RequirementEntity.parquet',
-    'DEPENDS_ON.parquet',
-    'VERIFICATION_IS_IMPLEMENTED_BY.parquet',
-    'AGGREGATES_CODE.parquet',
-    'IS_IMPLEMENTED_BY.parquet',
-    'CONTAINS_LOCATION.parquet',
-    'HAS_LOCATION.parquet',
-    'REQUIREMENT_HAS_LOCATION.parquet',
-    'TRACKS_STATE_OF_REF.parquet',
-    'USES.parquet',
-    'AGGREGATES_REQ.parquet',
-    'TRACKS_STATE_OF_REQ.parquet',
-    'FOLLOWS.parquet',
-    'TRACKS_STATE_OF_CODE.parquet',
-    'CONTAINS_CODE.parquet',
-    'REFERENCES_CODE.parquet',
-    'VERIFIED_BY.parquet',
-    'REFERENCES_EXTERNAL.parquet',
-    'REFERENCE_HAS_LOCATION.parquet'
-  ];
-  
-  let successCount = 0;
-  let failCount = 0;
-  
-  for (const fileName of parquetFiles) {
-    try {
-      // HTTPでファイルを取得
-      const response = await fetch(`/export_data/${fileName}`);
-      if (!response.ok) {
-        throw new Error(`HTTPエラー: ${response.status}`);
-      }
-      
-      // バイナリデータを取得
-      const fileData = await response.arrayBuffer();
-      
-      // WASM仮想ファイルシステムに書き込む
-      kuzu.FS.writeFile(`/${fileName}`, new Uint8Array(fileData));
-      
-      successCount++;
-      logger.info(`Parquetファイルプリロード成功: ${fileName}`);
-    } catch (error) {
-      failCount++;
-      logger.error(`Parquetファイルプリロード失敗: ${fileName} - ${error.message}`);
-      updateStatus({ text: `Parquetファイルプリロード失敗: ${fileName} - ${error.message}`, type: 'error' });
-    }
-  }
-  
-  // WASM FSの内容を確認（デバッグ用）
-  try {
-    const files = kuzu.FS.readdir('/');
-    logger.info("WASM FSのファイル一覧:", files);
-  } catch (err) {
-    logger.error("WASM FSの内容確認エラー:", err);
-  }
-  
-  updateStatus({ 
-    text: `Parquetファイルプリロード完了 (${successCount}成功/${failCount}失敗)`, 
-    type: failCount > 0 ? 'error' : 'success' 
-  });
-  
-  return successCount > 0;
 }
 
 // Kuzuデータベースを初期化する関数
@@ -141,11 +64,6 @@ async function initializeDatabase() {
     }
     // ------- 修正ここまで -------
     
-    updateStatus({ text: 'Parquetファイルを仮想ファイルシステムに転送中...', type: 'loading' });
-    
-    // Parquetファイルをプリロード
-    await preloadParquetFiles(kuzu);
-    
     updateStatus({ text: 'インメモリデータベースを初期化中...', type: 'loading' });
     
     // インメモリデータベースを作成
@@ -171,6 +89,11 @@ async function initializeDatabase() {
     // ------- 修正ここまで -------
     
     updateStatus({ text: 'データベース初期化完了', type: 'success' });
+    
+    // KuzuモジュールのみグローバルスコープにセットappDataFetcher.ts等から使用
+    window.kuzu = kuzu;
+    
+    console.log('✓ Kuzuモジュールをグローバルスコープに設定しました');
     
     return { kuzu, db, conn };
   } catch (error) {
@@ -358,8 +281,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     logger.info("=== DDLファイルの実行開始 ===");
     
     try {
-      // ------- 修正: 追加の待機とデータベース接続テスト -------
-      // もう一度データベース接続をテスト
+      // 接続テスト
       try {
         logger.info('実行前に接続状態をもう一度テスト中...');
         const testQuery = "RETURN 2 as test";
@@ -390,40 +312,47 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
       
-      // DDL実行後、DMLアプリケーションを実行
+      // 接続を閉じる
       try {
-        updateStatus({ text: 'DMLアプリケーションを実行中...', type: 'loading' });
-        logger.info('DMLアプリケーションの実行を開始します...');
-        
-        await runDMLDemo(conn);
-        
-        updateStatus({ text: 'DMLアプリケーション実行完了', type: 'success' });
-        logger.info('DMLアプリケーションの実行が完了しました');
-      } catch (error) {
-        updateStatus({ text: `DMLアプリケーション実行エラー: ${error.message}`, type: 'error' });
-        logger.error('DMLアプリケーション実行エラー:', error);
+        await conn.close();
+        logger.info('✓ DDL実行用の接続をクローズしました');
+      } catch (e) {
+        logger.error('✗ 接続のクローズエラー:', e);
       }
       
-      // データ検証
-      logger.info("=== データベース検証 ===");
+      updateStatus({ text: 'DDL実行とParquet読み込み完了', type: 'success' });
+      
+      // データベース準備完了イベントを発火
+      const event = new CustomEvent('database-ready');
+      document.dispatchEvent(event);
+      logger.info('✓ database-ready イベントを発火しました');
+      logger.info('✓ Reactコンポーネントがデータ取得を開始できます');
+      
+      // データ検証（簡易版）- 新しい接続を作成
       try {
-        const countQuery = "MATCH (n) RETURN count(n) as NodeCount";
-        const relCountQuery = "MATCH ()-[r]->() RETURN count(r) as RelCount";
+        logger.info("=== 簡易データ検証開始 ===");
         
-        const nodeResult = await conn.query(countQuery);
-        const nodeData = await nodeResult.getAllObjects();
-        logger.info("ノード数:", nodeData);
+        // Kuzuモジュールがグローバルにあることを確認
+        if (!window.kuzu) {
+          throw new Error('Kuzuモジュールが初期化されていません');
+        }
         
-        const relResult = await conn.query(relCountQuery);
-        const relData = await relResult.getAllObjects();
-        logger.info("リレーションシップ数:", relData);
+        const verifyDb = new window.kuzu.Database("");
+        const verifyConn = new window.kuzu.Connection(verifyDb);
         
-        updateStatus({ 
-          text: `データベースロード完了: ${nodeData[0]?.NodeCount || 0} ノード, ${relData[0]?.RelCount || 0} リレーションシップ`, 
-          type: 'success' 
-        });
+        try {
+          const testQuery = "MATCH (n) RETURN count(n) as NodeCount LIMIT 1";
+          const result = await verifyConn.query(testQuery);
+          const data = await result.getAllObjects();
+          logger.info("現在のノード数:", data);
+          await result.close();
+        } finally {
+          await verifyConn.close();
+          await verifyDb.close();
+          logger.info("✓ 検証用の接続をクリーンアップしました");
+        }
       } catch (verifyError) {
-        logger.error("データベース検証エラー:", verifyError);
+        logger.error("データ検証エラー:", verifyError);
       }
       
     } catch (error) {
@@ -448,6 +377,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 declare global {
   interface Window {
     db_path: string;
-    kuzu: any; // Kuzu WASMオブジェクト
+    kuzu: any; // KuzuモジュールのみグローバルVに保持
   }
 }

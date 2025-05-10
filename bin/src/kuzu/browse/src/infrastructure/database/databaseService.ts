@@ -3,6 +3,9 @@
  * Parquet読み込み機能のみサポート
  */
 
+// 共通loggerをインポート
+import * as logger from '../../../../common/infrastructure/logger';
+
 /**
  * データベース初期化の戻り値型
  */
@@ -50,34 +53,34 @@ export const createError = (code: string, message: string, error?: Error): Datab
  */
 export const initializeDatabase = async (): Promise<DatabaseResult> => {
   try {
-    console.log('Kuzu-Wasmモジュールのロード開始...');
+    logger.info('Kuzu-Wasmモジュールのロード開始...');
     
     // Kuzu-Wasmのロード
     const kuzuWasm = await import("../../../node_modules/kuzu-wasm");
-    console.log('Kuzu-Wasmモジュールのロード完了');
+    logger.info('Kuzu-Wasmモジュールのロード完了');
     
     // Kuzuインスタンス化
-    console.log('Kuzuインスタンス化開始...');
+    logger.info('Kuzuインスタンス化開始...');
     const kuzu = kuzuWasm.default || kuzuWasm;
-    console.log('Kuzuインスタンス化完了');
+    logger.info('Kuzuインスタンス化完了');
     
     try {
       // インメモリデータベースを作成
-      console.log('インメモリデータベース作成開始');
+      logger.info('インメモリデータベース作成開始');
       const db = new kuzu.Database("");
-      console.log('データベース作成完了');
+      logger.info('データベース作成完了');
       
       // グローバルにDBパスを保存
       window.db_path = "memory";
       
       // データベース接続の作成
-      console.log('データベース接続開始...');
+      logger.info('データベース接続開始...');
       const conn = new kuzu.Connection(db);
-      console.log('データベース接続完了');
+      logger.info('データベース接続完了');
       
       return { kuzu, db, conn };
     } catch (dbError) {
-      console.error('データベース作成エラー:', dbError);
+      logger.error('データベース作成エラー:', dbError);
       return createError(
         'DB_CREATION_ERROR',
         `データベースの作成中にエラーが発生しました: ${dbError.message}`,
@@ -85,7 +88,7 @@ export const initializeDatabase = async (): Promise<DatabaseResult> => {
       );
     }
   } catch (error) {
-    console.error('Kuzu初期化エラー:', error);
+    logger.error('Kuzu初期化エラー:', error);
     return createError(
       'KUZU_INIT_ERROR',
       `Kuzuの初期化中にエラーが発生しました: ${error.message}`,
@@ -106,12 +109,12 @@ export const executeCypherScript = async (
   scriptPath: string
 ): Promise<boolean | DatabaseError> => {
   try {
-    console.log(`Cypherスクリプトを読み込み中: ${scriptPath}`);
+    logger.info(`Cypherスクリプトを読み込み中: ${scriptPath}`);
     
     // ファイルを取得
     const response = await fetch(scriptPath);
     if (!response.ok) {
-      console.error(`スクリプトロードエラー: ${response.status} ${response.statusText}`);
+      logger.error(`スクリプトロードエラー: ${response.status} ${response.statusText}`);
       return createError(
         'SCRIPT_LOAD_ERROR',
         `スクリプトのロードに失敗しました: ${response.status} ${response.statusText}`
@@ -119,7 +122,7 @@ export const executeCypherScript = async (
     }
     
     const scriptContent = await response.text();
-    console.log(`スクリプト読み込み成功: ${scriptPath}、長さ: ${scriptContent.length}文字`);
+    logger.info(`スクリプト読み込み成功: ${scriptPath}、長さ: ${scriptContent.length}文字`);
     
     // スクリプトを行ごとに分割し、コマンドを抽出
     const commands = scriptContent
@@ -134,7 +137,7 @@ export const executeCypherScript = async (
       );
     }
     
-    console.log(`実行するコマンド数: ${commands.length}`);
+    logger.info(`実行するコマンド数: ${commands.length}`);
     
     let successCount = 0;
     let failureCount = 0;
@@ -144,16 +147,16 @@ export const executeCypherScript = async (
     // 各コマンドを順番に実行
     for (const command of commands) {
       try {
-        console.log(`Cypherコマンド実行: ${command}`);
+        logger.info(`Cypherコマンド実行: ${command}`);
         
         if (command.toLowerCase().startsWith('source')) {
           // SOURCEコマンドはファイルを読み込む
           const sourceFilePath = command.match(/['"]([^'"]+)['"]/)?.[1];
           if (sourceFilePath) {
-            console.log(`SOURCEコマンドを検出: ${sourceFilePath}`);
+            logger.info(`SOURCEコマンドを検出: ${sourceFilePath}`);
             const sourceResult = await executeCypherScript(conn, sourceFilePath);
             if (sourceResult !== true) {
-              console.error(`SOURCEファイルの実行に失敗: ${sourceFilePath}`);
+              logger.error(`SOURCEファイルの実行に失敗: ${sourceFilePath}`);
               failureCount++;
               lastError = sourceResult;
               
@@ -162,7 +165,7 @@ export const executeCypherScript = async (
             }
             successCount++;
           } else {
-            console.error(`SOURCEコマンドの形式が不正: ${command}`);
+            logger.error(`SOURCEコマンドの形式が不正: ${command}`);
             failureCount++;
             lastError = createError(
               'INVALID_SOURCE_COMMAND',
@@ -176,9 +179,9 @@ export const executeCypherScript = async (
           const tableName = command.match(/COPY\s+[`"]?([^`"\s(]+)[`"]?/i)?.[1];
           
           try {
-            console.log(`Parquetファイル読み込み試行: ${filePath || 'ファイル名不明'} → ${tableName || 'テーブル名不明'}`);
+            logger.info(`Parquetファイル読み込み試行: ${filePath || 'ファイル名不明'} → ${tableName || 'テーブル名不明'}`);
             await conn.query(command);
-            console.log(`Parquetファイル読み込み成功: ${filePath || 'ファイル名不明'}`);
+            logger.info(`Parquetファイル読み込み成功: ${filePath || 'ファイル名不明'}`);
             successCount++;
             
             // 読み込んだテーブルの内容をチェック
@@ -190,16 +193,16 @@ export const executeCypherScript = async (
                 const count = countData[0]?.count || 0;
                 
                 if (count === 0) {
-                  console.warn(`警告: ${tableName} テーブルにデータがありません (${filePath || 'ファイル名不明'})`);
+                  logger.warn(`警告: ${tableName} テーブルにデータがありません (${filePath || 'ファイル名不明'})`);
                 } else {
-                  console.log(`${tableName} テーブルに ${count} 件のデータを読み込みました`);
+                  logger.info(`${tableName} テーブルに ${count} 件のデータを読み込みました`);
                 }
               } catch (countErr) {
-                console.warn(`テーブル ${tableName} の件数確認エラー:`, countErr);
+                logger.warn(`テーブル ${tableName} の件数確認エラー:`, countErr);
               }
             }
           } catch (copyErr) {
-            console.error(`Parquetファイル読み込みエラー: ${filePath || 'ファイル名不明'} - ${copyErr.message}`);
+            logger.error(`Parquetファイル読み込みエラー: ${filePath || 'ファイル名不明'} - ${copyErr.message}`);
             failureCount++;
             parquetLoadFailed = true;
             lastError = createError(
@@ -214,8 +217,8 @@ export const executeCypherScript = async (
             await conn.query(command);
             successCount++;
           } catch (queryErr) {
-            console.error(`クエリ実行エラー: ${queryErr.message}`);
-            console.error(`問題のクエリ: ${command}`);
+            logger.error(`クエリ実行エラー: ${queryErr.message}`);
+            logger.error(`問題のクエリ: ${command}`);
             failureCount++;
             lastError = createError(
               'QUERY_ERROR',
@@ -225,7 +228,7 @@ export const executeCypherScript = async (
           }
         }
       } catch (cmdError) {
-        console.error(`コマンド実行エラー: ${cmdError.message}`);
+        logger.error(`コマンド実行エラー: ${cmdError.message}`);
         failureCount++;
         lastError = createError(
           'COMMAND_EXECUTION_ERROR',
@@ -238,13 +241,13 @@ export const executeCypherScript = async (
     // 結果のサマリー
     if (failureCount > 0) {
       if (parquetLoadFailed) {
-        console.error(`スクリプト実行中にParquetファイルの読み込みに失敗しました (${successCount}成功/${failureCount}失敗)`);
+        logger.error(`スクリプト実行中にParquetファイルの読み込みに失敗しました (${successCount}成功/${failureCount}失敗)`);
         return createError(
           'PARQUET_LOAD_FAILED',
           `Parquetファイルの読み込みに失敗しました。詳細: ${lastError?.message || 'エラーの詳細は不明です'}`
         );
       } else {
-        console.error(`スクリプト実行中にエラーが発生しました (${successCount}成功/${failureCount}失敗)`);
+        logger.error(`スクリプト実行中にエラーが発生しました (${successCount}成功/${failureCount}失敗)`);
         return lastError || createError(
           'SCRIPT_PARTIAL_FAILURE',
           `スクリプトの一部コマンドが失敗しました (${successCount}成功/${failureCount}失敗)`
@@ -252,10 +255,10 @@ export const executeCypherScript = async (
       }
     }
     
-    console.log(`スクリプト実行完了: ${scriptPath} (${successCount}コマンド成功)`);
+    logger.info(`スクリプト実行完了: ${scriptPath} (${successCount}コマンド成功)`);
     return true;
   } catch (error) {
-    console.error(`スクリプト実行エラー: ${error.message}`);
+    logger.error(`スクリプト実行エラー: ${error.message}`);
     return createError(
       'SCRIPT_EXECUTION_ERROR',
       `スクリプト実行中にエラーが発生しました: ${error.message}`,
@@ -275,15 +278,15 @@ export const cleanupDatabaseResources = async (
   db: any
 ): Promise<DatabaseError | null> => {
   try {
-    console.log('接続をクローズしています...');
+    logger.info('接続をクローズしています...');
     await conn.close();
-    console.log('接続がクローズされました');
+    logger.info('接続がクローズされました');
     
     await db.close();
-    console.log('データベースがクローズされました');
+    logger.info('データベースがクローズされました');
     return null;
   } catch (error) {
-    console.error('クリーンアップエラー:', error);
+    logger.error('クリーンアップエラー:', error);
     return createError(
       'CLEANUP_ERROR',
       `データベースリソースのクリーンアップ中にエラーが発生しました: ${error.message}`,

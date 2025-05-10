@@ -144,14 +144,40 @@ export async function executeQuery(
     return queryResult;
   }
   
-  const query = queryResult.data!;
+  let query = queryResult.data!;
   console.log(`Query to execute: "${query}"`);
   console.log(`Query params:`, params);
   
+  // パラメータがある場合は、まずパラメータを文字列に置き換える方式を試す
+  // KuzuDBがパラメータバインディングをサポートしていない可能性があるため
+  if (Object.keys(params).length > 0) {
+    for (const [key, value] of Object.entries(params)) {
+      // 値の型に応じて適切な形式に変換
+      let sqlValue;
+      if (value === null || value === undefined) {
+        sqlValue = 'NULL';
+      } else if (typeof value === 'string') {
+        // 文字列の場合は、シングルクォートで囲む
+        sqlValue = `'${value.replace(/'/g, "\\'")}'`;
+      } else if (typeof value === 'number') {
+        sqlValue = value.toString();
+      } else if (typeof value === 'boolean') {
+        sqlValue = value ? 'true' : 'false';
+      } else {
+        // その他の場合は文字列として扱う
+        sqlValue = `'${String(value).replace(/'/g, "\\'")}'`;
+      }
+      
+      // パラメータプレースホルダーを置き換える
+      query = query.replace(new RegExp(`\\$${key}`, 'g'), sqlValue);
+    }
+    console.log(`Query after parameter substitution: "${query}"`);
+  }
+  
   // クエリを実行
   try {
-    // Kuzuのコネクションオブジェクトに応じてメソッド名を調整
-    const result = await (connection.query ? connection.query(query, params) : connection.executeQuery(query, params));
+    // パラメータを直接埋め込んだクエリを実行
+    const result = await connection.query(query);
     console.log(`Query executed successfully:`, result);
     return { success: true, data: result };
   } catch (e) {
