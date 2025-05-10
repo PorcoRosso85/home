@@ -1,0 +1,8 @@
+{
+  "entity_type": "edge",
+  "table_name": "HAS_LOCATION",
+  "from_table": "CodeEntity",
+  "to_table": "LocationURI",
+  "templates": ["create", "match"],
+  "properties": {}
+}

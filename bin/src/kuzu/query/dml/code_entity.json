@@ -1,0 +1,36 @@
+{
+  "entity_type": "node",
+  "table_name": "CodeEntity",
+  "templates": ["create", "match", "update"],
+  "properties": {
+    "persistent_id": {
+      "type": "string",
+      "primary_key": true, 
+      "description": "コードエンティティの永続的な識別子"
+    },
+    "name": {
+      "type": "string",
+      "description": "エンティティの名前"
+    },
+    "type": {
+      "type": "string",
+      "description": "エンティティのタイプ（クラス、関数など）"
+    },
+    "signature": {
+      "type": "string",
+      "description": "関数またはメソッドのシグネチャ"
+    },
+    "complexity": {
+      "type": "int64",
+      "description": "コード複雑性メトリクス"
+    },
+    "start_position": {
+      "type": "int64",
+      "description": "ソースファイル内の開始位置"
+    },
+    "end_position": {
+      "type": "int64",
+      "description": "ソースファイル内の終了位置"
+    }
+  }
+}
