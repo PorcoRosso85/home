@@ -34,8 +34,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
       borderRadius: '4px',
       // 計算された背景色を適用
       background: backgroundColor,
-      border: '1px solid #e0e0e0',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
     }}>
       {/* コンテンツ */}
       <div style={{ position: 'relative', zIndex: 1 }}>
