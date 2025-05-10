@@ -1,5 +1,5 @@
 import React from 'react';
-import type { TreeNodeData } from '../../domain/entity/locationUri';
+import type { TreeNode as TreeNodeData } from '../../domain/types';
 
 interface TreeNodeProps {
   node: TreeNodeData;
@@ -25,6 +25,9 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
   const textColor = backgroundOpacity > 0.15 ? 'white' : 'black';
   const secondaryTextColor = backgroundOpacity > 0.15 ? '#ccc' : '#666';
   const tertiaryTextColor = backgroundOpacity > 0.15 ? '#aaa' : '#888';
+  
+  // バージョン情報による色分け
+  const nodeTextColor = node.isCurrentVersion ? '#0066cc' : textColor;
 
   return (
     <div style={{
@@ -39,10 +42,12 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <div>
-            <strong style={{ color: textColor }}>{node.name}</strong> 
-            <span style={{ fontSize: '0.8em', color: secondaryTextColor, marginLeft: '8px' }}>
-              {node.type}
-            </span>
+            <strong style={{ color: nodeTextColor }}>{node.name}</strong> 
+            {node.from_version && (
+              <span style={{ fontSize: '0.8em', color: secondaryTextColor, marginLeft: '8px' }}>
+                ({node.from_version})
+              </span>
+            )}
           </div>
           <div style={{ fontSize: '0.8em', color: tertiaryTextColor }}>
             {node.id}

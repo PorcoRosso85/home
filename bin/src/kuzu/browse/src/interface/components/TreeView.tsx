@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import TreeNode from './TreeNode';
-import type { TreeNodeData } from '../../domain/entity/locationUri';
+import type { TreeNode as TreeNodeData } from '../../domain/types';
 
 interface TreeViewProps {
   treeData: TreeNodeData[];

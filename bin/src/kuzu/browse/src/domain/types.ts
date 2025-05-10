@@ -74,4 +74,6 @@ export interface TreeNode {
   id: string;
   name: string;
   children: TreeNode[];
+  from_version?: string;  // 最新更新バージョン
+  isCurrentVersion?: boolean; // 現在選択中のバージョンで更新されたか
 }

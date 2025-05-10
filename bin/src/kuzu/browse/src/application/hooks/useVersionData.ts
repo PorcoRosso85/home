@@ -3,7 +3,7 @@ import { executeQuery } from '../../infrastructure/repository/queryExecutor';
 import { VersionState, TreeNode } from '../../domain/types';
 import * as logger from '../../../../common/infrastructure/logger';
 
-export const useVersionData = (dbConnection: any | null) => {
+export const useVersionData = (dbConnection: any | null, showLatestOnly: boolean = false) => {
   const [versions, setVersions] = useState<VersionState[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState<string>('');
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
@@ -64,12 +64,20 @@ export const useVersionData = (dbConnection: any | null) => {
   useEffect(() => {
     const fetchTreeData = async () => {
       if (!dbConnection || !selectedVersionId) return;
-
+      
       try {
         setLoading(true);
-        const result = await executeQuery(dbConnection, 'locationuris_by_version', { 
-          version_id: selectedVersionId 
-        });
+        
+        let result;
+        if (showLatestOnly) {
+          // 全期間での最新バージョンのみ表示
+          result = await executeQuery(dbConnection, 'get_latest_locationuris', {});
+        } else {
+          // 指定バージョン以前の各URIの最新状態を取得
+          result = await executeQuery(dbConnection, 'get_uris_up_to_version', { 
+            version_id: selectedVersionId 
+          });
+        }
         
         if (result.success && result.data) {
           const queryResult = await result.data.getAllObjects();
@@ -81,11 +89,13 @@ export const useVersionData = (dbConnection: any | null) => {
             authority: row.authority || '',
             path: row.path,
             fragment: row.fragment || '',
-            query: row.query || ''
+            query: row.query || '',
+            from_version: row.from_version || row.latest_version_id,
+            version_description: row.version_description
           }));
           
           // 簡易的な階層構造変換（パスベース）
-          const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris);
+          const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris, selectedVersionId);
           setTreeData(treeNodes);
         }
       } catch (err) {
@@ -97,7 +107,7 @@ export const useVersionData = (dbConnection: any | null) => {
     };
 
     fetchTreeData();
-  }, [dbConnection, selectedVersionId]);
+  }, [dbConnection, selectedVersionId, showLatestOnly]);
 
   return {
     versions,
@@ -110,7 +120,7 @@ export const useVersionData = (dbConnection: any | null) => {
 };
 
 // LocationURIからツリー構造を構築する簡易実装
-function buildTreeFromLocationUris(locationUris: any[]): TreeNode[] {
+function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: string): TreeNode[] {
   const tree: TreeNode[] = [];
   const nodeMap = new Map<string, TreeNode>();
 
@@ -136,7 +146,9 @@ function buildTreeFromLocationUris(locationUris: any[]): TreeNode[] {
       const leafNode: TreeNode = {
         id: uri.uri_id,
         name: `${uri.path}${uri.fragment ? '#' + uri.fragment : ''}${uri.query ? '?' + uri.query : ''}`,
-        children: []
+        children: [],
+        from_version: uri.from_version,
+        isCurrentVersion: uri.from_version === selectedVersionId
       };
       rootNode.children.push(leafNode);
     });
