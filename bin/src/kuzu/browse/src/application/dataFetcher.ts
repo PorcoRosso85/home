@@ -8,7 +8,7 @@ import { buildDynamicTree } from './uriParser';
 export async function fetchLocationUris(): Promise<LocationUri[]> {
   try {
     // TODO: 実際のKuzuDBから取得する処理を実装
-    // 現在はダミーデータを返す
+    // 現在はダミーデータを返す（file://のみ）
     const dummyLocationUris: LocationUri[] = [
       {
         uri_id: 'file:///src/main.ts',
@@ -31,31 +31,6 @@ export async function fetchLocationUris(): Promise<LocationUri[]> {
         scheme: 'file',
         authority: '',
         path: '/src/components/app.tsx',
-        fragment: '',
-        query: ''
-      },
-      // 既存のダミーデータ互換形式
-      {
-        uri_id: '/nodes/person/1',
-        scheme: 'path',
-        authority: '',
-        path: '/nodes/person/1',
-        fragment: '',
-        query: ''
-      },
-      {
-        uri_id: '/nodes/person/1/knows/person/2',
-        scheme: 'path',
-        authority: '',
-        path: '/nodes/person/1/knows/person/2',
-        fragment: '',
-        query: ''
-      },
-      {
-        uri_id: '/nodes/person/1/lives_in/city/3',
-        scheme: 'path',
-        authority: '',
-        path: '/nodes/person/1/lives_in/city/3',
         fragment: '',
         query: ''
       }

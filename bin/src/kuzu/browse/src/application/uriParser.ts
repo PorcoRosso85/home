@@ -9,7 +9,6 @@ export function parseLocationUri(locationUri: LocationUri): {
   name: string;
   type: 'entity' | 'value';
 } {
-  // スキーム別の解析
   const segments: string[] = [];
   
   if (locationUri.scheme === 'file') {
@@ -23,21 +22,6 @@ export function parseLocationUri(locationUri: LocationUri): {
       segments,
       name: fileName,
       type: 'value'
-    };
-  } else if (locationUri.scheme === 'path') {
-    // パス形式→既存のダミーデータ形式
-    segments.push(...locationUri.path.split('/').filter(p => p));
-    
-    // セグメントから名前と型を推測
-    const lastSegment = segments[segments.length - 1];
-    const isRelation = segments.some(s => 
-      ['knows', 'lives_in', 'works_at', 'friend_of', 'owns', 'located_in'].includes(s)
-    );
-    
-    return {
-      segments,
-      name: lastSegment,
-      type: isRelation ? 'value' : 'entity'
     };
   } else {
     // その他のスキーム→汎用解析
