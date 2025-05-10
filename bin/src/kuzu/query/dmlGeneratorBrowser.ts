@@ -163,6 +163,22 @@ export async function executeQuery(
         sqlValue = value.toString();
       } else if (typeof value === 'boolean') {
         sqlValue = value ? 'true' : 'false';
+      } else if (Array.isArray(value)) {
+        // 配列の場合は、各要素をJSON形式に変換
+        const jsonArray = value.map(item => {
+          if (typeof item === 'object' && item !== null) {
+            // オブジェクトの場合は各プロパティを個別に処理
+            const props = Object.entries(item)
+              .map(([k, v]) => `${k}: '${String(v).replace(/'/g, "\\'")}'`)
+              .join(', ');
+            return `{${props}}`;
+          } else if (typeof item === 'string') {
+            return `'${item.replace(/'/g, "\\'")}'`;
+          } else {
+            return String(item);
+          }
+        });
+        sqlValue = `[${jsonArray.join(', ')}]`;
       } else {
         // その他の場合は文字列として扱う
         sqlValue = `'${String(value).replace(/'/g, "\\'")}'`;
