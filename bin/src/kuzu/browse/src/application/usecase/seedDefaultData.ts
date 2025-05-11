@@ -87,7 +87,9 @@ export async function seedDefaultData(conn: any): Promise<void> {
       previous_version_id: 'v1.2.0'
     };
 
-    // バリデーションルール違反のテストケース
+    // FIXME: バリデーションルール違反のテストケース - 動作確認完了後は削除予定
+    // NOTE: このデータはバリデーションエラーを意図的に発生させてアプリケーションをクラッシュさせます
+    /*
     const validationTestData: VersionedLocationData = {
       version_id: '', // 違反1: 空のversion_id
       location_uris: [
@@ -102,9 +104,10 @@ export async function seedDefaultData(conn: any): Promise<void> {
       ],
       previous_version_id: 'v1.2.1'
     };
+    */
 
     // 各バージョンを順次作成
-    const versions = [version1Data, version2Data, version3Data, version4Data, validationTestData];
+    const versions = [version1Data, version2Data, version3Data, version4Data];
     
     for (const versionData of versions) {
       logger.debug(`${versionData.version_id || '(empty version_id)'}のデータ作成中...`);
