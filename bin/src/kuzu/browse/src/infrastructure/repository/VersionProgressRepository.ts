@@ -120,11 +120,17 @@ export function createVersionProgressRepository(): VersionProgressRepository {
       version_id: versionId
     });
     
-    if (!result.success || !result.data || result.data.length === 0) {
+    if (!result.success || !result.data) {
       throw new Error(`Failed to calculate progress for version ${versionId}: ${result.error}`);
     }
     
-    const data = result.data[0];
+    const queryResult = await result.data.getAllObjects();
+    
+    if (queryResult.length === 0) {
+      throw new Error(`No progress data returned for version ${versionId}`);
+    }
+    
+    const data = queryResult[0];
     return {
       versionId: data.version_id,
       totalLocations: Number(data.total_locations),
@@ -328,16 +334,28 @@ export function createVersionProgressRepository(): VersionProgressRepository {
       throw new Error(`Failed to get all versions: ${versionsResult.error}`);
     }
     
+    console.log('Raw versionsResult:', versionsResult);
+    
     const versions = await versionsResult.data.getAllObjects();
+    console.log('versions after getAllObjects:', versions);
+    
+    if (versions.length === 0) {
+      throw new Error('No versions found');
+    }
+    
+    console.log('First version object keys:', Object.keys(versions[0]));
+    
     const results = [];
     
     // 各バージョンの進捗率を再計算
     for (const version of versions) {
+      console.log('Processing version:', version);
+      const versionId = version.version_id;  // プロパティ名をversion_idに修正
       const previousProgress = Number(version.progress_percentage);
-      const progressResult = await calculateVersionProgress(dbConnection, version.id);
+      const progressResult = await calculateVersionProgress(dbConnection, versionId);
       
       results.push({
-        versionId: version.id,
+        versionId,
         previousProgress,
         newProgress: progressResult.progressPercentage,
         totalLocations: progressResult.totalLocations,
