@@ -16,33 +16,20 @@ export type QueryResult<T> = {
  * クエリファイルを検索する（ブラウザ版）
  */
 export async function findQueryFile(queryName: string): Promise<[boolean, string]> {
-  // 検索優先順位
-  const searchPaths = [
-    // 1. DMLディレクトリ内
-    `/dml/${queryName}.cypher`,
-    // 2. DQLディレクトリ内
-    `/dql/${queryName}.cypher`,
-    // 3. DDLディレクトリ内
-    `/ddl/${queryName}.cypher`,
-    // 4. クエリディレクトリ直下（互換性のため）
-    `/${queryName}.cypher`
-  ];
+  // DQL（データ取得）操作がデフォルトとして利用される
+  const searchPath = `/dql/${queryName}.cypher`;
   
-  // 各パスを順番に検索
-  for (const path of searchPaths) {
-    try {
-      const response = await fetch(path);
-      if (response.ok) {
-        return [true, path];
-      }
-    } catch (e) {
-      // 次のパスを試す
-      continue;
+  try {
+    const response = await fetch(searchPath);
+    if (response.ok) {
+      return [true, searchPath];
     }
+  } catch (e) {
+    // 無視
   }
   
-  // 見つからなかった場合
-  return [false, `クエリファイル '${queryName}' が見つかりませんでした`];
+  // 見つからなかった場合は即エラー
+  return [false, `クエリファイル '${queryName}' が見つかりませんでした（${searchPath}を検索）`];
 }
 
 /**
@@ -96,24 +83,21 @@ export async function getAvailableQueries(): Promise<string[]> {
 /**
  * クエリ名に対応するCypherクエリを取得する（ブラウザ版）
  */
-export async function getQuery(queryName: string, fallbackQuery?: string): Promise<QueryResult<string>> {
+export async function getQuery(queryName: string): Promise<QueryResult<string>> {
   // 通常のクエリファイル検索
   const [found, filePath] = await findQueryFile(queryName);
   if (!found) {
-    if (fallbackQuery !== undefined) {
-      console.log(`INFO: クエリ '${queryName}' が見つからないため、フォールバッククエリを使用します`);
-      return { success: true, data: fallbackQuery };
-    }
     const available = await getAvailableQueries();
-    return {
-      success: false,
-      error: `クエリ '${queryName}' が見つかりません`,
-      available_queries: available
-    };
+    throw new Error(`クエリ '${queryName}' が見つかりません。利用可能なクエリ: ${available.join(', ')}`);
   }
   
   // ファイルを読み込む
-  return await readQueryFile(filePath);
+  const result = await readQueryFile(filePath);
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+  
+  return result;
 }
 
 /**
@@ -178,31 +162,23 @@ export async function executeQuery(
   console.log(`executeQuery called: queryName=${queryName}, params=`, params);
   
   // クエリを取得
-  const queryResult = await getQuery(queryName);
-  if (!queryResult.success) {
-    console.log(`getQuery failed:`, queryResult);
-    return queryResult;
-  }
-  
-  const query = queryResult.data!;
-  console.log(`Query to execute: "${query}"`);
-  console.log(`Query params:`, params);
-  
-  // パラメータを含むクエリを構築
-  const parameterizedQuery = buildParameterizedQuery(query, params);
-  console.log(`Query after parameter substitution: "${parameterizedQuery}"`);
-  
-  // クエリを実行
   try {
+    const queryResult = await getQuery(queryName);
+    const query = queryResult.data!;
+    console.log(`Query to execute: "${query}"`);
+    console.log(`Query params:`, params);
+    
+    // パラメータを含むクエリを構築
+    const parameterizedQuery = buildParameterizedQuery(query, params);
+    console.log(`Query after parameter substitution: "${parameterizedQuery}"`);
+    
+    // クエリを実行
     const result = await connection.query(parameterizedQuery);
     console.log(`Query executed successfully:`, result);
     return { success: true, data: result };
   } catch (e) {
     console.error(`Query execution failed:`, e);
-    return { 
-      success: false, 
-      error: `クエリ '${queryName}' の実行に失敗しました: ${e instanceof Error ? e.message : String(e)}` 
-    };
+    throw new Error(`クエリ '${queryName}' の実行に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 

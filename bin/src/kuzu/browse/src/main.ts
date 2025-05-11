@@ -35,35 +35,25 @@ function mountReactApp(): void {
  * アプリの初期化処理
  */
 async function initializeApp(): Promise<void> {
-  try {
-    // 1. データベース初期化
-    const conn = await createConnection();
-    
-    // 2. DDL実行
-    await createSchema(conn);
-    
-    // 3. デフォルトデータ挿入
-    await seedDefaultData(conn);
-    
-    // 4. database-readyイベントを発火
-    dispatchDatabaseReady();
-    
-    // 5. Reactアプリをマウント（データベース準備完了後）
-    logger.debug('Reactアプリをマウント中...');
-    mountReactApp();
-    
-  } catch (error) {
-    logger.error('初期化エラー:', error);
-    throw error;
-  }
+  // 1. データベース初期化
+  const conn = await createConnection();
+  
+  // 2. DDL実行
+  await createSchema(conn);
+  
+  // 3. デフォルトデータ挿入
+  await seedDefaultData(conn);
+  
+  // 4. database-readyイベントを発火
+  dispatchDatabaseReady();
+  
+  // 5. Reactアプリをマウント（データベース準備完了後）
+  logger.debug('Reactアプリをマウント中...');
+  mountReactApp();
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    await initializeApp();
-  } catch (error) {
-    logger.error('DOMContentLoadedエラー:', error);
-  }
+  await initializeApp();
 });
 
 // グローバル定義

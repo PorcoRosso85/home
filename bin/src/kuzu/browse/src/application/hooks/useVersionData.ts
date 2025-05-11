@@ -18,43 +18,33 @@ export const useVersionData = (dbConnection: any | null) => {
         return;
       }
 
-      try {
-        setLoading(true);
-        logger.debug('バージョン一覧の取得を開始');
-        const result = await executeQuery(dbConnection, 'get_all_versions', {});
-        logger.debug('クエリ実行結果:', result);
-        
-        if (result.success && result.data) {
-          const queryResult = await result.data.getAllObjects();
-          logger.debug('getAllObjects結果:', queryResult);
-          
-          const versionList: VersionState[] = queryResult.map(row => ({
-            id: row.version_id,
-            timestamp: row.timestamp,
-            description: row.description
-          }));
-          
-          logger.debug('変換後のバージョンリスト:', versionList);
-          setVersions(versionList);
-          
-          // 最新バージョンを自動選択
-          if (versionList.length > 0) {
-            const defaultVersion = versionList[versionList.length - 1].id;
-            logger.debug('デフォルトバージョンを設定:', defaultVersion);
-            setSelectedVersionId(defaultVersion);
-          } else {
-            logger.debug('バージョンが見つかりません');
-          }
-        } else {
-          logger.error('クエリ実行失敗:', result.error);
-          setError(`バージョン取得失敗: ${result.error || '不明なエラー'}`);
-        }
-      } catch (err) {
-        logger.error('バージョン一覧取得エラー:', err);
-        setError('バージョンの取得に失敗しました');
-      } finally {
-        setLoading(false);
+      setLoading(true);
+      logger.debug('バージョン一覧の取得を開始');
+      const result = await executeQuery(dbConnection, 'get_all_versions', {});
+      logger.debug('クエリ実行結果:', result);
+      
+      const queryResult = await result.data.getAllObjects();
+      logger.debug('getAllObjects結果:', queryResult);
+      
+      const versionList: VersionState[] = queryResult.map(row => ({
+        id: row.version_id,
+        timestamp: row.timestamp,
+        description: row.description
+      }));
+      
+      logger.debug('変換後のバージョンリスト:', versionList);
+      setVersions(versionList);
+      
+      // 最新バージョンを自動選択
+      if (versionList.length > 0) {
+        const defaultVersion = versionList[versionList.length - 1].id;
+        logger.debug('デフォルトバージョンを設定:', defaultVersion);
+        setSelectedVersionId(defaultVersion);
+      } else {
+        logger.debug('バージョンが見つかりません');
       }
+      
+      setLoading(false);
     };
 
     fetchVersions();
@@ -65,39 +55,32 @@ export const useVersionData = (dbConnection: any | null) => {
     const fetchTreeData = async () => {
       if (!dbConnection || !selectedVersionId) return;
       
-      try {
-        setLoading(true);
-        
-        // 指定バージョン以前の各URIの最新状態を取得
-        const result = await executeQuery(dbConnection, 'get_uris_up_to_version', { 
-          version_id: selectedVersionId 
-        });
-        
-        if (result.success && result.data) {
-          const queryResult = await result.data.getAllObjects();
-          
-          // LocationURIデータをツリー構造に変換
-          const locationUris = queryResult.map(row => ({
-            uri_id: row.uri_id,
-            scheme: row.scheme,
-            authority: row.authority || '',
-            path: row.path,
-            fragment: row.fragment || '',
-            query: row.query || '',
-            from_version: row.from_version,
-            version_description: row.version_description
-          }));
-          
-          // 階層構造変換（パスベース）
-          const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris, selectedVersionId);
-          setTreeData(treeNodes);
-        }
-      } catch (err) {
-        logger.error('ツリーデータ取得エラー:', err);
-        setError('ツリーデータの取得に失敗しました');
-      } finally {
-        setLoading(false);
-      }
+      setLoading(true);
+      
+      // 指定バージョン以前の各URIの最新状態を取得
+      const result = await executeQuery(dbConnection, 'get_uris_up_to_version', { 
+        version_id: selectedVersionId 
+      });
+      
+      const queryResult = await result.data.getAllObjects();
+      
+      // LocationURIデータをツリー構造に変換
+      const locationUris = queryResult.map(row => ({
+        uri_id: row.uri_id,
+        scheme: row.scheme,
+        authority: row.authority || '',
+        path: row.path,
+        fragment: row.fragment || '',
+        query: row.query || '',
+        from_version: row.from_version,
+        version_description: row.version_description
+      }));
+      
+      // 階層構造変換（パスベース）
+      const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris, selectedVersionId);
+      setTreeData(treeNodes);
+      
+      setLoading(false);
     };
 
     fetchTreeData();
