@@ -308,8 +308,10 @@ async function createViteDevServer(mounts: MountDefinition[]) {
       }
     ],
     define: {
-      'process.env.NODE_ENV': '\"development\"',
+      'process.env.NODE_ENV': '"development"',
       'import.meta.env.DEV': 'true',
+      // LOG_LEVEL環境変数を追加
+      'import.meta.env.LOG_LEVEL': JSON.stringify(Deno.env.get('LOG_LEVEL') || '3'),
       // 環境変数としてマウント情報を追加
       'import.meta.env.KUZU_MOUNTS': JSON.stringify(mounts.map(m => ({ 
         source: m.sourcePath, 

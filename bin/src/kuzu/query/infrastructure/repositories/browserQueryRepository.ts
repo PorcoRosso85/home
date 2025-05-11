@@ -4,6 +4,8 @@
  * ブラウザ環境でKuzuDBクエリを実行するための関数群
  */
 
+import * as logger from '../../../common/infrastructure/logger';
+
 // 型定義
 export type QueryResult<T> = {
   success: boolean;
@@ -74,7 +76,7 @@ export async function getAvailableQueries(): Promise<string[]> {
       }
     } catch (e) {
       // ディレクトリが存在しないか読み込みエラー
-      console.warn(`ディレクトリ ${dir} の読み込みに失敗しました:`, e);
+      logger.warn(`ディレクトリ ${dir} の読み込みに失敗しました:`, e);
     }
   }
   
@@ -168,25 +170,25 @@ export async function executeQuery(
   directory: 'ddl' | 'dml' | 'dql',
   params: Record<string, any> = {}
 ): Promise<QueryResult<any>> {
-  console.log(`executeQuery called: queryName=${queryName}, directory=${directory}, params=`, params);
+  logger.debug(`executeQuery called: queryName=${queryName}, directory=${directory}, params=`, params);
   
   // クエリを取得
   try {
     const queryResult = await getQuery(queryName, directory);
     const query = queryResult.data!;
-    console.log(`Query to execute: "${query}"`);
-    console.log(`Query params:`, params);
+    logger.debug(`Query to execute: "${query}"`);
+    logger.debug(`Query params:`, params);
     
     // パラメータを含むクエリを構築
     const parameterizedQuery = buildParameterizedQuery(query, params);
-    console.log(`Query after parameter substitution: "${parameterizedQuery}"`);
+    logger.debug(`Query after parameter substitution: "${parameterizedQuery}"`);
     
     // クエリを実行
     const result = await connection.query(parameterizedQuery);
-    console.log(`Query executed successfully:`, result);
+    logger.debug(`Query executed successfully:`, result);
     return { success: true, data: result };
   } catch (e) {
-    console.error(`Query execution failed:`, e);
+    logger.error(`Query execution failed:`, e);
     throw new Error(`クエリ '${queryName}' の実行に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
   }
 }

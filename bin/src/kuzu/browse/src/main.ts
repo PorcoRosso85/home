@@ -9,11 +9,13 @@ import { createSchema } from './application/usecase/createSchema';
 import { seedDefaultData } from './application/usecase/seedDefaultData';
 
 // ブラウザ用にログレベルを設定
-(window as any).LOG_LEVEL = 4; // DEBUG level
-console.log('LOG_LEVEL設定:', (window as any).LOG_LEVEL);
+// import.meta.env.LOG_LEVELから環境変数を読み込む（build.tsで設定）
+const defaultLogLevel = 3; // INFO level 
+(window as any).LOG_LEVEL = import.meta.env.LOG_LEVEL ? parseInt(import.meta.env.LOG_LEVEL) : defaultLogLevel;
+logger.debug('LOG_LEVEL設定:', (window as any).LOG_LEVEL);
 
 // loggerをテスト
-console.log('Testing logger functions...');
+logger.debug('Testing logger functions...');
 logger.error('Test error log');
 logger.warn('Test warn log');
 logger.info('Test info log');

@@ -6,6 +6,7 @@
 
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, parse, dirname } from "path";
+import * as logger from '../../../common/infrastructure/logger';
 
 // 型定義
 export type QueryResult<T> = {
@@ -121,7 +122,7 @@ export function getQuery(queryName: string, fallbackQuery?: string): QueryResult
   const [found, filePath] = findQueryFile(queryName);
   if (!found) {
     if (fallbackQuery !== undefined) {
-      console.log(`INFO: クエリ '${queryName}' が見つからないため、フォールバッククエリを使用します`);
+      logger.info(`クエリ '${queryName}' が見つからないため、フォールバッククエリを使用します`);
       return { success: true, data: fallbackQuery };
     }
     const available = getAvailableQueries();
@@ -195,31 +196,31 @@ export async function executeQuery(
   queryName: string, 
   params: Record<string, any> = {}
 ): Promise<QueryResult<any>> {
-  console.log(`executeQuery called: queryName=${queryName}, params=`, params);
+  logger.debug(`executeQuery called: queryName=${queryName}, params=`, params);
   
   // クエリを取得
   const queryResult = getQuery(queryName);
   if (!queryResult.success) {
-    console.log(`getQuery failed:`, queryResult);
+    logger.debug(`getQuery failed:`, queryResult);
     return queryResult;
   }
   
   const query = queryResult.data!;
-  console.log(`Query to execute: "${query}"`);
-  console.log(`Query params:`, params);
+  logger.debug(`Query to execute: "${query}"`);
+  logger.debug(`Query params:`, params);
   
   // パラメータを含むクエリを構築
   const parameterizedQuery = buildParameterizedQuery(query, params);
-  console.log(`Query after parameter substitution: "${parameterizedQuery}"`);
+  logger.debug(`Query after parameter substitution: "${parameterizedQuery}"`);
   
   // クエリを実行
   try {
     // Node.js環境での実行を想定
     const result = await connection.executeQuery(parameterizedQuery);
-    console.log(`Query executed successfully:`, result);
+    logger.debug(`Query executed successfully:`, result);
     return { success: true, data: result };
   } catch (e) {
-    console.error(`Query execution failed:`, e);
+    logger.error(`Query execution failed:`, e);
     return { 
       success: false, 
       error: `クエリ '${queryName}' の実行に失敗しました: ${e instanceof Error ? e.message : String(e)}` 

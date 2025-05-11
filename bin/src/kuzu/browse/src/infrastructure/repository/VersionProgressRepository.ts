@@ -7,6 +7,7 @@
 import type { LocationUriEntity } from '../../../../query/domain/entities/locationUri';
 import type { VersionStateEntity, CompletionStatus } from '../../../../query/domain/entities/versionState';
 import { executeDMLQuery, executeDQLQuery } from './queryExecutor';
+import * as logger from '../../../../common/infrastructure/logger';
 
 export interface VersionProgressRepository {
   markLocationUriCompleted(dbConnection: any, uriId: string, completed: boolean): Promise<void>;
@@ -334,22 +335,22 @@ export function createVersionProgressRepository(): VersionProgressRepository {
       throw new Error(`Failed to get all versions: ${versionsResult.error}`);
     }
     
-    console.log('Raw versionsResult:', versionsResult);
+    logger.debug('Raw versionsResult:', versionsResult);
     
     const versions = await versionsResult.data.getAllObjects();
-    console.log('versions after getAllObjects:', versions);
+    logger.debug('versions after getAllObjects:', versions);
     
     if (versions.length === 0) {
       throw new Error('No versions found');
     }
     
-    console.log('First version object keys:', Object.keys(versions[0]));
+    logger.debug('First version object keys:', Object.keys(versions[0]));
     
     const results = [];
     
     // 各バージョンの進捗率を再計算
     for (const version of versions) {
-      console.log('Processing version:', version);
+      logger.debug('Processing version:', version);
       const versionId = version.version_id;  // プロパティ名をversion_idに修正
       const previousProgress = Number(version.progress_percentage);
       const progressResult = await calculateVersionProgress(dbConnection, versionId);
