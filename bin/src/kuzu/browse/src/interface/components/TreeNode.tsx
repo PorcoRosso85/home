@@ -19,35 +19,20 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
   
   // 実際の背景色を計算
   const backgroundOpacity = Math.min(currentOpacity, 0.3); // 最大30%まで
-  const backgroundColor = `rgba(0, 0, 0, ${backgroundOpacity})`;
+  let backgroundColor = `rgba(0, 0, 0, ${backgroundOpacity})`;
+  
+  // 未完了の場合、薄赤色の背景色にする
+  if (!hasChildren && node.isCompleted === false) {
+    backgroundColor = `rgba(255, 200, 200, 0.3)`; // 薄赤色
+  }
   
   // 背景の暗さに応じて文字色を調整
-  const textColor = backgroundOpacity > 0.15 ? 'white' : 'black';
-  const secondaryTextColor = backgroundOpacity > 0.15 ? '#ccc' : '#666';
-  const tertiaryTextColor = backgroundOpacity > 0.15 ? '#aaa' : '#888';
+  const textColor = backgroundOpacity > 0.15 || (!hasChildren && node.isCompleted === false) ? 'white' : 'black';
+  const secondaryTextColor = backgroundOpacity > 0.15 || (!hasChildren && node.isCompleted === false) ? '#ccc' : '#666';
+  const tertiaryTextColor = backgroundOpacity > 0.15 || (!hasChildren && node.isCompleted === false) ? '#aaa' : '#888';
   
   // バージョン情報による色分け
   const nodeTextColor = node.isCurrentVersion ? '#0066cc' : textColor;
-  
-  // 完了状態のアイコンとスタイル
-  const getCompletionIcon = () => {
-    if (hasChildren) {
-      // 親ノードの場合、何も表示しない
-      return '';
-    } else {
-      // リーフノードの場合、チェックマークまたは未チェック
-      return node.isCompleted ? '✓' : '○';
-    }
-  };
-  
-  const getCompletionColor = () => {
-    if (hasChildren) {
-      // 親ノードの場合、通常の文字色
-      return textColor;
-    } else {
-      return node.isCompleted ? '#28a745' : '#6c757d';
-    }
-  };
 
   return (
     <div style={{
@@ -62,18 +47,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span 
-              style={{ 
-                color: getCompletionColor(), 
-                fontWeight: 'bold',
-                marginRight: '8px',
-                minWidth: '24px',
-                display: 'inline-block',
-                textAlign: 'center'
-              }}
-            >
-              {getCompletionIcon()}
-            </span>
             <strong style={{ color: nodeTextColor }}>{node.name}</strong> 
             {node.from_version && (
               <span style={{ fontSize: '0.8em', color: secondaryTextColor, marginLeft: '8px' }}>

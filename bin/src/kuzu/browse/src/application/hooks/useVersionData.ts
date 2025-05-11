@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
 import { VersionState, TreeNode } from '../../domain/types';
 import * as logger from '../../../../common/infrastructure/logger';
+import { createVersionCompletionService } from '../services/VersionCompletionService';
+import { createVersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
 
 export const useVersionData = (dbConnection: any | null) => {
   const [versions, setVersions] = useState<VersionState[]>([]);
@@ -76,9 +78,30 @@ export const useVersionData = (dbConnection: any | null) => {
         version_description: row.version_description
       }));
       
-      // 階層構造変換（パスベース）
-      const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris, selectedVersionId);
-      setTreeData(treeNodes);
+      // 完了状態を取得
+      const repository = createVersionProgressRepository();
+      const versionService = createVersionCompletionService(repository);
+      
+      try {
+        // LocationURIの完了状態を取得
+        const incompleteUris = await versionService.getIncompleteLocationUris(dbConnection, selectedVersionId);
+        const incompleteUriIds = new Set(incompleteUris.map(uri => uri.uri_id));
+        
+        // LocationURIに完了状態を追加
+        const locationUrisWithCompletion = locationUris.map(uri => ({
+          ...uri,
+          isCompleted: !incompleteUriIds.has(uri.uri_id)
+        }));
+        
+        // 階層構造変換（パスベース）
+        const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUrisWithCompletion, selectedVersionId);
+        setTreeData(treeNodes);
+      } catch (error) {
+        logger.debug('完了状態の取得に失敗:', error);
+        // エラーが発生した場合は完了状態なしでツリーを構築
+        const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris, selectedVersionId);
+        setTreeData(treeNodes);
+      }
       
       setLoading(false);
     };
