@@ -11,6 +11,7 @@ export type VersionStateEntity = {
   id: string;              // バージョン識別子（主キー）
   timestamp: string;       // タイムスタンプ（ISO形式）
   description: string;     // バージョンの説明
+  change_reason: string;   // 変更理由（要件変更、部分達成不足など）
   progress_percentage: number;  // 進捗率（0.0から1.0の範囲）
 };
 
@@ -20,6 +21,7 @@ export type VersionStateEntity = {
 export function createVersionState(
   id: string,
   description: string,
+  changeReason: string,
   timestamp?: string,
   progressPercentage: number = 0.0
 ): VersionStateEntity {
@@ -27,6 +29,7 @@ export function createVersionState(
     id,
     timestamp: timestamp || new Date().toISOString(),
     description,
+    change_reason: changeReason,
     progress_percentage: Math.max(0.0, Math.min(1.0, progressPercentage)), // 0.0から1.0の範囲に制限
   };
 }
@@ -39,6 +42,7 @@ export function cloneVersionState(versionState: VersionStateEntity): VersionStat
     id: versionState.id,
     timestamp: versionState.timestamp,
     description: versionState.description,
+    change_reason: versionState.change_reason,
     progress_percentage: versionState.progress_percentage,
   };
 }
@@ -80,6 +84,7 @@ export function equalsVersionState(version1: VersionStateEntity, version2: Versi
     version1.id === version2.id &&
     version1.timestamp === version2.timestamp &&
     version1.description === version2.description &&
+    version1.change_reason === version2.change_reason &&
     version1.progress_percentage === version2.progress_percentage
   );
 }
@@ -92,6 +97,7 @@ export function toQueryParams(versionState: VersionStateEntity): Record<string, 
     id: versionState.id,
     timestamp: versionState.timestamp,
     description: versionState.description,
+    change_reason: versionState.change_reason,
     progress_percentage: versionState.progress_percentage,
   };
 }
@@ -106,6 +112,10 @@ export function validateVersionState(versionState: VersionStateEntity): { isVali
   
   if (!versionState.description || versionState.description.trim() === '') {
     return { isValid: false, error: 'Description is required' };
+  }
+  
+  if (!versionState.change_reason || versionState.change_reason.trim() === '') {
+    return { isValid: false, error: 'Change reason is required' };
   }
   
   if (typeof versionState.progress_percentage !== 'number' || 

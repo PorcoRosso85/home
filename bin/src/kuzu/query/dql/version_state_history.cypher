@@ -13,6 +13,7 @@ WHERE v IS NOT NULL
 RETURN v.id as version_id,
        v.timestamp as timestamp,
        v.description as description,
+       v.change_reason as change_reason,
        has_predecessor,
        following_versions
 ORDER BY v.timestamp ASC

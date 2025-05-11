@@ -38,6 +38,7 @@ CREATE NODE TABLE VersionState (
   id STRING PRIMARY KEY,
   timestamp STRING,
   description STRING,
+  change_reason STRING,
   progress_percentage FLOAT
 );
 
