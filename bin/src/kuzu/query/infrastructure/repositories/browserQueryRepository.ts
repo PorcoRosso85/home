@@ -199,6 +199,33 @@ export function getSuccess<T>(result: QueryResult<T>): boolean {
 }
 
 /**
+ * DMLクエリ実行時のパラメータバリデーション
+ */
+async function validateDMLParameters(queryName: string, params: Record<string, any>): Promise<void> {
+  // version_batch_operations専用のバリデーション
+  if (queryName === 'version_batch_operations') {
+    const { createValidationError } = await import('../../../browse/src/domain/validation/validationError');
+    const { validateVersionBatch } = await import('../../../browse/src/application/usecase/validation/versionBatchValidation');
+    
+    // パラメータから必要なデータを構築
+    const versionData = {
+      version_id: params.version_id,
+      location_uris: params.location_uris,
+      previous_version_id: undefined
+    };
+    
+    const validationResult = validateVersionBatch(versionData);
+    if (!validationResult.isValid) {
+      throw createValidationError(
+        validationResult.error || 'Validation failed in repository layer',
+        'dmlParams',
+        'DML_VALIDATION_FAILED'
+      );
+    }
+  }
+}
+
+/**
  * DDL系クエリを実行する関数
  */
 export async function executeDDLQuery(
@@ -217,6 +244,9 @@ export async function executeDMLQuery(
   queryName: string,
   params: Record<string, any> = {}
 ): Promise<QueryResult<any>> {
+  // 実行前のバリデーション
+  await validateDMLParameters(queryName, params);
+  
   return executeQuery(connection, queryName, 'dml', params);
 }
 

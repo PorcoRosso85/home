@@ -1,6 +1,7 @@
 import * as logger from '../../../../common/infrastructure/logger';
 import { executeDMLQuery } from '../../infrastructure/repository/queryExecutor';
-import { VersionedLocationData, LocationURI } from '../../domain/types';
+import { createValidationError, isValidationError, getValidationErrorDetails } from '../../domain/validation/validationError';
+import { validateVersionBatch, type VersionedLocationData } from './validation/versionBatchValidation';
 
 export async function seedDefaultData(conn: any): Promise<void> {
   logger.debug('DML実行中（4バージョン分のデータ）...');
@@ -47,8 +48,7 @@ export async function seedDefaultData(conn: any): Promise<void> {
         { uri_id: 'file:///src/types/index.ts', scheme: 'file', authority: '', path: '/src/types/index.ts', fragment: '', query: '' },
         { uri_id: 'file:///tests/unit/utils.test.ts', scheme: 'file', authority: '', path: '/tests/unit/utils.test.ts', fragment: '', query: '' },
         { uri_id: 'file:///docs/architecture.md', scheme: 'file', authority: '', path: '/docs/architecture.md', fragment: '', query: '' },
-        // VSCodeスキーム
-        { uri_id: 'vscode://file/project/src/main.ts', scheme: 'vscode', authority: 'file', path: '/project/src/main.ts', fragment: '', query: '' },
+        // VSCodeスキーム削除（許可されていない）
       ],
       previous_version_id: 'v1.1.0'
     };
@@ -64,7 +64,6 @@ export async function seedDefaultData(conn: any): Promise<void> {
         { uri_id: 'file:///src/types/index.ts', scheme: 'file', authority: '', path: '/src/types/index.ts', fragment: '', query: '' },
         { uri_id: 'file:///tests/unit/utils.test.ts', scheme: 'file', authority: '', path: '/tests/unit/utils.test.ts', fragment: '', query: '' },
         { uri_id: 'file:///docs/architecture.md', scheme: 'file', authority: '', path: '/docs/architecture.md', fragment: '', query: '' },
-        { uri_id: 'vscode://file/project/src/main.ts', scheme: 'vscode', authority: 'file', path: '/project/src/main.ts', fragment: '', query: '' },
         
         // 新規追加: kuzu/browseディレクトリ構造
         { uri_id: 'file:///home/nixos/bin/src/kuzu/browse', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse', fragment: '', query: '' },
@@ -88,17 +87,51 @@ export async function seedDefaultData(conn: any): Promise<void> {
       previous_version_id: 'v1.2.0'
     };
 
+    // バリデーションルール違反のテストケース
+    const validationTestData: VersionedLocationData = {
+      version_id: '', // 違反1: 空のversion_id
+      location_uris: [
+        // 違反2: 許可されないvscodeスキーム
+        { uri_id: 'vscode://file/project/src/main.ts', scheme: 'vscode', authority: 'file', path: '/project/src/main.ts', fragment: '', query: '' },
+        // 違反3: uri_idが空
+        { uri_id: '', scheme: 'file', authority: '', path: '/empty/uri/test.ts', fragment: '', query: '' },
+        // 違反4: 必須フィールドpathが空
+        { uri_id: 'file:///invalid/path', scheme: 'file', authority: '', path: '', fragment: '', query: '' },
+        // 違反5: 許可されないスキーム
+        { uri_id: 'custom://illegal/scheme', scheme: 'custom', authority: '', path: '/test', fragment: '', query: '' },
+      ],
+      previous_version_id: 'v1.2.1'
+    };
+
     // 各バージョンを順次作成
-    // NOTE: 2025-05-10 - 複雑な処理を分離
-    // 経緯: FOREACHによる条件付きFOLLOWS関係作成がparserエラーで失敗
-    // 対策: 1) VersionState+LocationURI作成 2) FOLLOWS関係作成 の2段階に分離
-    const versions = [version1Data, version2Data, version3Data, version4Data];
+    const versions = [version1Data, version2Data, version3Data, version4Data, validationTestData];
     
     for (const versionData of versions) {
-      logger.debug(`${versionData.version_id}のデータ作成中...`);
+      logger.debug(`${versionData.version_id || '(empty version_id)'}のデータ作成中...`);
+      
+      // バリデーション実行
+      const validationResult = validateVersionBatch(versionData);
+      if (!validationResult.isValid) {
+        // バリデーションエラーの詳細ログ
+        if (validationResult.errors) {
+          logger.error(`${versionData.version_id || '(empty version_id)'}のバリデーションエラー:`, validationResult.errors);
+        }
+        
+        const validationError = createValidationError(
+          validationResult.error || 'Validation failed',
+          'versionData',
+          'BATCH_VALIDATION_FAILED'
+        );
+        
+        // バリデーションエラー詳細をログ出力してからエラーをスロー
+        logger.error(`${versionData.version_id || '(empty version_id)'}のバリデーションエラー詳細:`, 
+          getValidationErrorDetails(validationError));
+        
+        // クラッシュさせる（スキップせずにエラーをスロー）
+        throw validationError;
+      }
       
       // ステップ1: VersionStateとLocationURIを作成
-      // NOTE: MERGEでLocationURIの重複を回避（複数バージョンで共有のため）
       const batchParams = {
         version_id: versionData.version_id,
         timestamp: new Date().toISOString(),
