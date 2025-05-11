@@ -76,4 +76,7 @@ export interface TreeNode {
   children: TreeNode[];
   from_version?: string;  // 最新更新バージョン
   isCurrentVersion?: boolean; // 現在選択中のバージョンで更新されたか
+  isCompleted?: boolean; // LocationURIの完了状態
+  completedCount?: number; // 子ノードの完了数（集約用）
+  totalCount?: number; // 子ノード総数（集約用）
 }

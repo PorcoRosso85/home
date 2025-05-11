@@ -28,6 +28,33 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
   
   // バージョン情報による色分け
   const nodeTextColor = node.isCurrentVersion ? '#0066cc' : textColor;
+  
+  // 完了状態のアイコンとスタイル
+  const getCompletionIcon = () => {
+    if (hasChildren) {
+      // 親ノードの場合、進捗率を表示
+      const completionRate = node.totalCount > 0 
+        ? Math.round((node.completedCount! / node.totalCount!) * 100) 
+        : 0;
+      return `${completionRate}%`;
+    } else {
+      // リーフノードの場合、チェックマークまたは未チェック
+      return node.isCompleted ? '✓' : '○';
+    }
+  };
+  
+  const getCompletionColor = () => {
+    if (hasChildren) {
+      const completionRate = node.totalCount > 0 
+        ? node.completedCount! / node.totalCount! 
+        : 0;
+      if (completionRate === 1) return '#28a745'; // 完了時は緑
+      if (completionRate > 0) return '#ffc107'; // 進行中は黄色
+      return '#6c757d'; // 未開始はグレー
+    } else {
+      return node.isCompleted ? '#28a745' : '#6c757d';
+    }
+  };
 
   return (
     <div style={{
@@ -40,8 +67,20 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
     }}>
       {/* コンテンツ */}
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span 
+              style={{ 
+                color: getCompletionColor(), 
+                fontWeight: 'bold',
+                marginRight: '8px',
+                minWidth: '24px',
+                display: 'inline-block',
+                textAlign: 'center'
+              }}
+            >
+              {getCompletionIcon()}
+            </span>
             <strong style={{ color: nodeTextColor }}>{node.name}</strong> 
             {node.from_version && (
               <span style={{ fontSize: '0.8em', color: secondaryTextColor, marginLeft: '8px' }}>
