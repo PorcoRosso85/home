@@ -4,12 +4,9 @@ import { ErrorView } from './components/ErrorView';
 import { TreeView } from './components/TreeView';
 import { useDatabaseConnection } from '../infrastructure/database/useDatabaseConnection';
 import { useVersionData } from '../application/hooks/useVersionData';
-import { createVersionCompletionService } from '../application/services/VersionCompletionService';
-import { createVersionProgressRepository } from '../infrastructure/repository/VersionProgressRepository';
 
 const App = () => {
   const { dbConnection, isConnected, error: dbError } = useDatabaseConnection();
-  const [progressData, setProgressData] = useState<{[key: string]: number}>({});
   
   const { 
     versions, 
@@ -19,32 +16,6 @@ const App = () => {
     loading, 
     error 
   } = useVersionData(dbConnection);
-
-  // 進捗データサービスの初期化
-  const repository = createVersionProgressRepository();
-  const versionService = createVersionCompletionService(repository);
-
-  // バージョン選択時に進捗データを取得
-  useEffect(() => {
-    const fetchProgressData = async () => {
-      if (!dbConnection) return;
-      
-      try {
-        const statistics = await versionService.getStatistics(dbConnection);
-        const progressMap: {[key: string]: number} = {};
-        statistics.versions.forEach(version => {
-          progressMap[version.versionId] = version.completionRate;
-        });
-        setProgressData(progressMap);
-      } catch (error) {
-        console.error('Failed to fetch progress data:', error);
-      }
-    };
-
-    if (dbConnection && isConnected) {
-      fetchProgressData();
-    }
-  }, [dbConnection, isConnected]);
 
   if (!isConnected || loading) {
     return <LoadingView />;
@@ -84,9 +55,6 @@ const App = () => {
                 versions.map(version => (
                   <option key={version.id} value={version.id}>
                     {version.id} - {version.description}
-                    {progressData[version.id] !== undefined && (
-                      ` （進捗率: ${Math.round(progressData[version.id])}%）`
-                    )}
                   </option>
                 ))
               )}

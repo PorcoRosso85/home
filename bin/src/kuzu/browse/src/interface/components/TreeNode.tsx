@@ -32,11 +32,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
   // 完了状態のアイコンとスタイル
   const getCompletionIcon = () => {
     if (hasChildren) {
-      // 親ノードの場合、進捗率を表示
-      const completionRate = node.totalCount > 0 
-        ? Math.round((node.completedCount! / node.totalCount!) * 100) 
-        : 0;
-      return `${completionRate}%`;
+      // 親ノードの場合、何も表示しない
+      return '';
     } else {
       // リーフノードの場合、チェックマークまたは未チェック
       return node.isCompleted ? '✓' : '○';
@@ -45,12 +42,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
   
   const getCompletionColor = () => {
     if (hasChildren) {
-      const completionRate = node.totalCount > 0 
-        ? node.completedCount! / node.totalCount! 
-        : 0;
-      if (completionRate === 1) return '#28a745'; // 完了時は緑
-      if (completionRate > 0) return '#ffc107'; // 進行中は黄色
-      return '#6c757d'; // 未開始はグレー
+      // 親ノードの場合、通常の文字色
+      return textColor;
     } else {
       return node.isCompleted ? '#28a745' : '#6c757d';
     }

@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
 import { VersionState, TreeNode } from '../../domain/types';
 import * as logger from '../../../../common/infrastructure/logger';
-import { createVersionCompletionService } from '../services/VersionCompletionService';
-import { createVersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
 
 export const useVersionData = (dbConnection: any | null) => {
   const [versions, setVersions] = useState<VersionState[]>([]);
@@ -78,30 +76,9 @@ export const useVersionData = (dbConnection: any | null) => {
         version_description: row.version_description
       }));
       
-      // 完了状態を取得
-      const repository = createVersionProgressRepository();
-      const versionService = createVersionCompletionService(repository);
-      
-      try {
-        // LocationURIの完了状態を取得
-        const incompleteUris = await versionService.getIncompleteLocationUris(dbConnection, selectedVersionId);
-        const incompleteUriIds = new Set(incompleteUris.map(uri => uri.uri_id));
-        
-        // LocationURIに完了状態を追加
-        const locationUrisWithCompletion = locationUris.map(uri => ({
-          ...uri,
-          isCompleted: !incompleteUriIds.has(uri.uri_id)
-        }));
-        
-        // 階層構造変換（パスベース）
-        const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUrisWithCompletion, selectedVersionId);
-        setTreeData(treeNodes);
-      } catch (error) {
-        logger.debug('完了状態の取得に失敗:', error);
-        // エラーが発生した場合は完了状態なしでツリーを構築
-        const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris, selectedVersionId);
-        setTreeData(treeNodes);
-      }
+      // 階層構造変換（パスベース）
+      const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris, selectedVersionId);
+      setTreeData(treeNodes);
       
       setLoading(false);
     };
@@ -137,9 +114,7 @@ function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: stri
     const rootNode: TreeNode = {
       id: `${scheme}://`,
       name: `${scheme}://`,
-      children: [],
-      completedCount: 0,
-      totalCount: 0
+      children: []
     };
     
     // ファイルシステムの場合は階層構造を構築
@@ -157,10 +132,6 @@ function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: stri
           isCompleted: uri.isCompleted
         };
         rootNode.children.push(leafNode);
-        rootNode.totalCount++;
-        if (uri.isCompleted) {
-          rootNode.completedCount++;
-        }
       });
     }
     
@@ -199,9 +170,7 @@ function buildFileHierarchy(rootNode: TreeNode, uris: any[], selectedVersionId?:
           name: pathParts[i],
           children: [],
           from_version: uri.from_version,
-          isCurrentVersion: uri.from_version === selectedVersionId,
-          completedCount: 0,
-          totalCount: 0
+          isCurrentVersion: uri.from_version === selectedVersionId
         };
         parentNode.children.push(currentNode);
         pathMap.set(currentPath, currentNode);
@@ -213,42 +182,9 @@ function buildFileHierarchy(rootNode: TreeNode, uris: any[], selectedVersionId?:
         currentNode.name += uri.query ? '?' + uri.query : '';
         currentNode.id = uri.uri_id;
         currentNode.isCompleted = uri.isCompleted;
-        
-        // 親ノードの統計を更新
-        let parent = parentNode;
-        while (parent) {
-          parent.totalCount++;
-          if (uri.isCompleted) {
-            parent.completedCount++;
-          }
-          parent = pathMap.get(parent.id.split('/').slice(0, -1).join('/') || '/');
-        }
       }
       
       parentNode = currentNode;
     }
   });
-  
-  // 各ノードの統計を再計算（子ノードから親への伝播）
-  const recalculateStats = (node: TreeNode) => {
-    let totals = { completed: 0, total: 0 };
-    
-    if (node.children.length > 0) {
-      // 子ノードがある場合は子ノードから集計
-      node.children.forEach(child => {
-        recalculateStats(child);
-        totals.total += child.totalCount || 0;
-        totals.completed += child.completedCount || 0;
-      });
-    } else {
-      // リーフノードの場合
-      totals.total = 1;
-      totals.completed = node.isCompleted ? 1 : 0;
-    }
-    
-    node.totalCount = totals.total;
-    node.completedCount = totals.completed;
-  };
-  
-  recalculateStats(rootNode);
 }
