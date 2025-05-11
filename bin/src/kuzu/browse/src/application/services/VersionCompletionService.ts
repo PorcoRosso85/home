@@ -4,8 +4,8 @@
  * UIコンポーネントとKuzuDBの間の中間層として機能
  */
 
-import type { LocationURI } from '../../domain/entities/LocationURI';
-import type { VersionState, CompletionStatus } from '../../domain/entities/VersionState';
+import type { LocationUriEntity } from '../../../../query/domain/entities/locationUri';
+import type { VersionStateEntity, CompletionStatus } from '../../../../query/domain/entities/versionState';
 import type { VersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
 
 export interface VersionCompletion {
@@ -119,7 +119,7 @@ export function createVersionCompletionService(repository: VersionProgressReposi
   async function getIncompleteLocationUris(
     dbConnection: any,
     versionId: string
-  ): Promise<LocationURI[]> {
+  ): Promise<LocationUriEntity[]> {
     return await repository.getIncompleteLocationUris(dbConnection, versionId);
   }
 

@@ -4,8 +4,8 @@
  * KuzuDBと直接通信してデータを取得・更新する
  */
 
-import type { LocationURI } from '../../domain/entities/LocationURI';
-import type { VersionState, CompletionStatus } from '../../domain/entities/VersionState';
+import type { LocationUriEntity } from '../../../../query/domain/entities/locationUri';
+import type { VersionStateEntity, CompletionStatus } from '../../../../query/domain/entities/versionState';
 import { executeDMLQuery, executeDQLQuery } from './queryExecutor';
 
 export interface VersionProgressRepository {
@@ -38,7 +38,7 @@ export interface VersionProgressRepository {
     previousVersion: string | null;
     nextVersion: string | null;
   }>>;
-  getIncompleteLocationUris(dbConnection: any, versionId: string): Promise<LocationURI[]>;
+  getIncompleteLocationUris(dbConnection: any, versionId: string): Promise<LocationUriEntity[]>;
   getCompletionStatistics(dbConnection: any): Promise<{
     totalVersions: number;
     overallTotalLocations: number;
@@ -215,7 +215,7 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     }));
   }
 
-  async function getIncompleteLocationUris(dbConnection: any, versionId: string): Promise<LocationURI[]> {
+  async function getIncompleteLocationUris(dbConnection: any, versionId: string): Promise<LocationUriEntity[]> {
     const result = await executeDQLQuery(dbConnection, 'get_incomplete_locationuris_by_version', {
       version_id: versionId
     });
