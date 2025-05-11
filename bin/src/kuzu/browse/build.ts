@@ -199,12 +199,6 @@ async function createViteDevServer(mounts: MountDefinition[]) {
                 overrideConsole('warn');
                 overrideConsole('info');
                 
-                // 未処理のエラーもキャプチャ
-                window.addEventListener('error', function(event) {
-                  const errorMsg = event.message + '\\n' + (event.error && event.error.stack || '');
-                  console.error('[UNCAUGHT ERROR]', errorMsg);
-                });
-                
                 console.log('Console redirection initialized - logs will be sent to the server');
               </script>
             `;
