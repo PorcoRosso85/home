@@ -60,7 +60,8 @@ export type DmlOperations = {
     connection: any,
     id: string,
     timestamp: string,
-    description: string
+    description: string,
+    changeReason: string
   ) => Promise<QueryResult<VersionStateEntity>>;
   
   /**
@@ -244,10 +245,11 @@ export async function createDmlOperations(): Promise<DmlOperations> {
       connection: any,
       id: string,
       timestamp: string,
-      description: string
+      description: string,
+      changeReason: string
     ): Promise<QueryResult<VersionStateEntity>> {
       try {
-        const params = { id, timestamp, description };
+        const params = { id, timestamp, description, change_reason: changeReason };
         
         const result = await repository.executeQuery(connection, 'create_versionstate', params);
         
@@ -255,7 +257,8 @@ export async function createDmlOperations(): Promise<DmlOperations> {
           const versionState: VersionStateEntity = {
             id,
             timestamp,
-            description
+            description,
+            change_reason: changeReason
           };
           
           return {
@@ -471,7 +474,7 @@ export async function createDmlOperations(): Promise<DmlOperations> {
         
         // 7. VersionStateノードとTRACKS_STATE_OFエッジを作成
         console.log('7. バージョン管理情報を作成中...');
-        const versionResult = await this.createVersionState(connection, 'v1.0.0', '2025-05-10T10:00:00Z', '初回リリース');
+        const versionResult = await this.createVersionState(connection, 'v1.0.0', '2025-05-10T10:00:00Z', '初回リリース', '新規開発');
         
         if (!versionResult.success) {
           return {

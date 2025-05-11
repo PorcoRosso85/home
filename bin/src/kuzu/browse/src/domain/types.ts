@@ -26,6 +26,7 @@ export interface VersionState {
   id: string;           // バージョンID (例: 'v1.0.0')
   timestamp: string;    // タイムスタンプ (ISO 8601形式)
   description: string;  // バージョンの説明
+  change_reason: string; // 変更理由（要件変更、部分達成不足など）
 }
 
 /**

@@ -5,7 +5,7 @@
 // 対策: FOLLOWS関係は別クエリ(create_follows.cypher)で処理するよう変更
 
 // Step 1: VersionStateを作成
-CREATE (v1:VersionState {id: $version_id, timestamp: $timestamp, description: $description})
+CREATE (v1:VersionState {id: $version_id, timestamp: $timestamp, description: $description, change_reason: $change_reason})
 
 // Step 2: 関連するLocationURIを作成（存在チェック付き）
 // NOTE: 2025-05-10 - CREATE文からMERGE文に変更

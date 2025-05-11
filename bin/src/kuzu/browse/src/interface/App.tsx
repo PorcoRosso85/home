@@ -38,7 +38,7 @@ const App = () => {
           {/* バージョンセレクター */}
           <div style={{ marginBottom: '20px' }}>
             <label htmlFor="version-select" style={{ marginRight: '10px' }}>
-              バージョン選択（指定バージョン以前の各URIの最新状態を表示）:
+              バージョン選択:
             </label>
             <select 
               id="version-select"
@@ -46,7 +46,7 @@ const App = () => {
               onChange={(e) => setSelectedVersionId(e.target.value)}
               style={{
                 padding: '5px',
-                minWidth: '200px'
+                minWidth: '400px'
               }}
             >
               {versions.length === 0 ? (
@@ -54,7 +54,7 @@ const App = () => {
               ) : (
                 versions.map(version => (
                   <option key={version.id} value={version.id}>
-                    {version.id} - {version.description}
+                    {version.id} - {version.description} ({version.change_reason})
                   </option>
                 ))
               )}

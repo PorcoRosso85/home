@@ -3,6 +3,26 @@ import { executeDMLQuery } from '../../infrastructure/repository/queryExecutor';
 import { createValidationError, isValidationError, getValidationErrorDetails } from '../../domain/validation/validationError';
 import { validateVersionBatch, type VersionedLocationData } from './validation/versionBatchValidation';
 
+/**
+ * バージョンIDに基づいて適切な変更理由を生成する
+ */
+function getChangeReasonForVersion(versionId: string, previousVersionId?: string): string {
+  if (!previousVersionId) {
+    return '新規開発';
+  }
+
+  // バージョンIDから変更理由を推測
+  if (versionId.includes('.1') || versionId.includes('.2')) {
+    return 'マイナーアップデート: 新機能追加';
+  } else if (versionId.includes('.0.1') || versionId.includes('.0.2')) {
+    return 'パッチリリース: バグフィックス';
+  } else if (versionId.includes('2.0')) {
+    return 'メジャーアップデート: アーキテクチャ刷新';
+  } else {
+    return '要件変更に伴う機能改修';
+  }
+}
+
 export async function seedDefaultData(conn: any): Promise<void> {
   logger.debug('DML実行中（4バージョン分のデータ）...');
   
@@ -139,6 +159,7 @@ export async function seedDefaultData(conn: any): Promise<void> {
         version_id: versionData.version_id,
         timestamp: new Date().toISOString(),
         description: `Version ${versionData.version_id} release`,
+        change_reason: getChangeReasonForVersion(versionData.version_id, versionData.previous_version_id),
         location_uris: versionData.location_uris
       };
       

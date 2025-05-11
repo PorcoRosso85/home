@@ -180,13 +180,15 @@ export async function createVersionState(
   connection: any,
   id: string, 
   timestamp: string, 
-  description: string
+  description: string,
+  changeReason: string
 ): Promise<void> {
   const repository = await createQueryRepository();
   const result = await repository.executeQuery(connection, 'create_versionstate', {
     id: id,
     timestamp: timestamp,
-    description: description
+    description: description,
+    change_reason: changeReason
   });
   
   handleResult(result, `VersionState: ${id}`);
@@ -269,7 +271,7 @@ export async function executeInOrder(connection: any): Promise<void> {
     
     // 7. VersionStateノードとTRACKS_STATE_OFエッジを作成
     console.log('7. バージョン管理情報を作成中...');
-    await createVersionState(connection, 'v1.0.0', '2025-05-10T10:00:00Z', '初回リリース');
+    await createVersionState(connection, 'v1.0.0', '2025-05-10T10:00:00Z', '初回リリース', '新規開発');
     await trackStateOfCode(connection, 'v1.0.0', 'main_function');
     await trackStateOfCode(connection, 'v1.0.0', 'utils_helper');
     await trackStateOfCode(connection, 'v1.0.0', 'app_component');

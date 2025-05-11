@@ -31,7 +31,8 @@ export const useVersionData = (dbConnection: any | null) => {
       const versionList: VersionState[] = queryResult.map(row => ({
         id: row.version_id,
         timestamp: row.timestamp,
-        description: row.description
+        description: row.description,
+        change_reason: row.change_reason
       }));
       
       logger.debug('変換後のバージョンリスト:', versionList);
