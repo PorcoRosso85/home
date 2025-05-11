@@ -8,9 +8,10 @@
  * VersionStateの基本構造
  */
 export type VersionStateEntity = {
-  id: string;          // バージョン識別子（主キー）
-  timestamp: string;   // タイムスタンプ（ISO形式）
-  description: string; // バージョンの説明
+  id: string;              // バージョン識別子（主キー）
+  timestamp: string;       // タイムスタンプ（ISO形式）
+  description: string;     // バージョンの説明
+  progress_percentage: number;  // 進捗率（0.0から1.0の範囲）
 };
 
 /**
@@ -19,12 +20,14 @@ export type VersionStateEntity = {
 export function createVersionState(
   id: string,
   description: string,
-  timestamp?: string
+  timestamp?: string,
+  progressPercentage: number = 0.0
 ): VersionStateEntity {
   return {
     id,
     timestamp: timestamp || new Date().toISOString(),
     description,
+    progress_percentage: Math.max(0.0, Math.min(1.0, progressPercentage)), // 0.0から1.0の範囲に制限
   };
 }
 
@@ -36,6 +39,7 @@ export function cloneVersionState(versionState: VersionStateEntity): VersionStat
     id: versionState.id,
     timestamp: versionState.timestamp,
     description: versionState.description,
+    progress_percentage: versionState.progress_percentage,
   };
 }
 
@@ -75,18 +79,20 @@ export function equalsVersionState(version1: VersionStateEntity, version2: Versi
   return (
     version1.id === version2.id &&
     version1.timestamp === version2.timestamp &&
-    version1.description === version2.description
+    version1.description === version2.description &&
+    version1.progress_percentage === version2.progress_percentage
   );
 }
 
 /**
  * VersionStateエンティティをクエリパラメータに変換する
  */
-export function toQueryParams(versionState: VersionStateEntity): Record<string, string> {
+export function toQueryParams(versionState: VersionStateEntity): Record<string, string | number> {
   return {
     id: versionState.id,
     timestamp: versionState.timestamp,
     description: versionState.description,
+    progress_percentage: versionState.progress_percentage,
   };
 }
 
@@ -100,6 +106,12 @@ export function validateVersionState(versionState: VersionStateEntity): { isVali
   
   if (!versionState.description || versionState.description.trim() === '') {
     return { isValid: false, error: 'Description is required' };
+  }
+  
+  if (typeof versionState.progress_percentage !== 'number' || 
+      versionState.progress_percentage < 0.0 || 
+      versionState.progress_percentage > 1.0) {
+    return { isValid: false, error: 'Progress percentage must be between 0.0 and 1.0' };
   }
   
   try {
@@ -140,4 +152,54 @@ export function filterVersionsByDateRange(
     const versionDate = new Date(version.timestamp);
     return versionDate >= startDate && versionDate <= endDate;
   });
+}
+
+/**
+ * 進捗率で状態を判定する
+ */
+export type CompletionStatus = 'completed' | 'in_progress' | 'not_started';
+
+export function getCompletionStatus(versionState: VersionStateEntity): CompletionStatus {
+  if (versionState.progress_percentage >= 1.0) {
+    return 'completed';
+  } else if (versionState.progress_percentage > 0.0) {
+    return 'in_progress';
+  } else {
+    return 'not_started';
+  }
+}
+
+/**
+ * 進捗率をパーセンテージ文字列に変換する
+ */
+export function getProgressPercentageAsString(versionState: VersionStateEntity, decimals: number = 1): string {
+  return `${(versionState.progress_percentage * 100).toFixed(decimals)}%`;
+}
+
+/**
+ * 進捗率を更新する
+ */
+export function updateProgress(
+  versionState: VersionStateEntity,
+  newProgress: number
+): VersionStateEntity {
+  return updateVersionState(versionState, {
+    progress_percentage: Math.max(0.0, Math.min(1.0, newProgress))
+  });
+}
+
+/**
+ * バージョン状態リストから完了済みのものだけを抽出する
+ */
+export function filterCompletedVersions(versions: VersionStateEntity[]): VersionStateEntity[] {
+  return versions.filter(version => version.progress_percentage >= 1.0);
+}
+
+/**
+ * バージョン状態リストから進行中のものだけを抽出する
+ */
+export function filterInProgressVersions(versions: VersionStateEntity[]): VersionStateEntity[] {
+  return versions.filter(version => 
+    version.progress_percentage > 0.0 && version.progress_percentage < 1.0
+  );
 }

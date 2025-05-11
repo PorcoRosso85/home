@@ -5,6 +5,7 @@ CREATE (locationuri:LocationURI {
   authority: COALESCE($authority, ''), 
   path: $path, 
   fragment: COALESCE($fragment, ''), 
-  query: COALESCE($query, '')
+  query: COALESCE($query, ''),
+  completed: COALESCE($completed, false)
 })
 RETURN locationuri

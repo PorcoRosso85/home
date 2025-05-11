@@ -14,6 +14,7 @@ export type LocationUriEntity = {
   path: string;        // URIパス部分
   fragment: string;    // URIフラグメント部分
   query: string;       // URIクエリ部分
+  completed: boolean;  // 完了フラグ
 };
 
 /**
@@ -25,7 +26,8 @@ export function createLocationUri(
   path: string,
   authority?: string,
   fragment?: string,
-  query?: string
+  query?: string,
+  completed: boolean = false
 ): LocationUriEntity {
   return {
     uri_id: uriId,
@@ -33,7 +35,8 @@ export function createLocationUri(
     authority: authority || '',
     path,
     fragment: fragment || '',
-    query: query || ''
+    query: query || '',
+    completed
   };
 }
 
@@ -48,6 +51,7 @@ export function cloneLocationUri(locationUri: LocationUriEntity): LocationUriEnt
     path: locationUri.path,
     fragment: locationUri.fragment,
     query: locationUri.query,
+    completed: locationUri.completed,
   };
 }
 
@@ -122,14 +126,15 @@ export function equalsLocationUri(uri1: LocationUriEntity, uri2: LocationUriEnti
     uri1.authority === uri2.authority &&
     uri1.path === uri2.path &&
     uri1.fragment === uri2.fragment &&
-    uri1.query === uri2.query
+    uri1.query === uri2.query &&
+    uri1.completed === uri2.completed
   );
 }
 
 /**
  * LocationURIエンティティをクエリパラメータに変換する
  */
-export function toQueryParams(locationUri: LocationUriEntity): Record<string, string> {
+export function toQueryParams(locationUri: LocationUriEntity): Record<string, string | boolean> {
   return {
     uri_id: locationUri.uri_id,
     scheme: locationUri.scheme,
@@ -137,5 +142,6 @@ export function toQueryParams(locationUri: LocationUriEntity): Record<string, st
     path: locationUri.path,
     fragment: locationUri.fragment,
     query: locationUri.query,
+    completed: locationUri.completed,
   };
 }

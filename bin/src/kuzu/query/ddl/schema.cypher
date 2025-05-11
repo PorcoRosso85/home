@@ -9,7 +9,8 @@ CREATE NODE TABLE LocationURI (
   authority STRING,
   path STRING,
   fragment STRING,
-  query STRING
+  query STRING,
+  completed BOOLEAN
 );
 
 // 2. CodeEntityノード - コードの構成要素（関数、クラス、メソッド等）
@@ -36,7 +37,8 @@ CREATE NODE TABLE RequirementEntity (
 CREATE NODE TABLE VersionState (
   id STRING PRIMARY KEY,
   timestamp STRING,
-  description STRING
+  description STRING,
+  progress_percentage FLOAT
 );
 
 // 5. ReferenceEntityノード - 外部参照情報
