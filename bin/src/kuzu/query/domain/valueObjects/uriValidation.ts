@@ -1,4 +1,4 @@
-import type { LocationUri, ParsedUri } from './uriTypes';
+import type { LocationUri, ParsedUri } from './uriValue';
 
 /**
  * LocationUriバリデーション関数

@@ -5,15 +5,12 @@
  * 階層型トレーサビリティモデルのデータを構築します。
  */
 
-import { executeQuery } from '../dmlGeneratorBrowser';
-import { validateLocationUri, validateLocationUriObject } from '../domain/validateUri';
-import type { LocationUri } from '../domain/uriTypes';
+import { validateLocationUri, validateLocationUriObject } from '../domain/valueObjects/uriValidation';
+import type { LocationUri } from '../domain/valueObjects/uriValue';
+import type { QueryResult } from '../domain/entities/queryResult';
 
-type QueryResult<T> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-};
+// クエリリポジトリの動的インポート
+import { createQueryRepository } from '../infrastructure/factories/repositoryFactory';
 
 /**
  * クエリ実行結果のハンドリング
@@ -65,7 +62,8 @@ async function createLocationURI(
   
   console.log('createLocationURI params:', params);
   
-  const result = await executeQuery(connection, 'create_locationuri', params);
+  const repository = await createQueryRepository();
+  const result = await repository.executeQuery(connection, 'create_locationuri', params);
   
   console.log('createLocationURI result:', result);
   
