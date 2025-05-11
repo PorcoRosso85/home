@@ -14,10 +14,12 @@ export type QueryResult<T> = {
 
 /**
  * クエリファイルを検索する（ブラウザ版）
+ * @param queryName クエリファイル名（拡張子なし）
+ * @param directory ディレクトリを明示的に指定（ddl, dml, dql）
  */
-export async function findQueryFile(queryName: string): Promise<[boolean, string]> {
-  // DQL（データ取得）操作がデフォルトとして利用される
-  const searchPath = `/dql/${queryName}.cypher`;
+export async function findQueryFile(queryName: string, directory: 'ddl' | 'dml' | 'dql'): Promise<[boolean, string]> {
+  // 指定されたディレクトリのみを検索
+  const searchPath = `/${directory}/${queryName}.cypher`;
   
   try {
     const response = await fetch(searchPath);
@@ -82,13 +84,15 @@ export async function getAvailableQueries(): Promise<string[]> {
 
 /**
  * クエリ名に対応するCypherクエリを取得する（ブラウザ版）
+ * @param queryName クエリファイル名（拡張子なし）
+ * @param directory ディレクトリを明示的に指定（ddl, dml, dql）
  */
-export async function getQuery(queryName: string): Promise<QueryResult<string>> {
-  // 通常のクエリファイル検索
-  const [found, filePath] = await findQueryFile(queryName);
+export async function getQuery(queryName: string, directory: 'ddl' | 'dml' | 'dql'): Promise<QueryResult<string>> {
+  // 指定されたディレクトリでクエリファイルを検索
+  const [found, filePath] = await findQueryFile(queryName, directory);
   if (!found) {
     const available = await getAvailableQueries();
-    throw new Error(`クエリ '${queryName}' が見つかりません。利用可能なクエリ: ${available.join(', ')}`);
+    throw new Error(`クエリ '${queryName}' が見つかりません（${directory}を検索）。利用可能なクエリ: ${available.join(', ')}`);
   }
   
   // ファイルを読み込む
@@ -153,17 +157,22 @@ export function buildParameterizedQuery(query: string, params: Record<string, an
 
 /**
  * クエリ名に対応するCypherクエリを実行する（ブラウザ版）
+ * @param connection データベース接続
+ * @param queryName クエリファイル名（拡張子なし）
+ * @param directory ディレクトリを明示的に指定（ddl, dml, dql）
+ * @param params クエリパラメータ
  */
 export async function executeQuery(
   connection: any, 
-  queryName: string, 
+  queryName: string,
+  directory: 'ddl' | 'dml' | 'dql',
   params: Record<string, any> = {}
 ): Promise<QueryResult<any>> {
-  console.log(`executeQuery called: queryName=${queryName}, params=`, params);
+  console.log(`executeQuery called: queryName=${queryName}, directory=${directory}, params=`, params);
   
   // クエリを取得
   try {
-    const queryResult = await getQuery(queryName);
+    const queryResult = await getQuery(queryName, directory);
     const query = queryResult.data!;
     console.log(`Query to execute: "${query}"`);
     console.log(`Query params:`, params);
@@ -187,4 +196,37 @@ export async function executeQuery(
  */
 export function getSuccess<T>(result: QueryResult<T>): boolean {
   return result.success === true;
+}
+
+/**
+ * DDL系クエリを実行する関数
+ */
+export async function executeDDLQuery(
+  connection: any,
+  queryName: string,
+  params: Record<string, any> = {}
+): Promise<QueryResult<any>> {
+  return executeQuery(connection, queryName, 'ddl', params);
+}
+
+/**
+ * DML系クエリを実行する関数
+ */
+export async function executeDMLQuery(
+  connection: any,
+  queryName: string,
+  params: Record<string, any> = {}
+): Promise<QueryResult<any>> {
+  return executeQuery(connection, queryName, 'dml', params);
+}
+
+/**
+ * DQL系クエリを実行する関数
+ */
+export async function executeDQLQuery(
+  connection: any,
+  queryName: string,
+  params: Record<string, any> = {}
+): Promise<QueryResult<any>> {
+  return executeQuery(connection, queryName, 'dql', params);
 }

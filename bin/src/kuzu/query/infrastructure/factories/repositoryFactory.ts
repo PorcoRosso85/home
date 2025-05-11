@@ -8,12 +8,15 @@ import type { QueryResult } from '../repositories/browserQueryRepository';
 
 // リポジトリインターフェースの型定義
 export type QueryRepository = {
-  findQueryFile: (queryName: string) => Promise<[boolean, string]> | [boolean, string];
+  findQueryFile: (queryName: string, directory: 'ddl' | 'dml' | 'dql') => Promise<[boolean, string]> | [boolean, string];
   readQueryFile: (filePath: string) => Promise<QueryResult<string>> | QueryResult<string>;
   getAvailableQueries: () => Promise<string[]> | string[];
-  getQuery: (queryName: string, fallbackQuery?: string) => Promise<QueryResult<string>> | QueryResult<string>;
-  executeQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>>;
+  getQuery: (queryName: string, directory: 'ddl' | 'dml' | 'dql') => Promise<QueryResult<string>> | QueryResult<string>;
+  executeQuery: (connection: any, queryName: string, directory: 'ddl' | 'dml' | 'dql', params?: Record<string, any>) => Promise<QueryResult<any>>;
   getSuccess: <T>(result: QueryResult<T>) => boolean;
+  executeDDLQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>>;
+  executeDMLQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>>;
+  executeDQLQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>>;
 };
 
 // 環境検出用のヘルパー関数
@@ -46,6 +49,9 @@ export async function createQueryRepository(): Promise<QueryRepository> {
         getQuery: browserRepo.getQuery,
         executeQuery: browserRepo.executeQuery,
         getSuccess: browserRepo.getSuccess,
+        executeDDLQuery: browserRepo.executeDDLQuery,
+        executeDMLQuery: browserRepo.executeDMLQuery,
+        executeDQLQuery: browserRepo.executeDQLQuery,
       };
       
     case 'node':
@@ -57,6 +63,9 @@ export async function createQueryRepository(): Promise<QueryRepository> {
         getQuery: nodeRepo.getQuery,
         executeQuery: nodeRepo.executeQuery,
         getSuccess: nodeRepo.getSuccess,
+        executeDDLQuery: nodeRepo.executeDDLQuery || (() => { throw new Error('executeDDLQuery not implemented for node environment'); }),
+        executeDMLQuery: nodeRepo.executeDMLQuery || (() => { throw new Error('executeDMLQuery not implemented for node environment'); }),
+        executeDQLQuery: nodeRepo.executeDQLQuery || (() => { throw new Error('executeDQLQuery not implemented for node environment'); }),
       };
       
     case 'deno':
@@ -68,6 +77,9 @@ export async function createQueryRepository(): Promise<QueryRepository> {
         getQuery: denoRepo.getQuery,
         executeQuery: denoRepo.executeQuery,
         getSuccess: denoRepo.getSuccess,
+        executeDDLQuery: denoRepo.executeDDLQuery || (() => { throw new Error('executeDDLQuery not implemented for deno environment'); }),
+        executeDMLQuery: denoRepo.executeDMLQuery || (() => { throw new Error('executeDMLQuery not implemented for deno environment'); }),
+        executeDQLQuery: denoRepo.executeDQLQuery || (() => { throw new Error('executeDQLQuery not implemented for deno environment'); }),
       };
       
     default:
@@ -87,6 +99,9 @@ export async function createBrowserRepository(): Promise<QueryRepository> {
     getQuery: browserRepo.getQuery,
     executeQuery: browserRepo.executeQuery,
     getSuccess: browserRepo.getSuccess,
+    executeDDLQuery: browserRepo.executeDDLQuery,
+    executeDMLQuery: browserRepo.executeDMLQuery,
+    executeDQLQuery: browserRepo.executeDQLQuery,
   };
 }
 

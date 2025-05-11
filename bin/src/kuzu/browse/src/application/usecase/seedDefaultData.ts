@@ -1,5 +1,5 @@
 import * as logger from '../../../../common/infrastructure/logger';
-import { executeQuery } from '../../infrastructure/repository/queryExecutor';
+import { executeDMLQuery } from '../../infrastructure/repository/queryExecutor';
 import { VersionedLocationData, LocationURI } from '../../domain/types';
 
 export async function seedDefaultData(conn: any): Promise<void> {
@@ -106,12 +106,12 @@ export async function seedDefaultData(conn: any): Promise<void> {
         location_uris: versionData.location_uris
       };
       
-      const result = await executeQuery(conn, 'version_batch_operations', batchParams);
+      const result = await executeDMLQuery(conn, 'version_batch_operations', batchParams);
       logger.debug(`${versionData.version_id}作成結果:`, result);
       
       // ステップ2: 前のバージョンがある場合、FOLLOWS関係を作成
       if (versionData.previous_version_id) {
-        const followsResult = await executeQuery(conn, 'create_follows', {
+        const followsResult = await executeDMLQuery(conn, 'create_follows', {
           from_version_id: versionData.previous_version_id,
           to_version_id: versionData.version_id
         });
@@ -151,7 +151,7 @@ export async function seedDefaultData(conn: any): Promise<void> {
     ];
     
     // 階層構造を作成
-    await executeQuery(conn, 'create_location_hierarchy', { hierarchies });
+    await executeDMLQuery(conn, 'create_location_hierarchy', { hierarchies });
     
     // データ確認
     logger.debug('データベース確認中...');

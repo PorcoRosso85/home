@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { executeQuery } from '../../infrastructure/repository/queryExecutor';
+import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
 import { VersionState, TreeNode } from '../../domain/types';
 import * as logger from '../../../../common/infrastructure/logger';
 
@@ -20,7 +20,7 @@ export const useVersionData = (dbConnection: any | null) => {
 
       setLoading(true);
       logger.debug('バージョン一覧の取得を開始');
-      const result = await executeQuery(dbConnection, 'get_all_versions', {});
+      const result = await executeDQLQuery(dbConnection, 'get_all_versions', {});
       logger.debug('クエリ実行結果:', result);
       
       const queryResult = await result.data.getAllObjects();
@@ -58,7 +58,7 @@ export const useVersionData = (dbConnection: any | null) => {
       setLoading(true);
       
       // 指定バージョン以前の各URIの最新状態を取得
-      const result = await executeQuery(dbConnection, 'get_uris_up_to_version', { 
+      const result = await executeDQLQuery(dbConnection, 'get_uris_up_to_version', { 
         version_id: selectedVersionId 
       });
       
