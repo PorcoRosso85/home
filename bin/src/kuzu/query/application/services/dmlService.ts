@@ -5,12 +5,10 @@
  * 階層型トレーサビリティモデルのデータを構築します。
  */
 
-import { validateLocationUri, validateLocationUriObject } from '../domain/valueObjects/uriValidation';
-import type { LocationUri } from '../domain/valueObjects/uriValue';
-import type { QueryResult } from '../domain/entities/queryResult';
-
-// クエリリポジトリの動的インポート
-import { createQueryRepository } from '../infrastructure/factories/repositoryFactory';
+import { validateLocationUri, validateLocationUriObject } from '../../domain/valueObjects/uriValidation';
+import type { LocationUriEntity } from '../../domain/valueObjects/uriValue';
+import type { QueryResult } from '../../domain/entities/queryResult';
+import { createQueryRepository } from '../../infrastructure/factories/repositoryFactory';
 
 /**
  * クエリ実行結果のハンドリング
@@ -27,7 +25,7 @@ function handleResult(result: QueryResult<any>, operation: string): void {
 /**
  * LocationURIノードを作成
  */
-async function createLocationURI(
+export async function createLocationURI(
   connection: any,
   uriId: string, 
   scheme: string, 
@@ -43,7 +41,7 @@ async function createLocationURI(
   }
 
   // LocationUriオブジェクトの構築
-  const locationUri: LocationUri = {
+  const locationUri: LocationUriEntity = {
     uri_id: uriId,
     scheme: scheme,
     authority: authority || '',
@@ -73,7 +71,7 @@ async function createLocationURI(
 /**
  * CodeEntityノードを作成
  */
-async function createCodeEntity(
+export async function createCodeEntity(
   connection: any,
   persistentId: string, 
   type: string, 
@@ -83,7 +81,8 @@ async function createCodeEntity(
   endPosition: number,
   complexity: number = 1
 ): Promise<void> {
-  const result = await executeQuery(connection, 'create_codeentity', {
+  const repository = await createQueryRepository();
+  const result = await repository.executeQuery(connection, 'create_codeentity', {
     persistent_id: persistentId,
     name: name,
     type: type,
@@ -99,7 +98,7 @@ async function createCodeEntity(
 /**
  * RequirementEntityノードを作成
  */
-async function createRequirement(
+export async function createRequirement(
   connection: any,
   id: string,
   title: string,
@@ -107,7 +106,8 @@ async function createRequirement(
   priority: string,
   requirementType: string
 ): Promise<void> {
-  const result = await executeQuery(connection, 'create_requiremententity', {
+  const repository = await createQueryRepository();
+  const result = await repository.executeQuery(connection, 'create_requiremententity', {
     id: id,
     title: title,
     description: description,
@@ -121,12 +121,13 @@ async function createRequirement(
 /**
  * HAS_LOCATIONエッジを作成
  */
-async function createHasLocation(
+export async function createHasLocation(
   connection: any,
   codeEntityId: string, 
   locationUriId: string
 ): Promise<void> {
-  const result = await executeQuery(connection, 'create_has_location', {
+  const repository = await createQueryRepository();
+  const result = await repository.executeQuery(connection, 'create_has_location', {
     from_id: codeEntityId,
     to_id: locationUriId
   });
@@ -137,13 +138,14 @@ async function createHasLocation(
 /**
  * IS_IMPLEMENTED_BYエッジを作成
  */
-async function createIsImplementedBy(
+export async function createIsImplementedBy(
   connection: any,
   requirementId: string, 
   codeEntityId: string, 
   implementationType: string
 ): Promise<void> {
-  const result = await executeQuery(connection, 'create_is_implemented_by', {
+  const repository = await createQueryRepository();
+  const result = await repository.executeQuery(connection, 'create_is_implemented_by', {
     from_id: requirementId,
     to_id: codeEntityId,
     implementation_type: implementationType
@@ -155,13 +157,14 @@ async function createIsImplementedBy(
 /**
  * REFERENCES_CODEエッジを作成
  */
-async function createReferencesCode(
+export async function createReferencesCode(
   connection: any,
   fromCodeId: string, 
   toCodeId: string, 
   refType: string
 ): Promise<void> {
-  const result = await executeQuery(connection, 'create_references_code', {
+  const repository = await createQueryRepository();
+  const result = await repository.executeQuery(connection, 'create_references_code', {
     from_id: fromCodeId,
     to_id: toCodeId,
     ref_type: refType
@@ -173,13 +176,14 @@ async function createReferencesCode(
 /**
  * VersionStateノードを作成
  */
-async function createVersionState(
+export async function createVersionState(
   connection: any,
   id: string, 
   timestamp: string, 
   description: string
 ): Promise<void> {
-  const result = await executeQuery(connection, 'create_versionstate', {
+  const repository = await createQueryRepository();
+  const result = await repository.executeQuery(connection, 'create_versionstate', {
     id: id,
     timestamp: timestamp,
     description: description
@@ -191,12 +195,13 @@ async function createVersionState(
 /**
  * TRACKS_STATE_OF_CODEエッジを作成
  */
-async function trackStateOfCode(
+export async function trackStateOfCode(
   connection: any,
   versionId: string, 
   codeEntityId: string
 ): Promise<void> {
-  const result = await executeQuery(connection, 'create_tracks_state_of_code', {
+  const repository = await createQueryRepository();
+  const result = await repository.executeQuery(connection, 'create_tracks_state_of_code', {
     from_id: versionId,
     to_id: codeEntityId
   });
@@ -207,12 +212,13 @@ async function trackStateOfCode(
 /**
  * TRACKS_STATE_OF_REQエッジを作成
  */
-async function trackStateOfReq(
+export async function trackStateOfReq(
   connection: any,
   versionId: string, 
   requirementId: string
 ): Promise<void> {
-  const result = await executeQuery(connection, 'create_tracks_state_of_req', {
+  const repository = await createQueryRepository();
+  const result = await repository.executeQuery(connection, 'create_tracks_state_of_req', {
     from_id: versionId,
     to_id: requirementId
   });
@@ -283,8 +289,10 @@ export async function executeInOrder(connection: any): Promise<void> {
 export async function validateRequirement(connection: any, requirementId: string): Promise<void> {
   console.log(`\n=== 要件 ${requirementId} の検証開始 ===`);
   
+  const repository = await createQueryRepository();
+  
   // 1. 要件の実装を確認
-  const implementations = await executeQuery(connection, 'find_requirement_implementations', {
+  const implementations = await repository.executeQuery(connection, 'find_requirement_implementations', {
     requirement_id: requirementId
   });
   
@@ -296,7 +304,7 @@ export async function validateRequirement(connection: any, requirementId: string
   }
   
   // 2. コード間の依存関係を確認
-  const dependencies = await executeQuery(connection, 'find_code_dependencies', {
+  const dependencies = await repository.executeQuery(connection, 'find_code_dependencies', {
     requirement_id: requirementId
   });
   
@@ -308,7 +316,7 @@ export async function validateRequirement(connection: any, requirementId: string
   }
   
   // 3. バージョン情報を確認
-  const versions = await executeQuery(connection, 'find_requirement_versions', {
+  const versions = await repository.executeQuery(connection, 'find_requirement_versions', {
     requirement_id: requirementId
   });
   
