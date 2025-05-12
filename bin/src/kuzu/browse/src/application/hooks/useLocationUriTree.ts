@@ -7,6 +7,13 @@ import { useDatabaseConnection } from '../../infrastructure/database/useDatabase
 import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
 
 /**
+ * URLのパスをセグメントに分割する
+ */
+function splitPath(path: string): string[] {
+  return path.split('/').filter(Boolean);
+}
+
+/**
  * LocationURIツリーを構築する補助関数
  */
 function buildLocationUriTree(locationUris: LocationURI[]): TreeNode[] {
@@ -33,56 +40,90 @@ function buildLocationUriTree(locationUris: LocationURI[]): TreeNode[] {
       children: []
     };
     
-    // パスの階層ごとにグループ化して子ノードを作成
-    const pathGroups: Record<string, LocationURI[]> = {};
+    // ディレクトリ構造を構築
+    const directoryTree: Record<string, TreeNode> = {};
     
     uris.forEach(uri => {
-      const pathParts = uri.path.split('/').filter(Boolean);
-      if (pathParts.length > 1) {
-        // ディレクトリパスがある場合
-        const dirPath = pathParts.slice(0, -1).join('/');
-        if (!pathGroups[dirPath]) {
-          pathGroups[dirPath] = [];
-        }
-        pathGroups[dirPath].push(uri);
-      } else {
-        // ルートレベルのファイル
+      const pathSegments = splitPath(uri.path);
+      
+      if (pathSegments.length === 0) {
+        // パスがない場合は直接スキームノードに追加
         const leafNode: TreeNode = {
           id: uri.uri_id,
-          name: uri.path || '[空のパス]',
+          name: '[空のパス]',
           nodeType: 'location',
           children: [],
           from_version: uri.from_version,
           isCompleted: uri.isCompleted
         };
         schemeNode.children.push(leafNode);
+        return;
       }
-    });
-    
-    // ディレクトリノードを追加
-    Object.entries(pathGroups).forEach(([dirPath, dirUris]) => {
-      const dirNode: TreeNode = {
-        id: `dir-${scheme}-${dirPath}`,
-        name: dirPath,
-        nodeType: 'location',
-        children: []
-      };
       
-      // ディレクトリ内のファイルを追加
-      dirUris.forEach(uri => {
-        const fileName = uri.path.split('/').pop() || '[不明]';
-        const fileNode: TreeNode = {
+      if (pathSegments.length === 1) {
+        // ルートレベルのファイル
+        const leafNode: TreeNode = {
           id: uri.uri_id,
-          name: fileName,
+          name: pathSegments[0],
           nodeType: 'location',
           children: [],
           from_version: uri.from_version,
           isCompleted: uri.isCompleted
         };
-        dirNode.children.push(fileNode);
-      });
+        schemeNode.children.push(leafNode);
+        return;
+      }
       
-      schemeNode.children.push(dirNode);
+      // 複数セグメントあるパスの処理
+      let currentPath = '';
+      let parentNode = schemeNode;
+      
+      // パスの最後のセグメント（ファイル名）を除く部分でディレクトリツリーを構築
+      for (let i = 0; i < pathSegments.length - 1; i++) {
+        const segment = pathSegments[i];
+        currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+        
+        // このパスのディレクトリノードがまだない場合は作成
+        if (!directoryTree[currentPath]) {
+          const dirNode: TreeNode = {
+            id: `dir-${scheme}-${currentPath}`,
+            name: segment,
+            nodeType: 'location',
+            children: []
+          };
+          directoryTree[currentPath] = dirNode;
+          
+          // 親ディレクトリがある場合はその子として追加
+          if (i > 0) {
+            const parentPath = splitPath(currentPath).slice(0, -1).join('/');
+            if (directoryTree[parentPath]) {
+              directoryTree[parentPath].children.push(dirNode);
+            }
+          } else {
+            // トップレベルのディレクトリはスキームノードの子として追加
+            schemeNode.children.push(dirNode);
+          }
+        }
+      }
+      
+      // ファイルノードの作成と追加
+      const fileName = pathSegments[pathSegments.length - 1];
+      const parentPath = splitPath(uri.path).slice(0, -1).join('/');
+      const fileNode: TreeNode = {
+        id: uri.uri_id,
+        name: fileName,
+        nodeType: 'location',
+        children: [],
+        from_version: uri.from_version,
+        isCompleted: uri.isCompleted
+      };
+      
+      if (directoryTree[parentPath]) {
+        directoryTree[parentPath].children.push(fileNode);
+      } else {
+        // 親ディレクトリがない場合（通常はエラー状態）
+        schemeNode.children.push(fileNode);
+      }
     });
     
     tree.push(schemeNode);
