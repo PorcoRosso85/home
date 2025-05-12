@@ -1,9 +1,0 @@
-// バージョン間のFOLLOWS関係を取得するDQLクエリ
-// TODO: SemVerフォーマットを考慮したソート順を適用
-
-MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
-RETURN 
-  v1.id AS from_version_id,
-  v2.id AS to_version_id
-ORDER BY 
-  v1.id, v2.id

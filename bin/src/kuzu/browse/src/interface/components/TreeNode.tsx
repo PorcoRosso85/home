@@ -1,132 +1,72 @@
-/**
- * 再帰的にツリーノードとその子要素を表示するコンポーネント
- * 親要素の重なりが子要素にも適用される実装
- */
-
-import React, { useCallback } from 'react';
+import React from 'react';
 import type { TreeNode as TreeNodeData } from '../../domain/types';
-import { getNodeStyle, getTextColors } from '../utils/nodeRenderers';
-import { formatVersionForDisplay } from '../../domain/service/versionParser';
 
 interface TreeNodeProps {
   node: TreeNodeData;
-  onNodeClick?: (nodeId: string) => void;
-  onNodeToggle?: (nodeId: string) => void;
-  onNodeSelect?: (nodeId: string) => void;
+  onNodeClick?: (node: TreeNodeData) => void;
   parentOpacity?: number; // 親からの透明度を受け取る
 }
 
 /**
- * ツリーノードコンポーネント
+ * 再帰的にツリーノードとその子要素を表示するコンポーネント
+ * 親要素の重なりが子要素にも適用される実装
  */
-const TreeNode: React.FC<TreeNodeProps> = ({
-  node,
-  onNodeClick,
-  onNodeToggle,
-  onNodeSelect,
-  parentOpacity = 0
-}) => {
+const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 0 }) => {
   const hasChildren = node.children && node.children.length > 0;
-  const isExpanded = node.isExpanded !== false; // デフォルトは展開状態
-  const isLoading = node.isLoading === true;
-  const nodeType = node.nodeType || 'location'; // デフォルトはlocation
   
-  // 背景透明度の計算（LocationURIノードのみ）
-  const currentOpacity = nodeType === 'location' ? parentOpacity + 0.02 : 0;
-  const backgroundOpacity = Math.min(currentOpacity, 0.3); // 最大30%まで
+  // 現在の要素の透明度：親からの透明度 + 自分の透明度
+  const currentOpacity = parentOpacity + 0.02;
   
   // 実際の背景色を計算
-  const backgroundColor = nodeType === 'version' 
-    ? (node.isCurrentVersion ? 'rgba(0, 102, 204, 0.1)' : 'rgba(0, 0, 0, 0.05)')
-    : (!hasChildren && node.isCompleted === false 
-        ? 'rgba(255, 200, 200, 0.3)' 
-        : `rgba(0, 0, 0, ${backgroundOpacity})`);
+  const backgroundOpacity = Math.min(currentOpacity, 0.3); // 最大30%まで
+  let backgroundColor = `rgba(0, 0, 0, ${backgroundOpacity})`;
   
-  // テキスト色を取得
-  const textColors = getTextColors(node, backgroundOpacity);
+  // 未完了の場合、薄赤色の背景色にする
+  if (!hasChildren && node.isCompleted === false) {
+    backgroundColor = `rgba(255, 200, 200, 0.3)`; // 薄赤色
+  }
   
-  // ノードクリックハンドラ
-  const handleNodeClick = useCallback((event: React.MouseEvent) => {
-    if (onNodeClick) {
-      onNodeClick(node.id);
-    }
-    
-    if (onNodeToggle) {
-      onNodeToggle(node.id);
-    }
-    
-    if (onNodeSelect) {
-      onNodeSelect(node.id);
-    }
-    
-    event.stopPropagation();
-  }, [node.id, onNodeClick, onNodeToggle, onNodeSelect]);
+  // 背景の暗さに応じて文字色を調整
+  const textColor = backgroundOpacity > 0.15 || (!hasChildren && node.isCompleted === false) ? 'white' : 'black';
+  const secondaryTextColor = backgroundOpacity > 0.15 || (!hasChildren && node.isCompleted === false) ? '#ccc' : '#666';
+  const tertiaryTextColor = backgroundOpacity > 0.15 || (!hasChildren && node.isCompleted === false) ? '#aaa' : '#888';
   
+  // バージョン情報による色分け
+  const nodeTextColor = node.isCurrentVersion ? '#0066cc' : textColor;
+
   return (
-    <div>
-      <div
-        style={{
-          position: 'relative',
-          padding: '8px',
-          margin: '4px 0',
-          borderRadius: '4px',
-          background: backgroundColor,
-          borderLeft: nodeType === 'version' && node.isCurrentVersion ? '3px solid #0066cc' : undefined,
-          cursor: 'pointer',
-        }}
-        onClick={handleNodeClick}
-      >
-        {/* コンテンツ */}
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <strong style={{ color: nodeType === 'version' && node.isCurrentVersion ? '#0066cc' : textColors.primary }}>
-                {nodeType === 'version' 
-                  ? formatVersionForDisplay(node.name) 
-                  : node.name}
-              </strong>
-              
-              {nodeType === 'version' && node.description && (
-                <span style={{ fontSize: '0.8em', color: textColors.secondary, marginLeft: '8px' }}>
-                  ({node.description})
-                </span>
-              )}
-              
-              {nodeType === 'location' && node.from_version && (
-                <span style={{ fontSize: '0.8em', color: textColors.secondary, marginLeft: '8px' }}>
-                  ({formatVersionForDisplay(node.from_version)})
-                </span>
-              )}
-            </div>
-            
-            <div style={{ fontSize: '0.8em', color: textColors.tertiary }}>
-              {nodeType === 'version' ? node.change_reason : node.id}
-            </div>
+    <div style={{
+      position: 'relative',
+      padding: '8px',
+      margin: '4px 0',
+      borderRadius: '4px',
+      // 計算された背景色を適用
+      background: backgroundColor,
+    }}>
+      {/* コンテンツ */}
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <strong style={{ color: nodeTextColor }}>{node.name}</strong> 
+            {node.from_version && (
+              <span style={{ fontSize: '0.8em', color: secondaryTextColor, marginLeft: '8px' }}>
+                ({node.from_version})
+              </span>
+            )}
           </div>
-          
-          {isLoading && (
-            <span style={{ 
-              fontSize: '12px', 
-              color: '#999', 
-              fontStyle: 'italic',
-              marginLeft: '8px'
-            }}>
-              ロード中...
-            </span>
-          )}
+          <div style={{ fontSize: '0.8em', color: tertiaryTextColor }}>
+            {node.id}
+          </div>
         </div>
       </div>
       
-      {/* 子要素 - ノードが展開されている場合のみレンダリング */}
-      {hasChildren && isExpanded && (
+      {/* 子要素 */}
+      {hasChildren && (
         <div style={{ paddingLeft: '20px', marginTop: '4px' }}>
-          {node.children.map((child, index) => (
+          {node.children!.map((child, index) => (
             <TreeNode
               key={`${child.id}-${index}`}
               node={child}
-              onNodeClick={onNodeClick}
-              onNodeToggle={onNodeToggle}
-              onNodeSelect={onNodeSelect}
               parentOpacity={currentOpacity} // 親の透明度を子に渡す
             />
           ))}
