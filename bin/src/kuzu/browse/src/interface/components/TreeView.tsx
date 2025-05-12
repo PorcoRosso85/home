@@ -13,7 +13,6 @@ interface TreeViewProps {
 export const TreeView: React.FC<TreeViewProps> = ({ treeData, onNodeClick }) => {
   return (
     <div style={{ flex: 1, overflowY: 'auto', marginRight: '20px' }}>
-      <h2>KuzuDB Graph Browser</h2>
       {treeData.length === 0 ? (
         <p>No data available</p>
       ) : (
@@ -21,7 +20,7 @@ export const TreeView: React.FC<TreeViewProps> = ({ treeData, onNodeClick }) => 
           <TreeNode
             key={`root-${index}`}
             node={node}
-            // onNodeClick={onNodeClick}
+            onNodeClick={onNodeClick}
           />
         ))
       )}

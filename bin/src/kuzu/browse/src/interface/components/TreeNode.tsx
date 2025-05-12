@@ -26,6 +26,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
     backgroundColor = `rgba(255, 200, 200, 0.3)`; // 薄赤色
   }
   
+  // バージョンノードの場合、異なる背景色を使用
+  if (node.nodeType === 'version') {
+    backgroundColor = `rgba(230, 240, 255, ${backgroundOpacity + 0.2})`;
+  }
+  
   // 背景の暗さに応じて文字色を調整
   const textColor = backgroundOpacity > 0.15 || (!hasChildren && node.isCompleted === false) ? 'white' : 'black';
   const secondaryTextColor = backgroundOpacity > 0.15 || (!hasChildren && node.isCompleted === false) ? '#ccc' : '#666';
@@ -33,16 +38,27 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
   
   // バージョン情報による色分け
   const nodeTextColor = node.isCurrentVersion ? '#0066cc' : textColor;
+  
+  // ノードクリックのハンドラ
+  const handleClick = () => {
+    if (onNodeClick) {
+      onNodeClick(node);
+    }
+  };
 
   return (
-    <div style={{
-      position: 'relative',
-      padding: '8px',
-      margin: '4px 0',
-      borderRadius: '4px',
-      // 計算された背景色を適用
-      background: backgroundColor,
-    }}>
+    <div 
+      style={{
+        position: 'relative',
+        padding: '8px',
+        margin: '4px 0',
+        borderRadius: '4px',
+        // 計算された背景色を適用
+        background: backgroundColor,
+        cursor: onNodeClick ? 'pointer' : 'default'
+      }}
+      onClick={handleClick}
+    >
       {/* コンテンツ */}
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -51,6 +67,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
             {node.from_version && (
               <span style={{ fontSize: '0.8em', color: secondaryTextColor, marginLeft: '8px' }}>
                 ({node.from_version})
+              </span>
+            )}
+            {node.description && (
+              <span style={{ fontSize: '0.8em', color: secondaryTextColor, marginLeft: '8px' }}>
+                ({node.description})
               </span>
             )}
           </div>
@@ -65,9 +86,10 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
         <div style={{ paddingLeft: '20px', marginTop: '4px' }}>
           {node.children!.map((child, index) => (
             <TreeNode
-              key={`${child.id}-${index}`}
+              key={`${child.id || index}-${index}`}
               node={child}
               parentOpacity={currentOpacity} // 親の透明度を子に渡す
+              onNodeClick={onNodeClick} // 子ノードにもクリックハンドラを渡す
             />
           ))}
         </div>
