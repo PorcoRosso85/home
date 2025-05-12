@@ -1,5 +1,7 @@
 /**
  * KuzuDB Parquet Viewer の基本型定義
+ * 
+ * TreeNode インターフェースを拡張し、バージョンツリーとLocationURIツリーの両方をサポート
  */
 
 /**
@@ -23,7 +25,7 @@ export interface StatusMessage {
  * VersionState型定義
  */
 export interface VersionState {
-  id: string;           // バージョンID (例: 'v1.0.0')
+  id: string;           // バージョンID (例: '1.0.0')
   timestamp: string;    // タイムスタンプ (ISO 8601形式)
   description: string;  // バージョンの説明
   change_reason: string; // 変更理由（要件変更、部分達成不足など）
@@ -39,6 +41,9 @@ export interface LocationURI {
   path: string;        // パス
   fragment: string;    // フラグメント
   query: string;       // クエリ文字列
+  from_version?: string; // URIが最後に更新されたバージョン
+  version_description?: string; // バージョンの説明
+  isCompleted?: boolean; // 完了状態
 }
 
 /**
@@ -70,12 +75,19 @@ export interface LocationHierarchy {
 
 /**
  * ツリーノード型定義（UI用）
+ * バージョンツリーとLocationURIツリーの両方に対応
  */
 export interface TreeNode {
   id: string;
   name: string;
+  nodeType?: 'version' | 'location';  // ノードの種類
   children: TreeNode[];
-  from_version?: string;  // 最新更新バージョン
+  from_version?: string;      // 最新更新バージョン
   isCurrentVersion?: boolean; // 現在選択中のバージョンで更新されたか
-  isCompleted?: boolean; // LocationURIの完了状態
+  isCompleted?: boolean;      // LocationURIの完了状態
+  isExpanded?: boolean;       // ノードが展開されているか
+  isLoading?: boolean;        // ノードがロード中か
+  description?: string;       // バージョンの説明 
+  change_reason?: string;     // バージョンの変更理由
+  timestamp?: string;         // バージョンのタイムスタンプ
 }
