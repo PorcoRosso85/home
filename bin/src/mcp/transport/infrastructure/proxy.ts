@@ -52,15 +52,26 @@ export function createProxy(options?: Partial<TransportOptions>): Proxy {
  */
 export function runCommand(command: string, args: string[]): RunCommandResult {
   try {
+    console.log(`Executing command: ${command} ${args.join(" ")}`);
+    
+    // シェル経由で実行することで、パイプの接続を維持
     const process = Deno.run({
       cmd: [command, ...args],
       stdin: "piped",
       stdout: "piped",
       stderr: "piped",
+      // シェルに依存する環境変数を渡す
+      env: {
+        ...Deno.env.toObject(),
+        FORCE_COLOR: "1", // カラー出力を強制
+        NODE_NO_WARNINGS: "1", // Node.jsの警告を抑制
+      },
     });
     
+    console.log(`Process started with PID: ${process.pid}`);
     return { ok: true, process };
   } catch (error) {
+    console.error(`Command execution failed: ${error instanceof Error ? error.message : String(error)}`);
     return {
       ok: false,
       error: {
@@ -98,16 +109,24 @@ export function handleSTDIO(process: Deno.Process, onMessage: (data: string) => 
   // 標準出力の読み取り
   (async () => {
     const stdout = process.stdout;
-    if (!stdout) return;
+    if (!stdout) {
+      console.error("Process stdout is not available");
+      return;
+    }
     
+    console.log("Starting to read from stdout");
     const buffer = new Uint8Array(1024);
     
     while (true) {
       try {
         const bytesRead = await stdout.read(buffer);
-        if (bytesRead === null) break;
+        if (bytesRead === null) {
+          console.log("End of stdout stream");
+          break;
+        }
         
         const text = decoder.decode(buffer.subarray(0, bytesRead));
+        console.log(`Received from MCP server: ${text.trim()}`);
         onMessage(text);
       } catch (error) {
         console.error("Error reading from stdout:", error);
@@ -119,17 +138,24 @@ export function handleSTDIO(process: Deno.Process, onMessage: (data: string) => 
   // 標準エラー出力の読み取り（ログ用）
   (async () => {
     const stderr = process.stderr;
-    if (!stderr) return;
+    if (!stderr) {
+      console.error("Process stderr is not available");
+      return;
+    }
     
+    console.log("Starting to read from stderr");
     const buffer = new Uint8Array(1024);
     
     while (true) {
       try {
         const bytesRead = await stderr.read(buffer);
-        if (bytesRead === null) break;
+        if (bytesRead === null) {
+          console.log("End of stderr stream");
+          break;
+        }
         
         const text = decoder.decode(buffer.subarray(0, bytesRead));
-        console.error(`[MCP Server stderr] ${text}`);
+        console.error(`[MCP Server stderr] ${text.trim()}`);
       } catch (error) {
         console.error("Error reading from stderr:", error);
         break;

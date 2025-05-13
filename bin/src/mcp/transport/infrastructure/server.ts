@@ -2,7 +2,7 @@
  * HTTPサーバー実装
  */
 
-import { v4 as uuidv4 } from "https://deno.land/std@0.196.0/uuid/mod.ts";
+import { crypto } from "https://deno.land/std@0.196.0/crypto/mod.ts";
 import { CreateServerResult, MCPMessage, Session, TransportOptions } from "../domain/types.ts";
 import { runCommand, handleSTDIO } from "./proxy.ts";
 
@@ -92,22 +92,26 @@ async function serveHttp(conn: Deno.Conn, options: TransportOptions) {
  * SSE接続を処理する
  */
 export async function handleSSEConnection(request: Request, options: TransportOptions): Promise<Response> {
-  const sessionId = uuidv4();
+  // 簡易的なUUID代替生成（ランダムな文字列）
+  const sessionId = crypto.randomUUID();
   
   if (options.verbose) {
     console.log(`[MCP Proxy] New SSE connection: ${sessionId}`);
   }
   
   // MCPサーバーの起動
+  console.log(`Starting MCP server: ${options.command} ${options.args.join(" ")}`);
   const commandResult = runCommand(options.command, options.args);
   
   if (!commandResult.ok) {
+    console.error(`Failed to start MCP server: ${JSON.stringify(commandResult.error)}`);
     return new Response(JSON.stringify({ error: commandResult.error }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
   }
   
+  console.log("MCP server process started successfully");
   const process = commandResult.process;
   
   // 新しいセッションの作成
@@ -128,20 +132,43 @@ export async function handleSSEConnection(request: Request, options: TransportOp
       // SSEヘッダーの送信
       controller.enqueue(`event: endpoint\ndata: http://${request.headers.get("host")}/messages?sessionId=${sessionId}\n\n`);
       
+      // 接続確立メッセージの送信（クライアントがSSEを処理し始めるのを助ける）
+      controller.enqueue(`event: connected\ndata: {"sessionId":"${sessionId}"}\n\n`);
+      
+      // 定期的なキープアライブメッセージを送信
+      const keepAliveInterval = setInterval(() => {
+        try {
+          controller.enqueue(`: keep-alive ${new Date().toISOString()}\n\n`);
+        } catch (error) {
+          console.error(`Error sending keep-alive: ${error}`);
+          clearInterval(keepAliveInterval);
+        }
+      }, 30000); // 30秒ごと
+      
       // 標準入出力の処理
       const stdio = handleSTDIO(process, (data) => {
         try {
-          const message = JSON.parse(data) as MCPMessage;
-          session.responseQueue.push(message);
-          controller.enqueue(`event: message\ndata: ${data}\n\n`);
+          // JSONとして解析できない場合もあるので、行ごとに処理
+          const lines = data.split("\n").filter(line => line.trim() !== "");
           
-          if (options.verbose) {
-            console.log(`[MCP Proxy] Server -> Client (${sessionId}): ${message.method}`);
+          for (const line of lines) {
+            try {
+              // JSONとして解析
+              const message = JSON.parse(line) as MCPMessage;
+              session.responseQueue.push(message);
+              controller.enqueue(`event: message\ndata: ${line}\n\n`);
+              
+              if (options.verbose) {
+                console.log(`[MCP Proxy] Server -> Client (${sessionId}): ${message.method || "response"}`);
+              }
+            } catch (jsonError) {
+              // JSON以外のデータの場合はデバッグ情報として送信
+              console.log(`[MCP Server non-JSON output]: ${line}`);
+              controller.enqueue(`event: log\ndata: ${JSON.stringify({message: line})}\n\n`);
+            }
           }
         } catch (error) {
-          if (data.trim()) {
-            console.error("Error parsing server message:", error, "Data:", data);
-          }
+          console.error("Error processing server message:", error, "Data:", data);
         }
       });
       

@@ -2,8 +2,8 @@
  * コマンドラインインターフェース
  */
 
-import { ParseArgsResult, TransportOptions } from "../domain/types.ts";
-import { createProxy, DEFAULT_OPTIONS, startProxy } from "../infrastructure/proxy.ts";
+import { ParseArgsResult, TransportOptions } from "./domain/types.ts";
+import { createProxy, DEFAULT_OPTIONS, startProxy } from "./infrastructure/proxy.ts";
 
 /**
  * コマンドライン引数を解析する
