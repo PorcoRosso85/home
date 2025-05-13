@@ -12,5 +12,7 @@ export const VALIDATION_RULES = {
     "DROP DATABASE",
     "DELETE FROM",
     "TRUNCATE TABLE"
-  ]
+  ],
+  // 正規表現パターン
+  CODE_PATTERN: "^[0-9]{3}$"  // 3桁の数字 (000-999)
 };

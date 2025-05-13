@@ -101,7 +101,9 @@ DuckDB SQL CLI - シンプルなSQLクエリ実行ツール
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     level VARCHAR,
     message TEXT,
-    metadata JSON
+    metadata JSON,
+    code VARCHAR(3) NOT NULL CHECK (regexp_matches(code, '^[0-9]{3}$')),
+    error JSON NOT NULL CHECK (json_type(error) = 'OBJECT')
   );
   
   CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
@@ -139,7 +141,9 @@ CREATE TABLE IF NOT EXISTS logs (
   timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   level VARCHAR,
   message TEXT,
-  metadata JSON
+  metadata JSON,
+  code VARCHAR(3) NOT NULL CHECK (regexp_matches(code, '^[0-9]{3}$')),
+  error JSON NOT NULL CHECK (json_type(error) = 'OBJECT')
 );
 
 CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
