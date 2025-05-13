@@ -1,4 +1,4 @@
-import { createSqlClient } from "../mod.ts";
+import { createSqlClient, info, warn, error as logError } from "../mod.ts";
 import { DB_PATH, VALIDATION_RULES } from "../infrastructure/variables.ts";
 
 // ヘルプメッセージ
@@ -180,6 +180,9 @@ const main = async () => {
   // SQLクライアントの初期化
   const sqlClient = createSqlClient();
   
+  // ロギング開始
+  info("CLI started", { args });
+  
   // コマンド処理
   switch (args[0]) {
     // SQLクエリの実行
@@ -198,6 +201,7 @@ const main = async () => {
       
       // エラーの場合
       if (!result.ok) {
+        logError(`SQLエラー: ${result.error.message}`, result.error);
         console.error(`SQLエラー: ${result.error.message}`);
         if (result.error.code) console.error(`エラーコード: ${result.error.code}`);
         return;
@@ -247,9 +251,12 @@ const main = async () => {
       const result = await sqlClient.execute(INIT_SQL);
       
       if (!result.ok) {
+        logError(`初期化エラー: ${result.error.message}`, result.error);
         console.error(`初期化エラー: ${result.error.message}`);
         return;
       }
+      
+      info("テーブルが初期化されました");
       
       console.log("テーブルが初期化されました");
       console.log(`データベース: ${DB_PATH}`);
