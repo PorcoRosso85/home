@@ -79,30 +79,37 @@
 5. **try/catch 禁止**
    - 例外処理には try/catch を使用しない
    - エラーは型定義に基づいた返り値として扱う
+
+6. **Result型を使ったジェネリック型禁止**
+   - ジェネリックなResult型の定義と使用を避ける
+   - 代わりに具体的な合併型で戻り値型を明示する
    ```typescript
-   // 良い例
-   type Result<T> = 
+   // 禁止: ジェネリックなResult型の定義と使用
+   type Result<T, E = Error> = 
      | { ok: true; value: T }
-     | { ok: false; error: SqlError };
-     
-   function executeQuery(): Result<Row[]> {
-     // 処理
-     if (errorCondition) {
-       return { ok: false, error: { code: 'ERROR_CODE', message: 'エラーメッセージ' } };
-     }
-     return { ok: true, value: rows };
+     | { ok: false; error: E };
+   
+   function fetchData(): Result<UserData> {
+     // 実装
    }
    
-   // 使用側
-   const result = executeQuery();
-   if (result.ok) {
-     // 成功時の処理
-     const rows = result.value;
-   } else {
-     // エラー時の処理
-     const error = result.error;
+   // 推奨: 直接的な合併型による戻り値型の明示
+   type FetchDataResult =
+     | { ok: true; data: UserData }
+     | { ok: false; error: { code: string; message: string } };
+   
+   function fetchData(): FetchDataResult {
+     // 実装
+     if (errorCondition) {
+       return { ok: false, error: { code: 'NETWORK_ERROR', message: '接続に失敗しました' } };
+     }
+     return { ok: true, data: userData };
    }
    ```
+   
+   - 各関数の戻り値型は、その関数特有の型として具体的に定義する
+   - エラー情報は具体的なフィールド名とその型を明示する
+   - 似たようなパターンが繰り返される場合でも、個別の型定義を優先する
 
 ### ファイル構造とモジュール設計
 
