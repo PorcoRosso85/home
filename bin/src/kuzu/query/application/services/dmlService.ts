@@ -10,6 +10,44 @@ import type { LocationUriEntity } from '../../domain/valueObjects/uriValue';
 import type { QueryResult } from '../../domain/entities/queryResult';
 import { createQueryRepository } from '../../infrastructure/factories/repositoryFactory';
 
+// サービスの依存性を定義
+export type DmlServiceDependencies = {
+  repository?: {
+    executeQuery: (connection: any, queryName: string, params: any) => Promise<QueryResult<any>>;
+  };
+  validators?: {
+    validateLocationUri: (uri: string) => { isValid: boolean; error?: string };
+    validateLocationUriObject: (obj: any) => { isValid: boolean; error?: string };
+  };
+};
+
+// グローバル依存性オブジェクト
+let _deps: DmlServiceDependencies = {};
+
+/**
+ * 依存性を設定する関数
+ */
+export function injectDependencies(deps: DmlServiceDependencies): void {
+  _deps = deps;
+}
+
+/**
+ * リポジトリを取得
+ */
+async function getRepository() {
+  return _deps.repository || await createQueryRepository();
+}
+
+/**
+ * バリデータを取得
+ */
+function getValidators() {
+  return {
+    validateLocationUri: _deps.validators?.validateLocationUri || validateLocationUri,
+    validateLocationUriObject: _deps.validators?.validateLocationUriObject || validateLocationUriObject
+  };
+}
+
 /**
  * クエリ実行結果のハンドリング
  */
@@ -34,8 +72,11 @@ export async function createLocationURI(
   fragment?: string,
   query?: string
 ): Promise<void> {
+  // バリデータを取得
+  const validators = getValidators();
+  
   // バリデーション：入力URIの検証
-  const parsedUri = validateLocationUri(uriId);
+  const parsedUri = validators.validateLocationUri(uriId);
   if (!parsedUri.isValid) {
     throw new Error(`Invalid URI: ${uriId} - ${parsedUri.error}`);
   }
@@ -51,7 +92,7 @@ export async function createLocationURI(
   };
 
   // バリデーション：LocationUriオブジェクトの検証
-  const objectValidation = validateLocationUriObject(locationUri);
+  const objectValidation = validators.validateLocationUriObject(locationUri);
   if (!objectValidation.isValid) {
     throw new Error(`Invalid LocationUri object: ${objectValidation.error}`);
   }
@@ -60,7 +101,8 @@ export async function createLocationURI(
   
   console.log('createLocationURI params:', params);
   
-  const repository = await createQueryRepository();
+  // リポジトリを取得
+  const repository = await getRepository();
   const result = await repository.executeQuery(connection, 'create_locationuri', params);
   
   console.log('createLocationURI result:', result);
@@ -81,7 +123,7 @@ export async function createCodeEntity(
   endPosition: number,
   complexity: number = 1
 ): Promise<void> {
-  const repository = await createQueryRepository();
+  const repository = await getRepository();
   const result = await repository.executeQuery(connection, 'create_codeentity', {
     persistent_id: persistentId,
     name: name,
@@ -106,7 +148,7 @@ export async function createRequirement(
   priority: string,
   requirementType: string
 ): Promise<void> {
-  const repository = await createQueryRepository();
+  const repository = await getRepository();
   const result = await repository.executeQuery(connection, 'create_requiremententity', {
     id: id,
     title: title,
@@ -126,7 +168,7 @@ export async function createHasLocation(
   codeEntityId: string, 
   locationUriId: string
 ): Promise<void> {
-  const repository = await createQueryRepository();
+  const repository = await getRepository();
   const result = await repository.executeQuery(connection, 'create_has_location', {
     from_id: codeEntityId,
     to_id: locationUriId
@@ -144,7 +186,7 @@ export async function createIsImplementedBy(
   codeEntityId: string, 
   implementationType: string
 ): Promise<void> {
-  const repository = await createQueryRepository();
+  const repository = await getRepository();
   const result = await repository.executeQuery(connection, 'create_is_implemented_by', {
     from_id: requirementId,
     to_id: codeEntityId,
@@ -163,7 +205,7 @@ export async function createReferencesCode(
   toCodeId: string, 
   refType: string
 ): Promise<void> {
-  const repository = await createQueryRepository();
+  const repository = await getRepository();
   const result = await repository.executeQuery(connection, 'create_references_code', {
     from_id: fromCodeId,
     to_id: toCodeId,
@@ -183,7 +225,7 @@ export async function createVersionState(
   description: string,
   changeReason: string
 ): Promise<void> {
-  const repository = await createQueryRepository();
+  const repository = await getRepository();
   const result = await repository.executeQuery(connection, 'create_versionstate', {
     id: id,
     timestamp: timestamp,
@@ -202,7 +244,7 @@ export async function trackStateOfCode(
   versionId: string, 
   codeEntityId: string
 ): Promise<void> {
-  const repository = await createQueryRepository();
+  const repository = await getRepository();
   const result = await repository.executeQuery(connection, 'create_tracks_state_of_code', {
     from_id: versionId,
     to_id: codeEntityId
@@ -219,7 +261,7 @@ export async function trackStateOfReq(
   versionId: string, 
   requirementId: string
 ): Promise<void> {
-  const repository = await createQueryRepository();
+  const repository = await getRepository();
   const result = await repository.executeQuery(connection, 'create_tracks_state_of_req', {
     from_id: versionId,
     to_id: requirementId
@@ -291,7 +333,7 @@ export async function executeInOrder(connection: any): Promise<void> {
 export async function validateRequirement(connection: any, requirementId: string): Promise<void> {
   console.log(`\n=== 要件 ${requirementId} の検証開始 ===`);
   
-  const repository = await createQueryRepository();
+  const repository = await getRepository();
   
   // 1. 要件の実装を確認
   const implementations = await repository.executeQuery(connection, 'find_requirement_implementations', {
