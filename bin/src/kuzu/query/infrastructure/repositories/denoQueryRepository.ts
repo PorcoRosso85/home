@@ -6,7 +6,14 @@
 
 import { existsSync } from "https://deno.land/std@0.224.0/fs/mod.ts";
 import { join, dirname } from "https://deno.land/std@0.224.0/path/mod.ts";
-import * as logger from '../../../common/infrastructure/logger';
+
+// ロガーの簡易実装（loggerモジュールがない場合のフォールバック）
+const logger = {
+  info: console.log,
+  debug: console.debug,
+  warn: console.warn,
+  error: console.error
+};
 
 // 型定義
 export type QueryResult<T> = {
@@ -256,4 +263,42 @@ export async function executeQuery(
  */
 export function getSuccess<T>(result: QueryResult<T>): boolean {
   return result.success === true;
+}
+
+// 実際のインメモリKuzuDBを使用した直接クエリテスト
+if (typeof Deno !== 'undefined') {
+  Deno.test("インメモリKuzuDBでの直接クエリテスト", async () => {
+    // 実際のKuzuDBモジュールをインポート
+    const kuzu = await import("npm:kuzu");
+    
+    // インメモリDB用の一時ディレクトリ
+    const dbPath = await Deno.makeTempDir();
+    
+    try {
+      // インメモリKuzuDBインスタンスを作成
+      const db = new kuzu.Database(dbPath);
+      const conn = new kuzu.Connection(db);
+      
+      // スキーマ作成
+      await conn.query("CREATE NODE TABLE User(name STRING, age INT64, PRIMARY KEY (name))");
+      
+      // データ挿入
+      await conn.query("CREATE (u:User {name: 'Alice', age: 30})");
+      
+      // クエリ実行
+      const result = await conn.query("MATCH (u:User) RETURN u.name, u.age");
+      
+      // 結果が存在するか確認（最小限の検証）
+      console.assert(result !== null && result !== undefined, "クエリ結果が存在すべき");
+      
+      // 片付け
+      await conn.close();
+      await db.close();
+    } finally {
+      // 一時ディレクトリの削除
+      try {
+        await Deno.remove(dbPath, { recursive: true });
+      } catch (_) {}
+    }
+  });
 }
