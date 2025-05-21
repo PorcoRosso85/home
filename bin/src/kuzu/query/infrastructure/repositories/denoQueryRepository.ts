@@ -265,20 +265,18 @@ export function getSuccess<T>(result: QueryResult<T>): boolean {
   return result.success === true;
 }
 
-// 実際のインメモリKuzuDBを使用した直接クエリテスト
+// テスト実行
 if (typeof Deno !== 'undefined') {
+  // インメモリKuzuDBでの直接クエリテスト
   Deno.test("インメモリKuzuDBでの直接クエリテスト", async () => {
-    // 実際のKuzuDBモジュールをインポート
-    const kuzu = await import("npm:kuzu");
+    // KuzuDBモジュールをインポート
+    const kuzu = await import("npm:kuzu@0.9.0");
     
-    // インメモリDB用の一時ディレクトリ
-    const dbPath = await Deno.makeTempDir();
+    // インメモリデータベースを作成
+    const db = new kuzu.Database(":memory:");
+    const conn = new kuzu.Connection(db);
     
     try {
-      // インメモリKuzuDBインスタンスを作成
-      const db = new kuzu.Database(dbPath);
-      const conn = new kuzu.Connection(db);
-      
       // スキーマ作成
       await conn.query("CREATE NODE TABLE User(name STRING, age INT64, PRIMARY KEY (name))");
       
@@ -287,18 +285,61 @@ if (typeof Deno !== 'undefined') {
       
       // クエリ実行
       const result = await conn.query("MATCH (u:User) RETURN u.name, u.age");
+      const rows = await result.getAll();
       
-      // 結果が存在するか確認（最小限の検証）
-      console.assert(result !== null && result !== undefined, "クエリ結果が存在すべき");
+      // 結果確認
+      console.assert(rows.length > 0, "クエリ結果が存在すべき");
       
-      // 片付け
+      // 後処理
       await conn.close();
       await db.close();
-    } finally {
-      // 一時ディレクトリの削除
-      try {
-        await Deno.remove(dbPath, { recursive: true });
-      } catch (_) {}
+    } catch (e) {
+      console.error("テストエラー:", e);
+      throw e;
+    }
+  });
+  
+  // JSON拡張機能の動作確認テスト
+  Deno.test("KuzuDB JSON拡張機能テスト", async () => {
+    // KuzuDBモジュールをインポート
+    const kuzu = await import("npm:kuzu@0.9.0");
+    
+    // インメモリデータベースを作成
+    const db = new kuzu.Database(":memory:");
+    const conn = new kuzu.Connection(db);
+    
+    try {
+      // JSON拡張機能のセットアップ
+      await conn.query("INSTALL json");
+      await conn.query("LOAD json");
+      
+      // JSON型を使ったNodeテーブルの作成
+      await conn.query(`
+        CREATE NODE TABLE Entity(
+          id STRING, 
+          data JSON,
+          PRIMARY KEY (id)
+        )
+      `);
+      
+      // テストデータの挿入
+      await conn.query(`
+        CREATE (e:Entity {
+          id: '1', 
+          data: to_json({name: 'テスト', values: [1, 2, 3]})
+        })
+      `);
+      
+      // データの確認
+      const result = await conn.query('MATCH (e:Entity) RETURN e.id, e.data');
+      const rows = await result.getAll();
+      
+      // 後処理
+      await conn.close();
+      await db.close();
+    } catch (e) {
+      console.error('JSON拡張機能テストエラー:', e);
+      throw e;
     }
   });
 }
