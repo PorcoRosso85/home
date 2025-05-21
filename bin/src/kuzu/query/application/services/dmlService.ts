@@ -344,12 +344,4 @@ export async function runDMLDemo(connection: any): Promise<void> {
   await validateRequirement(connection, 'REQ-002');
 }
 
-/**
- * メイン実行エントリーポイント
- */
-if (typeof require !== 'undefined' && require.main === module) {
-  console.log('KuzuDB DMLデモの実行');
-  // TODO: 実際のKuzuDBコネクション初期化
-  // const connection = await getKuzuConnection();
-  // await runDMLDemo(connection);
-}
+
