@@ -41,13 +41,27 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/
 
 browseモジュールは、Kuzuグラフデータベースの内容をブラウザで表示するためのDenoベースのアプリケーションです。
 
+**重要: browseモジュールは必ず `/home/nixos/bin/src/kuzu/browse` ディレクトリ内で実行してください。**
+
 ```bash
-# 開発サーバーの実行
-LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":$LD_LIBRARY_PATH deno run -A /home/nixos/bin/src/kuzu/browse/build.ts
+# 基本的な実行方法
+cd /home/nixos/bin/src/kuzu/browse
+LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":$LD_LIBRARY_PATH nix run nixpkgs#deno -- run -A build.ts
+
+# Cypherクエリファイルをマウントする実行方法 (推奨)
+cd /home/nixos/bin/src/kuzu/browse
+LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":$LD_LIBRARY_PATH nix run nixpkgs#deno -- run -A build.ts \
+  --mount /home/nixos/bin/src/kuzu/query/ddl:/ddl:*.cypher \
+  --mount /home/nixos/bin/src/kuzu/query/dml:/dml:*.cypher \
+  --mount /home/nixos/bin/src/kuzu/query/dql:/dql:*.cypher
 
 # アクセス
-# http://localhost:8000/
+# http://localhost:5173/
 ```
+
+**注意**: 
+- browseモジュールを他のディレクトリから実行すると、Viteが src/kuzu/ 以下の React 依存ファイルも読み込んでしまい、エラーが発生します。これはViteがプロジェクト構造を検出する仕組みによるものです。
+- エラー「ディレクトリ dql の読み込みに失敗しました」を防ぐため、DDL、DML、DQLの3つのディレクトリを全てマウントすることをお勧めします。
 
 browseモジュールの詳細な使用方法については、`browse/CONVENTION.md`を参照してください。
 
