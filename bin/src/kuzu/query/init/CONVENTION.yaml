@@ -3,13 +3,87 @@
 ## 基本原則:
   description: 関数型プログラミングの原則に可能な限り従い、コードの予測可能性、テスト容易性、保守性を向上させる
   
+## 言語横断的な記述方式:
+  description: 汎用プログラミング言語の多くで共通可能な記述方法のみを使用する
+  rules:
+    - Result型、Option型、Maybe型などの関数型プログラミング特有の記述は禁止
+    - Monad、Functor、Applicativeなどの高度な関数型概念は使用禁止
+    - 言語固有の高度な型システム機能（Rust、Haskell、Scala等）は使用禁止
+    - 以下の汎用的な機能のみを使用すること:
+      - 基本的なデータ型（文字列、数値、真偽値、配列、オブジェクト/辞書）
+      - 条件分岐（if/else、switch/case）
+      - ループ処理（for、while）
+      - 関数定義と呼び出し
+      - 高階関数（map、filter、reduce等の基本的なもの）
+      - 共用体型（Union型、Tagged Union）による分岐処理
+  examples:
+    prohibited: |
+      // 禁止: Result型の使用
+      function divide(a: number, b: number): Result<number, string> {
+        if (b === 0) {
+          return Err("Division by zero");
+        }
+        return Ok(a / b);
+      }
+      
+      // 禁止: Option型の使用
+      function findById(id: string): Option<User> {
+        const user = database.find(id);
+        return user ? Some(user) : None;
+      }
+      
+      // 禁止: モナディック処理
+      const result = divide(10, 2)
+        .map(x => x * 2)
+        .flatMap(x => divide(x, 3))
+        .unwrap();
+    
+    allowed: |
+      // 許可: 共用体型による分岐処理
+      interface DivisionSuccess { data: number; }
+      interface DivisionError { code: string; message: string; }
+      type DivisionResult = DivisionSuccess | DivisionError;
+      
+      function divide(a: number, b: number): DivisionResult {
+        if (b === 0) {
+          return { code: "DIVISION_BY_ZERO", message: "Cannot divide by zero" };
+        }
+        return { data: a / b };
+      }
+      
+      // 許可: 明示的な分岐処理
+      function processUser(id: string): UserResult | NotFoundError {
+        const user = database.find(id);
+        if (!user) {
+          return { code: "USER_NOT_FOUND", message: "User not found" };
+        }
+        return { data: user };
+      }
+      
+      // 許可: 基本的な高階関数
+      const numbers = [1, 2, 3, 4, 5];
+      const doubled = numbers.map(x => x * 2);
+      const evens = numbers.filter(x => x % 2 === 0);
+      const sum = numbers.reduce((acc, x) => acc + x, 0);
+  
+  reasoning: |
+    この制約により以下の効果を得る:
+    - Python、TypeScript、Java、C#、Go、Rust（基本機能のみ）等での一貫した実装が可能
+    - 学習コストを最小限に抑制
+    - 言語固有の高度な機能への依存を回避
+    - チーム内での知識共有が容易
+    - 将来的な言語移行時のリスク軽減
+  
 ## 型定義:
   rules:
     - TypedDictを使用すること
     - 各層のtypes.pyファイルに型定義を集約すること
     - 可能な限り型アノテーションを使用すること
+    - TypeScriptではinterfaceによる型定義よりtype定義使用を優先すること
+    - 条件分岐は可能な限りパターンマッチで行い可読性向上に寄与させること
   examples:
     good: |
+      # Python例
       from typing import TypedDict, List, Optional
       
       class FunctionData(TypedDict):
@@ -18,6 +92,60 @@
           type: str
           pure: bool
           parameters: List["ParameterData"]
+      
+      # TypeScript例（type定義を優先）
+      type FunctionData = {
+          title: string;
+          description?: string;
+          type: string;
+          pure: boolean;
+          parameters: ParameterData[];
+      };
+      
+      type ValidationError = {
+          code: "VALIDATION_ERROR";
+          message: string;
+          field: string;
+      };
+      
+      type NotFoundError = {
+          code: "NOT_FOUND_ERROR";
+          message: string;
+          resource: string;
+      };
+      
+      # 共用体型（Tagged Union）でのパターンマッチ
+      type ProcessResult = FunctionData | ValidationError | NotFoundError;
+      
+      function handleResult(result: ProcessResult): string {
+          # パターンマッチによる分岐（可読性向上）
+          switch (result.code) {
+              case "VALIDATION_ERROR":
+                  return `バリデーションエラー: ${result.field} - ${result.message}`;
+              case "NOT_FOUND_ERROR":
+                  return `リソースが見つかりません: ${result.resource}`;
+              default:
+                  # 成功時（codeプロパティが存在しない場合）
+                  return `処理成功: ${result.title}`;
+          }
+      }
+    
+    avoid: |
+      # 避けるべき例: interface使用
+      interface FunctionData {  // type定義を優先すべき
+          title: string;
+      }
+      
+      # 避けるべき例: 複雑な条件分岐
+      function handleResult(result: ProcessResult): string {
+          if ("code" in result && result.code === "VALIDATION_ERROR") {
+              return `バリデーションエラー: ${result.message}`;
+          } else if ("code" in result && result.code === "NOT_FOUND_ERROR") {
+              return `リソースが見つかりません: ${result.message}`;
+          } else {
+              return `処理成功: ${(result as FunctionData).title}`;
+          }
+      }
 
 ## エラー処理:
   rules:
@@ -36,6 +164,7 @@
       - 言語を問わず同様の共用体型パターンを使用する
   examples:
     good: |
+      # Python例（汎用記述方式）
       from typing import TypedDict, Union, Literal
       
       class FunctionData(TypedDict):
@@ -47,27 +176,36 @@
           code: str
           message: str
       
-      # 成功型とエラー型の共用体型として定義
+      # 成功型とエラー型の共用体型として定義（汎用的な手法）
       FunctionResult = Union[FunctionData, FunctionError]
       
       def add_function(data: dict) -> FunctionResult:
           if not validate_data(data):
+              # エラー時は明示的にエラー型を返す（汎用的な手法）
               return {"code": "INVALID_DATA", "message": "Invalid data"}
           
           # 処理...
           
+          # 成功時は通常のデータを返す（汎用的な手法）
           return {
               "title": result_title,
               "description": result_description,
               "parameters": result_parameters
           }
       
-      # エラーかどうかの判別関数
+      # エラーかどうかの判別関数（汎用的な手法）
       def is_error(result: FunctionResult) -> bool:
           return "code" in result and "message" in result
+      
+      # 使用例（汎用的な手法）
+      result = add_function(input_data)
+      if is_error(result):
+          print(f"エラー: {result['message']}")
+      else:
+          print(f"成功: {result['title']}")
     
     typescript: |
-      // TypeScriptでの例
+      // TypeScript例（汎用記述方式）
       interface FunctionData {
           title: string;
           description: string;
@@ -79,16 +217,18 @@
           message: string;
       }
       
-      // 成功型とエラー型の共用体型として定義
+      // 成功型とエラー型の共用体型として定義（汎用的な手法）
       type FunctionResult = FunctionData | FunctionError;
       
       function addFunction(data: any): FunctionResult {
           if (!validateData(data)) {
+              // エラー時は明示的にエラー型を返す（汎用的な手法）
               return { code: "INVALID_DATA", message: "Invalid data" };
           }
           
           // 処理...
           
+          // 成功時は通常のデータを返す（汎用的な手法）
           return {
               title: resultTitle,
               description: resultDescription,
@@ -96,10 +236,26 @@
           };
       }
       
-      // エラーかどうかの判別関数
+      // エラーかどうかの判別関数（汎用的な手法）
       function isError(result: FunctionResult): result is FunctionError {
           return 'code' in result && 'message' in result;
       }
+      
+      // 使用例（汎用的な手法）
+      const result = addFunction(inputData);
+      if (isError(result)) {
+          console.error(`エラー: ${result.message}`);
+      } else {
+          console.log(`成功: ${result.title}`);
+      }
+    
+    note: |
+      汎用記述方式の重要な特徴:
+      - Result<T, E>やOption<T>などの関数型言語特有の型は使用しない
+      - 代わりに共用体型（Union型、Tagged Union）を使用する
+      - エラー判定は明示的な分岐処理で行う
+      - map、flatMap、unwrapなどのモナディック操作は使用しない
+      - 基本的な条件分岐とプロパティチェックのみを使用する
 
 ## エラーメッセージの責務:
   rules:
@@ -203,6 +359,87 @@
 
 ## 推奨される実装スタイル:
   items:
+    ### パターンマッチによる条件分岐:
+      description: 可能な限りパターンマッチで条件分岐を行い可読性向上に寄与させる
+      rules:
+        - Tagged Unionを活用してdiscriminated unionパターンを使用すること
+        - switch文やmatch文を優先的に使用すること
+        - 複雑なif-else chainは避けること
+        - パターンマッチできない言語でも類似の構造化された分岐を行うこと
+      examples:
+        good: |
+          # TypeScript例（パターンマッチ優先）
+          type QueryResult = 
+            | { status: "success"; data: any }
+            | { status: "validation_error"; field: string; message: string }
+            | { status: "execution_error"; code: string; message: string }
+            | { status: "not_found"; resource: string };
+          
+          function handleQueryResult(result: QueryResult): string {
+              # パターンマッチによる分岐（可読性が高い）
+              switch (result.status) {
+                  case "success":
+                      return `データ取得成功: ${JSON.stringify(result.data)}`;
+                  case "validation_error":
+                      return `バリデーションエラー [${result.field}]: ${result.message}`;
+                  case "execution_error":
+                      return `実行エラー [${result.code}]: ${result.message}`;
+                  case "not_found":
+                      return `リソースが見つかりません: ${result.resource}`;
+                  default:
+                      # 網羅性チェック（TypeScriptでnever型になる）
+                      const _exhaustive: never = result;
+                      throw new Error("未処理のケース");
+              }
+          }
+          
+          # Python例（辞書によるパターンマッチ風処理）
+          from typing import TypedDict, Union, Literal
+          
+          class SuccessResult(TypedDict):
+              status: Literal["success"]
+              data: any
+          
+          class ValidationErrorResult(TypedDict):
+              status: Literal["validation_error"]
+              field: str
+              message: str
+          
+          class ExecutionErrorResult(TypedDict):
+              status: Literal["execution_error"]
+              code: str
+              message: str
+          
+          QueryResult = Union[SuccessResult, ValidationErrorResult, ExecutionErrorResult]
+          
+          def handle_query_result(result: QueryResult) -> str:
+              # パターンマッチ風の構造化された分岐
+              handlers = {
+                  "success": lambda r: f"データ取得成功: {r['data']}",
+                  "validation_error": lambda r: f"バリデーションエラー [{r['field']}]: {r['message']}",
+                  "execution_error": lambda r: f"実行エラー [{r['code']}]: {r['message']}"
+              }
+              
+              handler = handlers.get(result["status"])
+              if handler:
+                  return handler(result)
+              else:
+                  raise ValueError(f"未処理のステータス: {result['status']}")
+        
+        avoid: |
+          # 避けるべき例: 複雑なif-else chain
+          function handleQueryResult(result: QueryResult): string {
+              if ("data" in result && result.status === "success") {
+                  return `データ取得成功: ${JSON.stringify(result.data)}`;
+              } else if ("field" in result && "message" in result && result.status === "validation_error") {
+                  return `バリデーションエラー [${result.field}]: ${result.message}`;
+              } else if ("code" in result && "message" in result && result.status === "execution_error") {
+                  return `実行エラー [${result.code}]: ${result.message}`;
+              } else {
+                  return "未知のエラー";
+              }
+          }
+    
     ### 関数のみで実装:
       description: 可能な限り純粋関数を使用する
       rules:
@@ -223,6 +460,107 @@
           # 使用例
           validate_function = create_validator(function_schema)
           is_valid, error = validate_function(data)
+    
+    ### 高階関数による依存性注入:
+      description: 可能な限り高階関数による依存性注入を行う
+      reason: 純粋な関数合成により、テスト容易性と拡張性を向上させる
+      rules:
+        - 依存性は関数の引数として明示的に渡すこと
+        - 高階関数を使用してサービス関数を生成すること
+        - 依存性は型定義されたオブジェクトとして渡すこと
+        - 関数カリー化を活用して部分適用を可能にすること
+        - モジュール内でのグローバル状態は禁止すること
+      examples:
+        good: |
+          # TypeScript例
+          interface QueryDependencies {
+            repository: {
+              execute: (query: string, params: any) => Promise<QueryResult>;
+              validate: (query: string) => boolean;
+            };
+            logger: {
+              info: (message: string) => void;
+              error: (message: string, error: any) => void;
+            };
+          }
+          
+          // 高階関数による依存性注入
+          function createQueryService(deps: QueryDependencies) {
+            return function executeQuery(query: string, params: any): QueryResult {
+              if (!deps.repository.validate(query)) {
+                deps.logger.error("Invalid query", { query });
+                return { code: "INVALID_QUERY", message: "Query validation failed" };
+              }
+              
+              try {
+                const result = deps.repository.execute(query, params);
+                deps.logger.info("Query executed successfully");
+                return { data: result };
+              } catch (error) {
+                deps.logger.error("Query execution failed", error);
+                return { code: "EXECUTION_ERROR", message: error.message };
+              }
+            };
+          }
+          
+          // 関数カリー化による部分適用
+          function createTemplateProcessor(deps: ProcessorDependencies) {
+            return function processTemplate(templateName: string) {
+              return function withParams(params: any): ProcessResult {
+                // 依存性を使用した処理
+                const template = deps.templateLoader.load(templateName);
+                const validated = deps.validator.validate(params);
+                
+                if (!validated.isValid) {
+                  return { code: "VALIDATION_ERROR", message: validated.error };
+                }
+                
+                return deps.executor.process(template, params);
+              };
+            };
+          }
+          
+          # Python例
+          from typing import TypedDict, Callable, Any
+          
+          class QueryDependencies(TypedDict):
+              repository: dict
+              logger: dict
+          
+          def create_query_service(deps: QueryDependencies):
+              def execute_query(query: str, params: Any):
+                  if not deps["repository"]["validate"](query):
+                      deps["logger"]["error"]("Invalid query", {"query": query})
+                      return {"code": "INVALID_QUERY", "message": "Query validation failed"}
+                  
+                  result = deps["repository"]["execute"](query, params)
+                  deps["logger"]["info"]("Query executed successfully")
+                  return {"data": result}
+              
+              return execute_query
+          
+          # 使用例
+          dependencies = {
+              "repository": create_repository(connection),
+              "logger": create_logger(config)
+          }
+          
+          query_service = create_query_service(dependencies)
+          result = query_service("MATCH (n) RETURN n", {})
+        
+        avoid: |
+          # 避けるべき例: グローバル状態への依存
+          repository = None  # グローバル変数
+          
+          def execute_query(query: str):
+              global repository
+              return repository.execute(query)  # グローバル状態への依存
+          
+          # 避けるべき例: ハードコードされた依存性
+          def process_data(data):
+              db = PostgreSQLDatabase()  # ハードコード
+              validator = JsonValidator()  # ハードコード
+              return db.save(validator.validate(data))
     
     ### 不変性の確保:
       description: データの変更は避け、新しいデータ構造を返す
