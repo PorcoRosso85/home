@@ -183,3 +183,48 @@ export async function trackStateOfCode(
     codeEntityId
   });
 }
+
+// markLocationUriCompleted を汎用システムで実装
+export async function markLocationUriCompleted(
+  connection: any,
+  uriId: string,
+  completionStatus: boolean
+): Promise<QueryResult> {
+  const service = await getQueryService();
+  const executeTemplate = service('mark_locationuri_completed');
+  
+  return executeTemplate({
+    uriId,
+    completionStatus
+  });
+}
+
+// calculateVersionProgress を汎用システムで実装
+export async function calculateVersionProgress(
+  connection: any,
+  versionId: string
+): Promise<QueryResult> {
+  const service = await getQueryService();
+  const executeTemplate = service('calculate_version_progress');
+  
+  return executeTemplate({
+    versionId
+  });
+}
+
+// updateVersionProgress を汎用システムで実装
+export async function updateVersionProgress(
+  connection: any,
+  versionId: string,
+  completedCount: number,
+  totalCount: number
+): Promise<QueryResult> {
+  const service = await getQueryService();
+  const executeTemplate = service('update_version_progress');
+  
+  return executeTemplate({
+    versionId,
+    completedCount,
+    totalCount
+  });
+}

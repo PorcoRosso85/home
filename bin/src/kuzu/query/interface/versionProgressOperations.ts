@@ -8,16 +8,9 @@ import type { LocationUriEntity } from '../domain/entities/locationUri';
 import type { CompletionStatus } from '../domain/entities/versionState';
 import {
   markLocationUriCompleted,
-  batchUpdateLocationUriCompletion,
   calculateVersionProgress,
-  updateVersionProgress,
-  getCompletionProgressSummary,
-  getVersionCompletionStatus,
-  getIncompleteLocationUris,
-  getCompletionStatistics,
-  processVersionProgress,
-  recalculateAllVersionProgress
-} from '../application/services/versionProgressService';
+  updateVersionProgress
+} from '../application/services/integratedDmlService';
 
 /**
  * LocationURIの完了状態を設定
