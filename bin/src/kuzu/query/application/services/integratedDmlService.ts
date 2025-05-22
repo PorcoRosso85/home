@@ -9,6 +9,7 @@ import { createQueryRepository } from '../../infrastructure/factories/repository
 import type { QueryResult } from '../../domain/types/queryTypes';
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import * as logger from '../../../common/infrastructure/logger';
 
 // 依存性を構築
 async function createDependencies() {
@@ -30,8 +31,8 @@ async function createDependencies() {
       scan: (directory: string) => readdirSync(directory).filter(f => f.endsWith('.cypher'))
     },
     logger: {
-      info: (message: string, meta?: any) => console.log(`[INFO] ${message}`, meta || ''),
-      error: (message: string, error?: any) => console.error(`[ERROR] ${message}`, error || '')
+      info: (message: string, meta?: any) => logger.info(message, meta),
+      error: (message: string, error?: any) => logger.error(message, error)
     }
   };
 }
