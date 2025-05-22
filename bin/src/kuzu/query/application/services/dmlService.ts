@@ -60,105 +60,11 @@ function handleResult(result: QueryResult<any>, operation: string): void {
   }
 }
 
-/**
- * LocationURIノードを作成
- */
-export async function createLocationURI(
-  connection: any,
-  uriId: string, 
-  scheme: string, 
-  path: string,
-  authority?: string,
-  fragment?: string,
-  query?: string
-): Promise<void> {
-  // バリデータを取得
-  const validators = getValidators();
-  
-  // バリデーション：入力URIの検証
-  const parsedUri = validators.validateLocationUri(uriId);
-  if (!parsedUri.isValid) {
-    throw new Error(`Invalid URI: ${uriId} - ${parsedUri.error}`);
-  }
+// createLocationURI: Phase 1で integratedDmlService.ts に移行済み
 
-  // LocationUriオブジェクトの構築
-  const locationUri: LocationUriEntity = {
-    uri_id: uriId,
-    scheme: scheme,
-    authority: authority || '',
-    path: path,
-    fragment: fragment || '',
-    query: query || ''
-  };
+// createCodeEntity: Phase 1で integratedDmlService.ts に移行済み
 
-  // バリデーション：LocationUriオブジェクトの検証
-  const objectValidation = validators.validateLocationUriObject(locationUri);
-  if (!objectValidation.isValid) {
-    throw new Error(`Invalid LocationUri object: ${objectValidation.error}`);
-  }
-
-  const params = locationUri;
-  
-  console.log('createLocationURI params:', params);
-  
-  // リポジトリを取得
-  const repository = await getRepository();
-  const result = await repository.executeQuery(connection, 'create_locationuri', params);
-  
-  console.log('createLocationURI result:', result);
-  
-  handleResult(result, `LocationURI: ${uriId}`);
-}
-
-/**
- * CodeEntityノードを作成
- */
-export async function createCodeEntity(
-  connection: any,
-  persistentId: string, 
-  type: string, 
-  signature: string,
-  name: string,
-  startPosition: number,
-  endPosition: number,
-  complexity: number = 1
-): Promise<void> {
-  const repository = await getRepository();
-  const result = await repository.executeQuery(connection, 'create_codeentity', {
-    persistent_id: persistentId,
-    name: name,
-    type: type,
-    signature: signature,
-    complexity: complexity,
-    start_position: startPosition,
-    end_position: endPosition
-  });
-  
-  handleResult(result, `CodeEntity: ${persistentId}`);
-}
-
-/**
- * RequirementEntityノードを作成
- */
-export async function createRequirement(
-  connection: any,
-  id: string,
-  title: string,
-  description: string,
-  priority: string,
-  requirementType: string
-): Promise<void> {
-  const repository = await getRepository();
-  const result = await repository.executeQuery(connection, 'create_requiremententity', {
-    id: id,
-    title: title,
-    description: description,
-    priority: priority,
-    requirement_type: requirementType
-  });
-  
-  handleResult(result, `RequirementEntity: ${id}`);
-}
+// createRequirement: Phase 1で integratedDmlService.ts に移行済み
 
 /**
  * HAS_LOCATIONエッジを作成
