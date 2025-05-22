@@ -21,7 +21,7 @@ export * from './domain/repositories/queryRepository';
 export * from './domain/repositories/fileRepository';
 
 // Application層
-export * from './application/services/integratedDmlService';
+export * from './application/services/unifiedQueryService';
 export * from './application/commands/executeQuery';
 export * from './application/commands/generateQueries';
 

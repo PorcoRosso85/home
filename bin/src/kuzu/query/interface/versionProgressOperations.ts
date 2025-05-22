@@ -6,11 +6,7 @@
 
 import type { LocationUriEntity } from '../domain/entities/locationUri';
 import type { CompletionStatus } from '../domain/entities/versionState';
-import {
-  markLocationUriCompleted,
-  calculateVersionProgress,
-  updateVersionProgress
-} from '../application/services/integratedDmlService';
+import { executeTemplate } from '../application/services/unifiedQueryService';
 
 /**
  * LocationURIの完了状態を設定
@@ -21,7 +17,10 @@ export async function markLocationUriCompletedApi(connection: any, body: {
   completed: boolean;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    await markLocationUriCompleted(connection, body.uriId, body.completed);
+    await executeTemplate(connection, 'mark_locationuri_completed', {
+      uri_id: body.uriId,
+      completed: body.completed
+    });
     return {
       success: true,
       message: `LocationURI ${body.uriId} marked as ${body.completed ? 'completed' : 'incomplete'}`
@@ -78,7 +77,9 @@ export async function calculateVersionProgressApi(connection: any, body: {
   message: string;
 }> {
   try {
-    const result = await calculateVersionProgress(connection, body.versionId);
+    const result = await executeTemplate(connection, 'calculate_version_progress', {
+      version_id: body.versionId
+    });
     return {
       success: true,
       data: result,
@@ -101,7 +102,10 @@ export async function updateVersionProgressApi(connection: any, body: {
   progressPercentage: number;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    await updateVersionProgress(connection, body.versionId, body.progressPercentage);
+    await executeTemplate(connection, 'update_version_progress', {
+      version_id: body.versionId,
+      progress_percentage: body.progressPercentage
+    });
     return {
       success: true,
       message: `Version ${body.versionId} progress updated to ${(body.progressPercentage * 100).toFixed(1)}%`

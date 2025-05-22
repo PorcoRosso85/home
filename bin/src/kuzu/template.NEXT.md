@@ -1,194 +1,315 @@
-# Kuzuクエリシステム リファクタリング前後比較表
+# KuzuDB クエリシステム汎用化リファクタリング作業手順書
 
-## 概要
-現在の個別テンプレート実装から汎用的なクエリ実行システムへのリファクタリングによるコード量とファイル構成の比較
+## 作業概要
+- **目標**: 個別ラッパー関数を完全削除し、完全自動化された汎用クエリシステムを構築
+- **期待効果**: 696行 → 300-400行 (50-60%削減)、手動レジストリ不要、完全自動テンプレート検出
 
----
-
-## 現在の実装（Before）
-
-### ファイル構成とコード量
-| ファイルパス | 行数 | 役割 | 備考 |
-|-------------|------|------|------|
-| `/home/nixos/bin/src/kuzu/query/application/services/dmlService.ts` | 389行 | DMLクエリ用ラッパー関数群 | 12個の個別関数を実装 |
-| `/home/nixos/bin/src/kuzu/query/application/services/versionProgressService.ts` | 307行 | バージョン関連クエリ用ラッパー関数群 | 10個の個別関数を実装 |
-| `/home/nixos/bin/src/kuzu/query/infrastructure/repositories/browserQueryRepository.ts` | 264行 | ブラウザ環境用クエリリポジトリ | 既存のまま維持 |
-| `/home/nixos/bin/src/kuzu/query/infrastructure/repositories/nodeQueryRepository.ts` | ~264行 | Node.js環境用クエリリポジトリ | 既存のまま維持（推定） |
-| `/home/nixos/bin/src/kuzu/query/infrastructure/repositories/denoQueryRepository.ts` | ~264行 | Deno環境用クエリリポジトリ | 既存のまま維持（推定） |
-| `/home/nixos/bin/src/kuzu/query/infrastructure/factories/repositoryFactory.ts` | 130行 | リポジトリファクトリ | 既存のまま維持 |
-
-### テンプレート構成
-| ディレクトリ | テンプレート数 | 対応するラッパー関数数 |
-|-------------|---------------|---------------------|
-| `/home/nixos/bin/src/kuzu/query/dml/` | 23個のCypherファイル | 12個の関数（部分的実装） |
-| `/home/nixos/bin/src/kuzu/query/dql/` | 13個のCypherファイル | 10個の関数（部分的実装） |
-
-### 現在のコード量合計
-- **サービスクラス合計**: 696行
-- **ラッパー関数総数**: 22個
-- **テンプレート総数**: 36個
-- **テンプレートカバー率**: 約61%（22/36）
+## 現在の問題
+- 旧システムとの共存により複雑化（コード量4%増）
+- 個別ラッパー関数が大量残存（1,300+行）
+- 手動レジストリが必要
+- 完全自動化が未完成
 
 ---
 
-## 提案する汎用実装（After）
+## Phase 1: 汎用システム完成 (1-2時間) 【最優先】
 
-### ファイル構成とコード量
-| ファイルパス | 行数 | 役割 | 備考 |
-|-------------|------|------|------|
-| `/home/nixos/bin/src/kuzu/query/application/services/queryService.ts` | ~70行 | 汎用クエリ実行サービス | DML/DQL共通実行関数（バリデーション統合） |
-| `/home/nixos/bin/src/kuzu/query/application/services/templateScanner.ts` | ~150行 | テンプレート自動検出・管理 | 動的テンプレート発見機能 |
-| `/home/nixos/bin/src/kuzu/query/application/services/enhancedQueryService.ts` | ~100行 | 互換性維持用拡張サービス | 従来API互換関数（オプション） |
-| `/home/nixos/bin/src/kuzu/query/application/validation/templateValidator.ts` | ~120行 | 汎用テンプレートバリデーター | 全DMLクエリ対応 |
-| `/home/nixos/bin/src/kuzu/query/application/validation/dmlValidationRules.ts` | ~80行 | DML固有バリデーションルール | クエリ別ルール定義 |
-| `/home/nixos/bin/src/kuzu/query/domain/validation/validationSchema.ts` | ~60行 | バリデーションスキーマ定義 | メタデータ駆動型 |
-| `/home/nixos/bin/src/kuzu/query/infrastructure/repositories/browserQueryRepository.ts` | ~250行 | ブラウザ環境用クエリリポジトリ | validateDMLParameters削除 |
-| `/home/nixos/bin/src/kuzu/query/infrastructure/repositories/nodeQueryRepository.ts` | ~264行 | Node.js環境用クエリリポジトリ | **変更なし** |
-| `/home/nixos/bin/src/kuzu/query/infrastructure/repositories/denoQueryRepository.ts` | ~264行 | Deno環境用クエリリポジトリ | **変更なし** |
-| `/home/nixos/bin/src/kuzu/query/infrastructure/factories/repositoryFactory.ts` | 130行 | リポジトリファクトリ | **変更なし** |
+### 1.1 queryService.ts の完全自動検出機能追加
 
-### 削除されるファイル
-| ファイルパス | 行数 | 削除理由 |
-|-------------|------|---------|
-| ~~`/home/nixos/bin/src/kuzu/query/application/services/dmlService.ts`~~ | ~~389行~~ | 汎用サービスに統合 |
-| ~~`/home/nixos/bin/src/kuzu/query/application/services/versionProgressService.ts`~~ | ~~307行~~ | 汎用サービスに統合 |
+**ファイル**: `query/application/services/queryService.ts`
 
-### 新しいテンプレート対応
-| ディレクトリ | テンプレート数 | 対応方法 |
-|-------------|---------------|----------|
-| `/home/nixos/bin/src/kuzu/query/dml/` | 23個 → **∞個** | 自動検出・実行 |
-| `/home/nixos/bin/src/kuzu/query/dql/` | 13個 → **∞個** | 自動検出・実行 |
-
-### 新しいコード量合計
-- **サービスクラス合計**: 330行
-- **バリデーション関連**: 260行
-- **テンプレートカバー率**: **100%**（すべて自動対応）
----
-
-## DMLバリデーション実装の変更前後比較
-
-### 現在のバリデーション実装（Before）
-| ファイルパス | 行数 | 実装内容 | 対象クエリ |
-|-------------|------|---------|----------|
-| `/home/nixos/bin/src/kuzu/query/infrastructure/repositories/browserQueryRepository.ts` | 264行（内バリデーション~20行） | `validateDMLParameters`関数 | `version_batch_operations`のみ |
-| `/home/nixos/bin/src/kuzu/browse/src/application/usecase/validation/versionBatchValidation.ts` | 推定~50行 | `validateVersionBatch`関数 | 特定バリデーションロジック |
-| `/home/nixos/bin/src/kuzu/browse/src/domain/validation/validationError.ts` | 推定~30行 | `createValidationError`関数 | 固定エラー形式 |
-
-### バリデーション方式の問題点
-| 項目 | 現在の実装 | 問題点 |
-|------|------------|--------|
-| バリデーション場所 | リポジトリ層内の条件分岐 | 責任の混在、拡張困難 |
-| 対象クエリ | `version_batch_operations`のみ | 他のDMLクエリは未対応 |
-| 実装方式 | ハードコードされた条件分岐 | 新規クエリ追加時に手動実装必須 |
-| エラーハンドリング | 固定的なエラーコード | 汎用性に欠ける |
-
-### 提案するバリデーション実装（After）
-| ファイルパス | 行数 | 実装内容 | 対象クエリ |
-|-------------|------|---------|----------|
-| `/home/nixos/bin/src/kuzu/query/application/validation/templateValidator.ts` | ~120行 | 汎用テンプレートバリデーター | 全DMLクエリ対応 |
-| `/home/nixos/bin/src/kuzu/query/application/validation/dmlValidationRules.ts` | ~80行 | DML固有バリデーションルール | クエリ別ルール定義 |
-| `/home/nixos/bin/src/kuzu/query/domain/validation/validationSchema.ts` | ~60行 | バリデーションスキーマ定義 | メタデータ駆動型 |
-
-### 変更されるファイル
-| ファイルパス | 変更前 | 変更後 | 変更内容 |
-|-------------|--------|--------|---------|
-| `/home/nixos/bin/src/kuzu/query/infrastructure/repositories/browserQueryRepository.ts` | 264行 | ~250行 | `validateDMLParameters`削除 |
-| `/home/nixos/bin/src/kuzu/query/application/services/queryService.ts` | - | ~70行 | バリデーション統合（前回50行→70行に増加） |
-
-### バリデーション機能比較
-| 項目 | 現在の実装 | 提案実装 | 変更効果 |
-|------|------------|----------|----------|
-| バリデーション場所 | リポジトリ層内の条件分岐 | 独立したバリデーション層 | 責務分離、テスト容易性向上 |
-| バリデーション方式 | `if (queryName === 'version_batch_operations')` | テンプレートメタデータベース | 汎用化、拡張性向上 |
-| バリデーションルール | 固定関数呼び出し | 動的ルール適用 | 設定可能、保守性向上 |
-| エラーハンドリング | `DML_VALIDATION_FAILED`固定 | テンプレート別エラーコード | 詳細なエラー情報 |
-| 拡張性 | 手動で条件分岐追加 | メタデータ追加のみ | 開発効率大幅向上 |
-| 対象範囲 | 1クエリのみ | 全DMLクエリ | 100%カバー率達成 |
-
-### コード量への影響（バリデーション込み）
-| 項目 | Before | After | 変更量 | 変更率 |
-|------|--------|-------|--------|--------|
-| サービスクラス合計 | 696行 | 330行 | **366行減** | **53%減** |
-| バリデーション関連 | ~100行（分散） | ~260行（集約） | **160行増** | **組織化** |
-| リポジトリ層 | 264行 | 250行 | **14行減** | **責務軽減** |
-| **実質的な総削減** | **796行** | **840行** | **44行増** | **機能拡張込み** |
-
-### バリデーション実装例
+**現在の問題**: テンプレート存在チェックが手動
+**作業内容**: 
 ```typescript
-// 現在: browserQueryRepository.ts内
-if (queryName === 'version_batch_operations') {
-  // 固定的なバリデーション
-}
-
-// 提案: templateValidator.ts内
-const validationRule = getValidationRule(templateName);
-if (validationRule) {
-  await validationRule.validate(params);
+// 追加すべき機能
+export async function executeAnyTemplate(
+  connection: any,
+  templateName: string, 
+  params: Record<string, any> = {}
+): Promise<QueryResult> {
+  // 1. DMLディレクトリで検索
+  // 2. DQLディレクトリで検索  
+  // 3. 自動的にパラメータ検証
+  // 4. 適切なリポジトリ関数呼び出し
 }
 ```
+
+### 1.2 templateScanner.ts の完全自動化機能追加
+
+**ファイル**: `query/application/services/templateScanner.ts`
+
+**現在の問題**: 手動でディレクトリ指定が必要
+**作業内容**:
+```typescript
+// 追加すべき機能
+export function createAutoTemplateScanner() {
+  return {
+    // DML/DQL両方を自動スキャン
+    scanAllTemplates: () => Promise<TemplateRegistry>,
+    // テンプレート名から自動的にタイプ判定
+    detectTemplateType: (name: string) => 'dml' | 'dql',
+    // パラメータ自動抽出
+    extractParams: (templateContent: string) => string[]
+  };
+}
+```
+
+### 1.3 統一APIエントリーポイント作成
+
+**新規ファイル**: `query/application/services/unifiedQueryService.ts`
+
+**作業内容**: 
+```typescript
+/**
+ * 統一クエリAPI - 最終的にこの2つだけがexportされる
+ */
+
+// DMLクエリ実行（作成・更新・削除）
+export async function executeDml(
+  connection: any,
+  templateName: string, 
+  params: Record<string, any>
+): Promise<QueryResult>
+
+// DQLクエリ実行（検索・取得）  
+export async function executeDql(
+  connection: any,
+  templateName: string,
+  params: Record<string, any>
+): Promise<QueryResult>
+
+// 自動判定版（推奨）
+export async function executeTemplate(
+  connection: any,
+  templateName: string,
+  params: Record<string, any>
+): Promise<QueryResult>
+```
+
+### 1.4 Phase 1 完了確認
+
+**テストコマンド**:
+```bash
+cd /home/nixos/bin/src/kuzu
+
+# 新しい汎用APIが動作することを確認
+npm test -- --grep "unified"
+
+# ビルドエラーがないことを確認  
+npm run build
+```
+
+**成功基準**: 
+- [ ] 新しい汎用API 3つが正常動作
+- [ ] 任意のテンプレート名で自動実行可能
+- [ ] パラメータ自動検証が動作
+- [ ] ビルドエラーなし
+
 ---
 
-## コード量削減効果の比較
+## Phase 2: 依存関係調査・修正 (1時間)
 
-### 削減されるコード量
-| 項目 | Before | After | 削減量 | 削減率 |
-|------|--------|-------|--------|--------|
-| サービスクラス合計 | 696行 | 330行 | **366行** | **53%減** |
-| 個別ラッパー関数 | 22個 | 0個 | **22個** | **100%減** |
-| テンプレート対応率 | 61% | 100% | **+39%** | **向上** |
+### 2.1 削除対象への依存関係調査
 
-### 将来的なスケーラビリティ比較
-| シナリオ | 現在の実装 | 提案実装 | 差異 |
-|----------|------------|----------|------|
-| テンプレート数が2倍（72個）になった場合 | ~1,400行 | ~330行 | **1,070行の差** |
-| テンプレート数が3倍（108個）になった場合 | ~2,100行 | ~330行 | **1,770行の差** |
-| 新テンプレート追加時の作業 | TSラッパー関数実装必須 | ファイル追加のみ | **開発効率大幅向上** |
+**調査コマンド**:
+```bash
+cd /home/nixos/bin/src/kuzu
 
----
+# integratedDmlService への依存を調査
+grep -r "from.*integratedDmlService\|import.*integratedDmlService" . --include="*.ts"
 
-## 実装移行計画
+# dmlOperations への依存を調査  
+grep -r "from.*dmlOperations\|import.*dmlOperations" . --include="*.ts"
 
-### Phase 1: 基盤実装
-1. `queryService.ts` を作成（汎用実行関数）
-2. `templateScanner.ts` を作成（動的検出機能）
-3. バリデーション関連ファイル作成
-   - `templateValidator.ts`
-   - `dmlValidationRules.ts`
-   - `validationSchema.ts`
-4. 既存コードとの並行稼働確認
+# versionProgressOperations への依存を調査
+grep -r "from.*versionProgressOperations\|import.*versionProgressOperations" . --include="*.ts"
 
-### Phase 2: 互換性確保
-1. `enhancedQueryService.ts` を作成（既存API互換）
-2. 重要な既存関数の動作確認
-3. テストケース実行・検証
-4. バリデーション機能の移行確認
+# 個別関数の使用箇所を調査
+grep -r "createLocationURI\|createCodeEntity\|createRequirement" . --include="*.ts"
+```
 
-### Phase 3: 移行完了
-1. 既存サービスクラスの削除
-   - `dmlService.ts` 削除
-   - `versionProgressService.ts` 削除
-2. `browserQueryRepository.ts`の`validateDMLParameters`削除
-3. 呼び出し元の更新
-4. 最終動作確認
+### 2.2 修正対象ファイルリスト作成
 
----
+**調査結果記録**:
+```
+修正が必要なファイル:
+- query/index.ts (export文修正)
+- query/interface/versionProgressOperations.ts (import修正)  
+- その他の使用箇所... (上記コマンドで特定)
+```
 
-## メリット・デメリット
+### 2.3 呼び出し元を汎用APIに変更
 
-### メリット
-- **コード量53%削減**
-- **100%テンプレートカバー率達成**
-- **新テンプレート追加時の開発工数ゼロ**
-- **保守性の大幅向上**
-- **一貫性のあるAPI**
-- **バリデーション機能の全DMLクエリ対応**
+**修正パターン**:
+```typescript
+// 変更前
+import { createLocationURI } from './services/integratedDmlService';
+await createLocationURI(conn, 'id', 'file', '/path');
 
-### デメリット
-- **型安全性の一部犠牲**（実行時パラメータ検証に依存）
-- **IDE自動補完機能の弱化**（特定関数名の補完が減少）
-- **初期実装コスト**（リファクタリング作業）
+// 変更後  
+import { executeDml } from './services/unifiedQueryService';
+await executeDml(conn, 'create_locationuri', {
+  uri_id: 'id', scheme: 'file', path: '/path'
+});
+```
+
+### 2.4 Phase 2 完了確認
+
+**確認事項**:
+- [ ] 全ての依存関係を特定完了
+- [ ] 修正対象ファイルリスト作成完了
+- [ ] 修正パターンを決定完了
+- [ ] ビルドエラーなし
 
 ---
 
-## 結論
-提案する汎用的なアプローチにより、コードベースを53%削減しながら、すべてのテンプレートに対応可能な拡張性の高いシステムを構築できる。将来的なメンテナンスコストも大幅に削減され、新機能追加の効率が向上する。バリデーション機能も1クエリから全クエリ対応に拡張される。
+## Phase 3: 段階的削除 (2-3時間)
+
+### 3.1 integratedDmlService.ts 削除
+
+**削除対象**: `query/application/services/integratedDmlService.ts` (230行)
+
+**作業手順**:
+1. ファイル削除
+2. import修正（Phase 2で特定した箇所）
+3. ビルドテスト
+4. 動作テスト
+
+**削除後テスト**:
+```bash
+# ビルド確認
+npm run build
+
+# 汎用API動作確認
+npm test -- --grep "template"
+```
+
+### 3.2 interface層の大量削除
+
+**削除対象**:
+- `query/interface/dmlOperations.ts` (611行)
+- `query/interface/versionProgressOperations.ts` (459行)  
+- `query/interface/queryClient.ts` (調査後)
+- `query/interface/queryExecutor.ts` (調査後)
+
+**作業手順** (1ファイルずつ):
+1. ファイル削除
+2. import修正
+3. ビルドテスト  
+4. 次のファイルへ
+
+**重要**: 必ず1ファイルずつ削除してテストを実行
+
+### 3.3 Phase 3 完了確認
+
+**成功基準**:
+- [ ] interface層から1,000+行削除完了
+- [ ] 個別ラッパー関数が完全削除
+- [ ] ビルドエラーなし
+- [ ] 基本動作テスト成功
+
+---
+
+## Phase 4: エクスポート整理・最終確認 (30分)
+
+### 4.1 index.ts の大幅削除
+
+**ファイル**: `query/index.ts`
+
+**変更内容**:
+```typescript
+// 変更前: 50+ の個別関数をexport
+export * from './interface/dmlOperations';
+export * from './interface/versionProgressOperations';
+// ... 大量のexport
+
+// 変更後: 汎用API 2-3個のみ
+export { executeDml, executeDql, executeTemplate } from './application/services/unifiedQueryService';
+export * from './domain/types/queryTypes';  // 型定義は維持
+export * from './application/validation/templateValidator';  // バリデーションは維持
+```
+
+### 4.2 物理削除
+
+**削除対象**:
+```bash
+rm query/application/services/dmlService.ts.deleted
+rm query/application/services/versionProgressService.ts.deleted
+```
+
+### 4.3 最終動作テスト
+
+**テストシナリオ**:
+```typescript
+// テストケース1: DML実行
+await executeDml(connection, 'create_locationuri', {
+  uri_id: 'test', scheme: 'file', path: '/test'
+});
+
+// テストケース2: DQL実行  
+await executeDql(connection, 'get_version_statistics_details', {
+  version_id: 'v1.0.0'
+});
+
+// テストケース3: 自動判定
+await executeTemplate(connection, 'create_codeentity', {
+  persistent_id: 'test', name: 'Test'
+});
+```
+
+### 4.4 Phase 4 完了確認
+
+**最終成功基準**:
+- [ ] export関数が汎用API 2-3個のみ
+- [ ] 全ての削除ファイルが物理削除完了
+- [ ] 全機能が汎用APIで動作確認
+- [ ] コード量50-60%削減達成
+- [ ] 新しいテンプレート追加時の手動作業0
+
+---
+
+## 最終的な構成
+
+### 残存ファイル (約300-400行)
+- `unifiedQueryService.ts` (~80行) - 汎用API
+- `queryService.ts` (~60行) - 自動検出機能  
+- `templateScanner.ts` (~70行) - 完全自動化
+- バリデーション層 (170行) - 必要機能
+- 型定義 (125行) - 必要機能
+
+### 削除されるファイル (1,300+行)
+- `integratedDmlService.ts` (230行)
+- `dmlOperations.ts` (611行)
+- `versionProgressOperations.ts` (459行)
+- その他 interface層
+
+### 新しい使用方法
+```typescript
+// たった1行でどんなクエリでも実行可能
+await executeTemplate(connection, 'any_template_name', params);
+```
+
+---
+
+## 作業再開時のチェックリスト
+
+**現在の状況確認**:
+- [ ] Phase 1完了状況を確認
+- [ ] Phase 2の依存関係調査状況を確認  
+- [ ] Phase 3の削除進捗を確認
+- [ ] ビルドエラーの有無を確認
+
+**作業再開手順**:
+1. 現在のPhaseを特定
+2. 該当Phaseの完了確認を実行
+3. 次のPhaseに進む
+4. 問題発生時は前のPhaseに戻って確認
+
+**緊急時の復旧**:
+```bash
+# 作業前の状態に戻す
+git reset --hard HEAD~1
+
+# 特定ファイルのみ復旧
+git checkout HEAD~1 -- path/to/file
+```
