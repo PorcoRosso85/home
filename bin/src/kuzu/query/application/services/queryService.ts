@@ -117,14 +117,14 @@ export async function executeAnyTemplate(
       message: `Template '${templateName}' not found in dml/ or dql/ directories`
     };
 
-  } catch (error: any) {
-    return {
-      status: "execution_error",
-      code: "EXECUTION_FAILED", 
-      message: error.message || "Unknown execution error",
-      query: templateName
-    };
-  }
+    } catch (error: any) {
+      return {
+        status: "execution_error",
+        code: "EXECUTION_FAILED", 
+        message: error?.message || "Unknown execution error",
+        query: templateName
+      };
+    }
 }
 
 /**
