@@ -106,3 +106,80 @@ export async function createRequirement(
     priority
   });
 }
+
+// createHasLocation を汎用システムで実装
+export async function createHasLocation(
+  connection: any,
+  codeEntityId: string,
+  locationUriId: string
+): Promise<QueryResult> {
+  const service = await getQueryService();
+  const executeTemplate = service('create_has_location');
+  
+  return executeTemplate({
+    codeEntityId,
+    locationUriId
+  });
+}
+
+// createIsImplementedBy を汎用システムで実装
+export async function createIsImplementedBy(
+  connection: any,
+  codeEntityId: string,
+  requirementId: string
+): Promise<QueryResult> {
+  const service = await getQueryService();
+  const executeTemplate = service('create_is_implemented_by');
+  
+  return executeTemplate({
+    codeEntityId,
+    requirementId
+  });
+}
+
+// createReferencesCode を汎用システムで実装
+export async function createReferencesCode(
+  connection: any,
+  sourceEntityId: string,
+  targetEntityId: string
+): Promise<QueryResult> {
+  const service = await getQueryService();
+  const executeTemplate = service('create_references_code');
+  
+  return executeTemplate({
+    sourceEntityId,
+    targetEntityId
+  });
+}
+
+// createVersionState を汎用システムで実装
+export async function createVersionState(
+  connection: any,
+  versionId: string,
+  timestamp: string,
+  description: string
+): Promise<QueryResult> {
+  const service = await getQueryService();
+  const executeTemplate = service('create_versionstate');
+  
+  return executeTemplate({
+    versionId,
+    timestamp,
+    description
+  });
+}
+
+// trackStateOfCode を汎用システムで実装
+export async function trackStateOfCode(
+  connection: any,
+  versionId: string,
+  codeEntityId: string
+): Promise<QueryResult> {
+  const service = await getQueryService();
+  const executeTemplate = service('create_tracks_state_of_located_entity');
+  
+  return executeTemplate({
+    versionId,
+    codeEntityId
+  });
+}
