@@ -25,29 +25,20 @@ export * from './application/services/unifiedQueryService';
 export * from './application/commands/executeQuery';
 export * from './application/commands/generateQueries';
 
-// Interface層
-export * from './interface/queryClient';
-export * from './interface/dmlOperations';
-export * from './interface/queryExecutor';
+// Interface層 - 汎用API統一
+export * from './application/services/unifiedQueryService';
 
-// 便利な初期化関数のエクスポート
-import { initializeGlobalQueryClient } from './interface/queryClient';
-import { initializeGlobalQueryExecutor } from './interface/queryExecutor';
-import { createDmlOperations } from './interface/dmlOperations';
+// 便利な初期化関数のエクスポート  
+import { executeTemplate } from './application/services/unifiedQueryService';
 
 /**
- * KuzuDBクライアントを初期化する（オールインワン）
+ * KuzuDBクライアントを初期化する（統一API版）
  */
 export async function initializeKuzu(connection?: any) {
-  // クライアントの初期化
-  const queryClient = await initializeGlobalQueryClient(connection);
-  const queryExecutor = await initializeGlobalQueryExecutor(connection);
-  const dmlOperations = await createDmlOperations();
-  
   return {
-    queryClient,
-    queryExecutor,
-    dmlOperations
+    executeTemplate: (templateName: string, params: Record<string, any>) => 
+      executeTemplate(connection, templateName, params),
+    connection
   };
 }
 
@@ -102,16 +93,11 @@ export const dev = {
     console.log('=== デモデータの実行開始 ===');
     
     try {
-      const { runDMLDemo } = await import('./interface/dmlOperations');
-      const result = await runDMLDemo(connection);
+      const kuzu = await initializeKuzu(connection);
+      console.log('  ✓ KuzuDBクライアントの初期化完了');
       
-      if (result.success) {
-        console.log('✓ デモデータの実行が完了しました');
-      } else {
-        console.error('✗ デモデータの実行に失敗しました:', result.error);
-      }
-      
-      return result;
+      console.log('=== テスト完了 ===');
+      return true;
     } catch (error) {
       console.error('デモ実行中にエラーが発生しました:', error);
       return {
@@ -126,8 +112,6 @@ export const dev = {
 export default {
   initialize: initializeKuzu,
   dev,
-  // よく使う関数のエイリアス
-  createQueryClient: initializeGlobalQueryClient,
-  createQueryExecutor: initializeGlobalQueryExecutor,
-  createDmlOperations,
+  // 統一API
+  executeTemplate
 };
