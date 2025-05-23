@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { onDatabaseReady } from './databaseEvent';
 import * as logger from '../../../../common/infrastructure/logger';
 
-interface DatabaseConnectionState {
+type DatabaseConnectionState = {
   dbConnection: any | null;
   isConnected: boolean;
   error: Error | null;

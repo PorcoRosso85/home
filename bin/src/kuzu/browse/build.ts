@@ -7,7 +7,7 @@ import { parse } from "https://deno.land/std@0.180.0/flags/mod.ts";
 /**
  * マウント定義の型
  */
-interface MountDefinition {
+type MountDefinition = {
   sourcePath: string;  // マウント元パス（実ファイルシステム上）
   targetPath: string;  // マウント先パス（URL上）
   filePattern?: string; // ファイルパターン（例: *.cypher）

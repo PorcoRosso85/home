@@ -2,7 +2,7 @@ import type { LocationUri } from '../../domain/entity/locationUri';
 import * as logger from '../../../../common/infrastructure/logger';
 
 declare global {
-  interface Window {
+  type Window = {
     kuzu: any;
     conn: any;
   }

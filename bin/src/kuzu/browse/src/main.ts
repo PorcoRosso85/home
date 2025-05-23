@@ -60,7 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // グローバル定義
 declare global {
-  interface Window {
+  type Window = {
     kuzu: any;
     db: any;
     conn: any;

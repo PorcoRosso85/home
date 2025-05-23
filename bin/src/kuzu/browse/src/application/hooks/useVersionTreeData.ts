@@ -10,7 +10,7 @@ import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
 /**
  * バージョンとFOLLOWS関係を取得するためのクエリ
  */
-interface VersionRelations {
+type VersionRelations = {
   from: string;
   to: string;
 }

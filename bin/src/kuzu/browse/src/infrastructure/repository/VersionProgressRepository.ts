@@ -9,7 +9,7 @@ import type { VersionStateEntity, CompletionStatus } from '../../../../query/dom
 import { executeDMLQuery, executeDQLQuery } from './queryExecutor';
 import * as logger from '../../../../common/infrastructure/logger';
 
-export interface VersionProgressRepository {
+export type VersionProgressRepository {
   markLocationUriCompleted(dbConnection: any, uriId: string, completed: boolean): Promise<void>;
   batchUpdateLocationUriCompletion(dbConnection: any, updates: Array<{ uriId: string; completed: boolean }>): Promise<void>;
   calculateVersionProgress(dbConnection: any, versionId: string): Promise<{

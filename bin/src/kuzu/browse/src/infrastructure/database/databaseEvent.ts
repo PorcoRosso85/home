@@ -5,7 +5,7 @@ import * as logger from '../../../../common/infrastructure/logger';
 
 // グローバル定義
 declare global {
-  interface Window {
+  type Window = {
     conn: any;
   }
 }

@@ -1,93 +1,49 @@
 /**
  * KuzuDB Parquet Viewer の基本型定義
- * 
- * TreeNode インターフェースを拡張し、バージョンツリーとLocationURIツリーの両方をサポート
+ * 規約準拠: type定義優先
  */
 
-/**
- * データベース操作結果
- */
-export interface DatabaseResult {
+export type DatabaseResult = {
   success: boolean;
   data?: any;
   error?: string;
-}
+};
 
-/**
- * ステータスメッセージ
- */
-export interface StatusMessage {
+export type StatusMessage = {
   text: string;
   type: 'info' | 'success' | 'error' | 'loading';
-}
+};
 
-/**
- * VersionState型定義
- */
-export interface VersionState {
-  id: string;           // バージョンID (例: '1.0.0')
-  timestamp: string;    // タイムスタンプ (ISO 8601形式)
-  description: string;  // バージョンの説明
-  change_reason: string; // 変更理由（要件変更、部分達成不足など）
-}
-
-/**
- * LocationURI型定義
- */
-export interface LocationURI {
-  uri_id: string;      // URI識別子
-  scheme: string;      // スキーム (file, http, etc.)
-  authority: string;   // 権限 (ホスト名など)
-  path: string;        // パス
-  fragment: string;    // フラグメント
-  query: string;       // クエリ文字列
-  from_version?: string; // URIが最後に更新されたバージョン
-  version_description?: string; // バージョンの説明
-  isCompleted?: boolean; // 完了状態
-}
-
-/**
- * バージョンとLocationURIの関係データ
- */
-export interface VersionedLocationData {
-  version_id: string;
-  location_uris: LocationURI[];
-  previous_version_id?: string;
-}
-
-/**
- * LOCATED_WITH関係のエンティティ情報
- */
-export interface LocatedWithEntity {
-  type: 'code' | 'requirement' | 'reference';
+export type VersionState = {
   id: string;
-  entity_type: string;
-}
+  timestamp: string;
+  description: string;
+  change_reason: string;
+};
 
-/**
- * LocationURI階層情報
- */
-export interface LocationHierarchy {
-  parent_uri: string;
-  child_uri: string;
-  relation_type: 'file_hierarchy' | 'requirement_hierarchy';
-}
+export type LocationURI = {
+  uri_id: string;
+  scheme: string;
+  authority: string;
+  path: string;
+  fragment: string;
+  query: string;
+  from_version?: string;
+  version_description?: string;
+  isCompleted?: boolean;
+};
 
-/**
- * ツリーノード型定義（UI用）
- * バージョンツリーとLocationURIツリーの両方に対応
- */
-export interface TreeNode {
+export type TreeNode = {
   id: string;
   name: string;
-  nodeType?: 'version' | 'location';  // ノードの種類
+  nodeType?: 'version' | 'location';
   children: TreeNode[];
-  from_version?: string;      // 最新更新バージョン
-  isCurrentVersion?: boolean; // 現在選択中のバージョンで更新されたか
-  isCompleted?: boolean;      // LocationURIの完了状態
-  isExpanded?: boolean;       // ノードが展開されているか
-  isLoading?: boolean;        // ノードがロード中か
-  description?: string;       // バージョンの説明 
-  change_reason?: string;     // バージョンの変更理由
-  timestamp?: string;         // バージョンのタイムスタンプ
-}
+  from_version?: string;
+  isCurrentVersion?: boolean;
+  isCompleted?: boolean;
+  isExpanded?: boolean;
+  isLoading?: boolean;
+  description?: string;
+  change_reason?: string;
+  timestamp?: string;
+};

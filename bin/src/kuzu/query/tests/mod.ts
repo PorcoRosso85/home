@@ -14,7 +14,7 @@ export const QUERY_FILE_EXTENSION = ".cypher";  // クエリファイルの拡�
 export const BASE_QUERY_DIR = "/home/nixos/bin/src/kuzu/query/tests";  // クエリベースディレクトリ
 
 // 型定義
-export interface LocationURI {
+export type LocationURI {
   uri_id: string;
   scheme: string;
   authority: string;
@@ -23,7 +23,7 @@ export interface LocationURI {
   query: string;
 }
 
-export interface CodeEntity {
+export type CodeEntity {
   persistent_id: string;
   name: string;
   type: string;
@@ -33,7 +33,7 @@ export interface CodeEntity {
   end_position: number;
 }
 
-export interface RequirementEntity {
+export type RequirementEntity {
   id: string;
   title: string;
   description: string;
@@ -45,14 +45,14 @@ export interface RequirementEntity {
 export type QueryType = 'dml' | 'dql' | 'ddl';
 
 // エラー型の定義
-export interface FileNotFoundError {
+export type FileNotFoundError {
   code: "FILE_NOT_FOUND";
   message: string;
   filePath?: string;
   availableFiles?: string[];
 }
 
-export interface QueryNotFoundError {
+export type QueryNotFoundError {
   code: "QUERY_NOT_FOUND";
   message: string;
   queryName: string;
@@ -60,14 +60,14 @@ export interface QueryNotFoundError {
   availableQueries?: string[];
 }
 
-export interface InvalidQueryTypeError {
+export type InvalidQueryTypeError {
   code: "INVALID_QUERY_TYPE";
   message: string;
   queryType: string;
   validTypes: QueryType[];
 }
 
-export interface QueryExecutionError {
+export type QueryExecutionError {
   code: "QUERY_EXECUTION_ERROR";
   message: string;
   query?: string;

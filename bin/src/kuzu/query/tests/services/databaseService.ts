@@ -43,7 +43,7 @@ export async function loadKuzuModule() {
 // 3. パフォーマンス最適化のためのバンドリング方法の改善
 
 // 型定義
-export interface DatabaseOptions {
+export type DatabaseOptions {
   bufferPoolSize?: number;
   maxNumThreads?: number;
   enableCompression?: boolean;
@@ -52,13 +52,13 @@ export interface DatabaseOptions {
   enableThreading?: boolean;
 }
 
-export interface ConnectionOptions {
+export type ConnectionOptions {
   useWorker?: boolean;
   maxNumThreads?: number;
   enableThreading?: boolean;
 }
 
-export interface DatabaseConnection {
+export type DatabaseConnection {
   db: any;
   conn: any;
   kuzu: any;

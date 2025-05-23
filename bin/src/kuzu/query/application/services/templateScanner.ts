@@ -135,13 +135,13 @@ export function createAutoTemplateScanner() {
 /**
  * テンプレートレジストリの型定義
  */
-export interface TemplateRegistry {
+export type TemplateRegistry {
   dml: Record<string, TemplateInfo>;
   dql: Record<string, TemplateInfo>;
   all: string[];
 }
 
-export interface TemplateInfo {
+export type TemplateInfo {
   name: string;
   type: 'dml' | 'dql';
   path: string;

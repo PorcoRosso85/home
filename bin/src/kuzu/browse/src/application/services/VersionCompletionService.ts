@@ -8,7 +8,7 @@ import type { LocationUriEntity } from '../../../../query/domain/entities/locati
 import type { VersionStateEntity, CompletionStatus } from '../../../../query/domain/entities/versionState';
 import type { VersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
 
-export interface VersionCompletion {
+export type VersionCompletion {
   versionId: string;
   timestamp: string;
   description: string;
@@ -21,7 +21,7 @@ export interface VersionCompletion {
   completedUriList: string[];
 }
 
-export interface StatisticsData {
+export type StatisticsData {
   totalVersions: number;
   overallTotalLocations: number;
   overallCompletedLocations: number;

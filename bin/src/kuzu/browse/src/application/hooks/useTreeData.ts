@@ -7,7 +7,7 @@ import { buildLocationTree } from '../usecase/buildLocationTree';
 import { onDatabaseReady } from '../../infrastructure/database/databaseEvent';
 import * as logger from '../../../../common/infrastructure/logger';
 
-interface TreeDataState {
+type TreeDataState = {
   treeData: TreeNodeData[];
   selectedNode: TreeNodeData | null;
   isLoading: boolean;

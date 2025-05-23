@@ -10,7 +10,7 @@ import type { VersionState } from '../types';
 /**
  * パース済みバージョン情報
  */
-interface ParsedVersion {
+type ParsedVersion = {
   segments: number[];  // バージョンセグメント (例: [1, 2, 3] for 1.2.3)
   displayValue: string; // 表示用文字列 (プレフィックス'v'付き)
   rawValue: string;    // 生の値 (プレフィックス'v'なし)

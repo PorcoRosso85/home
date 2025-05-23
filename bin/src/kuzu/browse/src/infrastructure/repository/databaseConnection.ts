@@ -1,7 +1,7 @@
 import * as logger from '../../../../common/infrastructure/logger';
 
 declare global {
-  interface Window {
+  type Window = {
     kuzu: any;
     db: any;
     conn: any;
