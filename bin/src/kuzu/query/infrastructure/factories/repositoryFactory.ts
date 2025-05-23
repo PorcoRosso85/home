@@ -14,9 +14,9 @@ export type QueryRepository = {
   getQuery: (queryName: string, directory: 'ddl' | 'dml' | 'dql') => Promise<QueryResult<string>> | QueryResult<string>;
   executeQuery: (connection: any, queryName: string, directory: 'ddl' | 'dml' | 'dql', params?: Record<string, any>) => Promise<QueryResult<any>>;
   getSuccess: <T>(result: QueryResult<T>) => boolean;
-  executeDDLQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>>;
-  executeDMLQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>>;
-  executeDQLQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>>;
+  executeDDLQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>> | {code: string; message: string};
+  executeDMLQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>> | {code: string; message: string};
+  executeDQLQuery: (connection: any, queryName: string, params?: Record<string, any>) => Promise<QueryResult<any>> | {code: string; message: string};
 };
 
 // 環境検出用のヘルパー関数
@@ -36,7 +36,7 @@ export function detectEnvironment(): 'browser' | 'node' | 'deno' {
 /**
  * 環境に応じて適切なリポジトリを動的にインポートして返す
  */
-export async function createQueryRepository(): Promise<QueryRepository> {
+export async function createQueryRepository(): Promise<QueryRepository | {code: string; message: string}> {
   const environment = detectEnvironment();
   
   switch (environment) {
@@ -63,9 +63,9 @@ export async function createQueryRepository(): Promise<QueryRepository> {
         getQuery: nodeRepo.getQuery,
         executeQuery: nodeRepo.executeQuery,
         getSuccess: nodeRepo.getSuccess,
-        executeDDLQuery: nodeRepo.executeDDLQuery || (() => { throw new Error('executeDDLQuery not implemented for node environment'); }),
-        executeDMLQuery: nodeRepo.executeDMLQuery || (() => { throw new Error('executeDMLQuery not implemented for node environment'); }),
-        executeDQLQuery: nodeRepo.executeDQLQuery || (() => { throw new Error('executeDQLQuery not implemented for node environment'); }),
+        executeDDLQuery: nodeRepo.executeDDLQuery || (() => ({code: 'NOT_IMPLEMENTED', message: 'executeDDLQuery not implemented for node environment'})),
+        executeDMLQuery: nodeRepo.executeDMLQuery || (() => ({code: 'NOT_IMPLEMENTED', message: 'executeDMLQuery not implemented for node environment'})),
+        executeDQLQuery: nodeRepo.executeDQLQuery || (() => ({code: 'NOT_IMPLEMENTED', message: 'executeDQLQuery not implemented for node environment'})),
       };
       
     case 'deno':
@@ -77,13 +77,13 @@ export async function createQueryRepository(): Promise<QueryRepository> {
         getQuery: denoRepo.getQuery,
         executeQuery: denoRepo.executeQuery,
         getSuccess: denoRepo.getSuccess,
-        executeDDLQuery: denoRepo.executeDDLQuery || (() => { throw new Error('executeDDLQuery not implemented for deno environment'); }),
-        executeDMLQuery: denoRepo.executeDMLQuery || (() => { throw new Error('executeDMLQuery not implemented for deno environment'); }),
-        executeDQLQuery: denoRepo.executeDQLQuery || (() => { throw new Error('executeDQLQuery not implemented for deno environment'); }),
+        executeDDLQuery: denoRepo.executeDDLQuery || (() => ({code: 'NOT_IMPLEMENTED', message: 'executeDDLQuery not implemented for deno environment'})),
+        executeDMLQuery: denoRepo.executeDMLQuery || (() => ({code: 'NOT_IMPLEMENTED', message: 'executeDMLQuery not implemented for deno environment'})),
+        executeDQLQuery: denoRepo.executeDQLQuery || (() => ({code: 'NOT_IMPLEMENTED', message: 'executeDQLQuery not implemented for deno environment'})),
       };
       
     default:
-      throw new Error(`Unsupported environment: ${environment}`);
+      return {code: 'UNSUPPORTED_ENVIRONMENT', message: `Unsupported environment: ${environment}`};
   }
 }
 

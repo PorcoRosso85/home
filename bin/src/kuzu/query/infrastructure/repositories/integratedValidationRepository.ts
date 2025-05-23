@@ -29,19 +29,20 @@ export async function validateTemplateParameters(queryName: string, params: Reco
 
 /**
  * パターンマッチによるバリデーション結果処理
+ * 規約準拠: throw文禁止、共用体型エラーハンドリング使用
  */
-export function handleValidationResult(result: ValidationResult): void {
+export function handleValidationResult(result: ValidationResult): {success: boolean; error?: string} {
   switch (result.status) {
     case "valid":
-      // バリデーション成功 - 何もしない
-      break;
+      // バリデーション成功
+      return {success: true};
     case "validation_error":
-      throw new Error(`Validation failed for field '${result.field}': ${result.message}`);
+      return {success: false, error: `Validation failed for field '${result.field}': ${result.message}`};
     case "schema_error":
-      throw new Error(`Schema error for template '${result.templateName}': ${result.message}`);
+      return {success: false, error: `Schema error for template '${result.templateName}': ${result.message}`};
     default:
       // 網羅性チェック
       const _exhaustive: never = result;
-      throw new Error("未処理のバリデーション結果");
+      return {success: false, error: "未処理のバリデーション結果"};
   }
 }
