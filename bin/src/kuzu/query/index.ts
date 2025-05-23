@@ -9,7 +9,7 @@ export * from './infrastructure/repositories/browserQueryRepository';
 export * from './infrastructure/repositories/nodeQueryRepository';
 export * from './infrastructure/repositories/denoQueryRepository';
 export * from './infrastructure/factories/repositoryFactory';
-export * from './infrastructure/tools/dmlGenerator';
+// export * from './infrastructure/tools/dmlGenerator'; // 削除済み
 
 // Domain層
 export * from './domain/entities/queryResult';
