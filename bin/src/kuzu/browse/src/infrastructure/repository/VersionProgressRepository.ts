@@ -10,15 +10,15 @@ import { executeDMLQuery, executeDQLQuery } from './queryExecutor';
 import * as logger from '../../../../common/infrastructure/logger';
 
 export type VersionProgressRepository {
-  markLocationUriCompleted(dbConnection: any, uriId: string, completed: boolean): Promise<void>;
-  batchUpdateLocationUriCompletion(dbConnection: any, updates: Array<{ uriId: string; completed: boolean }>): Promise<void>;
+  markLocationUriCompleted(dbConnection: any, uriId: string, completed: boolean): Promise<{success: boolean; error?: string}>;
+  batchUpdateLocationUriCompletion(dbConnection: any, updates: Array<{ uriId: string; completed: boolean }>): Promise<{success: boolean; error?: string}>;
   calculateVersionProgress(dbConnection: any, versionId: string): Promise<{
     versionId: string;
     totalLocations: number;
     completedLocations: number;
     progressPercentage: number;
-  }>;
-  updateVersionProgress(dbConnection: any, versionId: string, progressPercentage: number): Promise<void>;
+  } | {code: string; message: string}>;
+  updateVersionProgress(dbConnection: any, versionId: string, progressPercentage: number): Promise<{success: boolean; error?: string}>;
   getCompletionProgressSummary(dbConnection: any): Promise<Array<{
     versionId: string;
     timestamp: string;
@@ -27,7 +27,7 @@ export type VersionProgressRepository {
     totalLocations: number;
     completedLocations: number;
     completionStatus: CompletionStatus;
-  }>>;
+  }> | {code: string; message: string}>;
   getVersionCompletionStatus(dbConnection: any, versionId?: string): Promise<Array<{
     versionId: string;
     timestamp: string;
@@ -38,8 +38,8 @@ export type VersionProgressRepository {
     completedUriList: string[];
     previousVersion: string | null;
     nextVersion: string | null;
-  }>>;
-  getIncompleteLocationUris(dbConnection: any, versionId: string): Promise<LocationUriEntity[]>;
+  }> | {code: string; message: string}>;
+  getIncompleteLocationUris(dbConnection: any, versionId: string): Promise<LocationUriEntity[] | {code: string; message: string}>;
   getCompletionStatistics(dbConnection: any): Promise<{
     totalVersions: number;
     overallTotalLocations: number;
@@ -57,7 +57,7 @@ export type VersionProgressRepository {
       incomplete: number;
       progress: number;
     }>;
-  }>;
+  } | {code: string; message: string}>;
   processVersionProgress(
     dbConnection: any,
     versionId: string,
@@ -75,7 +75,7 @@ export type VersionProgressRepository {
     newProgress: number;
     totalLocations: number;
     completedLocations: number;
-  }>>;
+  }> | {code: string; message: string}>;
 }
 
 /**
@@ -83,21 +83,23 @@ export type VersionProgressRepository {
  */
 export function createVersionProgressRepository(): VersionProgressRepository {
   
-  async function markLocationUriCompleted(dbConnection: any, uriId: string, completed: boolean): Promise<void> {
+  async function markLocationUriCompleted(dbConnection: any, uriId: string, completed: boolean): Promise<{success: boolean; error?: string}> {
     const result = await executeDMLQuery(dbConnection, 'mark_locationuri_completed', {
       uri_id: uriId,
       completed: completed
     });
     
     if (!result.success) {
-      throw new Error(`Failed to mark LocationURI as completed: ${result.error}`);
+      return {success: false, error: `Failed to mark LocationURI as completed: ${result.error}`};
     }
+    
+    return {success: true};
   }
 
   async function batchUpdateLocationUriCompletion(
     dbConnection: any,
     updates: Array<{ uriId: string; completed: boolean }>
-  ): Promise<void> {
+  ): Promise<{success: boolean; error?: string}> {
     const uriIds = updates.map(u => u.uriId);
     const completedValues = updates.map(u => u.completed);
     
@@ -107,8 +109,10 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     });
     
     if (!result.success) {
-      throw new Error(`Failed to batch update LocationURI completion: ${result.error}`);
+      return {success: false, error: `Failed to batch update LocationURI completion: ${result.error}`};
     }
+    
+    return {success: true};
   }
 
   async function calculateVersionProgress(dbConnection: any, versionId: string): Promise<{
@@ -116,19 +120,19 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     totalLocations: number;
     completedLocations: number;
     progressPercentage: number;
-  }> {
+  } | {code: string; message: string}> {
     const result = await executeDMLQuery(dbConnection, 'calculate_version_progress', {
       version_id: versionId
     });
     
     if (!result.success || !result.data) {
-      throw new Error(`Failed to calculate progress for version ${versionId}: ${result.error}`);
+      return {code: "CALCULATION_ERROR", message: `Failed to calculate progress for version ${versionId}: ${result.error}`};
     }
     
     const queryResult = await result.data.getAllObjects();
     
     if (queryResult.length === 0) {
-      throw new Error(`No progress data returned for version ${versionId}`);
+      return {code: "NO_DATA", message: `No progress data returned for version ${versionId}`};
     }
     
     const data = queryResult[0];
@@ -144,15 +148,17 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     dbConnection: any,
     versionId: string,
     progressPercentage: number
-  ): Promise<void> {
+  ): Promise<{success: boolean; error?: string}> {
     const result = await executeDMLQuery(dbConnection, 'update_version_progress', {
       version_id: versionId,
       progress_percentage: progressPercentage
     });
     
     if (!result.success) {
-      throw new Error(`Failed to update progress for version ${versionId}: ${result.error}`);
+      return {success: false, error: `Failed to update progress for version ${versionId}: ${result.error}`};
     }
+    
+    return {success: true};
   }
 
   async function getCompletionProgressSummary(dbConnection: any): Promise<Array<{
@@ -163,11 +169,11 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     totalLocations: number;
     completedLocations: number;
     completionStatus: CompletionStatus;
-  }>> {
+  }> | {code: string; message: string}> {
     const result = await executeDQLQuery(dbConnection, 'get_completion_progress_summary', {});
     
     if (!result.success || !result.data) {
-      throw new Error(`Failed to get completion progress summary: ${result.error}`);
+      return {code: "QUERY_ERROR", message: `Failed to get completion progress summary: ${result.error}`};
     }
     
     const queryResult = await result.data.getAllObjects();
@@ -193,12 +199,12 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     completedUriList: string[];
     previousVersion: string | null;
     nextVersion: string | null;
-  }>> {
+  }> | {code: string; message: string}> {
     const result = await executeDQLQuery(dbConnection, 'get_version_completion_status', 
       versionId ? { version_id: versionId } : {});
     
     if (!result.success || !result.data) {
-      throw new Error(`Failed to get version completion status: ${result.error}`);
+      return {code: "QUERY_ERROR", message: `Failed to get version completion status: ${result.error}`};
     }
     
     const queryResult = await result.data.getAllObjects();
@@ -216,13 +222,13 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     }));
   }
 
-  async function getIncompleteLocationUris(dbConnection: any, versionId: string): Promise<LocationUriEntity[]> {
+  async function getIncompleteLocationUris(dbConnection: any, versionId: string): Promise<LocationUriEntity[] | {code: string; message: string}> {
     const result = await executeDQLQuery(dbConnection, 'get_incomplete_locationuris_by_version', {
       version_id: versionId
     });
     
     if (!result.success || !result.data) {
-      throw new Error(`Failed to get incomplete LocationURIs for version ${versionId}: ${result.error}`);
+      return {code: "QUERY_ERROR", message: `Failed to get incomplete LocationURIs for version ${versionId}: ${result.error}`};
     }
     
     const queryResult = await result.data.getAllObjects();
@@ -255,12 +261,12 @@ export function createVersionProgressRepository(): VersionProgressRepository {
       incomplete: number;
       progress: number;
     }>;
-  }> {
+  } | {code: string; message: string}> {
     // 全体統計を取得
     const statisticsResult = await executeDQLQuery(dbConnection, 'get_completion_statistics', {});
     
     if (!statisticsResult.success || !statisticsResult.data) {
-      throw new Error(`Failed to get completion statistics: ${statisticsResult.error}`);
+      return {code: "STATISTICS_ERROR", message: `Failed to get completion statistics: ${statisticsResult.error}`};
     }
     
     const statsQuery = await statisticsResult.data.getAllObjects();
@@ -270,7 +276,7 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     const detailsResult = await executeDQLQuery(dbConnection, 'get_version_statistics_details', {});
     
     if (!detailsResult.success || !detailsResult.data) {
-      throw new Error(`Failed to get version details: ${detailsResult.error}`);
+      return {code: "DETAILS_ERROR", message: `Failed to get version details: ${detailsResult.error}`};
     }
     
     const detailsQuery = await detailsResult.data.getAllObjects();
@@ -332,7 +338,7 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     const versionsResult = await executeDQLQuery(dbConnection, 'get_all_versions', {});
     
     if (!versionsResult.success || !versionsResult.data) {
-      throw new Error(`Failed to get all versions: ${versionsResult.error}`);
+      return {code: "VERSIONS_ERROR", message: `Failed to get all versions: ${versionsResult.error}`};
     }
     
     logger.debug('Raw versionsResult:', versionsResult);
@@ -341,7 +347,7 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     logger.debug('versions after getAllObjects:', versions);
     
     if (versions.length === 0) {
-      throw new Error('No versions found');
+      return {code: "NO_VERSIONS", message: 'No versions found'};
     }
     
     logger.debug('First version object keys:', Object.keys(versions[0]));
@@ -382,8 +388,6 @@ export function createVersionProgressRepository(): VersionProgressRepository {
 }
 
 /**
- * モックリポジトリ（開発用）
+ * KuzuDB直接接続による実装のみを提供
+ * 規約に従い、ダミーモック実装は削除済み
  */
-export function createMockVersionProgressRepository(): VersionProgressRepository {
-  throw new Error('Mock repository is not implemented. Use real implementation only.');
-}

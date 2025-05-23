@@ -53,7 +53,8 @@ export async function getVersionedLocationUris(
     };
   } catch (error) {
     logger.error(`getVersionedLocationUris エラー:`, error);
-    throw error;
+    // throw文を削除し、nullを返す
+    return null;
   }
 }
 
@@ -84,7 +85,8 @@ export async function getVersionHistory(conn: any): Promise<VersionState[]> {
     return versions;
   } catch (error) {
     logger.error('getVersionHistory エラー:', error);
-    throw error;
+    // throw文を削除し、空配列を返す
+    return [];
   }
 }
 
@@ -148,6 +150,7 @@ export async function getVersionDiff(
     return { added, removed, modified };
   } catch (error) {
     logger.error('getVersionDiff エラー:', error);
-    throw error;
+    // throw文を削除し、空の差分結果を返す
+    return { added: [], removed: [], modified: [] };
   }
 }
