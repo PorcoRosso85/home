@@ -13,35 +13,35 @@ import { join } from 'path';
 export function createTemplateScanner(deps: TemplateScannerDependencies) {
   return {
     scan: function scanDirectory(directory: string): string[] {
-      try {
-        if (!deps.fileSystem.exists(directory)) {
-          deps.logger.error("Directory not found", { directory });
-          return [];
-        }
-
-        const files = deps.fileSystem.readDir(directory);
-        const cypherFiles = files.filter(file => file.endsWith('.cypher'));
-        
-        deps.logger.info("Scanned templates", { directory, count: cypherFiles.length });
-        return cypherFiles.map(file => file.replace('.cypher', ''));
-      } catch (error: any) {
-        deps.logger.error("Template scan failed", { directory, error });
+      if (!deps.fileSystem.exists(directory)) {
+        deps.logger.error("Directory not found", { directory });
         return [];
       }
+
+      const files = deps.fileSystem.readDir(directory);
+      if (!files) {
+        deps.logger.error("Failed to read directory", { directory });
+        return [];
+      }
+
+      const cypherFiles = files.filter(file => file.endsWith('.cypher'));
+      
+      deps.logger.info("Scanned templates", { directory, count: cypherFiles.length });
+      return cypherFiles.map(file => file.replace('.cypher', ''));
     },
 
     load: function loadTemplate(templateName: string, directory: string): string | null {
-      try {
-        const filePath = join(directory, `${templateName}.cypher`);
-        if (!deps.fileSystem.exists(filePath)) return null;
+      const filePath = join(directory, `${templateName}.cypher`);
+      if (!deps.fileSystem.exists(filePath)) return null;
 
-        const content = deps.fileSystem.readFile(filePath);
-        deps.logger.info("Template loaded", { templateName });
-        return content;
-      } catch (error: any) {
-        deps.logger.error("Template load failed", { templateName, error });
+      const content = deps.fileSystem.readFile(filePath);
+      if (!content) {
+        deps.logger.error("Template load failed", { templateName });
         return null;
       }
+
+      deps.logger.info("Template loaded", { templateName });
+      return content;
     },
 
     exists: function templateExists(templateName: string, directory: string): boolean {
