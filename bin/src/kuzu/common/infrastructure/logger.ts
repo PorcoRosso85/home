@@ -1,24 +1,8 @@
 /**
  * アプリケーション全体で使用するロガー関数
- * 環境変数に基づいてログレベルを制御
+ * 規約準拠: デフォルト値禁止、LOG_LEVELを直接importで使用
  */
-import { LogLevel } from './variables';
-
-// 動的にLOG_LEVELを取得する関数
-const getLogLevel = () => {
-  // ブラウザ環境のwindow.LOG_LEVELを優先
-  if (typeof window !== 'undefined' && (window as any).LOG_LEVEL !== undefined) {
-    return (window as any).LOG_LEVEL;
-  }
-  
-  // Node.js環境のprocess.envを次に確認
-  if (typeof process !== 'undefined' && process.env?.LOG_LEVEL) {
-    return parseInt(process.env.LOG_LEVEL, 10);
-  }
-  
-  // デフォルトはERRORレベル
-  return LogLevel.ERROR;
-};
+import { LogLevel, LOG_LEVEL } from './variables';
 
 // タイムスタンプを取得する関数
 const getTimestamp = () => {
@@ -26,31 +10,52 @@ const getTimestamp = () => {
   return `[${now.toISOString()}]`;
 };
 
-// 各ログレベルの関数
-export const debug = (message: string, data?: any) => {
-  const currentLevel = getLogLevel();
-  if (currentLevel >= LogLevel.DEBUG) {
-    console.info(`${getTimestamp()}[DEBUG] ${message}`, data ?? '');
+// 各ログレベルの関数（デフォルト引数を削除）
+export const debug = (message: string, data: any) => {
+  if (LOG_LEVEL >= LogLevel.DEBUG) {
+    console.info(`${getTimestamp()}[DEBUG] ${message}`, data);
   }
 };
 
-export const info = (message: string, data?: any) => {
-  const currentLevel = getLogLevel();
-  if (currentLevel >= LogLevel.INFO) {
-    console.info(`${getTimestamp()}[INFO] ${message}`, data ?? '');
+export const info = (message: string, data: any) => {
+  if (LOG_LEVEL >= LogLevel.INFO) {
+    console.info(`${getTimestamp()}[INFO] ${message}`, data);
   }
 };
 
-export const warn = (message: string, data?: any) => {
-  const currentLevel = getLogLevel();
-  if (currentLevel >= LogLevel.WARN) {
-    console.warn(`${getTimestamp()}[WARN] ${message}`, data ?? '');
+export const warn = (message: string, data: any) => {
+  if (LOG_LEVEL >= LogLevel.WARN) {
+    console.warn(`${getTimestamp()}[WARN] ${message}`, data);
   }
 };
 
-export const error = (message: string, data?: any) => {
-  const currentLevel = getLogLevel();
-  if (currentLevel >= LogLevel.ERROR) {
-    console.error(`${getTimestamp()}[ERROR] ${message}`, data ?? '');
+export const error = (message: string, data: any) => {
+  if (LOG_LEVEL >= LogLevel.ERROR) {
+    console.error(`${getTimestamp()}[ERROR] ${message}`, data);
+  }
+};
+
+// dataが不要な場合の関数（オーバーロード）
+export const debugSimple = (message: string) => {
+  if (LOG_LEVEL >= LogLevel.DEBUG) {
+    console.info(`${getTimestamp()}[DEBUG] ${message}`);
+  }
+};
+
+export const infoSimple = (message: string) => {
+  if (LOG_LEVEL >= LogLevel.INFO) {
+    console.info(`${getTimestamp()}[INFO] ${message}`);
+  }
+};
+
+export const warnSimple = (message: string) => {
+  if (LOG_LEVEL >= LogLevel.WARN) {
+    console.warn(`${getTimestamp()}[WARN] ${message}`);
+  }
+};
+
+export const errorSimple = (message: string) => {
+  if (LOG_LEVEL >= LogLevel.ERROR) {
+    console.error(`${getTimestamp()}[ERROR] ${message}`);
   }
 };

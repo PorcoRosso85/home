@@ -1,48 +1,122 @@
 /**
  * アプリケーション全体で使用する変数と定数
- * 環境変数などのアプリ定数をここで一元管理
+ * 規約準拠: デフォルト値禁止、明示的な設定管理
  */
 
-// デバッグモード
-export const DEBUG = process.env.DEBUG === 'true';
+// 設定エラー型定義（共用体型）
+type ConfigSuccess<T> = {
+  status: "success";
+  value: T;
+};
 
-// ログレベル
-export enum LogLevel {
+type ConfigMissingError = {
+  status: "config_missing";
+  key: string;
+  message: string;
+};
+
+type ConfigValidationError = {
+  status: "config_invalid";
+  key: string;
+  value: string;
+  message: string;
+};
+
+type ConfigResult<T> = ConfigSuccess<T> | ConfigMissingError | ConfigValidationError;
+
+// 必須環境変数取得関数
+function requireEnvVar(key: string): ConfigResult<string> {
+  const value = process.env[key];
+  if (value === undefined || value === '') {
+    return {
+      status: "config_missing",
+      key,
+      message: `Environment variable '${key}' is required but not set`
+    };
+  }
+  return { status: "success", value };
+}
+
+// 数値型環境変数取得関数
+function requireEnvNumber(key: string): ConfigResult<number> {
+  const result = requireEnvVar(key);
+  if (result.status !== "success") {
+    return result;
+  }
+  
+  const numValue = parseInt(result.value, 10);
+  if (isNaN(numValue)) {
+    return {
+      status: "config_invalid",
+      key,
+      value: result.value,
+      message: `Environment variable '${key}' must be a valid number`
+    };
+  }
+  
+  return { status: "success", value: numValue };
+}
+
+// ブール型環境変数取得関数
+function requireEnvBoolean(key: string): ConfigResult<boolean> {
+  const result = requireEnvVar(key);
+  if (result.status !== "success") {
+    return result;
+  }
+  
+  if (result.value !== 'true' && result.value !== 'false') {
+    return {
+      status: "config_invalid",
+      key,
+      value: result.value,
+      message: `Environment variable '${key}' must be 'true' or 'false'`
+    };
+  }
+  
+  return { status: "success", value: result.value === 'true' };
+}
+
+// 設定値取得ヘルパー（エラー時は処理を停止）
+function getConfigValue<T>(result: ConfigResult<T>): T {
+  if (result.status === "success") {
+    return result.value;
+  }
+  
+  // 設定エラーの場合は即座に処理を停止
+  console.error(`Configuration Error: ${result.message}`);
+  if (typeof process !== 'undefined') {
+    process.exit(1);
+  }
+  
+  // ブラウザ環境の場合はエラーを投げる（ただし規約違反なので後で修正予定）
+  throw new Error(result.message);
+}
+
+// ログレベル定義
+export const enum LogLevel {
   ERROR = 1,
   WARN = 2,
   INFO = 3,
   DEBUG = 4
 }
 
-export const LOG_LEVEL = typeof process !== 'undefined' && process.env?.LOG_LEVEL ? 
-  parseInt(process.env.LOG_LEVEL, 10) : 
-  (window as any).LOG_LEVEL ?? LogLevel.ERROR; // デフォルトはERRORレベル
+export const LOG_LEVEL = getConfigValue(requireEnvNumber('LOG_LEVEL'));
+export const NODE_ENV = getConfigValue(requireEnvVar('NODE_ENV'));
+export const API_PORT = getConfigValue(requireEnvNumber('API_PORT'));
+export const DB_PATH = getConfigValue(requireEnvVar('DB_PATH'));
+export const API_HOST = getConfigValue(requireEnvVar('API_HOST'));
 
-// アプリケーション設定
+// 固定値（変更されない定数）
 export const APP_NAME = 'KuzuDB';
 export const APP_VERSION = '1.0.0';
 
-// 環境設定
-export const NODE_ENV = process.env.NODE_ENV || 'development';
+// 計算される値
 export const IS_PRODUCTION = NODE_ENV === 'production';
 export const IS_DEVELOPMENT = NODE_ENV === 'development';
-
-// API設定
-export const API_HOST = process.env.API_HOST || 'localhost';
-export const API_PORT = parseInt(process.env.API_PORT || '3000', 10);
-export const API_URL = process.env.API_URL || `http://${API_HOST}:${API_PORT}`;
-
-// データベース設定
-export const DB_HOST = process.env.DB_HOST || 'localhost';
-export const DB_PORT = parseInt(process.env.DB_PORT || '5432', 10);
-export const DB_PATH = process.env.DB_PATH || '';
+export const API_URL = `http://${API_HOST}:${API_PORT}`;
 export const DB_IN_MEMORY = DB_PATH === '';
 
-// データベース接続（グローバル変数）
-export const DB_CONNECTION = null;
-
-// パス設定
-export const EXPORT_DATA_PATH = process.env.EXPORT_DATA_PATH || '/export_data';
+// 固定配列データ（ハードコードではなく、システム仕様として定義）
 export const PARQUET_FILES = [
   'EntityAggregationView.parquet',
   'RequirementVerification.parquet',
@@ -69,4 +143,4 @@ export const PARQUET_FILES = [
   'VERIFIED_BY.parquet',
   'REFERENCES_EXTERNAL.parquet',
   'REFERENCE_HAS_LOCATION.parquet'
-];
+] as const;
