@@ -18,22 +18,19 @@ export function useDatabaseConnection(): DatabaseConnectionState {
 
   useEffect(() => {
     const handleDatabaseReady = async () => {
-      try {
-        logger.debug('database-ready イベントを受信しました');
-        
-        // グローバルconnectionを確認
-        if (!window.conn) {
-          throw new Error('データベース接続が初期化されていません');
-        }
-        
-        setDbConnection(window.conn);
-        setIsConnected(true);
-        setError(null);
-      } catch (err) {
-        logger.error('データベース接続エラー:', err);
-        const errorObj = err instanceof Error ? err : new Error('Unknown error');
+      logger.debug('database-ready イベントを受信しました');
+      
+      // グローバルconnectionを確認
+      if (!window.conn) {
+        logger.error('データベース接続が初期化されていません');
+        const errorObj = new Error('データベース接続が初期化されていません');
         setError(errorObj);
+        return;
       }
+      
+      setDbConnection(window.conn);
+      setIsConnected(true);
+      setError(null);
     };
 
     // database-readyイベントにリスナーを設定

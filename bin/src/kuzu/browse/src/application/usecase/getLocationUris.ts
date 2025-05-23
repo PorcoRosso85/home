@@ -53,6 +53,7 @@ export async function getLocationUris(): Promise<LocationUri[]> {
     return locationUris;
   } catch (error) {
     logger.error('getLocationUris エラー:', error);
-    throw error;
+    // throw文を削除し、空配列を返す
+    return [];
   }
 }

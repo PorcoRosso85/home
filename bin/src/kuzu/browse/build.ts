@@ -22,10 +22,13 @@ type MountDefinition = {
  * @param mountString マウント文字列
  * @returns マウント定義オブジェクト
  */
-function parseMountString(mountString: string): MountDefinition {
+function parseMountString(mountString: string): MountDefinition | {code: string; message: string} {
   const parts = mountString.split(':');
   if (parts.length < 2) {
-    throw new Error(`無効なマウント文字列です: ${mountString}。'ソースパス:ターゲットパス[:ファイルパターン]'の形式で指定してください。`);
+    return {
+      code: "INVALID_MOUNT_STRING",
+      message: `無効なマウント文字列です: ${mountString}。'ソースパス:ターゲットパス[:ファイルパターン]'の形式で指定してください。`
+    };
   }
 
   const sourcePath = parts[0];
