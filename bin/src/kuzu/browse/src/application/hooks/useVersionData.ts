@@ -83,26 +83,31 @@ export const useVersionData = (dbConnection: any | null) => {
       const repository = createVersionProgressRepository();
       const versionService = createVersionCompletionService(repository);
       
-      try {
-        // LocationURIの完了状態を取得
-        const incompleteUris = await versionService.getIncompleteLocationUris(dbConnection, selectedVersionId);
-        const incompleteUriIds = new Set(incompleteUris.map(uri => uri.uri_id));
+      // 完了状態を取得（規約準拠版）
+      const incompleteUrisResult = await getIncompleteUrisSafely(
+        versionService, 
+        dbConnection, 
+        selectedVersionId
+      );
+      
+      let locationUrisWithCompletion;
+      if (incompleteUrisResult.status === "success") {
+        const incompleteUriIds = new Set(incompleteUrisResult.data.map(uri => uri.uri_id));
         
         // LocationURIに完了状態を追加
-        const locationUrisWithCompletion = locationUris.map(uri => ({
+        locationUrisWithCompletion = locationUris.map(uri => ({
           ...uri,
           isCompleted: !incompleteUriIds.has(uri.uri_id)
         }));
-        
-        // 階層構造変換（パスベース）
-        const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUrisWithCompletion, selectedVersionId);
-        setTreeData(treeNodes);
-      } catch (error) {
-        logger.debug('完了状態の取得に失敗:', error);
+      } else {
+        logger.debug('完了状態の取得に失敗:', incompleteUrisResult.message);
         // エラーが発生した場合は完了状態なしでツリーを構築
-        const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUris, selectedVersionId);
-        setTreeData(treeNodes);
+        locationUrisWithCompletion = locationUris;
       }
+      
+      // 階層構造変換（パスベース）
+      const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUrisWithCompletion, selectedVersionId);
+      setTreeData(treeNodes);
       
       setLoading(false);
     };
@@ -119,6 +124,27 @@ export const useVersionData = (dbConnection: any | null) => {
     error
   };
 };
+
+/**
+ * 未完了URIを安全に取得する内部関数
+ * 規約準拠: try-catch禁止、共用体型エラーハンドリング
+ */
+async function getIncompleteUrisSafely(
+  versionService: any,
+  dbConnection: any,
+  selectedVersionId: string
+): Promise<{ status: "success"; data: any[] } | { status: "error"; message: string }> {
+  const incompleteUris = await versionService.getIncompleteLocationUris(dbConnection, selectedVersionId);
+  
+  if (!incompleteUris) {
+    return {
+      status: "error",
+      message: "未完了URIの取得に失敗しました"
+    };
+  }
+  
+  return { status: "success", data: incompleteUris };
+}
 
 // LocationURIからツリー構造を構築する簡易実装
 function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: string): TreeNode[] {

@@ -149,38 +149,39 @@ export function useLocationUriTree(versionId: string) {
         return;
       }
       
-      try {
-        // 指定バージョンに関連するLocationURIを取得
-        const uriResult = await executeDQLQuery(dbConnection, 'locationuris_by_version', {
-          version_id: versionId
-        });
-        
-        if (!uriResult.success || !uriResult.data) {
-          throw new Error(`LocationURIデータの取得に失敗しました: ${uriResult.error}`);
-        }
-        
-        const uriData = await uriResult.data.getAllObjects();
-        const locationUris: LocationURI[] = uriData.map((u: any) => ({
-          uri_id: u.uri_id,
-          scheme: u.scheme,
-          authority: u.authority || '',
-          path: u.path || '',
-          fragment: u.fragment || '',
-          query: u.query || '',
-          from_version: versionId,
-          isCompleted: !!u.is_completed
-        }));
-        
-        const treeData = buildLocationUriTree(locationUris);
-        setLocationTree(treeData);
+      // 指定バージョンに関連するLocationURIを取得（規約準拠版）
+      const uriResult = await executeDQLQuery(dbConnection, 'locationuris_by_version', {
+        version_id: versionId
+      });
+      
+      if (!uriResult.success || !uriResult.data) {
+        setError(`LocationURIデータの取得に失敗しました: ${uriResult.error}`);
         setLoading(false);
-        setError(null);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : '不明なエラー';
-        setError(`LocationURIツリーの構築中にエラーが発生しました: ${errorMessage}`);
-        setLoading(false);
-        console.error('Error building location URI tree:', err);
+        return;
       }
+      
+      const uriDataResult = await getUriDataSafely(uriResult.data);
+      if (uriDataResult.status === "error") {
+        setError(uriDataResult.message);
+        setLoading(false);
+        return;
+      }
+      
+      const locationUris: LocationURI[] = uriDataResult.data.map((u: any) => ({
+        uri_id: u.uri_id,
+        scheme: u.scheme,
+        authority: u.authority || '',
+        path: u.path || '',
+        fragment: u.fragment || '',
+        query: u.query || '',
+        from_version: versionId,
+        isCompleted: !!u.is_completed
+      }));
+      
+      const treeData = buildLocationUriTree(locationUris);
+      setLocationTree(treeData);
+      setLoading(false);
+      setError(null);
     }
     
     fetchLocationUriData();
