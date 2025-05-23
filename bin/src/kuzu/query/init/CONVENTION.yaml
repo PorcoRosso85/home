@@ -9,6 +9,10 @@
     - Result型、Option型、Maybe型などの関数型プログラミング特有の記述は禁止
     - Monad、Functor、Applicativeなどの高度な関数型概念は使用禁止
     - 言語固有の高度な型システム機能（Rust、Haskell、Scala等）は使用禁止
+    - ダミーフォールバックモック一切禁止
+    - 最小構成でコード維持を徹底する
+    - 複雑な条件分岐には積極的にパターンマッチを使用する
+    - 高階関数と依存性注入を活用し責務分離を徹底
     - 以下の汎用的な機能のみを使用すること:
       - 基本的なデータ型（文字列、数値、真偽値、配列、オブジェクト/辞書）
       - 条件分岐（if/else、switch/case）
@@ -356,6 +360,43 @@
               if b == 0:
                   return {"status": "error", "message": "Cannot divide by zero", "code": "ZERO_DIVISION"}
               return {"status": "success", "data": a / b}
+    
+    ### ダミーフォールバックモック:
+      description: ダミーフォールバックモック実装は一切禁止
+      reason: 実装の不完全性を隠蔽し、バグの原因となる
+      rules:
+        - throw new Error('Mock not implemented')などのプレースホルダー実装は禁止
+        - 開発用の仮実装も禁止
+        - 実際に動作する最小実装のみを許可
+        - 未実装機能は型定義から除外すること
+      examples:
+        avoid: |
+          # 避けるべき例: ダミーモック
+          export function createMockRepository(): Repository {
+            throw new Error('Mock repository is not implemented. Use real implementation only.');
+          }
+          
+          # 避けるべき例: 仮実装
+          export function processData(data: any): ProcessResult {
+            // TODO: 実装予定
+            return { success: false, error: "Not implemented yet" };
+          }
+        good: |
+          # 良い例: 最小実装
+          export function createInMemoryRepository(): Repository {
+            const data: Map<string, any> = new Map();
+            
+            return {
+              save: (id: string, item: any) => {
+                data.set(id, item);
+                return { success: true };
+              },
+              find: (id: string) => {
+                const item = data.get(id);
+                return item ? { data: item } : { code: "NOT_FOUND", message: "Item not found" };
+              }
+            };
+          }
 
 ## 推奨される実装スタイル:
   items:
@@ -586,6 +627,9 @@
     - 各モジュールは明確に定義された単一の責任を持つべき
     - 関連する関数をモジュールにグループ化すること
     - 循環依存を避けるために、依存関係グラフを意識すること
+    - 最小構成でコード維持を徹底すること
+    - 不要な機能、未使用の関数、冗長なコードは一切含めないこと
+    - 1つのファイルは1つの明確な責務のみを持つこと
 
 ## テスト:
   rules:
