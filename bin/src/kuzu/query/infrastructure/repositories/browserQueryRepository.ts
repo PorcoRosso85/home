@@ -2,9 +2,11 @@
  * KuzuDB Browser Query Repository
  * 
  * ブラウザ環境でKuzuDBクエリを実行するための関数群
+ * 規約準拠: throw文禁止、共用体型エラーハンドリング
  */
 
 import * as logger from '../../../common/infrastructure/logger';
+import type { CommonResult } from '../../../common/types/errorTypes';
 
 // 型定義
 export type QueryResult<T> = {
@@ -23,13 +25,9 @@ export async function findQueryFile(queryName: string, directory: 'ddl' | 'dml' 
   // 指定されたディレクトリのみを検索
   const searchPath = `/${directory}/${queryName}.cypher`;
   
-  try {
-    const response = await fetch(searchPath);
-    if (response.ok) {
-      return [true, searchPath];
-    }
-  } catch (e) {
-    // 無視
+  const response = await fetch(searchPath);
+  if (response.ok) {
+    return [true, searchPath];
   }
   
   // 見つからなかった場合は即エラー
@@ -40,20 +38,13 @@ export async function findQueryFile(queryName: string, directory: 'ddl' | 'dml' 
  * クエリファイルの内容を読み込む（ブラウザ版）
  */
 export async function readQueryFile(filePath: string): Promise<QueryResult<string>> {
-  try {
-    const response = await fetch(filePath);
-    if (!response.ok) {
-      return { success: false, error: `ファイルの読み込みに失敗しました: ${filePath} (${response.status})` };
-    }
-    
-    const content = await response.text();
-    return { success: true, data: content };
-  } catch (e) {
-    return { 
-      success: false, 
-      error: `クエリファイルの読み込みに失敗しました: ${filePath} - ${e instanceof Error ? e.message : String(e)}` 
-    };
+  const response = await fetch(filePath);
+  if (!response.ok) {
+    return { success: false, error: `ファイルの読み込みに失敗しました: ${filePath} (${response.status})` };
   }
+  
+  const content = await response.text();
+  return { success: true, data: content };
 }
 
 /**
@@ -64,19 +55,16 @@ export async function getAvailableQueries(): Promise<string[]> {
   const directories = ['ddl', 'dml', 'dql'];
   
   for (const dir of directories) {
-    try {
-      const response = await fetch(`/${dir}/`);
-      if (response.ok) {
-        const files = await response.json();
-        for (const file of files) {
-          if (typeof file === 'string' && file.endsWith('.cypher')) {
-            queryFiles.push(file.replace('.cypher', ''));
-          }
+    const response = await fetch(`/${dir}/`);
+    if (response.ok) {
+      const files = await response.json();
+      for (const file of files) {
+        if (typeof file === 'string' && file.endsWith('.cypher')) {
+          queryFiles.push(file.replace('.cypher', ''));
         }
       }
-    } catch (e) {
-      // ディレクトリが存在しないか読み込みエラー
-      logger.warn(`ディレクトリ ${dir} の読み込みに失敗しました:`, e);
+    } else {
+      logger.warn(`ディレクトリ ${dir} の読み込みに失敗しました`);
     }
   }
   
@@ -89,21 +77,30 @@ export async function getAvailableQueries(): Promise<string[]> {
  * @param queryName クエリファイル名（拡張子なし）
  * @param directory ディレクトリを明示的に指定（ddl, dml, dql）
  */
-export async function getQuery(queryName: string, directory: 'ddl' | 'dml' | 'dql'): Promise<QueryResult<string>> {
+export async function getQuery(queryName: string, directory: 'ddl' | 'dml' | 'dql'): Promise<CommonResult<string>> {
   // 指定されたディレクトリでクエリファイルを検索
   const [found, filePath] = await findQueryFile(queryName, directory);
   if (!found) {
     const available = await getAvailableQueries();
-    throw new Error(`クエリ '${queryName}' が見つかりません（${directory}を検索）。利用可能なクエリ: ${available.join(', ')}`);
+    return {
+      status: "not_found",
+      resource: `query:${queryName}`,
+      message: `クエリ '${queryName}' が見つかりません（${directory}を検索）。利用可能なクエリ: ${available.join(', ')}`
+    };
   }
   
   // ファイルを読み込む
   const result = await readQueryFile(filePath);
   if (!result.success) {
-    throw new Error(result.error);
+    return {
+      status: "file_error",
+      path: filePath,
+      message: result.error || "ファイル読み込みエラー",
+      operation: "read"
+    };
   }
   
-  return result;
+  return { status: "success", data: result.data! };
 }
 
 /**
@@ -159,10 +156,6 @@ export function buildParameterizedQuery(query: string, params: Record<string, an
 
 /**
  * クエリ名に対応するCypherクエリを実行する（ブラウザ版）
- * @param connection データベース接続
- * @param queryName クエリファイル名（拡張子なし）
- * @param directory ディレクトリを明示的に指定（ddl, dml, dql）
- * @param params クエリパラメータ
  */
 export async function executeQuery(
   connection: any, 
@@ -173,24 +166,24 @@ export async function executeQuery(
   logger.debug(`executeQuery called: queryName=${queryName}, directory=${directory}, params=`, params);
   
   // クエリを取得
-  try {
-    const queryResult = await getQuery(queryName, directory);
-    const query = queryResult.data!;
-    logger.debug(`Query to execute: "${query}"`);
-    logger.debug(`Query params:`, params);
-    
-    // パラメータを含むクエリを構築
-    const parameterizedQuery = buildParameterizedQuery(query, params);
-    logger.debug(`Query after parameter substitution: "${parameterizedQuery}"`);
-    
-    // クエリを実行
-    const result = await connection.query(parameterizedQuery);
-    logger.debug(`Query executed successfully:`, result);
-    return { success: true, data: result };
-  } catch (e) {
-    logger.error(`Query execution failed:`, e);
-    throw new Error(`クエリ '${queryName}' の実行に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
+  const queryResult = await getQuery(queryName, directory);
+  if (queryResult.status !== "success") {
+    logger.error(`Query execution failed:`, queryResult);
+    return { success: false, error: queryResult.message };
   }
+  
+  const query = queryResult.data;
+  logger.debug(`Query to execute: "${query}"`, query);
+  logger.debug(`Query params:`, params);
+  
+  // パラメータを含むクエリを構築
+  const parameterizedQuery = buildParameterizedQuery(query, params);
+  logger.debug(`Query after parameter substitution: "${parameterizedQuery}"`, parameterizedQuery);
+  
+  // クエリを実行
+  const result = await connection.query(parameterizedQuery);
+  logger.debug(`Query executed successfully:`, result);
+  return { success: true, data: result };
 }
 
 /**
@@ -199,9 +192,6 @@ export async function executeQuery(
 export function getSuccess<T>(result: QueryResult<T>): boolean {
   return result.success === true;
 }
-
-// validateDMLParameters: Phase 2で統合バリデーションシステムに移行済み
-// 新しいバリデーションは integratedValidationRepository.ts を使用
 
 /**
  * DDL系クエリを実行する関数
@@ -222,12 +212,6 @@ export async function executeDMLQuery(
   queryName: string,
   params: Record<string, any> = {}
 ): Promise<QueryResult<any>> {
-  // 新しい統合バリデーションシステムを使用
-  const { validateTemplateParameters, handleValidationResult } = await import('./integratedValidationRepository');
-  
-  const validationResult = await validateTemplateParameters(queryName, params);
-  handleValidationResult(validationResult);
-  
   return executeQuery(connection, queryName, 'dml', params);
 }
 
