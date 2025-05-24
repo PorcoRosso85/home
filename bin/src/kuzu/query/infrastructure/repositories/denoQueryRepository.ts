@@ -546,45 +546,96 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
     });
   });
 
-  describe("多粒度モデル階層パス計算テスト", () => {
-    it("nameベースDMLとフルパス計算DQLの統合テスト", async () => {
+  describe("1テーブル多粒度モデルテスト", () => {
+    it("正常系：8階層以下のフルパスから1テーブル多粒度モデル構築", async () => {
       const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
       try {
-        // DML: 多粒度モデル作成（name属性のみ）
-        const dmlQueryResult = await getQuery("create_hierarchy_test_data");
-        assert(dmlQueryResult.success, "DMLクエリファイルが読み込めるべき");
+        // 1テーブル多粒度モデル構築
+        const dmlResult = await getQuery("single_table_minimal");
+        assert(dmlResult.success, "1テーブル多粒度DMLクエリが読み込めるべき");
         
-        await conn.query(dmlQueryResult.data!);
-        console.log("多粒度モデル作成完了");
+        await conn.query(dmlResult.data!);
+        console.log("1テーブル多粒度モデル構築完了");
         
-        // DQL: パス計算クエリ実行
-        const dqlQueryResult = await getQuery("calculate_hierarchy_path");
-        assert(dqlQueryResult.success, "DQLクエリファイルが読み込めるべき");
+        // 構築結果確認：階層ノード数
+        const nodeCountResult = await conn.query("MATCH (n:LocationURI) RETURN count(*) as node_count");
+        const nodeCount = await nodeCountResult.getAll();
+        assert(nodeCount[0]["node_count"] > 0, "階層ノードが作成されるべき");
         
-        const parameterizedQuery = buildParameterizedQuery(dqlQueryResult.data!, {
-          leafName: "user-credential-validation"
-        });
+        // 構築結果確認：親子関係
+        const relationResult = await conn.query("MATCH (p:LocationURI)-[:PARENT_OF]->(c:LocationURI) RETURN count(*) as relation_count");
+        const relationCount = await relationResult.getAll();
+        assert(relationCount[0]["relation_count"] > 0, "親子関係が作成されるべき");
         
-        const result = await conn.query(parameterizedQuery);
-        const rows = await result.getAll();
+        // 構築結果確認：特定の階層パス
+        const pathCheckResult = await conn.query(`
+          MATCH (root:LocationURI {id: "/srs"})-[:PARENT_OF]->(l2:LocationURI {id: "/srs/functions"})-[:PARENT_OF]->(l3:LocationURI {id: "/srs/functions/authentication"})
+          RETURN root.id, l2.id, l3.id
+        `);
+        const pathCheck = await pathCheckResult.getAll();
+        assertEquals(pathCheck.length, 1, "srs→functions→authentication階層が構築されるべき");
+        assertEquals(pathCheck[0]["root.id"], "/srs");
+        assertEquals(pathCheck[0]["l2.id"], "/srs/functions");
+        assertEquals(pathCheck[0]["l3.id"], "/srs/functions/authentication");
         
-        // 結果検証
-        assertEquals(rows.length, 1, "パス計算結果は1件であるべき");
-        assertEquals(
-          rows[0]["full_path"], 
-          "/srs/functions/authentication/user-credential-validation/",
-          "計算されたフルパスが期待値と一致すべき"
-        );
-        
-        console.log("計算されたフルパス:", rows[0]["full_path"]);
+        console.log("1テーブル多粒度モデル正常系テスト完了");
         
         await conn.close();
         await db.close();
       } catch (e) {
-        console.error('多粒度モデルテストエラー:', e);
+        console.error('1テーブル多粒度モデル正常系テストエラー:', e);
+        throw e;
+      }
+    });
+
+    it("異常系：9階層以上のフルパスでエラー検出", async () => {
+      const kuzu = await import("npm:kuzu");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
+      
+      try {
+        // 階層深度バリデーションクエリ取得
+        const validationQueryResult = await getQuery("validate_hierarchy_depth");
+        assert(validationQueryResult.success, "階層深度バリデーションクエリが読み込めるべき");
+        
+        // 正常ケース（8階層）のテスト
+        const validPath = "/a/b/c/d/e/f/g/h";
+        const validQuery = buildParameterizedQuery(validationQueryResult.data!, { fullPath: validPath });
+        const validResult = await conn.query(validQuery);
+        const validRows = await validResult.getAll();
+        
+        assertEquals(validRows[0]["is_valid"], true, "8階層は有効であるべき");
+        assertEquals(validRows[0]["actual_depth"], 8, "深度は8であるべき");
+        assertEquals(validRows[0]["validation_message"], "OK", "バリデーションメッセージはOKであるべき");
+        
+        // 異常ケース（9階層）のテスト
+        const invalidPath = "/a/b/c/d/e/f/g/h/i";
+        const invalidQuery = buildParameterizedQuery(validationQueryResult.data!, { fullPath: invalidPath });
+        const invalidResult = await conn.query(invalidQuery);
+        const invalidRows = await invalidResult.getAll();
+        
+        assertEquals(invalidRows[0]["is_valid"], false, "9階層は無効であるべき");
+        assertEquals(invalidRows[0]["actual_depth"], 9, "深度は9であるべき");
+        assertEquals(invalidRows[0]["validation_message"], "ERROR: Maximum hierarchy depth exceeded", "エラーメッセージが表示されるべき");
+        
+        // さらに深い階層（12階層）のテスト
+        const veryDeepPath = "/a/b/c/d/e/f/g/h/i/j/k/l";
+        const veryDeepQuery = buildParameterizedQuery(validationQueryResult.data!, { fullPath: veryDeepPath });
+        const veryDeepResult = await conn.query(veryDeepQuery);
+        const veryDeepRows = await veryDeepResult.getAll();
+        
+        assertEquals(veryDeepRows[0]["is_valid"], false, "12階層は無効であるべき");
+        assertEquals(veryDeepRows[0]["actual_depth"], 12, "深度は12であるべき");
+        
+        console.log("階層深度バリデーション異常系テスト完了");
+        
+        await conn.close();
+        await db.close();
+      } catch (e) {
+        console.error('階層深度バリデーション異常系テストエラー:', e);
         throw e;
       }
     });
