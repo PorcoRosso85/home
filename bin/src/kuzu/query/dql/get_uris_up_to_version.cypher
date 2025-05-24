@@ -17,14 +17,9 @@ UNWIND all_versions as v
 WITH l, v, max_timestamp
 WHERE v.v_ts = max_timestamp
 
-RETURN l.uri_id as uri_id,
-       l.scheme as scheme,
-       l.authority as authority,
-       l.path as path,
-       l.fragment as fragment,
-       l.query as query,
+RETURN l.id as id,
        v.v_id as from_version,
        v.v_ts as updated_at,
        v.v_desc as version_description
 
-ORDER BY l.path ASC, l.uri_id ASC
+ORDER BY l.id ASC

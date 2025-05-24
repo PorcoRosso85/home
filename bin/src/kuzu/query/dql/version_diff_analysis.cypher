@@ -29,11 +29,6 @@ WITH location,
      END as change_type
 
 // 結果を返す
-RETURN location.uri_id as uri_id,
-       location.scheme as scheme,
-       location.authority as authority,
-       location.path as path,
-       location.fragment as fragment,
-       location.query as query,
+RETURN location.id as id,
        change_type
-ORDER BY change_type, location.path, location.uri_id
+ORDER BY change_type, location.id

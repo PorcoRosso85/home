@@ -1,10 +1,11 @@
 // LocationURI階層構造の一括作成DML（ファイル階層と要件階層を分離）
-// 入力形式: {hierarchies: [{parent_uri: string, child_uri: string, relation_type: string}]}
+// REFACTORED: parent_uri/child_uri → parent_id/child_id に変更
+// 入力形式: {hierarchies: [{parent_id: string, child_id: string, relation_type: string}]}
 
 WITH $hierarchies AS data
 UNWIND data AS hierarchy
-MATCH (parent:LocationURI {uri_id: hierarchy.parent_uri})
-MATCH (child:LocationURI {uri_id: hierarchy.child_uri})
+MATCH (parent:LocationURI {id: hierarchy.parent_id})
+MATCH (child:LocationURI {id: hierarchy.child_id})
 CREATE (parent)-[:CONTAINS_LOCATION {relation_type: hierarchy.relation_type}]->(child)
 
 WITH hierarchy.relation_type as relation_type, count(*) as count

@@ -1,9 +1,9 @@
 // LOCATED_WITH系関係の一括作成DML（複数のエンティティタイプを一度に処理）
-// 入力形式: {uri_id: string, entities: [{type: 'code'|'requirement'|'reference', id: string, entity_type: string}]}
+// 入力形式: {id: string, entities: [{type: 'code'|'requirement'|'reference', id: string, entity_type: string}]}
 
 WITH $location_entities AS data
 UNWIND data AS location_data
-MATCH (location:LocationURI {uri_id: location_data.uri_id})
+MATCH (location:LocationURI {id: location_data.id})
 
 // CodeEntityとの関係を作成
 FOREACH (entity IN [e IN location_data.entities WHERE e.type = 'code'] |
@@ -26,7 +26,7 @@ FOREACH (entity IN [e IN location_data.entities WHERE e.type = 'reference'] |
   )
 )
 
-RETURN location.uri_id as uri_id,
+RETURN location.id as id,
        size([e IN location_data.entities WHERE e.type = 'code']) as code_relations,
        size([e IN location_data.entities WHERE e.type = 'requirement']) as requirement_relations,
        size([e IN location_data.entities WHERE e.type = 'reference']) as reference_relations

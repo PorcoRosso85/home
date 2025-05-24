@@ -1,9 +1,4 @@
 // LocationURIノードを更新するクエリ
-MATCH (locationuri:LocationURI {uri_id: $uri_id})
-SET locationuri.scheme = COALESCE($scheme, locationuri.scheme),
-    locationuri.authority = COALESCE($authority, locationuri.authority),
-    locationuri.path = COALESCE($path, locationuri.path),
-    locationuri.fragment = COALESCE($fragment, locationuri.fragment),
-    locationuri.query = COALESCE($query, locationuri.query),
-    locationuri.completed = COALESCE($completed, locationuri.completed)
+// REFACTORED: 最小化されたスキーマ（idのみ）では更新対象プロパティなし
+MATCH (locationuri:LocationURI {id: $id})
 RETURN locationuri

@@ -9,11 +9,6 @@ WITH loc,
 
 RETURN version_id,
        version_description,
-       loc.uri_id as uri_id,
-       loc.scheme as scheme,
-       loc.authority as authority,
-       loc.path as path,
-       loc.fragment as fragment,
-       loc.query as query,
+       loc.id as id,
        loc.completed as is_completed
-ORDER BY loc.uri_id
+ORDER BY loc.id

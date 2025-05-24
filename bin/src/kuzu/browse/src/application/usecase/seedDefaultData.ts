@@ -28,15 +28,16 @@ export async function seedDefaultData(conn: any): Promise<void> {
   
   try {
     // v1.0.0のバージョンデータ
+    // REFACTORED: 新しい最小化LocationURIスキーマに対応
     const version1Data: VersionedLocationData = {
       version_id: 'v1.0.0',
       location_uris: [
         // ファイルシステムURI
-        { uri_id: 'file:///src/main.ts', scheme: 'file', authority: '', path: '/src/main.ts', fragment: '', query: '' },
-        { uri_id: 'file:///src/utils.ts', scheme: 'file', authority: '', path: '/src/utils.ts', fragment: '', query: '' },
-        { uri_id: 'file:///src/components/app.tsx', scheme: 'file', authority: '', path: '/src/components/app.tsx', fragment: '', query: '' },
+        { id: 'file:///src/main.ts' },
+        { id: 'file:///src/utils.ts' },
+        { id: 'file:///src/components/app.tsx' },
         // HTTP URI
-        { uri_id: 'http://localhost:3000/api/data', scheme: 'http', authority: 'localhost:3000', path: '/api/data', fragment: '', query: '' },
+        { id: 'http://localhost:3000/api/data' },
       ]
     };
 
@@ -45,13 +46,13 @@ export async function seedDefaultData(conn: any): Promise<void> {
       version_id: 'v1.1.0',
       location_uris: [
         // 継続するファイル
-        { uri_id: 'file:///src/main.ts', scheme: 'file', authority: '', path: '/src/main.ts', fragment: 'main_v1.1', query: '' },
-        { uri_id: 'file:///src/utils.ts', scheme: 'file', authority: '', path: '/src/utils.ts', fragment: '', query: '' },
+        { id: 'file:///src/main.ts#main_v1.1' },
+        { id: 'file:///src/utils.ts' },
         // 新規追加
-        { uri_id: 'file:///src/components/header.tsx', scheme: 'file', authority: '', path: '/src/components/header.tsx', fragment: '', query: '' },
-        { uri_id: 'file:///src/services/api.ts', scheme: 'file', authority: '', path: '/src/services/api.ts', fragment: '', query: '' },
+        { id: 'file:///src/components/header.tsx' },
+        { id: 'file:///src/services/api.ts' },
         // HTTPの更新
-        { uri_id: 'https://api.example.com/v1/users', scheme: 'https', authority: 'api.example.com', path: '/v1/users', fragment: '', query: 'page=1' },
+        { id: 'https://api.example.com/v1/users?page=1' },
       ],
       previous_version_id: 'v1.0.0'
     };
@@ -61,13 +62,13 @@ export async function seedDefaultData(conn: any): Promise<void> {
       version_id: 'v1.2.0',
       location_uris: [
         // 継続するファイル
-        { uri_id: 'file:///src/main.ts', scheme: 'file', authority: '', path: '/src/main.ts', fragment: 'main_v1.2', query: '' },
-        { uri_id: 'file:///src/utils.ts', scheme: 'file', authority: '', path: '/src/utils.ts', fragment: 'updated_utils', query: '' },
-        { uri_id: 'file:///src/services/api.ts', scheme: 'file', authority: '', path: '/src/services/api.ts', fragment: '', query: '' },
+        { id: 'file:///src/main.ts#main_v1.2' },
+        { id: 'file:///src/utils.ts#updated_utils' },
+        { id: 'file:///src/services/api.ts' },
         // 新規追加
-        { uri_id: 'file:///src/types/index.ts', scheme: 'file', authority: '', path: '/src/types/index.ts', fragment: '', query: '' },
-        { uri_id: 'file:///tests/unit/utils.test.ts', scheme: 'file', authority: '', path: '/tests/unit/utils.test.ts', fragment: '', query: '' },
-        { uri_id: 'file:///docs/architecture.md', scheme: 'file', authority: '', path: '/docs/architecture.md', fragment: '', query: '' },
+        { id: 'file:///src/types/index.ts' },
+        { id: 'file:///tests/unit/utils.test.ts' },
+        { id: 'file:///docs/architecture.md' }
         // VSCodeスキーム削除（許可されていない）
       ],
       previous_version_id: 'v1.1.0'
@@ -78,31 +79,31 @@ export async function seedDefaultData(conn: any): Promise<void> {
       version_id: 'v1.2.1',
       location_uris: [
         // 継続するファイル
-        { uri_id: 'file:///src/main.ts', scheme: 'file', authority: '', path: '/src/main.ts', fragment: 'main_v1.2.1', query: '' },
-        { uri_id: 'file:///src/utils.ts', scheme: 'file', authority: '', path: '/src/utils.ts', fragment: 'updated_utils', query: '' },
-        { uri_id: 'file:///src/services/api.ts', scheme: 'file', authority: '', path: '/src/services/api.ts', fragment: '', query: '' },
-        { uri_id: 'file:///src/types/index.ts', scheme: 'file', authority: '', path: '/src/types/index.ts', fragment: '', query: '' },
-        { uri_id: 'file:///tests/unit/utils.test.ts', scheme: 'file', authority: '', path: '/tests/unit/utils.test.ts', fragment: '', query: '' },
-        { uri_id: 'file:///docs/architecture.md', scheme: 'file', authority: '', path: '/docs/architecture.md', fragment: '', query: '' },
+        { id: 'file:///src/main.ts' },
+        { id: 'file:///src/utils.ts' },
+        { id: 'file:///src/services/api.ts' },
+        { id: 'file:///src/types/index.ts' },
+        { id: 'file:///tests/unit/utils.test.ts' },
+        { id: 'file:///docs/architecture.md' },
         
         // 新規追加: kuzu/browseディレクトリ構造
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/application', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/application/hooks', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/application/usecase', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/domain', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/entity', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/domain/entity', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/domain/service', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/infrastructure', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/infrastructure/database', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/interface', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/src/interface/components', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/public', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/public', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/public/dql', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/public/dql', fragment: '', query: '' },
-        { uri_id: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data', scheme: 'file', authority: '', path: '/home/nixos/bin/src/kuzu/browse/public/export_data', fragment: '', query: '' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/entity' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/public' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/public/dql' },
+        { id: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data' },
       ],
       previous_version_id: 'v1.2.0'
     };
@@ -114,13 +115,13 @@ export async function seedDefaultData(conn: any): Promise<void> {
       version_id: '', // 違反1: 空のversion_id
       location_uris: [
         // 違反2: 許可されないvscodeスキーム
-        { uri_id: 'vscode://file/project/src/main.ts', scheme: 'vscode', authority: 'file', path: '/project/src/main.ts', fragment: '', query: '' },
+        { id: 'vscode://file/project/src/main.ts' },
         // 違反3: uri_idが空
-        { uri_id: '', scheme: 'file', authority: '', path: '/empty/uri/test.ts', fragment: '', query: '' },
+        { id: '' },
         // 違反4: 必須フィールドpathが空
-        { uri_id: 'file:///invalid/path', scheme: 'file', authority: '', path: '', fragment: '', query: '' },
+        { id: 'file:///invalid/path' },
         // 違反5: 許可されないスキーム
-        { uri_id: 'custom://illegal/scheme', scheme: 'custom', authority: '', path: '/test', fragment: '', query: '' },
+        { id: 'custom://illegal/scheme' },
       ],
       previous_version_id: 'v1.2.1'
     };
@@ -180,31 +181,31 @@ export async function seedDefaultData(conn: any): Promise<void> {
     logger.debug('LocationURI階層構造の作成中...');
     const hierarchies = [
       // ファイル階層
-      { parent_uri: 'file:///src', child_uri: 'file:///src/main.ts', relation_type: 'file_hierarchy' },
-      { parent_uri: 'file:///src', child_uri: 'file:///src/utils.ts', relation_type: 'file_hierarchy' },
-      { parent_uri: 'file:///src/components', child_uri: 'file:///src/components/app.tsx', relation_type: 'file_hierarchy' },
-      { parent_uri: 'file:///src/components', child_uri: 'file:///src/components/header.tsx', relation_type: 'file_hierarchy' },
-      { parent_uri: 'file:///src/services', child_uri: 'file:///src/services/api.ts', relation_type: 'file_hierarchy' },
-      { parent_uri: 'file:///tests/unit', child_uri: 'file:///tests/unit/utils.test.ts', relation_type: 'file_hierarchy' },
+      { parent_id: 'file:///src', child_id: 'file:///src/main.ts', relation_type: 'file_hierarchy' },
+      { parent_id: 'file:///src', child_id: 'file:///src/utils.ts', relation_type: 'file_hierarchy' },
+      { parent_id: 'file:///src/components', child_id: 'file:///src/components/app.tsx', relation_type: 'file_hierarchy' },
+      { parent_id: 'file:///src/components', child_id: 'file:///src/components/header.tsx', relation_type: 'file_hierarchy' },
+      { parent_id: 'file:///src/services', child_id: 'file:///src/services/api.ts', relation_type: 'file_hierarchy' },
+      { parent_id: 'file:///tests/unit', child_id: 'file:///tests/unit/utils.test.ts', relation_type: 'file_hierarchy' },
       
       // v1.2.1で追加されたkuzu/browseディレクトリ構造の階層
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu', child_uri: 'file:///home/nixos/bin/src/kuzu/browse', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/public', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/entity', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/public', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/public/dql', relation_type: 'directory_hierarchy' },
-      { parent_uri: 'file:///home/nixos/bin/src/kuzu/browse/public', child_uri: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu', child_id: 'file:///home/nixos/bin/src/kuzu/browse', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/entity', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/public', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public/dql', relation_type: 'directory_hierarchy' },
+      { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/public', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data', relation_type: 'directory_hierarchy' },
     ];
     
     // 階層構造を作成

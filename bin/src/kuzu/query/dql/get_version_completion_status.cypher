@@ -7,7 +7,7 @@ OPTIONAL MATCH (vs)-[:FOLLOWS]->(nextVs:VersionState)
 WITH vs, 
      count(loc) as total_locations,
      count(CASE WHEN loc.completed = true THEN 1 END) as completed_locations,
-     collect(CASE WHEN loc.completed = true THEN loc.uri_id END) as completed_uri_list,
+     collect(CASE WHEN loc.completed = true THEN loc.id END) as completed_uri_list,
      prevVs.id as previous_version,
      nextVs.id as next_version
 

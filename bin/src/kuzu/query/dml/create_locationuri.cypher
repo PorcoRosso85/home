@@ -1,11 +1,6 @@
 // LocationURIノードを作成するクエリ
+// REFACTORED: 最小化されたスキーマに対応（idのみ）
 CREATE (locationuri:LocationURI {
-  uri_id: $uri_id, 
-  scheme: $scheme, 
-  authority: COALESCE($authority, ''), 
-  path: $path, 
-  fragment: COALESCE($fragment, ''), 
-  query: COALESCE($query, ''),
-  completed: COALESCE($completed, false)
+  id: $id
 })
 RETURN locationuri

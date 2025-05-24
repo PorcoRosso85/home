@@ -1,3 +1,4 @@
 // LocationURIノードを検索するクエリ
-MATCH (locationuri:LocationURI {uri_id: $uri_id})
+// REFACTORED: uri_id -> id に変更
+MATCH (locationuri:LocationURI {id: $id})
 RETURN locationuri

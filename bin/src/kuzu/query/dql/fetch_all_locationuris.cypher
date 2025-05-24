@@ -1,8 +1,4 @@
 // 全てのLocationURIノードを取得するクエリ
+// REFACTORED: 最小化されたスキーマに対応（idのみ）
 MATCH (locationuri:LocationURI)
-RETURN locationuri.uri_id AS uri_id,
-       locationuri.scheme AS scheme,
-       locationuri.authority AS authority,
-       locationuri.path AS path,
-       locationuri.fragment AS fragment,
-       locationuri.query AS query
+RETURN locationuri.id AS id

@@ -24,9 +24,11 @@ flowchart TD
     
     LocationURI[("LocationURI
     ---
-    scheme: String [選択: 'file', 'requirement', 'test']
-    path: String [例: 'https://src/auth/login.js', 'file://docs, file://docs/requirements.md']
-    fragment: String [例: 'L10-L25', 'REQ-001-2']")]
+    id: String PRIMARY KEY [例: 'file:///src/auth/login.js#L10-L25', 'req://srs/functions/authentication']
+    completed: Boolean [実装状態: true/false]
+    
+    Note: scheme, authority, path, fragment, query は id から派生可能
+    ")]
     
     VersionState[("VersionState
     ---
@@ -133,10 +135,10 @@ flowchart TD
 
 3. **LocationURI**: コードや要件の場所情報を保持するノード
    - 要件・コード双方の階層を表現
-   - scheme属性: 位置種別 [選択: 'file', 'requirement', 'test', 'document']
-   - authority属性: 所有者/ホスト [例: 'github.com', 'local', 'gitlab']
-   - path属性: 階層パス [例: '/src/auth/login.js', '/docs/requirements.md']
-   - fragment属性: 詳細位置情報 [例: 'L10-L25', 'REQ-001-2']
+   - id属性: 完全なURI情報 [例: 'file:///src/auth/login.js#L10-L25', 'req://srs/functions/authentication']
+   - completed属性: 実装完了状態 [true/false]
+   - **REFACTORED**: 冗長なプロパティ(scheme, authority, path, fragment, query)を削除
+     - これらの情報はid属性から派生可能: scheme=id.split(':')[0], path=new URL(id).pathname等
    - LocationURI間のCONTAINS関係で階層構造を表現
    - システム全体での1:N関係の管理をLocationURIによるパス管理に全権委任
    - 規約やドキュメント参照も同様にLocationURIを介して管理する
@@ -213,3 +215,38 @@ flowchart TD
   - 実エンティティは最深ネスト（リーフ）のみに配置
   - URIのfragment部分で階層を表現（例: `file:///path/to/file#category0.category00.category000.value`）
   - これにより、データ冗長性を避け、階層変更の柔軟性を確保する
+
+### LocationURI派生関数の使用方法
+
+LocationURIのリファクタリングにより、必要時に以下の関数でプロパティを派生します：
+
+```typescript
+// スキーム取得: 'file', 'requirement', 'test'等
+function getScheme(id: string): string {
+  return id.split(':')[0] || '';
+}
+
+// パス取得: '/src/auth/login.js'等
+function getPath(id: string): string {
+  try {
+    return new URL(id).pathname;
+  } catch {
+    return id.startsWith('/') ? id : '';
+  }
+}
+
+// フラグメント取得: 'L10-L25', 'REQ-001-2'等  
+function getFragment(id: string): string {
+  const parts = id.split('#');
+  return parts.length > 1 ? parts[1] : '';
+}
+
+// オーソリティ取得: 'github.com', 'local'等
+function getAuthority(id: string): string {
+  try {
+    return new URL(id).hostname;
+  } catch {
+    return '';
+  }
+}
+```

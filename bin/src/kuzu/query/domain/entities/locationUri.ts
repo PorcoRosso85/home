@@ -1,147 +1,110 @@
 /**
- * LocationURIエンティティ
+ * LocationURIエンティティ - 究極の最小化版
  * 
- * KuzuDBのLocationURIノードを表現する型定義と関連関数
+ * REFACTORED: 冗長なプロパティを削除（7プロパティ → 1プロパティ）
+ * scheme, authority, path, fragment, query, completed は id から派生可能
  */
 
 /**
- * LocationURIの基本構造
+ * LocationURIの最小構造
  */
 export type LocationUriEntity = {
-  uri_id: string;      // URI識別子（主キー）
-  scheme: string;      // URIスキーム（例: http, file）
-  authority: string;   // URIオーソリティ部分
-  path: string;        // URIパス部分
-  fragment: string;    // URIフラグメント部分
-  query: string;       // URIクエリ部分
-  completed: boolean;  // 完了フラグ
+  id: string;              // 完全なURI情報（例: 'file:///src/auth.js#L10-L25'）
 };
 
 /**
  * LocationURIエンティティを作成する
  */
 export function createLocationUri(
-  uriId: string,
-  scheme: string,
-  path: string,
-  authority?: string,
-  fragment?: string,
-  query?: string,
-  completed: boolean = false
+  id: string
 ): LocationUriEntity {
-  return {
-    uri_id: uriId,
-    scheme,
-    authority: authority || '',
-    path,
-    fragment: fragment || '',
-    query: query || '',
-    completed
-  };
+  return { id };
 }
 
 /**
- * LocationURIエンティティの複製を作成する
+ * URI派生関数 - 必要時にidから各部分を取得
  */
-export function cloneLocationUri(locationUri: LocationUriEntity): LocationUriEntity {
-  return {
-    uri_id: locationUri.uri_id,
-    scheme: locationUri.scheme,
-    authority: locationUri.authority,
-    path: locationUri.path,
-    fragment: locationUri.fragment,
-    query: locationUri.query,
-    completed: locationUri.completed,
-  };
-}
+export const UriUtils = {
+  /**
+   * スキーム取得: 'file', 'requirement', 'test'等
+   */
+  getScheme(id: string): string {
+    return id.split(':')[0] || '';
+  },
 
-/**
- * LocationURIエンティティの部分更新
- */
-export function updateLocationUri(
-  locationUri: LocationUriEntity,
-  updates: Partial<Omit<LocationUriEntity, 'uri_id'>>
-): LocationUriEntity {
-  return {
-    ...locationUri,
-    ...updates,
-  };
-}
-
-/**
- * LocationURIエンティティを文字列URIに変換する
- */
-export function toUriString(locationUri: LocationUriEntity): string {
-  let uri = `${locationUri.scheme}:`;
-  
-  if (locationUri.authority) {
-    uri += `//${locationUri.authority}`;
-  }
-  
-  uri += locationUri.path;
-  
-  if (locationUri.query) {
-    uri += `?${locationUri.query}`;
-  }
-  
-  if (locationUri.fragment) {
-    uri += `#${locationUri.fragment}`;
-  }
-  
-  return uri;
-}
-
-/**
- * 文字列URIからLocationURIエンティティを生成する
- */
-export function fromUriString(uri: string): LocationUriEntity {
-  try {
-    const urlObject = new URL(uri);
-    
-    return createLocationUri(
-      uri,
-      urlObject.protocol.replace(':', ''),
-      urlObject.pathname,
-      urlObject.hostname + (urlObject.port ? ':' + urlObject.port : ''),
-      urlObject.hash.replace('#', ''),
-      urlObject.search.replace('?', '')
-    );
-  } catch (error) {
-    // URLコンストラクタエラーの場合、単純なパス形式として処理
-    if (uri.startsWith('/')) {
-      return createLocationUri(uri, 'path', uri);
+  /**
+   * パス取得: '/src/auth/login.js'等
+   */
+  getPath(id: string): string {
+    try {
+      return new URL(id).pathname;
+    } catch {
+      return id.startsWith('/') ? id : '';
     }
-    
-    throw new Error(`Invalid URI format: ${uri}`);
-  }
-}
+  },
 
-/**
- * LocationURIエンティティの等価性チェック
- */
-export function equalsLocationUri(uri1: LocationUriEntity, uri2: LocationUriEntity): boolean {
-  return (
-    uri1.uri_id === uri2.uri_id &&
-    uri1.scheme === uri2.scheme &&
-    uri1.authority === uri2.authority &&
-    uri1.path === uri2.path &&
-    uri1.fragment === uri2.fragment &&
-    uri1.query === uri2.query &&
-    uri1.completed === uri2.completed
-  );
-}
+  /**
+   * フラグメント取得: 'L10-L25', 'REQ-001-2'等  
+   */
+  getFragment(id: string): string {
+    const parts = id.split('#');
+    return parts.length > 1 ? parts[1] : '';
+  },
+
+  /**
+   * オーソリティ取得: 'github.com', 'local'等
+   */
+  getAuthority(id: string): string {
+    try {
+      return new URL(id).hostname;
+    } catch {
+      return '';
+    }
+  },
+
+  /**
+   * クエリ取得: URLパラメータ部分
+   */
+  getQuery(id: string): string {
+    try {
+      return new URL(id).search.replace('?', '');
+    } catch {
+      return '';
+    }
+  }
+};
 
 /**
  * LocationURIエンティティをクエリパラメータに変換する
  */
 export function toQueryParams(locationUri: LocationUriEntity): Record<string, string | boolean> {
   return {
-    uri_id: locationUri.uri_id,
-    scheme: locationUri.scheme,
-    authority: locationUri.authority,
-    path: locationUri.path,
-    fragment: locationUri.fragment,
-    query: locationUri.query,
+    id: locationUri.id,
     completed: locationUri.completed,
   };
+}
+
+/**
+ * バリデーション関数
+ */
+export function validateLocationUri(id: string): { isValid: boolean; error?: string } {
+  if (!id || typeof id !== 'string') {
+    return {
+      isValid: false,
+      error: 'ID must be a non-empty string'
+    };
+  }
+
+  // 許可されたスキームの例
+  const scheme = UriUtils.getScheme(id);
+  const allowedSchemes = ['file', 'requirement', 'test', 'document', 'http', 'https'];
+  
+  if (scheme && !allowedSchemes.includes(scheme)) {
+    return {
+      isValid: false,
+      error: `Scheme '${scheme}' is not allowed. Allowed schemes: ${allowedSchemes.join(', ')}`
+    };
+  }
+
+  return { isValid: true };
 }

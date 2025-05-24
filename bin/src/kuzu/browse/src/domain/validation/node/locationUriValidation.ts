@@ -1,52 +1,25 @@
 import type { ValidationResult } from '../validationResult';
 
+// REFACTORED: 究極の最小化LocationURIスキーマ（1プロパティのみ）
 export type LocationUriData = {
-  uri_id: string;
-  scheme: string;
-  authority: string;
-  path: string;
-  fragment: string;
-  query: string;
+  id: string;              // 完全なURI情報（全ての情報を含む）
 };
 
 export function validateLocationUri(data: LocationUriData): ValidationResult<LocationUriData> {
   const errors: Array<{ field: string; message: string }> = [];
-  const allowedSchemes = ['file', 'http', 'https', 'path'];
+  const allowedSchemes = ['file', 'http', 'https', 'requirement', 'test', 'document'];
 
-  // 必須: uri_id
-  if (!data.uri_id || typeof data.uri_id !== 'string') {
-    errors.push({ field: 'uri_id', message: 'uri_id is required and must be a string' });
-  } else if (data.uri_id.trim().length === 0) {
-    errors.push({ field: 'uri_id', message: 'uri_id cannot be empty' });
-  }
-
-  // 必須: scheme
-  if (!data.scheme || typeof data.scheme !== 'string') {
-    errors.push({ field: 'scheme', message: 'scheme is required and must be a string' });
-  } else if (!allowedSchemes.includes(data.scheme)) {
-    errors.push({ field: 'scheme', message: `scheme must be one of: ${allowedSchemes.join(', ')}` });
-  }
-
-  // 必須: path
-  if (!data.path || typeof data.path !== 'string') {
-    errors.push({ field: 'path', message: 'path is required and must be a string' });
-  } else if (data.path.trim().length === 0) {
-    errors.push({ field: 'path', message: 'path cannot be empty' });
-  }
-
-  // authority（オプション）
-  if (data.authority !== undefined && typeof data.authority !== 'string') {
-    errors.push({ field: 'authority', message: 'authority must be a string' });
-  }
-
-  // fragment（オプション）
-  if (data.fragment !== undefined && typeof data.fragment !== 'string') {
-    errors.push({ field: 'fragment', message: 'fragment must be a string' });
-  }
-
-  // query（オプション）
-  if (data.query !== undefined && typeof data.query !== 'string') {
-    errors.push({ field: 'query', message: 'query must be a string' });
+  // 必須: id
+  if (!data.id || typeof data.id !== 'string') {
+    errors.push({ field: 'id', message: 'id is required and must be a string' });
+  } else if (data.id.trim().length === 0) {
+    errors.push({ field: 'id', message: 'id cannot be empty' });
+  } else {
+    // スキーマバリデーション（idから派生）
+    const scheme = data.id.split(':')[0];
+    if (scheme && !allowedSchemes.includes(scheme)) {
+      errors.push({ field: 'id', message: `Invalid scheme '${scheme}'. Allowed: ${allowedSchemes.join(', ')}` });
+    }
   }
 
   if (errors.length > 0) {
@@ -59,6 +32,8 @@ export function validateLocationUri(data: LocationUriData): ValidationResult<Loc
 
   return {
     isValid: true,
-    data: data
+    data: {
+      id: data.id
+    }
   };
 }

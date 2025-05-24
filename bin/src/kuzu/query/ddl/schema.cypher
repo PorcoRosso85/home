@@ -3,14 +3,10 @@
 // ===== ノードテーブル =====
 
 // 1. LocationURIノード - コードや要件の場所情報を保持するノード
+// REFACTORED: 最小化（uri_id→id, 7プロパティ→1プロパティ）
+// scheme, authority, path, fragment, query, completed は id から派生可能
 CREATE NODE TABLE LocationURI (
-  uri_id STRING PRIMARY KEY,
-  scheme STRING,
-  authority STRING,
-  path STRING,
-  fragment STRING,
-  query STRING,
-  completed BOOLEAN
+  id STRING PRIMARY KEY
 );
 
 // 2. CodeEntityノード - コードの構成要素（関数、クラス、メソッド等）
