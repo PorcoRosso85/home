@@ -636,33 +636,40 @@
     - すべての関数にユニットテストを書くこと
     - テストは関数の入出力のみに焦点を当てること
     - テストは目的を明確に示す命名を使用すること
-    - テストはpytestの規約に従って記述すること（assert文を使用）
+    - 各言語のテストフレームワークの規約に従って記述すること:
+      - Python: pytest規約（assert文を使用）
+      - TypeScript/Deno: Deno.test()を使用
+      - その他: 各言語の標準的なテストフレームワーク
     - 以下の2種類のテストを区別すること:
-      - 単体テスト: 実装ファイル内に記述し、if __name__ == "__main__"ブロック内で実行
+      - 単体テスト: 実装ファイル内に記述（テストフレームワーク使用）
       - E2Eテスト: tests/e2e ディレクトリ内の専用ファイルに記述
     - 単体テストは別途テストファイルは作成せず、実装ファイル内に記述すること
     - E2Eテストは tests/e2e 内の適切なサブディレクトリに配置すること（例: interface, application）
-    - E2Eテストは必ずpytestのフィクスチャ機能を活用してクリーンアップメカニズムを実装し、テスト実行時に作成されたファイルを削除すること
-    - if __name__ == "__main__"ブロック内にテストケースを記述し、ファイル単体実行時にテストが実行されるようにすること
+    - E2Eテストは必ずテストフレームワークのクリーンアップ機能を活用し、テスト実行時に作成されたファイルを削除すること
+    - if __name__ == "__main__"やif (import.meta.main)ブロックは、単独実行が必要な場合のみ使用を許可
   examples:
     unit_test: |
-      # 実装例
+      # Python例
       def add(a: int, b: int) -> int:
           return a + b
       
-      # テスト関数
-      def verify_addition():
+      # pytest用のテスト関数
+      def test_addition():
           assert add(1, 2) == 3
           assert add(-1, 1) == 0
           assert add(0, 0) == 0
       
-      # テスト実行
-      if __name__ == "__main__":
-          import sys
-          import pytest
-          
-          # このモジュールのテストを実行
-          pytest.main([__file__])
+      # TypeScript/Deno例
+      function add(a: number, b: number): number {
+          return a + b;
+      }
+      
+      // Deno.testを使用したテスト
+      Deno.test("addition test", () => {
+          assertEquals(add(1, 2), 3);
+          assertEquals(add(-1, 1), 0);
+          assertEquals(add(0, 0), 0);
+      });
     
     e2e_test: |
       """

@@ -6,6 +6,8 @@
 
 import { existsSync } from "https://deno.land/std@0.224.0/fs/mod.ts";
 import { join, dirname } from "https://deno.land/std@0.224.0/path/mod.ts";
+import { describe, it } from "https://deno.land/std@0.224.0/testing/bdd.ts";
+import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 // ロガーの簡易実装（loggerモジュールがない場合のフォールバック）
 const logger = {
@@ -260,82 +262,273 @@ export function getSuccess<T>(result: QueryResult<T>): boolean {
 
 // テスト実行
 if (typeof Deno !== 'undefined') {
-  // インメモリKuzuDBでの直接クエリテスト
-  Deno.test("インメモリKuzuDBでの直接クエリテスト", async () => {
-    // KuzuDBモジュールをインポート
-    const kuzu = await import("npm:kuzu@0.9.0");
+  console.log(`
+==============================================================================
+                    KuzuDB Query Repository テストスイート
+==============================================================================
+
+【テストの意義】
+このテストスイートは、KuzuDBでのURI制約検証機能が正しく動作することを保証します。
+KuzuDBにはCHECK制約がないため、DQLクエリレベルで制約検証を実装しています。
+
+【テスト追加方法】
+1. 既存のdescribeブロック内に新しいit()ブロックを追加
+2. 各テストは独立して実行可能にすること（setup/teardownを含む）
+3. 命名規則: 日本語で具体的な検証内容を記述
+
+例:
+it("新しいテストケース名", async () => {
+  const kuzu = await import("npm:kuzu@0.9.0");
+  const db = new kuzu.Database(":memory:");
+  const conn = new kuzu.Connection(db);
+  
+  try {
+    // テスト実装
+    await conn.close();
+    await db.close();
+  } catch (e) {
+    console.error('エラー:', e);
+    throw e;
+  }
+});
+
+【実行コマンド】
+LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":$LD_LIBRARY_PATH nix run nixpkgs#deno -- test -A --allow-scripts=npm:kuzu /home/nixos/bin/src/kuzu/query/infrastructure/repositories/denoQueryRepository.ts --no-check
+
+【フィルタ実行】
+特定のテストのみ実行: --filter="URI制約検証"
+==============================================================================
+`);
+
+  describe("KuzuDB直接クエリテスト", () => {
+    it("インメモリKuzuDBでの基本動作確認", async () => {
+      const kuzu = await import("npm:kuzu@0.9.0");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
+      
+      try {
+        await conn.query("CREATE NODE TABLE User(name STRING, age INT64, PRIMARY KEY (name))");
+        await conn.query("CREATE (u:User {name: 'Alice', age: 30})");
+        
+        const result = await conn.query("MATCH (u:User) RETURN u.name, u.age");
+        const rows = await result.getAll();
+        
+        assert(rows.length > 0, "クエリ結果が存在すべき");
+        
+        await conn.close();
+        await db.close();
+      } catch (e) {
+        console.error("テストエラー:", e);
+        throw e;
+      }
+    });
     
-    // インメモリデータベースを作成
-    const db = new kuzu.Database(":memory:");
-    const conn = new kuzu.Connection(db);
-    
-    try {
-      // スキーマ作成
-      await conn.query("CREATE NODE TABLE User(name STRING, age INT64, PRIMARY KEY (name))");
+    it("JSON拡張機能の動作確認", async () => {
+      const kuzu = await import("npm:kuzu@0.9.0");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
       
-      // データ挿入
-      await conn.query("CREATE (u:User {name: 'Alice', age: 30})");
-      
-      // クエリ実行
-      const result = await conn.query("MATCH (u:User) RETURN u.name, u.age");
-      const rows = await result.getAll();
-      
-      // 結果確認
-      console.assert(rows.length > 0, "クエリ結果が存在すべき");
-      
-      // 後処理
-      await conn.close();
-      await db.close();
-    } catch (e) {
-      console.error("テストエラー:", e);
-      throw e;
-    }
+      try {
+        await conn.query("INSTALL json");
+        await conn.query("LOAD json");
+        
+        await conn.query(`
+          CREATE NODE TABLE Entity(
+            id STRING, 
+            data JSON,
+            PRIMARY KEY (id)
+          )
+        `);
+        
+        await conn.query(`
+          CREATE (e:Entity {
+            id: '1', 
+            data: to_json({name: 'テスト', values: [1, 2, 3]})
+          })
+        `);
+        
+        const result = await conn.query('MATCH (e:Entity) RETURN e.id, e.data');
+        const rows = await result.getAll();
+        
+        await conn.close();
+        await db.close();
+        
+        console.log('JSON拡張機能テスト完了');
+      } catch (e) {
+        console.error('JSON拡張機能テストエラー:', e);
+        return;
+      }
+    });
   });
   
-  // JSON拡張機能の動作確認テスト
-  Deno.test("KuzuDB JSON拡張機能テスト", async () => {
-    // KuzuDBモジュールをインポート
-    const kuzu = await import("npm:kuzu@0.9.0");
+  describe("URI制約検証DQLクエリテスト", () => {
+    it("有効なURIパターンのマッチング", async () => {
+      const kuzu = await import("npm:kuzu@0.9.0");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
+      
+      try {
+        await conn.query("CREATE NODE TABLE uri(path STRING, PRIMARY KEY (path))");
+        await conn.query("CREATE (u:uri {path: '<myproject>/srs/auth'})");
+        await conn.query("CREATE (u:uri {path: '<test-proj>/srs/requirements/performance'})");
+        await conn.query("CREATE (u:uri {path: '<proj_123>/srs/a/b/c/deep/path'})");
+        
+        const result = await conn.query(`
+          MATCH (u:uri)
+          WHERE u.path =~ '^<[^>]+>/srs/.+$'
+          RETURN u.path ORDER BY u.path
+        `);
+        const rows = await result.getAll();
+        
+        assertEquals(rows.length, 3, "有効なURIは3件存在すべき");
+        assertEquals(rows[0]["u.path"], "<myproject>/srs/auth");
+        assertEquals(rows[1]["u.path"], "<proj_123>/srs/a/b/c/deep/path");
+        assertEquals(rows[2]["u.path"], "<test-proj>/srs/requirements/performance");
+        
+        await conn.close();
+        await db.close();
+      } catch (e) {
+        console.error('有効URIパターンテストエラー:', e);
+        throw e;
+      }
+    });
     
-    // インメモリデータベースを作成
-    const db = new kuzu.Database(":memory:");
-    const conn = new kuzu.Connection(db);
+    it("無効なURIパターンの検出", async () => {
+      const kuzu = await import("npm:kuzu@0.9.0");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
+      
+      try {
+        await conn.query("CREATE NODE TABLE uri(path STRING, PRIMARY KEY (path))");
+        
+        // 無効なパターンを挿入
+        await conn.query("CREATE (u:uri {path: 'myproject/srs/test'})");      // < > なし
+        await conn.query("CREATE (u:uri {path: '<project>/api/test'})");      // /srs/ なし
+        await conn.query("CREATE (u:uri {path: '<>/srs/test'})");            // 空プロジェクト
+        
+        const result = await conn.query(`
+          MATCH (u:uri)
+          WHERE NOT u.path =~ '^<[^>]+>/srs/.+$'
+          RETURN u.path ORDER BY u.path
+        `);
+        const rows = await result.getAll();
+        
+        assertEquals(rows.length, 3, "無効なURIは3件存在すべき");
+        assertEquals(rows[0]["u.path"], "<>/srs/test");
+        assertEquals(rows[1]["u.path"], "<project>/api/test");
+        assertEquals(rows[2]["u.path"], "myproject/srs/test");
+        
+        await conn.close();
+        await db.close();
+      } catch (e) {
+        console.error('無効URIパターンテストエラー:', e);
+        throw e;
+      }
+    });
     
-    try {
-      // JSON拡張機能のセットアップ
-      await conn.query("INSTALL json");
-      await conn.query("LOAD json");
+    it("エッジケースと境界値", async () => {
+      const kuzu = await import("npm:kuzu@0.9.0");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
       
-      // JSON型を使ったNodeテーブルの作成
-      await conn.query(`
-        CREATE NODE TABLE Entity(
-          id STRING, 
-          data JSON,
-          PRIMARY KEY (id)
-        )
-      `);
+      try {
+        await conn.query("CREATE NODE TABLE uri(path STRING, PRIMARY KEY (path))");
+        
+        // エッジケース
+        await conn.query("CREATE (u:uri {path: '<a>/srs/b'})");              // 最小長プロジェクト
+        await conn.query("CREATE (u:uri {path: '<very-long-project-name-123>/srs/test'})"); // 長いプロジェクト名
+        await conn.query("CREATE (u:uri {path: '<project>/srs/'})");         // パスなし（無効）
+        await conn.query("CREATE (u:uri {path: '<project>srs/test'})");      // スラッシュなし（無効）
+        
+        // 有効なパターンをチェック
+        const validResult = await conn.query(`
+          MATCH (u:uri)
+          WHERE u.path =~ '^<[^>]+>/srs/.+$'
+          RETURN u.path ORDER BY u.path
+        `);
+        const validRows = await validResult.getAll();
+        
+        assertEquals(validRows.length, 2, "有効なエッジケースは2件");
+        assertEquals(validRows[0]["u.path"], "<a>/srs/b");
+        assertEquals(validRows[1]["u.path"], "<very-long-project-name-123>/srs/test");
+        
+        // 無効なパターンをチェック
+        const invalidResult = await conn.query(`
+          MATCH (u:uri)
+          WHERE NOT u.path =~ '^<[^>]+>/srs/.+$'
+          RETURN u.path ORDER BY u.path
+        `);
+        const invalidRows = await invalidResult.getAll();
+        
+        assertEquals(invalidRows.length, 2, "無効なエッジケースは2件");
+        assertEquals(invalidRows[0]["u.path"], "<project>/srs/");
+        assertEquals(invalidRows[1]["u.path"], "<project>srs/test");
+        
+        await conn.close();
+        await db.close();
+      } catch (e) {
+        console.error('エッジケーステストエラー:', e);
+        throw e;
+      }
+    });
+    
+    it("厳密なプロジェクト名検証（英数字とハイフン、アンダースコアのみ）", async () => {
+      const kuzu = await import("npm:kuzu@0.9.0");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
       
-      // テストデータの挿入
-      await conn.query(`
-        CREATE (e:Entity {
-          id: '1', 
-          data: to_json({name: 'テスト', values: [1, 2, 3]})
-        })
-      `);
+      try {
+        await conn.query("CREATE NODE TABLE uri(path STRING, PRIMARY KEY (path))");
+        
+        // 様々なプロジェクト名パターン
+        await conn.query("CREATE (u:uri {path: '<valid-project_123>/srs/test'})");  // 有効
+        await conn.query("CREATE (u:uri {path: '<project!>/srs/test'})");           // 無効: !
+        await conn.query("CREATE (u:uri {path: '<project@domain>/srs/test'})");     // 無効: @
+        await conn.query("CREATE (u:uri {path: '<project.name>/srs/test'})");       // 無効: .
+        
+        // より厳密な正規表現: プロジェクト名は英数字とハイフン、アンダースコアのみ
+        const result = await conn.query(`
+          MATCH (u:uri)
+          WHERE u.path =~ '^<[a-zA-Z0-9_-]+>/srs/.+$'
+          RETURN u.path ORDER BY u.path
+        `);
+        const rows = await result.getAll();
+        
+        assertEquals(rows.length, 1, "厳密な検証では1件のみ有効");
+        assertEquals(rows[0]["u.path"], "<valid-project_123>/srs/test");
+        
+        await conn.close();
+        await db.close();
+      } catch (e) {
+        console.error('厳密なプロジェクト名検証テストエラー:', e);
+        throw e;
+      }
+    });
+    
+    it("空のテーブルでの動作確認", async () => {
+      const kuzu = await import("npm:kuzu@0.9.0");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
       
-      // データの確認
-      const result = await conn.query('MATCH (e:Entity) RETURN e.id, e.data');
-      const rows = await result.getAll();
-      
-      // 後処理
-      await conn.close();
-      await db.close();
-      
-      console.log('JSON拡張機能テスト完了');
-    } catch (e) {
-      console.error('JSON拡張機能テストエラー:', e);
-      // エラーを再度throwする代わりにログ出力のみ
-      return;
-    }
+      try {
+        await conn.query("CREATE NODE TABLE uri(path STRING, PRIMARY KEY (path))");
+        
+        // 空のテーブルでクエリ実行
+        const result = await conn.query(`
+          MATCH (u:uri)
+          WHERE u.path =~ '^<[^>]+>/srs/.+$'
+          RETURN u.path
+        `);
+        const rows = await result.getAll();
+        
+        assertEquals(rows.length, 0, "空のテーブルでは結果は0件");
+        
+        await conn.close();
+        await db.close();
+      } catch (e) {
+        console.error('空テーブルテストエラー:', e);
+        throw e;
+      }
+    });
   });
 }
