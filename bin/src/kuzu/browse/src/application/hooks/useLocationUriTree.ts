@@ -14,6 +14,53 @@ function splitPath(path: string): string[] {
 }
 
 /**
+ * URI IDから各パーツを解析する
+ */
+function parseUriId(uriId: string): Partial<LocationURI> {
+  const result: Partial<LocationURI> = {
+    uri_id: uriId,
+    scheme: '',
+    authority: '',
+    path: '',
+    fragment: '',
+    query: ''
+  };
+
+  try {
+    // scheme を取得
+    const schemeMatch = uriId.match(/^([^:]+):/);
+    if (schemeMatch) {
+      result.scheme = schemeMatch[1];
+    }
+
+    // URL形式の場合
+    if (uriId.includes('://')) {
+      const url = new URL(uriId);
+      result.authority = url.hostname;
+      result.path = url.pathname;
+      result.fragment = url.hash.slice(1); // # を除去
+      result.query = url.search.slice(1); // ? を除去
+    } else if (uriId.startsWith('/')) {
+      // ファイルパス形式の場合
+      const [pathPart, fragmentPart] = uriId.split('#');
+      result.path = pathPart;
+      result.fragment = fragmentPart || '';
+    } else if (result.scheme) {
+      // scheme:path 形式の場合
+      const afterScheme = uriId.slice(result.scheme.length + 1);
+      const [pathPart, fragmentPart] = afterScheme.split('#');
+      result.path = pathPart;
+      result.fragment = fragmentPart || '';
+    }
+  } catch (e) {
+    // パースエラーの場合はそのまま続行
+    console.warn('Failed to parse URI:', uriId, e);
+  }
+
+  return result;
+}
+
+/**
  * LocationURIツリーを構築する補助関数
  */
 function buildLocationUriTree(locationUris: LocationURI[]): TreeNode[] {
@@ -160,23 +207,22 @@ export function useLocationUriTree(versionId: string) {
         return;
       }
       
-      const uriDataResult = await getUriDataSafely(uriResult.data);
-      if (uriDataResult.status === "error") {
-        setError(uriDataResult.message);
-        setLoading(false);
-        return;
-      }
+      // getAllObjects()を使用してデータを取得
+      const queryResult = await uriResult.data.getAllObjects();
       
-      const locationUris: LocationURI[] = uriDataResult.data.map((u: any) => ({
-        uri_id: u.uri_id,
-        scheme: u.scheme,
-        authority: u.authority || '',
-        path: u.path || '',
-        fragment: u.fragment || '',
-        query: u.query || '',
-        from_version: versionId,
-        isCompleted: !!u.is_completed
-      }));
+      const locationUris: LocationURI[] = queryResult.map((u: any) => {
+        const parsed = parseUriId(u.uri_id);
+        return {
+          uri_id: u.uri_id,
+          scheme: parsed.scheme || '',
+          authority: parsed.authority || '',
+          path: parsed.path || '',
+          fragment: parsed.fragment || '',
+          query: parsed.query || '',
+          from_version: versionId,
+          isCompleted: false // デフォルト値
+        };
+      });
       
       const treeData = buildLocationUriTree(locationUris);
       setLocationTree(treeData);
