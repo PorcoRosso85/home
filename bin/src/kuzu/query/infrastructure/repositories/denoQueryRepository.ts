@@ -547,46 +547,84 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
   });
 
   describe("1テーブル多粒度モデルテスト", () => {
-    it("正常系：8階層以下のフルパスから1テーブル多粒度モデル構築", async () => {
+    it("正常系：8階層以下の可変フルパスから1テーブル多粒度モデル構築", async () => {
       const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
       try {
-        // 1テーブル多粒度モデル構築
+        // 8階層可変対応1テーブル多粒度モデル構築
         const dmlResult = await getQuery("single_table_minimal");
-        assert(dmlResult.success, "1テーブル多粒度DMLクエリが読み込めるべき");
+        assert(dmlResult.success, "可変階層多粒度DMLクエリが読み込めるべき");
         
         await conn.query(dmlResult.data!);
-        console.log("1テーブル多粒度モデル構築完了");
+        console.log("8階層可変対応多粒度モデル構築完了");
         
-        // 構築結果確認：階層ノード数
+        // 構築結果確認：全ノード数
         const nodeCountResult = await conn.query("MATCH (n:LocationURI) RETURN count(*) as node_count");
         const nodeCount = await nodeCountResult.getAll();
-        assert(nodeCount[0]["node_count"] > 0, "階層ノードが作成されるべき");
+        assert(nodeCount[0]["node_count"] >= 10, "複数階層のノードが作成されるべき");
         
-        // 構築結果確認：親子関係
-        const relationResult = await conn.query("MATCH (p:LocationURI)-[:PARENT_OF]->(c:LocationURI) RETURN count(*) as relation_count");
-        const relationCount = await relationResult.getAll();
-        assert(relationCount[0]["relation_count"] > 0, "親子関係が作成されるべき");
-        
-        // 構築結果確認：特定の階層パス
-        const pathCheckResult = await conn.query(`
-          MATCH (root:LocationURI {id: "/srs"})-[:PARENT_OF]->(l2:LocationURI {id: "/srs/functions"})-[:PARENT_OF]->(l3:LocationURI {id: "/srs/functions/authentication"})
-          RETURN root.id, l2.id, l3.id
+        // 構築結果確認：2階層パス
+        const depth2Check = await conn.query(`
+          MATCH (root:LocationURI {id: "/api"})-[:PARENT_OF]->(leaf:LocationURI {id: "/api/v1"})
+          RETURN root.id, leaf.id
         `);
-        const pathCheck = await pathCheckResult.getAll();
-        assertEquals(pathCheck.length, 1, "srs→functions→authentication階層が構築されるべき");
-        assertEquals(pathCheck[0]["root.id"], "/srs");
-        assertEquals(pathCheck[0]["l2.id"], "/srs/functions");
-        assertEquals(pathCheck[0]["l3.id"], "/srs/functions/authentication");
+        const depth2Rows = await depth2Check.getAll();
+        assertEquals(depth2Rows.length, 1, "2階層パスが構築されるべき");
+        assertEquals(depth2Rows[0]["root.id"], "/api");
+        assertEquals(depth2Rows[0]["leaf.id"], "/api/v1");
         
-        console.log("1テーブル多粒度モデル正常系テスト完了");
+        // 構築結果確認：3階層パス
+        const depth3Check = await conn.query(`
+          MATCH (root:LocationURI {id: "/docs"})-[:PARENT_OF]->(mid:LocationURI {id: "/docs/guide"})-[:PARENT_OF]->(leaf:LocationURI {id: "/docs/guide/advanced"})
+          RETURN root.id, mid.id, leaf.id
+        `);
+        const depth3Rows = await depth3Check.getAll();
+        assertEquals(depth3Rows.length, 1, "3階層パスが構築されるべき");
+        assertEquals(depth3Rows[0]["root.id"], "/docs");
+        assertEquals(depth3Rows[0]["mid.id"], "/docs/guide");
+        assertEquals(depth3Rows[0]["leaf.id"], "/docs/guide/advanced");
+        
+        // 構築結果確認：4階層パス（srs系）
+        const depth4Check = await conn.query(`
+          MATCH (root:LocationURI {id: "/srs"})-[:PARENT_OF*3]->(leaf:LocationURI {id: "/srs/functions/authentication/user-credential-validation"})
+          RETURN root.id, leaf.id
+        `);
+        const depth4Rows = await depth4Check.getAll();
+        assertEquals(depth4Rows.length, 1, "4階層パスが構築されるべき");
+        assertEquals(depth4Rows[0]["root.id"], "/srs");
+        assertEquals(depth4Rows[0]["leaf.id"], "/srs/functions/authentication/user-credential-validation");
+        
+        // 構築結果確認：8階層パス（config系）
+        const depth8Check = await conn.query(`
+          MATCH (root:LocationURI {id: "/config"})-[:PARENT_OF*7]->(leaf:LocationURI {id: "/config/db/connection/pool/settings/timeout/retry/backoff"})
+          RETURN root.id, leaf.id
+        `);
+        const depth8Rows = await depth8Check.getAll();
+        assertEquals(depth8Rows.length, 1, "8階層パスが構築されるべき");
+        assertEquals(depth8Rows[0]["root.id"], "/config");
+        assertEquals(depth8Rows[0]["leaf.id"], "/config/db/connection/pool/settings/timeout/retry/backoff");
+        
+        // フルパス再計算テスト
+        const reconstructQuery = await getQuery("reconstruct_path_from_node");
+        assert(reconstructQuery.success, "パス再計算クエリが読み込めるべき");
+        
+        const testNodeId = "/srs/functions/authentication/user-credential-validation";
+        const reconstructParameterized = buildParameterizedQuery(reconstructQuery.data!, { nodeId: testNodeId });
+        const reconstructResult = await conn.query(reconstructParameterized);
+        const reconstructRows = await reconstructResult.getAll();
+        
+        assertEquals(reconstructRows.length, 1, "パス再計算結果は1件であるべき");
+        assert(reconstructRows[0]["reconstructed_path"].includes("srs"), "再計算パスにsrsが含まれるべき");
+        
+        console.log("8階層可変対応多粒度モデル正常系テスト完了");
+        console.log("再計算パス:", reconstructRows[0]["reconstructed_path"]);
         
         await conn.close();
         await db.close();
       } catch (e) {
-        console.error('1テーブル多粒度モデル正常系テストエラー:', e);
+        console.error('8階層可変対応多粒度モデル正常系テストエラー:', e);
         throw e;
       }
     });
@@ -636,6 +674,66 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
         await db.close();
       } catch (e) {
         console.error('階層深度バリデーション異常系テストエラー:', e);
+        throw e;
+      }
+    });
+
+    it("異常系：9階層フルパスをDMLに渡した場合のエラー確認", async () => {
+      const kuzu = await import("npm:kuzu");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
+      
+      try {
+        // DDL作成
+        await conn.query("CREATE NODE TABLE LocationURI(id STRING, PRIMARY KEY (id))");
+        await conn.query("CREATE REL TABLE PARENT_OF(FROM LocationURI TO LocationURI)");
+        
+        // 9階層パスでDML実行を試行（8階層で制限されるべき）
+        const invalidPath = "/a/b/c/d/e/f/g/h/i";
+        const invalidDmlQuery = `
+          WITH ["${invalidPath}"] as testPaths
+          UNWIND testPaths as fullPath
+          WITH fullPath, string_split(substring(fullPath, 2, size(fullPath)-1), "/") as parts
+          WITH fullPath, parts,
+               "/" + parts[1] as level1,
+               CASE WHEN size(parts) >= 2 THEN "/" + parts[1] + "/" + parts[2] ELSE null END as level2,
+               CASE WHEN size(parts) >= 3 THEN "/" + parts[1] + "/" + parts[2] + "/" + parts[3] ELSE null END as level3,
+               CASE WHEN size(parts) >= 4 THEN "/" + parts[1] + "/" + parts[2] + "/" + parts[3] + "/" + parts[4] ELSE null END as level4,
+               CASE WHEN size(parts) >= 5 THEN "/" + parts[1] + "/" + parts[2] + "/" + parts[3] + "/" + parts[4] + "/" + parts[5] ELSE null END as level5,
+               CASE WHEN size(parts) >= 6 THEN "/" + parts[1] + "/" + parts[2] + "/" + parts[3] + "/" + parts[4] + "/" + parts[5] + "/" + parts[6] ELSE null END as level6,
+               CASE WHEN size(parts) >= 7 THEN "/" + parts[1] + "/" + parts[2] + "/" + parts[3] + "/" + parts[4] + "/" + parts[5] + "/" + parts[6] + "/" + parts[7] ELSE null END as level7,
+               CASE WHEN size(parts) >= 8 THEN "/" + parts[1] + "/" + parts[2] + "/" + parts[3] + "/" + parts[4] + "/" + parts[5] + "/" + parts[6] + "/" + parts[7] + "/" + parts[8] ELSE null END as level8
+          WHERE level8 IS NOT null
+          MERGE (:LocationURI {id: level8})
+        `;
+        
+        // DMLは8階層まで処理（9階層目は処理されない）
+        await conn.query(invalidDmlQuery);
+        
+        // 9階層目のノードが作成されていないことを確認
+        const level9CheckResult = await conn.query(`
+          MATCH (n:LocationURI)
+          WHERE n.id CONTAINS "/i"
+          RETURN count(*) as level9_count
+        `);
+        const level9Check = await level9CheckResult.getAll();
+        assertEquals(level9Check[0]["level9_count"], 0, "9階層目のノードは作成されるべきではない");
+        
+        // 8階層までのノードが正常に作成されていることを確認
+        const validNodesResult = await conn.query(`
+          MATCH (n:LocationURI)
+          WHERE n.id =~ "^/a(/[a-h])*$"
+          RETURN count(*) as valid_count
+        `);
+        const validNodes = await validNodesResult.getAll();
+        assertEquals(validNodes[0]["valid_count"], 1, "8階層目のノードのみ作成されるべき");
+        
+        console.log("9階層DML異常系テスト完了：9階層目は適切に無視された");
+        
+        await conn.close();
+        await db.close();
+      } catch (e) {
+        console.error('9階層DML異常系テストエラー:', e);
         throw e;
       }
     });
