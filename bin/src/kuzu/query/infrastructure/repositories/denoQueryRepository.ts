@@ -316,7 +316,7 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
 
   describe("KuzuDB直接クエリテスト", () => {
     it("インメモリKuzuDBでの基本動作確認", async () => {
-      const kuzu = await import("npm:kuzu@0.9.0");
+      const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
@@ -338,7 +338,7 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
     });
     
     it("JSON拡張機能の動作確認", async () => {
-      const kuzu = await import("npm:kuzu@0.9.0");
+      const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
@@ -377,7 +377,7 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
   
   describe("URI制約検証DQLクエリテスト", () => {
     it("有効なURIパターンのマッチング", async () => {
-      const kuzu = await import("npm:kuzu@0.9.0");
+      const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
@@ -408,7 +408,7 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
     });
     
     it("無効なURIパターンの検出", async () => {
-      const kuzu = await import("npm:kuzu@0.9.0");
+      const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
@@ -441,7 +441,7 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
     });
     
     it("エッジケースと境界値", async () => {
-      const kuzu = await import("npm:kuzu@0.9.0");
+      const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
@@ -487,7 +487,7 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
     });
     
     it("厳密なプロジェクト名検証（英数字とハイフン、アンダースコアのみ）", async () => {
-      const kuzu = await import("npm:kuzu@0.9.0");
+      const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
@@ -520,7 +520,7 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
     });
     
     it("空のテーブルでの動作確認", async () => {
-      const kuzu = await import("npm:kuzu@0.9.0");
+      const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
@@ -548,7 +548,7 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
 
   describe("多粒度モデル階層パス計算テスト", () => {
     it("nameベースDMLとフルパス計算DQLの統合テスト", async () => {
-      const kuzu = await import("npm:kuzu@0.9.0");
+      const kuzu = await import("npm:kuzu");
       const db = new kuzu.Database(":memory:");
       const conn = new kuzu.Connection(db);
       
