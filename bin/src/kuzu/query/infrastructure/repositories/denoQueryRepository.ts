@@ -531,4 +531,48 @@ LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib"
       }
     });
   });
+
+  describe("多粒度モデル階層パス計算テスト", () => {
+    it("nameベースDMLとフルパス計算DQLの統合テスト", async () => {
+      const kuzu = await import("npm:kuzu@0.9.0");
+      const db = new kuzu.Database(":memory:");
+      const conn = new kuzu.Connection(db);
+      
+      try {
+        // DML: 多粒度モデル作成（name属性のみ）
+        const dmlQueryResult = await getQuery("create_hierarchy_test_data");
+        assert(dmlQueryResult.success, "DMLクエリファイルが読み込めるべき");
+        
+        await conn.query(dmlQueryResult.data!);
+        console.log("多粒度モデル作成完了");
+        
+        // DQL: パス計算クエリ実行
+        const dqlQueryResult = await getQuery("calculate_hierarchy_path");
+        assert(dqlQueryResult.success, "DQLクエリファイルが読み込めるべき");
+        
+        const parameterizedQuery = buildParameterizedQuery(dqlQueryResult.data!, {
+          leafName: "user-credential-validation"
+        });
+        
+        const result = await conn.query(parameterizedQuery);
+        const rows = await result.getAll();
+        
+        // 結果検証
+        assertEquals(rows.length, 1, "パス計算結果は1件であるべき");
+        assertEquals(
+          rows[0]["full_path"], 
+          "/srs/functions/authentication/user-credential-validation/",
+          "計算されたフルパスが期待値と一致すべき"
+        );
+        
+        console.log("計算されたフルパス:", rows[0]["full_path"]);
+        
+        await conn.close();
+        await db.close();
+      } catch (e) {
+        console.error('多粒度モデルテストエラー:', e);
+        throw e;
+      }
+    });
+  });
 }
