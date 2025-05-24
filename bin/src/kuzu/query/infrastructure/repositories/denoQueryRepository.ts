@@ -40,11 +40,13 @@ export async function findQueryFile(queryName: string): Promise<[boolean, string
   const searchPaths = [
     // 1. DMLディレクトリ内
     join(DML_DIR, `${queryName}${CYPHER_EXTENSION}`),
-    // 2. DQLディレクトリ内
+    // 2. DMLテストディレクトリ内
+    join(DML_DIR, "test", `${queryName}${CYPHER_EXTENSION}`),
+    // 3. DQLディレクトリ内
     join(DQL_DIR, `${queryName}${CYPHER_EXTENSION}`),
-    // 3. DDLディレクトリ内
+    // 4. DDLディレクトリ内
     join(DDL_DIR, `${queryName}${CYPHER_EXTENSION}`),
-    // 4. クエリディレクトリ直下（互換性のため）
+    // 5. クエリディレクトリ直下（互換性のため）
     join(QUERY_DIR, "..", `${queryName}${CYPHER_EXTENSION}`)
   ];
   
@@ -93,6 +95,18 @@ export async function getAvailableQueries(): Promise<string[]> {
   const dmlExists = await existsSync(DML_DIR);
   if (dmlExists) {
     const entries = await Deno.readDir(DML_DIR).catch(() => []);
+    for await (const entry of entries) {
+      if (entry.isFile && entry.name.endsWith(CYPHER_EXTENSION)) {
+        queryFiles.push(entry.name.replace(CYPHER_EXTENSION, ''));
+      }
+    }
+  }
+  
+  // DMLテストディレクトリを検索
+  const dmlTestDir = join(DML_DIR, "test");
+  const dmlTestExists = await existsSync(dmlTestDir);
+  if (dmlTestExists) {
+    const entries = await Deno.readDir(dmlTestDir).catch(() => []);
     for await (const entry of entries) {
       if (entry.isFile && entry.name.endsWith(CYPHER_EXTENSION)) {
         queryFiles.push(entry.name.replace(CYPHER_EXTENSION, ''));
