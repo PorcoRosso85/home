@@ -23,31 +23,54 @@ function getChangeReasonForVersion(versionId: string, previousVersionId?: string
   }
 }
 
-export async function seedDefaultData(conn: any): Promise<void> {
-  await conn.query("BEGIN TRANSACTION");
-  
-  try {
-    // === DEFAULT TEST DATA ===
-    await defaultTest(conn);
+export const createDatabaseData = {
+  async testDefault(conn: any): Promise<void> {
+    await conn.query("BEGIN TRANSACTION");
     
-    // === KUZU BROWSE PROJECT DATA (uncomment to enable) ===
-    // await kuzuBrowse(conn);
-    
-    await conn.query("COMMIT");
-    logger.debug('データベース初期化完了');
-  } catch (error) {
-    logger.error('DML実行エラー:', error);
-    
-    // エラー時はロールバック
     try {
-      await conn.query("ROLLBACK");
-      logger.debug('トランザクションをロールバックしました');
-    } catch (rollbackError) {
-      logger.error('ロールバックエラー:', rollbackError);
+      await defaultTest(conn);
+      await conn.query("COMMIT");
+      logger.debug('データベース初期化完了（testDefault）');
+    } catch (error) {
+      logger.error('DML実行エラー（testDefault）:', error);
+      
+      try {
+        await conn.query("ROLLBACK");
+        logger.debug('トランザクションをロールバックしました');
+      } catch (rollbackError) {
+        logger.error('ロールバックエラー:', rollbackError);
+      }
+      
+      throw error;
     }
+  },
+
+  async kuzuBrowse(conn: any): Promise<void> {
+    await conn.query("BEGIN TRANSACTION");
     
-    throw error;
+    try {
+      await kuzuBrowse(conn);
+      await conn.query("COMMIT");
+      logger.debug('データベース初期化完了（kuzuBrowse）');
+    } catch (error) {
+      logger.error('DML実行エラー（kuzuBrowse）:', error);
+      
+      try {
+        await conn.query("ROLLBACK");
+        logger.debug('トランザクションをロールバックしました');
+      } catch (rollbackError) {
+        logger.error('ロールバックエラー:', rollbackError);
+      }
+      
+      throw error;
+    }
   }
+};
+
+// 後方互換性のための旧関数（deprecated）
+export async function seedDefaultData(conn: any): Promise<void> {
+  logger.warn('seedDefaultData is deprecated. Use createDatabaseData.testDefault() instead.');
+  await createDatabaseData.testDefault(conn);
 }
 
 async function defaultTest(conn: any): Promise<void> {

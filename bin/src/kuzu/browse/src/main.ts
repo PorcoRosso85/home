@@ -6,7 +6,7 @@ import * as logger from '../../common/infrastructure/logger';
 import { dispatchDatabaseReady } from './infrastructure/database/databaseEvent';
 import { createConnection } from './infrastructure/repository/databaseConnection';
 import { createSchema } from './application/usecase/createSchema';
-import { seedDefaultData } from './application/usecase/seedDefaultData';
+import { createDatabaseData } from './application/usecase/seedDefaultData';
 
 // ブラウザ用にログレベルを設定
 // import.meta.env.LOG_LEVELから環境変数を読み込む（build.tsで設定）
@@ -44,7 +44,10 @@ async function initializeApp(): Promise<void> {
   await createSchema(conn);
   
   // 3. デフォルトデータ挿入
-  await seedDefaultData(conn);
+  await createDatabaseData.testDefault(conn);
+  
+  // 3. kuzuBrowseプロジェクトデータ挿入 (uncomment to enable)
+  // await createDatabaseData.kuzuBrowse(conn);
   
   // 4. database-readyイベントを発火
   dispatchDatabaseReady();
