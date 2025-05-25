@@ -6,6 +6,7 @@
 import type { QueryResult, QueryDependencies } from '../../domain/types/queryTypes';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { createHierarchySafe, createLocationHierarchy, type HierarchyData } from './transactionService';
 
 /**
  * 高階関数による汎用クエリサービス作成
@@ -100,5 +101,10 @@ export async function executeAnyTemplate(
 }
 
 // extractTemplateParams関数削除: パラメータ抽出をCypher側に移行
+
+/**
+ * トランザクション機能エクスポート
+ */
+export { createHierarchySafe, createLocationHierarchy, type HierarchyData };
 
 // validateParams関数削除: バリデーションをCypher側に移行

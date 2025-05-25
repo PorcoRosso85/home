@@ -22,6 +22,7 @@ export * from './domain/repositories/fileRepository';
 
 // Application層
 export * from './application/services/unifiedQueryService';
+export * from './application/services/transactionService';
 export * from './application/commands/executeQuery';
 export * from './application/commands/generateQueries';
 
