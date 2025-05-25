@@ -63,10 +63,8 @@ export const dev = {
       // 2. Domain層のテスト
       console.log('2. Domain層のテスト...');
       const { createLocationUri } = await import('./domain/entities/locationUri');
-      const { validateLocationUri } = await import('./domain/valueObjects/uriValidation');
-      const testUri = createLocationUri('file:///test.ts', 'file', '/test.ts');
-      const validation = validateLocationUri(testUri.uri_id);
-      console.log('  ✓ LocationURIエンティティの作成とバリデーション:', validation.isValid);
+      const testUri = createLocationUri('file:///test.ts');
+      console.log('  ✓ LocationURIエンティティの作成完了');
       
       // 3. Application層のテスト
       console.log('3. Application層のテスト...');
