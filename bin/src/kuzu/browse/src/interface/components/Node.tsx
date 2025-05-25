@@ -4,8 +4,6 @@ import type { TreeNode as TreeNodeData } from '../../domain/types';
 interface TreeNodeProps {
   node: TreeNodeData;
   onNodeClick?: (node: TreeNodeData) => void;
-  selectedVersionId?: string;
-  onRightClick?: (e: React.MouseEvent) => void;
   parentOpacity?: number; // 親からの透明度を受け取る
 }
 
@@ -13,13 +11,7 @@ interface TreeNodeProps {
  * 再帰的にツリーノードとその子要素を表示するコンポーネント
  * 親要素の重なりが子要素にも適用される実装
  */
-const TreeNode: React.FC<TreeNodeProps> = ({ 
-  node, 
-  onNodeClick, 
-  selectedVersionId, 
-  onRightClick, 
-  parentOpacity = 0 
-}) => {
+const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 0 }) => {
   const hasChildren = node.children && node.children.length > 0;
   
   // 現在の要素の透明度：親からの透明度 + 自分の透明度
@@ -54,13 +46,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({
     }
   };
 
-  // 右クリックハンドラ
-  const handleRightClick = (e: React.MouseEvent) => {
-    if (onRightClick) {
-      onRightClick(e);
-    }
-  };
-
   return (
     <div 
       style={{
@@ -73,7 +58,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         cursor: onNodeClick ? 'pointer' : 'default'
       }}
       onClick={handleClick}
-      onContextMenu={handleRightClick}
     >
       {/* コンテンツ */}
       <div style={{ position: 'relative', zIndex: 1 }}>
@@ -105,9 +89,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               key={`${child.id || index}-${index}`}
               node={child}
               parentOpacity={currentOpacity} // 親の透明度を子に渡す
-              selectedVersionId={selectedVersionId}
               onNodeClick={onNodeClick} // 子ノードにもクリックハンドラを渡す
-              onRightClick={onRightClick} // 子ノードにも右クリックハンドラを渡す
             />
           ))}
         </div>
