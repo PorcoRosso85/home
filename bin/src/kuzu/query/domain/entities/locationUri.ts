@@ -85,9 +85,11 @@ export function toQueryParams(locationUri: LocationUriEntity): Record<string, st
 }
 
 /**
- * バリデーション関数
+ * バリデーション関数（Cypher側に委譲）
+ * NOTE: 実際のバリデーションは /dql/validation/validate_location_uri.cypher で実行
  */
 export function validateLocationUri(id: string): { isValid: boolean; error?: string } {
+  // 基本的なnullチェックのみ、詳細はCypher側で処理
   if (!id || typeof id !== 'string') {
     return {
       isValid: false,
@@ -95,16 +97,5 @@ export function validateLocationUri(id: string): { isValid: boolean; error?: str
     };
   }
 
-  // 許可されたスキームの例
-  const scheme = UriUtils.getScheme(id);
-  const allowedSchemes = ['file', 'requirement', 'test', 'document', 'http', 'https'];
-  
-  if (scheme && !allowedSchemes.includes(scheme)) {
-    return {
-      isValid: false,
-      error: `Scheme '${scheme}' is not allowed. Allowed schemes: ${allowedSchemes.join(', ')}`
-    };
-  }
-
-  return { isValid: true };
+  return { isValid: true }; // Cypher側でのバリデーションに委譲
 }

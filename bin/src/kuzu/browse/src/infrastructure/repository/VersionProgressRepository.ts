@@ -262,47 +262,8 @@ export function createVersionProgressRepository(): VersionProgressRepository {
     totalLocations: number;
     completedLocations: number;
   }> | {code: string; message: string}> {
-    // 全バージョンを取得
-    const versionsResult = await executeDQLQuery(dbConnection, 'get_all_versions', {});
-    
-    if (!versionsResult.success || !versionsResult.data) {
-      return {code: "VERSIONS_ERROR", message: `Failed to get all versions: ${versionsResult.error}`};
-    }
-    
-    logger.debug('Raw versionsResult:', versionsResult);
-    
-    const versions = await versionsResult.data.getAllObjects();
-    logger.debug('versions after getAllObjects:', versions);
-    
-    if (versions.length === 0) {
-      return {code: "NO_VERSIONS", message: 'No versions found'};
-    }
-    
-    logger.debug('First version object keys:', Object.keys(versions[0]));
-    
-    const results = [];
-    
-    // 各バージョンの進捗率を再取得（progress_percentageベース）
-    for (const version of versions) {
-      logger.debug('Processing version:', version);
-      const versionId = version.version_id;
-      const previousProgress = Number(version.progress_percentage);
-      const progressResult = await calculateVersionProgress(dbConnection, versionId);
-      
-      if ('code' in progressResult) {
-        continue; // エラーの場合はスキップ
-      }
-      
-      results.push({
-        versionId,
-        previousProgress,
-        newProgress: progressResult.progressPercentage,
-        totalLocations: progressResult.totalLocations,
-        completedLocations: progressResult.completedLocations
-      });
-    }
-    
-    return results;
+    // TODO: 将来このAPIを使用する際にlist_versions_allを使用するよう修正必要
+    return {code: "NOT_IMPLEMENTED", message: 'recalculateAllVersionProgress is not yet implemented. Use list_versions_all when needed.'};
   }
 
   return {
