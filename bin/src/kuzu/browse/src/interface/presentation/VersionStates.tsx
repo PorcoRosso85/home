@@ -11,6 +11,7 @@ interface VersionStatesProps {
   loading: boolean;
   error: string | null;
   onVersionClick: (versionId: string) => void;
+  onRightClick: (e: React.MouseEvent) => void;
   // LocationURI統合用props
   locationTreeData: TreeNode[];
   locationLoading: boolean;
@@ -26,6 +27,7 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
   loading,
   error,
   onVersionClick,
+  onRightClick,
   locationTreeData,
   locationLoading,
   locationError
@@ -87,23 +89,27 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
   // LocationURIのエラーメッセージも表示
   if (locationError) {
     return (
-      <div>
+      <div onContextMenu={onRightClick}>
         <div style={{ color: 'red', marginBottom: '10px', padding: '10px', border: '1px solid #f00', borderRadius: '4px' }}>
           LocationURI読み込みエラー: {locationError}
         </div>
         <TreeView 
           treeData={versionTree}
           onNodeClick={handleVersionNodeClick}
+          selectedVersionId={selectedVersionId}
+          onRightClick={onRightClick}
         />
       </div>
     );
   }
 
   return (
-    <div>
+    <div onContextMenu={onRightClick}>
       <TreeView 
         treeData={versionTree}
         onNodeClick={handleVersionNodeClick}
+        selectedVersionId={selectedVersionId}
+        onRightClick={onRightClick}
       />
       {/* LocationURIロード中の表示 */}
       {locationLoading && selectedVersionId && (
