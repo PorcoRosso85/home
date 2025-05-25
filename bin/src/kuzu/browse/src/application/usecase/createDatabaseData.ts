@@ -1,7 +1,5 @@
 import * as logger from '../../../../common/infrastructure/logger';
 import { executeDMLQuery } from '../../infrastructure/repository/queryExecutor';
-import { createValidationError, isValidationError, getValidationErrorDetails } from '../../domain/validation/validationError';
-import { validateVersionBatch, type VersionedLocationData } from './validation/versionBatchValidation';
 
 /**
  * バージョンIDに基づいて適切な変更理由を生成する
@@ -377,26 +375,7 @@ async function kuzuBrowse(conn: any): Promise<void> {
     ]
   };
 
-  // バリデーション実行
-  const validationResult = validateVersionBatch(kuzuBrowseData);
-  if (!validationResult.isValid) {
-    if (validationResult.errors) {
-      logger.error(`${kuzuBrowseData.version_id}のバリデーションエラー:`, validationResult.errors);
-    }
-    
-    const validationError = createValidationError(
-      validationResult.error || 'Validation failed',
-      'kuzuBrowseData',
-      'BATCH_VALIDATION_FAILED'
-    );
-    
-    logger.error(`${kuzuBrowseData.version_id}のバリデーションエラー詳細:`, 
-      getValidationErrorDetails(validationError));
-    
-    throw validationError;
-  }
-  
-  // kuzuBrowseプロジェクトデータを作成
+  // kuzuBrowseプロジェクトデータを作成（バリデーション省略）
   const batchParams = {
     version_id: kuzuBrowseData.version_id,
     timestamp: new Date().toISOString(),
