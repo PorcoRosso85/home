@@ -26,6 +26,9 @@ function getChangeReasonForVersion(versionId: string, previousVersionId?: string
 export async function seedDefaultData(conn: any): Promise<void> {
   logger.debug('DML実行中（4バージョン分のデータ）...');
   
+  // 手動トランザクション開始
+  await conn.query("BEGIN TRANSACTION");
+  
   try {
     // v1.0.0のバージョンデータ
     // REFACTORED: 新しい最小化LocationURIスキーマに対応
@@ -230,9 +233,21 @@ export async function seedDefaultData(conn: any): Promise<void> {
     await locationCheckResult.close();
     await relationshipCheckResult.close();
     
+    // 全て成功したらコミット
+    await conn.query("COMMIT");
+    
     logger.debug('データベース初期化完了（4バージョン分のデータ挿入完了）');
   } catch (error) {
     logger.error('DML実行エラー:', error);
+    
+    // エラー時はロールバック
+    try {
+      await conn.query("ROLLBACK");
+      logger.debug('トランザクションをロールバックしました');
+    } catch (rollbackError) {
+      logger.error('ロールバックエラー:', rollbackError);
+    }
+    
     throw error;
   }
 }

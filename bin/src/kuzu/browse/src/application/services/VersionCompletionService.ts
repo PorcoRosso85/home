@@ -42,27 +42,6 @@ export type StatisticsData {
 
 export function createVersionCompletionService(repository: VersionProgressRepository) {
   /**
-   * LocationURIの完了状態を切り替える
-   */
-  async function toggleLocationCompletion(
-    dbConnection: any,
-    uriId: string,
-    completed: boolean
-  ): Promise<void> {
-    await repository.markLocationUriCompleted(dbConnection, uriId, completed);
-  }
-
-  /**
-   * 複数LocationURIの完了状態を一括更新
-   */
-  async function batchUpdateLocationCompletion(
-    dbConnection: any,
-    updates: Array<{ uriId: string; completed: boolean }>
-  ): Promise<void> {
-    await repository.batchUpdateLocationUriCompletion(dbConnection, updates);
-  }
-
-  /**
    * 指定バージョンの進捗率を計算・更新
    */
   async function calculateAndUpdateVersionProgress(
@@ -114,13 +93,21 @@ export function createVersionCompletionService(repository: VersionProgressReposi
   }
 
   /**
-   * 指定バージョンの未完了LocationURI一覧を取得
+   * 指定バージョンのLocationURI一覧を取得
    */
   async function getIncompleteLocationUris(
     dbConnection: any,
     versionId: string
   ): Promise<LocationUriEntity[]> {
-    return await repository.getIncompleteLocationUris(dbConnection, versionId);
+    const result = await repository.getLocationUrisByVersion(dbConnection, versionId);
+    
+    // エラーの場合は空配列を返す
+    if ('code' in result) {
+      logger.error(`Failed to get LocationURIs for version ${versionId}:`, result.message);
+      return [];
+    }
+    
+    return result;
   }
 
   /**
@@ -128,45 +115,6 @@ export function createVersionCompletionService(repository: VersionProgressReposi
    */
   async function getStatistics(dbConnection: any): Promise<StatisticsData> {
     return await repository.getCompletionStatistics(dbConnection);
-  }
-
-  /**
-   * バージョンとLocationUriの状態を一括処理
-   * @returns 処理結果の詳細
-   */
-  async function processVersionWithLocationUpdates(
-    dbConnection: any,
-    versionId: string,
-    locationUpdates: Array<{ uriId: string; completed: boolean }>
-  ): Promise<{
-    versionCompletion: VersionCompletion;
-    processingDetails: {
-      updatedLocations: number;
-      totalLocations: number;
-      completedLocations: number;
-      previousProgress: number;
-      newProgress: number;
-    };
-  }> {
-    // 現在の状態を取得
-    const beforeCompletion = await getVersionCompletionDetails(dbConnection, versionId);
-    
-    // 一括処理を実行
-    const result = await repository.processVersionProgress(dbConnection, versionId, locationUpdates);
-    
-    // 更新後の状態を取得
-    const afterCompletion = await getVersionCompletionDetails(dbConnection, versionId);
-    
-    return {
-      versionCompletion: afterCompletion,
-      processingDetails: {
-        updatedLocations: result.updatedLocations,
-        totalLocations: result.totalLocations,
-        completedLocations: result.completedLocations,
-        previousProgress: beforeCompletion.progressPercentage,
-        newProgress: result.progressPercentage
-      }
-    };
   }
 
   /**
@@ -294,15 +242,12 @@ export function createVersionCompletionService(repository: VersionProgressReposi
   }
 
   return {
-    toggleLocationCompletion,
-    batchUpdateLocationCompletion,
     calculateAndUpdateVersionProgress,
     setVersionProgress,
     getCompletionSummary,
     getVersionCompletionDetails,
     getIncompleteLocationUris,
     getStatistics,
-    processVersionWithLocationUpdates,
     recalculateAllProgress,
     analyzeVersionProgress,
     generateProgressReport
