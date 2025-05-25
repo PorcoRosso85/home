@@ -1,57 +1,14 @@
 import { useState, useEffect } from 'react';
 import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
-import { VersionState, TreeNode } from '../../domain/types';
+import { TreeNode } from '../../domain/types';
 import * as logger from '../../../../common/infrastructure/logger';
 import { createVersionCompletionService } from '../services/VersionCompletionService';
 import { createVersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
 
-export const useVersionData = (dbConnection: any | null) => {
-  const [versions, setVersions] = useState<VersionState[]>([]);
-  const [selectedVersionId, setSelectedVersionId] = useState<string>('');
+export const useLocationUris = (dbConnection: any | null, selectedVersionId: string) => {
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // 全バージョンを取得
-  useEffect(() => {
-    const fetchVersions = async () => {
-      if (!dbConnection) {
-        logger.debug('dbConnectionがnullのため、バージョン取得をスキップ');
-        return;
-      }
-
-      setLoading(true);
-      logger.debug('バージョン一覧の取得を開始');
-      const result = await executeDQLQuery(dbConnection, 'list_versions_all', {});
-      logger.debug('クエリ実行結果:', result);
-      
-      const queryResult = await result.data.getAllObjects();
-      logger.debug('getAllObjects結果:', queryResult);
-      
-      const versionList: VersionState[] = queryResult.map(row => ({
-        id: row.version_id,
-        timestamp: row.timestamp,
-        description: row.description,
-        change_reason: row.change_reason
-      }));
-      
-      logger.debug('変換後のバージョンリスト:', versionList);
-      setVersions(versionList);
-      
-      // 最新バージョンを自動選択
-      if (versionList.length > 0) {
-        const defaultVersion = versionList[versionList.length - 1].id;
-        logger.debug('デフォルトバージョンを設定:', defaultVersion);
-        setSelectedVersionId(defaultVersion);
-      } else {
-        logger.debug('バージョンが見つかりません');
-      }
-      
-      setLoading(false);
-    };
-
-    fetchVersions();
-  }, [dbConnection]);
 
   // 選択されたバージョンのツリーデータを取得
   useEffect(() => {
@@ -60,54 +17,62 @@ export const useVersionData = (dbConnection: any | null) => {
       
       setLoading(true);
       
-      // 指定バージョン以前の各URIの最新状態を取得
-      const result = await executeDQLQuery(dbConnection, 'list_uris_cumulative', { 
-        version_id: selectedVersionId 
-      });
-      
-      const queryResult = await result.data.getAllObjects();
-      
-      // LocationURIデータをツリー構造に変換
-      const locationUris = queryResult.map(row => ({
-        uri_id: row.uri_id,
-        scheme: row.scheme,
-        authority: row.authority || '',
-        path: row.path,
-        fragment: row.fragment || '',
-        query: row.query || '',
-        from_version: row.from_version,
-        version_description: row.version_description
-      }));
-      
-      // 完了状態を取得
-      const repository = createVersionProgressRepository();
-      const versionService = createVersionCompletionService(repository);
-      
-      // 完了状態を取得（規約準拠版）
-      const incompleteUrisResult = await getIncompleteUrisSafely(
-        versionService, 
-        dbConnection, 
-        selectedVersionId
-      );
-      
-      let locationUrisWithCompletion;
-      if (incompleteUrisResult.status === "success") {
-        const incompleteUriIds = new Set(incompleteUrisResult.data.map(uri => uri.uri_id));
+      try {
+        // 指定バージョン以前の各URIの最新状態を取得
+        const result = await executeDQLQuery(dbConnection, 'list_uris_cumulative', { 
+          version_id: selectedVersionId 
+        });
         
-        // LocationURIに完了状態を追加
-        locationUrisWithCompletion = locationUris.map(uri => ({
-          ...uri,
-          isCompleted: !incompleteUriIds.has(uri.uri_id)
+        const queryResult = await result.data.getAllObjects();
+        
+        // LocationURIデータをツリー構造に変換
+        const locationUris = queryResult.map(row => ({
+          uri_id: row.uri_id || row.id,
+          scheme: row.scheme || '',
+          authority: row.authority || '',
+          path: row.path || '',
+          fragment: row.fragment || '',
+          query: row.query || '',
+          from_version: row.from_version,
+          version_description: row.version_description
         }));
-      } else {
-        logger.debug('完了状態の取得に失敗:', incompleteUrisResult.message);
-        // エラーが発生した場合は完了状態なしでツリーを構築
-        locationUrisWithCompletion = locationUris;
+        
+        // 完了状態を取得
+        const repository = createVersionProgressRepository();
+        const versionService = createVersionCompletionService(repository);
+        
+        // 完了状態を取得（規約準拠版）
+        const incompleteUrisResult = await getIncompleteUrisSafely(
+          versionService, 
+          dbConnection, 
+          selectedVersionId
+        );
+        
+        let locationUrisWithCompletion;
+        if (incompleteUrisResult.status === "success") {
+          const incompleteUriIds = new Set(incompleteUrisResult.data.map(uri => uri.uri_id));
+          
+          // LocationURIに完了状態を追加
+          locationUrisWithCompletion = locationUris.map(uri => ({
+            ...uri,
+            isCompleted: !incompleteUriIds.has(uri.uri_id)
+          }));
+        } else {
+          logger.debug('完了状態の取得に失敗:', incompleteUrisResult.message);
+          // エラーが発生した場合は完了状態なしでツリーを構築
+          locationUrisWithCompletion = locationUris;
+        }
+        
+        // 階層構造変換（パスベース）
+        const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUrisWithCompletion, selectedVersionId);
+        setTreeData(treeNodes);
+        
+        setError(null);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '不明なエラー';
+        setError(`ツリーデータ取得でエラーが発生しました: ${errorMessage}`);
+        logger.error('ツリーデータ取得エラー:', err);
       }
-      
-      // 階層構造変換（パスベース）
-      const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUrisWithCompletion, selectedVersionId);
-      setTreeData(treeNodes);
       
       setLoading(false);
     };
@@ -116,9 +81,6 @@ export const useVersionData = (dbConnection: any | null) => {
   }, [dbConnection, selectedVersionId]);
 
   return {
-    versions,
-    selectedVersionId,
-    setSelectedVersionId,
     treeData,
     loading,
     error
@@ -152,10 +114,11 @@ function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: stri
   
   // スキーム別にグループ化
   const schemeGroups = locationUris.reduce((acc, uri) => {
-    if (!acc[uri.scheme]) {
-      acc[uri.scheme] = [];
+    const scheme = uri.scheme || parseSchemeFromUriId(uri.uri_id);
+    if (!acc[scheme]) {
+      acc[scheme] = [];
     }
-    acc[uri.scheme].push(uri);
+    acc[scheme].push(uri);
     return acc;
   }, {});
 
@@ -191,6 +154,12 @@ function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: stri
   return tree;
 }
 
+// URI IDからスキームを解析
+function parseSchemeFromUriId(uriId: string): string {
+  const schemeMatch = uriId.match(/^([^:]+):/);
+  return schemeMatch ? schemeMatch[1] : 'unknown';
+}
+
 // ファイル階層を構築する関数
 function buildFileHierarchy(rootNode: TreeNode, uris: any[], selectedVersionId?: string) {
   const pathMap = new Map<string, TreeNode>();
@@ -199,10 +168,15 @@ function buildFileHierarchy(rootNode: TreeNode, uris: any[], selectedVersionId?:
   pathMap.set('/', rootNode);
   
   // パスをソートして親から順に処理
-  const sortedUris = uris.sort((a, b) => a.path.localeCompare(b.path));
+  const sortedUris = uris.sort((a, b) => {
+    const pathA = a.path || parsePathFromUriId(a.uri_id);
+    const pathB = b.path || parsePathFromUriId(b.uri_id);
+    return pathA.localeCompare(pathB);
+  });
   
   sortedUris.forEach(uri => {
-    const pathParts = uri.path.split('/').filter(part => part !== '');
+    const path = uri.path || parsePathFromUriId(uri.uri_id);
+    const pathParts = path.split('/').filter(part => part !== '');
     let currentPath = '';
     let parentNode = rootNode;
     
@@ -237,4 +211,19 @@ function buildFileHierarchy(rootNode: TreeNode, uris: any[], selectedVersionId?:
       parentNode = currentNode;
     }
   });
+}
+
+// URI IDからパスを解析
+function parsePathFromUriId(uriId: string): string {
+  try {
+    if (uriId.includes('://')) {
+      const url = new URL(uriId);
+      return url.pathname;
+    } else if (uriId.startsWith('file:')) {
+      return uriId.replace('file:', '');
+    }
+    return uriId;
+  } catch {
+    return uriId;
+  }
 }

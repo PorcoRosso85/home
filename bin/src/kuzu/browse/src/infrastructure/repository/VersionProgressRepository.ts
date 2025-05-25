@@ -9,7 +9,7 @@ import type { VersionStateEntity, CompletionStatus } from '../../../../query/dom
 import { executeDMLQuery, executeDQLQuery } from './queryExecutor';
 import * as logger from '../../../../common/infrastructure/logger';
 
-export type VersionProgressRepository {
+export type VersionProgressRepository = {
   updateVersionProgress(dbConnection: any, versionId: string, progressPercentage: number): Promise<{success: boolean; error?: string}>;
   calculateVersionProgress(dbConnection: any, versionId: string): Promise<{
     versionId: string;

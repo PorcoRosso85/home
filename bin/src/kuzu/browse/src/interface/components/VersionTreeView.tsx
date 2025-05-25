@@ -4,20 +4,32 @@
 import React, { useState } from 'react';
 import { TreeView } from './TreeView';
 import type { TreeNode } from '../../domain/types';
-import { useVersionTreeData } from '../../application/hooks/useVersionTreeData';
-import { useLocationUriTree } from '../../application/hooks/useLocationUriTree';
+import { useVersionStates } from '../../application/hooks/useVersionStates';
+import { useLocationUris } from '../../application/hooks/useLocationUris';
 import { useDatabaseConnection } from '../../infrastructure/database/useDatabaseConnection';
 
 /**
  * バージョンとLocationURIのネストされたツリーを表示するコンポーネント
  */
 export const VersionTreeView: React.FC = () => {
-  const { isConnected, error: connectionError } = useDatabaseConnection();
-  const { versionTree, loading: loadingVersions, error: versionError } = useVersionTreeData();
+  const { isConnected, error: connectionError, dbConnection } = useDatabaseConnection();
+  
+  // バージョン管理用Hook
+  const { 
+    versions, 
+    loading: loadingVersions, 
+    error: versionError 
+  } = useVersionStates(dbConnection);
+  
   // 選択されたバージョンのIDを状態として保持
   const [selectedVersionId, setSelectedVersionId] = useState<string>('');
-  // 選択されたバージョンのLocationURIツリーを取得
-  const { locationTree, loading: loadingLocations, error: locationError } = useLocationUriTree(selectedVersionId);
+  
+  // LocationURI取得用Hook（選択されたバージョンのみ）
+  const { 
+    treeData, 
+    loading: loadingLocations, 
+    error: locationError 
+  } = useLocationUris(dbConnection, selectedVersionId);
 
   // バージョンノードがクリックされたときのハンドラ
   const handleVersionNodeClick = (node: TreeNode) => {
@@ -26,6 +38,16 @@ export const VersionTreeView: React.FC = () => {
       console.log(`Version ${node.id} selected`);
     }
   };
+
+  // バージョン一覧をツリー形式に変換
+  const versionTree: TreeNode[] = versions.map(version => ({
+    id: version.id,
+    name: `${version.id} - ${version.description}`,
+    nodeType: 'version',
+    children: [],
+    from_version: version.id,
+    isCurrentVersion: version.id === selectedVersionId
+  }));
 
   // バージョンツリーとLocationURIツリーを結合する
   const combineTreeData = (versions: TreeNode[], locations: TreeNode[], selectedId: string): TreeNode[] => {
@@ -52,7 +74,7 @@ export const VersionTreeView: React.FC = () => {
 
   // 結合されたツリーデータ
   const combinedTreeData = selectedVersionId 
-    ? combineTreeData(versionTree, locationTree, selectedVersionId)
+    ? combineTreeData(versionTree, treeData, selectedVersionId)
     : versionTree;
 
   // データベース接続エラーの表示
