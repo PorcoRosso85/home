@@ -76,13 +76,13 @@ export function createAutoTemplateScanner() {
         for (const file of dmlFiles) {
           const templateName = file.replace('.cypher', '');
           const content = readFileSync(join(dmlDir, file), 'utf-8');
-          const params = extractTemplateParams(content);
+          // パラメータ抽出削除: Cypher側で処理
           
           registry.dml[templateName] = {
             name: templateName,
             type: 'dml',
             path: join(dmlDir, file),
-            params,
+            params: [], // 空配列: パラメータはCypher側で管理
             content
           };
           registry.all.push(templateName);
@@ -95,13 +95,13 @@ export function createAutoTemplateScanner() {
         for (const file of dqlFiles) {
           const templateName = file.replace('.cypher', '');
           const content = readFileSync(join(dqlDir, file), 'utf-8');
-          const params = extractTemplateParams(content);
+          // パラメータ抽出削除: Cypher側で処理
           
           registry.dql[templateName] = {
             name: templateName,
             type: 'dql',
             path: join(dqlDir, file),
-            params,
+            params: [], // 空配列: パラメータはCypher側で管理
             content
           };
           registry.all.push(templateName);
@@ -124,10 +124,11 @@ export function createAutoTemplateScanner() {
     },
 
     /**
-     * パラメータ自動抽出
+     * パラメータ自動抽出（削除済み）
+     * NOTE: パラメータ管理はCypher側に移行
      */
     extractParams: (templateContent: string): string[] => {
-      return extractTemplateParams(templateContent);
+      return []; // パラメータ抽出機能を削除
     }
   };
 }
@@ -149,19 +150,4 @@ export type TemplateInfo {
   content: string;
 }
 
-/**
- * テンプレートからパラメータを自動抽出（ヘルパー関数）
- */
-function extractTemplateParams(templateContent: string): string[] {
-  const paramRegex = /\$(\w+)/g;
-  const params: string[] = [];
-  let match;
-  
-  while ((match = paramRegex.exec(templateContent)) !== null) {
-    if (!params.includes(match[1])) {
-      params.push(match[1]);
-    }
-  }
-  
-  return params;
-}
+// extractTemplateParams関数削除: パラメータ抽出をCypher側に移行

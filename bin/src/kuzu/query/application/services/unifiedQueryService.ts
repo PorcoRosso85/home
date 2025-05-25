@@ -21,9 +21,9 @@ export async function executeDml(
   
   if (templateType !== 'dml') {
     return {
-      status: "template_not_found",
-      templateName,
-      message: `DML template '${templateName}' not found`
+      success: false,
+      error: `DML template '${templateName}' not found`,
+      templateName
     };
   }
 
@@ -43,9 +43,9 @@ export async function executeDql(
   
   if (templateType !== 'dql') {
     return {
-      status: "template_not_found", 
-      templateName,
-      message: `DQL template '${templateName}' not found`
+      success: false,
+      error: `DQL template '${templateName}' not found`,
+      templateName
     };
   }
 

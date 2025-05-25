@@ -1,38 +1,27 @@
 /**
- * 汎用クエリ実行システムの型定義
- * 規約準拠: type定義優先、Tagged Union、汎用記述方式
+ * 簡素化されたクエリ実行システムの型定義
+ * 規約準拠: type定義優先、Tagged Union（簡素版）、汎用記述方式
  */
 
-// 基本的な成功・エラー型（Tagged Union）
+// 成功型
 type QuerySuccess = {
-  status: "success";
+  success: true;
   data: any;
+  templateType?: string;
 };
 
-type ValidationError = {
-  status: "validation_error";
-  field: string;
-  message: string;
-  details?: any;
+// エラー型（統一）
+type QueryError = {
+  success: false;
+  error: string;
+  code?: string;
+  templateName?: string;
 };
 
-type ExecutionError = {
-  status: "execution_error";
-  code: string;
-  message: string;
-  query?: string;
-};
+// 共用体型（簡素化版）
+export type QueryResult = QuerySuccess | QueryError;
 
-type TemplateNotFoundError = {
-  status: "template_not_found";
-  templateName: string;
-  message: string;
-};
-
-// 共用体型（汎用記述方式）
-export type QueryResult = QuerySuccess | ValidationError | ExecutionError | TemplateNotFoundError;
-
-// 依存性注入用の型定義
+// 依存性注入用の型定義（保持）
 export type QueryDependencies = {
   repository: {
     executeQuery: (connection: any, queryName: string, params: any) => Promise<any>;
@@ -60,10 +49,11 @@ export type TemplateScannerDependencies = {
   };
 };
 
-// パターンマッチ用のヘルパー型
-export type ResultMatcher<T> = {
-  success: (data: any) => T;
-  validation_error: (error: ValidationError) => T;
-  execution_error: (error: ExecutionError) => T;
-  template_not_found: (error: TemplateNotFoundError) => T;
-};
+// パターンマッチ用ヘルパー関数（規約準拠）
+export function isError(result: QueryResult): result is QueryError {
+  return !result.success;
+}
+
+export function isSuccess(result: QueryResult): result is QuerySuccess {
+  return result.success;
+}

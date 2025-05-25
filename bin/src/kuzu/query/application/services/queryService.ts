@@ -63,104 +63,42 @@ export async function executeAnyTemplate(
     // 1. DMLディレクトリで検索
     const dmlPath = join(process.cwd(), 'dml', `${templateName}.cypher`);
     if (existsSync(dmlPath)) {
-      const template = readFileSync(dmlPath, 'utf-8');
-      const extractedParams = extractTemplateParams(template);
-      
-      // パラメータ検証
-      const validation = validateParams(params, extractedParams);
-      if (!validation.isValid) {
-        return {
-          status: "validation_error",
-          code: "INVALID_PARAMS",
-          message: `Invalid parameters: ${validation.errors.join(', ')}`,
-          templateName
-        };
-      }
-
       // DMLリポジトリで実行
       const { createQueryRepository } = await import('../../infrastructure/factories/repositoryFactory');
       const repository = await createQueryRepository();
       const result = await repository.executeDmlQuery(connection, templateName, params);
       
-      return { status: "success", data: result, templateType: "dml" };
+      return { success: true, data: result, templateType: "dml" };
     }
 
     // 2. DQLディレクトリで検索  
     const dqlPath = join(process.cwd(), 'dql', `${templateName}.cypher`);
     if (existsSync(dqlPath)) {
-      const template = readFileSync(dqlPath, 'utf-8');
-      const extractedParams = extractTemplateParams(template);
-      
-      // パラメータ検証
-      const validation = validateParams(params, extractedParams);
-      if (!validation.isValid) {
-        return {
-          status: "validation_error", 
-          code: "INVALID_PARAMS",
-          message: `Invalid parameters: ${validation.errors.join(', ')}`,
-          templateName
-        };
-      }
-
       // DQLリポジトリで実行
       const { createQueryRepository } = await import('../../infrastructure/factories/repositoryFactory');
       const repository = await createQueryRepository();
       const result = await repository.executeDqlQuery(connection, templateName, params);
       
-      return { status: "success", data: result, templateType: "dql" };
+      return { success: true, data: result, templateType: "dql" };
     }
 
     // 3. テンプレートが見つからない場合
     return {
-      status: "template_not_found",
-      templateName,
-      message: `Template '${templateName}' not found in dml/ or dql/ directories`
+      success: false,
+      error: `Template '${templateName}' not found in dml/ or dql/ directories`,
+      templateName
     };
 
     } catch (error: any) {
       return {
-        status: "execution_error",
-        code: "EXECUTION_FAILED", 
-        message: error?.message || "Unknown execution error",
-        query: templateName
+        success: false,
+        error: error?.message || "Unknown execution error",
+        code: "EXECUTION_ERROR",
+        templateName
       };
     }
 }
 
-/**
- * テンプレートからパラメータを自動抽出
- */
-function extractTemplateParams(templateContent: string): string[] {
-  const paramRegex = /\$(\w+)/g;
-  const params: string[] = [];
-  let match;
-  
-  while ((match = paramRegex.exec(templateContent)) !== null) {
-    if (!params.includes(match[1])) {
-      params.push(match[1]);
-    }
-  }
-  
-  return params;
-}
+// extractTemplateParams関数削除: パラメータ抽出をCypher側に移行
 
-/**
- * パラメータ検証
- */
-function validateParams(
-  provided: Record<string, any>,
-  required: string[]
-): { isValid: boolean; errors: string[] } {
-  const errors: string[] = [];
-  
-  for (const param of required) {
-    if (!(param in provided)) {
-      errors.push(`Missing required parameter: ${param}`);
-    }
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
-}
+// validateParams関数削除: バリデーションをCypher側に移行
