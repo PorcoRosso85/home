@@ -44,10 +44,10 @@ async function initializeApp(): Promise<void> {
   await createSchema(conn);
   
   // 3. デフォルトデータ挿入
-  await createDatabaseData.testDefault(conn);
+  // await createDatabaseData.testDefault(conn);
   
-  // 3. kuzuBrowseプロジェクトデータ挿入 (uncomment to enable)
-  // await createDatabaseData.kuzuBrowse(conn);
+  // 3. kuzuBrowseプロジェクトデータ挿入
+  await createDatabaseData.kuzuBrowse(conn);
   
   // 4. database-readyイベントを発火
   dispatchDatabaseReady();

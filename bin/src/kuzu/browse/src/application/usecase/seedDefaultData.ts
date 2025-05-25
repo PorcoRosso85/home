@@ -266,8 +266,205 @@ async function defaultTest(conn: any): Promise<void> {
 async function kuzuBrowse(conn: any): Promise<void> {
   logger.debug('kuzuBrowse: プロジェクトデータの作成中...');
   
-  // TODO: kuzuBrowseプロジェクトのDMLデータを実装
-  // この関数にkuzuBrowseプロジェクトの実際のファイル構造とバージョンデータを追加する
+  // v0.1.0のkuzuBrowseプロジェクトデータ
+  const kuzuBrowseData: VersionedLocationData = {
+    version_id: 'v0.1.0',
+    location_uris: [
+      // プロジェクトルート
+      { id: 'file:///home/nixos/bin/src/kuzu/browse' },
+      
+      // 設定ファイル
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/build.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/deno.json' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/mod.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/index.html' },
+      
+      // ドキュメント
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/CONVENTION.md' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/TODO.md' },
+      
+      // publicディレクトリ
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/public' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/public/index.html' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/public/dql' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data' },
+      
+      // メインソースディレクトリ
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/index.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/main.ts' },
+      
+      // アプリケーション層
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks/useLocationUriTree.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks/useTreeData.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks/useVersionData.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks/useVersionTreeData.ts' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/services' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/services/VersionCompletionService.ts' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/buildLocationTree.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/buildVersionTree.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/createSchema.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/getLocationUrisByScheme.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/getLocationUris.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/getVersionedLocationUris.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/seedDefaultData.ts' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/validation' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/validation/versionBatchValidation.ts' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/utils' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/utils/cacheUtils.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/utils/versionComparator.ts' },
+      
+      // ドメイン層
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/types.ts' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/constants' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/constants/versionFormats.ts' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/locationTreeBuilder.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/locationUriGrouper.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/locationUriParser.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/locationUriValidator.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/versionParser.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/versionTreeBuilder.ts' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/semverValidator.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/validationError.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/validationResult.ts' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/node' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/node/locationUriValidation.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/node/versionStateValidation.ts' },
+      
+      // インフラストラクチャ層
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database/databaseEvent.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database/useDatabaseConnection.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database/queries' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository/databaseConnection.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository/queryExecutor.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository/VersionProgressRepository.ts' },
+      
+      // インターフェース層
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/App.tsx' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/ErrorView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/LoadingView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/NodeDetailsPanel.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/TreeNode.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/TreeView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/VersionTreeView.tsx' },
+      
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/pages' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/utils' },
+    ]
+  };
+
+  // バリデーション実行
+  const validationResult = validateVersionBatch(kuzuBrowseData);
+  if (!validationResult.isValid) {
+    if (validationResult.errors) {
+      logger.error(`${kuzuBrowseData.version_id}のバリデーションエラー:`, validationResult.errors);
+    }
+    
+    const validationError = createValidationError(
+      validationResult.error || 'Validation failed',
+      'kuzuBrowseData',
+      'BATCH_VALIDATION_FAILED'
+    );
+    
+    logger.error(`${kuzuBrowseData.version_id}のバリデーションエラー詳細:`, 
+      getValidationErrorDetails(validationError));
+    
+    throw validationError;
+  }
+  
+  // kuzuBrowseプロジェクトデータを作成
+  const batchParams = {
+    version_id: kuzuBrowseData.version_id,
+    timestamp: new Date().toISOString(),
+    description: `kuzu-browse project v0.1.0 - Initial version management system`,
+    change_reason: '初期開発: グラフデータベースブラウザアプリケーション',
+    location_uris: kuzuBrowseData.location_uris
+  };
+  
+  const result = await executeDMLQuery(conn, 'version_batch_operations', batchParams);
+  logger.debug(`${kuzuBrowseData.version_id}作成結果:`, result);
+  
+  // 階層構造を作成
+  logger.debug('kuzuBrowseプロジェクト階層構造の作成中...');
+  const hierarchies = [
+    // プロジェクトルート
+    { parent_id: 'file:///home/nixos/bin/src/kuzu', child_id: 'file:///home/nixos/bin/src/kuzu/browse', relation_type: 'project_hierarchy' },
+    
+    // 第1階層
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public', relation_type: 'directory_hierarchy' },
+    
+    // 設定ファイル
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/build.ts', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/deno.json', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/mod.ts', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/index.html', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/CONVENTION.md', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/TODO.md', relation_type: 'file_hierarchy' },
+    
+    // publicディレクトリ
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/public', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public/index.html', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/public', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public/dql', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/public', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data', relation_type: 'directory_hierarchy' },
+    
+    // srcディレクトリ
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/index.tsx', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/main.ts', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', relation_type: 'directory_hierarchy' },
+    
+    // アプリケーション層
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/services', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/utils', relation_type: 'directory_hierarchy' },
+    
+    // ドメイン層
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/types.ts', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/constants', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation', relation_type: 'directory_hierarchy' },
+    
+    // インフラストラクチャ層  
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', relation_type: 'directory_hierarchy' },
+    
+    // インターフェース層
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/App.tsx', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/pages', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/utils', relation_type: 'directory_hierarchy' },
+  ];
+  
+  // 階層構造を作成
+  await executeDMLQuery(conn, 'create_location_hierarchy', { hierarchies });
   
   logger.debug('kuzuBrowse: データ作成完了');
 }
