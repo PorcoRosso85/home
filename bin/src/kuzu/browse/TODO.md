@@ -12,6 +12,49 @@
 - [x] CONVENTION.mdの参照パス更新
 - [x] build.tsのコメントとログメッセージ更新
 
+## v0.1.1 リファクタリングフェーズ（追加）
+
+### アーキテクチャ整理タスク
+
+- [ ] **インターフェースレイヤー構造変更**
+  - [ ] `src/interface/Layout.tsx` 作成（App.tsxからレイアウト分離）
+  - [ ] `src/interface/Page.tsx` 作成（VersionTreeView.tsxから名称変更）
+  - [ ] `src/interface/presentation/` ディレクトリ作成
+  - [ ] `src/interface/elements/` ディレクトリ作成
+  
+- [ ] **ファイル移動・名前変更**
+  - [ ] `VersionStates.tsx` → `presentation/VersionStates.tsx`
+  - [ ] `LocationUris.tsx` → `presentation/LocationUris.tsx`  
+  - [ ] `TreeView.tsx` → `components/Tree.tsx`
+  - [ ] `TreeNode.tsx` → `components/Node.tsx`
+  - [ ] `ErrorView.tsx` → `elements/ErrorView.tsx`
+  - [ ] `LoadingView.tsx` → `elements/LoadingView.tsx`
+  - [ ] `NodeDetailsPanel.tsx` → `elements/NodeDetailsPanel.tsx`
+
+- [ ] **import文の修正**
+  - [ ] 全ファイルのimportパスを新構造に対応
+  - [ ] TypeScriptエラーの解消
+
+### **削除用DMLとUI表示（重要）**
+
+- [ ] **削除用DMLクエリの実装**
+  ```cypher
+  // mv前のファイルを削除するクエリが必要
+  // 現在のDMLはmv前ファイル（例：VersionTreeView.tsx）を認識できていない
+  MATCH (l:LocationURI {id: "file:///path/to/old/file.tsx"})
+  DETACH DELETE l
+  ```
+
+- [ ] **削除されたファイルのUI表示改善**
+  - [ ] 削除されたLocationURIを区別して表示
+  - [ ] 「削除されました」等の明確な表示
+  - [ ] バージョン間での削除ファイル追跡機能
+
+- [ ] **DML改善課題**
+  - [ ] `version_batch_operations.cypher` の削除対応
+  - [ ] 移動前ファイルの自動削除ロジック
+  - [ ] バージョン間差分での削除ファイル検出
+
 ## リファクタリングフェーズ
 
 ### 1. インポート戦略の統一
@@ -61,6 +104,7 @@
 - [ ] すべての変更後、アプリケーションが正常に動作することを確認
 - [ ] `deno run -A build.ts` コマンドでサーバーが正常に起動することを確認
 - [ ] ブラウザでCSVデータが正しく読み込まれ、表示されることを確認
+- [ ] **v0.1.1リファクタリング後の動作確認**
 
 ## 将来的な改善点
 
@@ -68,10 +112,12 @@
 - [ ] ユニットテストの追加
 - [ ] パフォーマンス最適化
 - [ ] ドキュメントの充実化
+- [ ] **削除ファイル管理の自動化**
 
 ## 注意事項
 
 - WASM関連の設定は慎重に扱うこと
 - クロスオリジン分離（COOP/COEP）の設定は、SharedArrayBufferの使用に必須
 - 依存関係のバージョンは一貫性を持たせること
+- **DMLでの削除処理は慎重に実装すること（データ整合性重要）**
 

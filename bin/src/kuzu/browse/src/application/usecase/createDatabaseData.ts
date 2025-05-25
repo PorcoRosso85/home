@@ -2,6 +2,22 @@ import * as logger from '../../../../common/infrastructure/logger';
 import { executeDMLQuery } from '../../infrastructure/repository/queryExecutor';
 
 /**
+ * LocationURIデータの型定義
+ */
+interface LocationUriData {
+  id: string;
+}
+
+/**
+ * バージョン付きLocationデータの型定義
+ */
+interface VersionedLocationData {
+  version_id: string;
+  previous_version_id?: string;
+  location_uris: LocationUriData[];
+}
+
+/**
  * バージョンIDに基づいて適切な変更理由を生成する
  */
 function getChangeReasonForVersion(versionId: string, previousVersionId?: string): string {
@@ -48,8 +64,9 @@ export const createDatabaseData = {
     
     try {
       await kuzuBrowse(conn);
+      await kuzuBrowseRefactored(conn);  // v0.1.1追加
       await conn.query("COMMIT");
-      logger.debug('データベース初期化完了（kuzuBrowse）');
+      logger.debug('データベース初期化完了（kuzuBrowse: v0.1.0 + v0.1.1）');
     } catch (error) {
       logger.error('DML実行エラー（kuzuBrowse）:', error);
       
@@ -446,4 +463,45 @@ async function kuzuBrowse(conn: any): Promise<void> {
   await executeDMLQuery(conn, 'create_location_hierarchy', { hierarchies });
   
   logger.debug('kuzuBrowse: データ作成完了');
+}
+
+async function kuzuBrowseRefactored(conn: any): Promise<void> {
+  // v0.1.1: リファクタリング後の最小差分のみ
+  const refactoredData: VersionedLocationData = {
+    version_id: 'v0.1.1',
+    previous_version_id: 'v0.1.0',
+    location_uris: [
+      // 新規追加ファイルのみ
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/Layout.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/Page.tsx' },
+      
+      // 新しいディレクトリ
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/presentation' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/elements' },
+      
+      // 移動・名前変更されたファイル
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/presentation/VersionStates.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/presentation/LocationUris.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/Tree.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/Node.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/elements/ErrorView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/elements/LoadingView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/elements/NodeDetailsPanel.tsx' },
+    ]
+  };
+
+  // データ作成
+  await executeDMLQuery(conn, 'version_batch_operations', {
+    version_id: refactoredData.version_id,
+    timestamp: new Date().toISOString(),
+    description: 'v0.1.1 - アーキテクチャリファクタリング',
+    change_reason: 'レイヤー構造整理（Hooks名は維持）',
+    location_uris: refactoredData.location_uris
+  });
+  
+  // FOLLOWS関係作成
+  await executeDMLQuery(conn, 'create_follows', {
+    from_version_id: 'v0.1.0',
+    to_version_id: 'v0.1.1'
+  });
 }
