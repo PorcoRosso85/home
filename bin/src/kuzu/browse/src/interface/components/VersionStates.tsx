@@ -2,7 +2,7 @@
  * バージョン選択・表示用コンポーネント
  */
 import React from 'react';
-import { TreeView } from './TreeView';
+import { TreeView } from './Tree';
 import type { TreeNode, VersionState } from '../../domain/types';
 
 interface VersionStatesProps {

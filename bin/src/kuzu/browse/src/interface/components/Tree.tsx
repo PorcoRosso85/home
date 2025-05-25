@@ -2,7 +2,7 @@
  * ツリー表示コンポーネント
  */
 import React from 'react';
-import TreeNode from './TreeNode';
+import TreeNode from './Node';
 import type { TreeNode as TreeNodeData } from '../../domain/types';
 
 interface TreeViewProps {

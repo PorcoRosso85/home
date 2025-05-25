@@ -2,7 +2,7 @@
  * バージョンツリーとLocationURIツリーを表示するコンポーネント
  */
 import React, { useState } from 'react';
-import { TreeView } from './TreeView';
+import { TreeView } from './Tree';
 import { VersionStates } from './VersionStates';
 import { LocationUris } from './LocationUris';
 import type { TreeNode } from '../../domain/types';
