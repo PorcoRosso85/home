@@ -3,6 +3,8 @@
  */
 import React, { useState } from 'react';
 import { TreeView } from './TreeView';
+import { VersionStates } from './VersionStates';
+import { LocationUris } from './LocationUris';
 import type { TreeNode } from '../../domain/types';
 import { useVersionStates } from '../../application/hooks/useVersionStates';
 import { useLocationUris } from '../../application/hooks/useLocationUris';
@@ -31,51 +33,11 @@ export const VersionTreeView: React.FC = () => {
     error: locationError 
   } = useLocationUris(dbConnection, selectedVersionId);
 
-  // バージョンノードがクリックされたときのハンドラ
-  const handleVersionNodeClick = (node: TreeNode) => {
-    if (node.nodeType === 'version') {
-      setSelectedVersionId(node.id);
-      console.log(`Version ${node.id} selected`);
-    }
+  // バージョン選択ハンドラ
+  const handleVersionClick = (versionId: string) => {
+    setSelectedVersionId(versionId);
+    console.log(`Version ${versionId} selected`);
   };
-
-  // バージョン一覧をツリー形式に変換
-  const versionTree: TreeNode[] = versions.map(version => ({
-    id: version.id,
-    name: `${version.id} - ${version.description}`,
-    nodeType: 'version',
-    children: [],
-    from_version: version.id,
-    isCurrentVersion: version.id === selectedVersionId
-  }));
-
-  // バージョンツリーとLocationURIツリーを結合する
-  const combineTreeData = (versions: TreeNode[], locations: TreeNode[], selectedId: string): TreeNode[] => {
-    return versions.map(versionNode => {
-      // 選択されたバージョンのノードにLocationURIツリーを追加
-      if (versionNode.id === selectedId) {
-        return {
-          ...versionNode,
-          children: locations
-        };
-      }
-      
-      // 子ノードも再帰的に処理
-      if (versionNode.children && versionNode.children.length > 0) {
-        return {
-          ...versionNode,
-          children: combineTreeData(versionNode.children, locations, selectedId)
-        };
-      }
-      
-      return versionNode;
-    });
-  };
-
-  // 結合されたツリーデータ
-  const combinedTreeData = selectedVersionId 
-    ? combineTreeData(versionTree, treeData, selectedVersionId)
-    : versionTree;
 
   // データベース接続エラーの表示
   if (connectionError) {
@@ -93,48 +55,24 @@ export const VersionTreeView: React.FC = () => {
     return <div>データベース接続を待機中...</div>;
   }
 
-  // ロード中またはエラー状態の表示
-  if (loadingVersions) {
-    return <div>バージョンデータを読み込み中...</div>;
-  }
-
-  if (versionError) {
-    return (
-      <div>
-        <div style={{ color: 'red', padding: '10px', border: '1px solid #f00', borderRadius: '4px' }}>
-          バージョンデータ読み込みエラー: {versionError}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div>
       <p>バージョンをクリックするとそのバージョンに関連するLocationURIが表示されます</p>
       
-      {/* LocationURIエラーメッセージの表示 */}
-      {locationError && (
-        <div style={{ color: 'red', marginBottom: '10px', padding: '10px', border: '1px solid #f00', borderRadius: '4px' }}>
-          LocationURI読み込みエラー: {locationError}
-        </div>
-      )}
+      <VersionStates 
+        versions={versions}
+        selectedVersionId={selectedVersionId}
+        loading={loadingVersions}
+        error={versionError}
+        onVersionClick={handleVersionClick}
+      />
       
-      {/* ツリービューの表示 */}
-      {versionTree.length === 0 ? (
-        <p>利用可能なバージョンがありません。</p>
-      ) : (
-        <TreeView 
-          treeData={combinedTreeData}
-          onNodeClick={handleVersionNodeClick}
-        />
-      )}
-      
-      {/* 選択されたバージョンのLocationURIロード中の表示 */}
-      {loadingLocations && selectedVersionId && (
-        <div style={{ marginTop: '10px', padding: '5px', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
-          LocationURIデータを読み込み中...
-        </div>
-      )}
+      <LocationUris 
+        treeData={treeData}
+        loading={loadingLocations}
+        error={locationError}
+        selectedVersionId={selectedVersionId}
+      />
     </div>
   );
 };
