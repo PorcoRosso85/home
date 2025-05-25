@@ -3,7 +3,6 @@
  */
 import React, { useState } from 'react';
 import { VersionStates } from './presentation/VersionStates';
-import { LocationUris } from './presentation/LocationUris';
 import type { TreeNode } from '../domain/types';
 import { useVersionStates } from '../application/hooks/useVersionStates';
 import { useLocationUris } from '../application/hooks/useLocationUris';
@@ -64,13 +63,9 @@ export const Page: React.FC = () => {
         loading={loadingVersions}
         error={versionError}
         onVersionClick={handleVersionClick}
-      />
-      
-      <LocationUris 
-        treeData={treeData}
-        loading={loadingLocations}
-        error={locationError}
-        selectedVersionId={selectedVersionId}
+        locationTreeData={treeData}
+        locationLoading={loadingLocations}
+        locationError={locationError}
       />
     </div>
   );

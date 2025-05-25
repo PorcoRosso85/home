@@ -11,6 +11,10 @@ interface VersionStatesProps {
   loading: boolean;
   error: string | null;
   onVersionClick: (versionId: string) => void;
+  // LocationURI統合用props
+  locationTreeData: TreeNode[];
+  locationLoading: boolean;
+  locationError: string | null;
 }
 
 /**
@@ -21,17 +25,29 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
   selectedVersionId,
   loading,
   error,
-  onVersionClick
+  onVersionClick,
+  locationTreeData,
+  locationLoading,
+  locationError
 }) => {
   // バージョン一覧をツリー形式に変換
-  const versionTree: TreeNode[] = versions.map(version => ({
-    id: version.id,
-    name: `${version.id} - ${version.description}`,
-    nodeType: 'version',
-    children: [],
-    from_version: version.id,
-    isCurrentVersion: version.id === selectedVersionId
-  }));
+  const versionTree: TreeNode[] = versions.map(version => {
+    const baseNode: TreeNode = {
+      id: version.id,
+      name: `${version.id} - ${version.description}`,
+      nodeType: 'version',
+      children: [],
+      from_version: version.id,
+      isCurrentVersion: version.id === selectedVersionId
+    };
+
+    // 選択されたバージョンにLocationURIを統合
+    if (version.id === selectedVersionId && locationTreeData.length > 0) {
+      baseNode.children = locationTreeData;
+    }
+
+    return baseNode;
+  });
 
   // バージョンノードがクリックされたときのハンドラ
   const handleVersionNodeClick = (node: TreeNode) => {
@@ -56,10 +72,33 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
     return <p>利用可能なバージョンがありません。</p>;
   }
 
+  // LocationURIのエラーメッセージも表示
+  if (locationError) {
+    return (
+      <div>
+        <div style={{ color: 'red', marginBottom: '10px', padding: '10px', border: '1px solid #f00', borderRadius: '4px' }}>
+          LocationURI読み込みエラー: {locationError}
+        </div>
+        <TreeView 
+          treeData={versionTree}
+          onNodeClick={handleVersionNodeClick}
+        />
+      </div>
+    );
+  }
+
   return (
-    <TreeView 
-      treeData={versionTree}
-      onNodeClick={handleVersionNodeClick}
-    />
+    <div>
+      <TreeView 
+        treeData={versionTree}
+        onNodeClick={handleVersionNodeClick}
+      />
+      {/* LocationURIロード中の表示 */}
+      {locationLoading && selectedVersionId && (
+        <div style={{ marginTop: '10px', padding: '5px', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
+          LocationURIデータを読み込み中...
+        </div>
+      )}
+    </div>
   );
 };
