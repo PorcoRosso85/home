@@ -1,7 +1,7 @@
 /**
  * バージョン選択・表示用コンポーネント
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { TreeView } from '../components/Tree';
 import type { TreeNode, VersionState } from '../../domain/types';
 
@@ -30,8 +30,10 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
   locationLoading,
   locationError
 }) => {
+  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
   // バージョン一覧をツリー形式に変換
   const versionTree: TreeNode[] = versions.map(version => {
+    const isExpanded = expandedVersions.has(version.id);
     const baseNode: TreeNode = {
       id: version.id,
       name: `${version.id} - ${version.description}`,
@@ -41,8 +43,8 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
       isCurrentVersion: version.id === selectedVersionId
     };
 
-    // 選択されたバージョンにLocationURIを統合
-    if (version.id === selectedVersionId && locationTreeData.length > 0) {
+    // 展開されたバージョンかつLocationURIデータがある場合のみ子要素を追加
+    if (isExpanded && version.id === selectedVersionId && locationTreeData.length > 0) {
       baseNode.children = locationTreeData;
     }
 
@@ -52,7 +54,17 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
   // バージョンノードがクリックされたときのハンドラ
   const handleVersionNodeClick = (node: TreeNode) => {
     if (node.nodeType === 'version') {
+      // バージョン選択
       onVersionClick(node.id);
+      
+      // 展開状態をトグル
+      const newExpanded = new Set(expandedVersions);
+      if (newExpanded.has(node.id)) {
+        newExpanded.delete(node.id);
+      } else {
+        newExpanded.add(node.id);
+      }
+      setExpandedVersions(newExpanded);
     }
   };
 

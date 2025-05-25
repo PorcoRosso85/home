@@ -55,8 +55,6 @@ export const Page: React.FC = () => {
 
   return (
     <div>
-      <p>バージョンをクリックするとそのバージョンに関連するLocationURIが表示されます</p>
-      
       <VersionStates 
         versions={versions}
         selectedVersionId={selectedVersionId}
