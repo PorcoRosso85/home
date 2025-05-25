@@ -312,7 +312,7 @@ async function kuzuBrowse(conn: any): Promise<void> {
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/getLocationUrisByScheme.ts' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/getLocationUris.ts' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/getVersionedLocationUris.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/seedDefaultData.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/createDatabaseData.ts' },
       
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/validation' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/validation/versionBatchValidation.ts' },

@@ -6,7 +6,7 @@ import * as logger from '../../common/infrastructure/logger';
 import { dispatchDatabaseReady } from './infrastructure/database/databaseEvent';
 import { createConnection } from './infrastructure/repository/databaseConnection';
 import { createSchema } from './application/usecase/createSchema';
-import { createDatabaseData } from './application/usecase/seedDefaultData';
+import { createDatabaseData } from './application/usecase/createDatabaseData';
 
 // ブラウザ用にログレベルを設定
 // import.meta.env.LOG_LEVELから環境変数を読み込む（build.tsで設定）
