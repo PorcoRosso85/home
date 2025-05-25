@@ -5,18 +5,15 @@
  */
 
 import type { TreeNode, VersionState } from '../types';
-import { parseVersionString } from './versionParser';
 import { isParentChildRelationship } from '../../application/utils/versionComparator';
 
 /**
  * バージョンツリーのノードを構築する
  */
 export function buildVersionNode(version: VersionState): TreeNode {
-  const parsedVersion = parseVersionString(version.id);
-  
   return {
     id: version.id,
-    name: parsedVersion.displayValue, // 表示用に 'v' プレフィックスを付ける
+    name: `v${version.id.replace(/^v/, '')}`,
     nodeType: 'version' as const,
     children: [],
     description: version.description,
@@ -41,8 +38,8 @@ export function buildVersionTreeFromList(versions: VersionState[]): TreeNode[] {
   
   // バージョンをソート（セマンティックバージョニング順）
   const sortedVersions = [...versions].sort((a, b) => {
-    const aParts = parseVersionString(a.id).segments;
-    const bParts = parseVersionString(b.id).segments;
+    const aParts = a.id.replace(/^v/, '').split('.').map(Number);
+    const bParts = b.id.replace(/^v/, '').split('.').map(Number);
     
     // セグメント単位で比較
     const minLength = Math.min(aParts.length, bParts.length);

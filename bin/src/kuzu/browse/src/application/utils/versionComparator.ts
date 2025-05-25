@@ -6,7 +6,6 @@
  */
 
 import { VERSION_COMPARE_RESULT } from '../../domain/constants/versionFormats';
-import { parseVersionString } from '../../domain/service/versionParser';
 
 /**
  * 2つのバージョン文字列を比較する
@@ -16,26 +15,26 @@ import { parseVersionString } from '../../domain/service/versionParser';
  */
 export function compareVersions(v1: string, v2: string): number {
   // 'v'プレフィックスを無視して比較
-  const parsed1 = parseVersionString(v1);
-  const parsed2 = parseVersionString(v2);
+  const segments1 = v1.replace(/^v/, '').split('.').map(Number);
+  const segments2 = v2.replace(/^v/, '').split('.').map(Number);
   
-  const minLength = Math.min(parsed1.segments.length, parsed2.segments.length);
+  const minLength = Math.min(segments1.length, segments2.length);
   
   // 共通セグメントを比較
   for (let i = 0; i < minLength; i++) {
-    if (parsed1.segments[i] < parsed2.segments[i]) {
+    if (segments1[i] < segments2[i]) {
       return VERSION_COMPARE_RESULT.LESS_THAN;
     }
-    if (parsed1.segments[i] > parsed2.segments[i]) {
+    if (segments1[i] > segments2[i]) {
       return VERSION_COMPARE_RESULT.GREATER_THAN;
     }
   }
   
   // 共通セグメントが同じ場合、セグメント数で比較
-  if (parsed1.segments.length < parsed2.segments.length) {
+  if (segments1.length < segments2.length) {
     return VERSION_COMPARE_RESULT.LESS_THAN;
   }
-  if (parsed1.segments.length > parsed2.segments.length) {
+  if (segments1.length > segments2.length) {
     return VERSION_COMPARE_RESULT.GREATER_THAN;
   }
   
@@ -62,17 +61,17 @@ export function sortVersions(versions: string[], ascending = true): string[] {
  *     isParentChildRelationship('1.0', '1.1.0') => false
  */
 export function isParentChildRelationship(parent: string, child: string): boolean {
-  const parentParsed = parseVersionString(parent);
-  const childParsed = parseVersionString(child);
+  const parentSegments = parent.replace(/^v/, '').split('.').map(Number);
+  const childSegments = child.replace(/^v/, '').split('.').map(Number);
   
   // 子のセグメント数が親より少ない場合は親子関係にない
-  if (childParsed.segments.length <= parentParsed.segments.length) {
+  if (childSegments.length <= parentSegments.length) {
     return false;
   }
   
   // 親のすべてのセグメントが子のセグメントと一致するか確認
-  for (let i = 0; i < parentParsed.segments.length; i++) {
-    if (parentParsed.segments[i] !== childParsed.segments[i]) {
+  for (let i = 0; i < parentSegments.length; i++) {
+    if (parentSegments[i] !== childSegments[i]) {
       return false;
     }
   }
@@ -88,14 +87,14 @@ export function isParentChildRelationship(parent: string, child: string): boolea
  *     getParentVersion('1') => null
  */
 export function getParentVersion(version: string): string | null {
-  const parsed = parseVersionString(version);
+  const segments = version.replace(/^v/, '').split('.');
   
-  if (parsed.segments.length <= 1) {
+  if (segments.length <= 1) {
     return null; // ルートバージョンには親がない
   }
   
   // 最後のセグメントを削除
-  const parentSegments = parsed.segments.slice(0, -1);
+  const parentSegments = segments.slice(0, -1);
   
   // 親バージョンを構築
   return parentSegments.join('.');
