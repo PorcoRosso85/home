@@ -197,7 +197,7 @@ export function useLocationUriTree(versionId: string) {
       }
       
       // 指定バージョンに関連するLocationURIを取得（規約準拠版）
-      const uriResult = await executeDQLQuery(dbConnection, 'locationuris_by_version', {
+      const uriResult = await executeDQLQuery(dbConnection, 'list_uris_by_version', {
         version_id: versionId
       });
       

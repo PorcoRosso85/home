@@ -22,7 +22,7 @@ export const useVersionData = (dbConnection: any | null) => {
 
       setLoading(true);
       logger.debug('バージョン一覧の取得を開始');
-      const result = await executeDQLQuery(dbConnection, 'get_all_versions', {});
+      const result = await executeDQLQuery(dbConnection, 'list_versions_all', {});
       logger.debug('クエリ実行結果:', result);
       
       const queryResult = await result.data.getAllObjects();
@@ -61,7 +61,7 @@ export const useVersionData = (dbConnection: any | null) => {
       setLoading(true);
       
       // 指定バージョン以前の各URIの最新状態を取得
-      const result = await executeDQLQuery(dbConnection, 'get_uris_up_to_version', { 
+      const result = await executeDQLQuery(dbConnection, 'list_uris_cumulative', { 
         version_id: selectedVersionId 
       });
       

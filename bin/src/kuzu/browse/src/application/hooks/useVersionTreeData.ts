@@ -33,7 +33,7 @@ export function useVersionTreeData() {
 
       try {
         // バージョンデータを取得
-        const versionsResult = await executeDQLQuery(dbConnection, 'get_all_versions', {});
+        const versionsResult = await executeDQLQuery(dbConnection, 'list_versions_all', {});
 
         if (!versionsResult.success || !versionsResult.data) {
           throw new Error(`バージョンデータの取得に失敗しました: ${versionsResult.error}`);
@@ -48,7 +48,7 @@ export function useVersionTreeData() {
         }));
 
         // バージョン間のFOLLOWS関係を取得
-        const followsResult = await executeDQLQuery(dbConnection, 'get_uris_up_to_version', {});
+        const followsResult = await executeDQLQuery(dbConnection, 'version_state_history', {});
 
         if (!followsResult.success || !followsResult.data) {
           throw new Error(`FOLLOWS関係の取得に失敗しました: ${followsResult.error}`);
