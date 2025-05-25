@@ -3,8 +3,8 @@
  */
 import React, { useState } from 'react';
 import { TreeView } from './Tree';
-import { VersionStates } from './VersionStates';
-import { LocationUris } from './LocationUris';
+import { VersionStates } from '../presentation/VersionStates';
+import { LocationUris } from '../presentation/LocationUris';
 import type { TreeNode } from '../../domain/types';
 import { useVersionStates } from '../../application/hooks/useVersionStates';
 import { useLocationUris } from '../../application/hooks/useLocationUris';

@@ -2,7 +2,7 @@
  * LocationURI表示用コンポーネント
  */
 import React from 'react';
-import { TreeView } from './Tree';
+import { TreeView } from '../components/Tree';
 import type { TreeNode } from '../../domain/types';
 
 interface LocationUrisProps {
