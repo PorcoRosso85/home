@@ -1,4 +1,5 @@
-// 各バージョンの進捗率と完了済みLocationURI一覧を取得
+// 各バージョンの進捗率とLocationURI一覧を取得
+// REFACTORED: completed プロパティ削除に伴い、progress_percentage ベースに変更
 MATCH (vs:VersionState)
 OPTIONAL MATCH (vs)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(loc:LocationURI)
 OPTIONAL MATCH (prevVs:VersionState)-[:FOLLOWS]->(vs)
@@ -6,8 +7,8 @@ OPTIONAL MATCH (vs)-[:FOLLOWS]->(nextVs:VersionState)
 
 WITH vs, 
      count(loc) as total_locations,
-     count(CASE WHEN loc.completed = true THEN 1 END) as completed_locations,
-     collect(CASE WHEN loc.completed = true THEN loc.id END) as completed_uri_list,
+     CAST(count(loc) * COALESCE(vs.progress_percentage, 0.0) AS INT64) as completed_locations,
+     collect(loc.id) as completed_uri_list,
      prevVs.id as previous_version,
      nextVs.id as next_version
 

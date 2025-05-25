@@ -1,10 +1,11 @@
 // 全バージョンの進捗率サマリーを時系列で取得
+// REFACTORED: completed プロパティ削除に伴い、progress_percentage ベースに変更
 OPTIONAL MATCH (vs:VersionState)
 OPTIONAL MATCH (vs)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(loc:LocationURI)
 
 WITH vs,
      count(loc) as total_locations,
-     count(CASE WHEN loc.completed = true THEN 1 END) as completed_locations,
+     CAST(count(loc) * COALESCE(vs.progress_percentage, 0.0) AS INT64) as completed_locations,
      CASE 
        WHEN vs IS NULL THEN 'unknown'
        WHEN COALESCE(vs.progress_percentage, 0.0) = 1.0 THEN 'completed'
