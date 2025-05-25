@@ -1,19 +1,18 @@
 /**
- * バージョンツリーとLocationURIツリーを表示するコンポーネント
+ * ページロジック・状態管理を担当するコンポーネント
  */
 import React, { useState } from 'react';
-import { TreeView } from './Tree';
-import { VersionStates } from '../presentation/VersionStates';
-import { LocationUris } from '../presentation/LocationUris';
-import type { TreeNode } from '../../domain/types';
-import { useVersionStates } from '../../application/hooks/useVersionStates';
-import { useLocationUris } from '../../application/hooks/useLocationUris';
-import { useDatabaseConnection } from '../../infrastructure/database/useDatabaseConnection';
+import { VersionStates } from './presentation/VersionStates';
+import { LocationUris } from './presentation/LocationUris';
+import type { TreeNode } from '../domain/types';
+import { useVersionStates } from '../application/hooks/useVersionStates';
+import { useLocationUris } from '../application/hooks/useLocationUris';
+import { useDatabaseConnection } from '../infrastructure/database/useDatabaseConnection';
 
 /**
- * バージョンとLocationURIのネストされたツリーを表示するコンポーネント
+ * バージョンとLocationURIのネストされたツリーを表示するページ
  */
-export const VersionTreeView: React.FC = () => {
+export const Page: React.FC = () => {
   const { isConnected, error: connectionError, dbConnection } = useDatabaseConnection();
   
   // バージョン管理用Hook
