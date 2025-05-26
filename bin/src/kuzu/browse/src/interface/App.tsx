@@ -10,50 +10,41 @@ import { Page } from './Page';
  */
 const App: React.FC = () => {
   const handleDualClaude = () => {
-    // 1つ目のWebSocket接続
-    const ws1 = new WebSocket("ws://localhost:8080");
-    ws1.onopen = () => {
-      ws1.send(JSON.stringify({
-        jsonrpc: "2.0",
-        method: "exec",
-        params: { 
-          command: "pnpm",
-          args: ["dlx", "@anthropic-ai/claude-code", "-p", "just say hi"]
-        },
-        id: 1
-      }));
-    };
-    ws1.onmessage = (e) => {
-      const res = JSON.parse(e.data);
-      console.log("Session 1:", res.result?.stdout || res.error);
-      ws1.close();
-    };
-
-    // 2つ目のWebSocket接続（同時実行）
-    const ws2 = new WebSocket("ws://localhost:8080");
-    ws2.onopen = () => {
-      ws2.send(JSON.stringify({
-        jsonrpc: "2.0",
-        method: "exec",
-        params: { 
-          command: "pnpm",
-          args: ["dlx", "@anthropic-ai/claude-code", "-p", "what's your name? in short"]
-        },
-        id: 2
-      }));
-    };
-    ws2.onmessage = (e) => {
-      const res = JSON.parse(e.data);
-      console.log("Session 2:", res.result?.stdout || res.error);
-      ws2.close();
-    };
+    for (let i = 1; i <= 16; i++) {
+      const ws = new WebSocket("ws://localhost:8080");
+      
+      let question;
+      if (i === 16) {
+        question = "show me fibonacci function by rust, in short with only code";
+      } else {
+        question = i % 2 === 1 ? "just say hi" : "what's your name? in short";
+      }
+      
+      ws.onopen = () => {
+        ws.send(JSON.stringify({
+          jsonrpc: "2.0",
+          method: "exec",
+          params: { 
+            command: "pnpm",
+            args: ["dlx", "@anthropic-ai/claude-code", "-p", question]
+          },
+          id: i
+        }));
+      };
+      
+      ws.onmessage = (e) => {
+        const res = JSON.parse(e.data);
+        console.log(`Session ${i}:`, res.result?.stdout || res.error);
+        ws.close();
+      };
+    }
   };
 
   return (
     <Layout>
       <Page />
       <button onClick={handleDualClaude} style={{position: 'fixed', bottom: 20, right: 20}}>
-        Dual Claude
+        16x Claude
       </button>
     </Layout>
   );
