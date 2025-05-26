@@ -7,12 +7,15 @@ import { dispatchDatabaseReady } from './infrastructure/database/databaseEvent';
 import { createConnection } from './infrastructure/repository/databaseConnection';
 import { createSchema } from './application/usecase/createSchema';
 import { createDatabaseData } from './application/usecase/createDatabaseData';
+import { env, validateEnvironment } from './infrastructure/config/variables';
+
+// 環境変数の検証
+validateEnvironment();
 
 // ブラウザ用にログレベルを設定
-// import.meta.env.LOG_LEVELから環境変数を読み込む（build.tsで設定）
-const defaultLogLevel = 3; // INFO level 
-(window as any).LOG_LEVEL = import.meta.env.LOG_LEVEL ? parseInt(import.meta.env.LOG_LEVEL) : defaultLogLevel;
+(window as any).LOG_LEVEL = parseInt(env.LOG_LEVEL);
 logger.debug('LOG_LEVEL設定:', (window as any).LOG_LEVEL);
+logger.debug('環境変数:', env);
 
 // loggerをテスト
 logger.debug('Testing logger functions...');

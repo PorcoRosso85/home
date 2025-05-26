@@ -58,26 +58,38 @@ function parseCommandLineArgs() {
   // ヘルプの表示
   if (args.help) {
     console.log(`
-KuzuDB ブラウザ - 開発サーバー
+KuzuDB Browser Development Server
 
 使用方法:
-  deno run -A build.ts --mount SOURCE_PATH:TARGET_PATH[:FILE_PATTERN] [--mount ...]
+  LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":\$LD_LIBRARY_PATH \\
+  LOG_LEVEL=4 NODE_ENV=production API_HOST=0.0.0.0 API_PORT=8080 DB_PATH=/tmp/kuzu.db \\
+  nix run nixpkgs#deno -- run -A build.ts \\
+  --mount /home/nixos/bin/src/kuzu/query/ddl:/ddl:*.cypher \\
+  --mount /home/nixos/bin/src/kuzu/query/dml:/dml:*.cypher \\
+  --mount /home/nixos/bin/src/kuzu/query/dql:/dql:*.cypher
+
+環境変数:
+  LOG_LEVEL  ログレベル (0-5, デフォルト: 3)
+  NODE_ENV   実行環境 (development/production/test, デフォルト: development)
+  API_HOST   APIホスト (デフォルト: localhost)
+  API_PORT   APIポート (デフォルト: 3000)
+  DB_PATH    データベースパス (デフォルト: ./kuzu.db)
 
 オプション:
-  --mount SOURCE_PATH:TARGET_PATH[:PATTERN], -m   マウント設定（複数指定可能）
-    SOURCE_PATH: マウント元のファイルシステムパス（例: /home/nixos/bin/src/kuzu/query/ddl）
-    TARGET_PATH: マウント先のURLパス（例: /ddl）
-    FILE_PATTERN: オプションのファイルパターン（例: *.cypher、デフォルト: *）
+  --mount <source>:<target>:<pattern>  ディレクトリをマウント
+    source  : マウント元パス
+    target  : マウント先パス (/で始まる)
+    pattern : ファイルパターン (例: *.cypher)
 
-  例:
-    --mount /home/nixos/bin/src/kuzu/query/ddl:/ddl:*.cypher
-    --mount /home/nixos/bin/src/kuzu/query/dml:/dml
-    --mount /path/to/public:/
+例:
+  # 最小構成
+  LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":\$LD_LIBRARY_PATH \\
+  nix run nixpkgs#deno -- run -A build.ts
 
-  複数のマウント指定:
-    --mount /path1:/api --mount /path2:/data
-
-  --help, -h              このヘルプメッセージを表示
+  # Cypherクエリをマウント
+  LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":\$LD_LIBRARY_PATH \\
+  nix run nixpkgs#deno -- run -A build.ts \\
+  --mount /home/nixos/bin/src/kuzu/query/ddl:/ddl:*.cypher
 `);
     Deno.exit(0);
   }
@@ -311,13 +323,17 @@ async function createViteDevServer(mounts: MountDefinition[]) {
       }
     ],
     define: {
+      // すべての環境変数をそのまま渡す（デフォルト値なし）
       'process.env.LOG_LEVEL': JSON.stringify(Deno.env.get('LOG_LEVEL')),
       'process.env.NODE_ENV': JSON.stringify(Deno.env.get('NODE_ENV')),
       'process.env.API_HOST': JSON.stringify(Deno.env.get('API_HOST')),
       'process.env.API_PORT': JSON.stringify(Deno.env.get('API_PORT')),
       'process.env.DB_PATH': JSON.stringify(Deno.env.get('DB_PATH')),
-      'import.meta.env.LOG_LEVEL': JSON.stringify(Deno.env.get('LOG_LEVEL') || '3'),
-      // 環境変数としてマウント情報を追加
+      'import.meta.env.LOG_LEVEL': JSON.stringify(Deno.env.get('LOG_LEVEL')),
+      'import.meta.env.NODE_ENV': JSON.stringify(Deno.env.get('NODE_ENV')),
+      'import.meta.env.API_HOST': JSON.stringify(Deno.env.get('API_HOST')),
+      'import.meta.env.API_PORT': JSON.stringify(Deno.env.get('API_PORT')),
+      'import.meta.env.DB_PATH': JSON.stringify(Deno.env.get('DB_PATH')),
       'import.meta.env.KUZU_MOUNTS': JSON.stringify(mounts.map(m => ({ 
         source: m.sourcePath, 
         target: m.targetPath,
