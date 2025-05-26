@@ -9,6 +9,8 @@ import { Page } from './Page';
  * アプリケーションのメインコンポーネント
  */
 const App: React.FC = () => {
+  const [sessionIds, setSessionIds] = React.useState<Record<number, string>>({});
+  
   const handleDualClaude = () => {
     for (let i = 1; i <= 16; i++) {
       const ws = new WebSocket("ws://localhost:8080");
@@ -20,13 +22,18 @@ const App: React.FC = () => {
         question = i % 2 === 1 ? "just say hi" : "what's your name? in short";
       }
       
+      // セッションIDがある場合は--resumeを使用
+      const args = sessionIds[i] 
+        ? ["dlx", "@anthropic-ai/claude-code", "-p", "--resume", sessionIds[i], question]
+        : ["dlx", "@anthropic-ai/claude-code", "-p", "--output-format", "json", question];
+      
       ws.onopen = () => {
         ws.send(JSON.stringify({
           jsonrpc: "2.0",
           method: "exec",
           params: { 
             command: "pnpm",
-            args: ["dlx", "@anthropic-ai/claude-code", "-p", question]
+            args: args
           },
           id: i
         }));
@@ -34,7 +41,22 @@ const App: React.FC = () => {
       
       ws.onmessage = (e) => {
         const res = JSON.parse(e.data);
-        console.log(`Session ${i}:`, res.result?.stdout || res.error);
+        const output = res.result?.stdout || res.error;
+        console.log(`Session ${i}:`, output);
+        
+        // セッションIDを抽出して保存
+        if (!sessionIds[i] && res.result?.stdout) {
+          const jsonMatch = res.result.stdout.match(/\{[\s\S]*"session_id"[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              const data = JSON.parse(jsonMatch[0]);
+              setSessionIds(prev => ({ ...prev, [i]: data.session_id }));
+            } catch (err) {
+              console.error(`Failed to parse session ${i}:`, err);
+            }
+          }
+        }
+        
         ws.close();
       };
     }
