@@ -9,11 +9,11 @@ import { Page } from './Page';
  * アプリケーションのメインコンポーネント
  */
 const App: React.FC = () => {
-  const handleHiClaude = () => {
-    const ws = new WebSocket("ws://localhost:8080");
-    
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
+  const handleDualClaude = () => {
+    // 1つ目のWebSocket接続
+    const ws1 = new WebSocket("ws://localhost:8080");
+    ws1.onopen = () => {
+      ws1.send(JSON.stringify({
         jsonrpc: "2.0",
         method: "exec",
         params: { 
@@ -23,20 +23,16 @@ const App: React.FC = () => {
         id: 1
       }));
     };
-    
-    ws.onmessage = (e) => {
+    ws1.onmessage = (e) => {
       const res = JSON.parse(e.data);
-      console.log(res.result?.stdout || res.error);
-      alert(res.result?.stdout || JSON.stringify(res.error));
-      ws.close();
+      console.log("Session 1:", res.result?.stdout || res.error);
+      ws1.close();
     };
-  };
 
-  const handleNameClaude = () => {
-    const ws = new WebSocket("ws://localhost:8080");
-    
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
+    // 2つ目のWebSocket接続（同時実行）
+    const ws2 = new WebSocket("ws://localhost:8080");
+    ws2.onopen = () => {
+      ws2.send(JSON.stringify({
         jsonrpc: "2.0",
         method: "exec",
         params: { 
@@ -46,23 +42,18 @@ const App: React.FC = () => {
         id: 2
       }));
     };
-    
-    ws.onmessage = (e) => {
+    ws2.onmessage = (e) => {
       const res = JSON.parse(e.data);
-      console.log(res.result?.stdout || res.error);
-      alert(res.result?.stdout || JSON.stringify(res.error));
-      ws.close();
+      console.log("Session 2:", res.result?.stdout || res.error);
+      ws2.close();
     };
   };
 
   return (
     <Layout>
       <Page />
-      <button onClick={handleHiClaude} style={{position: 'fixed', bottom: 20, right: 20}}>
-        Say Hi
-      </button>
-      <button onClick={handleNameClaude} style={{position: 'fixed', bottom: 60, right: 20}}>
-        Name?
+      <button onClick={handleDualClaude} style={{position: 'fixed', bottom: 20, right: 20}}>
+        Dual Claude
       </button>
     </Layout>
   );
