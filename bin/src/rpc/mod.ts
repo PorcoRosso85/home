@@ -19,14 +19,16 @@ interface JsonRpcResponse {
 }
 
 async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcResponse> {
-  if (request.method === "ls") {
+  if (request.method === "exec") {
     try {
-      const cmd = new Deno.Command("ls", {
-        args: request.params?.args || [],
-        cwd: request.params?.cwd || ".",
+      const { command, args = [], cwd = "." } = request.params || {};
+      
+      const cmd = new Deno.Command(command, {
+        args,
+        cwd,
       });
       
-      const { stdout, stderr } = await cmd.output();
+      const { stdout, stderr, code } = await cmd.output();
       const output = new TextDecoder().decode(stdout);
       const error = new TextDecoder().decode(stderr);
       
@@ -35,6 +37,7 @@ async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcResponse> 
         result: {
           stdout: output,
           stderr: error,
+          code,
         },
         id: request.id,
       };
