@@ -3,7 +3,7 @@
  */
 import React, { useState } from 'react';
 import { Tree } from '../components/Tree';
-import type { NodeData, VersionState } from '../../domain/types';
+import type { NodeData, VersionState, NodeClickEvent } from '../../domain/types';
 
 interface VersionStatesProps {
   versions: VersionState[];
@@ -52,20 +52,22 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
   });
 
   // バージョンノードがクリックされたときのハンドラ
-  const handleVersionNodeClick = (node: NodeData) => {
-    if (node.nodeType === 'version') {
+  const handleVersionNodeClick = (clickEvent: NodeClickEvent) => {
+    // 左クリックでversionノードの場合のみ処理
+    if (clickEvent.eventType === 'left' && clickEvent.node.nodeType === 'version') {
       // バージョン選択
-      onVersionClick(node.id);
+      onVersionClick(clickEvent.node.id);
       
       // 展開状態をトグル
       const newExpanded = new Set(expandedVersions);
-      if (newExpanded.has(node.id)) {
-        newExpanded.delete(node.id);
+      if (newExpanded.has(clickEvent.node.id)) {
+        newExpanded.delete(clickEvent.node.id);
       } else {
-        newExpanded.add(node.id);
+        newExpanded.add(clickEvent.node.id);
       }
       setExpandedVersions(newExpanded);
     }
+    // 右クリックの処理は将来の拡張用
   };
 
   if (loading) {

@@ -1,11 +1,12 @@
 import React from 'react';
-import type { NodeData } from '../../domain/types';
+import type { NodeData, NodeClickEvent } from '../../domain/types';
+import * as logger from '../../../../common/infrastructure/logger';
 
-interface NodeProps {
+type NodeProps = {
   node: NodeData;
-  onNodeClick?: (node: NodeData) => void;
+  onNodeClick?: (clickEvent: NodeClickEvent) => void;
   parentOpacity?: number; // 親からの透明度を受け取る
-}
+};
 
 /**
  * 再帰的にツリーノードとその子要素を表示するコンポーネント
@@ -42,10 +43,35 @@ const Node: React.FC<NodeProps> = ({ node, onNodeClick, parentOpacity = 0 }) => 
   // ノードクリックのハンドラ
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // 常にイベント伝播を停止
-    console.log(`クリックされたノード: ${node.name}, タイプ: ${node.nodeType}`);
-    // versionノードの場合のみ開閉処理を行う
-    if (node.nodeType === 'version' && onNodeClick) {
-      onNodeClick(node);
+    if (onNodeClick) {
+      logger.info('Node clicked', {
+        nodeId: node.id,
+        nodeType: node.nodeType,
+        eventType: 'left'
+      });
+      onNodeClick({
+        node,
+        eventType: 'left',
+        event: e.nativeEvent
+      });
+    }
+  };
+
+  // 右クリックのハンドラ
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault(); // デフォルトのコンテキストメニューを無効化
+    e.stopPropagation();
+    if (onNodeClick) {
+      logger.info('Node right-clicked', {
+        nodeId: node.id,
+        nodeType: node.nodeType,
+        eventType: 'right'
+      });
+      onNodeClick({
+        node,
+        eventType: 'right',
+        event: e.nativeEvent
+      });
     }
   };
 
@@ -58,9 +84,10 @@ const Node: React.FC<NodeProps> = ({ node, onNodeClick, parentOpacity = 0 }) => 
         borderRadius: '4px',
         // 計算された背景色を適用
         background: backgroundColor,
-        cursor: node.nodeType === 'version' && onNodeClick ? 'pointer' : 'default'
+        cursor: onNodeClick ? 'pointer' : 'default'
       }}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
     >
       {/* コンテンツ */}
       <div style={{ position: 'relative', zIndex: 1 }}>
@@ -92,7 +119,7 @@ const Node: React.FC<NodeProps> = ({ node, onNodeClick, parentOpacity = 0 }) => 
               key={`${child.id || index}-${index}`}
               node={child}
               parentOpacity={currentOpacity} // 親の透明度を子に渡す
-              onNodeClick={child.nodeType === 'version' ? onNodeClick : undefined} // versionノードのみクリックハンドラを渡す
+              onNodeClick={onNodeClick} // クリックハンドラを渡す
             />
           ))}
         </div>

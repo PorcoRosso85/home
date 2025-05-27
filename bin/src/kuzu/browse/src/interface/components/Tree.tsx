@@ -3,12 +3,12 @@
  */
 import React from 'react';
 import Node from './Node';
-import type { NodeData } from '../../domain/types';
+import type { NodeData, NodeClickEvent } from '../../domain/types';
 
-interface TreeProps {
+type TreeProps = {
   treeData: NodeData[];
-  onNodeClick?: (node: NodeData) => void;
-}
+  onNodeClick?: (clickEvent: NodeClickEvent) => void;
+};
 
 export const Tree: React.FC<TreeProps> = ({ treeData, onNodeClick }) => {
   return (

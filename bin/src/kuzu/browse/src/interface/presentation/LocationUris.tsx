@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { Tree } from '../components/Tree';
-import type { NodeData } from '../../domain/types';
+import type { NodeData, NodeClickEvent } from '../../domain/types';
 
 interface LocationUrisProps {
   treeData: NodeData[];

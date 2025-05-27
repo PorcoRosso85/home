@@ -47,3 +47,9 @@ export type NodeData = {
   change_reason?: string;
   timestamp?: string;
 };
+
+export type NodeClickEvent = {
+  node: NodeData;
+  eventType: 'left' | 'right';
+  event: MouseEvent;
+};
