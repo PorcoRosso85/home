@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
 import { VersionState } from '../../domain/types';
-import * as logger from '../../../../common/infrastructure/logger';
+import * as logger from '../../../common/infrastructure/logger';
 
 export const useVersionStates = (dbConnection: any | null) => {
   const [versions, setVersions] = useState<VersionState[]>([]);

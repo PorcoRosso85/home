@@ -1,6 +1,6 @@
 import React from 'react';
 import type { NodeData, NodeClickEvent } from '../../domain/types';
-import * as logger from '../../../../common/infrastructure/logger';
+import * as logger from '../../../common/infrastructure/logger';
 
 type NodeProps = {
   node: NodeData;

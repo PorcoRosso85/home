@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
 import { NodeData } from '../../domain/types';
-import * as logger from '../../../../common/infrastructure/logger';
+import * as logger from '../../../common/infrastructure/logger';
 import { createVersionCompletionService } from '../services/VersionCompletionService';
 import { createVersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
 

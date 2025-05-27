@@ -4,7 +4,7 @@
  * UIコンポーネントとKuzuDBの間の中間層として機能
  */
 
-import type { LocationUriEntity } from '../../../../query/domain/entities/locationUri';
+import type { LocationUriEntity } from '../../../query/domain/entities/locationUri';
 import type { VersionStateEntity, CompletionStatus } from '../../../../query/domain/entities/versionState';
 import type { VersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
 

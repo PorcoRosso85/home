@@ -3,7 +3,7 @@
  */
 import { useState, useEffect } from 'react';
 import { onDatabaseReady } from './databaseEvent';
-import * as logger from '../../../../common/infrastructure/logger';
+import * as logger from '../../../common/infrastructure/logger.ts';
 
 type DatabaseConnectionState = {
   dbConnection: any | null;

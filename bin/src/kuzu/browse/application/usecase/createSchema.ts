@@ -1,4 +1,4 @@
-import * as logger from '../../../../common/infrastructure/logger';
+import * as logger from '../../../common/infrastructure/logger';
 
 // エラー型定義（Tagged Union）
 type SchemaLoadSuccess = {

@@ -1,4 +1,4 @@
-import * as logger from '../../../../common/infrastructure/logger';
+import * as logger from '../../../common/infrastructure/logger';
 
 declare global {
   type Window = {
@@ -13,7 +13,7 @@ export async function createConnection(): Promise<any> {
   
   try {
     // Kuzu-Wasmのロード
-    const kuzuWasm = await import("../../../node_modules/kuzu-wasm");
+    const kuzuWasm = await import("kuzu-wasm");
     const kuzu = kuzuWasm.default || kuzuWasm;
     
     // グローバルにkuzuオブジェクトを設定

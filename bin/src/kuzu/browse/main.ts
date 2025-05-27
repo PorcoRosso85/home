@@ -2,7 +2,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './interface/App';
-import * as logger from '../../common/infrastructure/logger';
+import * as logger from '../common/infrastructure/logger';
 import { dispatchDatabaseReady } from './infrastructure/database/databaseEvent';
 import { createConnection } from './infrastructure/repository/databaseConnection';
 import { createSchema } from './application/usecase/createSchema';

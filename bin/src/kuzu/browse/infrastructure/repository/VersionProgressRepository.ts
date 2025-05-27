@@ -4,10 +4,10 @@
  * REFACTORED: completed プロパティ削除に伴い、progress_percentage ベースに統一
  */
 
-import type { LocationUriEntity } from '../../../../query/domain/entities/locationUri';
-import type { VersionStateEntity, CompletionStatus } from '../../../../query/domain/entities/versionState';
+import type { LocationUriEntity } from '../../../query/domain/entities/locationUri';
+import type { VersionStateEntity, CompletionStatus } from '../../../query/domain/entities/versionState';
 import { executeDMLQuery, executeDQLQuery } from './queryExecutor';
-import * as logger from '../../../../common/infrastructure/logger';
+import * as logger from '../../../common/infrastructure/logger';
 
 export type VersionProgressRepository = {
   updateVersionProgress(dbConnection: any, versionId: string, progressPercentage: number): Promise<{success: boolean; error?: string}>;

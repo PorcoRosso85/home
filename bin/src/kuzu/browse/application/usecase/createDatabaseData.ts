@@ -1,4 +1,4 @@
-import * as logger from '../../../../common/infrastructure/logger';
+import * as logger from '../../../common/infrastructure/logger';
 import { executeDMLQuery } from '../../infrastructure/repository/queryExecutor';
 
 /**
@@ -153,18 +153,18 @@ async function defaultTest(conn: any): Promise<void> {
       // 新規追加: kuzu/browseディレクトリ構造
       { id: 'file:///home/nixos/bin/src/kuzu/browse' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/entity' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/hooks' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/entity' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/database' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/logger' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/repository' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/public' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/public/dql' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data' },
@@ -237,18 +237,18 @@ async function defaultTest(conn: any): Promise<void> {
     { parent_id: 'file:///home/nixos/bin/src/kuzu', child_id: 'file:///home/nixos/bin/src/kuzu/browse', relation_type: 'directory_hierarchy' },
     { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src', relation_type: 'directory_hierarchy' },
     { parent_id: 'file:///home/nixos/bin/src/kuzu/browse', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/entity', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/application', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/domain', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/interface', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/application/hooks', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/domain/entity', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/database', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/logger', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/repository', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components', relation_type: 'directory_hierarchy' },
     { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/public', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public/dql', relation_type: 'directory_hierarchy' },
     { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/public', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data', relation_type: 'directory_hierarchy' },
   ];
@@ -306,88 +306,88 @@ async function kuzuBrowse(conn: any): Promise<void> {
       
       // メインソースディレクトリ
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/index.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/main.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/index.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/main.ts' },
       
       // アプリケーション層
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks/useLocationUriTree.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks/useTreeData.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks/useVersionData.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks/useVersionTreeData.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/hooks' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/hooks/useLocationUriTree.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/hooks/useTreeData.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/hooks/useVersionData.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/hooks/useVersionTreeData.ts' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/services' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/services/VersionCompletionService.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/services' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/services/VersionCompletionService.ts' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/buildLocationTree.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/buildVersionTree.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/createSchema.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/getLocationUrisByScheme.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/getLocationUris.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/getVersionedLocationUris.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/createDatabaseData.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase/buildLocationTree.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase/buildVersionTree.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase/createSchema.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase/getLocationUrisByScheme.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase/getLocationUris.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase/getVersionedLocationUris.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase/createDatabaseData.ts' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/validation' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase/validation/versionBatchValidation.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase/validation' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase/validation/versionBatchValidation.ts' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/utils' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/utils/cacheUtils.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/utils/versionComparator.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/utils' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/utils/cacheUtils.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/application/utils/versionComparator.ts' },
       
       // ドメイン層
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/types.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/types.ts' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/constants' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/constants/versionFormats.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/constants' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/constants/versionFormats.ts' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/locationTreeBuilder.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/locationUriGrouper.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/locationUriParser.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/locationUriValidator.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/versionParser.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service/versionTreeBuilder.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service/locationTreeBuilder.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service/locationUriGrouper.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service/locationUriParser.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service/locationUriValidator.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service/versionParser.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service/versionTreeBuilder.ts' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/semverValidator.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/validationError.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/validationResult.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/validation' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/validation/semverValidator.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/validation/validationError.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/validation/validationResult.ts' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/node' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/node/locationUriValidation.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation/node/versionStateValidation.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/validation/node' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/validation/node/locationUriValidation.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/domain/validation/node/versionStateValidation.ts' },
       
       // インフラストラクチャ層
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database/databaseEvent.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database/useDatabaseConnection.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database/queries' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/database' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/database/databaseEvent.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/database/useDatabaseConnection.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/database/queries' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/logger' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository/databaseConnection.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository/queryExecutor.ts' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository/VersionProgressRepository.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/repository' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/repository/databaseConnection.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/repository/queryExecutor.ts' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/repository/VersionProgressRepository.ts' },
       
       // インターフェース層
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/App.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/App.tsx' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/ErrorView.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/LoadingView.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/NodeDetailsPanel.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/Node.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/Tree.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components/ErrorView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components/LoadingView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components/NodeDetailsPanel.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components/Node.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components/Tree.tsx' },
       
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/pages' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/utils' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/pages' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/utils' },
     ]
   };
 
@@ -427,35 +427,35 @@ async function kuzuBrowse(conn: any): Promise<void> {
     { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/public', child_id: 'file:///home/nixos/bin/src/kuzu/browse/public/export_data', relation_type: 'directory_hierarchy' },
     
     // srcディレクトリ
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/index.tsx', relation_type: 'file_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/main.ts', relation_type: 'file_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/index.tsx', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/main.ts', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/application', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/domain', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src', child_id: 'file:///home/nixos/bin/src/kuzu/browse/interface', relation_type: 'directory_hierarchy' },
     
     // アプリケーション層
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/hooks', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/services', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/usecase', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/application/utils', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/application/hooks', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/application/services', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/application/usecase', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/application', child_id: 'file:///home/nixos/bin/src/kuzu/browse/application/utils', relation_type: 'directory_hierarchy' },
     
     // ドメイン層
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/types.ts', relation_type: 'file_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/constants', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/service', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/domain/validation', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/domain/types.ts', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/domain/constants', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/domain/service', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/domain', child_id: 'file:///home/nixos/bin/src/kuzu/browse/domain/validation', relation_type: 'directory_hierarchy' },
     
     // インフラストラクチャ層  
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/database', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/logger', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/infrastructure/repository', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/database', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/logger', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure', child_id: 'file:///home/nixos/bin/src/kuzu/browse/infrastructure/repository', relation_type: 'directory_hierarchy' },
     
     // インターフェース層
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/App.tsx', relation_type: 'file_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/pages', relation_type: 'directory_hierarchy' },
-    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/utils', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/interface/App.tsx', relation_type: 'file_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/interface/pages', relation_type: 'directory_hierarchy' },
+    { parent_id: 'file:///home/nixos/bin/src/kuzu/browse/interface', child_id: 'file:///home/nixos/bin/src/kuzu/browse/interface/utils', relation_type: 'directory_hierarchy' },
   ];
   
   // 階層構造を作成
@@ -471,21 +471,21 @@ async function kuzuBrowseRefactored(conn: any): Promise<void> {
     previous_version_id: 'v0.1.0',
     location_uris: [
       // 新規追加ファイルのみ
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/Layout.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/Page.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/Layout.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/Page.tsx' },
       
       // 新しいディレクトリ
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/presentation' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/elements' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/presentation' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/elements' },
       
       // 移動・名前変更されたファイル
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/presentation/VersionStates.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/presentation/LocationUris.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/Tree.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/Node.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/elements/ErrorView.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/elements/LoadingView.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/elements/NodeDetailsPanel.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/presentation/VersionStates.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/presentation/LocationUris.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components/Tree.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/components/Node.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/elements/ErrorView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/elements/LoadingView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/interface/elements/NodeDetailsPanel.tsx' },
     ]
   };
 

@@ -1,7 +1,7 @@
 /**
  * データベースイベント管理
  */
-import * as logger from '../../../../common/infrastructure/logger';
+import * as logger from '../../../common/infrastructure/logger';
 
 // グローバル定義
 declare global {
