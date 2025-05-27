@@ -62,10 +62,39 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSingleClaude = () => {
+    const ws = new WebSocket("ws://localhost:8080");
+    
+    const question = "現在以降の静岡県の天気予報を調査してください";
+    const args = ["dlx", "@anthropic-ai/claude-code", "-p", "--output-format", "json", question];
+    
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        jsonrpc: "2.0",
+        method: "exec",
+        params: { 
+          command: "pnpm",
+          args: args
+        },
+        id: 1
+      }));
+    };
+    
+    ws.onmessage = (e) => {
+      const res = JSON.parse(e.data);
+      const output = res.result?.stdout || res.error;
+      console.log(`Single Claude:`, output);
+      ws.close();
+    };
+  };
+
   return (
     <Layout>
       <Page />
-      <button onClick={handleDualClaude} style={{position: 'fixed', bottom: 20, right: 20}}>
+      <button onClick={handleSingleClaude} style={{position: 'fixed', bottom: 20, right: 20}}>
+        1x Claude
+      </button>
+      <button onClick={handleDualClaude} style={{position: 'fixed', bottom: 20, right: 100}}>
         16x Claude
       </button>
     </Layout>

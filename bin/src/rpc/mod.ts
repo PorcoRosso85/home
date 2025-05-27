@@ -18,7 +18,7 @@ interface JsonRpcResponse {
   id: number | string;
 }
 
-async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcResponse> {
+async function handleJsonRpc(socket: WebSocket, request: JsonRpcRequest): Promise<void> {
   if (request.method === "exec") {
     try {
       const { command, args = [], cwd = "." } = request.params || {};
@@ -26,23 +26,53 @@ async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcResponse> 
       const cmd = new Deno.Command(command, {
         args,
         cwd,
+        stdout: "piped",
+        stderr: "piped",
       });
       
-      const { stdout, stderr, code } = await cmd.output();
-      const output = new TextDecoder().decode(stdout);
-      const error = new TextDecoder().decode(stderr);
+      const process = cmd.spawn();
       
-      return {
+      // stdoutのストリーミング
+      const reader = process.stdout.getReader();
+      const decoder = new TextDecoder();
+      
+      (async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            socket.send(JSON.stringify({
+              jsonrpc: "2.0",
+              result: {
+                stdout: chunk,
+                stream: true,
+              },
+              id: request.id,
+            }));
+          }
+        } catch (error) {
+          console.error("Error reading stdout:", error);
+        }
+      })();
+      
+      // プロセス終了を待つ
+      const { code } = await process.status;
+      
+      // 最終的な完了通知
+      socket.send(JSON.stringify({
         jsonrpc: "2.0",
         result: {
-          stdout: output,
-          stderr: error,
           code,
+          stream: false,
+          complete: true,
         },
         id: request.id,
-      };
+      }));
+      
     } catch (error) {
-      return {
+      socket.send(JSON.stringify({
         jsonrpc: "2.0",
         error: {
           code: -32603,
@@ -50,18 +80,18 @@ async function handleJsonRpc(request: JsonRpcRequest): Promise<JsonRpcResponse> 
           data: error.message,
         },
         id: request.id,
-      };
+      }));
     }
+  } else {
+    socket.send(JSON.stringify({
+      jsonrpc: "2.0",
+      error: {
+        code: -32601,
+        message: "Method not found",
+      },
+      id: request.id,
+    }));
   }
-  
-  return {
-    jsonrpc: "2.0",
-    error: {
-      code: -32601,
-      message: "Method not found",
-    },
-    id: request.id,
-  };
 }
 
 serve((req) => {
@@ -78,8 +108,7 @@ serve((req) => {
   socket.onmessage = async (event) => {
     try {
       const request: JsonRpcRequest = JSON.parse(event.data);
-      const response = await handleJsonRpc(request);
-      socket.send(JSON.stringify(response));
+      await handleJsonRpc(socket, request);
     } catch (error) {
       socket.send(JSON.stringify({
         jsonrpc: "2.0",
