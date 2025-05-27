@@ -2,22 +2,22 @@
  * ツリー表示コンポーネント
  */
 import React from 'react';
-import TreeNode from './Node';
-import type { TreeNode as TreeNodeData } from '../../domain/types';
+import Node from './Node';
+import type { NodeData } from '../../domain/types';
 
-interface TreeViewProps {
-  treeData: TreeNodeData[];
-  onNodeClick?: (node: TreeNodeData) => void;
+interface TreeProps {
+  treeData: NodeData[];
+  onNodeClick?: (node: NodeData) => void;
 }
 
-export const TreeView: React.FC<TreeViewProps> = ({ treeData, onNodeClick }) => {
+export const Tree: React.FC<TreeProps> = ({ treeData, onNodeClick }) => {
   return (
-    <div style={{ flex: 1, overflowY: 'auto', marginRight: '20px' }}>
+    <div style={{ flex: 1, overflowY: 'auto' }}>
       {treeData.length === 0 ? (
         <p>No data available</p>
       ) : (
         treeData.map((node, index) => (
-          <TreeNode
+          <Node
             key={`root-${index}`}
             node={node}
             onNodeClick={onNodeClick}

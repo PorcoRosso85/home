@@ -2,11 +2,11 @@
  * LocationURI表示用コンポーネント
  */
 import React from 'react';
-import { TreeView } from '../components/Tree';
-import type { TreeNode } from '../../domain/types';
+import { Tree } from '../components/Tree';
+import type { NodeData } from '../../domain/types';
 
 interface LocationUrisProps {
-  treeData: TreeNode[];
+  treeData: NodeData[];
   loading: boolean;
   error: string | null;
   selectedVersionId: string;
@@ -45,7 +45,7 @@ export const LocationUris: React.FC<LocationUrisProps> = ({
   }
 
   return (
-    <TreeView 
+    <Tree 
       treeData={treeData}
       onNodeClick={() => {}}
     />

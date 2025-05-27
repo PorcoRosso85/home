@@ -33,11 +33,11 @@ export type LocationURI = {
   isCompleted?: boolean;
 };
 
-export type TreeNode = {
+export type NodeData = {
   id: string;
   name: string;
   nodeType?: 'version' | 'location';
-  children: TreeNode[];
+  children: NodeData[];
   from_version?: string;
   isCurrentVersion?: boolean;
   isCompleted?: boolean;

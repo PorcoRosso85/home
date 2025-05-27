@@ -1,9 +1,9 @@
 import React from 'react';
-import type { TreeNode as TreeNodeData } from '../../domain/types';
+import type { NodeData } from '../../domain/types';
 
-interface TreeNodeProps {
-  node: TreeNodeData;
-  onNodeClick?: (node: TreeNodeData) => void;
+interface NodeProps {
+  node: NodeData;
+  onNodeClick?: (node: NodeData) => void;
   parentOpacity?: number; // 親からの透明度を受け取る
 }
 
@@ -11,7 +11,7 @@ interface TreeNodeProps {
  * 再帰的にツリーノードとその子要素を表示するコンポーネント
  * 親要素の重なりが子要素にも適用される実装
  */
-const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 0 }) => {
+const Node: React.FC<NodeProps> = ({ node, onNodeClick, parentOpacity = 0 }) => {
   const hasChildren = node.children && node.children.length > 0;
   
   // 現在の要素の透明度：親からの透明度 + 自分の透明度
@@ -40,8 +40,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
   const nodeTextColor = node.isCurrentVersion ? '#0066cc' : textColor;
   
   // ノードクリックのハンドラ
-  const handleClick = () => {
-    if (onNodeClick) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // 常にイベント伝播を停止
+    console.log(`クリックされたノード: ${node.name}, タイプ: ${node.nodeType}`);
+    // versionノードの場合のみ開閉処理を行う
+    if (node.nodeType === 'version' && onNodeClick) {
       onNodeClick(node);
     }
   };
@@ -55,7 +58,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
         borderRadius: '4px',
         // 計算された背景色を適用
         background: backgroundColor,
-        cursor: onNodeClick ? 'pointer' : 'default'
+        cursor: node.nodeType === 'version' && onNodeClick ? 'pointer' : 'default'
       }}
       onClick={handleClick}
     >
@@ -85,11 +88,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
       {hasChildren && (
         <div style={{ paddingLeft: '20px', marginTop: '4px' }}>
           {node.children!.map((child, index) => (
-            <TreeNode
+            <Node
               key={`${child.id || index}-${index}`}
               node={child}
               parentOpacity={currentOpacity} // 親の透明度を子に渡す
-              onNodeClick={onNodeClick} // 子ノードにもクリックハンドラを渡す
+              onNodeClick={child.nodeType === 'version' ? onNodeClick : undefined} // versionノードのみクリックハンドラを渡す
             />
           ))}
         </div>
@@ -98,4 +101,4 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, onNodeClick, parentOpacity = 
   );
 };
 
-export default TreeNode;
+export default Node;

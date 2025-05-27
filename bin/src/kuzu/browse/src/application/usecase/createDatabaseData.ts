@@ -383,9 +383,8 @@ async function kuzuBrowse(conn: any): Promise<void> {
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/ErrorView.tsx' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/LoadingView.tsx' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/NodeDetailsPanel.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/TreeNode.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/TreeView.tsx' },
-      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/VersionTreeView.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/Node.tsx' },
+      { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/components/Tree.tsx' },
       
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/pages' },
       { id: 'file:///home/nixos/bin/src/kuzu/browse/src/interface/utils' },

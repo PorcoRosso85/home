@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
-import { TreeNode } from '../../domain/types';
+import { NodeData } from '../../domain/types';
 import * as logger from '../../../../common/infrastructure/logger';
 import { createVersionCompletionService } from '../services/VersionCompletionService';
 import { createVersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
 
 export const useLocationUris = (dbConnection: any | null, selectedVersionId: string) => {
-  const [treeData, setTreeData] = useState<TreeNode[]>([]);
+  const [treeData, setTreeData] = useState<NodeData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +64,7 @@ export const useLocationUris = (dbConnection: any | null, selectedVersionId: str
         }
         
         // 階層構造変換（パスベース）
-        const treeNodes: TreeNode[] = buildTreeFromLocationUris(locationUrisWithCompletion, selectedVersionId);
+        const treeNodes: NodeData[] = buildTreeFromLocationUris(locationUrisWithCompletion, selectedVersionId);
         setTreeData(treeNodes);
         
         setError(null);
@@ -109,8 +109,8 @@ async function getIncompleteUrisSafely(
 }
 
 // LocationURIからツリー構造を構築する簡易実装
-function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: string): TreeNode[] {
-  const tree: TreeNode[] = [];
+function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: string): NodeData[] {
+  const tree: NodeData[] = [];
   
   // スキーム別にグループ化
   const schemeGroups = locationUris.reduce((acc, uri) => {
@@ -124,9 +124,10 @@ function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: stri
 
   // 各スキームのルートノードを作成
   Object.entries(schemeGroups).forEach(([scheme, uris]: [string, any[]]) => {
-    const rootNode: TreeNode = {
+    const rootNode: NodeData = {
       id: `${scheme}://`,
       name: `${scheme}://`,
+      nodeType: 'location',  // nodeTypeを追加
       children: []
     };
     
@@ -136,9 +137,10 @@ function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: stri
     } else {
       // その他のスキームは単純にリスト表示
       uris.forEach(uri => {
-        const leafNode: TreeNode = {
+        const leafNode: NodeData = {
           id: uri.uri_id,
           name: `${uri.path}${uri.fragment ? '#' + uri.fragment : ''}${uri.query ? '?' + uri.query : ''}`,
+          nodeType: 'location',  // nodeTypeを追加
           children: [],
           from_version: uri.from_version,
           isCurrentVersion: uri.from_version === selectedVersionId,
@@ -161,8 +163,8 @@ function parseSchemeFromUriId(uriId: string): string {
 }
 
 // ファイル階層を構築する関数
-function buildFileHierarchy(rootNode: TreeNode, uris: any[], selectedVersionId?: string) {
-  const pathMap = new Map<string, TreeNode>();
+function buildFileHierarchy(rootNode: NodeData, uris: any[], selectedVersionId?: string) {
+  const pathMap = new Map<string, NodeData>();
   
   // ルートノードをマップに追加
   pathMap.set('/', rootNode);
@@ -192,6 +194,7 @@ function buildFileHierarchy(rootNode: TreeNode, uris: any[], selectedVersionId?:
         currentNode = {
           id: currentPath,
           name: pathParts[i],
+          nodeType: 'location',  // nodeTypeを追加
           children: [],
           from_version: uri.from_version,
           isCurrentVersion: uri.from_version === selectedVersionId

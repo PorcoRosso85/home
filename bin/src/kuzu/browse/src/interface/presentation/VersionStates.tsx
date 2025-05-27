@@ -2,8 +2,8 @@
  * バージョン選択・表示用コンポーネント
  */
 import React, { useState } from 'react';
-import { TreeView } from '../components/Tree';
-import type { TreeNode, VersionState } from '../../domain/types';
+import { Tree } from '../components/Tree';
+import type { NodeData, VersionState } from '../../domain/types';
 
 interface VersionStatesProps {
   versions: VersionState[];
@@ -12,7 +12,7 @@ interface VersionStatesProps {
   error: string | null;
   onVersionClick: (versionId: string) => void;
   // LocationURI統合用props
-  locationTreeData: TreeNode[];
+  locationTreeData: NodeData[];
   locationLoading: boolean;
   locationError: string | null;
 }
@@ -32,9 +32,9 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
 }) => {
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
   // バージョン一覧をツリー形式に変換
-  const versionTree: TreeNode[] = versions.map(version => {
+  const versionTree: NodeData[] = versions.map(version => {
     const isExpanded = expandedVersions.has(version.id);
-    const baseNode: TreeNode = {
+    const baseNode: NodeData = {
       id: version.id,
       name: `${version.id} - ${version.description}`,
       nodeType: 'version',
@@ -52,7 +52,7 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
   });
 
   // バージョンノードがクリックされたときのハンドラ
-  const handleVersionNodeClick = (node: TreeNode) => {
+  const handleVersionNodeClick = (node: NodeData) => {
     if (node.nodeType === 'version') {
       // バージョン選択
       onVersionClick(node.id);
@@ -91,7 +91,7 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
         <div style={{ color: 'red', marginBottom: '10px', padding: '10px', border: '1px solid #f00', borderRadius: '4px' }}>
           LocationURI読み込みエラー: {locationError}
         </div>
-        <TreeView 
+        <Tree 
           treeData={versionTree}
           onNodeClick={handleVersionNodeClick}
         />
@@ -101,7 +101,7 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
 
   return (
     <div>
-      <TreeView 
+      <Tree 
         treeData={versionTree}
         onNodeClick={handleVersionNodeClick}
       />

@@ -3,7 +3,7 @@
  */
 import React, { useState } from 'react';
 import { VersionStates } from './presentation/VersionStates';
-import type { TreeNode } from '../domain/types';
+import type { NodeData } from '../domain/types';
 import { useVersionStates } from '../application/hooks/useVersionStates';
 import { useLocationUris } from '../application/hooks/useLocationUris';
 import { useDatabaseConnection } from '../infrastructure/database/useDatabaseConnection';
