@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { Tree } from '../components/Tree';
 import type { NodeData, VersionState, NodeClickEvent } from '../../domain/types';
+import { useSimpleClaudeAnalysis } from '../../application/claude/useSimpleClaudeAnalysis.ts';
 
 interface VersionStatesProps {
   versions: VersionState[];
@@ -31,6 +32,15 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
   locationError
 }) => {
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{
+    show: boolean;
+    x: number;
+    y: number;
+    node: NodeData | null;
+  }>({ show: false, x: 0, y: 0, node: null });
+  
+  // Claude解析Hook
+  const { loading: claudeLoading, result, error: claudeError, analyzeVersion } = useSimpleClaudeAnalysis();
   // バージョン一覧をツリー形式に変換
   const versionTree: NodeData[] = versions.map(version => {
     const isExpanded = expandedVersions.has(version.id);
@@ -67,7 +77,29 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
       }
       setExpandedVersions(newExpanded);
     }
-    // 右クリックの処理は将来の拡張用
+    // 右クリックでClaude解析メニュー表示
+    else if (clickEvent.eventType === 'right' && clickEvent.node.nodeType === 'version') {
+      setContextMenu({
+        show: true,
+        x: clickEvent.event.clientX,
+        y: clickEvent.event.clientY,
+        node: clickEvent.node
+      });
+      clickEvent.event.preventDefault();
+    }
+  };
+  
+  // Claude解析実行
+  const handleClaudeAnalysis = async () => {
+    if (contextMenu.node) {
+      await analyzeVersion(contextMenu.node);
+      setContextMenu({ show: false, x: 0, y: 0, node: null });
+    }
+  };
+  
+  // コンテキストメニューを閉じる
+  const handleCloseContextMenu = () => {
+    setContextMenu({ show: false, x: 0, y: 0, node: null });
   };
 
   if (loading) {
@@ -112,6 +144,73 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
         <div style={{ marginTop: '10px', padding: '5px', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
           LocationURIデータを読み込み中...
         </div>
+      )}
+      
+      {/* Claude解析結果表示 */}
+      {claudeLoading && (
+        <div style={{ padding: '10px', backgroundColor: '#f0f0f0', margin: '10px 0' }}>
+          Claude解析中...
+        </div>
+      )}
+      
+      {result && (
+        <div style={{ padding: '10px', backgroundColor: '#e8f5e8', margin: '10px 0', border: '1px solid #4CAF50' }}>
+          <h4>Claude解析結果:</h4>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{result}</pre>
+        </div>
+      )}
+      
+      {claudeError && (
+        <div style={{ padding: '10px', backgroundColor: '#ffe8e8', margin: '10px 0', border: '1px solid #f44336' }}>
+          <h4>Claude解析エラー:</h4>
+          <p>{claudeError}</p>
+        </div>
+      )}
+      
+      {/* 右クリックコンテキストメニュー */}
+      {contextMenu.show && (
+        <>
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 999
+            }}
+            onClick={handleCloseContextMenu}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: contextMenu.y,
+              left: contextMenu.x,
+              backgroundColor: 'white',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+              zIndex: 1000,
+              minWidth: '150px'
+            }}
+          >
+            <button
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                textAlign: 'left',
+                cursor: 'pointer'
+              }}
+              onClick={handleClaudeAnalysis}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              Claude解析
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

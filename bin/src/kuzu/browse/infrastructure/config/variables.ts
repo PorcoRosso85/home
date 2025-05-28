@@ -15,6 +15,8 @@ export interface EnvironmentVariables {
     target: string;
     pattern?: string;
   }>;
+//  // Claude関連設定（最小構成）
+  CLAUDE_WS_ENDPOINT: string;
 }
 
 // バリデーションエラー
@@ -88,6 +90,8 @@ export const env: EnvironmentVariables = {
   API_HOST: getOptionalEnv('API_HOST', 'localhost', validators.host),
   API_PORT: getOptionalEnv('API_PORT', '3000', validators.port),
   DB_PATH: getOptionalEnv('DB_PATH', './kuzu.db', validators.path),
+  // Claude関連設定（最小構成）
+  CLAUDE_WS_ENDPOINT: getOptionalEnv('CLAUDE_WS_ENDPOINT', 'ws://localhost:8080'),
   KUZU_MOUNTS: (() => {
     try {
       const mounts = (import.meta as any).env?.KUZU_MOUNTS;

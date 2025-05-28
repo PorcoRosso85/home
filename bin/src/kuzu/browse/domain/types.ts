@@ -53,3 +53,24 @@ export type NodeClickEvent = {
   eventType: 'left' | 'right';
   event: MouseEvent;
 };
+// Claude解析関連の型定義（Phase 1最小構成）
+export type ClaudeAnalysisRequest = {
+  versionId: string;
+  prompt: string;
+  nodeData: NodeData;
+};
+
+export type ClaudeAnalysisResult = 
+  | { status: "success"; data: string }
+  | { status: "error"; message: string };
+
+export type NodeClickEvent = {
+  node: NodeData;
+  eventType: 'left' | 'right';
+  event: MouseEvent;
+  // Claude解析用のコンテキストデータ
+  contextData?: {
+    queryResult?: any;
+    renderingData?: any;
+  };
+};
