@@ -5,19 +5,19 @@
 
 ## 命名規則:
   description: 各言語の標準的な命名規則に従い、一貫性のあるコードベースを維持する
+  note: ファイル名は全言語共通で関数と同じcamelCase命名フォーマットを使用する（例外: React ComponentファイルはPascalCase.tsx）
   rules:
     TypeScript:
       - 変数・関数名: camelCase （例: getUserData, isValidInput）
       - 型・インターフェース名: PascalCase （例: UserData, QueryResult）
       - 定数: UPPER_SNAKE_CASE （例: MAX_RETRY_COUNT, API_ENDPOINT）
-      - ファイル名: kebab-case.ts （例: user-service.ts, query-executor.ts）
+      - ファイル名: camelCase.ts （例: userService.ts, queryExecutor.ts）
       - コンポーネントファイル: PascalCase.tsx （例: UserProfile.tsx, DataTable.tsx）
     Python:
       - 変数・関数名: snake_case （例: get_user_data, is_valid_input）
       - クラス名: PascalCase （例: UserData, QueryResult）
       - 定数: UPPER_SNAKE_CASE （例: MAX_RETRY_COUNT, API_ENDPOINT）
-      - ファイル名: snake_case.py （例: user_service.py, query_executor.py）
-      - モジュール名: snake_case （例: database_connection, error_handler）
+      - ファイル名: camelCase.py （例: userService.py, queryExecutor.py）
     共通:
       - 略語は避け、意味の明確な名前を使用すること
       - ブール値を返す関数は is_, has_, can_ などのプレフィックスを使用
@@ -657,114 +657,6 @@
     - テストは関数の入出力のみに焦点を当てること
     - テストは目的を明確に示す命名を使用すること
     - 各言語のテストフレームワークの規約に従って記述すること:
-      - Python: pytest規約（assert文を使用）
-      - TypeScript/Deno: Deno.test()を使用
-      - その他: 各言語の標準的なテストフレームワーク
-    - 以下の2種類のテストを区別すること:
-      - 単体テスト: 実装ファイル内に記述（テストフレームワーク使用）
-      - E2Eテスト: tests/e2e ディレクトリ内の専用ファイルに記述
-    - 単体テストは別途テストファイルは作成せず、実装ファイル内に記述すること
-    - E2Eテストは tests/e2e 内の適切なサブディレクトリに配置すること（例: interface, application）
-    - E2Eテストは必ずテストフレームワークのクリーンアップ機能を活用し、テスト実行時に作成されたファイルを削除すること
-    - if __name__ == "__main__"やif (import.meta.main)ブロックは、単独実行が必要な場合のみ使用を許可
-  examples:
-    unit_test: |
-      # Python例
-      def add(a: int, b: int) -> int:
-          return a + b
-      
-      # pytest用のテスト関数
-      def test_addition():
-          assert add(1, 2) == 3
-          assert add(-1, 1) == 0
-          assert add(0, 0) == 0
-      
-      # TypeScript/Deno例
-      function add(a: number, b: number): number {
-          return a + b;
-      }
-      
-      // Deno.testを使用したテスト
-      Deno.test("addition test", () => {
-          assertEquals(add(1, 2), 3);
-          assertEquals(add(-1, 1), 0);
-          assertEquals(add(0, 0), 0);
-      });
-    
-    e2e_test: |
-      """
-      CLIのE2Eテスト
-      
-      このモジュールはCLIインターフェースのエンドツーエンドテストを提供します。
-      """
-      
-      import os
-      import pytest
-      
-      # ファイルクリーンアップを管理するフィクスチャ
-      @pytest.fixture(scope="session", autouse=True)
-      def cleanup_test_files():
-          temp_files = []
-          
-          # 前処理
-          yield temp_files
-          
-          # 後処理: 作成したファイルをクリーンアップ
-          for file_path in temp_files:
-              if os.path.exists(file_path):
-                  os.remove(file_path)
-                  print(f"削除: {file_path}")
-      
-      # テストケース
-      def test_command_execution(tmp_path, cleanup_test_files):
-          # 一時ファイルのパスを設定
-          temp_file = tmp_path / "test_file.txt"
-          cleanup_test_files.append(str(temp_file))
-          
-          # テスト実行
-          # ...
-          
-          # 検証
-          assert temp_file.exists()
-
-## 最小構成の記述:
-  rules:
-    - 各テストは単一の機能や動作に焦点を当てること
-    - テストコードは簡潔かつ明確に保ち、過度な複雑さを避けること
-    - テストの前提条件、実行内容、期待される結果を明確にすること
-    - 冗長なアサーションや検証は避け、必要最小限のチェックに留めること
-    - テスト間の依存関係を最小限に抑え、独立して実行可能な構造にすること
-    - pytestの標準機能（tmp_path、monkeypatchなど）を最大限に活用すること
-  examples:
-    good: |
-      def test_init_command_creates_database(tmp_path, cleanup_test_files):
-          # 前提条件
-          db_dir = tmp_path / "test_db"
-          db_dir.mkdir()
-          cleanup_test_files.append(str(db_dir))
-          
-          # 実行
-          result = execute_init_command(str(db_dir))
-          
-          # 検証（最小限のチェック）
-          assert result["success"] is True
-          assert (db_dir / "database.kuzu").exists()
-    
-    avoid: |
-      # 避けるべき例: 複数の機能を一度にテストしている
-      def test_multiple_features():
-          # 初期化をテスト
-          result1 = execute_init_command()
-          assert result1["success"] is True
-          
-          # クエリ実行もテスト
-          result2 = execute_query_command("MATCH (n) RETURN n")
-          assert result2["success"] is True
-          
-          # データ取得もテスト
-          result3 = execute_get_command("function1")
-          assert result3["success"] is True
-
 ## ドキュメント:
   rules:
     - すべての関数に適切なドキュメント文字列を書くこと
