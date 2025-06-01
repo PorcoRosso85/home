@@ -3,6 +3,7 @@ import type { NodeData, SimpleClaudeAnalysisState } from '../../domain/types';
 import { executeClaudeAnalysisCore } from './simpleClaudeAnalysisLogic';
 import { createBasicRpcClient } from '../../infrastructure/rpc/basicRpcClient';
 import { env } from '../../infrastructure/config/variables';
+import { isErrorResult } from '../../common/typeGuards';
 
 export const useSimpleClaudeAnalysis = () => {
   const [state, setState] = useState<SimpleClaudeAnalysisState>({
@@ -21,19 +22,19 @@ export const useSimpleClaudeAnalysis = () => {
     
     const result = await executeClaudeAnalysisCore({ node, rpcClient });
     
-    if (result.success) {
+    if (isErrorResult(result)) {
       setState(prev => ({ 
         ...prev, 
         loading: false, 
-        result: result.data, 
-        error: null 
+        result: null, 
+        error: result.message 
       }));
     } else {
       setState(prev => ({ 
         ...prev, 
         loading: false, 
-        result: null, 
-        error: result.error.message 
+        result: result.data, 
+        error: null 
       }));
     }
   };

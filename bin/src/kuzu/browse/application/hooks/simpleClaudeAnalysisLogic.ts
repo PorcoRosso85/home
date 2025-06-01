@@ -4,41 +4,21 @@ import type {
   SimpleClaudeAnalysisError,
   ClaudeAnalysisResult
 } from '../../domain/types';
+import type { Result } from '../../common/types';
+import { createError, createSuccess, classifyError } from '../../common/errorHandler';
 import { generateVersionAnalysisPrompt } from '../claude/simplePromptGenerator';
 
-export const executeClaudeAnalysisCore = async (input: SimpleClaudeAnalysisInput): Promise<SimpleClaudeAnalysisOutput> => {
-  try {
-    const prompt = generateVersionAnalysisPrompt(input.node);
-    const analysisResult: ClaudeAnalysisResult = await input.rpcClient.sendClaudeRequest(prompt);
-    
-    if (analysisResult.status === "success") {
-      return { success: true, data: analysisResult.data };
-    } else {
-      return {
-        success: false,
-        error: {
-          type: 'ANALYSIS_ERROR',
-          message: analysisResult.message,
-          originalError: null
-        }
-      };
-    }
-    
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    let errorType: SimpleClaudeAnalysisError['type'] = 'UNKNOWN_ERROR';
-    
-    if (errorMessage.includes('rpc')) errorType = 'RPC_ERROR';
-    else if (errorMessage.includes('prompt')) errorType = 'PROMPT_ERROR';
-    else if (errorMessage.includes('analysis')) errorType = 'ANALYSIS_ERROR';
-    
-    return {
-      success: false,
-      error: {
-        type: errorType,
-        message: `Claude解析でエラーが発生しました: ${errorMessage}`,
-        originalError: error
-      }
-    };
+export const executeClaudeAnalysisCore = async (input: SimpleClaudeAnalysisInput): Promise<Result<string>> => {
+  // Core層：プロンプト生成（try/catch除去）
+  const prompt = generateVersionAnalysisPrompt(input.node);
+  
+  // Core層：Claude解析実行
+  const analysisResult: ClaudeAnalysisResult = await input.rpcClient.sendClaudeRequest(prompt);
+  
+  // Core層：結果処理（明示的分岐）
+  if (analysisResult.status === "success") {
+    return createSuccess(analysisResult.data);
+  } else {
+    return createError('ANALYSIS_ERROR', analysisResult.message);
   }
 };

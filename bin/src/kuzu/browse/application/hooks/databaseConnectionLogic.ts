@@ -4,6 +4,7 @@ import type {
   DatabaseConnectionOutput,
   DatabaseConnectionError
 } from '../../domain/types';
+import { createError } from '../../common/errorHandler';
 import * as logger from '../../../common/infrastructure/logger';
 
 export const setupDatabaseConnectionCore = (
@@ -15,44 +16,16 @@ export const setupDatabaseConnectionCore = (
   const handleDatabaseReady = async () => {
     logger.debug('database-ready イベントを受信しました');
     
-    try {
-      if (!window.conn) {
-        logger.error('データベース接続が初期化されていません');
-        
-        const error: DatabaseConnectionError = {
-          type: 'INITIALIZATION_ERROR',
-          message: 'データベース接続が初期化されていません',
-          originalError: null
-        };
-        
-        onConnectionError(error);
-        return;
-      }
-      
-      onConnectionReady(window.conn);
-      
-    } catch (error) {
-      logger.error('データベース接続処理でエラー:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : '不明なエラー';
-      let errorType: DatabaseConnectionError['type'] = 'UNKNOWN_ERROR';
-      
-      if (errorMessage.includes('connection')) {
-        errorType = 'CONNECTION_ERROR';
-      } else if (errorMessage.includes('initialization')) {
-        errorType = 'INITIALIZATION_ERROR';
-      } else if (errorMessage.includes('event')) {
-        errorType = 'EVENT_ERROR';
-      }
-      
-      const connectionError: DatabaseConnectionError = {
-        type: errorType,
-        message: `データベース接続でエラーが発生しました: ${errorMessage}`,
-        originalError: error
-      };
-      
-      onConnectionError(connectionError);
+    // Core層：データベース接続の検証（try/catch除去）
+    if (!window.conn) {
+      logger.error('データベース接続が初期化されていません');
+      const error = createError('INITIALIZATION_ERROR', 'データベース接続が初期化されていません');
+      onConnectionError(error);
+      return;
     }
+    
+    // Core層：接続成功時のコールバック
+    onConnectionReady(window.conn);
   };
 
   return onDatabaseReady(handleDatabaseReady);
