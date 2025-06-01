@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchLocationUrisCore } from './locationUrisCore';
+import { fetchLocationUrisCore } from './locationUrisLogic';
 import type { LocationUrisState } from '../../domain/types';
 
 export const useLocationUris = (dbConnection: any | null, selectedVersionId: string) => {

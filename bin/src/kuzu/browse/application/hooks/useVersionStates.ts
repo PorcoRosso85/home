@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchVersionsCore } from './versionStatesCore';
+import { fetchVersionsCore } from './versionStatesLogic';
 import type { VersionStatesState } from '../../domain/types';
 
 /**

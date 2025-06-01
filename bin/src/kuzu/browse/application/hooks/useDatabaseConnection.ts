@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { setupDatabaseConnectionCore } from './databaseConnectionCore';
+import { setupDatabaseConnectionCore } from './databaseConnectionLogic';
 import type { DatabaseConnectionState } from '../../domain/types';
 
 /**

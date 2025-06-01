@@ -7,7 +7,7 @@ import { VersionStates } from './presentation/VersionStates';
 import { useVersionStates } from '../application/hooks/useVersionStates';
 import { useLocationUris } from '../application/hooks/useLocationUris';
 import { useDatabaseConnection } from '../infrastructure/database/useDatabaseConnection';
-import { createPageLogicCore } from './PageCore';
+import { createPageLogicCore } from './page';
 
 export const Page: React.FC = () => {
   const pageLogic = useMemo(() => createPageLogicCore(), []);

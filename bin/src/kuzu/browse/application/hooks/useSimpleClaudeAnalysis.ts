@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { NodeData, SimpleClaudeAnalysisState } from '../../domain/types';
-import { executeClaudeAnalysisCore } from './simpleClaudeAnalysisCore';
+import { executeClaudeAnalysisCore } from './simpleClaudeAnalysisLogic';
 import { createBasicRpcClient } from '../../infrastructure/rpc/basicRpcClient';
 import { env } from '../../infrastructure/config/variables';
 

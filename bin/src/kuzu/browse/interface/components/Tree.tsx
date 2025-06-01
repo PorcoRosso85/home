@@ -5,7 +5,7 @@
 import React from 'react';
 import Node from './Node';
 import type { NodeData, NodeClickEvent } from '../../domain/types';
-import { computeTreeStateCore, generateTreeNodeKeyCore } from './TreeCore';
+import { computeTreeStateCore, generateTreeNodeKeyCore } from './tree';
 
 type TreeProps = {
   treeData: NodeData[];

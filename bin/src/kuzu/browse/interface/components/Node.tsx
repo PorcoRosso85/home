@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import type { NodeData, NodeClickEvent } from '../../domain/types';
-import { computeNodeStateCore, generateNodeKeyCore } from './NodeCore';
+import { computeNodeStateCore, generateNodeKeyCore } from './node';
 
 type NodeProps = {
   node: NodeData;

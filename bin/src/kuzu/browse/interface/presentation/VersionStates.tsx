@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Tree } from '../components/Tree';
 import type { VersionState, NodeData, VersionStatesReactState } from '../../domain/types';
 import { useSimpleClaudeAnalysis } from '../../application/claude/useSimpleClaudeAnalysis.ts';
-import { computeVersionStatesCore } from './VersionStatesCore';
+import { computeVersionStatesCore } from './versionStates';
 
 interface VersionStatesProps {
   versions: VersionState[];
