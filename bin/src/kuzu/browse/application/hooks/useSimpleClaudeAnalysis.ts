@@ -39,5 +39,36 @@ export const useSimpleClaudeAnalysis = () => {
     }
   };
   
-  return { ...state, analyzeVersion };
+  const sendClaudeRequestWithPrompt = async (prompt: string): Promise<void> => {
+    setState(prev => ({ ...prev, loading: true, error: null, result: null }));
+    
+    try {
+      const analysisResult = await rpcClient.sendClaudeRequest(prompt);
+      
+      if (analysisResult.status === 'success') {
+        setState(prev => ({ 
+          ...prev, 
+          loading: false, 
+          result: analysisResult.data, 
+          error: null 
+        }));
+      } else {
+        setState(prev => ({ 
+          ...prev, 
+          loading: false, 
+          result: null, 
+          error: analysisResult.message 
+        }));
+      }
+    } catch (err) {
+      setState(prev => ({ 
+        ...prev, 
+        loading: false, 
+        result: null, 
+        error: err instanceof Error ? err.message : 'Unknown error' 
+      }));
+    }
+  };
+  
+  return { ...state, analyzeVersion, sendClaudeRequestWithPrompt };
 };

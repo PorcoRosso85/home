@@ -26,13 +26,18 @@ export const VersionStates: React.FC<VersionStatesProps> = (props) => {
     contextMenu: createContextMenuState()
   });
   
-  const { loading: claudeLoading, result, error: claudeError, analyzeVersion } = useSimpleClaudeAnalysis();
+  const { loading: claudeLoading, result, error: claudeError, sendClaudeRequestWithPrompt } = useSimpleClaudeAnalysis();
+
+  // 共通のClaude リクエスト処理
+  const handleClaudeRequest = (prompt: string, node: NodeData) => {
+    sendClaudeRequestWithPrompt(prompt);
+  };
 
   const versionStatesLogic = computeVersionStatesCore(
     { ...props, expandedVersions: state.expandedVersions, contextMenu: state.contextMenu },
     (newExpanded) => setState(prev => ({ ...prev, expandedVersions: newExpanded })),
     (menu) => setState(prev => ({ ...prev, contextMenu: menu })),
-    (node) => analyzeVersion(node)
+    handleClaudeRequest
   );
 
   if (versionStatesLogic.shouldShowLoading) {

@@ -10,7 +10,7 @@ export const computeVersionStatesCore = (
   input: VersionStatesInput,
   onExpandedVersionsUpdate: (newExpanded: Set<string>) => void,
   onContextMenuUpdate: (menu: VersionStatesInput['contextMenu']) => void,
-  onClaudeAnalysis: (node: NodeData) => void
+  onClaudeRequest: (prompt: string, node: NodeData) => void
 ): VersionStatesOutput => {
   
   const shouldShowLoading = input.loading;
@@ -44,19 +44,22 @@ export const computeVersionStatesCore = (
     }
   };
 
-  // コンテキストメニューのロジックは分離されたコンポーネントに委譲
-  const handleMenuAction = (action: string, node: NodeData) => {
+  // プロンプト生成ロジック
+  const generatePrompt = (action: string, node: NodeData): string => {
     switch (action) {
       case 'claude-analysis':
-        onClaudeAnalysis(node);
-        break;
+        return `バージョン${node.id}の解析を行ってください。詳細: ${node.name}`;
       case 'rust-hello':
-        // TODO: Rust hello関数作成ロジック
-        console.log('Rust hello関数作成:', node);
-        break;
+        return '/home/nixos/bin/src/tmp/hello.rs\nここにhelloを返す関数とそれをコンソール出力するためのテストをインソーステストとして記述して';
       default:
-        console.warn('Unknown menu action:', action);
+        return `不明なアクション: ${action}`;
     }
+  };
+
+  // コンテキストメニューのロジックは分離されたコンポーネントに委譲
+  const handleMenuAction = (action: string, node: NodeData) => {
+    const prompt = generatePrompt(action, node);
+    onClaudeRequest(prompt, node);
   };
 
   return {
