@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fetchLocationUrisCore } from './locationUrisLogic';
 import type { LocationUrisState } from '../../domain/types';
+import { isErrorResult } from '../../common/typeGuards';
 
 export const useLocationUris = (dbConnection: any | null, selectedVersionId: string) => {
   const [state, setState] = useState<LocationUrisState>({
@@ -15,19 +16,19 @@ export const useLocationUris = (dbConnection: any | null, selectedVersionId: str
       
       const result = await fetchLocationUrisCore({ dbConnection, selectedVersionId });
       
-      if (result.success) {
+      if (isErrorResult(result)) {
+        setState(prev => ({ 
+          ...prev, 
+          treeData: [],
+          loading: false, 
+          error: result.message 
+        }));
+      } else {
         setState(prev => ({ 
           ...prev, 
           treeData: result.data, 
           loading: false, 
           error: null 
-        }));
-      } else {
-        setState(prev => ({ 
-          ...prev, 
-          treeData: [],
-          loading: false, 
-          error: result.error.message 
         }));
       }
     };

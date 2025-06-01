@@ -5,6 +5,9 @@ import type {
   LocationUrisOutput,
   LocationUrisError
 } from '../../domain/types';
+import type { Result } from '../../common/types';
+import { createError, createSuccess, classifyError } from '../../common/errorHandler';
+import { isErrorResult } from '../../common/typeGuards';
 import * as logger from '../../../common/infrastructure/logger';
 import { createVersionCompletionService } from '../services/VersionCompletionService';
 import { createVersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
@@ -12,53 +15,29 @@ import { createVersionProgressRepository } from '../../infrastructure/repository
 /**
  * LocationURI取得とツリー構築のCore関数（Pure Logic）
  */
-export const fetchLocationUrisCore = async (input: LocationUrisInput): Promise<LocationUrisOutput> => {
+export const fetchLocationUrisCore = async (input: LocationUrisInput): Promise<Result<NodeData[]>> => {
   if (!input.dbConnection) {
-    return {
-      success: false,
-      error: {
-        type: 'DATABASE_ERROR',
-        message: 'データベース接続が確立されていません',
-        originalError: null
-      }
-    };
+    return createError('DATABASE_ERROR', 'データベース接続が確立されていません');
   }
 
   if (!input.selectedVersionId) {
-    return { success: true, data: [] };
+    return createSuccess([]);
   }
 
-  try {
-    const locationUris = await fetchLocationUrisData(input.dbConnection, input.selectedVersionId);
-    const locationUrisWithCompletion = await attachCompletionStatus(
-      locationUris, 
-      input.dbConnection, 
-      input.selectedVersionId
-    );
-    const treeNodes = buildTreeFromLocationUris(locationUrisWithCompletion, input.selectedVersionId);
-    
-    return { success: true, data: treeNodes };
-    
-  } catch (error) {
-    logger.error('LocationURI取得エラー:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : '不明なエラー';
-    let errorType: LocationUrisError['type'] = 'UNKNOWN_ERROR';
-    
-    if (errorMessage.includes('query')) errorType = 'QUERY_ERROR';
-    else if (errorMessage.includes('database')) errorType = 'DATABASE_ERROR';
-    else if (errorMessage.includes('service')) errorType = 'SERVICE_ERROR';
-    else if (errorMessage.includes('transform')) errorType = 'TRANSFORM_ERROR';
-    
-    return {
-      success: false,
-      error: {
-        type: errorType,
-        message: `ツリーデータ取得でエラーが発生しました: ${errorMessage}`,
-        originalError: error
-      }
-    };
-  }
+  // Core層：LocationURIデータの取得（try/catch除去）
+  const locationUris = await fetchLocationUrisData(input.dbConnection, input.selectedVersionId);
+  
+  // Core層：完了状態の取得
+  const locationUrisWithCompletion = await attachCompletionStatus(
+    locationUris, 
+    input.dbConnection, 
+    input.selectedVersionId
+  );
+  
+  // Core層：ツリー構造への変換
+  const treeNodes = buildTreeFromLocationUris(locationUrisWithCompletion, input.selectedVersionId);
+  
+  return createSuccess(treeNodes);
 };
 
 // LocationURIデータの取得
