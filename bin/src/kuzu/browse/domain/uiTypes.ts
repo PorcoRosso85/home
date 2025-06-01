@@ -39,6 +39,33 @@ export type ContextMenuState = {
   node: NodeData | null;
 };
 
+export type VersionStatesInput = {
+  versions: VersionState[];
+  selectedVersionId: string;
+  loading: boolean;
+  error: string | null;
+  onVersionClick: (versionId: string) => void;
+  locationTreeData: NodeData[];
+  locationLoading: boolean;
+  locationError: string | null;
+  expandedVersions: Set<string>;
+  contextMenu: ContextMenuState;
+};
+
+export type VersionStatesOutput = {
+  shouldShowLoading: boolean;
+  shouldShowError: boolean;
+  shouldShowEmpty: boolean;
+  shouldShowLocationError: boolean;
+  shouldShowMainContent: boolean;
+  errorMessage?: string;
+  locationErrorMessage?: string;
+  emptyMessage: string;
+  versionTree: NodeData[];
+  handleVersionNodeClick: (clickEvent: NodeClickEvent) => void;
+  handleMenuAction: (action: string, node: NodeData) => void;
+};
+
 export type VersionStatesReactState = {
   expandedVersions: Set<string>;
   contextMenu: ContextMenuState;

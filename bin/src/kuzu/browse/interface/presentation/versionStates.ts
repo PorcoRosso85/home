@@ -4,6 +4,7 @@ import type {
   NodeData, 
   NodeClickEvent 
 } from '../../domain/types';
+import { showContextMenu } from '../components/contextMenu';
 
 export const computeVersionStatesCore = (
   input: VersionStatesInput,
@@ -33,25 +34,29 @@ export const computeVersionStatesCore = (
       onExpandedVersionsUpdate(newExpanded);
     }
     else if (clickEvent.eventType === 'right' && clickEvent.node.nodeType === 'version') {
-      onContextMenuUpdate({
-        show: true,
-        x: clickEvent.event.clientX,
-        y: clickEvent.event.clientY,
-        node: clickEvent.node
-      });
+      const newContextMenu = showContextMenu(
+        clickEvent.event.clientX,
+        clickEvent.event.clientY,
+        clickEvent.node
+      );
+      onContextMenuUpdate(newContextMenu);
       clickEvent.event.preventDefault();
     }
   };
 
-  const handleClaudeAnalysis = () => {
-    if (input.contextMenu.node) {
-      onClaudeAnalysis(input.contextMenu.node);
-      onContextMenuUpdate({ show: false, x: 0, y: 0, node: null });
+  // コンテキストメニューのロジックは分離されたコンポーネントに委譲
+  const handleMenuAction = (action: string, node: NodeData) => {
+    switch (action) {
+      case 'claude-analysis':
+        onClaudeAnalysis(node);
+        break;
+      case 'rust-hello':
+        // TODO: Rust hello関数作成ロジック
+        console.log('Rust hello関数作成:', node);
+        break;
+      default:
+        console.warn('Unknown menu action:', action);
     }
-  };
-
-  const handleCloseContextMenu = () => {
-    onContextMenuUpdate({ show: false, x: 0, y: 0, node: null });
   };
 
   return {
@@ -65,8 +70,7 @@ export const computeVersionStatesCore = (
     emptyMessage: "利用可能なバージョンがありません。",
     versionTree,
     handleVersionNodeClick,
-    handleClaudeAnalysis,
-    handleCloseContextMenu
+    handleMenuAction
   };
 };
 

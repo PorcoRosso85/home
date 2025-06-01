@@ -3,9 +3,11 @@
  */
 import React, { useState } from 'react';
 import { Tree } from '../components/Tree';
+import { ContextMenu } from '../components/ContextMenu';
 import type { VersionState, NodeData, VersionStatesReactState } from '../../domain/types';
 import { useSimpleClaudeAnalysis } from '../../application/claude/useSimpleClaudeAnalysis.ts';
 import { computeVersionStatesCore } from './versionStates';
+import { createContextMenuState } from '../components/contextMenu';
 
 interface VersionStatesProps {
   versions: VersionState[];
@@ -21,7 +23,7 @@ interface VersionStatesProps {
 export const VersionStates: React.FC<VersionStatesProps> = (props) => {
   const [state, setState] = useState<VersionStatesReactState>({
     expandedVersions: new Set(),
-    contextMenu: { show: false, x: 0, y: 0, node: null }
+    contextMenu: createContextMenuState()
   });
   
   const { loading: claudeLoading, result, error: claudeError, analyzeVersion } = useSimpleClaudeAnalysis();
@@ -99,51 +101,12 @@ export const VersionStates: React.FC<VersionStatesProps> = (props) => {
         </div>
       )}
       
-      {/* 右クリックコンテキストメニュー */}
-      {state.contextMenu.show && (
-        <>
-          <div 
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 999
-            }}
-            onClick={versionStatesLogic.handleCloseContextMenu}
-          />
-          <div
-            style={{
-              position: 'fixed',
-              top: state.contextMenu.y,
-              left: state.contextMenu.x,
-              backgroundColor: 'white',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-              zIndex: 1000,
-              minWidth: '150px'
-            }}
-          >
-            <button
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: 'none',
-                backgroundColor: 'transparent',
-                textAlign: 'left',
-                cursor: 'pointer'
-              }}
-              onClick={versionStatesLogic.handleClaudeAnalysis}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              Claude解析
-            </button>
-          </div>
-        </>
-      )}
+      {/* 分離されたコンテキストメニューコンポーネント */}
+      <ContextMenu
+        contextMenu={state.contextMenu}
+        onContextMenuUpdate={(menu) => setState(prev => ({ ...prev, contextMenu: menu }))}
+        onMenuAction={versionStatesLogic.handleMenuAction}
+      />
     </div>
   );
 };
