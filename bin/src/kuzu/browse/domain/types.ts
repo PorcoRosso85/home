@@ -184,7 +184,7 @@ export type TreeOutput = {
 export type NodeInput = {
   node: NodeData;
   onNodeClick?: (clickEvent: NodeClickEvent) => void;
-  parentOpacity?: number;
+  parentOpacity: number;
 };
 
 export type NodeStyleOutput = {

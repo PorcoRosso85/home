@@ -8,10 +8,10 @@ import { computeNodeStateCore, generateNodeKeyCore } from './node';
 type NodeProps = {
   node: NodeData;
   onNodeClick?: (clickEvent: NodeClickEvent) => void;
-  parentOpacity?: number;
+  parentOpacity: number;
 };
 
-const Node: React.FC<NodeProps> = ({ node, onNodeClick, parentOpacity = 0 }) => {
+const Node: React.FC<NodeProps> = ({ node, onNodeClick, parentOpacity }) => {
   const nodeState = computeNodeStateCore({ node, onNodeClick, parentOpacity });
 
   return (

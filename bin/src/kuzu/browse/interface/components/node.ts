@@ -42,7 +42,7 @@ export const computeNodeStateCore = (input: NodeInput): NodeOutput => {
 };
 
 export const computeNodeStylesCore = (input: NodeInput): NodeStyleOutput => {
-  const parentOpacity = input.parentOpacity || 0;
+  const parentOpacity = input.parentOpacity;
   const hasChildren = input.node.children && input.node.children.length > 0;
   
   const currentOpacity = parentOpacity + 0.02;

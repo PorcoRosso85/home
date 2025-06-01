@@ -25,6 +25,7 @@ export const Tree: React.FC<TreeProps> = ({ treeData, onNodeClick }) => {
           <Node
             key={generateTreeNodeKeyCore(node.id, index)}
             node={node}
+            parentOpacity={0}
             onNodeClick={onNodeClick}
           />
         ))
