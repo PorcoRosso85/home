@@ -95,3 +95,26 @@ export type VersionStatesState = {
   loading: boolean;
   error: string | null;
 };
+
+// LocationUris Core Types (Phase 2追加)
+export type LocationUrisInput = {
+  dbConnection: any;
+  selectedVersionId: string;
+};
+
+export type LocationUrisError = {
+  type: 'DATABASE_ERROR' | 'QUERY_ERROR' | 'TRANSFORM_ERROR' | 'SERVICE_ERROR' | 'UNKNOWN_ERROR';
+  message: string;
+  originalError?: unknown;
+};
+
+export type LocationUrisOutput = 
+  | { success: true; data: NodeData[] }
+  | { success: false; error: LocationUrisError };
+
+// React Hook State Types
+export type LocationUrisState = {
+  treeData: NodeData[];
+  loading: boolean;
+  error: string | null;
+};
