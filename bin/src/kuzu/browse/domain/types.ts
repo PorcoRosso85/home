@@ -1,6 +1,6 @@
 /**
- * ドメイン型定義（最小構成）
- * 新しい型は common/types.ts の Result<T> を使用すること
+ * ドメイン型定義（CONVENTION.yaml準拠最小構成）
+ * 規約: Legacy型完全削除、個別Tagged Union使用
  */
 
 // Re-export core types
@@ -9,27 +9,30 @@ export * from './coreTypes';
 // Re-export UI types  
 export * from './uiTypes';
 
-// Legacy types - 段階的削除予定
-export type DatabaseResult = {
-  success: boolean;
-  data?: any;
-  error?: string;
+// Claude解析機能用Tagged Union（規約準拠）
+export type ClaudeAnalysisSuccess = {
+  status: "success";
+  data: string;
 };
 
+export type ClaudeAnalysisError = {
+  status: "error"; 
+  message: string;
+};
+
+export type ClaudeAnalysisResult = ClaudeAnalysisSuccess | ClaudeAnalysisError;
+
+export type ClaudeAnalysisRequest = {
+  versionId: string;
+  prompt: string;
+  nodeData: any; // NodeDataは coreTypes から参照
+};
+
+// ステータスメッセージ用Tagged Union（規約準拠）
 export type StatusMessage = {
   text: string;
   type: 'info' | 'success' | 'error' | 'loading';
 };
 
-export type ClaudeAnalysisRequest = {
-  versionId: string;
-  prompt: string;
-  nodeData: NodeData;
-};
-
-export type ClaudeAnalysisResult = 
-  | { status: "success"; data: string }
-  | { status: "error"; message: string };
-
-// Import re-exports
-import type { NodeData } from './coreTypes';
+// Legacy types完全削除完了
+// DatabaseResult削除 - CONVENTION.yaml準拠

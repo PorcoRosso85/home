@@ -1,20 +1,19 @@
 import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
+import type { VersionState } from '../../domain/coreTypes';
 import type { 
-  VersionState, 
-  VersionStatesInput, 
-  VersionStatesOutput,
-  VersionStatesError 
-} from '../../domain/types';
-import type { Result, ErrorResult } from '../../common/types';
-import { createError, createSuccess, classifyError, formatErrorMessage } from '../../common/errorHandler';
+  VersionStatesInput,
+  VersionStatesResult
+} from '../types/versionTypes';
+import { createError, createVersionStatesSuccess } from '../../common/errorHandler';
 import { isErrorResult } from '../../common/typeGuards';
 import * as logger from '../../../common/infrastructure/logger';
 
 /**
  * バージョン状態取得のCore関数（Pure Logic）
+ * CONVENTION.yaml準拠: Result型使用禁止、個別Tagged Union使用
  * React依存なし、テスト可能な純粋関数
  */
-export const fetchVersionsCore = async (input: VersionStatesInput): Promise<Result<VersionState[]>> => {
+export const fetchVersionsCore = async (input: VersionStatesInput): Promise<VersionStatesResult> => {
   // Core層：入力検証
   if (!input.dbConnection) {
     logger.debug('dbConnectionがnullのため、バージョン取得をスキップ');
@@ -23,7 +22,7 @@ export const fetchVersionsCore = async (input: VersionStatesInput): Promise<Resu
 
   logger.debug('バージョン一覧の取得を開始');
 
-  // Core層：ビジネスロジック実行（try/catch除去）
+  // Core層：ビジネスロジック実行（try/catch除去済み）
   const result = await executeDQLQuery(input.dbConnection, 'list_versions_all', {});
   logger.debug('クエリ実行結果:', result);
   
@@ -45,5 +44,5 @@ export const fetchVersionsCore = async (input: VersionStatesInput): Promise<Resu
   
   logger.debug('変換後のバージョンリスト:', versionList);
   
-  return createSuccess(versionList);
+  return createVersionStatesSuccess(versionList);
 };

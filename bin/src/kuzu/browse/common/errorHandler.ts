@@ -3,22 +3,36 @@
  * 規約: try/catch禁止、明示的分岐処理
  */
 
-import type { ErrorResult, Success, ErrorCode } from './types';
+import type { BaseError, ErrorCode } from './types';
 
 /**
  * エラー型を作成する関数
  * 規約準拠: 例外を投げずにエラー型を返却
  */
-export const createError = (code: ErrorCode, message: string): ErrorResult => ({
+export const createError = (code: ErrorCode, message: string): BaseError => ({
   code,
   message
 });
 
 /**
- * 成功型を作成する関数
+ * 成功型を作成する関数 - ジェネリック版
  * 規約準拠: 明示的な成功型返却
  */
-export const createSuccess = <T>(data: T): Success<T> => ({
+export const createSuccess = <T>(data: T) => ({
+  data
+});
+
+/**
+ * バージョン機能専用成功型作成
+ */
+export const createVersionStatesSuccess = (data: any[]) => ({
+  data
+});
+
+/**
+ * LocationURI機能専用成功型作成
+ */
+export const createLocationUrisSuccess = (data: any[]) => ({
   data
 });
 

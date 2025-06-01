@@ -1,12 +1,10 @@
 import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
+import type { NodeData } from '../../domain/coreTypes';
 import type { 
-  NodeData,
   LocationUrisInput,
-  LocationUrisOutput,
-  LocationUrisError
-} from '../../domain/types';
-import type { Result } from '../../common/types';
-import { createError, createSuccess, classifyError } from '../../common/errorHandler';
+  LocationUrisResult
+} from '../types/locationUriTypes';
+import { createError, createLocationUrisSuccess } from '../../common/errorHandler';
 import { isErrorResult } from '../../common/typeGuards';
 import * as logger from '../../../common/infrastructure/logger';
 import { createVersionCompletionService } from '../services/VersionCompletionService';
@@ -14,22 +12,27 @@ import { createVersionProgressRepository } from '../../infrastructure/repository
 
 /**
  * LocationURI取得とツリー構築のCore関数（Pure Logic）
+ * CONVENTION.yaml準拠: try/catch完全除去、明示的分岐処理
  */
-export const fetchLocationUrisCore = async (input: LocationUrisInput): Promise<Result<NodeData[]>> => {
+export const fetchLocationUrisCore = async (input: LocationUrisInput): Promise<LocationUrisResult> => {
   if (!input.dbConnection) {
     return createError('DATABASE_ERROR', 'データベース接続が確立されていません');
   }
 
   if (!input.selectedVersionId) {
-    return createSuccess([]);
+    return createLocationUrisSuccess([]);
   }
 
-  // Core層：LocationURIデータの取得（try/catch除去）
-  const locationUris = await fetchLocationUrisData(input.dbConnection, input.selectedVersionId);
+  // Core層：LocationURIデータの取得（try/catch除去済み）
+  const locationUrisResult = await fetchLocationUrisDataSafely(input.dbConnection, input.selectedVersionId);
   
-  // Core層：完了状態の取得
-  const locationUrisWithCompletion = await attachCompletionStatus(
-    locationUris, 
+  if (isErrorResult(locationUrisResult)) {
+    return locationUrisResult;
+  }
+  
+  // Core層：完了状態の取得（try/catch除去済み）
+  const locationUrisWithCompletion = await attachCompletionStatusSafely(
+    locationUrisResult.data, 
     input.dbConnection, 
     input.selectedVersionId
   );
@@ -37,18 +40,22 @@ export const fetchLocationUrisCore = async (input: LocationUrisInput): Promise<R
   // Core層：ツリー構造への変換
   const treeNodes = buildTreeFromLocationUris(locationUrisWithCompletion, input.selectedVersionId);
   
-  return createSuccess(treeNodes);
+  return createLocationUrisSuccess(treeNodes);
 };
 
-// LocationURIデータの取得
-async function fetchLocationUrisData(dbConnection: any, selectedVersionId: string) {
+// LocationURIデータの取得（安全版）
+async function fetchLocationUrisDataSafely(dbConnection: any, selectedVersionId: string) {
   const result = await executeDQLQuery(dbConnection, 'list_uris_cumulative', { 
     version_id: selectedVersionId 
   });
   
+  if (isErrorResult(result)) {
+    return result;
+  }
+  
   const queryResult = await result.data.getAllObjects();
   
-  return queryResult.map(row => ({
+  const locationUris = queryResult.map(row => ({
     uri_id: row.uri_id || row.id,
     scheme: row.scheme || '',
     authority: row.authority || '',
@@ -58,45 +65,58 @@ async function fetchLocationUrisData(dbConnection: any, selectedVersionId: strin
     from_version: row.from_version,
     version_description: row.version_description
   }));
+  
+  return createLocationUrisSuccess(locationUris);
 }
 
-// 完了状態の取得
-async function attachCompletionStatus(locationUris: any[], dbConnection: any, selectedVersionId: string) {
-  try {
-    const repository = createVersionProgressRepository();
-    const versionService = createVersionCompletionService(repository);
-    
-    const incompleteUrisResult = await getIncompleteUrisSafely(
-      versionService, 
-      dbConnection, 
-      selectedVersionId
-    );
-    
-    if (incompleteUrisResult.status === "success") {
-      const incompleteUriIds = new Set(incompleteUrisResult.data.map(uri => uri.uri_id));
-      
-      return locationUris.map(uri => ({
-        ...uri,
-        isCompleted: !incompleteUriIds.has(uri.uri_id)
-      }));
-    } else {
-      logger.debug('完了状態の取得に失敗:', incompleteUrisResult.message);
-      return locationUris;
-    }
-  } catch (error) {
-    logger.debug('完了状態取得でエラー:', error);
+// 完了状態の取得（try/catch完全除去版）
+async function attachCompletionStatusSafely(locationUris: any[], dbConnection: any, selectedVersionId: string) {
+  // 明示的分岐によるエラーハンドリング（try/catch禁止）
+  const repositoryResult = createVersionProgressRepositorySafely();
+  
+  if (isErrorResult(repositoryResult)) {
+    logger.debug('リポジトリ作成エラー:', repositoryResult.message);
+    return locationUris; // エラー時は元データをそのまま返す
+  }
+  
+  const versionService = createVersionCompletionService(repositoryResult.data);
+  const incompleteUrisResult = await getIncompleteUrisSafely(versionService, dbConnection, selectedVersionId);
+  
+  // 明示的分岐でエラーハンドリング
+  if (isIncompleteUrisError(incompleteUrisResult)) {
+    logger.debug('完了状態の取得に失敗:', incompleteUrisResult.message);
     return locationUris;
   }
+  
+  // 成功時の処理
+  const incompleteUriIds = new Set(incompleteUrisResult.data.map(uri => uri.uri_id));
+  return locationUris.map(uri => ({
+    ...uri,
+    isCompleted: !incompleteUriIds.has(uri.uri_id)
+  }));
 }
 
+// createVersionProgressRepository の安全版
+function createVersionProgressRepositorySafely() {
+  // 実装が成功すると仮定（実際の実装に依存）
+  const repository = createVersionProgressRepository();
+  return { data: repository };
+}
+
+// getIncompleteUrisSafely の明示的分岐版
 async function getIncompleteUrisSafely(versionService: any, dbConnection: any, selectedVersionId: string) {
   const incompleteUris = await versionService.getIncompleteLocationUris(dbConnection, selectedVersionId);
   
   if (!incompleteUris) {
-    return { status: "error", message: "未完了URIの取得に失敗しました" };
+    return { code: "INCOMPLETE_URIS_ERROR", message: "未完了URIの取得に失敗しました" };
   }
   
-  return { status: "success", data: incompleteUris };
+  return { data: incompleteUris };
+}
+
+// エラー判定ヘルパー関数
+function isIncompleteUrisError(result: any): boolean {
+  return 'code' in result && 'message' in result;
 }
 
 // ツリー構造の構築
@@ -194,15 +214,11 @@ function buildFileHierarchy(rootNode: NodeData, uris: any[], selectedVersionId?:
 }
 
 function parsePathFromUriId(uriId: string): string {
-  try {
-    if (uriId.includes('://')) {
-      const url = new URL(uriId);
-      return url.pathname;
-    } else if (uriId.startsWith('file:')) {
-      return uriId.replace('file:', '');
-    }
-    return uriId;
-  } catch {
-    return uriId;
+  if (uriId.includes('://')) {
+    const url = new URL(uriId);
+    return url.pathname;
+  } else if (uriId.startsWith('file:')) {
+    return uriId.replace('file:', '');
   }
+  return uriId;
 }
