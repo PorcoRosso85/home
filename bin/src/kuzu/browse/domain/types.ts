@@ -52,8 +52,14 @@ export type NodeClickEvent = {
   node: NodeData;
   eventType: 'left' | 'right';
   event: MouseEvent;
+  // Claude解析用のコンテキストデータ
+  contextData?: {
+    queryResult?: any;
+    renderingData?: any;
+  };
 };
-// Claude解析関連の型定義（Phase 1最小構成）
+
+// Claude解析関連の型定義
 export type ClaudeAnalysisRequest = {
   versionId: string;
   prompt: string;
@@ -64,13 +70,28 @@ export type ClaudeAnalysisResult =
   | { status: "success"; data: string }
   | { status: "error"; message: string };
 
-export type NodeClickEvent = {
-  node: NodeData;
-  eventType: 'left' | 'right';
-  event: MouseEvent;
-  // Claude解析用のコンテキストデータ
-  contextData?: {
-    queryResult?: any;
-    renderingData?: any;
-  };
+// =============================================================================
+// Core Functions Input/Output Types (Phase 1追加)
+// =============================================================================
+
+// VersionStates Core Types
+export type VersionStatesInput = {
+  dbConnection: any;
+};
+
+export type VersionStatesError = {
+  type: 'DATABASE_ERROR' | 'QUERY_ERROR' | 'TRANSFORM_ERROR' | 'UNKNOWN_ERROR';
+  message: string;
+  originalError?: unknown;
+};
+
+export type VersionStatesOutput = 
+  | { success: true; data: VersionState[] }
+  | { success: false; error: VersionStatesError };
+
+// React Hook State Types
+export type VersionStatesState = {
+  versions: VersionState[];
+  loading: boolean;
+  error: string | null;
 };

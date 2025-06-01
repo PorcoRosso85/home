@@ -1,57 +1,57 @@
 import { useState, useEffect } from 'react';
-import { executeDQLQuery } from '../../infrastructure/repository/queryExecutor';
-import { VersionState } from '../../domain/types';
-import * as logger from '../../../common/infrastructure/logger';
+import { fetchVersionsCore } from './versionStatesCore';
+import type { VersionStatesState } from '../../domain/types';
 
+/**
+ * バージョン状態管理のReact Hook（薄いWrapper）
+ * Core関数を使用し、React状態管理のみに責務を限定
+ */
 export const useVersionStates = (dbConnection: any | null) => {
-  const [versions, setVersions] = useState<VersionState[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<VersionStatesState>({
+    versions: [],
+    loading: false,
+    error: null
+  });
 
-  // 全バージョンを取得
   useEffect(() => {
-    const fetchVersions = async () => {
-      if (!dbConnection) {
-        logger.debug('dbConnectionがnullのため、バージョン取得をスキップ');
-        return;
-      }
-
-      setLoading(true);
-      logger.debug('バージョン一覧の取得を開始');
+    const fetchData = async () => {
+      // Hook層：React状態の更新
+      setState(prev => ({ ...prev, loading: true, error: null }));
       
-      try {
-        const result = await executeDQLQuery(dbConnection, 'list_versions_all', {});
-        logger.debug('クエリ実行結果:', result);
-        
-        const queryResult = await result.data.getAllObjects();
-        logger.debug('getAllObjects結果:', queryResult);
-        
-        const versionList: VersionState[] = queryResult.map(row => ({
-          id: row.version_id,
-          timestamp: row.timestamp,
-          description: row.description,
-          change_reason: row.change_reason
+      // Core関数呼び出し
+      const result = await fetchVersionsCore({ dbConnection });
+      
+      if (result.success) {
+        // Hook層：成功時のReact状態更新
+        setState(prev => ({ 
+          ...prev, 
+          versions: result.data, 
+          loading: false, 
+          error: null 
         }));
-        
-        logger.debug('変換後のバージョンリスト:', versionList);
-        setVersions(versionList);
-        
-        setError(null);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : '不明なエラー';
-        setError(`バージョン取得でエラーが発生しました: ${errorMessage}`);
-        logger.error('バージョン取得エラー:', err);
+      } else {
+        // Hook層：エラー時のReact状態更新（UI表示用メッセージのみ）
+        setState(prev => ({ 
+          ...prev, 
+          versions: [],
+          loading: false, 
+          error: result.error.message 
+        }));
       }
-      
-      setLoading(false);
     };
 
-    fetchVersions();
+    if (dbConnection) {
+      fetchData();
+    } else {
+      // Hook層：接続なし時の状態リセット
+      setState(prev => ({ 
+        ...prev, 
+        versions: [], 
+        loading: false, 
+        error: null 
+      }));
+    }
   }, [dbConnection]);
 
-  return {
-    versions,
-    loading,
-    error
-  };
+  return state;
 };
