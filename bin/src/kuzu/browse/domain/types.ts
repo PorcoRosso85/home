@@ -140,3 +140,30 @@ export type DatabaseConnectionState = {
   isConnected: boolean;
   error: string | null;
 };
+
+// Page Core Types (Phase 4追加)
+export type PageInput = {
+  dbConnection: any;
+  isConnected: boolean;
+  connectionError: string | null;
+  versions: VersionState[];
+  loadingVersions: boolean;
+  versionError: string | null;
+  treeData: NodeData[];
+  loadingLocations: boolean;
+  locationError: string | null;
+};
+
+export type PageOutput = {
+  selectedVersionId: string;
+  handleVersionClick: (versionId: string) => void;
+  shouldShowConnectionError: boolean;
+  shouldShowConnectionWaiting: boolean;
+  shouldShowMainContent: boolean;
+  connectionErrorMessage?: string;
+};
+
+// React Hook State Types
+export type PageState = {
+  selectedVersionId: string;
+};
