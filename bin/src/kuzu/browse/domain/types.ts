@@ -167,3 +167,38 @@ export type PageOutput = {
 export type PageState = {
   selectedVersionId: string;
 };
+
+// Tree Core Types (Phase 5追加)
+export type TreeInput = {
+  treeData: NodeData[];
+  onNodeClick?: (clickEvent: NodeClickEvent) => void;
+};
+
+export type TreeOutput = {
+  hasData: boolean;
+  emptyMessage: string;
+  renderableNodes: NodeData[];
+};
+
+// Node Core Types (Phase 5追加)
+export type NodeInput = {
+  node: NodeData;
+  onNodeClick?: (clickEvent: NodeClickEvent) => void;
+  parentOpacity?: number;
+};
+
+export type NodeStyleOutput = {
+  backgroundColor: string;
+  textColor: string;
+  secondaryTextColor: string;
+  tertiaryTextColor: string;
+  nodeTextColor: string;
+  currentOpacity: number;
+};
+
+export type NodeOutput = {
+  hasChildren: boolean;
+  styles: NodeStyleOutput;
+  handleClick: (e: React.MouseEvent) => void;
+  handleContextMenu: (e: React.MouseEvent) => void;
+};

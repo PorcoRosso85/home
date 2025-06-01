@@ -1,9 +1,11 @@
 /**
- * ツリー表示コンポーネント
+ * ツリー表示コンポーネント（薄いPresentation）
+ * Core関数を使用し、React表示のみに責務を限定
  */
 import React from 'react';
 import Node from './Node';
 import type { NodeData, NodeClickEvent } from '../../domain/types';
+import { computeTreeStateCore, generateTreeNodeKeyCore } from './TreeCore';
 
 type TreeProps = {
   treeData: NodeData[];
@@ -11,14 +13,17 @@ type TreeProps = {
 };
 
 export const Tree: React.FC<TreeProps> = ({ treeData, onNodeClick }) => {
+  // Core関数でツリー状態を計算
+  const treeState = computeTreeStateCore({ treeData, onNodeClick });
+
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
-      {treeData.length === 0 ? (
-        <p>No data available</p>
+      {!treeState.hasData ? (
+        <p>{treeState.emptyMessage}</p>
       ) : (
-        treeData.map((node, index) => (
+        treeState.renderableNodes.map((node, index) => (
           <Node
-            key={`root-${index}`}
+            key={generateTreeNodeKeyCore(node.id, index)}
             node={node}
             onNodeClick={onNodeClick}
           />
