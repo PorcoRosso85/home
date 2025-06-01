@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fetchVersionsCore } from './versionStatesLogic';
 import type { VersionStatesState } from '../../domain/types';
+import { isErrorResult } from '../../common/typeGuards';
 
 /**
  * バージョン状態管理のReact Hook（薄いWrapper）
@@ -21,21 +22,21 @@ export const useVersionStates = (dbConnection: any | null) => {
       // Core関数呼び出し
       const result = await fetchVersionsCore({ dbConnection });
       
-      if (result.success) {
+      if (isErrorResult(result)) {
+        // Hook層：エラー時のReact状態更新（UI表示用メッセージのみ）
+        setState(prev => ({ 
+          ...prev, 
+          versions: [],
+          loading: false, 
+          error: result.message 
+        }));
+      } else {
         // Hook層：成功時のReact状態更新
         setState(prev => ({ 
           ...prev, 
           versions: result.data, 
           loading: false, 
           error: null 
-        }));
-      } else {
-        // Hook層：エラー時のReact状態更新（UI表示用メッセージのみ）
-        setState(prev => ({ 
-          ...prev, 
-          versions: [],
-          loading: false, 
-          error: result.error.message 
         }));
       }
     };
