@@ -118,3 +118,25 @@ export type LocationUrisState = {
   loading: boolean;
   error: string | null;
 };
+
+// DatabaseConnection Core Types (Phase 3追加)
+export type DatabaseConnectionInput = {
+  // 現在は特に入力パラメータは不要だが、将来的な拡張のため定義
+};
+
+export type DatabaseConnectionError = {
+  type: 'CONNECTION_ERROR' | 'INITIALIZATION_ERROR' | 'EVENT_ERROR' | 'UNKNOWN_ERROR';
+  message: string;
+  originalError?: unknown;
+};
+
+export type DatabaseConnectionOutput = 
+  | { success: true; data: { dbConnection: any; isConnected: boolean } }
+  | { success: false; error: DatabaseConnectionError };
+
+// React Hook State Types
+export type DatabaseConnectionState = {
+  dbConnection: any | null;
+  isConnected: boolean;
+  error: string | null;
+};
