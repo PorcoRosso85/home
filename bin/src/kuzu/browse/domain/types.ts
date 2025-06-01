@@ -243,3 +243,26 @@ export type VersionStatesReactState = {
   expandedVersions: Set<string>;
   contextMenu: ContextMenuState;
 };
+
+// SimpleClaudeAnalysis Core Types (Phase 7追加)
+export type SimpleClaudeAnalysisInput = {
+  node: NodeData;
+  rpcClient: any; // RPCクライアント
+};
+
+export type SimpleClaudeAnalysisError = {
+  type: 'RPC_ERROR' | 'PROMPT_ERROR' | 'ANALYSIS_ERROR' | 'UNKNOWN_ERROR';
+  message: string;
+  originalError?: unknown;
+};
+
+export type SimpleClaudeAnalysisOutput = 
+  | { success: true; data: string }
+  | { success: false; error: SimpleClaudeAnalysisError };
+
+// React Hook State Types
+export type SimpleClaudeAnalysisState = {
+  loading: boolean;
+  result: string | null;
+  error: string | null;
+};
