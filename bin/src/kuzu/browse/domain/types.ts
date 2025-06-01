@@ -202,3 +202,44 @@ export type NodeOutput = {
   handleClick: (e: React.MouseEvent) => void;
   handleContextMenu: (e: React.MouseEvent) => void;
 };
+
+// VersionStates Core Types (Phase 6追加)
+export type VersionStatesInput = {
+  versions: VersionState[];
+  selectedVersionId: string;
+  loading: boolean;
+  error: string | null;
+  onVersionClick: (versionId: string) => void;
+  locationTreeData: NodeData[];
+  locationLoading: boolean;
+  locationError: string | null;
+  expandedVersions: Set<string>;
+  contextMenu: ContextMenuState;
+};
+
+export type ContextMenuState = {
+  show: boolean;
+  x: number;
+  y: number;
+  node: NodeData | null;
+};
+
+export type VersionStatesOutput = {
+  shouldShowLoading: boolean;
+  shouldShowError: boolean;
+  shouldShowEmpty: boolean;
+  shouldShowLocationError: boolean;
+  shouldShowMainContent: boolean;
+  errorMessage?: string;
+  locationErrorMessage?: string;
+  emptyMessage: string;
+  versionTree: NodeData[];
+  handleVersionNodeClick: (clickEvent: NodeClickEvent) => void;
+  handleClaudeAnalysis: () => void;
+  handleCloseContextMenu: () => void;
+};
+
+export type VersionStatesReactState = {
+  expandedVersions: Set<string>;
+  contextMenu: ContextMenuState;
+};

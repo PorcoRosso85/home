@@ -1,10 +1,11 @@
 /**
- * バージョン選択・表示用コンポーネント
+ * バージョン選択・表示用コンポーネント（薄いPresentation）
  */
 import React, { useState } from 'react';
 import { Tree } from '../components/Tree';
-import type { NodeData, VersionState, NodeClickEvent } from '../../domain/types';
+import type { VersionState, NodeData, VersionStatesReactState } from '../../domain/types';
 import { useSimpleClaudeAnalysis } from '../../application/claude/useSimpleClaudeAnalysis.ts';
+import { computeVersionStatesCore } from './VersionStatesCore';
 
 interface VersionStatesProps {
   versions: VersionState[];
@@ -12,122 +13,52 @@ interface VersionStatesProps {
   loading: boolean;
   error: string | null;
   onVersionClick: (versionId: string) => void;
-  // LocationURI統合用props
   locationTreeData: NodeData[];
   locationLoading: boolean;
   locationError: string | null;
 }
 
-/**
- * バージョン一覧をツリー形式で表示するコンポーネント
- */
-export const VersionStates: React.FC<VersionStatesProps> = ({
-  versions,
-  selectedVersionId,
-  loading,
-  error,
-  onVersionClick,
-  locationTreeData,
-  locationLoading,
-  locationError
-}) => {
-  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
-  const [contextMenu, setContextMenu] = useState<{
-    show: boolean;
-    x: number;
-    y: number;
-    node: NodeData | null;
-  }>({ show: false, x: 0, y: 0, node: null });
-  
-  // Claude解析Hook
-  const { loading: claudeLoading, result, error: claudeError, analyzeVersion } = useSimpleClaudeAnalysis();
-  // バージョン一覧をツリー形式に変換
-  const versionTree: NodeData[] = versions.map(version => {
-    const isExpanded = expandedVersions.has(version.id);
-    const baseNode: NodeData = {
-      id: version.id,
-      name: `${version.id} - ${version.description}`,
-      nodeType: 'version',
-      children: [],
-      from_version: version.id,
-      isCurrentVersion: version.id === selectedVersionId
-    };
-
-    // 展開されたバージョンかつLocationURIデータがある場合のみ子要素を追加
-    if (isExpanded && version.id === selectedVersionId && locationTreeData.length > 0) {
-      baseNode.children = locationTreeData;
-    }
-
-    return baseNode;
+export const VersionStates: React.FC<VersionStatesProps> = (props) => {
+  const [state, setState] = useState<VersionStatesReactState>({
+    expandedVersions: new Set(),
+    contextMenu: { show: false, x: 0, y: 0, node: null }
   });
-
-  // バージョンノードがクリックされたときのハンドラ
-  const handleVersionNodeClick = (clickEvent: NodeClickEvent) => {
-    // 左クリックでversionノードの場合のみ処理
-    if (clickEvent.eventType === 'left' && clickEvent.node.nodeType === 'version') {
-      // バージョン選択
-      onVersionClick(clickEvent.node.id);
-      
-      // 展開状態をトグル
-      const newExpanded = new Set(expandedVersions);
-      if (newExpanded.has(clickEvent.node.id)) {
-        newExpanded.delete(clickEvent.node.id);
-      } else {
-        newExpanded.add(clickEvent.node.id);
-      }
-      setExpandedVersions(newExpanded);
-    }
-    // 右クリックでClaude解析メニュー表示
-    else if (clickEvent.eventType === 'right' && clickEvent.node.nodeType === 'version') {
-      setContextMenu({
-        show: true,
-        x: clickEvent.event.clientX,
-        y: clickEvent.event.clientY,
-        node: clickEvent.node
-      });
-      clickEvent.event.preventDefault();
-    }
-  };
   
-  // Claude解析実行
-  const handleClaudeAnalysis = async () => {
-    if (contextMenu.node) {
-      await analyzeVersion(contextMenu.node);
-      setContextMenu({ show: false, x: 0, y: 0, node: null });
-    }
-  };
-  
-  // コンテキストメニューを閉じる
-  const handleCloseContextMenu = () => {
-    setContextMenu({ show: false, x: 0, y: 0, node: null });
-  };
+  const { loading: claudeLoading, result, error: claudeError, analyzeVersion } = useSimpleClaudeAnalysis();
 
-  if (loading) {
+  const versionStatesLogic = computeVersionStatesCore(
+    { ...props, expandedVersions: state.expandedVersions, contextMenu: state.contextMenu },
+    (newExpanded) => setState(prev => ({ ...prev, expandedVersions: newExpanded })),
+    (menu) => setState(prev => ({ ...prev, contextMenu: menu })),
+    (node) => analyzeVersion(node)
+  );
+
+  if (versionStatesLogic.shouldShowLoading) {
     return <div>バージョンデータを読み込み中...</div>;
   }
 
-  if (error) {
+  if (versionStatesLogic.shouldShowError) {
     return (
       <div style={{ color: 'red', padding: '10px', border: '1px solid #f00', borderRadius: '4px' }}>
-        バージョンデータ読み込みエラー: {error}
+        バージョンデータ読み込みエラー: {versionStatesLogic.errorMessage}
       </div>
     );
   }
 
-  if (versions.length === 0) {
-    return <p>利用可能なバージョンがありません。</p>;
+  if (versionStatesLogic.shouldShowEmpty) {
+    return <p>{versionStatesLogic.emptyMessage}</p>;
   }
 
-  // LocationURIのエラーメッセージも表示
-  if (locationError) {
+  // LocationURIエラーがある場合の表示
+  if (versionStatesLogic.shouldShowLocationError) {
     return (
       <div>
         <div style={{ color: 'red', marginBottom: '10px', padding: '10px', border: '1px solid #f00', borderRadius: '4px' }}>
-          LocationURI読み込みエラー: {locationError}
+          LocationURI読み込みエラー: {versionStatesLogic.locationErrorMessage}
         </div>
         <Tree 
-          treeData={versionTree}
-          onNodeClick={handleVersionNodeClick}
+          treeData={versionStatesLogic.versionTree}
+          onNodeClick={versionStatesLogic.handleVersionNodeClick}
         />
       </div>
     );
@@ -136,11 +67,12 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
   return (
     <div>
       <Tree 
-        treeData={versionTree}
-        onNodeClick={handleVersionNodeClick}
+        treeData={versionStatesLogic.versionTree}
+        onNodeClick={versionStatesLogic.handleVersionNodeClick}
       />
-      {/* LocationURIロード中の表示 */}
-      {locationLoading && selectedVersionId && (
+      
+      {/* LocationURIロード中表示 */}
+      {props.locationLoading && props.selectedVersionId && (
         <div style={{ marginTop: '10px', padding: '5px', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
           LocationURIデータを読み込み中...
         </div>
@@ -168,7 +100,7 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
       )}
       
       {/* 右クリックコンテキストメニュー */}
-      {contextMenu.show && (
+      {state.contextMenu.show && (
         <>
           <div 
             style={{
@@ -179,13 +111,13 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
               bottom: 0,
               zIndex: 999
             }}
-            onClick={handleCloseContextMenu}
+            onClick={versionStatesLogic.handleCloseContextMenu}
           />
           <div
             style={{
               position: 'fixed',
-              top: contextMenu.y,
-              left: contextMenu.x,
+              top: state.contextMenu.y,
+              left: state.contextMenu.x,
               backgroundColor: 'white',
               border: '1px solid #ccc',
               borderRadius: '4px',
@@ -203,7 +135,7 @@ export const VersionStates: React.FC<VersionStatesProps> = ({
                 textAlign: 'left',
                 cursor: 'pointer'
               }}
-              onClick={handleClaudeAnalysis}
+              onClick={versionStatesLogic.handleClaudeAnalysis}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
