@@ -27,6 +27,7 @@ function createBasicRpcClient(config: RpcConfig) {
       const args = [
         "dlx", 
         "@anthropic-ai/claude-code", 
+        "--dangerously-skip-permissions",
         "-p", 
         "--output-format", 
         "json", 
