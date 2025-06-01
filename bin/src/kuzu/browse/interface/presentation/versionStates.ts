@@ -5,6 +5,7 @@ import type {
   NodeClickEvent 
 } from '../../domain/types';
 import { showContextMenu } from '../components/contextMenu';
+import { generatePromptCore } from '../../application/hooks/claudeRequestCore';
 
 export const computeVersionStatesCore = (
   input: VersionStatesInput,
@@ -44,21 +45,13 @@ export const computeVersionStatesCore = (
     }
   };
 
-  // プロンプト生成ロジック
-  const generatePrompt = (action: string, node: NodeData): string => {
-    switch (action) {
-      case 'claude-analysis':
-        return `バージョン${node.id}の解析を行ってください。詳細: ${node.name}`;
-      case 'rust-hello':
-        return '/home/nixos/bin/src/tmp/hello.rs\nここにhelloを返す関数とそれをコンソール出力するためのテストをインソーステストとして記述して';
-      default:
-        return `不明なアクション: ${action}`;
-    }
-  };
-
-  // コンテキストメニューのロジックは分離されたコンポーネントに委譲
+  // プロンプト生成はCore関数に委譲
   const handleMenuAction = (action: string, node: NodeData) => {
-    const prompt = generatePrompt(action, node);
+    const prompt = generatePromptCore({
+      action,
+      nodeId: node.id,
+      nodeName: node.name
+    });
     onClaudeRequest(prompt, node);
   };
 

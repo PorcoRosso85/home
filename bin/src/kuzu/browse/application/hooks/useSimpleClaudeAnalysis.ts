@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import type { NodeData, SimpleClaudeAnalysisState } from '../../domain/types';
-import { executeClaudeAnalysisCore } from './simpleClaudeAnalysisLogic';
-import { createBasicRpcClient } from '../../infrastructure/rpc/basicRpcClient';
+import { sendClaudeRequestCore, generatePromptCore } from './claudeRequestCore';
 import { env } from '../../infrastructure/config/variables';
-import { isErrorResult } from '../../common/typeGuards';
 
 export const useSimpleClaudeAnalysis = () => {
   const [state, setState] = useState<SimpleClaudeAnalysisState>({
@@ -12,29 +10,36 @@ export const useSimpleClaudeAnalysis = () => {
     error: null
   });
   
-  const rpcClient = createBasicRpcClient({
+  const rpcConfig = {
     endpoint: env.CLAUDE_WS_ENDPOINT,
     timeout: 60000
-  });
+  };
   
   const analyzeVersion = async (node: NodeData): Promise<void> => {
     setState(prev => ({ ...prev, loading: true, error: null, result: null }));
     
-    const result = await executeClaudeAnalysisCore({ node, rpcClient });
+    // Core関数を使用（責務分離）
+    const prompt = generatePromptCore({
+      action: 'claude-analysis',
+      nodeId: node.id,
+      nodeName: node.name
+    });
     
-    if (isErrorResult(result)) {
-      setState(prev => ({ 
-        ...prev, 
-        loading: false, 
-        result: null, 
-        error: result.message 
-      }));
-    } else {
+    const result = await sendClaudeRequestCore({ prompt, rpcConfig });
+    
+    if (result.success) {
       setState(prev => ({ 
         ...prev, 
         loading: false, 
         result: result.data, 
         error: null 
+      }));
+    } else {
+      setState(prev => ({ 
+        ...prev, 
+        loading: false, 
+        result: null, 
+        error: result.message 
       }));
     }
   };
@@ -42,30 +47,22 @@ export const useSimpleClaudeAnalysis = () => {
   const sendClaudeRequestWithPrompt = async (prompt: string): Promise<void> => {
     setState(prev => ({ ...prev, loading: true, error: null, result: null }));
     
-    try {
-      const analysisResult = await rpcClient.sendClaudeRequest(prompt);
-      
-      if (analysisResult.status === 'success') {
-        setState(prev => ({ 
-          ...prev, 
-          loading: false, 
-          result: analysisResult.data, 
-          error: null 
-        }));
-      } else {
-        setState(prev => ({ 
-          ...prev, 
-          loading: false, 
-          result: null, 
-          error: analysisResult.message 
-        }));
-      }
-    } catch (err) {
+    // Core関数を使用（責務分離）
+    const result = await sendClaudeRequestCore({ prompt, rpcConfig });
+    
+    if (result.success) {
+      setState(prev => ({ 
+        ...prev, 
+        loading: false, 
+        result: result.data, 
+        error: null 
+      }));
+    } else {
       setState(prev => ({ 
         ...prev, 
         loading: false, 
         result: null, 
-        error: err instanceof Error ? err.message : 'Unknown error' 
+        error: result.message 
       }));
     }
   };
