@@ -88,6 +88,30 @@ export const generatePromptCore = (input: PromptGenerationInput): PromptGenerati
         prompt: `exec tmux new-session -d -s "${sessionName}" bash -c 'pnpm dlx @anthropic-ai/claude-code -p "${innerPrompt.replace(/"/g, '\\"')}"'`,
         sessionName
       };
+    case 'tmux-poc':
+      // PoC用：単純なtmuxセッション起動
+      const pocSessionName = `poc-${Date.now()}`;
+      handleTmuxSessionCreated(pocSessionName);
+      return {
+        prompt: `tmuxセッション起動テストを実行します。
+
+以下のコマンドを実行してください：
+tmux new-session -d -s ${pocSessionName}
+
+実行後、以下のコマンドでセッションが存在することを確認してください：
+tmux ls | grep ${pocSessionName}
+
+結果を報告してください。`,
+        sessionName: pocSessionName
+      };
+    case 'tmux-exec-poc':
+      // PoC用：execコマンドでtmuxセッション起動
+      const execSessionName = `exec-poc-${Date.now()}`;
+      handleTmuxSessionCreated(execSessionName);
+      return {
+        prompt: `exec tmux new-session -d -s ${execSessionName}`,
+        sessionName: execSessionName
+      };
     default:
       return { 
         prompt: `不明なアクション: ${input.action}` 
