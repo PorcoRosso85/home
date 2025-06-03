@@ -52,6 +52,8 @@ export const generatePromptCore = (input: PromptGenerationInput): string => {
       return `バージョン${input.nodeId}の解析を行ってください。詳細: ${input.nodeName}`;
     case 'rust-hello':
       return '/home/nixos/bin/src/tmp/hello.rs\nここにhelloを返す関数とそれをコンソール出力するためのテストをインソーステストとして記述して';
+    case 'claude-code-echo':
+      return `他のclaude-codeを2つ呼び出して、'hello'のみを返却するプロンプトを送信して、hello2つを受け取ったら報告すること。hello以外を受け取った場合もその旨報告すること。claude-codeは "pnpm dlx @anthropic-ai/claude-code -p"に続きプロンプトを記入することで返答を受け取れる。`;
     default:
       return `不明なアクション: ${input.action}`;
   }

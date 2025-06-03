@@ -59,6 +59,12 @@ export const computeContextMenuCore = (input: ContextMenuInput): ContextMenuOutp
       label: 'Rust hello関数作成',
       action: 'rust-hello',
       enabled: true
+    },
+    {
+      id: 'claude-code-echo',
+      label: 'Claude-code連携テスト',
+      action: 'claude-code-echo',
+      enabled: true
     }
   ];
 
