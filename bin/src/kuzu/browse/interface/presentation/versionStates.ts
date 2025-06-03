@@ -11,7 +11,7 @@ export const computeVersionStatesCore = (
   input: VersionStatesInput,
   onExpandedVersionsUpdate: (newExpanded: Set<string>) => void,
   onContextMenuUpdate: (menu: VersionStatesInput['contextMenu']) => void,
-  onClaudeRequest: (prompt: string, node: NodeData) => void
+  onClaudeRequest: (prompt: string, node: NodeData, action?: string, sessionName?: string) => void
 ): VersionStatesOutput => {
   
   const shouldShowLoading = input.loading;
@@ -47,12 +47,12 @@ export const computeVersionStatesCore = (
 
   // プロンプト生成はCore関数に委譲
   const handleMenuAction = (action: string, node: NodeData) => {
-    const prompt = generatePromptCore({
+    const result = generatePromptCore({
       action,
       nodeId: node.id,
       nodeName: node.name
     });
-    onClaudeRequest(prompt, node);
+    onClaudeRequest(result.prompt, node, action, result.sessionName);
   };
 
   return {

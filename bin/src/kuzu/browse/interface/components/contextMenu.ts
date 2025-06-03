@@ -65,6 +65,12 @@ export const computeContextMenuCore = (input: ContextMenuInput): ContextMenuOutp
       label: 'Claude-code連携テスト',
       action: 'claude-code-echo',
       enabled: true
+    },
+    {
+      id: 'tmux-claude-echo',
+      label: 'tmuxでClaude連携テスト',
+      action: 'tmux-claude-echo',
+      enabled: contextMenu.node?.nodeType === 'location' || contextMenu.node?.nodeType === 'version'
     }
   ];
 

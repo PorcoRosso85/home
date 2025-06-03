@@ -38,6 +38,17 @@ export const sendClaudeRequestCore = async (
 };
 
 /**
+ * tmuxセッション作成時の副作用処理
+ */
+export const handleTmuxSessionCreated = (sessionName: string): void => {
+  console.log('='.repeat(60));
+  console.log('🚀 tmuxセッションが作成されました！');
+  console.log(`📋 セッション名: ${sessionName}`);
+  console.log(`💻 接続コマンド: tmux attach -t ${sessionName}`);
+  console.log('='.repeat(60));
+};
+
+/**
  * プロンプト生成のCore Logic
  */
 export type PromptGenerationInput = {
@@ -46,15 +57,40 @@ export type PromptGenerationInput = {
   nodeName?: string;
 };
 
-export const generatePromptCore = (input: PromptGenerationInput): string => {
+export type PromptGenerationOutput = {
+  prompt: string;
+  sessionName?: string;
+};
+
+export const generatePromptCore = (input: PromptGenerationInput): PromptGenerationOutput => {
   switch (input.action) {
     case 'claude-analysis':
-      return `バージョン${input.nodeId}の解析を行ってください。詳細: ${input.nodeName}`;
+      return { 
+        prompt: `バージョン${input.nodeId}の解析を行ってください。詳細: ${input.nodeName}`
+      };
     case 'rust-hello':
-      return '/home/nixos/bin/src/tmp/hello.rs\nここにhelloを返す関数とそれをコンソール出力するためのテストをインソーステストとして記述して';
+      return { 
+        prompt: '/home/nixos/bin/src/tmp/hello.rs\nここにhelloを返す関数とそれをコンソール出力するためのテストをインソーステストとして記述して'
+      };
     case 'claude-code-echo':
-      return `他のclaude-codeを2つ呼び出して、'hello'のみを返却するプロンプトを送信して、hello2つを受け取ったら報告すること。hello以外を受け取った場合もその旨報告すること。claude-codeは "pnpm dlx @anthropic-ai/claude-code -p"に続きプロンプトを記入することで返答を受け取れる。`;
+      return {
+        prompt: `他のclaude-codeを2つ呼び出して、'hello'のみを返却するプロンプトを送信して、hello2つを受け取ったら報告すること。hello以外を受け取った場合もその旨報告すること。claude-codeは "pnpm dlx @anthropic-ai/claude-code -p"に続きプロンプトを記入することで返答を受け取れる。`
+      };
+    case 'tmux-claude-echo':
+      // セッション名にはノード名を使用（URI名やバージョン名）
+      const sessionName = input.nodeName?.replace(/[^a-zA-Z0-9-_]/g, '-') || 'default-session';
+      // 副作用を実行
+      handleTmuxSessionCreated(sessionName);
+      
+      // tmux内で実行するためのexecコマンドを含める
+      const innerPrompt = `他のclaude-codeを2つ呼び出して、'hello'のみを返却するプロンプトを送信して、hello2つを受け取ったら報告すること。hello以外を受け取った場合もその旨報告すること。claude-codeは "pnpm dlx @anthropic-ai/claude-code -p"に続きプロンプトを記入することで返答を受け取れる。`;
+      return {
+        prompt: `exec tmux new-session -d -s "${sessionName}" bash -c 'pnpm dlx @anthropic-ai/claude-code -p "${innerPrompt.replace(/"/g, '\\"')}"'`,
+        sessionName
+      };
     default:
-      return `不明なアクション: ${input.action}`;
+      return { 
+        prompt: `不明なアクション: ${input.action}` 
+      };
   }
 };

@@ -21,7 +21,7 @@ interface VersionStatesProps {
 }
 
 export const VersionStates: React.FC<VersionStatesProps> = (props) => {
-  const [state, setState] = useState<VersionStatesReactState>({
+  const [state, setState] = useState<VersionStatesReactState & { lastAction?: string; lastSessionName?: string }>({
     expandedVersions: new Set(),
     contextMenu: createContextMenuState()
   });
@@ -29,7 +29,11 @@ export const VersionStates: React.FC<VersionStatesProps> = (props) => {
   const { loading: claudeLoading, result, error: claudeError, sendClaudeRequestWithPrompt } = useSimpleClaudeAnalysis();
 
   // 共通のClaude リクエスト処理
-  const handleClaudeRequest = (prompt: string, node: NodeData) => {
+  const handleClaudeRequest = (prompt: string, node: NodeData, action?: string, sessionName?: string) => {
+    // tmux-claude-echoアクションの場合、セッション名をstateに保存
+    if (action === 'tmux-claude-echo' && sessionName) {
+      setState(prev => ({ ...prev, lastAction: action, lastSessionName: sessionName }));
+    }
     sendClaudeRequestWithPrompt(prompt);
   };
 
@@ -96,6 +100,15 @@ export const VersionStates: React.FC<VersionStatesProps> = (props) => {
         <div style={{ padding: '10px', backgroundColor: '#e8f5e8', margin: '10px 0', border: '1px solid #4CAF50' }}>
           <h4>Claude解析結果:</h4>
           <pre style={{ whiteSpace: 'pre-wrap' }}>{result}</pre>
+          {/* tmux-claude-echoの場合、セッション情報を表示 */}
+          {state.lastAction === 'tmux-claude-echo' && state.lastSessionName && (
+            <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px' }}>
+              <strong>📋 tmuxセッション情報:</strong><br/>
+              セッション名: <code>{state.lastSessionName}</code><br/>
+              接続コマンド: <code>tmux attach -t {state.lastSessionName}</code><br/>
+              <small>（すべてのセッション確認: <code>tmux ls</code>）</small>
+            </div>
+          )}
         </div>
       )}
       
