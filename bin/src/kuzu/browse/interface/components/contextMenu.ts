@@ -71,18 +71,6 @@ export const computeContextMenuCore = (input: ContextMenuInput): ContextMenuOutp
       label: 'tmuxでClaude連携テスト',
       action: 'tmux-claude-echo',
       enabled: contextMenu.node?.nodeType === 'location' || contextMenu.node?.nodeType === 'version'
-    },
-    {
-      id: 'tmux-poc',
-      label: 'tmux起動テスト(PoC)',
-      action: 'tmux-poc',
-      enabled: true
-    },
-    {
-      id: 'tmux-exec-poc',
-      label: 'tmux起動テスト(exec版)',
-      action: 'tmux-exec-poc',
-      enabled: true
     }
   ];
 
