@@ -5,8 +5,9 @@ import {
   createHttpHandler,
   startServer,
 } from "./interface/websocket/server.ts";
-import { createMethodHandler } from "./application/handlers/execHandler.ts";
+import { createProcessHandler } from "./application/handlers/processHandler.ts";
 import { createStreamingCommandExecutor } from "./domain/command/executor.ts";
+import { createProcessManager } from "./domain/process/processManager.ts";
 import {
   spawnProcess,
   readFromStream,
@@ -34,6 +35,7 @@ function createApplication() {
   
   // ドメイン層
   const commandExecutor = createStreamingCommandExecutor({ processRunner });
+  const processManager = createProcessManager({ maxConcurrent: 5 });
   
   // 現在の接続を保持するクロージャ
   let currentConnection: WebSocketConnection | null = null;
@@ -46,14 +48,15 @@ function createApplication() {
   };
   
   // アプリケーション層
-  const methodHandler = createMethodHandler({
+  const processHandler = createProcessHandler({
+    processManager,
     commandExecutor,
     messageSender,
   });
   
   // インターフェース層
   const websocketHandler = createWebSocketHandler({
-    methodHandler,
+    methodHandler: processHandler,
   });
   
   // 接続を設定するハンドラーをラップ

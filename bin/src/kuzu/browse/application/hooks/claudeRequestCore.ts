@@ -22,15 +22,9 @@ export const sendClaudeRequestCore = async (
 ): Promise<ClaudeRequestResult> => {
   try {
     const rpcClient = createBasicRpcClient(input.rpcConfig);
-    let analysisResult: ClaudeAnalysisResult;
     
-    if (input.useTmux && input.sessionName) {
-      // tmux内でClaude-codeを実行
-      analysisResult = await rpcClient.sendClaudeRequestInTmux(input.sessionName, input.prompt);
-    } else {
-      // 通常のClaude-code実行
-      analysisResult = await rpcClient.sendClaudeRequest(input.prompt);
-    }
+    // tmuxパラメータは無視して、常に通常のClaude-code実行
+    const analysisResult = await rpcClient.sendClaudeRequest(input.prompt);
     
     if (analysisResult.status === 'success') {
       return { success: true, data: analysisResult.data };
@@ -46,14 +40,10 @@ export const sendClaudeRequestCore = async (
 };
 
 /**
- * tmuxセッション作成時の副作用処理
+ * プロンプト生成のCore Logic（tmux削除）
  */
 export const handleTmuxSessionCreated = (sessionName: string): void => {
-  console.log('='.repeat(60));
-  console.log('🚀 tmuxセッションが作成されました！');
-  console.log(`📋 セッション名: ${sessionName}`);
-  console.log(`💻 接続コマンド: tmux attach -t ${sessionName}`);
-  console.log('='.repeat(60));
+  // tmux機能は削除されました
 };
 
 /**
@@ -86,16 +76,9 @@ export const generatePromptCore = (input: PromptGenerationInput): PromptGenerati
         prompt: `他のclaude-codeを2つ呼び出して、'hello'のみを返却するプロンプトを送信して、hello2つを受け取ったら報告すること。hello以外を受け取った場合もその旨報告すること。claude-codeは "pnpm dlx @anthropic-ai/claude-code -p"に続きプロンプトを記入することで返答を受け取れる。`
       };
     case 'tmux-claude-echo':
-      // セッション名にはノード名を使用（URI名やバージョン名）
-      const sessionName = input.nodeName?.replace(/[^a-zA-Z0-9-_]/g, '-') || 'default-session';
-      // 副作用を実行
-      handleTmuxSessionCreated(sessionName);
-      
-      // 純粋なClaude用プロンプト（シンプルに）
+      // tmux機能は削除されたため、通常のclaude-echoとして処理
       return {
-        prompt: `echo "hello"を実行して、その出力を報告してください。`,
-        sessionName,
-        useTmux: true
+        prompt: `echo "hello"を実行して、その出力を報告してください。`
       };
     default:
       return { 

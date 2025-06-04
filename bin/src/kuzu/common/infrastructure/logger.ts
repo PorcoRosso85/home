@@ -2,7 +2,7 @@
  * アプリケーション全体で使用するロガー関数
  * 規約準拠: デフォルト値禁止、LOG_LEVELを直接importで使用
  */
-import { LogLevel, LOG_LEVEL } from './variables';
+import { LogLevel, LOG_LEVEL } from './variables.ts';
 
 // タイムスタンプを取得する関数
 const getTimestamp = () => {
