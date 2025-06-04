@@ -80,6 +80,11 @@ export const generatePromptCore = (input: PromptGenerationInput): PromptGenerati
       return {
         prompt: `echo "hello"を実行して、その出力を報告してください。`
       };
+    case 'claude-boss-test':
+      // Claude親分テスト用のプロンプト（IDは動的に設定される）
+      return {
+        prompt: `あなたはclaude<id>です。あなたは親分です。あなたの子分ナンバリング方法を決めてください。その後、'pnpm dlx @anthropic-ai/claude-code -p <prompt>'を実行して、それぞれのclaude君に自身のナンバリング番号ただそれだけを返却させるよう子分に指示してください。最低3人の子分を作成してください。`
+      };
     default:
       return { 
         prompt: `不明なアクション: ${input.action}` 

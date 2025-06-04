@@ -35,7 +35,27 @@ export const VersionStates: React.FC<VersionStatesProps> = (props) => {
     if (action === 'tmux-claude-echo' && sessionName) {
       setState(prev => ({ ...prev, lastAction: action, lastSessionName: sessionName }));
     }
-    sendClaudeRequestWithPrompt(prompt, useTmux, sessionName);
+    
+    // claude-boss-testアクションの場合、2つの並列プロセスを起動
+    if (action === 'claude-boss-test') {
+      console.log('='.repeat(60));
+      console.log('🚀 Claude親分テスト開始！2つの親分を並列起動します');
+      console.log('='.repeat(60));
+      
+      // 親分1を起動
+      const prompt1 = prompt.replace('<id>', '1');
+      console.log('👑 親分1を起動:', prompt1.substring(0, 50) + '...');
+      sendClaudeRequestWithPrompt(prompt1, false);
+      
+      // 親分2を起動（少し遅延させて別プロセスとして認識させる）
+      setTimeout(() => {
+        const prompt2 = prompt.replace('<id>', '2');
+        console.log('👑 親分2を起動:', prompt2.substring(0, 50) + '...');
+        sendClaudeRequestWithPrompt(prompt2, false);
+      }, 100);
+    } else {
+      sendClaudeRequestWithPrompt(prompt, useTmux, sessionName);
+    }
   };
 
   const versionStatesLogic = computeVersionStatesCore(

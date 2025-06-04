@@ -34,7 +34,8 @@ export const computeVersionStatesCore = (
       }
       onExpandedVersionsUpdate(newExpanded);
     }
-    else if (clickEvent.eventType === 'right' && clickEvent.node.nodeType === 'version') {
+    else if (clickEvent.eventType === 'right') {
+      // versionノードまたはlocationノードで右クリックメニューを表示
       const newContextMenu = showContextMenu(
         clickEvent.event.clientX,
         clickEvent.event.clientY,
