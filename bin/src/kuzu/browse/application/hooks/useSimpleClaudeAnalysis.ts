@@ -19,13 +19,16 @@ export const useSimpleClaudeAnalysis = () => {
     setState(prev => ({ ...prev, loading: true, error: null, result: null }));
     
     // Core関数を使用（責務分離）
-    const prompt = generatePromptCore({
+    const promptResult = generatePromptCore({
       action: 'claude-analysis',
       nodeId: node.id,
       nodeName: node.name
     });
     
-    const result = await sendClaudeRequestCore({ prompt, rpcConfig });
+    const result = await sendClaudeRequestCore({ 
+      prompt: promptResult.prompt, 
+      rpcConfig 
+    });
     
     if (result.success) {
       setState(prev => ({ 
@@ -44,11 +47,16 @@ export const useSimpleClaudeAnalysis = () => {
     }
   };
   
-  const sendClaudeRequestWithPrompt = async (prompt: string): Promise<void> => {
+  const sendClaudeRequestWithPrompt = async (prompt: string, useTmux?: boolean, sessionName?: string): Promise<void> => {
     setState(prev => ({ ...prev, loading: true, error: null, result: null }));
     
     // Core関数を使用（責務分離）
-    const result = await sendClaudeRequestCore({ prompt, rpcConfig });
+    const result = await sendClaudeRequestCore({ 
+      prompt, 
+      rpcConfig,
+      useTmux,
+      sessionName
+    });
     
     if (result.success) {
       setState(prev => ({ 

@@ -31,12 +31,12 @@ export const computeClaudeResultCore = (input: ClaudeResultInput): ClaudeResultO
     shouldShowLoading: loading,
     shouldShowResult: !loading && !!result,
     shouldShowError: !loading && !!error,
-    shouldShowSessionInfo: !loading && !!result && !!sessionInfo && sessionInfo.action === 'tmux-claude-echo',
-    loadingMessage: 'Claude解析中...',
+    shouldShowSessionInfo: false, // claude-code関連の表示を削除
+    loadingMessage: '実行中...',
     errorMessage: error || '',
     resultContent: result || '',
-    sessionCommand: sessionInfo ? `tmux attach -t ${sessionInfo.sessionName}` : '',
-    sessionName: sessionInfo?.sessionName || ''
+    sessionCommand: '',
+    sessionName: ''
   };
 };
 

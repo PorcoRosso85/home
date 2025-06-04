@@ -11,7 +11,7 @@ export const computeVersionStatesCore = (
   input: VersionStatesInput,
   onExpandedVersionsUpdate: (newExpanded: Set<string>) => void,
   onContextMenuUpdate: (menu: VersionStatesInput['contextMenu']) => void,
-  onClaudeRequest: (prompt: string, node: NodeData, action?: string, sessionName?: string) => void
+  onClaudeRequest: (prompt: string, node: NodeData, action?: string, sessionName?: string, useTmux?: boolean) => void
 ): VersionStatesOutput => {
   
   const shouldShowLoading = input.loading;
@@ -52,7 +52,7 @@ export const computeVersionStatesCore = (
       nodeId: node.id,
       nodeName: node.name
     });
-    onClaudeRequest(result.prompt, node, action, result.sessionName);
+    onClaudeRequest(result.prompt, node, action, result.sessionName, result.useTmux);
   };
 
   return {

@@ -6,6 +6,8 @@ import type {
   StreamMessage,
   ProcessRunner,
 } from "./types.ts";
+import { executeTmuxCommand } from "../../infrastructure/process/tmuxCommandRunner.ts";
+import type { TmuxSessionParams } from "./tmuxTypes.ts";
 
 // パラメータのバリデーション
 function validateParams(params: CommandParams): {
@@ -108,6 +110,28 @@ export function createStreamingCommandExecutor(deps: { processRunner: ProcessRun
   return async function* executeCommandStreaming(
     params: CommandParams
   ): AsyncGenerator<StreamMessage> {
+    // tmuxコマンドの特別処理
+    if (params.command === "tmux" && params.args?.[0] === "new-session") {
+      // tmuxセッション作成の場合
+      const sessionIndex = params.args.indexOf("-s");
+      if (sessionIndex !== -1 && params.args[sessionIndex + 1]) {
+        const sessionName = params.args[sessionIndex + 1];
+        
+        // claude-codeコマンドを抽出
+        const commandStartIndex = params.args.indexOf("pnpm");
+        if (commandStartIndex !== -1) {
+          const tmuxParams: TmuxSessionParams = {
+            sessionName,
+            command: params.args[commandStartIndex],
+            args: params.args.slice(commandStartIndex + 1),
+          };
+          
+          yield* executeTmuxCommand(tmuxParams);
+          return;
+        }
+      }
+    }
+    
     // パラメータのバリデーション
     const validation = validateParams(params);
     if (!validation.isValid) {

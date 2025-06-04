@@ -30,12 +30,12 @@ export const VersionStates: React.FC<VersionStatesProps> = (props) => {
   const { loading: claudeLoading, result, error: claudeError, sendClaudeRequestWithPrompt } = useSimpleClaudeAnalysis();
 
   // 共通のClaude リクエスト処理
-  const handleClaudeRequest = (prompt: string, node: NodeData, action?: string, sessionName?: string) => {
+  const handleClaudeRequest = (prompt: string, node: NodeData, action?: string, sessionName?: string, useTmux?: boolean) => {
     // tmux-claude-echoアクションの場合、セッション名をstateに保存
     if (action === 'tmux-claude-echo' && sessionName) {
       setState(prev => ({ ...prev, lastAction: action, lastSessionName: sessionName }));
     }
-    sendClaudeRequestWithPrompt(prompt);
+    sendClaudeRequestWithPrompt(prompt, useTmux, sessionName);
   };
 
   const versionStatesLogic = computeVersionStatesCore(
