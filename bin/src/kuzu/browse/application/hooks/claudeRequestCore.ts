@@ -18,13 +18,23 @@ export type ClaudeRequestResult =
  * Claude リクエスト送信のCore Logic
  */
 export const sendClaudeRequestCore = async (
-  input: ClaudeRequestInput & { useTmux?: boolean; sessionName?: string }
+  input: ClaudeRequestInput
 ): Promise<ClaudeRequestResult> => {
   try {
     const rpcClient = createBasicRpcClient(input.rpcConfig);
     
-    // tmuxパラメータは無視して、常に通常のClaude-code実行
-    const analysisResult = await rpcClient.sendClaudeRequest(input.prompt);
+    // Claude-codeコマンドとしてプロンプトを実行
+    const args = [
+      "dlx", 
+      "@anthropic-ai/claude-code", 
+      "--dangerously-skip-permissions",
+      "-p", 
+      "--output-format", 
+      "json", 
+      input.prompt
+    ];
+    
+    const analysisResult = await rpcClient.sendCommand("pnpm", args);
     
     if (analysisResult.status === 'success') {
       return { success: true, data: analysisResult.data };
@@ -40,13 +50,6 @@ export const sendClaudeRequestCore = async (
 };
 
 /**
- * プロンプト生成のCore Logic（tmux削除）
- */
-export const handleTmuxSessionCreated = (sessionName: string): void => {
-  // tmux機能は削除されました
-};
-
-/**
  * プロンプト生成のCore Logic
  */
 export type PromptGenerationInput = {
@@ -57,31 +60,14 @@ export type PromptGenerationInput = {
 
 export type PromptGenerationOutput = {
   prompt: string;
-  sessionName?: string;
-  useTmux?: boolean;
 };
 
 export const generatePromptCore = (input: PromptGenerationInput): PromptGenerationOutput => {
   switch (input.action) {
-    case 'claude-analysis':
-      return { 
-        prompt: `バージョン${input.nodeId}の解析を行ってください。詳細: ${input.nodeName}`
-      };
-    case 'rust-hello':
-      return { 
-        prompt: '/home/nixos/bin/src/tmp/hello.rs\nここにhelloを返す関数とそれをコンソール出力するためのテストをインソーステストとして記述して'
-      };
-    case 'claude-code-echo':
-      return {
-        prompt: `他のclaude-codeを2つ呼び出して、'hello'のみを返却するプロンプトを送信して、hello2つを受け取ったら報告すること。hello以外を受け取った場合もその旨報告すること。claude-codeは "pnpm dlx @anthropic-ai/claude-code -p"に続きプロンプトを記入することで返答を受け取れる。`
-      };
-    case 'tmux-claude-echo':
-      // tmux機能は削除されたため、通常のclaude-echoとして処理
-      return {
-        prompt: `echo "hello"を実行して、その出力を報告してください。`
-      };
+    case 'connection-check':
+      // RPC接続確認は別処理のため、ダミー値
+      return { prompt: '' };
     case 'claude-boss-test':
-      // Claude親分テスト用のプロンプト（IDは動的に設定される）
       return {
         prompt: `あなたはclaude<id>です。あなたは親分です。あなたの子分ナンバリング方法を決めてください。その後、'pnpm dlx @anthropic-ai/claude-code -p <prompt>'を実行して、それぞれのclaude君に自身のナンバリング番号ただそれだけを返却させるよう子分に指示してください。最低3人の子分を作成してください。`
       };
@@ -89,5 +75,30 @@ export const generatePromptCore = (input: PromptGenerationInput): PromptGenerati
       return { 
         prompt: `不明なアクション: ${input.action}` 
       };
+  }
+};
+
+/**
+ * RPC コマンド送信のCore Logic
+ */
+export const sendRpcCommandCore = async (
+  command: string,
+  args: string[],
+  rpcConfig: RpcConfig
+): Promise<ClaudeRequestResult> => {
+  try {
+    const rpcClient = createBasicRpcClient(rpcConfig);
+    const result = await rpcClient.sendCommand(command, args);
+    
+    if (result.status === 'success') {
+      return { success: true, data: result.data };
+    } else {
+      return { success: false, message: result.message };
+    }
+  } catch (error) {
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 };

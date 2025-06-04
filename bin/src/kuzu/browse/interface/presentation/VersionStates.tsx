@@ -8,6 +8,9 @@ import { ClaudeResultView } from '../components/claude/ClaudeResultView';
 import type { VersionState, NodeData, VersionStatesReactState } from '../../domain/types';
 import { useSimpleClaudeAnalysis } from '../../application/claude/useSimpleClaudeAnalysis.ts';
 import { computeVersionStatesCore } from './versionStates';
+import * as logger from '../../../common/infrastructure/logger.ts';
+import { sendRpcCommandCore } from '../../application/hooks/claudeRequestCore';
+import { env } from '../../infrastructure/config/variables';
 import { createContextMenuState } from '../components/contextMenu';
 
 interface VersionStatesProps {
@@ -22,7 +25,7 @@ interface VersionStatesProps {
 }
 
 export const VersionStates: React.FC<VersionStatesProps> = (props) => {
-  const [state, setState] = useState<VersionStatesReactState & { lastAction?: string; lastSessionName?: string }>({
+  const [state, setState] = useState<VersionStatesReactState>({
     expandedVersions: new Set(),
     contextMenu: createContextMenuState()
   });
@@ -30,31 +33,38 @@ export const VersionStates: React.FC<VersionStatesProps> = (props) => {
   const { loading: claudeLoading, result, error: claudeError, sendClaudeRequestWithPrompt } = useSimpleClaudeAnalysis();
 
   // 共通のClaude リクエスト処理
-  const handleClaudeRequest = (prompt: string, node: NodeData, action?: string, sessionName?: string, useTmux?: boolean) => {
-    // tmux-claude-echoアクションの場合、セッション名をstateに保存
-    if (action === 'tmux-claude-echo' && sessionName) {
-      setState(prev => ({ ...prev, lastAction: action, lastSessionName: sessionName }));
+  const handleClaudeRequest = (prompt: string, node: NodeData, action?: string) => {
+    // connection-checkの場合、RPCコマンド直接実行
+    if (action === 'connection-check') {
+      sendRpcCommandCore("echo", ["RPC connection OK"], {
+        endpoint: env.CLAUDE_WS_ENDPOINT,
+        timeout: 5000
+      }).then(result => {
+        if (result.success) {
+          logger.info('RPC接続確認成功', { data: result.data });
+          // 結果を表示（ClaudeResultViewを流用）
+          sendClaudeRequestWithPrompt(`RPC接続確認成功: ${result.data}`);
+        } else {
+          logger.error('RPC接続確認失敗', { message: result.message });
+          sendClaudeRequestWithPrompt(`RPC接続確認失敗: ${result.message}`);
+        }
+      });
     }
-    
     // claude-boss-testアクションの場合、2つの並列プロセスを起動
-    if (action === 'claude-boss-test') {
-      console.log('='.repeat(60));
-      console.log('🚀 Claude親分テスト開始！2つの親分を並列起動します');
-      console.log('='.repeat(60));
+    else if (action === 'claude-boss-test') {
+      logger.info('Claude親分テスト開始！2つの親分を並列起動します');
       
       // 親分1を起動
       const prompt1 = prompt.replace('<id>', '1');
-      console.log('👑 親分1を起動:', prompt1.substring(0, 50) + '...');
-      sendClaudeRequestWithPrompt(prompt1, false);
+      logger.info('親分1を起動', { promptPreview: prompt1.substring(0, 50) + '...' });
+      sendClaudeRequestWithPrompt(prompt1);
       
-      // 親分2を起動（少し遅延させて別プロセスとして認識させる）
-      setTimeout(() => {
-        const prompt2 = prompt.replace('<id>', '2');
-        console.log('👑 親分2を起動:', prompt2.substring(0, 50) + '...');
-        sendClaudeRequestWithPrompt(prompt2, false);
-      }, 100);
+      // 親分2を起動（並列実行）
+      const prompt2 = prompt.replace('<id>', '2');
+      logger.info('親分2を起動', { promptPreview: prompt2.substring(0, 50) + '...' });
+      sendClaudeRequestWithPrompt(prompt2);
     } else {
-      sendClaudeRequestWithPrompt(prompt, useTmux, sessionName);
+      sendClaudeRequestWithPrompt(prompt);
     }
   };
 

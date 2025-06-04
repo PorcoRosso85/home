@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { NodeData, SimpleClaudeAnalysisState } from '../../domain/types';
-import { sendClaudeRequestCore, generatePromptCore } from './claudeRequestCore';
+import type { SimpleClaudeAnalysisState } from '../../domain/types';
+import { sendClaudeRequestCore } from './claudeRequestCore';
 import { env } from '../../infrastructure/config/variables';
 
 export const useSimpleClaudeAnalysis = () => {
@@ -15,47 +15,13 @@ export const useSimpleClaudeAnalysis = () => {
     timeout: 60000
   };
   
-  const analyzeVersion = async (node: NodeData): Promise<void> => {
-    setState(prev => ({ ...prev, loading: true, error: null, result: null }));
-    
-    // Core関数を使用（責務分離）
-    const promptResult = generatePromptCore({
-      action: 'claude-analysis',
-      nodeId: node.id,
-      nodeName: node.name
-    });
-    
-    const result = await sendClaudeRequestCore({ 
-      prompt: promptResult.prompt, 
-      rpcConfig 
-    });
-    
-    if (result.success) {
-      setState(prev => ({ 
-        ...prev, 
-        loading: false, 
-        result: result.data, 
-        error: null 
-      }));
-    } else {
-      setState(prev => ({ 
-        ...prev, 
-        loading: false, 
-        result: null, 
-        error: result.message 
-      }));
-    }
-  };
-  
-  const sendClaudeRequestWithPrompt = async (prompt: string, useTmux?: boolean, sessionName?: string): Promise<void> => {
+  const sendClaudeRequestWithPrompt = async (prompt: string): Promise<void> => {
     setState(prev => ({ ...prev, loading: true, error: null, result: null }));
     
     // Core関数を使用（責務分離）
     const result = await sendClaudeRequestCore({ 
       prompt, 
-      rpcConfig,
-      useTmux,
-      sessionName
+      rpcConfig
     });
     
     if (result.success) {
@@ -75,5 +41,5 @@ export const useSimpleClaudeAnalysis = () => {
     }
   };
   
-  return { ...state, analyzeVersion, sendClaudeRequestWithPrompt };
+  return { ...state, sendClaudeRequestWithPrompt };
 };
