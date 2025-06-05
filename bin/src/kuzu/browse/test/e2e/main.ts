@@ -18,8 +18,14 @@ async function main() {
   try {
     // CDP接続
     console.log("🔌 CDP接続中...");
-    browser = await puppeteer.connect({
-      browserWSEndpoint: "ws://127.0.0.1:9222",
+    // NOTE: LightPandaは現在不安定なため、一時的にChromiumを使用
+    // browser = await puppeteer.connect({
+    //   browserWSEndpoint: "ws://127.0.0.1:9222",
+    // });
+    browser = await puppeteer.launch({
+      executablePath: '/home/nixos/.nix-profile/bin/chromium',
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     console.log("✅ CDP接続成功");
     
@@ -96,14 +102,14 @@ async function main() {
     // PoC: 静的ページテスト
     console.log("\n📋 PoC: 静的ページテスト");
     try {
-      const pocPage = await browser.newPage();
+      const pocPage = await context.newPage(); // contextを使用
       await pocPage.goto("https://example.com");
       const pocTitle = await pocPage.title();
       console.log(`  ✅ 静的ページ成功: ${pocTitle}`);
       await pocPage.close();
     } catch (error) {
       console.error(`  ❌ 静的ページ失敗: ${error.message}`);
-      console.error("     LightPandaが正常に動作していない可能性があります");
+      console.error("     ブラウザが正常に動作していない可能性があります");
     }
     
     // 2. Vite開発サーバー確認
@@ -122,7 +128,7 @@ async function main() {
     
     // 3. kuzu/browseテスト
     console.log("\n📄 kuzu/browseページテスト");
-    const browsePage = await browser.newPage();
+    const browsePage = await context.newPage(); // contextを使用
     await browsePage.goto(VITE_URL);
     
     const title = await browsePage.title();
@@ -140,9 +146,10 @@ async function main() {
       console.log("⚠️  #root要素の取得失敗:", e.message);
     }
     
+    await browsePage.close(); // browsePageをクローズ
     await page.close();
     await context.close();
-    await browser.disconnect();
+    await browser.close(); // disconnectではなくclose
     console.log("\n✅ テスト完了");
     
   } catch (error) {
@@ -152,8 +159,8 @@ async function main() {
     // 接続が残っている場合はクリーンアップ
     if (browser) {
       try {
-        await browser.disconnect();
-        console.log("🧹 接続クリーンアップ完了");
+        await browser.close(); // disconnectではなくclose
+        console.log("🧹 クリーンアップ完了");
       } catch {
         // 無視
       }
