@@ -1,21 +1,22 @@
 #!/usr/bin/env -S deno run -A
 
 /**
- * LightPanda + Puppeteer 最小PoC
- * LightPanda公式ドキュメントに従った実装
+ * kuzu/browse E2Eテスト
+ * 前提: Vite開発サーバーが起動済み（ポート5173）
  */
 
 import puppeteer from "npm:puppeteer-core@23.1.0";
 
 // デバッグモード
 const DEBUG = Deno.env.get("DEBUG") === "true";
+const VITE_URL = "http://localhost:5173";
 
-// メイン処理
 async function main() {
+  console.log("🚀 E2Eテスト開始");
   let browser = null;
   
   try {
-    // CDP接続（公式ドキュメントの通り）
+    // CDP接続
     console.log("🔌 CDP接続中...");
     browser = await puppeteer.connect({
       browserWSEndpoint: "ws://127.0.0.1:9222",
@@ -51,6 +52,10 @@ async function main() {
     
     console.log(`📊 取得リンク数: ${links.length}`);
     console.log("📝 最初の5つのリンク:");
+    links.slice(0, 5).forEach((link, i) => {
+      console.log(`  ${i + 1}. ${link}`);
+    });
+    
     // 基本的な動作確認
     console.log("\n📋 基本機能テスト:");
     
@@ -88,22 +93,60 @@ async function main() {
       console.log("⚠️  スクリーンショット失敗:", e.message);
     }
     
-    // クリーンアップ（公式例と同じ）
+    // PoC: 静的ページテスト
+    console.log("\n📋 PoC: 静的ページテスト");
+    try {
+      const pocPage = await browser.newPage();
+      await pocPage.goto("https://example.com");
+      const pocTitle = await pocPage.title();
+      console.log(`  ✅ 静的ページ成功: ${pocTitle}`);
+      await pocPage.close();
+    } catch (error) {
+      console.error(`  ❌ 静的ページ失敗: ${error.message}`);
+      console.error("     LightPandaが正常に動作していない可能性があります");
+    }
+    
+    // 2. Vite開発サーバー確認
+    console.log("\n📡 Vite開発サーバー確認中...");
+    try {
+      const response = await fetch(VITE_URL);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      console.log("✅ Vite開発サーバー稼働中");
+    } catch {
+      console.error("❌ Vite開発サーバーが起動していません");
+      console.error("\n起動方法:");
+      console.error("  cd /home/nixos/bin/src/kuzu/browse");
+      console.error("  deno run -A build.ts");
+      Deno.exit(1);
+    }
+    
+    // 3. kuzu/browseテスト
+    console.log("\n📄 kuzu/browseページテスト");
+    const browsePage = await browser.newPage();
+    await browsePage.goto(VITE_URL);
+    
+    const title = await browsePage.title();
+    console.log(`タイトル: ${title || "(空)"}`);
+    if (title !== "KuzuDB Browser") {
+      console.warn("⚠️  期待されるタイトル: KuzuDB Browser");
+    }
+    
+    // Reactアプリのマウント待機
+    try {
+      await browsePage.waitForSelector("#root", { timeout: 5000 });
+      const rootContent = await browsePage.$eval("#root", el => el.textContent || "(空)");
+      console.log(`ルート要素: ${rootContent.slice(0, 50)}...`);
+    } catch (e) {
+      console.log("⚠️  #root要素の取得失敗:", e.message);
+    }
+    
     await page.close();
     await context.close();
     await browser.disconnect();
-    
-    console.log("\n✅ テスト完了！");
+    console.log("\n✅ テスト完了");
     
   } catch (error) {
-    console.error("\n❌ エラーが発生しました");
-    console.error(`詳細: ${error.message}`);
-    
-    if (error.message.includes("Connection refused")) {
-      console.error("\n起動方法:");
-      console.error("  ./lightpanda serve --host 127.0.0.1 --port 9222");
-    }
-    
+    console.error(`\n❌ エラー: ${error.message}`);
     Deno.exit(1);
   } finally {
     // 接続が残っている場合はクリーンアップ
@@ -118,7 +161,6 @@ async function main() {
   }
 }
 
-// エントリーポイント
 if (import.meta.main) {
   await main();
 }
