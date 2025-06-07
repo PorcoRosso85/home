@@ -190,6 +190,13 @@ if (!import.meta.main) {
         if (!result.success) {
           throw new Error(`Failed to use catalog: ${result.error}`);
         }
+        
+        // DuckLakeカタログが正しくアタッチされているか確認
+        const tablesResult = await executeQuery.execute("SHOW ALL TABLES");
+        if (!tablesResult.success) {
+          throw new Error(`Failed to show tables: ${tablesResult.error}`);
+        }
+        log.info(`Catalog ${catalogName} is ready with ${tablesResult.data.length} tables`);
       });
       
       await t.step("create table", async () => {
@@ -208,6 +215,11 @@ if (!import.meta.main) {
         // ファイル数を記録
         const beforeCount = await testFileRepo.getFileCount();
         
+        // 挿入前のスナップショット数を確認
+        const beforeSnapshots = await executeQuery.execute(
+          `SELECT * FROM ${catalogName}.ducklake_snapshots ORDER BY created_at`
+        );
+        
         // データ挿入
         const result = await executeQuery.execute(
           `INSERT INTO ${catalogName}.test_table VALUES (1, 'Hello'), (2, 'DuckLake')`
@@ -216,24 +228,43 @@ if (!import.meta.main) {
           throw new Error(`Failed to insert data: ${result.error}`);
         }
         
-        // ファイル生成の検証
-        const afterCount = await testFileRepo.getFileCount();
-        const fileValidation = { 
-          success: afterCount > beforeCount, 
-          newFiles: afterCount - beforeCount 
-        };
+        // 挿入後のスナップショットを確認
+        const afterSnapshots = await executeQuery.execute(
+          `SELECT * FROM ${catalogName}.ducklake_snapshots ORDER BY created_at`
+        );
         
-        if (!fileValidation.success) {
+        // ファイル生成の検証
+        const files = await testFileRepo.listParquetFiles();
+        const newFiles = files.slice(beforeCount);
+        
+        if (newFiles.length === 0) {
           throw new Error("No new Parquet files generated after INSERT");
         }
         
-        log.info(`Generated ${fileValidation.newFiles} new Parquet files`);
+        // DuckLakeが生成したファイルであることを確認
+        for (const file of newFiles) {
+          if (!file.path.includes("ducklake-")) {
+            throw new Error(`File ${file.path} does not have ducklake prefix`);
+          }
+        }
+        
+        // スナップショットが増えていることを確認
+        if (afterSnapshots.success && beforeSnapshots.success) {
+          const snapshotDiff = afterSnapshots.data.length - beforeSnapshots.data.length;
+          if (snapshotDiff < 1) {
+            throw new Error("No new snapshot created after INSERT");
+          }
+          log.info(`Created ${snapshotDiff} new snapshot(s) after INSERT`);
+        }
+        
+        log.info(`Generated ${newFiles.length} new DuckLake Parquet files`);
       });
       
       await t.step("update data and verify new file generation", async () => {
         // テスト用のfileRepositoryを作成
         const testFileRepo = createFileRepository(testDataPath);
         const beforeCount = await testFileRepo.getFileCount();
+        const beforeFiles = await testFileRepo.listParquetFiles();
         
         // データ更新
         const result = await executeQuery.execute(
@@ -244,26 +275,66 @@ if (!import.meta.main) {
         }
         
         // ファイル生成の検証（UPDATE = 新ファイル + deleteファイル）
-        const afterCount = await testFileRepo.getFileCount();
-        const fileValidation = { 
-          success: afterCount > beforeCount, 
-          newFiles: afterCount - beforeCount 
-        };
+        const afterFiles = await testFileRepo.listParquetFiles();
+        const newFiles = afterFiles.slice(beforeCount);
         
-        if (!fileValidation.success) {
+        if (newFiles.length === 0) {
           throw new Error("No new Parquet files generated after UPDATE");
         }
         
-        log.info(`Generated ${fileValidation.newFiles} new files (data + delete)`);
+        // 削除マーカーファイルの存在を確認
+        const deleteFiles = newFiles.filter(f => f.type === 'delete' || f.path.includes('.delete'));
+        const dataFiles = newFiles.filter(f => f.type === 'data' && !f.path.includes('.delete'));
+        
+        if (deleteFiles.length === 0) {
+          throw new Error("No delete marker files generated after UPDATE");
+        }
+        
+        log.info(`Generated ${dataFiles.length} data files and ${deleteFiles.length} delete marker files`);
+        
+        // 更新されたデータの確認
+        const verifyResult = await executeQuery.execute(
+          `SELECT * FROM ${catalogName}.test_table WHERE id = 1`
+        );
+        if (verifyResult.success && verifyResult.data.length > 0) {
+          if (verifyResult.data[0].value !== 'Updated') {
+            throw new Error("Data not updated correctly");
+          }
+        }
       });
       
-      await t.step("verify snapshots", async () => {
-        const status = await manageDuckLake.getStatus(catalogName);
-        if (status.snapshots.length < 2) {
+      await t.step("verify snapshots and time travel", async () => {
+        // スナップショット一覧を取得
+        const snapshotsResult = await executeQuery.execute(
+          `SELECT snapshot_id, created_at FROM ${catalogName}.ducklake_snapshots ORDER BY created_at`
+        );
+        
+        if (!snapshotsResult.success || snapshotsResult.data.length < 2) {
           throw new Error("Expected at least 2 snapshots");
         }
         
-        log.info(`Found ${status.snapshots.length} snapshots`);
+        const snapshots = snapshotsResult.data;
+        log.info(`Found ${snapshots.length} snapshots`);
+        
+        // 最初のスナップショット（INSERT後）の時点のデータを確認
+        const firstSnapshot = snapshots[0].snapshot_id;
+        const timeTravel = await executeQuery.execute(
+          `SELECT * FROM ${catalogName}.test_table AT SNAPSHOT '${firstSnapshot}'`
+        );
+        
+        if (!timeTravel.success) {
+          // AT SNAPSHOT構文がサポートされていない場合はスキップ
+          log.warn("Time travel query not supported, skipping verification");
+        } else {
+          // INSERT直後のデータが見えることを確認
+          const hasOriginalData = timeTravel.data.some(row => 
+            row.id === 1 && row.value === 'Hello'
+          );
+          if (!hasOriginalData) {
+            throw new Error("Time travel did not show original data");
+          }
+          log.info("Time travel verification successful");
+        }
       });
       
     } finally {
@@ -297,6 +368,17 @@ if (!import.meta.main) {
         if (fileCount !== 0) {
           throw new Error("Expected 0 files initially");
         }
+        
+        // メタデータファイルの確認
+        try {
+          const metadataStat = await Deno.stat(metadataPath);
+          if (!metadataStat.isFile) {
+            throw new Error("Metadata file is not a regular file");
+          }
+          log.info(`DuckLake metadata file created: ${metadataPath}`);
+        } catch (e) {
+          throw new Error(`Metadata file not found: ${metadataPath}`);
+        }
       });
       
       await t.step("create and populate table", async () => {
@@ -319,13 +401,30 @@ if (!import.meta.main) {
           throw new Error("No Parquet files found");
         }
         
-        log.info(`Found ${files.length} Parquet files:`);
+        // DuckLakeが生成したファイルであることを確認
+        const ducklakeFiles = files.filter(f => f.path.includes("ducklake-"));
+        if (ducklakeFiles.length !== files.length) {
+          throw new Error("Found non-DuckLake Parquet files");
+        }
+        
+        log.info(`Found ${files.length} DuckLake Parquet files:`);
         for (const file of files) {
           log.info(`  - ${file.path} (${file.size} bytes, type: ${file.type})`);
         }
         
         const totalSize = await fileRepo.getTotalSize();
         log.info(`Total size: ${totalSize} bytes`);
+        
+        // データ整合性の確認
+        const dataCheck = await executeQuery.execute(
+          `SELECT COUNT(*) as count FROM ${catalogName}.file_test`
+        );
+        if (dataCheck.success) {
+          log.info(`Table contains ${dataCheck.data[0].count} rows`);
+          if (Number(dataCheck.data[0].count) !== 3) {
+            throw new Error(`Expected 3 rows but found ${dataCheck.data[0].count}`);
+          }
+        }
       });
       
     } finally {
