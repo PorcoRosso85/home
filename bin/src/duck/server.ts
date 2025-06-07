@@ -1,61 +1,54 @@
 /**
- * DuckDB Deno API Server - 最小構成（デモデータなし）
- * Deno標準APIのみ使用
+ * DuckDB Deno API Server - DuckLake対応版（v1.3.0）
  * 
- * 起動方法:
- * --------
- * 
- * 通常の起動:
- * $ deno run --allow-read --allow-ffi --allow-net --allow-env server.ts
- * 
- * デバッグモード:
- * $ LOG_LEVEL=4 deno run --allow-read --allow-ffi --allow-net --allow-env server.ts
- * 
- * Nixでの起動:
+ * 起動:
  * $ LOG_LEVEL=4 LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":$LD_LIBRARY_PATH nix run nixpkgs#deno -- run --allow-read --allow-ffi --allow-net --allow-env server.ts
  * 
- * テスト:
- * ------
+ * テスト実行:
+ * $ LOG_LEVEL=4 LD_LIBRARY_PATH="/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib":$LD_LIBRARY_PATH nix run nixpkgs#deno -- test --allow-read --allow-ffi --allow-net --allow-env server.ts
  * 
- * ヘルスチェック:
- * $ curl http://localhost:8000/
- * 
- * クエリ実行:
- * $ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" -d '{"query": "SELECT 1"}'
- * $ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" -d '{"query": "SELECT 42 as answer, '"'"'hello'"'"' as greeting"}'
+ * 注意: 
+ * - @duckdb/node-api@1.3.0-alpha.21（アルファ版）を使用
+ * - または npm:duckdb@1.3.0（旧API、安定版）に変更可能
+ * - In-source testを含む（規約準拠）
  */
 
-import { DuckDBInstance } from "npm:@duckdb/node-api";
+// アルファ版を試す（DuckLake対応の可能性が高い）
+import { DuckDBInstance } from "npm:@duckdb/node-api@1.3.0-alpha.21";
+
+// 旧APIを使う場合（安定版）
+// import duckdb from "npm:duckdb@1.3.0";
+
 import * as log from "../log/logger.ts";
 
-log.info("Starting DuckDB Deno API Server (Minimal)...");
+log.info("Starting DuckDB Server with DuckLake (v1.3.0+)...");
 
-// DuckDB接続設定
 let connection: any;
 
 try {
-  log.info("Initializing DuckDB...");
   const instance = await DuckDBInstance.create();
   connection = await instance.connect();
   
-  // 接続テスト
-  log.info("Testing connection with SELECT 1...");
-  const testResult = await connection.runAndReadAll("SELECT 1 as test");
-  const testRows = testResult.getRows();
-  log.info(`Connection test result: ${JSON.stringify(testRows)}`);
+  // バージョン確認
+  const versionResult = await connection.runAndReadAll("SELECT version() as version");
+  const version = versionResult.getRows()[0][0];
+  log.info(`DuckDB version: ${version}`);
   
-  log.info("DuckDB initialized successfully");
+  // DuckLake設定
+  try {
+    await connection.run("INSTALL ducklake");
+    await connection.run("LOAD ducklake");
+    log.info("✅ DuckLake ready!");
+  } catch (err) {
+    log.warn("DuckLake not available:", err.message);
+  }
+  
+  log.info("Server ready");
 } catch (err) {
-  log.error("Failed to initialize DuckDB", err);
-  log.error("Error details:", {
-    message: err.message,
-    stack: err.stack,
-    name: err.name
-  });
+  log.error("Failed to initialize:", err);
   Deno.exit(1);
 }
 
-// リクエストハンドラー
 async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -63,144 +56,172 @@ async function handler(req: Request): Promise<Response> {
   
   log.info(`${method} ${path}`);
   
-  // ヘルスチェック
   if (method === "GET" && path === "/") {
+    let ducklakeStatus = "unknown";
+    try {
+      const result = await connection.runAndReadAll(
+        "SELECT loaded FROM duckdb_extensions() WHERE extension_name = 'ducklake'"
+      );
+      const rows = result.getRows();
+      ducklakeStatus = rows.length > 0 && rows[0][0] ? "loaded" : "not loaded";
+    } catch {
+      ducklakeStatus = "not available";
+    }
+    
     return new Response(
       JSON.stringify({ 
         status: "ok", 
-        message: "DuckDB API Server is running" 
+        ducklake: ducklakeStatus
       }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      }
+      { status: 200, headers: { "Content-Type": "application/json" } }
     );
   }
   
-  // クエリ実行
   if (method === "POST" && path === "/query") {
     try {
-      // リクエストボディ取得
-      let body: any;
-      try {
-        body = await req.json();
-        log.debug("Request body:", body);
-      } catch (parseErr) {
-        log.error("JSON parse error:", parseErr);
-        return new Response(
-          JSON.stringify({ error: "Invalid JSON" }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" }
-          }
-        );
-      }
-      
+      const body = await req.json();
       const { query } = body;
       
-      if (!query || typeof query !== 'string') {
-        log.warn("Missing or invalid query");
+      if (!query) {
         return new Response(
-          JSON.stringify({ error: "Query string is required" }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" }
-          }
+          JSON.stringify({ error: "Query required" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
       
-      log.info(`Executing query: ${query}`);
+      log.info(`Query: ${query}`);
       
-      try {
-        // クエリ実行
-        const reader = await connection.runAndReadAll(query);
-        log.debug("Query executed successfully");
-        
-        const rows = reader.getRows();
-        log.debug(`Retrieved ${rows.length} rows`);
-        
-        // カラム名取得
-        const columnCount = reader.columnCount;
-        log.debug(`Column count: ${columnCount}`);
-        
-        const columnNames: string[] = [];
-        for (let i = 0; i < columnCount; i++) {
-          try {
-            const colName = reader.columnName(i);
-            columnNames.push(colName || `column_${i}`);
-          } catch (colErr) {
-            log.error(`Error getting column ${i} name:`, colErr);
-            columnNames.push(`column_${i}`);
-          }
-        }
-        
-        log.debug(`Column names: ${JSON.stringify(columnNames)}`);
-        
-        // 結果を整形
-        const result = rows.map((row: any[]) => {
-          const obj: Record<string, unknown> = {};
-          columnNames.forEach((name: string, index: number) => {
-            obj[name] = row[index];
-          });
-          return obj;
-        });
-        
-        const response = {
+      const reader = await connection.runAndReadAll(query);
+      const rows = reader.getRows();
+      const columnCount = reader.columnCount;
+      
+      const columnNames: string[] = [];
+      for (let i = 0; i < columnCount; i++) {
+        columnNames.push(reader.columnName(i) || `col_${i}`);
+      }
+      
+      const result = rows.map((row: any[]) => {
+        const obj: Record<string, unknown> = {};
+        columnNames.forEach((name, idx) => obj[name] = row[idx]);
+        return obj;
+      });
+      
+      return new Response(
+        JSON.stringify({
           success: true,
           data: result,
           rowCount: rows.length,
           columns: columnNames
-        };
-        
-        return new Response(
-          JSON.stringify(response),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-          }
-        );
-        
-      } catch (queryError) {
-        log.error("Query execution error:", queryError);
-        log.error("Error details:", {
-          message: queryError.message,
-          stack: queryError.stack,
-          name: queryError.name
-        });
-        throw queryError;
-      }
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
       
     } catch (error) {
-      log.error("Request handler error:", error);
+      log.error("Query error:", error);
       return new Response(
         JSON.stringify({ 
-          success: false,
-          error: error.message || "Internal server error"
+          success: false, 
+          error: error.message
         }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" }
-        }
+        { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
   }
   
-  // 404
   return new Response(
     JSON.stringify({ error: "Not Found" }),
-    {
-      status: 404,
-      headers: { "Content-Type": "application/json" }
-    }
+    { status: 404, headers: { "Content-Type": "application/json" } }
   );
 }
 
-// サーバー起動
 const port = 8000;
-log.info(`Server listening on http://localhost:${port}`);
-log.info("Endpoints:");
-log.info("  GET  / - Health check");
-log.info("  POST /query - Execute SQL queries");
 
-// Deno標準HTTPサーバー
-await Deno.serve({ port }, handler).finished;
+// メインプロセスとして実行される場合のみサーバーを起動
+if (import.meta.main) {
+  log.info(`Server on http://localhost:${port}`);
+  log.info("");
+  log.info("Test commands:");
+  log.info("1. Check version: SELECT version()");
+  log.info("2. Install DuckLake: INSTALL ducklake; LOAD ducklake");
+  log.info("3. Use DuckLake: ATTACH 'ducklake::memory:' AS lake (DATA_PATH ':memory:')");
+  
+  await Deno.serve({ port }, handler).finished;
+}
+
+// In-source tests (規約準拠: 実装ファイル内テスト)
+if (!import.meta.main) {
+  // テスト用の型定義（共用体型）
+  type TestResult = 
+    | { success: true; message: string }
+    | { success: false; error: string };
+  
+  // テスト用のモックハンドラー関数
+  async function testHandler(method: string, path: string, body?: any): Promise<TestResult> {
+    const request = new Request(`http://localhost${path}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    
+    const response = await handler(request);
+    const data = await response.json();
+    
+    if (response.status >= 400) {
+      return { success: false, error: data.error || "Request failed" };
+    }
+    
+    return { success: true, message: JSON.stringify(data) };
+  }
+  
+  Deno.test("GET / returns server status", async () => {
+    const result = await testHandler("GET", "/");
+    
+    if (!result.success) {
+      throw new Error(`Status check failed: ${result.error}`);
+    }
+    
+    const data = JSON.parse(result.message);
+    if (data.status !== "ok") {
+      throw new Error("Expected status to be 'ok'");
+    }
+  });
+  
+  Deno.test("POST /query with empty query returns error", async () => {
+    const result = await testHandler("POST", "/query", {});
+    
+    if (result.success) {
+      throw new Error("Expected error for empty query");
+    }
+    
+    if (result.error !== "Query required") {
+      throw new Error(`Unexpected error: ${result.error}`);
+    }
+  });
+  
+  Deno.test("POST /query executes valid query", async () => {
+    const result = await testHandler("POST", "/query", {
+      query: "SELECT 1 as test_value"
+    });
+    
+    if (!result.success) {
+      throw new Error(`Query execution failed: ${result.error}`);
+    }
+    
+    const data = JSON.parse(result.message);
+    if (!data.success || data.rowCount !== 1) {
+      throw new Error("Query did not return expected result");
+    }
+  });
+  
+  Deno.test("Undefined route returns 404", async () => {
+    const result = await testHandler("GET", "/undefined");
+    
+    if (result.success) {
+      throw new Error("Expected 404 error");
+    }
+    
+    if (result.error !== "Not Found") {
+      throw new Error(`Unexpected error: ${result.error}`);
+    }
+  });
+}
