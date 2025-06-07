@@ -27,6 +27,29 @@ export type SnapshotInfo = {
   description?: string;
 };
 
+// スナップショットレスポンススキーマ（完全版）
+export type SnapshotResponse = {
+  version: number;              // snapshot_id from table_changes
+  timestamp: string;            // query execution time
+  operation_types: string[];    // ['insert', 'update_preimage', 'update_postimage', 'delete']
+  table_schema: {
+    name: string;
+    columns: Array<{
+      name: string;
+      type: string;
+    }>;
+  };
+  data: Array<Record<string, any>>;  // actual table data
+  metadata: {
+    row_count: number;          // count of data rows
+    total_changes: number;      // from table_changes
+    insert_count: number;
+    update_count: number;
+    delete_count: number;
+    file_paths?: string[];      // optional: associated parquet files
+  };
+};
+
 // ファイル情報
 export type FileInfo = {
   path: string;

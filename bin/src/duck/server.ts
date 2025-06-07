@@ -659,6 +659,176 @@ if (!import.meta.main) {
         }
       });
       
+      await t.step("verify snapshot response schema", async () => {
+        const result = await runTestStep("verify snapshot response schema", async () => {
+          // 現在のバージョン番号を取得
+          const versionQuery = await executeQuery.execute(
+            `SELECT MAX(CAST(version AS INTEGER)) as max_version 
+             FROM (SELECT DISTINCT version FROM ${catalogName}.table_changes('test_table', 1, 9999)) versions`
+          );
+          
+          if (!versionQuery.success || !versionQuery.data[0]?.max_version) {
+            log.warn("Snapshot schema test skipped - table_changes function not available or no versions found");
+            return { success: true, data: "Snapshot schema test skipped - no versions available" };
+          }
+          
+          const targetVersion = Number(versionQuery.data[0].max_version);
+          
+          // 1. table_changesからメタデータを取得
+          const changesResult = await executeQuery.execute(
+            `SELECT 
+              MIN(snapshot_id) as snapshot_id,
+              COUNT(DISTINCT rowid) as total_changes,
+              COUNT(DISTINCT CASE WHEN change_type = 'insert' THEN rowid END) as insert_count,
+              COUNT(DISTINCT CASE WHEN change_type LIKE 'update%' THEN rowid END) as update_count,
+              COUNT(DISTINCT CASE WHEN change_type = 'delete' THEN rowid END) as delete_count,
+              GROUP_CONCAT(DISTINCT change_type) as operation_types
+            FROM ${catalogName}.table_changes('test_table', ${targetVersion}, ${targetVersion})`
+          );
+          
+          if (!changesResult.success) {
+            return { 
+              success: false, 
+              error: { 
+                code: "OPERATION_FAILED" as const, 
+                message: `Failed to get changes metadata: ${changesResult.error}`,
+                operation: "get_changes_metadata"
+              }
+            };
+          }
+          
+          const metadata = changesResult.data[0];
+          log.info(`Snapshot ${targetVersion} metadata:`, metadata);
+          
+          // 2. AT (VERSION => n)でデータを取得
+          const dataResult = await executeQuery.execute(
+            `SELECT * FROM ${catalogName}.test_table AT (VERSION => ${targetVersion}) ORDER BY id`
+          );
+          
+          if (!dataResult.success) {
+            return { 
+              success: false, 
+              error: { 
+                code: "OPERATION_FAILED" as const, 
+                message: `Failed to get snapshot data: ${dataResult.error}`,
+                operation: "get_snapshot_data"
+              }
+            };
+          }
+          
+          // 3. スキーマ情報を取得（PRAGMA table_info相当）
+          const schemaResult = await executeQuery.execute(
+            `SELECT column_name, data_type 
+             FROM information_schema.columns 
+             WHERE table_catalog = '${catalogName}' 
+               AND table_name = 'test_table'
+             ORDER BY ordinal_position`
+          );
+          
+          let schemaInfo = null;
+          if (schemaResult.success && schemaResult.data.length > 0) {
+            schemaInfo = {
+              name: 'test_table',
+              columns: schemaResult.data.map(col => ({
+                name: col.column_name,
+                type: col.data_type
+              }))
+            };
+          }
+          
+          // 4. 完全なスナップショットレスポンスを構築
+          const snapshotResponse = {
+            version: Number(metadata.snapshot_id),
+            timestamp: new Date().toISOString(),
+            operation_types: metadata.operation_types ? metadata.operation_types.split(',').sort() : [],
+            table_schema: schemaInfo || { name: 'test_table', columns: [] },
+            data: dataResult.data,
+            metadata: {
+              row_count: dataResult.data.length,
+              total_changes: Number(metadata.total_changes || 0),
+              insert_count: Number(metadata.insert_count || 0),
+              update_count: Number(metadata.update_count || 0),
+              delete_count: Number(metadata.delete_count || 0)
+            }
+          };
+          
+          // 5. スキーマ検証
+          // 必須フィールドの存在確認
+          if (typeof snapshotResponse.version !== 'number') {
+            return { 
+              success: false, 
+              error: { 
+                code: "VALIDATION_FAILED" as const, 
+                message: "Version must be a number",
+                details: { version: snapshotResponse.version }
+              }
+            };
+          }
+          
+          if (!Array.isArray(snapshotResponse.data)) {
+            return { 
+              success: false, 
+              error: { 
+                code: "VALIDATION_FAILED" as const, 
+                message: "Data must be an array",
+                details: { data: snapshotResponse.data }
+              }
+            };
+          }
+          
+          if (!snapshotResponse.operation_types || !Array.isArray(snapshotResponse.operation_types)) {
+            return { 
+              success: false, 
+              error: { 
+                code: "VALIDATION_FAILED" as const, 
+                message: "Operation types must be an array",
+                details: { operation_types: snapshotResponse.operation_types }
+              }
+            };
+          }
+          
+          // operation_typesの内容検証
+          const validOperationTypes = ['insert', 'update_preimage', 'update_postimage', 'delete'];
+          const hasValidOperations = snapshotResponse.operation_types.every(op => 
+            validOperationTypes.includes(op)
+          );
+          
+          if (!hasValidOperations) {
+            return { 
+              success: false, 
+              error: { 
+                code: "VALIDATION_FAILED" as const, 
+                message: "Invalid operation types",
+                details: { operation_types: snapshotResponse.operation_types }
+              }
+            };
+          }
+          
+          // 6. ファイルパス情報を追加（オプション）
+          const testFileRepo = createFileRepository(testDataPath);
+          const files = await testFileRepo.listParquetFiles();
+          if (files.length > 0) {
+            // 最新のファイルを関連付け（簡易実装）
+            snapshotResponse.metadata['file_paths'] = files
+              .slice(-2)  // 最新2ファイル（UPDATE操作の場合、delete + insertファイル）
+              .map(f => f.path);
+          }
+          
+          log.info("Complete snapshot response schema:");
+          log.info(JSON.stringify(snapshotResponse, null, 2));
+          
+          // 検証成功
+          log.info("Snapshot response schema successfully validated");
+          log.info(`Version ${targetVersion} has ${snapshotResponse.metadata.row_count} rows with ${snapshotResponse.metadata.total_changes} changes`);
+          
+          return { success: true, data: "Snapshot response schema verified" };
+        });
+        
+        if (!result.success) {
+          log.error(handleError(result.error));
+        }
+      });
+      
       await t.step("verify version management through file generation", async () => {
         const result = await runTestStep("verify version management through file generation", async () => {
           const testFileRepo = createFileRepository(testDataPath);
