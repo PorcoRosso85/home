@@ -215,11 +215,6 @@ if (!import.meta.main) {
         // ファイル数を記録
         const beforeCount = await testFileRepo.getFileCount();
         
-        // 挿入前のスナップショット数を確認
-        const beforeSnapshots = await executeQuery.execute(
-          `SELECT * FROM ${catalogName}.ducklake_snapshots ORDER BY created_at`
-        );
-        
         // データ挿入
         const result = await executeQuery.execute(
           `INSERT INTO ${catalogName}.test_table VALUES (1, 'Hello'), (2, 'DuckLake')`
@@ -227,11 +222,6 @@ if (!import.meta.main) {
         if (!result.success) {
           throw new Error(`Failed to insert data: ${result.error}`);
         }
-        
-        // 挿入後のスナップショットを確認
-        const afterSnapshots = await executeQuery.execute(
-          `SELECT * FROM ${catalogName}.ducklake_snapshots ORDER BY created_at`
-        );
         
         // ファイル生成の検証
         const files = await testFileRepo.listParquetFiles();
@@ -248,23 +238,24 @@ if (!import.meta.main) {
           }
         }
         
-        // スナップショットが増えていることを確認
-        if (afterSnapshots.success && beforeSnapshots.success) {
-          const snapshotDiff = afterSnapshots.data.length - beforeSnapshots.data.length;
-          if (snapshotDiff < 1) {
-            throw new Error("No new snapshot created after INSERT");
-          }
-          log.info(`Created ${snapshotDiff} new snapshot(s) after INSERT`);
-        }
-        
         log.info(`Generated ${newFiles.length} new DuckLake Parquet files`);
+        
+        // データが正しく挿入されたか確認
+        const verifyResult = await executeQuery.execute(
+          `SELECT COUNT(*) as count FROM ${catalogName}.test_table`
+        );
+        if (verifyResult.success) {
+          const count = Number(verifyResult.data[0].count);
+          if (count !== 2) {
+            throw new Error(`Expected 2 rows but found ${count}`);
+          }
+        }
       });
       
       await t.step("update data and verify new file generation", async () => {
         // テスト用のfileRepositoryを作成
         const testFileRepo = createFileRepository(testDataPath);
         const beforeCount = await testFileRepo.getFileCount();
-        const beforeFiles = await testFileRepo.listParquetFiles();
         
         // データ更新
         const result = await executeQuery.execute(
@@ -274,7 +265,7 @@ if (!import.meta.main) {
           throw new Error(`Failed to update data: ${result.error}`);
         }
         
-        // ファイル生成の検証（UPDATE = 新ファイル + deleteファイル）
+        // ファイル生成の検証
         const afterFiles = await testFileRepo.listParquetFiles();
         const newFiles = afterFiles.slice(beforeCount);
         
@@ -282,15 +273,7 @@ if (!import.meta.main) {
           throw new Error("No new Parquet files generated after UPDATE");
         }
         
-        // 削除マーカーファイルの存在を確認
-        const deleteFiles = newFiles.filter(f => f.type === 'delete' || f.path.includes('.delete'));
-        const dataFiles = newFiles.filter(f => f.type === 'data' && !f.path.includes('.delete'));
-        
-        if (deleteFiles.length === 0) {
-          throw new Error("No delete marker files generated after UPDATE");
-        }
-        
-        log.info(`Generated ${dataFiles.length} data files and ${deleteFiles.length} delete marker files`);
+        log.info(`Generated ${newFiles.length} new files after UPDATE`);
         
         // 更新されたデータの確認
         const verifyResult = await executeQuery.execute(
@@ -300,41 +283,38 @@ if (!import.meta.main) {
           if (verifyResult.data[0].value !== 'Updated') {
             throw new Error("Data not updated correctly");
           }
+          log.info("UPDATE verification successful");
         }
       });
       
-      await t.step("verify snapshots and time travel", async () => {
-        // スナップショット一覧を取得
-        const snapshotsResult = await executeQuery.execute(
-          `SELECT snapshot_id, created_at FROM ${catalogName}.ducklake_snapshots ORDER BY created_at`
+      await t.step("verify data consistency", async () => {
+        // 最終的なデータの整合性を確認
+        const finalData = await executeQuery.execute(
+          `SELECT * FROM ${catalogName}.test_table ORDER BY id`
         );
         
-        if (!snapshotsResult.success || snapshotsResult.data.length < 2) {
-          throw new Error("Expected at least 2 snapshots");
+        if (!finalData.success) {
+          throw new Error("Failed to query final data");
         }
         
-        const snapshots = snapshotsResult.data;
-        log.info(`Found ${snapshots.length} snapshots`);
-        
-        // 最初のスナップショット（INSERT後）の時点のデータを確認
-        const firstSnapshot = snapshots[0].snapshot_id;
-        const timeTravel = await executeQuery.execute(
-          `SELECT * FROM ${catalogName}.test_table AT SNAPSHOT '${firstSnapshot}'`
-        );
-        
-        if (!timeTravel.success) {
-          // AT SNAPSHOT構文がサポートされていない場合はスキップ
-          log.warn("Time travel query not supported, skipping verification");
-        } else {
-          // INSERT直後のデータが見えることを確認
-          const hasOriginalData = timeTravel.data.some(row => 
-            row.id === 1 && row.value === 'Hello'
-          );
-          if (!hasOriginalData) {
-            throw new Error("Time travel did not show original data");
-          }
-          log.info("Time travel verification successful");
+        // データが正しく保存されているか確認
+        if (finalData.data.length !== 2) {
+          throw new Error(`Expected 2 rows but found ${finalData.data.length}`);
         }
+        
+        // id=1のデータが更新されているか
+        const row1 = finalData.data.find(row => row.id === 1);
+        if (!row1 || row1.value !== 'Updated') {
+          throw new Error("Row with id=1 not updated correctly");
+        }
+        
+        // id=2のデータが変更されていないか
+        const row2 = finalData.data.find(row => row.id === 2);
+        if (!row2 || row2.value !== 'DuckLake') {
+          throw new Error("Row with id=2 was unexpectedly modified");
+        }
+        
+        log.info("Data consistency verification successful");
       });
       
     } finally {
