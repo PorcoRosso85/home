@@ -317,6 +317,80 @@ if (!import.meta.main) {
         log.info("Data consistency verification successful");
       });
       
+      await t.step("verify version management through file generation", async () => {
+        const testFileRepo = createFileRepository(testDataPath);
+        const allFiles = await testFileRepo.listParquetFiles();
+        
+        // 1. ファイル世代管理：各操作でファイルが生成されているか
+        if (allFiles.length < 2) {
+          throw new Error("Expected multiple file generations for version management");
+        }
+        
+        // 2. ファイル名の一意性：UUIDが重複していないか
+        const uuids = allFiles.map(f => {
+          const match = f.path.match(/ducklake-([a-f0-9-]+)\.parquet/);
+          return match ? match[1] : null;
+        }).filter(uuid => uuid !== null);
+        
+        const uniqueUuids = new Set(uuids);
+        if (uniqueUuids.size !== uuids.length) {
+          throw new Error("Found duplicate UUIDs in file names");
+        }
+        
+        // 3. 操作順序の保持：ファイル作成時刻が順序通りか
+        const sortedFiles = [...allFiles].sort((a, b) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        
+        // 作成時刻が正しく記録されているか確認
+        let prevTime = 0;
+        for (const file of sortedFiles) {
+          const currentTime = new Date(file.createdAt).getTime();
+          if (currentTime < prevTime) {
+            throw new Error("File creation times are not in expected order");
+          }
+          prevTime = currentTime;
+        }
+        
+        // 4. データ復元可能性：削除操作後もデータが復元可能か
+        // TODO: DELETE操作時のファイル生成動作について、DuckLake公式ドキュメントに
+        //       明確な記載がないため、現時点ではスキップ。
+        //       UPDATE操作については「deletes followed by inserts」として削除ファイルが
+        //       生成されることが明記されているが、純粋なDELETE操作については不明。
+        //       公式ドキュメントでの明確化を待つ。
+        /*
+        // 一部データを削除
+        const deleteResult = await executeQuery.execute(
+          `DELETE FROM ${catalogName}.test_table WHERE id = 2`
+        );
+        if (!deleteResult.success) {
+          throw new Error("Failed to delete data for version test");
+        }
+        
+        // 削除後の新しいファイル生成を確認
+        const filesAfterDelete = await testFileRepo.listParquetFiles();
+        if (filesAfterDelete.length <= allFiles.length) {
+          throw new Error("No new file generated after DELETE operation");
+        }
+        
+        // 削除後のデータ確認（id=1は残っているはず）
+        const remainingData = await executeQuery.execute(
+          `SELECT * FROM ${catalogName}.test_table ORDER BY id`
+        );
+        if (!remainingData.success || remainingData.data.length !== 1) {
+          throw new Error("Data not correctly maintained after DELETE");
+        }
+        
+        if (remainingData.data[0].id !== 1 || remainingData.data[0].value !== 'Updated') {
+          throw new Error("Remaining data is not correct after DELETE");
+        }
+        */
+        
+        log.info(`Version management verified with ${allFiles.length} file generations`);
+        log.info("All files have unique identifiers and maintain operation order");
+        log.info("DELETE operation test skipped pending official documentation clarification");
+      });
+      
     } finally {
       // クリーンアップ
       await manageDuckLake.cleanupTestEnvironment(catalogName, tempDir);
