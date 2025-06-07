@@ -671,3 +671,92 @@
     - デフォルト引数も同様にデフォルト設定なので禁止
     - 設定箇所は以下のみを許可する:
       - infrastructure/variables.py
+
+
+## アーキテクチャ設計:
+  description: 3層アーキテクチャ（DDD準拠）を採用し、責務の明確な分離を行う
+  layers:
+    domain:
+      description: ビジネスルールとビジネスロジックを管理
+      structure:
+        - types: エンティティ、値オブジェクト、ドメイン固有の型定義
+        - service/: ドメインサービス（複数エンティティにまたがるビジネスロジック）
+        - constants/: ドメイン固有の定数定義（オプション）
+      rules:
+        - 外部システムへの依存を持たない
+        - 純粋なビジネスルールとロジックのみを実装
+        - ビルダーやファクトリーなどのオブジェクト生成ロジックはserviceに配置
+    
+    application:
+      description: ユースケースとワークフローの調整
+      structure:
+        - usecase/: アプリケーションのユースケース実装
+        - types/: アプリケーション固有の型定義（DTOなど）
+        - hooks/: フロントエンド固有のカスタムフック（React等の場合）
+        - services/: アプリケーション層のサービス（外部API呼び出しなど）
+        - utils/: ユーティリティ関数（オプション）
+      rules:
+        - ドメイン層とインフラ層を調整する役割
+        - ビジネスロジックは含まない（ドメイン層に委譲）
+        - トランザクション境界の管理
+        - 複数のドメインサービスやリポジトリを組み合わせる
+    
+    infrastructure:
+      description: 外部システムとの接続、技術的な実装詳細
+      structure:
+        - repository/: データアクセス層の実装
+        - database/: データベース接続とクエリ管理
+        - config/: 設定管理
+        - logger/: ロギング実装
+        - rpc/: 外部API通信（オプション）
+      rules:
+        - 技術的な実装詳細を隠蔽
+        - ドメイン層への依存のみ許可（循環依存を避ける）
+        - 外部ライブラリやフレームワークへの依存を隔離
+    
+    interface:
+      description: UIやAPI エンドポイントなどの外部インターフェース（オプション）
+      structure:
+        - components/: UIコンポーネント（フロントエンドの場合）
+        - pages/: ページコンポーネント
+        - elements/: 基本UI要素
+        - presentation/: プレゼンテーション層のロジック
+        - utils/: UI固有のユーティリティ
+      rules:
+        - UIフレームワーク固有の実装
+        - アプリケーション層のユースケースを呼び出す
+        - ビジネスロジックは含まない
+    
+    shared:
+      description: 全層で共有される横断的関心事（オプション）
+      structure:
+        - errors.ts: エラー型定義とエラーハンドリング
+        - types.ts: 共通型定義
+        - utils.ts: 共通ユーティリティ関数
+      rules:
+        - どの層からも参照可能
+        - ビジネスロジックは含まない
+        - 最小限の実装に留める
+    
+    common:
+      description: 共通定義や設定（sharedの代替、オプション）
+      structure:
+        - constants/: アプリケーション全体の定数
+        - types/: 共通型定義
+        - config/: 共通設定
+      rules:
+        - sharedと同様の役割（プロジェクトによってどちらか選択）
+  
+  dependency_rules:
+    - "依存の方向: interface → application → domain ← infrastructure"
+    - "domain層は他の層に依存しない（純粋性を保つ）"
+    - "infrastructure層はdomain層の型のみに依存"
+    - "shared/common層は全層から参照可能だが、他層への依存は禁止"
+    - "循環依存は絶対に避ける"
+  
+  file_placement_guidelines:
+    - "新しい機能追加時は、まずdomain層から設計を始める"
+    - "ビジネスロジックはdomain/serviceに配置"
+    - "ワークフローの調整はapplication/usecaseに配置"
+    - "データアクセスはinfrastructure/repositoryに配置"
+    - "設定値はinfrastructure/config（または各層のvariables.ts）に配置"
