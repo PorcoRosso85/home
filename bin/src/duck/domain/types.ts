@@ -27,26 +27,41 @@ export type SnapshotInfo = {
   description?: string;
 };
 
+// DuckLake APIレスポンス型をインポート
+import type { 
+  TableChangesMetadata, 
+  SnapshotData, 
+  ColumnInfo, 
+  ParquetFileInfo 
+} from "./ducklakeTypes.ts";
+
 // スナップショットレスポンススキーマ（完全版）
-export type SnapshotResponse = {
-  version: number;              // snapshot_id from table_changes
-  timestamp: string;            // query execution time
-  operation_types: string[];    // ['insert', 'update_preimage', 'update_postimage', 'delete']
+export type SnapshotResponse<T = Record<string, any>> = {
+  // TableChangesMetadataから導出
+  version: number;              // Number(metadata.snapshot_id)
+  timestamp: string;            // new Date().toISOString()
+  operation_types: string[];    // metadata.operation_types.split(',')
+  
+  // ColumnInfoから構築
   table_schema: {
     name: string;
     columns: Array<{
-      name: string;
-      type: string;
+      name: string;      // column_name
+      type: string;      // data_type
     }>;
   };
-  data: Array<Record<string, any>>;  // actual table data
+  
+  // SnapshotData<T>をそのまま使用
+  data: SnapshotData<T>;
+  
+  // 各種メタデータを数値変換して格納
   metadata: {
-    row_count: number;          // count of data rows
-    total_changes: number;      // from table_changes
-    insert_count: number;
-    update_count: number;
-    delete_count: number;
-    file_paths?: string[];      // optional: associated parquet files
+    row_count: number;          // data.length
+    total_changes: number;      // Number(metadata.total_changes)
+    insert_count: number;       // Number(metadata.insert_count)
+    update_count: number;       // Number(metadata.update_count)
+    delete_count: number;       // Number(metadata.delete_count)
+    file_paths?: string[];      // ParquetFileInfo[].map(f => f.path)
   };
 };
 
