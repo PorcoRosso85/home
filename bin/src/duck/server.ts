@@ -34,11 +34,14 @@ import { createDuckDBRepository } from "./infrastructure/repository/duckdbReposi
 import { createFileRepository } from "./infrastructure/repository/fileRepository.ts";
 import { createExecuteQueryUseCase } from "./application/usecase/executeQuery.ts";
 import { createManageDuckLakeUseCase } from "./application/usecase/manageDuckLake.ts";
-import type { QueryResult } from "./domain/types.ts";
-import type { AppError, Result } from "./shared/errors.ts";
-import { getHttpStatusCode, handleError } from "./shared/errors.ts";
+import type { QueryResult, QueryData, QueryError } from "./domain/types.ts";
+import { isQueryError } from "./domain/types.ts";
+import type { AppError, FormattedError } from "./shared/errors.ts";
+import { getHttpStatusCode, formatError, isError } from "./shared/errors.ts";
+import type { ApplicationError } from "./application/errors.ts";
+import type { TestEnvironmentData } from "./application/usecase/manageDuckLake.ts";
 
-// 依存性の型定義
+// 依存性の型定義（規約準拠：interfaceではなくtype）
 type ServerDependencies = {
   executeQuery: ReturnType<typeof createExecuteQueryUseCase>;
   manageDuckLake: ReturnType<typeof createManageDuckLakeUseCase>;
@@ -70,19 +73,19 @@ async function createServer(dataPath: string) {
   
   // バージョン確認
   const versionResult = await executeQuery.execute("SELECT version() as version");
-  if (versionResult.success) {
-    log.info(`DuckDB version: ${versionResult.data[0].version}`);
+  if (!isQueryError(versionResult)) {
+    log.info(`DuckDB version: ${versionResult.rows[0].version}`);
   }
   
   // DuckLake拡張のインストール
   const installResult = await executeQuery.execute("INSTALL ducklake");
-  if (installResult.success) {
+  if (!isQueryError(installResult)) {
     const loadResult = await executeQuery.execute("LOAD ducklake");
-    if (loadResult.success) {
+    if (!isQueryError(loadResult)) {
       log.info("✅ DuckLake ready!");
     }
   } else {
-    log.warn("DuckLake not available:", installResult.error);
+    log.warn("DuckLake not available:", installResult.message);
   }
   
   log.info("Server ready");
@@ -114,8 +117,8 @@ function createHandler(deps: ServerDependencies) {
           "SELECT loaded FROM duckdb_extensions() WHERE extension_name = 'ducklake'"
         );
         
-        const ducklakeStatus = statusResult.success && statusResult.data.length > 0 
-          ? (statusResult.data[0].loaded ? "loaded" : "not loaded")
+        const ducklakeStatus = !isQueryError(statusResult) && statusResult.rows.length > 0 
+          ? (statusResult.rows[0].loaded ? "loaded" : "not loaded")
           : "not available";
         
         return new Response(
@@ -132,17 +135,16 @@ function createHandler(deps: ServerDependencies) {
         const body = await req.json().catch(() => null);
         
         if (!body || !body.query || body.query.trim() === "") {
-          const error: AppError = {
+          const error: ApplicationError = {
             code: "VALIDATION_FAILED",
-            message: "Query required",
+            message: "[Query Validation] Query is required",
             details: { body }
           };
           
+          const formatted = formatError(error);
+          
           return new Response(
-            JSON.stringify({ 
-              success: false, 
-              error: handleError(error)
-            }),
+            JSON.stringify(formatted),
             { 
               status: getHttpStatusCode(error), 
               headers: { "Content-Type": CONTENT_TYPE_JSON } 
@@ -154,14 +156,12 @@ function createHandler(deps: ServerDependencies) {
         
         const result = await deps.executeQuery.executeWithValidation(body.query);
         
-        if (!result.success) {
+        if (isError(result)) {
+          const formatted = formatError(result);
           return new Response(
-            JSON.stringify({ 
-              success: false, 
-              error: handleError(result.error)
-            }),
+            JSON.stringify(formatted),
             { 
-              status: getHttpStatusCode(result.error), 
+              status: getHttpStatusCode(result), 
               headers: { "Content-Type": CONTENT_TYPE_JSON } 
             }
           );
@@ -186,11 +186,11 @@ function createHandler(deps: ServerDependencies) {
           );
           
           // エラーが発生した場合はそのバージョンは存在しない
-          if (!testResult.success) {
+          if (isQueryError(testResult)) {
             continue;
           }
           
-          const count = testResult.data[0]?.count;
+          const count = testResult.rows[0]?.count;
           if (count > 0) {
             // 前のバージョンとの差分を計算
             let changes = { total: 0, inserts: 0, deletes: 0, updates: 0 };
@@ -201,8 +201,8 @@ function createHandler(deps: ServerDependencies) {
                 `SELECT COUNT(*) as prev_count FROM lake.LocationURI AT (VERSION => ${v - 1})`
               );
               
-              if (prevResult.success) {
-                const prevCount = prevResult.data[0]?.prev_count || 0;
+              if (!isQueryError(prevResult)) {
+                const prevCount = prevResult.rows[0]?.prev_count || 0;
                 const diff = Number(count) - Number(prevCount);
                 
                 if (diff > 0) {
@@ -230,11 +230,15 @@ function createHandler(deps: ServerDependencies) {
         }
         
         if (availableVersions.length === 0) {
+          const error: ApplicationError = {
+            code: "DUCKLAKE_NOT_AVAILABLE",
+            message: "[DuckLake Version List] No DuckLake snapshots found. Please run duck.init.sh first."
+          };
+          
+          const formatted = formatError(error);
+          
           return new Response(
-            JSON.stringify({ 
-              success: false, 
-              error: "No DuckLake snapshots found. Please run duck.init.sh first."
-            }),
+            JSON.stringify(formatted),
             { 
               status: 404, 
               headers: { "Content-Type": CONTENT_TYPE_JSON } 
@@ -247,7 +251,6 @@ function createHandler(deps: ServerDependencies) {
         
         return new Response(
           JSON.stringify({
-            success: true,
             versions: availableVersions
           }),
           { 
@@ -266,11 +269,16 @@ function createHandler(deps: ServerDependencies) {
           // バージョンパラメータの検証
           const versionNum = parseInt(version);
           if (isNaN(versionNum)) {
+            const error: ApplicationError = {
+              code: "VALIDATION_FAILED",
+              message: "[Snapshot Export] Invalid version format. Expected numeric snapshot ID.",
+              details: { version }
+            };
+            
+            const formatted = formatError(error);
+            
             return new Response(
-              JSON.stringify({ 
-                success: false, 
-                error: "Invalid version format. Expected numeric snapshot ID."
-              }),
+              JSON.stringify(formatted),
               { 
                 status: 400, 
                 headers: { "Content-Type": CONTENT_TYPE_JSON } 
@@ -292,16 +300,21 @@ function createHandler(deps: ServerDependencies) {
             
             const exportResult = await deps.executeQuery.execute(exportQuery);
             
-            if (!exportResult.success) {
-              log.error("Failed to export snapshot:", exportResult.error);
+            if (isQueryError(exportResult)) {
+              log.error("Failed to export snapshot:", exportResult.message);
               
               // バージョンが存在しない可能性
-              if (exportResult.error.includes("VERSION") || exportResult.error.includes("snapshot")) {
+              if (exportResult.message.includes("VERSION") || exportResult.message.includes("snapshot")) {
+                const error: ApplicationError = {
+                  code: "VERSION_NOT_FOUND",
+                  message: `[Snapshot Export] Snapshot version ${versionNum} not found`,
+                  version: String(versionNum)
+                };
+                
+                const formatted = formatError(error);
+                
                 return new Response(
-                  JSON.stringify({ 
-                    success: false, 
-                    error: `Snapshot version ${versionNum} not found`
-                  }),
+                  JSON.stringify(formatted),
                   { 
                     status: 404, 
                     headers: { "Content-Type": CONTENT_TYPE_JSON } 
@@ -309,12 +322,16 @@ function createHandler(deps: ServerDependencies) {
                 );
               }
               
+              const error: ApplicationError = {
+                code: "OPERATION_FAILED",
+                message: `[Snapshot Export] Failed to export snapshot: ${exportResult.message}`,
+                operation: "export_snapshot"
+              };
+              
+              const formatted = formatError(error);
+              
               return new Response(
-                JSON.stringify({ 
-                  success: false, 
-                  error: "Failed to export snapshot",
-                  details: exportResult.error
-                }),
+                JSON.stringify(formatted),
                 { 
                   status: 500, 
                   headers: { "Content-Type": CONTENT_TYPE_JSON } 
@@ -348,11 +365,17 @@ function createHandler(deps: ServerDependencies) {
             await Deno.remove(tempDir, { recursive: true }).catch(() => {});
             
             log.error("Failed to process snapshot request:", error);
+            
+            const appError: ApplicationError = {
+              code: "OPERATION_FAILED",
+              message: `[Snapshot Processing] ${error instanceof Error ? error.message : String(error)}`,
+              operation: "process_snapshot"
+            };
+            
+            const formatted = formatError(appError);
+            
             return new Response(
-              JSON.stringify({ 
-                success: false, 
-                error: "Failed to process snapshot request"
-              }),
+              JSON.stringify(formatted),
               { 
                 status: 500, 
                 headers: { "Content-Type": CONTENT_TYPE_JSON } 
@@ -364,15 +387,14 @@ function createHandler(deps: ServerDependencies) {
         // ルートが見つからない場合
         const error: AppError = {
           code: "FILE_NOT_FOUND",
-          message: "Route not found",
+          message: `[Route Not Found] ${method} ${path}`,
           filePath: path
         };
         
+        const formatted = formatError(error);
+        
         return new Response(
-          JSON.stringify({ 
-            success: false,
-            error: handleError(error)
-          }),
+          JSON.stringify(formatted),
           { 
             status: getHttpStatusCode(error), 
             headers: { "Content-Type": CONTENT_TYPE_JSON } 
@@ -399,8 +421,15 @@ if (import.meta.main) {
 // In-source tests (統合テスト)
 // FIXME: ユニットテストは指定関数のみ実装すること（すべての関数ではない）
 if (!import.meta.main) {
-  // テスト結果の型定義
-  type TestResult = Result<string>;
+  // テスト結果の型定義（規約準拠：Result型を使わない）
+  type TestSuccess = { testName: string; message: string };
+  type TestError = { code: "TEST_FAILED"; testName: string; message: string; error: any };
+  type TestResult = TestSuccess | TestError;
+  
+  // エラー判定ヘルパー
+  function isTestError(result: TestResult): result is TestError {
+    return 'code' in result && result.code === "TEST_FAILED";
+  }
   
   // テストヘルパー関数
   async function runTestStep(
@@ -409,8 +438,8 @@ if (!import.meta.main) {
   ): Promise<TestResult> {
     log.info(`Running test: ${testName}`);
     const result = await testFn();
-    if (!result.success) {
-      log.error(`Test failed: ${testName} - ${handleError(result.error)}`);
+    if (isTestError(result)) {
+      log.error(`Test failed: ${testName} - ${result.message}`);
     }
     return result;
   }
@@ -428,49 +457,48 @@ if (!import.meta.main) {
     
     // テスト環境の作成
     const testEnv = await manageDuckLake.createTestEnvironment("crud");
-    if (!testEnv.success) {
+    if (isError(testEnv)) {
       // エラーをログに記録してテストを終了
-      log.error(`Failed to create test environment: ${testEnv.error}`);
+      log.error(`Failed to create test environment: ${testEnv.message}`);
       await Deno.remove(tempDir, { recursive: true });
       return;
     }
     
-    const { catalogName, metadataPath, dataPath: testDataPath } = testEnv;
+    const { catalogName, metadataPath, dataPath: testDataPath } = testEnv as TestEnvironmentData;
     
     try {
       await t.step("use test catalog", async () => {
         const result = await runTestStep("use test catalog", async () => {
           const useResult = await executeQuery.execute(`USE ${catalogName}`);
-          if (!useResult.success) {
+          if (isQueryError(useResult)) {
             return { 
-              success: false, 
-              error: { 
-                code: "OPERATION_FAILED" as const, 
-                message: `Failed to use catalog: ${useResult.error}`,
-                operation: "use_catalog"
-              }
+              code: "TEST_FAILED" as const,
+              testName: "use_catalog",
+              message: `[Test] Failed to use catalog: ${useResult.message}`,
+              error: useResult
             };
           }
           
           // DuckLakeカタログが正しくアタッチされているか確認
           const tablesResult = await executeQuery.execute("SHOW ALL TABLES");
-          if (!tablesResult.success) {
+          if (isQueryError(tablesResult)) {
             return { 
-              success: false, 
-              error: { 
-                code: "OPERATION_FAILED" as const, 
-                message: `Failed to show tables: ${tablesResult.error}`,
-                operation: "show_tables"
-              }
+              code: "TEST_FAILED" as const,
+              testName: "show_tables", 
+              message: `[Test] Failed to show tables: ${tablesResult.message}`,
+              error: tablesResult
             };
           }
           
-          log.info(`Catalog ${catalogName} is ready with ${tablesResult.data.length} tables`);
-          return { success: true, data: "Catalog ready" };
+          log.info(`Catalog ${catalogName} is ready with ${tablesResult.rows.length} tables`);
+          return { 
+            testName: "use_catalog",
+            message: "Catalog ready"
+          };
         });
         
-        if (!result.success) {
-          log.error(handleError(result.error));
+        if (isTestError(result)) {
+          log.error(result.message);
         }
       });
       
@@ -480,14 +508,12 @@ if (!import.meta.main) {
           const createResult = await executeQuery.execute(
             `CREATE TABLE ${catalogName}.test_table (id INTEGER, value VARCHAR)`
           );
-          if (!createResult.success) {
+          if (isQueryError(createResult)) {
             return { 
-              success: false, 
-              error: { 
-                code: "OPERATION_FAILED" as const, 
-                message: `Failed to create table: ${createResult.error}`,
-                operation: "create_table"
-              }
+              code: "TEST_FAILED" as const,
+              testName: "create_table",
+              message: `[Test] Failed to create table: ${createResult.message}`,
+              error: createResult
             };
           }
           
@@ -495,22 +521,23 @@ if (!import.meta.main) {
           const insertResult = await executeQuery.execute(
             `INSERT INTO ${catalogName}.test_table VALUES (1, 'Hello'), (2, 'DuckLake')`
           );
-          if (!insertResult.success) {
+          if (isQueryError(insertResult)) {
             return { 
-              success: false, 
-              error: { 
-                code: "OPERATION_FAILED" as const, 
-                message: `Failed to insert data: ${insertResult.error}`,
-                operation: "insert_data"
-              }
+              code: "TEST_FAILED" as const,
+              testName: "insert_data",
+              message: `[Test] Failed to insert data: ${insertResult.message}`,
+              error: insertResult
             };
           }
           
-          return { success: true, data: "Table created and data inserted" };
+          return { 
+            testName: "create_table_and_insert",
+            message: "Table created and data inserted"
+          };
         });
         
-        if (!result.success) {
-          log.error(handleError(result.error));
+        if (isTestError(result)) {
+          log.error(result.message);
         }
       });
       
@@ -559,23 +586,24 @@ if (!import.meta.main) {
             FROM lake.table_changes('LocationURI', 1, 1)
           `);
           
-          if (!checkResult.success || Number(checkResult.data[0]?.count) === 0) {
+          if (isQueryError(checkResult) || Number(checkResult.rows[0]?.count) === 0) {
             return { 
-              success: false, 
-              error: { 
-                code: "VERSION_NOT_FOUND" as const, 
-                message: "Snapshot version 1 not found",
-                version: "1"
-              }
+              code: "TEST_FAILED" as const,
+              testName: "verify_snapshot",
+              message: "[Test] Snapshot version 1 not found",
+              error: { version: "1" }
             };
           }
           
           log.info(`Snapshot 1 exists with changes`);
-          return { success: true, data: "Snapshot retrieval verified" };
+          return { 
+            testName: "verify_snapshot",
+            message: "Snapshot retrieval verified"
+          };
         });
         
-        if (!result.success) {
-          log.error(handleError(result.error));
+        if (isTestError(result)) {
+          log.error(result.message);
         }
       });
       
@@ -587,23 +615,24 @@ if (!import.meta.main) {
             FROM lake.table_changes('LocationURI', 999, 999)
           `);
           
-          if (!checkResult.success || Number(checkResult.data[0]?.count) > 0) {
+          if (!isQueryError(checkResult) && Number(checkResult.rows[0]?.count) > 0) {
             return { 
-              success: false, 
-              error: { 
-                code: "VALIDATION_FAILED" as const, 
-                message: "Expected no data for non-existent version",
-                details: { version: 999 }
-              }
+              code: "TEST_FAILED" as const,
+              testName: "verify_non_existent",
+              message: "[Test] Expected no data for non-existent version",
+              error: { version: 999 }
             };
           }
           
           log.info("Correctly returned no data for non-existent version");
-          return { success: true, data: "Error handling verified" };
+          return { 
+            testName: "verify_non_existent",
+            message: "Error handling verified"
+          };
         });
         
-        if (!result.success) {
-          log.error(handleError(result.error));
+        if (isTestError(result)) {
+          log.error(result.message);
         }
       });
       

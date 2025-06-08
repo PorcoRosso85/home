@@ -3,8 +3,10 @@
  * クエリ実行のビジネスロジック
  */
 
-import type { QueryResult } from "../../domain/types.ts";
+import type { QueryResult, QueryData, QueryError } from "../../domain/types.ts";
+import { isQueryError } from "../../domain/types.ts";
 import type { DuckDBRepository } from "../../infrastructure/repository/duckdbRepository.ts";
+import type { ApplicationError } from "../errors.ts";
 
 // 依存性の型定義
 export type ExecuteQueryDeps = {
@@ -15,18 +17,18 @@ export type ExecuteQueryDeps = {
 export type ExecuteQueryUseCase = {
   execute: (query: string) => Promise<QueryResult>;
   executeMultiple: (queries: string[]) => Promise<QueryResult[]>;
-  executeWithValidation: (query: string) => Promise<QueryResult>;
+  executeWithValidation: (query: string) => Promise<QueryResult | ApplicationError>;
 };
 
 // クエリの簡易バリデーション
-function validateQuery(query: string): QueryResult | null {
+function validateQuery(query: string): ApplicationError | null {
   const trimmed = query.trim();
   
   if (!trimmed) {
     return {
-      success: false,
-      error: "Query cannot be empty",
-      code: "VALIDATION_ERROR"
+      code: "VALIDATION_FAILED",
+      message: "Query cannot be empty",
+      details: { query }
     };
   }
   
@@ -37,9 +39,9 @@ function validateQuery(query: string): QueryResult | null {
   for (const keyword of dangerous) {
     if (upperQuery.includes(keyword)) {
       return {
-        success: false,
-        error: `Dangerous operation detected: ${keyword}`,
-        code: "VALIDATION_ERROR"
+        code: "VALIDATION_FAILED",
+        message: `[Query Validation] Dangerous operation detected: ${keyword}`,
+        details: { query, keyword }
       };
     }
   }
@@ -63,7 +65,7 @@ export function createExecuteQueryUseCase(deps: ExecuteQueryDeps): ExecuteQueryU
       results.push(result);
       
       // エラーが発生したら中断
-      if (!result.success) {
+      if (isQueryError(result)) {
         break;
       }
     }
@@ -71,7 +73,7 @@ export function createExecuteQueryUseCase(deps: ExecuteQueryDeps): ExecuteQueryU
     return results;
   }
   
-  async function executeWithValidation(query: string): Promise<QueryResult> {
+  async function executeWithValidation(query: string): Promise<QueryResult | ApplicationError> {
     const validationError = validateQuery(query);
     if (validationError) {
       return validationError;
@@ -92,13 +94,13 @@ if (!import.meta.main) {
   Deno.test("validateQuery", () => {
     // 空クエリのテスト
     const emptyResult = validateQuery("");
-    if (!emptyResult || emptyResult.success !== false) {
+    if (!emptyResult || emptyResult.code !== "VALIDATION_FAILED") {
       throw new Error("Empty query should return validation error");
     }
     
     // 危険なクエリのテスト
     const dangerousResult = validateQuery("DROP DATABASE test");
-    if (!dangerousResult || emptyResult.success !== false) {
+    if (!dangerousResult || dangerousResult.code !== "VALIDATION_FAILED") {
       throw new Error("Dangerous query should return validation error");
     }
     

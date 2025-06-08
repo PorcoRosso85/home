@@ -3,7 +3,8 @@
  * DuckDB接続と基本操作を提供
  */
 
-import type { QueryResult, QuerySuccess, QueryError, SnapshotInfo } from "../../domain/types.ts";
+import type { QueryResult, QueryData, QueryError, SnapshotInfo } from "../../domain/types.ts";
+import { isQueryError } from "../../domain/types.ts";
 
 // 依存性の型定義
 export type DuckDBConnection = {
@@ -12,7 +13,7 @@ export type DuckDBConnection = {
     columnCount: number;
     columnName: (index: number) => string | null;
   }>;
-  run: (query: string) => Promise<void>;
+  run: (query: string) => Promise<any>; // DuckDBMaterializedResultを返す
 };
 
 export type DuckDBDependencies = {
@@ -40,61 +41,66 @@ export function createDuckDBRepository(deps: DuckDBDependencies): DuckDBReposito
     
     if (!isSelectQuery) {
       // DML/DDL操作
-      const result = await connection.run(query).then(
-        () => ({ success: true as const, data: [], rowCount: 0, columns: [] }),
-        (err) => ({
-          success: false as const,
-          error: err instanceof Error ? err.message : String(err),
-          code: "QUERY_ERROR" as const
-        })
-      );
-      return result;
+      try {
+        await connection.run(query);
+        // 成功時は空のデータを返す
+        return { rows: [], rowCount: 0, columns: [] };
+      } catch (err) {
+        // エラー時はエラー型を返す
+        return {
+          code: "QUERY_ERROR",
+          message: err instanceof Error ? err.message : String(err),
+          query: query,
+          details: err
+        };
+      }
     }
     
     // SELECT操作
-    const result = await connection.runAndReadAll(query).then(
-      (reader) => {
-        const rows = reader.getRows();
-        const columnCount = reader.columnCount;
-        const columns: string[] = [];
-        
-        for (let i = 0; i < columnCount; i++) {
-          columns.push(reader.columnName(i) || `col_${i}`);
-        }
-        
-        const data = rows.map((row) => {
-          const obj: Record<string, any> = {};
-          columns.forEach((name, idx) => {
-            obj[name] = row[idx];
-          });
-          return obj;
+    try {
+      const reader = await connection.runAndReadAll(query);
+      const rows = reader.getRows();
+      const columnCount = reader.columnCount;
+      const columns: string[] = [];
+      
+      for (let i = 0; i < columnCount; i++) {
+        columns.push(reader.columnName(i) || `col_${i}`);
+      }
+      
+      const data = rows.map((row) => {
+        const obj: Record<string, any> = {};
+        columns.forEach((name, idx) => {
+          obj[name] = row[idx];
         });
-        
-        return {
-          success: true as const,
-          data,
-          rowCount: rows.length,
-          columns
-        };
-      },
-      (err) => ({
-        success: false as const,
-        error: err instanceof Error ? err.message : String(err),
-        code: "QUERY_ERROR" as const
-      })
-    );
-    
-    return result;
+        return obj;
+      });
+      
+      // 成功時は直接データを返す
+      return {
+        rows: data,
+        rowCount: rows.length,
+        columns
+      };
+    } catch (err) {
+      // エラー時はエラー型を返す
+      return {
+        code: "QUERY_ERROR",
+        message: err instanceof Error ? err.message : String(err),
+        query: query,
+        details: err
+      };
+    }
   }
   
   async function getSnapshots(catalog: string): Promise<SnapshotInfo[]> {
     const result = await executeQuery(`SELECT * FROM ducklake_snapshots('${catalog}')`);
     
-    if (!result.success) {
+    // エラーチェック（規約準拠）
+    if (isQueryError(result)) {
       return [];
     }
     
-    return result.data.map((row) => ({
+    return result.rows.map((row) => ({
       snapshotId: row.snapshot_id || 0,
       timestamp: row.committed_at || "",
       tableCount: row.table_count || 0,

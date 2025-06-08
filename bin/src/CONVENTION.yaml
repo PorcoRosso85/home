@@ -186,6 +186,8 @@
       - TypeScriptでは: 成功型 | エラー型A | エラー型B | ...
       - Pythonでは: Union[成功型, エラー型A, エラー型B, ...]
       - 言語を問わず同様の共用体型パターンを使用する
+    - エラーメッセージは純粋にすべて取得し、一切のメッセージ省略を禁止する
+    - エラーメッセージの加工は可読性・探索性向上のためのプレフィックス追加のみ許可する
   examples:
     good: |
       # Python例（汎用記述方式）
@@ -280,6 +282,48 @@
       - エラー判定は明示的な分岐処理で行う
       - map、flatMap、unwrapなどのモナディック操作は使用しない
       - 基本的な条件分岐とプロパティチェックのみを使用する
+    
+    error_message_handling: |
+      // 良い例: エラーメッセージの完全保持とプレフィックス追加
+      try {
+          const result = await database.execute(query);
+      } catch (error) {
+          // 元のエラーメッセージを完全に保持し、プレフィックスで文脈を追加
+          return {
+              code: "DB_EXECUTION_ERROR",
+              message: `[DuckDB Query Execution] ${error.message}`,
+              originalError: error.toString(),
+              stack: error.stack
+          };
+      }
+      
+      // 良い例: 複数エラーの集約時も全メッセージを保持
+      const errors = validationResults.filter(r => r.hasError);
+      if (errors.length > 0) {
+          return {
+              code: "VALIDATION_ERRORS",
+              message: `[Validation Failed] ${errors.length} errors found:\n${errors.map(e => `  - ${e.field}: ${e.message}`).join('\n')}`,
+              details: errors  // 元のエラー情報も完全に保持
+          };
+      }
+      
+      // 悪い例: エラーメッセージの省略や置換
+      catch (error) {
+          // NG: 元のメッセージを破棄
+          return { code: "ERROR", message: "Database error occurred" };
+      }
+      
+      // 悪い例: エラーメッセージの一部のみ使用
+      catch (error) {
+          // NG: メッセージを切り詰めている
+          return { code: "ERROR", message: error.message.substring(0, 50) + "..." };
+      }
+      
+      // 悪い例: エラーの詳細を隠蔽
+      catch (error) {
+          // NG: 一般的なメッセージで置換
+          return { code: "ERROR", message: "Something went wrong" };
+      }
 
 ## エラーメッセージの責務:
   rules:

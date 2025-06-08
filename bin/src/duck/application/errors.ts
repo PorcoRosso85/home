@@ -8,7 +8,7 @@ export type ApplicationError =
   | { code: "OPERATION_FAILED"; message: string; operation: string }
   | { code: "DUCKLAKE_NOT_AVAILABLE"; message: string }
   | { code: "CATALOG_CREATION_FAILED"; message: string; catalogName: string }
-  | { code: "TEST_ENVIRONMENT_FAILED"; message: string; reason: string }
+  | { code: "TEST_ENVIRONMENT_FAILED"; message: string; details?: any }
   | { code: "VERSION_NOT_FOUND"; message: string; version: string };
 
 // エラーヘルプメッセージ

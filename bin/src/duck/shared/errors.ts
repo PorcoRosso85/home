@@ -10,11 +10,6 @@ import type { InfrastructureError } from "../infrastructure/errors.ts";
 // すべてのエラーを統合した型
 export type AppError = DomainError | ApplicationError | InfrastructureError;
 
-// 成功/失敗の結果型
-export type Result<T> = 
-  | { success: true; data: T }
-  | { success: false; error: AppError };
-
 // エラー判定ヘルパー関数
 export function isDomainError(error: AppError): error is DomainError {
   return [
@@ -48,39 +43,46 @@ export function isInfrastructureError(error: AppError): error is InfrastructureE
   ].includes(error.code);
 }
 
-// エラーコードによるパターンマッチング
-export function handleError(error: AppError): string {
-  switch (error.code) {
-    // Domain errors
-    case "INVALID_QUERY":
-    case "TABLE_NOT_FOUND":
-    case "PERMISSION_DENIED":
-    case "INVALID_SYNTAX":
-    case "CONSTRAINT_VIOLATION":
-      return `Domain Error [${error.code}]: ${error.message}`;
-    
-    // Application errors
-    case "VALIDATION_FAILED":
-    case "OPERATION_FAILED":
-    case "DUCKLAKE_NOT_AVAILABLE":
-    case "CATALOG_CREATION_FAILED":
-    case "TEST_ENVIRONMENT_FAILED":
-      return `Application Error [${error.code}]: ${error.message}`;
-    
-    // Infrastructure errors
-    case "DB_CONNECTION_ERROR":
-    case "FILE_SYSTEM_ERROR":
-    case "NETWORK_ERROR":
-    case "DUCKDB_EXECUTION_ERROR":
-    case "FILE_NOT_FOUND":
-    case "PERMISSION_ERROR":
-      return `Infrastructure Error [${error.code}]: ${error.message}`;
-    
-    default:
-      // 網羅性チェック（TypeScriptでnever型になる）
-      const _exhaustive: never = error;
-      return `Unknown error: ${JSON.stringify(error)}`;
+// エラーチェックヘルパー（共用体型での判定用）
+export function isError(value: any): value is AppError {
+  return value && typeof value === 'object' && 'code' in value && 'message' in value;
+}
+
+// エラーフォーマッティング（プレフィックス追加のみ、元のメッセージは完全保持）
+export type FormattedError = {
+  code: string;
+  message: string;
+  originalMessage: string;
+  details?: any;
+  filePath?: string;
+  operation?: string;
+  query?: string;
+  version?: string;
+};
+
+export function formatError(error: AppError): FormattedError {
+  // エラータイプに基づくプレフィックスを決定
+  let prefix = "";
+  
+  if (isDomainError(error)) {
+    prefix = "[Domain Error]";
+  } else if (isApplicationError(error)) {
+    prefix = "[Application Error]";
+  } else if (isInfrastructureError(error)) {
+    prefix = "[Infrastructure Error]";
+  } else {
+    prefix = "[Unknown Error]";
   }
+  
+  // プレフィックスを追加し、元のメッセージは完全保持
+  const { code, message, ...rest } = error;
+  
+  return {
+    code,
+    message: `${prefix} ${message}`,
+    originalMessage: message,
+    ...rest // その他の追加プロパティを保持
+  };
 }
 
 // HTTPステータスコードへのマッピング
@@ -95,6 +97,7 @@ export function getHttpStatusCode(error: AppError): number {
     // 404 Not Found
     case "TABLE_NOT_FOUND":
     case "FILE_NOT_FOUND":
+    case "VERSION_NOT_FOUND":
       return 404;
     
     // 403 Forbidden
