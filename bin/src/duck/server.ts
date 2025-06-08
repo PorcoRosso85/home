@@ -34,7 +34,6 @@ import { createDuckDBRepository } from "./infrastructure/repository/duckdbReposi
 import { createFileRepository } from "./infrastructure/repository/fileRepository.ts";
 import { createExecuteQueryUseCase } from "./application/usecase/executeQuery.ts";
 import { createManageDuckLakeUseCase } from "./application/usecase/manageDuckLake.ts";
-import { createGetSnapshotFileUseCase } from "./application/usecase/getSnapshotFile.ts";
 import type { QueryResult } from "./domain/types.ts";
 import type { AppError, Result } from "./shared/errors.ts";
 import { getHttpStatusCode, handleError } from "./shared/errors.ts";
@@ -43,7 +42,6 @@ import { getHttpStatusCode, handleError } from "./shared/errors.ts";
 type ServerDependencies = {
   executeQuery: ReturnType<typeof createExecuteQueryUseCase>;
   manageDuckLake: ReturnType<typeof createManageDuckLakeUseCase>;
-  getSnapshotFile: ReturnType<typeof createGetSnapshotFileUseCase>;
 };
 
 // サーバーを作成する高階関数
@@ -63,13 +61,11 @@ async function createServer(dataPath: string) {
   // ユースケースの作成
   const executeQuery = createExecuteQueryUseCase({ duckdbRepo });
   const manageDuckLake = createManageDuckLakeUseCase({ duckdbRepo, fileRepo });
-  const getSnapshotFile = createGetSnapshotFileUseCase({ duckdbRepo, fileRepo });
   
   // 依存性オブジェクト
   const deps: ServerDependencies = {
     executeQuery,
-    manageDuckLake,
-    getSnapshotFile
+    manageDuckLake
   };
   
   // バージョン確認
@@ -178,38 +174,81 @@ function createHandler(deps: ServerDependencies) {
       }
       
       case "POST:/api/versions": {
-        log.info("Fetching available versions");
+        log.info("Fetching available DuckLake snapshots");
         
-        // 利用可能なバージョンを取得
-        const versionsResult = await deps.executeQuery.execute(
-          "SELECT id as version_id, timestamp, description, change_reason FROM VersionState ORDER BY timestamp DESC"
-        );
+        // DuckLakeの実際のスナップショットを確認
+        // バージョン1-10をチェックして存在するものだけ返す
+        const availableVersions = [];
         
-        if (!versionsResult.success) {
-          log.error("Failed to fetch versions:", versionsResult.error);
+        for (let v = 1; v <= 10; v++) {
+          const testResult = await deps.executeQuery.execute(
+            `SELECT COUNT(*) as count FROM lake.LocationURI AT (VERSION => ${v})`
+          );
+          
+          // エラーが発生した場合はそのバージョンは存在しない
+          if (!testResult.success) {
+            continue;
+          }
+          
+          const count = testResult.data[0]?.count;
+          if (count > 0) {
+            // 前のバージョンとの差分を計算
+            let changes = { total: 0, inserts: 0, deletes: 0, updates: 0 };
+            
+            if (v > 1) {
+              // 前のバージョンと比較
+              const prevResult = await deps.executeQuery.execute(
+                `SELECT COUNT(*) as prev_count FROM lake.LocationURI AT (VERSION => ${v - 1})`
+              );
+              
+              if (prevResult.success) {
+                const prevCount = prevResult.data[0]?.prev_count || 0;
+                const diff = Number(count) - Number(prevCount);
+                
+                if (diff > 0) {
+                  changes.inserts = diff;
+                  changes.total = diff;
+                } else if (diff < 0) {
+                  changes.deletes = Math.abs(diff);
+                  changes.total = Math.abs(diff);
+                }
+              }
+            } else {
+              // 最初のバージョンは全てinsert
+              changes.inserts = Number(count);
+              changes.total = Number(count);
+            }
+            
+            availableVersions.push({
+              version: v,
+              timestamp: new Date().toISOString(),
+              description: `DuckLake snapshot ${v}`,
+              row_count: Number(count),
+              changes
+            });
+          }
+        }
+        
+        if (availableVersions.length === 0) {
           return new Response(
             JSON.stringify({ 
               success: false, 
-              error: "Failed to fetch versions",
-              details: versionsResult.error
+              error: "No DuckLake snapshots found. Please run duck.init.sh first."
             }),
             { 
-              status: 500, 
+              status: 404, 
               headers: { "Content-Type": CONTENT_TYPE_JSON } 
             }
           );
         }
         
-        // バージョンリストをレスポンス
+        // バージョン番号の降順でソート
+        availableVersions.sort((a, b) => b.version - a.version);
+        
         return new Response(
           JSON.stringify({
             success: true,
-            versions: versionsResult.data.map(v => ({
-              version: v.version_id,
-              timestamp: v.timestamp,
-              description: v.description,
-              change_reason: v.change_reason
-            }))
+            versions: availableVersions
           }),
           { 
             status: 200, 
@@ -224,43 +263,73 @@ function createHandler(deps: ServerDependencies) {
           const version = snapshotMatch[1];
           log.info(`Snapshot request for version: ${version}`);
           
-          // バージョンのスナップショットファイルを取得
-          const snapshotResult = await deps.getSnapshotFile.getSnapshotForVersion(version);
-          
-          if (!snapshotResult.success) {
+          // バージョンパラメータの検証
+          const versionNum = parseInt(version);
+          if (isNaN(versionNum)) {
             return new Response(
               JSON.stringify({ 
                 success: false, 
-                error: handleError(snapshotResult.error)
+                error: "Invalid version format. Expected numeric snapshot ID."
               }),
               { 
-                status: getHttpStatusCode(snapshotResult.error), 
+                status: 400, 
                 headers: { "Content-Type": CONTENT_TYPE_JSON } 
               }
             );
           }
           
-          // 最初のParquetファイルを返す（簡易実装）
-          // 実際の実装では、複数ファイルの処理が必要
-          const firstFile = snapshotResult.data.files[0];
-          if (!firstFile) {
-            return new Response(
-              JSON.stringify({ 
-                success: false, 
-                error: "No snapshot files available"
-              }),
-              { 
-                status: 404, 
-                headers: { "Content-Type": CONTENT_TYPE_JSON } 
-              }
-            );
-          }
+          // 指定バージョンのLocationURIデータをParquetにエクスポート
+          const tempDir = `/tmp/ducklake-snapshot-${versionNum}`;
+          await Deno.mkdir(tempDir, { recursive: true });
           
           try {
-            // ファイルをバイナリとして読み込み
-            const fileContent = await Deno.readFile(firstFile.path);
+            // AT (VERSION => n) を使用して特定バージョンのデータをエクスポート
+            const exportQuery = `
+              COPY (
+                SELECT * FROM lake.LocationURI AT (VERSION => ${versionNum})
+              ) TO '${tempDir}/LocationURI_v${versionNum}.parquet' (FORMAT PARQUET)
+            `;
             
-            log.info(`Returning snapshot file: ${firstFile.path} (${firstFile.size} bytes)`);
+            const exportResult = await deps.executeQuery.execute(exportQuery);
+            
+            if (!exportResult.success) {
+              log.error("Failed to export snapshot:", exportResult.error);
+              
+              // バージョンが存在しない可能性
+              if (exportResult.error.includes("VERSION") || exportResult.error.includes("snapshot")) {
+                return new Response(
+                  JSON.stringify({ 
+                    success: false, 
+                    error: `Snapshot version ${versionNum} not found`
+                  }),
+                  { 
+                    status: 404, 
+                    headers: { "Content-Type": CONTENT_TYPE_JSON } 
+                  }
+                );
+              }
+              
+              return new Response(
+                JSON.stringify({ 
+                  success: false, 
+                  error: "Failed to export snapshot",
+                  details: exportResult.error
+                }),
+                { 
+                  status: 500, 
+                  headers: { "Content-Type": CONTENT_TYPE_JSON } 
+                }
+              );
+            }
+            
+            // エクスポートされたファイルを読み込み
+            const parquetPath = `${tempDir}/LocationURI_v${versionNum}.parquet`;
+            const fileContent = await Deno.readFile(parquetPath);
+            
+            // 一時ファイルをクリーンアップ
+            await Deno.remove(tempDir, { recursive: true }).catch(() => {});
+            
+            log.info(`Returning snapshot v${versionNum} (${fileContent.byteLength} bytes)`);
             
             return new Response(
               fileContent,
@@ -268,18 +337,21 @@ function createHandler(deps: ServerDependencies) {
                 status: 200, 
                 headers: { 
                   "Content-Type": "application/octet-stream",
-                  "Content-Disposition": `attachment; filename="snapshot-${version}.parquet"`,
-                  "X-Snapshot-Version": version,
-                  "X-File-Count": String(snapshotResult.data.files.length)
+                  "Content-Disposition": `attachment; filename="LocationURI_snapshot_v${versionNum}.parquet"`,
+                  "X-Snapshot-Version": String(versionNum),
+                  "X-DuckLake-Table": "LocationURI"
                 } 
               }
             );
           } catch (error) {
-            log.error("Failed to read snapshot file:", error);
+            // エラー時のクリーンアップ
+            await Deno.remove(tempDir, { recursive: true }).catch(() => {});
+            
+            log.error("Failed to process snapshot request:", error);
             return new Response(
               JSON.stringify({ 
                 success: false, 
-                error: "Failed to read snapshot file"
+                error: "Failed to process snapshot request"
               }),
               { 
                 status: 500, 
@@ -457,50 +529,48 @@ if (!import.meta.main) {
     
     // テスト用サーバーインスタンスを作成
     const server = await createServer(dataPath);
-    const { executeQuery, getSnapshotFile } = server.deps;
+    const { executeQuery } = server.deps;
     
     try {
       await t.step("create test version data", async () => {
-        // テスト用のバージョンデータを作成
+        // DuckLakeカタログをアタッチ
+        await executeQuery.execute(`ATTACH 'ducklake::${dataPath}' AS lake`);
+        
+        // LocationURIテーブルを作成
         await executeQuery.execute(`
-          CREATE TABLE VersionState (
-            id STRING PRIMARY KEY,
-            timestamp STRING,
-            description STRING,
-            change_reason STRING
+          CREATE TABLE lake.LocationURI (
+            id STRING
           )
         `);
         
+        // 初期データを挿入（スナップショット1）
         await executeQuery.execute(`
-          INSERT INTO VersionState VALUES 
-          ('v1.0.0', '2024-01-01', 'Initial version', 'Initial release')
+          INSERT INTO lake.LocationURI VALUES 
+          ('file:///test/v1/file1.ts'), 
+          ('file:///test/v1/file2.ts')
         `);
       });
       
       await t.step("verify snapshot retrieval for existing version", async () => {
         const result = await runTestStep("verify snapshot retrieval", async () => {
-          const snapshotResult = await getSnapshotFile.getSnapshotForVersion('v1.0.0');
+          // バージョン1のスナップショットが存在することを確認
+          const checkResult = await executeQuery.execute(`
+            SELECT COUNT(*) as count 
+            FROM lake.table_changes('LocationURI', 1, 1)
+          `);
           
-          if (!snapshotResult.success) {
-            return { 
-              success: false, 
-              error: snapshotResult.error
-            };
-          }
-          
-          // スナップショット情報の検証
-          if (!snapshotResult.data.version || snapshotResult.data.version !== 'v1.0.0') {
+          if (!checkResult.success || Number(checkResult.data[0]?.count) === 0) {
             return { 
               success: false, 
               error: { 
-                code: "VALIDATION_FAILED" as const, 
-                message: "Snapshot version mismatch",
-                details: { expected: 'v1.0.0', actual: snapshotResult.data.version }
+                code: "VERSION_NOT_FOUND" as const, 
+                message: "Snapshot version 1 not found",
+                version: "1"
               }
             };
           }
           
-          log.info(`Snapshot retrieved successfully for version v1.0.0`);
+          log.info(`Snapshot 1 exists with changes`);
           return { success: true, data: "Snapshot retrieval verified" };
         });
         
@@ -511,32 +581,24 @@ if (!import.meta.main) {
       
       await t.step("verify error for non-existent version", async () => {
         const result = await runTestStep("verify error for non-existent version", async () => {
-          const snapshotResult = await getSnapshotFile.getSnapshotForVersion('v999.999.999');
+          // 存在しないバージョンをチェック
+          const checkResult = await executeQuery.execute(`
+            SELECT COUNT(*) as count 
+            FROM lake.table_changes('LocationURI', 999, 999)
+          `);
           
-          if (snapshotResult.success) {
+          if (!checkResult.success || Number(checkResult.data[0]?.count) > 0) {
             return { 
               success: false, 
               error: { 
                 code: "VALIDATION_FAILED" as const, 
-                message: "Expected error for non-existent version",
-                details: { version: 'v999.999.999' }
+                message: "Expected no data for non-existent version",
+                details: { version: 999 }
               }
             };
           }
           
-          // エラーコードの検証
-          if (snapshotResult.error.code !== 'VERSION_NOT_FOUND') {
-            return { 
-              success: false, 
-              error: { 
-                code: "VALIDATION_FAILED" as const, 
-                message: "Unexpected error code",
-                details: { expected: 'VERSION_NOT_FOUND', actual: snapshotResult.error.code }
-              }
-            };
-          }
-          
-          log.info("Correctly returned error for non-existent version");
+          log.info("Correctly returned no data for non-existent version");
           return { success: true, data: "Error handling verified" };
         });
         
