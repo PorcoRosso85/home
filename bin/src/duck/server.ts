@@ -742,7 +742,7 @@ if (!import.meta.main) {
             timestamp: new Date().toISOString(),
             operation_types: metadata.operation_types ? metadata.operation_types.split(',').sort() : [],
             table_schema: schemaInfo || { name: 'test_table', columns: [] },
-            data: dataResult.data,
+            snapshotData: dataResult.data,
             metadata: {
               row_count: dataResult.data.length,
               total_changes: Number(metadata.total_changes || 0),
@@ -765,13 +765,13 @@ if (!import.meta.main) {
             };
           }
           
-          if (!Array.isArray(snapshotResponse.data)) {
+          if (!Array.isArray(snapshotResponse.snapshotData)) {
             return { 
               success: false, 
               error: { 
                 code: "VALIDATION_FAILED" as const, 
-                message: "Data must be an array",
-                details: { data: snapshotResponse.data }
+                message: "Snapshot data must be an array",
+                details: { snapshotData: snapshotResponse.snapshotData }
               }
             };
           }

@@ -55,7 +55,7 @@ export function buildSnapshotResponse<T = Record<string, any>>(
     timestamp: new Date().toISOString(),
     operation_types: operationTypes,
     table_schema: tableSchema,
-    data: snapshotData,
+    snapshotData: snapshotData,
     metadata: {
       row_count: snapshotData.length,
       total_changes: Number(tableChangesMetadata.total_changes || 0),
@@ -74,7 +74,7 @@ export function buildSnapshotResponse<T = Record<string, any>>(
 export function validateSnapshotResponse<T>(response: SnapshotResponse<T>): boolean {
   return (
     response.version > 0 &&
-    Array.isArray(response.data) &&
+    Array.isArray(response.snapshotData) &&
     Array.isArray(response.operation_types) &&
     response.metadata.row_count >= 0 &&
     response.metadata.total_changes >= 0

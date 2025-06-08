@@ -52,7 +52,7 @@ export type SnapshotResponse<T = Record<string, any>> = {
   };
   
   // SnapshotData<T>をそのまま使用
-  data: SnapshotData<T>;
+  snapshotData: SnapshotData<T>;
   
   // 各種メタデータを数値変換して格納
   metadata: {
