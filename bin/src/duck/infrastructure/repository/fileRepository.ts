@@ -11,6 +11,7 @@ export type FileRepository = {
   getFileCount: () => Promise<number>;
   getTotalSize: () => Promise<number>;
   cleanupTempDirectory: (path: string) => Promise<boolean>;
+  getDataPath: () => string;
 };
 
 // 高階関数による依存性注入
@@ -37,7 +38,8 @@ export function createFileRepository(dataPath: string): FileRepository {
           path: filePath,
           size: stat.size,
           type: entry.name.includes('delete') ? 'delete' : 'data',
-          createdAt: stat.mtime?.toISOString() || new Date().toISOString()
+          createdAt: stat.mtime?.toISOString() || new Date().toISOString(),
+          timestamp: stat.mtime?.toISOString() || new Date().toISOString()
         });
       }
     }
@@ -62,11 +64,16 @@ export function createFileRepository(dataPath: string): FileRepository {
     return result;
   }
   
+  function getDataPath(): string {
+    return dataPath;
+  }
+  
   return {
     listParquetFiles,
     getFileCount,
     getTotalSize,
-    cleanupTempDirectory
+    cleanupTempDirectory,
+    getDataPath
   };
 }
 
@@ -76,6 +83,7 @@ export function createMockFileRepository(mockFiles: FileInfo[] = []): FileReposi
     listParquetFiles: async () => mockFiles,
     getFileCount: async () => mockFiles.length,
     getTotalSize: async () => mockFiles.reduce((sum, f) => sum + f.size, 0),
-    cleanupTempDirectory: async () => true
+    cleanupTempDirectory: async () => true,
+    getDataPath: () => "./mock_data"
   };
 }

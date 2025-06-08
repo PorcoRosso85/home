@@ -27,6 +27,15 @@ export type SnapshotInfo = {
   description?: string;
 };
 
+// ファイル情報
+export type FileInfo = {
+  path: string;
+  size: number;
+  type: 'data' | 'delete';
+  createdAt: string;
+  timestamp?: string;
+};
+
 // DuckLake APIレスポンス型をインポート
 import type { 
   TableChangesMetadata, 

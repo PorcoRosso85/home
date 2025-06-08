@@ -32,7 +32,8 @@ export function isApplicationError(error: AppError): error is ApplicationError {
     "OPERATION_FAILED",
     "DUCKLAKE_NOT_AVAILABLE",
     "CATALOG_CREATION_FAILED",
-    "TEST_ENVIRONMENT_FAILED"
+    "TEST_ENVIRONMENT_FAILED",
+    "VERSION_NOT_FOUND"
   ].includes(error.code);
 }
 
