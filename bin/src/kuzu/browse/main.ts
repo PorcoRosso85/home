@@ -7,6 +7,7 @@ import { dispatchDatabaseReady } from './infrastructure/database/databaseEvent';
 import { createConnection } from './infrastructure/repository/databaseConnection';
 import { createSchema } from './application/usecase/createSchema';
 import { createDatabaseData } from './application/usecase/createDatabaseData';
+import { insertDuckVersions } from './application/usecase/insertDuckVersions';
 import { env, validateEnvironment } from './infrastructure/config/variables';
 
 // 環境変数の検証
@@ -52,10 +53,18 @@ async function initializeApp(): Promise<void> {
   // 3. kuzuBrowseプロジェクトデータ挿入
   await createDatabaseData.kuzuBrowse(conn);
   
-  // 4. database-readyイベントを発火
+  // 4. DuckLakeバージョン挿入（Phase 1確認用）
+  const insertResult = await insertDuckVersions(conn);
+  if ('code' in insertResult) {
+    logger.error('DuckLakeバージョン挿入失敗:', insertResult.message);
+  } else {
+    logger.info(`DuckLakeバージョン ${insertResult.insertedCount} 件挿入完了`);
+  }
+  
+  // 5. database-readyイベントを発火
   dispatchDatabaseReady();
   
-  // 5. Reactアプリをマウント（データベース準備完了後）
+  // 6. Reactアプリをマウント（データベース準備完了後）
   logger.debug('Reactアプリをマウント中...');
   mountReactApp();
 }

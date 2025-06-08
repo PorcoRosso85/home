@@ -17,6 +17,9 @@ export interface EnvironmentVariables {
   }>;
 //  // Claude関連設定（最小構成）
   CLAUDE_WS_ENDPOINT: string;
+  // Duck API設定
+  DUCK_API_HOST: string;
+  DUCK_API_PORT: string;
 }
 
 // バリデーションエラー
@@ -92,6 +95,9 @@ export const env: EnvironmentVariables = {
   DB_PATH: getOptionalEnv('DB_PATH', './kuzu.db', validators.path),
   // Claude関連設定（最小構成）
   CLAUDE_WS_ENDPOINT: getOptionalEnv('CLAUDE_WS_ENDPOINT', 'ws://localhost:8080'),
+  // Duck API設定
+  DUCK_API_HOST: getOptionalEnv('DUCK_API_HOST', 'localhost', validators.host),
+  DUCK_API_PORT: getOptionalEnv('DUCK_API_PORT', '8000', validators.port),
   KUZU_MOUNTS: (() => {
     try {
       const mounts = (import.meta as any).env?.KUZU_MOUNTS;
@@ -129,6 +135,8 @@ export function validateEnvironment(): void {
     API_HOST: env.API_HOST,
     API_PORT: env.API_PORT,
     DB_PATH: env.DB_PATH,
-    KUZU_MOUNTS: env.KUZU_MOUNTS
+    KUZU_MOUNTS: env.KUZU_MOUNTS,
+    DUCK_API_HOST: env.DUCK_API_HOST,
+    DUCK_API_PORT: env.DUCK_API_PORT
   });
 }

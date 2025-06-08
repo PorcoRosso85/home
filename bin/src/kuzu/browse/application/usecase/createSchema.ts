@@ -25,24 +25,26 @@ type SchemaResult = SchemaLoadSuccess | FetchError | QueryExecutionError;
  * 規約準拠: try-catch禁止、throw文禁止、共用体型エラーハンドリング
  */
 export async function createSchema(conn: any): Promise<SchemaResult> {
-  logger.debug('DDLスキーマ読み込み中...');
+  logger.info('DDLスキーマ読み込み開始...');
   
   // DDLファイルを安全に取得
   const fetchResult = await fetchDdlFileSafely('/ddl/schema.cypher');
   if (fetchResult.status === "fetch_error") {
+    logger.error('DDLファイルの取得に失敗:', fetchResult.message);
     return fetchResult;
   }
   
   const ddlContent = fetchResult.data;
-  logger.debug(`DDL内容: ${ddlContent.substring(0, 100)}...`);
+  logger.info(`DDL内容の長さ: ${ddlContent.length}文字`);
+  logger.info(`DDL内容（最初の200文字）: ${ddlContent.substring(0, 200)}...`);
   
   // DDLコマンドを分割
   const ddlCommands = parseDdlCommands(ddlContent);
-  logger.debug(`DDLコマンド数: ${ddlCommands.length}`);
+  logger.info(`DDLコマンド数: ${ddlCommands.length}`);
   
   // コマンドを順次実行
   for (const command of ddlCommands) {
-    logger.debug(`DDL実行中: ${command.substring(0, 50)}...`);
+    logger.info(`DDL実行中: ${command.substring(0, 100)}...`);
     
     const executionResult = await executeCommandSafely(conn, command);
     if (executionResult.status === "query_execution_error") {

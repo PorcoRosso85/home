@@ -105,6 +105,21 @@ function createHandler(deps: ServerDependencies) {
     
     log.info(`${method} ${path}`);
     
+    // CORSヘッダー
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
+    };
+    
+    // プリフライトリクエスト対応
+    if (method === "OPTIONS") {
+      return new Response(null, { 
+        status: 204, 
+        headers: corsHeaders 
+      });
+    }
+    
     // パスからバージョンパラメータを抽出
     const snapshotMatch = path.match(/^\/api\/snapshot\/(.+)$/);
     
@@ -127,7 +142,13 @@ function createHandler(deps: ServerDependencies) {
             ducklake: ducklakeStatus,
             mode: "snapshot-provider"
           }),
-          { status: 200, headers: { "Content-Type": CONTENT_TYPE_JSON } }
+          { 
+            status: 200, 
+            headers: { 
+              "Content-Type": CONTENT_TYPE_JSON,
+              ...corsHeaders 
+            } 
+          }
         );
       }
       
@@ -147,7 +168,10 @@ function createHandler(deps: ServerDependencies) {
             JSON.stringify(formatted),
             { 
               status: getHttpStatusCode(error), 
-              headers: { "Content-Type": CONTENT_TYPE_JSON } 
+              headers: { 
+                "Content-Type": CONTENT_TYPE_JSON,
+                ...corsHeaders 
+              } 
             }
           );
         }
@@ -162,14 +186,23 @@ function createHandler(deps: ServerDependencies) {
             JSON.stringify(formatted),
             { 
               status: getHttpStatusCode(result), 
-              headers: { "Content-Type": CONTENT_TYPE_JSON } 
+              headers: { 
+                "Content-Type": CONTENT_TYPE_JSON,
+                ...corsHeaders 
+              } 
             }
           );
         }
         
         return new Response(
           JSON.stringify(result),
-          { status: 200, headers: { "Content-Type": CONTENT_TYPE_JSON } }
+          { 
+            status: 200, 
+            headers: { 
+              "Content-Type": CONTENT_TYPE_JSON,
+              ...corsHeaders 
+            } 
+          }
         );
       }
       
@@ -241,7 +274,10 @@ function createHandler(deps: ServerDependencies) {
             JSON.stringify(formatted),
             { 
               status: 404, 
-              headers: { "Content-Type": CONTENT_TYPE_JSON } 
+              headers: { 
+                "Content-Type": CONTENT_TYPE_JSON,
+                ...corsHeaders 
+              } 
             }
           );
         }
@@ -255,7 +291,10 @@ function createHandler(deps: ServerDependencies) {
           }),
           { 
             status: 200, 
-            headers: { "Content-Type": CONTENT_TYPE_JSON } 
+            headers: { 
+              "Content-Type": CONTENT_TYPE_JSON,
+              ...corsHeaders 
+            } 
           }
         );
       }
@@ -281,7 +320,10 @@ function createHandler(deps: ServerDependencies) {
               JSON.stringify(formatted),
               { 
                 status: 400, 
-                headers: { "Content-Type": CONTENT_TYPE_JSON } 
+                headers: { 
+                  "Content-Type": CONTENT_TYPE_JSON,
+                  ...corsHeaders 
+                } 
               }
             );
           }
@@ -317,7 +359,10 @@ function createHandler(deps: ServerDependencies) {
                   JSON.stringify(formatted),
                   { 
                     status: 404, 
-                    headers: { "Content-Type": CONTENT_TYPE_JSON } 
+                    headers: { 
+                      "Content-Type": CONTENT_TYPE_JSON,
+                      ...corsHeaders 
+                    } 
                   }
                 );
               }
@@ -334,7 +379,10 @@ function createHandler(deps: ServerDependencies) {
                 JSON.stringify(formatted),
                 { 
                   status: 500, 
-                  headers: { "Content-Type": CONTENT_TYPE_JSON } 
+                  headers: { 
+                    "Content-Type": CONTENT_TYPE_JSON,
+                    ...corsHeaders 
+                  } 
                 }
               );
             }
@@ -356,7 +404,8 @@ function createHandler(deps: ServerDependencies) {
                   "Content-Type": "application/octet-stream",
                   "Content-Disposition": `attachment; filename="LocationURI_snapshot_v${versionNum}.parquet"`,
                   "X-Snapshot-Version": String(versionNum),
-                  "X-DuckLake-Table": "LocationURI"
+                  "X-DuckLake-Table": "LocationURI",
+                  ...corsHeaders
                 } 
               }
             );
@@ -378,7 +427,10 @@ function createHandler(deps: ServerDependencies) {
               JSON.stringify(formatted),
               { 
                 status: 500, 
-                headers: { "Content-Type": CONTENT_TYPE_JSON } 
+                headers: { 
+                  "Content-Type": CONTENT_TYPE_JSON,
+                  ...corsHeaders 
+                } 
               }
             );
           }
@@ -397,7 +449,10 @@ function createHandler(deps: ServerDependencies) {
           JSON.stringify(formatted),
           { 
             status: getHttpStatusCode(error), 
-            headers: { "Content-Type": CONTENT_TYPE_JSON } 
+            headers: { 
+              "Content-Type": CONTENT_TYPE_JSON,
+              ...corsHeaders 
+            } 
           }
         );
       }
