@@ -46,7 +46,9 @@ type ServerDependencies = {
 async function createServer(dataPath: string) {
   log.info(`Starting ${SERVER_NAME}...`);
   
-  const instance = await DuckDBInstance.create();
+  // 永続化オプション（環境変数で切り替え可能）
+  const dbPath = Deno.env.get("DUCK_DB_PATH") || ""; // 空文字列 = In-Memory
+  const instance = await DuckDBInstance.create(dbPath);
   const connection = await instance.connect();
   
   // リポジトリの作成
@@ -162,6 +164,138 @@ function createHandler(deps: ServerDependencies) {
           JSON.stringify(result),
           { status: 200, headers: { "Content-Type": CONTENT_TYPE_JSON } }
         );
+      }
+      
+      case "POST:/api/data/all": {
+        // Browse用統合データ取得
+        const versionsResult = await deps.executeQuery.execute(
+          "SELECT * FROM VersionState"
+        );
+        const locationsResult = await deps.executeQuery.execute(
+          "SELECT * FROM LocationURI"
+        );
+        const relationsResult = await deps.executeQuery.execute(
+          "SELECT * FROM TRACKS_STATE_OF_LOCATED_ENTITY"
+        );
+        
+        // デバッグ情報を追加
+        if (!versionsResult.success) {
+          log.error("Failed to fetch versions:", versionsResult.error);
+        }
+        if (!locationsResult.success) {
+          log.error("Failed to fetch locations:", locationsResult.error);
+        }
+        if (!relationsResult.success) {
+          log.error("Failed to fetch relations:", relationsResult.error);
+        }
+        
+        if (!versionsResult.success || !locationsResult.success || !relationsResult.success) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Failed to fetch data",
+              details: {
+                versions: versionsResult.success ? "ok" : versionsResult.error,
+                locations: locationsResult.success ? "ok" : locationsResult.error,
+                relations: relationsResult.success ? "ok" : relationsResult.error
+              }
+            }),
+            { 
+              status: 500, 
+              headers: { "Content-Type": CONTENT_TYPE_JSON } 
+            }
+          );
+        }
+        
+        // BigInt対策
+        const stringify = (obj: any) => JSON.stringify(obj, (key, value) =>
+          typeof value === 'bigint' ? value.toString() : value
+        );
+        
+        return new Response(
+          stringify({
+            success: true,
+            data: {
+              versions: versionsResult.data,
+              locations: locationsResult.data,
+              relations: relationsResult.data
+            }
+          }),
+          { 
+            status: 200, 
+            headers: { "Content-Type": CONTENT_TYPE_JSON } 
+          }
+        );
+      }
+      
+      case "POST:/api/export/parquet": {
+        // Parquetファイルとしてエクスポート
+        const exportDir = "/tmp/duck-export";
+        await Deno.mkdir(exportDir, { recursive: true });
+        
+        // 各テーブルをParquetにエクスポート
+        const exports = [
+          { table: "VersionState", file: "versions.parquet" },
+          { table: "LocationURI", file: "locations.parquet" },
+          { table: "TRACKS_STATE_OF_LOCATED_ENTITY", file: "relations.parquet" }
+        ];
+        
+        for (const exp of exports) {
+          const result = await deps.executeQuery.execute(
+            `COPY ${exp.table} TO '${exportDir}/${exp.file}' (FORMAT PARQUET)`
+          );
+          if (!result.success) {
+            return new Response(
+              JSON.stringify({ success: false, error: `Failed to export ${exp.table}` }),
+              { status: 500, headers: { "Content-Type": CONTENT_TYPE_JSON } }
+            );
+          }
+        }
+        
+        // KuzuDB用のCOPYクエリを返す
+        return new Response(
+          JSON.stringify({
+            success: true,
+            files: {
+              versions: `${exportDir}/versions.parquet`,
+              locations: `${exportDir}/locations.parquet`, 
+              relations: `${exportDir}/relations.parquet`
+            },
+            copyQueries: [
+              `COPY VersionState FROM '${exportDir}/versions.parquet'`,
+              `COPY LocationURI FROM '${exportDir}/locations.parquet'`,
+              `COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '${exportDir}/relations.parquet'`
+            ]
+          }),
+          { status: 200, headers: { "Content-Type": CONTENT_TYPE_JSON } }
+        );
+      }
+      
+      case "POST:/api/export/file": {
+        // ファイル内容を直接返す（Base64エンコード）
+        const body = await req.json();
+        const filename = body.filename;
+        const filepath = `/tmp/duck-export/${filename}`;
+        
+        try {
+          const file = await Deno.readFile(filepath);
+          const base64 = btoa(String.fromCharCode(...file));
+          
+          return new Response(
+            JSON.stringify({
+              success: true,
+              filename: filename,
+              content: base64,
+              encoding: "base64"
+            }),
+            { status: 200, headers: { "Content-Type": CONTENT_TYPE_JSON } }
+          );
+        } catch {
+          return new Response(
+            JSON.stringify({ success: false, error: "File not found" }),
+            { status: 404, headers: { "Content-Type": CONTENT_TYPE_JSON } }
+          );
+        }
       }
       
       default: {
