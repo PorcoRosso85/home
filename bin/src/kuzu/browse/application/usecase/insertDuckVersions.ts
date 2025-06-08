@@ -49,21 +49,6 @@ export async function insertDuckVersions(conn: any): Promise<InsertResult> {
   
   logger.info(`[insertDuckVersions] Fetched ${versionsResult.versions.length} versions from DuckLake`);
   
-  // デバッグ: DuckLakeから返されたデータを確認
-  logger.info('[insertDuckVersions] DuckLake versions raw data:', JSON.stringify(versionsResult.versions, null, 2));
-  
-  // 各バージョンのデータ構造を確認
-  versionsResult.versions.forEach((v, index) => {
-    logger.info(`[insertDuckVersions] Version[${index}] structure:`, {
-      hasVersion: 'version' in v,
-      versionValue: v.version,
-      versionType: typeof v.version,
-      hasTimestamp: 'timestamp' in v,
-      timestampValue: v.timestamp,
-      allKeys: Object.keys(v)
-    });
-  });
-  
   // トランザクション開始
   await conn.query("BEGIN TRANSACTION");
   
@@ -72,24 +57,18 @@ export async function insertDuckVersions(conn: any): Promise<InsertResult> {
     
     // 各バージョンをVersionStateとして挿入
     for (const duckVersion of versionsResult.versions) {
-      // デバッグ: 現在処理中のバージョンデータ
-      logger.info(`[insertDuckVersions] Processing version data:`, JSON.stringify(duckVersion));
-      
       // NULL値チェック（versionIdを生成する前に）
       if (!duckVersion.version || !duckVersion.timestamp) {
         logger.error(`[insertDuckVersions] Missing required fields:`, {
           version: duckVersion.version,
-          timestamp: duckVersion.timestamp,
-          fullData: JSON.stringify(duckVersion)
+          timestamp: duckVersion.timestamp
         });
         continue;
       }
       
       const versionId = `ducklake-v${duckVersion.version}`;
-      logger.info(`[insertDuckVersions] Generated versionId: ${versionId}`);
       
       // 既存チェック
-      logger.info(`[insertDuckVersions] Checking existence of ${versionId}`);
       let checkResult;
       try {
         checkResult = await conn.query(
@@ -101,7 +80,6 @@ export async function insertDuckVersions(conn: any): Promise<InsertResult> {
       }
       const checkData = await checkResult.getAllObjects();
       await checkResult.close();
-      logger.info(`[insertDuckVersions] Existence check result: ${checkData.length} found`);
       
       if (checkData.length === 0) {
         // パラメータ作成
@@ -112,41 +90,29 @@ export async function insertDuckVersions(conn: any): Promise<InsertResult> {
           change_reason: `Rows: ${duckVersion.row_count || 0}, Changes: +${duckVersion.changes?.inserts || 0} -${duckVersion.changes?.deletes || 0}`,
           progress_percentage: 100.0
         };
-        logger.info(`[insertDuckVersions] Creating VersionState for ${versionId}`);
         
         // VersionStateノード作成
-        logger.info(`[insertDuckVersions] Executing CREATE query for ${versionId}`);
         let createResult;
         try {
-          // 文字列エスケープ処理
-          const escapedId = versionId.replace(/'/g, "''");
-          const escapedTimestamp = params.timestamp.replace(/'/g, "''");
-          const escapedDescription = params.description.replace(/'/g, "''");
-          const escapedReason = params.change_reason.replace(/'/g, "''");
-          
+          // Kuzu-wasmのバグ回避: progress_percentageはFLOAT型なので直接数値を埋め込む
           const createQuery = `CREATE (v:VersionState {
-            id: '${escapedId}',
-            timestamp: '${escapedTimestamp}',
-            description: '${escapedDescription}',
-            change_reason: '${escapedReason}',
+            id: '${versionId}',
+            timestamp: '${params.timestamp}',
+            description: '${params.description}',
+            change_reason: '${params.change_reason}',
             progress_percentage: ${params.progress_percentage}
           })`;
-          
-          logger.info(`[insertDuckVersions] Query: ${createQuery}`);
           
           createResult = await conn.query(createQuery);
         } catch (createError) {
           logger.error(`[insertDuckVersions] Error in CREATE for ${versionId}:`, createError);
-          logger.error(`[insertDuckVersions] Query params were:`, JSON.stringify(params, null, 2));
-          logger.error(`[insertDuckVersions] Raw duckVersion data:`, JSON.stringify(duckVersion, null, 2));
           throw createError;
         }
         await createResult.close();
         
         insertedCount++;
-        logger.info(`[insertDuckVersions] Successfully inserted version: ${versionId}`);
       } else {
-        logger.info(`[insertDuckVersions] Version already exists: ${versionId}`);
+        logger.debug(`[insertDuckVersions] Version already exists: ${versionId}`);
       }
     }
     
@@ -168,7 +134,7 @@ export async function insertDuckVersions(conn: any): Promise<InsertResult> {
           `MATCH (v1:VersionState {id: '${fromId}'}), (v2:VersionState {id: '${toId}'}) CREATE (v1)-[:FOLLOWS]->(v2)`
         );
         await followsResult.close();
-        logger.info(`[insertDuckVersions] Created FOLLOWS: ${fromId} -> ${toId}`);
+        logger.debug(`[insertDuckVersions] Created FOLLOWS: ${fromId} -> ${toId}`);
       }
     }
     
@@ -181,7 +147,7 @@ export async function insertDuckVersions(conn: any): Promise<InsertResult> {
     
     try {
       await conn.query("ROLLBACK");
-      logger.info('[insertDuckVersions] Transaction rolled back');
+      logger.debug('[insertDuckVersions] Transaction rolled back');
     } catch (rollbackError) {
       logger.error('[insertDuckVersions] Rollback error:', rollbackError);
     }

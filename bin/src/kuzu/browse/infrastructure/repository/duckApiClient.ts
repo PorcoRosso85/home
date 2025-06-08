@@ -54,7 +54,6 @@ export function createDuckApiClient(config: DuckApiConfig) {
      */
     fetchVersions: async (): Promise<FetchVersionsResult> => {
       const url = `${baseUrl}/api/versions`;
-      logger.info(`[DuckAPI] Fetching versions from: ${url}`);
       
       try {
         const response = await fetch(url, {
@@ -85,9 +84,6 @@ export function createDuckApiClient(config: DuckApiConfig) {
         
         const data = await response.json() as VersionsResponse;
         logger.info(`[DuckAPI] Fetched ${data.versions.length} versions`);
-        
-        // デバッグ: レスポンスの詳細を確認
-        logger.info('[DuckAPI] Response data:', JSON.stringify(data, null, 2));
         
         return data;
       } catch (error) {

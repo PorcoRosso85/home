@@ -15,15 +15,6 @@ validateEnvironment();
 
 // ブラウザ用にログレベルを設定
 (window as any).LOG_LEVEL = parseInt(env.LOG_LEVEL);
-logger.debug('LOG_LEVEL設定:', (window as any).LOG_LEVEL);
-logger.debug('環境変数:', env);
-
-// loggerをテスト
-logger.debug('Testing logger functions...');
-logger.error('Test error log');
-logger.warn('Test warn log');
-logger.info('Test info log');
-logger.debug('Test debug log');
 
 /**
  * Reactアプリをマウント
