@@ -20,6 +20,10 @@ export interface EnvironmentVariables {
   // Duck API設定
   DUCK_API_HOST: string;
   DUCK_API_PORT: string;
+  // DuckLakeクライアント設定
+  DUCKLAKE_MAX_RETRIES: string;
+  DUCKLAKE_RETRY_DELAY_MS: string;
+  DUCKLAKE_CONCURRENT_CONNECTIONS: string;
 }
 
 // バリデーションエラー
@@ -83,6 +87,13 @@ const validators = {
     if (!value || value.length === 0) {
       throw new EnvironmentValidationError(`Invalid path: ${value}. Cannot be empty`);
     }
+  },
+  
+  positiveNumber: (value: string) => {
+    const num = parseInt(value);
+    if (isNaN(num) || num < 1) {
+      throw new EnvironmentValidationError(`Invalid positive number: ${value}. Must be greater than 0`);
+    }
   }
 };
 
@@ -98,6 +109,10 @@ export const env: EnvironmentVariables = {
   // Duck API設定
   DUCK_API_HOST: getOptionalEnv('DUCK_API_HOST', 'localhost', validators.host),
   DUCK_API_PORT: getOptionalEnv('DUCK_API_PORT', '8000', validators.port),
+  // DuckLakeクライアント設定
+  DUCKLAKE_MAX_RETRIES: getOptionalEnv('DUCKLAKE_MAX_RETRIES', '3', validators.positiveNumber),
+  DUCKLAKE_RETRY_DELAY_MS: getOptionalEnv('DUCKLAKE_RETRY_DELAY_MS', '1000', validators.positiveNumber),
+  DUCKLAKE_CONCURRENT_CONNECTIONS: getOptionalEnv('DUCKLAKE_CONCURRENT_CONNECTIONS', '8', validators.positiveNumber),
   KUZU_MOUNTS: (() => {
     try {
       const mounts = (import.meta as any).env?.KUZU_MOUNTS;
@@ -137,6 +152,9 @@ export function validateEnvironment(): void {
     DB_PATH: env.DB_PATH,
     KUZU_MOUNTS: env.KUZU_MOUNTS,
     DUCK_API_HOST: env.DUCK_API_HOST,
-    DUCK_API_PORT: env.DUCK_API_PORT
+    DUCK_API_PORT: env.DUCK_API_PORT,
+    DUCKLAKE_MAX_RETRIES: env.DUCKLAKE_MAX_RETRIES,
+    DUCKLAKE_RETRY_DELAY_MS: env.DUCKLAKE_RETRY_DELAY_MS,
+    DUCKLAKE_CONCURRENT_CONNECTIONS: env.DUCKLAKE_CONCURRENT_CONNECTIONS
   });
 }
