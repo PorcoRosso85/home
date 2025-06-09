@@ -122,6 +122,8 @@ function createHandler(deps: ServerDependencies) {
     
     // パスからバージョンパラメータを抽出
     const snapshotMatch = path.match(/^\/api\/snapshot\/(.+)$/);
+    const snapshotTablesMatch = path.match(/^\/api\/snapshot\/(\d+)\/tables$/);
+    const snapshotTableMatch = path.match(/^\/api\/snapshot\/(\d+)\/(\w+)$/);
     
     // ルーティングをパターンマッチで処理
     const route = `${method}:${path}`;
@@ -300,18 +302,21 @@ function createHandler(deps: ServerDependencies) {
       }
       
       default: {
-        // スナップショットエンドポイントのパターンマッチング
-        if (method === "POST" && snapshotMatch) {
-          const version = snapshotMatch[1];
-          log.info(`Snapshot request for version: ${version}`);
+        // テーブル一覧エンドポイント
+        if (method === "POST" && snapshotTablesMatch) {
+          const versionNum = parseInt(snapshotTablesMatch[1]);
+          log.info(`Tables list request for version: ${versionNum}`);
           
-          // バージョンパラメータの検証
-          const versionNum = parseInt(version);
-          if (isNaN(versionNum)) {
+          // DuckLakeから実際のテーブル一覧を取得
+          const tableListQuery = `SELECT table_name FROM information_schema.tables WHERE table_catalog = 'lake' AND table_schema = 'main'`;
+          const tableListResult = await deps.executeQuery.execute(tableListQuery);
+          
+          if (isQueryError(tableListResult)) {
+            log.error("Failed to get table list:", tableListResult.message);
             const error: ApplicationError = {
-              code: "VALIDATION_FAILED",
-              message: "[Snapshot Export] Invalid version format. Expected numeric snapshot ID.",
-              details: { version }
+              code: "OPERATION_FAILED",
+              message: `[Table List] Failed to retrieve tables: ${tableListResult.message}`,
+              operation: "list_tables"
             };
             
             const formatted = formatError(error);
@@ -319,7 +324,7 @@ function createHandler(deps: ServerDependencies) {
             return new Response(
               JSON.stringify(formatted),
               { 
-                status: 400, 
+                status: 500, 
                 headers: { 
                   "Content-Type": CONTENT_TYPE_JSON,
                   ...corsHeaders 
@@ -328,16 +333,92 @@ function createHandler(deps: ServerDependencies) {
             );
           }
           
-          // 指定バージョンのLocationURIデータをParquetにエクスポート
-          const tempDir = `/tmp/ducklake-snapshot-${versionNum}`;
+          // 各テーブルのメタデータを収集
+          const tablesInfo = [];
+          
+          for (const row of tableListResult.rows) {
+            const tableName = row.table_name;
+            
+            // 各テーブルの存在確認とメタデータ取得
+            const checkQuery = `SELECT COUNT(*) as count FROM lake.${tableName} AT (VERSION => ${versionNum})`;
+            const result = await deps.executeQuery.execute(checkQuery);
+            
+            if (!isQueryError(result)) {
+              const rowCount = result.rows[0]?.count || 0;
+              tablesInfo.push({
+                name: tableName,
+                rowCount: Number(rowCount),
+                exists: true,
+                sizeEstimate: `${(rowCount * 0.1).toFixed(1)}KB` // 概算サイズ
+              });
+            } else {
+              // テーブルが存在しない場合
+              tablesInfo.push({
+                name: tableName,
+                rowCount: 0,
+                exists: false,
+                sizeEstimate: "0KB"
+              });
+            }
+          }
+          
+          return new Response(
+            JSON.stringify({ 
+              version: versionNum,
+              tables: tablesInfo 
+            }),
+            { 
+              status: 200, 
+              headers: { 
+                "Content-Type": CONTENT_TYPE_JSON,
+                ...corsHeaders 
+              } 
+            }
+          );
+        }
+        
+        // 個別テーブル取得エンドポイント
+        if (method === "POST" && snapshotTableMatch) {
+          const versionNum = parseInt(snapshotTableMatch[1]);
+          const tableName = snapshotTableMatch[2];
+          log.info(`Table snapshot request for version: ${versionNum}, table: ${tableName}`);
+          
+          // 指定バージョンの指定テーブルデータをParquetにエクスポート
+          const tempDir = `/tmp/ducklake-snapshot-${versionNum}-${tableName}`;
           await Deno.mkdir(tempDir, { recursive: true });
           
           try {
+            // まずテーブルの存在確認
+            const checkQuery = `SELECT COUNT(*) as count FROM lake.${tableName} AT (VERSION => ${versionNum})`;
+            const checkResult = await deps.executeQuery.execute(checkQuery);
+            
+            if (isQueryError(checkResult)) {
+              const error: ApplicationError = {
+                code: "TABLE_NOT_FOUND",
+                message: `[Snapshot Export] Table ${tableName} does not exist in snapshot version ${versionNum}`,
+                table: tableName,
+                version: versionNum
+              };
+              
+              const formatted = formatError(error);
+              
+              return new Response(
+                JSON.stringify(formatted),
+                { 
+                  status: 404, 
+                  headers: { 
+                    "Content-Type": CONTENT_TYPE_JSON,
+                    ...corsHeaders 
+                  } 
+                }
+              );
+            }
+            
             // AT (VERSION => n) を使用して特定バージョンのデータをエクスポート
             const exportQuery = `
               COPY (
-                SELECT * FROM lake.LocationURI AT (VERSION => ${versionNum})
-              ) TO '${tempDir}/LocationURI_v${versionNum}.parquet' (FORMAT PARQUET)
+                SELECT * FROM lake.${tableName} AT (VERSION => ${versionNum})
+              ) TO '${tempDir}/${tableName}_v${versionNum}.parquet' (FORMAT PARQUET)
             `;
             
             const exportResult = await deps.executeQuery.execute(exportQuery);
@@ -345,32 +426,11 @@ function createHandler(deps: ServerDependencies) {
             if (isQueryError(exportResult)) {
               log.error("Failed to export snapshot:", exportResult.message);
               
-              // バージョンが存在しない可能性
-              if (exportResult.message.includes("VERSION") || exportResult.message.includes("snapshot")) {
-                const error: ApplicationError = {
-                  code: "VERSION_NOT_FOUND",
-                  message: `[Snapshot Export] Snapshot version ${versionNum} not found`,
-                  version: String(versionNum)
-                };
-                
-                const formatted = formatError(error);
-                
-                return new Response(
-                  JSON.stringify(formatted),
-                  { 
-                    status: 404, 
-                    headers: { 
-                      "Content-Type": CONTENT_TYPE_JSON,
-                      ...corsHeaders 
-                    } 
-                  }
-                );
-              }
-              
               const error: ApplicationError = {
                 code: "OPERATION_FAILED",
-                message: `[Snapshot Export] Failed to export snapshot: ${exportResult.message}`,
-                operation: "export_snapshot"
+                message: `[Snapshot Export] Failed to export table ${tableName}: ${exportResult.message}`,
+                operation: "export_snapshot",
+                table: tableName
               };
               
               const formatted = formatError(error);
@@ -388,13 +448,13 @@ function createHandler(deps: ServerDependencies) {
             }
             
             // エクスポートされたファイルを読み込み
-            const parquetPath = `${tempDir}/LocationURI_v${versionNum}.parquet`;
+            const parquetPath = `${tempDir}/${tableName}_v${versionNum}.parquet`;
             const fileContent = await Deno.readFile(parquetPath);
             
             // 一時ファイルをクリーンアップ
             await Deno.remove(tempDir, { recursive: true }).catch(() => {});
             
-            log.info(`Returning snapshot v${versionNum} (${fileContent.byteLength} bytes)`);
+            log.info(`Returning ${tableName} snapshot v${versionNum} (${fileContent.byteLength} bytes)`);
             
             return new Response(
               fileContent,
@@ -402,9 +462,9 @@ function createHandler(deps: ServerDependencies) {
                 status: 200, 
                 headers: { 
                   "Content-Type": "application/octet-stream",
-                  "Content-Disposition": `attachment; filename="LocationURI_snapshot_v${versionNum}.parquet"`,
+                  "Content-Disposition": `attachment; filename="${tableName}_snapshot_v${versionNum}.parquet"`,
                   "X-Snapshot-Version": String(versionNum),
-                  "X-DuckLake-Table": "LocationURI",
+                  "X-DuckLake-Table": tableName,
                   ...corsHeaders
                 } 
               }
@@ -418,7 +478,8 @@ function createHandler(deps: ServerDependencies) {
             const appError: ApplicationError = {
               code: "OPERATION_FAILED",
               message: `[Snapshot Processing] ${error instanceof Error ? error.message : String(error)}`,
-              operation: "process_snapshot"
+              operation: "process_snapshot",
+              table: tableName
             };
             
             const formatted = formatError(appError);
