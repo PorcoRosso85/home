@@ -70,7 +70,18 @@ export function createDuckDBRepository(deps: DuckDBDependencies): DuckDBReposito
       const data = rows.map((row) => {
         const obj: Record<string, any> = {};
         columns.forEach((name, idx) => {
-          obj[name] = row[idx];
+          const value = row[idx];
+          // BigIntをNumber型に変換（JSON.stringifyのため）
+          if (typeof value === 'bigint') {
+            // 安全な範囲内ならNumberに、超える場合は文字列に変換
+            if (value <= Number.MAX_SAFE_INTEGER && value >= Number.MIN_SAFE_INTEGER) {
+              obj[name] = Number(value);
+            } else {
+              obj[name] = value.toString();
+            }
+          } else {
+            obj[name] = value;
+          }
         });
         return obj;
       });
