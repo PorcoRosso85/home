@@ -7,12 +7,10 @@ import type {
 import { createError, createLocationUrisSuccess } from '../../common/errorHandler';
 import { isErrorResult } from '../../common/typeGuards';
 import * as logger from '../../../common/infrastructure/logger';
-import { createVersionCompletionService } from '../services/VersionCompletionService';
-import { createVersionProgressRepository } from '../../infrastructure/repository/VersionProgressRepository';
 
 /**
  * LocationURI取得とツリー構築のCore関数（Pure Logic）
- * CONVENTION.yaml準拠: try/catch完全除去、明示的分岐処理
+ * Duck APIからロードされたシンプルなデータ構造に対応
  */
 export const fetchLocationUrisCore = async (input: LocationUrisInput): Promise<LocationUrisResult> => {
   if (!input.dbConnection) {
@@ -23,22 +21,15 @@ export const fetchLocationUrisCore = async (input: LocationUrisInput): Promise<L
     return createLocationUrisSuccess([]);
   }
 
-  // Core層：LocationURIデータの取得（try/catch除去済み）
+  // LocationURIデータの取得
   const locationUrisResult = await fetchLocationUrisDataSafely(input.dbConnection, input.selectedVersionId);
   
   if (isErrorResult(locationUrisResult)) {
     return locationUrisResult;
   }
   
-  // Core層：完了状態の取得（try/catch除去済み）
-  const locationUrisWithCompletion = await attachCompletionStatusSafely(
-    locationUrisResult.data, 
-    input.dbConnection, 
-    input.selectedVersionId
-  );
-  
-  // Core層：ツリー構造への変換
-  const treeNodes = buildTreeFromLocationUris(locationUrisWithCompletion, input.selectedVersionId);
+  // ツリー構造への変換
+  const treeNodes = buildTreeFromLocationUris(locationUrisResult.data, input.selectedVersionId);
   
   return createLocationUrisSuccess(treeNodes);
 };
@@ -55,68 +46,89 @@ async function fetchLocationUrisDataSafely(dbConnection: any, selectedVersionId:
   
   const queryResult = await result.data.getAllObjects();
   
-  const locationUris = queryResult.map(row => ({
-    uri_id: row.uri_id || row.id,
-    scheme: row.scheme || '',
-    authority: row.authority || '',
-    path: row.path || '',
-    fragment: row.fragment || '',
-    query: row.query || '',
-    from_version: row.from_version,
-    version_description: row.version_description
-  }));
+  // idからURI情報を解析
+  const locationUris = queryResult.map(row => {
+    const uriId = row.id || row.uri_id;
+    const parsedUri = parseUriFromId(uriId);
+    
+    return {
+      uri_id: uriId,
+      scheme: parsedUri.scheme,
+      authority: parsedUri.authority,
+      path: parsedUri.path,
+      fragment: parsedUri.fragment,
+      query: parsedUri.query,
+      from_version: row.from_version || selectedVersionId,
+      isCompleted: true // DuckLakeでは常に完了扱い
+    };
+  });
   
   return createLocationUrisSuccess(locationUris);
 }
 
-// 完了状態の取得（try/catch完全除去版）
-async function attachCompletionStatusSafely(locationUris: any[], dbConnection: any, selectedVersionId: string) {
-  // 明示的分岐によるエラーハンドリング（try/catch禁止）
-  const repositoryResult = createVersionProgressRepositorySafely();
-  
-  if (isErrorResult(repositoryResult)) {
-    logger.debug('リポジトリ作成エラー:', repositoryResult.message);
-    return locationUris; // エラー時は元データをそのまま返す
+// URI IDからURI構成要素を解析
+function parseUriFromId(uriId: string): {
+  scheme: string;
+  authority: string;
+  path: string;
+  fragment: string;
+  query: string;
+} {
+  try {
+    // URL標準を使ってパース（file:// などの標準的なURIをサポート）
+    const url = new URL(uriId);
+    
+    return {
+      scheme: url.protocol.replace(':', ''), // "file:" -> "file"
+      authority: url.hostname || '',
+      path: url.pathname || '/',
+      fragment: url.hash.replace('#', '') || '',
+      query: url.search.replace('?', '') || ''
+    };
+  } catch (e) {
+    // URL標準でパースできない場合は手動で解析
+    logger.debug(`Manual parsing for non-standard URI: ${uriId}`);
+    
+    const schemeMatch = uriId.match(/^([^:]+):/);
+    const scheme = schemeMatch ? schemeMatch[1] : 'unknown';
+    
+    // スキーム以降の部分を取得
+    const afterScheme = uriId.substring(scheme.length + 1);
+    
+    // authorityとpathを分離（//で始まる場合はauthorityあり）
+    let authority = '';
+    let pathAndRest = afterScheme;
+    
+    if (afterScheme.startsWith('//')) {
+      const authorityEnd = afterScheme.indexOf('/', 2);
+      if (authorityEnd > -1) {
+        authority = afterScheme.substring(2, authorityEnd);
+        pathAndRest = afterScheme.substring(authorityEnd);
+      } else {
+        authority = afterScheme.substring(2);
+        pathAndRest = '';
+      }
+    }
+    
+    // fragment と query を分離
+    let path = pathAndRest;
+    let fragment = '';
+    let query = '';
+    
+    const fragmentIndex = path.indexOf('#');
+    if (fragmentIndex > -1) {
+      fragment = path.substring(fragmentIndex + 1);
+      path = path.substring(0, fragmentIndex);
+    }
+    
+    const queryIndex = path.indexOf('?');
+    if (queryIndex > -1) {
+      query = path.substring(queryIndex + 1);
+      path = path.substring(0, queryIndex);
+    }
+    
+    return { scheme, authority, path, fragment, query };
   }
-  
-  const versionService = createVersionCompletionService(repositoryResult.data);
-  const incompleteUrisResult = await getIncompleteUrisSafely(versionService, dbConnection, selectedVersionId);
-  
-  // 明示的分岐でエラーハンドリング
-  if (isIncompleteUrisError(incompleteUrisResult)) {
-    logger.debug('完了状態の取得に失敗:', incompleteUrisResult.message);
-    return locationUris;
-  }
-  
-  // 成功時の処理
-  const incompleteUriIds = new Set(incompleteUrisResult.data.map(uri => uri.uri_id));
-  return locationUris.map(uri => ({
-    ...uri,
-    isCompleted: !incompleteUriIds.has(uri.uri_id)
-  }));
-}
-
-// createVersionProgressRepository の安全版
-function createVersionProgressRepositorySafely() {
-  // 実装が成功すると仮定（実際の実装に依存）
-  const repository = createVersionProgressRepository();
-  return { data: repository };
-}
-
-// getIncompleteUrisSafely の明示的分岐版
-async function getIncompleteUrisSafely(versionService: any, dbConnection: any, selectedVersionId: string) {
-  const incompleteUris = await versionService.getIncompleteLocationUris(dbConnection, selectedVersionId);
-  
-  if (!incompleteUris) {
-    return { code: "INCOMPLETE_URIS_ERROR", message: "未完了URIの取得に失敗しました" };
-  }
-  
-  return { data: incompleteUris };
-}
-
-// エラー判定ヘルパー関数
-function isIncompleteUrisError(result: any): boolean {
-  return 'code' in result && 'message' in result;
 }
 
 // ツリー構造の構築
@@ -124,7 +136,7 @@ function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: stri
   const tree: NodeData[] = [];
   
   const schemeGroups = locationUris.reduce((acc, uri) => {
-    const scheme = uri.scheme || parseSchemeFromUriId(uri.uri_id);
+    const scheme = uri.scheme;
     if (!acc[scheme]) acc[scheme] = [];
     acc[scheme].push(uri);
     return acc;
@@ -161,24 +173,19 @@ function buildTreeFromLocationUris(locationUris: any[], selectedVersionId?: stri
   return tree;
 }
 
-function parseSchemeFromUriId(uriId: string): string {
-  const schemeMatch = uriId.match(/^([^:]+):/);
-  return schemeMatch ? schemeMatch[1] : 'unknown';
-}
-
 // ファイル階層構築
 function buildFileHierarchy(rootNode: NodeData, uris: any[], selectedVersionId?: string) {
   const pathMap = new Map<string, NodeData>();
   pathMap.set('/', rootNode);
   
   const sortedUris = uris.sort((a, b) => {
-    const pathA = a.path || parsePathFromUriId(a.uri_id);
-    const pathB = b.path || parsePathFromUriId(b.uri_id);
+    const pathA = a.path;
+    const pathB = b.path;
     return pathA.localeCompare(pathB);
   });
   
   sortedUris.forEach(uri => {
-    const path = uri.path || parsePathFromUriId(uri.uri_id);
+    const path = uri.path;
     const pathParts = path.split('/').filter(part => part !== '');
     let currentPath = '';
     let parentNode = rootNode;
@@ -211,14 +218,4 @@ function buildFileHierarchy(rootNode: NodeData, uris: any[], selectedVersionId?:
       parentNode = currentNode;
     }
   });
-}
-
-function parsePathFromUriId(uriId: string): string {
-  if (uriId.includes('://')) {
-    const url = new URL(uriId);
-    return url.pathname;
-  } else if (uriId.startsWith('file:')) {
-    return uriId.replace('file:', '');
-  }
-  return uriId;
 }
