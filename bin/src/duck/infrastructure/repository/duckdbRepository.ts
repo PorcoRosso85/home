@@ -26,6 +26,14 @@ export type DuckDBRepository = {
   getSnapshots: (catalog: string) => Promise<SnapshotInfo[]>;
   attachDuckLake: (name: string, metadataPath: string, dataPath: string) => Promise<QueryResult>;
   detachDuckLake: (name: string) => Promise<QueryResult>;
+  // DuckLake公式関数（規約に従いcamelCase）
+  ducklakeTableChanges: (catalog: string, tableName: string, startSnapshot: number, endSnapshot: number) => Promise<QueryResult>;
+  ducklakeTableInsertions: (catalog: string, tableName: string, startSnapshot: number, endSnapshot: number) => Promise<QueryResult>;
+  ducklakeTableDeletions: (catalog: string, tableName: string, startSnapshot: number, endSnapshot: number) => Promise<QueryResult>;
+  ducklakeTableInfo: (catalog: string) => Promise<QueryResult>;
+  ducklakeCleanupOldFiles: (catalog: string) => Promise<QueryResult>;
+  ducklakeExpireSnapshots: (catalog: string, versions?: number[], olderThan?: string) => Promise<QueryResult>;
+  ducklakeMergeAdjacentFiles: (catalog: string, tableName?: string, targetSizeMb?: number) => Promise<QueryResult>;
 };
 
 // 高階関数による依存性注入
@@ -104,6 +112,7 @@ export function createDuckDBRepository(deps: DuckDBDependencies): DuckDBReposito
   }
   
   async function getSnapshots(catalog: string): Promise<SnapshotInfo[]> {
+    // 公式関数 ducklake_snapshots() を使用
     const result = await executeQuery(`SELECT * FROM ducklake_snapshots('${catalog}')`);
     
     // エラーチェック（規約準拠）
@@ -113,9 +122,9 @@ export function createDuckDBRepository(deps: DuckDBDependencies): DuckDBReposito
     
     return result.rows.map((row) => ({
       snapshotId: row.snapshot_id || 0,
-      timestamp: row.committed_at || "",
+      timestamp: row.snapshot_time || "",
       tableCount: row.table_count || 0,
-      description: row.description
+      description: row.description || ""
     }));
   }
   
@@ -133,10 +142,102 @@ export function createDuckDBRepository(deps: DuckDBDependencies): DuckDBReposito
     return executeQuery(query);
   }
   
+  // DuckLake公式関数の実装
+  async function ducklakeTableChanges(
+    catalog: string,
+    tableName: string,
+    startSnapshot: number,
+    endSnapshot: number
+  ): Promise<QueryResult> {
+    const query = `SELECT * FROM ${catalog}.table_changes('${tableName}', ${startSnapshot}, ${endSnapshot})`;
+    return executeQuery(query);
+  }
+  
+  async function ducklakeTableInsertions(
+    catalog: string,
+    tableName: string,
+    startSnapshot: number,
+    endSnapshot: number
+  ): Promise<QueryResult> {
+    const query = `SELECT * FROM ${catalog}.table_insertions('${tableName}', ${startSnapshot}, ${endSnapshot})`;
+    return executeQuery(query);
+  }
+  
+  async function ducklakeTableDeletions(
+    catalog: string,
+    tableName: string,
+    startSnapshot: number,
+    endSnapshot: number
+  ): Promise<QueryResult> {
+    const query = `SELECT * FROM ${catalog}.table_deletions('${tableName}', ${startSnapshot}, ${endSnapshot})`;
+    return executeQuery(query);
+  }
+  
+  async function ducklakeTableInfo(catalog: string): Promise<QueryResult> {
+    const query = `SELECT * FROM ducklake_table_info('${catalog}')`;
+    return executeQuery(query);
+  }
+  
+  async function ducklakeCleanupOldFiles(catalog: string): Promise<QueryResult> {
+    const query = `SELECT ducklake_cleanup_old_files('${catalog}')`;
+    return executeQuery(query);
+  }
+  
+  async function ducklakeExpireSnapshots(
+    catalog: string,
+    versions?: number[],
+    olderThan?: string
+  ): Promise<QueryResult> {
+    let query: string;
+    
+    if (versions && versions.length > 0) {
+      const versionList = versions.join(',');
+      query = `SELECT ducklake_expire_snapshots('${catalog}', ARRAY[${versionList}])`;
+    } else if (olderThan) {
+      query = `SELECT ducklake_expire_snapshots('${catalog}', older_than => '${olderThan}')`;
+    } else {
+      // エラー型を返す
+      return {
+        code: "INVALID_PARAMETERS",
+        message: "[DuckLake Expire Snapshots] Either versions or olderThan must be specified",
+        query: "ducklake_expire_snapshots",
+        details: { catalog, versions, olderThan }
+      };
+    }
+    
+    return executeQuery(query);
+  }
+  
+  async function ducklakeMergeAdjacentFiles(
+    catalog: string,
+    tableName?: string,
+    targetSizeMb?: number
+  ): Promise<QueryResult> {
+    const args = [`'${catalog}'`];
+    
+    if (tableName) {
+      args.push(`'${tableName}'`);
+    }
+    
+    if (targetSizeMb) {
+      args.push(`target_size_mb => ${targetSizeMb}`);
+    }
+    
+    const query = `SELECT ducklake_merge_adjacent_files(${args.join(', ')})`;
+    return executeQuery(query);
+  }
+  
   return {
     executeQuery,
     getSnapshots,
     attachDuckLake,
-    detachDuckLake
+    detachDuckLake,
+    ducklakeTableChanges,
+    ducklakeTableInsertions,
+    ducklakeTableDeletions,
+    ducklakeTableInfo,
+    ducklakeCleanupOldFiles,
+    ducklakeExpireSnapshots,
+    ducklakeMergeAdjacentFiles
   };
 }

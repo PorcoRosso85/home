@@ -27,6 +27,23 @@ export const DATA_FILES_PATH = Deno.env.get("DATA_FILES_PATH") || "./data_files"
  */
 export const DUCKLAKE_DB_PATH = Deno.env.get("DUCKLAKE_DB_PATH") || "ducklake.db";
 
+/**
+ * DuckLakeカタログタイプ
+ * 'duckdb' | 'postgres' | 'mysql' | 'sqlite'
+ */
+export const DUCKLAKE_CATALOG_TYPE = Deno.env.get("DUCKLAKE_CATALOG_TYPE") || "duckdb";
+
+/**
+ * DuckLakeカタログパス（ファイルベースの場合）
+ */
+export const DUCKLAKE_CATALOG_PATH = Deno.env.get("DUCKLAKE_CATALOG_PATH") || "./ducklake.ducklake";
+
+/**
+ * DuckLakeカタログ接続文字列（外部DBの場合）
+ * 例: postgres:dbname=ducklake_catalog host=localhost
+ */
+export const DUCKLAKE_CATALOG_CONNECTION = Deno.env.get("DUCKLAKE_CATALOG_CONNECTION") || "";
+
 // ========== 内部定数 ==========
 /**
  * サーバー名

@@ -38,6 +38,7 @@ import type { QueryResult, QueryData, QueryError } from "./domain/types.ts";
 import { isQueryError } from "./domain/types.ts";
 import type { AppError, FormattedError } from "./shared/errors.ts";
 import { getHttpStatusCode, formatError, isError } from "./shared/errors.ts";
+import { safeJsonStringify } from "./shared/utils.ts";
 import type { ApplicationError } from "./application/errors.ts";
 import type { TestEnvironmentData } from "./application/usecase/manageDuckLake.ts";
 
@@ -139,7 +140,7 @@ function createHandler(deps: ServerDependencies) {
           : "not available";
         
         return new Response(
-          JSON.stringify({ 
+          safeJsonStringify({ 
             status: "ok", 
             ducklake: ducklakeStatus,
             mode: "snapshot-provider"
@@ -167,7 +168,7 @@ function createHandler(deps: ServerDependencies) {
           const formatted = formatError(error);
           
           return new Response(
-            JSON.stringify(formatted),
+            safeJsonStringify(formatted),
             { 
               status: getHttpStatusCode(error), 
               headers: { 
@@ -185,7 +186,7 @@ function createHandler(deps: ServerDependencies) {
         if (isError(result)) {
           const formatted = formatError(result);
           return new Response(
-            JSON.stringify(formatted),
+            safeJsonStringify(formatted),
             { 
               status: getHttpStatusCode(result), 
               headers: { 
@@ -197,7 +198,7 @@ function createHandler(deps: ServerDependencies) {
         }
         
         return new Response(
-          JSON.stringify(result),
+          safeJsonStringify(result),
           { 
             status: 200, 
             headers: { 
@@ -273,7 +274,7 @@ function createHandler(deps: ServerDependencies) {
           const formatted = formatError(error);
           
           return new Response(
-            JSON.stringify(formatted),
+            safeJsonStringify(formatted),
             { 
               status: 404, 
               headers: { 
@@ -288,7 +289,7 @@ function createHandler(deps: ServerDependencies) {
         availableVersions.sort((a, b) => b.version - a.version);
         
         return new Response(
-          JSON.stringify({
+          safeJsonStringify({
             versions: availableVersions
           }),
           { 
@@ -322,7 +323,7 @@ function createHandler(deps: ServerDependencies) {
             const formatted = formatError(error);
             
             return new Response(
-              JSON.stringify(formatted),
+              safeJsonStringify(formatted),
               { 
                 status: 500, 
                 headers: { 
@@ -363,7 +364,7 @@ function createHandler(deps: ServerDependencies) {
           }
           
           return new Response(
-            JSON.stringify({ 
+            safeJsonStringify({ 
               version: versionNum,
               tables: tablesInfo 
             }),
@@ -403,7 +404,7 @@ function createHandler(deps: ServerDependencies) {
               const formatted = formatError(error);
               
               return new Response(
-                JSON.stringify(formatted),
+                safeJsonStringify(formatted),
                 { 
                   status: 404, 
                   headers: { 
@@ -485,7 +486,7 @@ function createHandler(deps: ServerDependencies) {
             const formatted = formatError(appError);
             
             return new Response(
-              JSON.stringify(formatted),
+              safeJsonStringify(formatted),
               { 
                 status: 500, 
                 headers: { 
@@ -507,7 +508,7 @@ function createHandler(deps: ServerDependencies) {
         const formatted = formatError(error);
         
         return new Response(
-          JSON.stringify(formatted),
+          safeJsonStringify(formatted),
           { 
             status: getHttpStatusCode(error), 
             headers: { 
@@ -699,7 +700,7 @@ if (!import.meta.main) {
           // バージョン1のスナップショットが存在することを確認
           const checkResult = await executeQuery.execute(`
             SELECT COUNT(*) as count 
-            FROM lake.table_changes('LocationURI', 1, 1)
+            FROM lake.ducklake_table_changes('LocationURI', 1, 1)
           `);
           
           if (isQueryError(checkResult) || Number(checkResult.rows[0]?.count) === 0) {
@@ -728,7 +729,7 @@ if (!import.meta.main) {
           // 存在しないバージョンをチェック
           const checkResult = await executeQuery.execute(`
             SELECT COUNT(*) as count 
-            FROM lake.table_changes('LocationURI', 999, 999)
+            FROM lake.ducklake_table_changes('LocationURI', 999, 999)
           `);
           
           if (!isQueryError(checkResult) && Number(checkResult.rows[0]?.count) > 0) {

@@ -52,3 +52,33 @@ export type ParquetFileInfo = {
   createdAt: string;
   name: string;
 };
+
+// 6. ducklake_table_info()の返却型
+export type DuckLakeTableInfo = {
+  table_name: string;
+  table_catalog: string;
+  table_schema: string;
+  row_count: bigint;
+  estimated_size: bigint;
+  column_count: number;
+  has_primary_key: boolean;
+  has_foreign_key: boolean;
+};
+
+// 7. ducklake_cleanup_old_files()の返却型
+export type DuckLakeCleanupResult = {
+  Success: string;  // 空文字列（成功時は0行）
+};
+
+// 8. ducklake_expire_snapshots()の返却型
+export type DuckLakeExpireResult = {
+  Success: string;  // 空文字列（成功時は0行）
+};
+
+// 9. ducklake_merge_adjacent_files()の返却型
+export type DuckLakeMergeResult = {
+  merged_file_count: number;
+  total_size_before: bigint;
+  total_size_after: bigint;
+  compression_ratio: number;
+};

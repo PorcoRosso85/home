@@ -34,6 +34,10 @@ export type ManageDuckLakeUseCase = {
   validateFileGeneration: (beforeCount: number) => Promise<FileGenerationResult | ApplicationError>;
   createTestEnvironment: (testName: string) => Promise<TestEnvironmentData | ApplicationError>;
   cleanupTestEnvironment: (catalogName: string, tempDir: string) => Promise<boolean>;
+  // 新規: メンテナンス機能
+  cleanupOldFiles: (catalogName: string) => Promise<{ success: boolean } | ApplicationError>;
+  expireSnapshots: (catalogName: string, versions?: number[], olderThan?: string) => Promise<{ success: boolean } | ApplicationError>;
+  mergeFiles: (catalogName: string, tableName?: string, targetSizeMb?: number) => Promise<{ mergedCount: number } | ApplicationError>;
 };
 
 // 高階関数による依存性注入
@@ -135,11 +139,79 @@ export function createManageDuckLakeUseCase(deps: ManageDuckLakeDeps): ManageDuc
     return fileRepo.cleanupTempDirectory(tempDir);
   }
   
+  // メンテナンス機能の実装
+  async function cleanupOldFiles(catalogName: string): Promise<{ success: boolean } | ApplicationError> {
+    const result = await duckdbRepo.ducklakeCleanupOldFiles(catalogName);
+    
+    if (isQueryError(result)) {
+      return {
+        code: "OPERATION_FAILED",
+        message: `[DuckLake Cleanup] ${result.message}`,
+        operation: "cleanup_old_files",
+        details: result
+      };
+    }
+    
+    return { success: true };
+  }
+  
+  async function expireSnapshots(
+    catalogName: string,
+    versions?: number[],
+    olderThan?: string
+  ): Promise<{ success: boolean } | ApplicationError> {
+    if (!versions && !olderThan) {
+      return {
+        code: "VALIDATION_FAILED",
+        message: "[DuckLake Expire] Either versions or olderThan must be specified",
+        details: { catalogName, versions, olderThan }
+      };
+    }
+    
+    const result = await duckdbRepo.ducklakeExpireSnapshots(catalogName, versions, olderThan);
+    
+    if (isQueryError(result)) {
+      return {
+        code: "OPERATION_FAILED",
+        message: `[DuckLake Expire] ${result.message}`,
+        operation: "expire_snapshots",
+        details: result
+      };
+    }
+    
+    return { success: true };
+  }
+  
+  async function mergeFiles(
+    catalogName: string,
+    tableName?: string,
+    targetSizeMb?: number
+  ): Promise<{ mergedCount: number } | ApplicationError> {
+    const result = await duckdbRepo.ducklakeMergeAdjacentFiles(catalogName, tableName, targetSizeMb);
+    
+    if (isQueryError(result)) {
+      return {
+        code: "OPERATION_FAILED",
+        message: `[DuckLake Merge] ${result.message}`,
+        operation: "merge_files",
+        details: result
+      };
+    }
+    
+    // マージ結果から統計情報を取得
+    const mergedCount = result.rows[0]?.merged_file_count || 0;
+    
+    return { mergedCount };
+  }
+  
   return {
     getStatus,
     validateFileGeneration,
     createTestEnvironment,
-    cleanupTestEnvironment
+    cleanupTestEnvironment,
+    cleanupOldFiles,
+    expireSnapshots,
+    mergeFiles
   };
 }
 
