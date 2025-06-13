@@ -3,6 +3,13 @@
  * CONVENTION.yaml準拠: type定義優先
  */
 
+export type ChangeType = 'CREATE' | 'UPDATE' | 'DELETE';
+
+export type LocationChange = {
+  uri_id: string;
+  change_type: ChangeType;
+};
+
 export type VersionState = {
   id: string;
   timestamp: string;

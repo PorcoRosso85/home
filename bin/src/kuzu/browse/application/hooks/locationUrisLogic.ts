@@ -46,6 +46,7 @@ async function fetchLocationUrisDataSafely(dbConnection: any, selectedVersionId:
   
   const queryResult = await result.data.getAllObjects();
   
+  // append-only: DELETEされたものは既にクエリで除外されている
   // idからURI情報を解析
   const locationUris = queryResult.map(row => {
     const uriId = row.id || row.uri_id;
@@ -59,7 +60,8 @@ async function fetchLocationUrisDataSafely(dbConnection: any, selectedVersionId:
       fragment: parsedUri.fragment,
       query: parsedUri.query,
       from_version: row.from_version || selectedVersionId,
-      isCompleted: true // DuckLakeでは常に完了扱い
+      isCompleted: true, // DuckLakeでは常に完了扱い
+      change_type: row.change_type // append-only: 変更タイプを保持
     };
   });
   

@@ -61,6 +61,7 @@ CREATE NODE TABLE LocationURI (
 // Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
 CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
     FROM VersionState TO LocationURI,
+    change_type STRING,
     MANY_MANY
 );
 
@@ -87,7 +88,7 @@ COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (heade
 COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
 
 // Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
-COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_changes.csv' (header=true, FROM='version_id', TO='id');
 
 // Load FOLLOWS relationships
 COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
