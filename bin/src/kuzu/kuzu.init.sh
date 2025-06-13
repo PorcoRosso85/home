@@ -87,13 +87,13 @@ COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (heade
 COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
 
 // Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
-COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
 
 // Load FOLLOWS relationships
-COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
 
 // Load CONTAINS_LOCATION relationships
-COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
 
 // ========================================
 // 3. Verification Queries

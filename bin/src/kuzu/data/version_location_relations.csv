@@ -25,7 +25,8 @@ v1.2.1,file:///home/nixos/bin/src/kuzu/browse/src
 v1.2.1,file:///home/nixos/bin/src/kuzu/browse/application
 v1.2.1,file:///home/nixos/bin/src/kuzu/browse/application/hooks
 v1.2.1,file:///home/nixos/bin/src/kuzu/browse/application/usecase
-v1.2.1,file:///home/nixos/bin/src/kuzu/browse/domainv1.2.1,file:///home/nixos/bin/src/kuzu/browse/domain/entity
+v1.2.1,file:///home/nixos/bin/src/kuzu/browse/domain
+v1.2.1,file:///home/nixos/bin/src/kuzu/browse/domain/entity
 v1.2.1,file:///home/nixos/bin/src/kuzu/browse/domain/service
 v1.2.1,file:///home/nixos/bin/src/kuzu/browse/infrastructure
 v1.2.1,file:///home/nixos/bin/src/kuzu/browse/infrastructure/database
@@ -51,7 +52,8 @@ v0.1.0,file:///home/nixos/bin/src/kuzu/browse/src
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/index.tsx
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/main.ts
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/application
-v0.1.0,file:///home/nixos/bin/src/kuzu/browse/application/hooksv0.1.0,file:///home/nixos/bin/src/kuzu/browse/application/hooks/useLocationUriTree.ts
+v0.1.0,file:///home/nixos/bin/src/kuzu/browse/application/hooks
+v0.1.0,file:///home/nixos/bin/src/kuzu/browse/application/hooks/useLocationUriTree.ts
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/application/hooks/useTreeData.ts
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/application/hooks/useVersionData.ts
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/application/hooks/useVersionTreeData.ts
@@ -77,7 +79,8 @@ v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/constants/versionFormats.ts
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/service
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/service/locationTreeBuilder.ts
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/service/locationUriGrouper.ts
-v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/service/locationUriParser.tsv0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/service/locationUriValidator.ts
+v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/service/locationUriParser.ts
+v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/service/locationUriValidator.ts
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/service/versionParser.ts
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/service/versionTreeBuilder.ts
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/domain/validation
@@ -103,7 +106,8 @@ v0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/components
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/components/ErrorView.tsx
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/components/LoadingView.tsx
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/components/NodeDetailsPanel.tsx
-v0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/components/Node.tsxv0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/components/Tree.tsx
+v0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/components/Node.tsx
+v0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/components/Tree.tsx
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/pages
 v0.1.0,file:///home/nixos/bin/src/kuzu/browse/interface/utils
 v0.1.1,file:///home/nixos/bin/src/kuzu/browse/interface/Layout.tsx

@@ -25,7 +25,8 @@ file:///home/nixos/bin/src/kuzu/browse/src,file:///home/nixos/bin/src/kuzu/brows
 file:///home/nixos/bin/src/kuzu/browse/src,file:///home/nixos/bin/src/kuzu/browse/domain,directory_hierarchy
 file:///home/nixos/bin/src/kuzu/browse/src,file:///home/nixos/bin/src/kuzu/browse/infrastructure,directory_hierarchy
 file:///home/nixos/bin/src/kuzu/browse/src,file:///home/nixos/bin/src/kuzu/browse/interface,directory_hierarchy
-file:///home/nixos/bin/src/kuzu/browse/application,file:///home/nixos/bin/src/kuzu/browse/application/hooks,directory_hierarchyfile:///home/nixos/bin/src/kuzu/browse/application,file:///home/nixos/bin/src/kuzu/browse/application/services,directory_hierarchy
+file:///home/nixos/bin/src/kuzu/browse/application,file:///home/nixos/bin/src/kuzu/browse/application/hooks,directory_hierarchy
+file:///home/nixos/bin/src/kuzu/browse/application,file:///home/nixos/bin/src/kuzu/browse/application/services,directory_hierarchy
 file:///home/nixos/bin/src/kuzu/browse/application,file:///home/nixos/bin/src/kuzu/browse/application/usecase,directory_hierarchy
 file:///home/nixos/bin/src/kuzu/browse/application,file:///home/nixos/bin/src/kuzu/browse/application/utils,directory_hierarchy
 file:///home/nixos/bin/src/kuzu/browse/domain,file:///home/nixos/bin/src/kuzu/browse/domain/types.ts,file_hierarchy
