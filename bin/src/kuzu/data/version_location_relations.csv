@@ -1,4 +1,4 @@
-version_id,location_id
+version_id,id
 v1.0.0,file:///src/main.ts
 v1.0.0,file:///src/utils.ts
 v1.0.0,file:///src/components/app.tsx
