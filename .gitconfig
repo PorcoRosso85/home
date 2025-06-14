@@ -1,13 +1,9 @@
-[user]
-	email = 1.is.universe@gmail.com
-	name = PorcoRosso85
 [pull]
 	rebase = false
-[safe]
-	directory = /home/roccho
 [init]
 	defaultBranch = main
-[credential "https://github.com"]
-	helper = /home/ubuntu/.nix-profile/bin/gh auth git-credential
-[credential "https://gist.github.com"]
-	helper = /home/ubuntu/.nix-profile/bin/gh auth git-credential
+[user]
+	email = user@example.com
+	name = User
+[credential]
+	helper = !/run/current-system/sw/bin/gh auth git-credential

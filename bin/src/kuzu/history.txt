@@ -1,0 +1,2534 @@
+-- ========================================
+-- 1. Create Schema
+-- ========================================
+-- Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+-- Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+-- Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+-- Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+-- Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+-- ========================================
+-- 2. Load Data from CSV files
+-- ========================================
+-- Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+-- Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+-- Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+-- Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+-- Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+-- ========================================
+-- 3. Verification Queries
+-- ========================================
+-- Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+-- Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+-- Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+-- Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+-- Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+-- Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+-- Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+-- Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+-- ========================================
+-- 1. Create Schema
+-- ========================================
+-- Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+-- Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+-- Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+-- Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+-- Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+-- ========================================
+-- 2. Load Data from CSV files
+-- ========================================
+-- Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+-- Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+-- Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+-- Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+-- Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+-- ========================================
+-- 3. Verification Queries
+-- ========================================
+-- Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+-- Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+-- Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+-- Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+-- Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+-- Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+-- Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+-- Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY (FROM VersionState TO LocationURI) TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY (FROM VersionState TO VersionState) FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY (FROM LocationURI TO LocationURI) CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY (FROM VersionState TO LocationURI) TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY (FROM VersionState TO VersionState) FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY (FROM LocationURI TO LocationURI) CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY (FROM VersionState TO LocationURI) TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true);
+// Load FOLLOWS relationships
+COPY (FROM VersionState TO VersionState) FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true);
+// Load CONTAINS_LOCATION relationships
+COPY (FROM LocationURI TO LocationURI) CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true);
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='location_id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_relations.csv' (header=true, FROM='version_id', TO='id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    change_type STRING,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_changes.csv' (header=true, FROM='version_id', TO='id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+-- 1. 各バージョンの変更タイプ別集計
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(:LocationURI)
+RETURN v.version_id, r.change_type, count(*) as count
+ORDER BY v.version_id, r.change_type;
+-- 2. v1.2.0時点のアクティブなファイル
+WITH 'v1.2.0' as target_version
+MATCH (target:VersionState {version_id: target_version})
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE v.timestamp <= target.timestamp
+AND NOT EXISTS {
+  MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+  WHERE v2.timestamp > v.timestamp
+  AND v2.timestamp <= target.timestamp
+}
+AND r.change_type != 'DELETE'
+RETURN count(l) as active_files;
+-- 3. main.tsの変更履歴
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE l.id CONTAINS 'main.ts'
+RETURN v.version_id, l.id, r.change_type, v.timestamp
+ORDER BY v.timestamp;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type IS NOT NULL RETURN count(r) as count;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r]->() RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type = 'DELETE' RETURN count(r);
+WITH 'v0.1.1' as target_version
+MATCH (target:VersionState {version_id: target_version})
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE v.timestamp <= target.timestamp
+AND NOT EXISTS {
+  MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+  WHERE v2.timestamp > v.timestamp
+  AND v2.timestamp <= target.timestamp
+}
+AND r.change_type != 'DELETE'
+RETURN count(DISTINCT l);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(*) as count GROUP BY r.change_type ORDER BY count DESC;
+// ========================================
+// 1. Create Schema
+// ========================================
+// Create VersionState node table (simplified schema)
+CREATE NODE TABLE VersionState (
+    version_id STRING,
+    timestamp STRING,
+    description STRING,
+    change_reason STRING,
+    PRIMARY KEY(version_id)
+);
+// Create LocationURI node table (simplified schema)
+CREATE NODE TABLE LocationURI (
+    id STRING,
+    PRIMARY KEY(id)
+);
+// Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
+CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
+    FROM VersionState TO LocationURI,
+    change_type STRING,
+    MANY_MANY
+);
+// Create FOLLOWS relationship table
+CREATE REL TABLE FOLLOWS (
+    FROM VersionState TO VersionState,
+    MANY_MANY
+);
+// Create CONTAINS_LOCATION relationship table
+CREATE REL TABLE CONTAINS_LOCATION (
+    FROM LocationURI TO LocationURI,
+    relation_type STRING,
+    MANY_MANY
+);
+// ========================================
+// 2. Load Data from CSV files
+// ========================================
+// Load VersionState nodes
+COPY VersionState FROM '/home/nixos/bin/src/kuzu/data/version_states.csv' (header=true);
+// Load LocationURI nodes
+COPY LocationURI FROM '/home/nixos/bin/src/kuzu/data/location_uris.csv' (header=true);
+// Load TRACKS_STATE_OF_LOCATED_ENTITY relationships
+COPY TRACKS_STATE_OF_LOCATED_ENTITY FROM '/home/nixos/bin/src/kuzu/data/version_location_changes.csv' (header=true, FROM='version_id', TO='id');
+// Load FOLLOWS relationships
+COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=true, FROM='from_version_id', TO='to_version_id');
+// Load CONTAINS_LOCATION relationships
+COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+// ========================================
+// 3. Verification Queries
+// ========================================
+// Check VersionState count
+MATCH (v:VersionState) RETURN count(v) as version_count;
+// Check LocationURI count
+MATCH (l:LocationURI) RETURN count(l) as location_count;
+// Check TRACKS_STATE_OF_LOCATED_ENTITY relationships
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN count(r) as tracks_count;
+// Check FOLLOWS relationships
+MATCH (v1:VersionState)-[r:FOLLOWS]->(v2:VersionState)
+RETURN count(r) as follows_count;
+// Check CONTAINS_LOCATION relationships
+MATCH (l1:LocationURI)-[r:CONTAINS_LOCATION]->(l2:LocationURI)
+RETURN count(r) as contains_count;
+// Display version lineage
+MATCH (v1:VersionState)-[:FOLLOWS]->(v2:VersionState)
+RETURN v1.version_id as from_version, v2.version_id as to_version
+ORDER BY v1.version_id;
+// Display sample data
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp
+LIMIT 5;
+// Check locations per version
+MATCH (v:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v.version_id as version, count(l) as location_count
+RETURN version, location_count
+ORDER BY version;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type IS NOT NULL RETURN count(r) as count;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r]->() RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type = 'DELETE' RETURN count(r);
+WITH 'v0.1.1' as target_version
+MATCH (target:VersionState {version_id: target_version})
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE v.timestamp <= target.timestamp
+AND NOT EXISTS {
+  MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+  WHERE v2.timestamp > v.timestamp
+  AND v2.timestamp <= target.timestamp
+}
+AND r.change_type != 'DELETE'
+RETURN count(DISTINCT l);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(*) as count GROUP BY r.change_type ORDER BY count DESC;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type IS NOT NULL RETURN count(r) as count;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r]->() RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type = 'DELETE' RETURN count(r);
+WITH 'v0.1.1' as target_version
+MATCH (target:VersionState {version_id: target_version})
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE v.timestamp <= target.timestamp
+AND NOT EXISTS {
+  MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+  WHERE v2.timestamp > v.timestamp
+  AND v2.timestamp <= target.timestamp
+}
+AND r.change_type != 'DELETE'
+RETURN count(DISTINCT l);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(*) as count GROUP BY r.change_type ORDER BY count DESC;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r]->() RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(*) as count GROUP BY r.change_type ORDER BY count DESC;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(r) ORDER BY count(r) DESC;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type IS NOT NULL RETURN count(r) as count;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type = 'DELETE' RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type = 'UPDATE' RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI) WHERE r.change_type = 'UPDATE' RETURN DISTINCT l.id ORDER BY l.id LIMIT 5;
+MATCH (l:LocationURI)
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+WITH l, count(r) as change_count
+WHERE change_count > 1
+RETURN l.id, change_count
+ORDER BY change_count DESC
+LIMIT 3;
+MATCH (l:LocationURI)<-[r:TRACKS_STATE_OF_LOCATED_ENTITY]-(v:VersionState) WITH l, count(r) as cnt WHERE cnt > 1 RETURN l.id ORDER BY cnt DESC LIMIT 1;
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  RETURN v.version_id, r.change_type, v.timestamp
+  ORDER BY v.timestamp;
+  WITH 'v1.0.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.1.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.2.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.2.1' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v0.1.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v0.1.1' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+MATCH (v1:VersionState)-[r1:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+WHERE v1.version_id = v2.version_id
+AND id(r1) < id(r2)
+RETURN count(*) as conflicts;
+WITH 'v0.1.1' as target_version
+MATCH (target:VersionState {version_id: target_version})
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE v.timestamp <= target.timestamp
+AND NOT EXISTS {
+  MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+  WHERE v2.timestamp > v.timestamp
+  AND v2.timestamp <= target.timestamp
+}
+AND r.change_type <> 'DELETE'
+RETURN count(DISTINCT l);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(r) ORDER BY count(r) DESC;
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->()
+RETURN v.version_id, count(r) as changes
+ORDER BY v.timestamp;
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN v.version_id, count(r) as changes ORDER BY v.timestamp;
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN v.version_id, count(r) ORDER BY v.timestamp;
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+RETURN v.version_id, r.change_type, v.timestamp
+ORDER BY v.timestamp;
+WITH 'v1.1.0' as target_version
+MATCH (target:VersionState {version_id: target_version})
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE v.timestamp <= target.timestamp
+AND NOT EXISTS {
+  MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+  WHERE v2.timestamp > v.timestamp
+  AND v2.timestamp <= target.timestamp
+}
+AND r.change_type <> 'DELETE'
+RETURN l.id
+ORDER BY l.id
+LIMIT 10;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+RETURN r.change_type, l.id
+ORDER BY r.change_type, l.id;
+MATCH (v:VersionState)-[r1:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WITH v, l, count(r1) as rel_count
+WHERE rel_count > 1
+RETURN v.version_id, l.id, rel_count
+ORDER BY rel_count DESC
+LIMIT 5;
+MATCH (l:LocationURI)
+MATCH (v1:VersionState)-[r1:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'DELETE'}]->(l)
+MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'CREATE'}]->(l)
+WHERE v2.timestamp > v1.timestamp
+RETURN l.id, v1.version_id as deleted_in, v2.version_id as recreated_in
+ORDER BY l.id;
+MATCH (v:VersionState)
+RETURN v.version_id, v.timestamp, v.description
+ORDER BY v.timestamp;
+MATCH (v:VersionState {version_id: 'v1.0.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'CREATE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.0.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'UPDATE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.0.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'DELETE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'CREATE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'UPDATE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'DELETE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.2.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'CREATE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.2.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'UPDATE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.2.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'DELETE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.2.1'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'CREATE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.2.1'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'UPDATE'}]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.2.1'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'DELETE'}]->() RETURN count(r);
+WITH 'v1.2.1' as target_version
+MATCH (target:VersionState {version_id: target_version})
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE v.timestamp <= target.timestamp
+AND NOT EXISTS {
+  MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+  WHERE v2.timestamp > v.timestamp
+  AND v2.timestamp <= target.timestamp
+}
+AND r.change_type <> 'DELETE'
+RETURN count(DISTINCT l) as count;
+WITH 'v1.2.1' as target_version
+MATCH (target:VersionState {version_id: target_version})
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE v.timestamp <= target.timestamp
+WITH l, v, r, target
+ORDER BY v.timestamp DESC
+WITH l, COLLECT({version: v.version_id, change_type: r.change_type, timestamp: v.timestamp})[0] as latest_change
+WHERE latest_change.change_type <> 'DELETE'
+RETURN count(DISTINCT l) as count;
+  WITH 'v1.0.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.0.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  WITH l, v, r, target
+  ORDER BY v.timestamp DESC
+  WITH l, COLLECT({version: v.version_id, change_type: r.change_type})[0] as latest_change
+  WHERE latest_change.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.1.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.1.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  WITH l, v, r, target
+  ORDER BY v.timestamp DESC
+  WITH l, COLLECT({version: v.version_id, change_type: r.change_type})[0] as latest_change
+  WHERE latest_change.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.2.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.2.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  WITH l, v, r, target
+  ORDER BY v.timestamp DESC
+  WITH l, COLLECT({version: v.version_id, change_type: r.change_type})[0] as latest_change
+  WHERE latest_change.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.2.1' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v1.2.1' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  WITH l, v, r, target
+  ORDER BY v.timestamp DESC
+  WITH l, COLLECT({version: v.version_id, change_type: r.change_type})[0] as latest_change
+  WHERE latest_change.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v0.1.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v0.1.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  WITH l, v, r, target
+  ORDER BY v.timestamp DESC
+  WITH l, COLLECT({version: v.version_id, change_type: r.change_type})[0] as latest_change
+  WHERE latest_change.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v0.1.1' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  AND NOT EXISTS {
+    MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY]->(l)
+    WHERE v2.timestamp > v.timestamp
+    AND v2.timestamp <= target.timestamp
+  }
+  AND r.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+  WITH 'v0.1.1' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE v.timestamp <= target.timestamp
+  WITH l, v, r, target
+  ORDER BY v.timestamp DESC
+  WITH l, COLLECT({version: v.version_id, change_type: r.change_type})[0] as latest_change
+  WHERE latest_change.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+RETURN v.version_id, r.change_type, v.timestamp
+ORDER BY v.timestamp;
+  WITH 'v1.0.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE v.timestamp <= target.timestamp
+  WITH v, r
+  ORDER BY v.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as status;
+  WITH 'v1.1.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE v.timestamp <= target.timestamp
+  WITH v, r
+  ORDER BY v.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as status;
+  WITH 'v1.2.0' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE v.timestamp <= target.timestamp
+  WITH v, r
+  ORDER BY v.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as status;
+  WITH 'v1.2.1' as target_version
+  MATCH (target:VersionState {version_id: target_version})
+  MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE v.timestamp <= target.timestamp
+  WITH v, r
+  ORDER BY v.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as status;
+WITH 'v0.1.1' as target_version
+MATCH (target:VersionState {version_id: target_version})
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE v.timestamp <= target.timestamp
+WITH l, v, r, target
+ORDER BY v.timestamp DESC
+WITH l, COLLECT({version: v.version_id, change_type: r.change_type})[0] as latest_change
+WHERE latest_change.change_type <> 'DELETE'
+RETURN l.id
+ORDER BY l.id
+LIMIT 10;
+MATCH (v:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI) RETURN v.version_id, count(r) ORDER BY v.timestamp;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type IS NOT NULL RETURN count(r) as count;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type = 'DELETE' RETURN count(r);
+MATCH (v:VersionState {version_id: 'v0.1.1'})
+WITH v.timestamp as target_timestamp
+MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE version.timestamp <= target_timestamp
+WITH l, version, r
+ORDER BY version.timestamp DESC
+WITH l, COLLECT(r)[0] as latest_relation
+WHERE latest_relation.change_type <> 'DELETE'
+RETURN count(DISTINCT l);
+  MATCH (v:VersionState {version_id: 'v1.0.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  WITH l, version, r
+  ORDER BY version.timestamp DESC
+  WITH l, COLLECT(r)[0] as latest_relation
+  WHERE latest_relation.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+MATCH (v:VersionState {version_id: 'v1.0.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v1.1.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  WITH l, version, r
+  ORDER BY version.timestamp DESC
+  WITH l, COLLECT(r)[0] as latest_relation
+  WHERE latest_relation.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v1.2.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  WITH l, version, r
+  ORDER BY version.timestamp DESC
+  WITH l, COLLECT(r)[0] as latest_relation
+  WHERE latest_relation.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+MATCH (v:VersionState {version_id: 'v1.2.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v1.2.1'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  WITH l, version, r
+  ORDER BY version.timestamp DESC
+  WITH l, COLLECT(r)[0] as latest_relation
+  WHERE latest_relation.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+MATCH (v:VersionState {version_id: 'v1.2.1'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v0.1.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  WITH l, version, r
+  ORDER BY version.timestamp DESC
+  WITH l, COLLECT(r)[0] as latest_relation
+  WHERE latest_relation.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+MATCH (v:VersionState {version_id: 'v0.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v0.1.1'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  WITH l, version, r
+  ORDER BY version.timestamp DESC
+  WITH l, COLLECT(r)[0] as latest_relation
+  WHERE latest_relation.change_type <> 'DELETE'
+  RETURN count(DISTINCT l);
+MATCH (v:VersionState {version_id: 'v0.1.1'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v1.0.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+  MATCH (v:VersionState {version_id: 'v1.1.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+  MATCH (v:VersionState {version_id: 'v1.2.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+  MATCH (v:VersionState {version_id: 'v1.2.1'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+MATCH (l:LocationURI)
+MATCH (v1:VersionState)-[r1:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'DELETE'}]->(l)
+MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'CREATE'}]->(l)
+WHERE v2.timestamp > v1.timestamp
+RETURN l.id as file, v1.version_id as deleted_in, v2.version_id as recreated_in
+ORDER BY l.id;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(r) ORDER BY count(r) DESC;
+MATCH (v:VersionState {version_id: 'v1.0.0'}) WITH v.timestamp as target_timestamp MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI) WHERE version.timestamp <= target_timestamp WITH l, version, r ORDER BY version.timestamp DESC WITH l, COLLECT(r)[0] as latest_relation WHERE latest_relation.change_type <> 'DELETE' RETURN count(DISTINCT l);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type IS NOT NULL RETURN count(r) as count;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type = 'DELETE' RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.0.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.2.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v1.2.1'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v0.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+MATCH (v:VersionState {version_id: 'v0.1.1'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v1.0.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+  MATCH (v:VersionState {version_id: 'v1.1.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+  MATCH (v:VersionState {version_id: 'v1.2.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+  MATCH (v:VersionState {version_id: 'v1.2.1'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+MATCH (l:LocationURI)
+MATCH (v1:VersionState)-[r1:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'DELETE'}]->(l)
+MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'CREATE'}]->(l)
+WHERE v2.timestamp > v1.timestamp
+RETURN l.id as file, v1.version_id as deleted_in, v2.version_id as recreated_in
+ORDER BY l.id;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(r) ORDER BY count(r) DESC;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type IS NOT NULL RETURN count(r) as count;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() WHERE r.change_type = 'DELETE' RETURN count(r);
+MATCH (v:VersionState {version_id: 'v0.1.1'})
+WITH v.timestamp as target_timestamp
+MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+WHERE version.timestamp <= target_timestamp
+RETURN l.id, version.timestamp, r.change_type
+ORDER BY l.id, version.timestamp DESC;
+  MATCH (v:VersionState {version_id: 'v1.0.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  RETURN l.id, version.timestamp, r.change_type
+  ORDER BY l.id, version.timestamp DESC;
+MATCH (v:VersionState {version_id: 'v1.0.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v1.1.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  RETURN l.id, version.timestamp, r.change_type
+  ORDER BY l.id, version.timestamp DESC;
+MATCH (v:VersionState {version_id: 'v1.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v1.2.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  RETURN l.id, version.timestamp, r.change_type
+  ORDER BY l.id, version.timestamp DESC;
+MATCH (v:VersionState {version_id: 'v1.2.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v1.2.1'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  RETURN l.id, version.timestamp, r.change_type
+  ORDER BY l.id, version.timestamp DESC;
+MATCH (v:VersionState {version_id: 'v1.2.1'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v0.1.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  RETURN l.id, version.timestamp, r.change_type
+  ORDER BY l.id, version.timestamp DESC;
+MATCH (v:VersionState {version_id: 'v0.1.0'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v0.1.1'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI)
+  WHERE version.timestamp <= target_timestamp
+  RETURN l.id, version.timestamp, r.change_type
+  ORDER BY l.id, version.timestamp DESC;
+MATCH (v:VersionState {version_id: 'v0.1.1'})-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN count(r);
+  MATCH (v:VersionState {version_id: 'v1.0.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+  MATCH (v:VersionState {version_id: 'v1.1.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+  MATCH (v:VersionState {version_id: 'v1.2.0'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+  MATCH (v:VersionState {version_id: 'v1.2.1'})
+  WITH v.timestamp as target_timestamp
+  MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: 'file:///src/utils.ts'})
+  WHERE version.timestamp <= target_timestamp
+  WITH version, r
+  ORDER BY version.timestamp DESC
+  LIMIT 1
+  RETURN r.change_type as state;
+MATCH (l:LocationURI)
+MATCH (v1:VersionState)-[r1:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'DELETE'}]->(l)
+MATCH (v2:VersionState)-[r2:TRACKS_STATE_OF_LOCATED_ENTITY {change_type: 'CREATE'}]->(l)
+WHERE v2.timestamp > v1.timestamp
+RETURN l.id as file, v1.version_id as deleted_in, v2.version_id as recreated_in
+ORDER BY l.id;
+MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(r) ORDER BY count(r) DESC;
+MATCH (v:VersionState {version_id: 'v0.1.1'}) WITH v.timestamp as target_timestamp MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI) WHERE version.timestamp <= target_timestamp RETURN l.id, version.timestamp, r.change_type ORDER BY l.id, version.timestamp DESC;

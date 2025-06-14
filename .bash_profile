@@ -1,0 +1,1 @@
+/nix/store/w2danzz459b2l96yrzmfva0f5yzc445c-home-manager-files/.bash_profile

@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VersionState",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "バージョンの一意識別子（例: v1.0.0）",
+      "pattern": "^v\\d+\\.\\d+\\.\\d+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "バージョンのタイムスタンプ（ISO 8601形式）",
+      "format": "date-time"
+    },
+    "description": {
+      "type": "string",
+      "description": "バージョンの説明文"
+    }
+  },
+  "required": ["id", "timestamp", "description"],
+  "additionalProperties": false
+}

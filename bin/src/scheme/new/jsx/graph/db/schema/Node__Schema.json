@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ノードスキーマ",
+  "description": "グラフのノード（頂点）を定義",
+  
+  "definitions": {
+    "dataSchema": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string" },
+        "properties": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "additionalProperties": { "type": "boolean" }
+      },
+      "required": ["title", "type"]
+    },
+    
+    "d3Config": {
+      "type": "object",
+      "properties": {
+        "coords": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "fx": { "type": ["number", "null"] },
+            "fy": { "type": ["number", "null"] }
+          }
+        },
+        "visual": {
+          "type": "object",
+          "properties": {
+            "radius": { "type": "number" },
+            "color": { "type": "string" }
+          }
+        }
+      }
+    },
+    
+    "node": {
+      "type": "object",
+      "required": ["id", "name", "type", "description", "schema", "tags"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { 
+          "type": "string",
+          "enum": ["入力", "出力", "処理", "変換", "検証", "保存", "集約", "分析"]
+        },
+        "description": { "type": "string" },
+        "schema": { "$ref": "#/definitions/dataSchema" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "validationRules": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "metadata": { "$ref": "Core__Schema.json#/definitions/metadata" },
+        "d3": { "$ref": "#/definitions/d3Config" }
+      }
+    }
+  },
+  
+  "type": "object",
+  "additionalProperties": { "$ref": "#/definitions/node" }
+}

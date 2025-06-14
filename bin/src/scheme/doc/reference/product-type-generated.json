@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$metaSchema": "StructTypeMetaSchema",
+  "title": "Product",
+  "description": "製品型の定義 (メタスキーマから生成)",
+  "type": "object",
+  "properties": {
+    "productId": {
+      "type": "string",
+      "description": "製品ID"
+    },
+    "name": {
+      "type": "string",
+      "description": "製品名",
+      "minLength": 1
+    },
+    "price": {
+      "type": "number",
+      "description": "価格",
+      "minimum": 0
+    },
+    "category": {
+      "type": "string",
+      "description": "製品カテゴリ",
+      "enum": ["Electronics", "Clothing", "Food", "Books", "Other"]
+    },
+    "description": {
+      "type": "string",
+      "description": "製品説明"
+    },
+    "inStock": {
+      "type": "boolean",
+      "description": "在庫があるかどうか",
+      "default": true
+    },
+    "tags": {
+      "type": "array",
+      "description": "関連タグ",
+      "items": {
+        "type": "string"
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "製品の寸法",
+      "properties": {
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "depth": { "type": "number" },
+        "unit": { 
+          "type": "string",
+          "enum": ["mm", "cm", "inch"]
+        }
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "description": "作成日時",
+      "format": "date-time"
+    }
+  },
+  "required": ["productId", "name", "price"],
+  "additionalProperties": false
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "./data/meta/Requirement.meta.json",
+  "$metaSchema": "Requirement",
+  "id": "UserWithAuth",
+  "title": "認証情報付きユーザー",
+  "description": "ユーザー情報と認証情報を含む構造体",
+  "type": "requirement",
+  "implementationType": "struct",
+  "outputPath": {
+    "default": "/src/user/UserWithAuth.js"
+  },
+  "implementation": {
+    "struct": {
+      "properties": {
+        "user": {
+          "$ref": "./data/generated/User.Struct.schema.json",
+          "description": "ユーザー基本情報"
+        },
+        "authInfo": {
+          "$ref": "./data/generated/Auth.Struct.schema.json",
+          "description": "認証情報"
+        },
+        "permissions": {
+          "type": "array",
+          "description": "ユーザーの権限リスト",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["user", "authInfo"],
+      "methods": {}
+    }
+  },
+  "dependencies": ["User.Struct", "Auth.Struct"],
+  "tags": ["user", "auth", "extended"],
+  "status": "draft",
+  "priority": "medium",
+  "createdAt": "2025-03-22T19:00:00.000Z",
+  "updatedAt": "2025-03-22T19:00:00.000Z"
+}

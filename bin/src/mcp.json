@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "weather": {
+      "command": "npx",
+      "args": [
+        "mcp-llm-functions",
+        "/home/nixos/bin/src/aichat_extension/functions"
+      ],
+      "prefix": true
+    }
+  }
+}

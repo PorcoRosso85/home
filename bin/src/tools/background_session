@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+
+# background_session - A tool for managing long-running processes in tmux background sessions
+#
+# Description:
+# This tool was created to address the need for managing long-running processes (like builds,
+# server executions, or data processing tasks) within conversations with AI assistants.
+# It leverages tmux to create persistent background sessions that can be monitored, resumed,
+# or terminated at any point, allowing the conversation to continue without waiting for
+# process completion.
+#
+# Use cases:
+# - Running lengthy builds or compilations (like Nix builds) without blocking the conversation
+# - Starting servers or services that need to run while discussing other topics
+# - Executing data processing tasks that may take significant time
+# - Monitoring resource-intensive operations while maintaining conversation flow
+# - Freeing up ports and resources by cleanly terminating background processes
+#
+# Features:
+# - Start processes in named background sessions
+# - Check process status and view output without interrupting the conversation
+# - Terminate sessions to free up resources
+# - List all running background sessions
+# - Capture logs and outputs for analysis
+#
+# Usage Examples:
+# - background_session start build_session "cd /path && make"
+# - background_session status build_session
+# - background_session logs build_session
+# - background_session list
+# - background_session kill build_session
+
+set -e
+
+COMMAND=$1
+SESSION_NAME=$2
+PROCESS_COMMAND=$3
+
+function check_tmux() {
+    if ! command -v tmux &> /dev/null; then
+        echo "Error: tmux is not installed. Please install tmux to use this tool."
+        exit 1
+    fi
+}
+
+function start_session() {
+    if [ -z "$SESSION_NAME" ]; then
+        echo "Error: Session name is required."
+        echo "Usage: background_session start SESSION_NAME \"COMMAND_TO_RUN\""
+        exit 1
+    fi
+
+    if [ -z "$PROCESS_COMMAND" ]; then
+        echo "Error: Command to run is required."
+        echo "Usage: background_session start SESSION_NAME \"COMMAND_TO_RUN\""
+        exit 1
+    fi
+
+    # Check if session already exists
+    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        echo "Session '$SESSION_NAME' already exists. Use a different name or kill the existing session."
+        exit 1
+    fi
+
+    # Create new detached session and run the command
+    tmux new-session -d -s "$SESSION_NAME" "$PROCESS_COMMAND"
+    echo "Started background session '$SESSION_NAME' with command: $PROCESS_COMMAND"
+    echo ""
+    echo "======== Session Access Information ========"
+    echo "Session name: $SESSION_NAME"
+    echo "To directly attach to this session (from command line): tmux attach-session -t $SESSION_NAME"
+    echo "To detach from session after attaching (without killing it): Press Ctrl+B, then D"
+    echo ""
+    echo "======== Tool Commands for This Session ========"
+    echo "Check status: background_session status $SESSION_NAME"
+    echo "View logs: background_session logs $SESSION_NAME"
+    echo "Terminate session: background_session kill $SESSION_NAME"
+}
+
+function check_status() {
+    if [ -z "$SESSION_NAME" ]; then
+        echo "Error: Session name is required."
+        echo "Usage: background_session status SESSION_NAME"
+        exit 1
+    fi
+
+    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        # Get process info
+        local pane_pid=$(tmux list-panes -t "$SESSION_NAME" -F "#{pane_pid}")
+        local command=$(ps -p "$pane_pid" -o command= 2>/dev/null || echo "Process info not available")
+        local runtime=$(ps -p "$pane_pid" -o etime= 2>/dev/null || echo "Unknown")
+        
+        echo "Session: $SESSION_NAME"
+        echo "Status: Running"
+        echo "Runtime: $runtime"
+        echo "Command: $command"
+        echo ""
+        echo "======== Session Access Information ========"
+        echo "To directly attach to this session: tmux attach-session -t $SESSION_NAME"
+        echo "To detach from session after attaching: Press Ctrl+B, then D"
+        echo ""
+        echo "======== Tool Commands for This Session ========"
+        echo "View logs: background_session logs $SESSION_NAME"
+        echo "Terminate session: background_session kill $SESSION_NAME"
+    else
+        echo "Session '$SESSION_NAME' does not exist or has completed."
+    fi
+}
+
+function list_sessions() {
+    echo "Active background sessions:"
+    echo "=========================="
+    
+    local sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null || echo "")
+    
+    if [ -z "$sessions" ]; then
+        echo "No active background sessions."
+        return
+    fi
+    
+    for session in $sessions; do
+        local pane_pid=$(tmux list-panes -t "$session" -F "#{pane_pid}" 2>/dev/null)
+        local runtime=$(ps -p "$pane_pid" -o etime= 2>/dev/null || echo "Unknown")
+        
+        echo "Session: $session"
+        echo "Runtime: $runtime"
+        echo ""
+    done
+    
+    echo "======== Direct Access to Sessions ========"
+    echo "To attach to any session: tmux attach-session -t SESSION_NAME"
+    echo "To detach from a session: Press Ctrl+B, then D"
+    echo ""
+    echo "======== Tool Commands ========"
+    echo "For detailed status: background_session status SESSION_NAME"
+    echo "To view session output: background_session logs SESSION_NAME"
+    echo "To terminate a session: background_session kill SESSION_NAME"
+}
+
+function capture_logs() {
+    if [ -z "$SESSION_NAME" ]; then
+        echo "Error: Session name is required."
+        echo "Usage: background_session logs SESSION_NAME"
+        exit 1
+    fi
+
+    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        echo "=== Output from session '$SESSION_NAME' ==="
+        echo ""
+        tmux capture-pane -p -t "$SESSION_NAME"
+        echo ""
+        echo "=== End of output ==="
+    else
+        echo "Session '$SESSION_NAME' does not exist or has completed."
+    fi
+}
+
+function kill_session() {
+    if [ -z "$SESSION_NAME" ]; then
+        echo "Error: Session name is required."
+        echo "Usage: background_session kill SESSION_NAME"
+        exit 1
+    fi
+
+    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        tmux kill-session -t "$SESSION_NAME"
+        echo "Killed background session '$SESSION_NAME'"
+    else
+        echo "Session '$SESSION_NAME' does not exist or has already been terminated."
+    fi
+}
+
+function show_help() {
+    echo "Background Session Management Tool"
+    echo "================================="
+    echo ""
+    echo "This tool manages long-running processes in tmux background sessions,"
+    echo "allowing you to start, monitor, and terminate processes without"
+    echo "interrupting the conversation flow with the AI assistant."
+    echo ""
+    echo "You can interact with sessions in two ways:"
+    echo "1. Using this tool's commands for monitoring and control"
+    echo "2. Directly attaching to sessions via tmux for interactive access"
+    echo ""
+    echo "Usage:"
+    echo "  background_session start SESSION_NAME \"COMMAND\"  Start a new background session"
+    echo "  background_session status SESSION_NAME         Check status of a session"
+    echo "  background_session logs SESSION_NAME           View output from a session"
+    echo "  background_session list                        List all background sessions"
+    echo "  background_session kill SESSION_NAME           Terminate a session"
+    echo "  background_session help                        Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  background_session start build_nix \"cd /home/nixos/flakes/kuzu && nix build .\""
+    echo "  background_session status build_nix"
+    echo "  background_session logs build_nix"
+    echo "  background_session kill build_nix"
+}
+
+# Main command processing
+check_tmux
+
+case "$COMMAND" in
+    start)
+        start_session
+        ;;
+    status)
+        check_status
+        ;;
+    logs)
+        capture_logs
+        ;;
+    list)
+        list_sessions
+        ;;
+    kill)
+        kill_session
+        ;;
+    help)
+        show_help
+        ;;
+    *)
+        echo "Unknown command: $COMMAND"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac
+
+exit 0

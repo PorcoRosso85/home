@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tuple",
+  "description": "タプル型",
+  "$comment": "言語別取り扱い:
+    - Zig: 匿名structとして実装（例: struct{ x: i32, y: bool }）
+    - Lean 4: Prod型として実装（例: Prod Nat Bool）
+    - Rust: タプル型として実装（例: (i32, bool)）
+    - TypeScript: タプル型として実装（例: [number, boolean]）",
+  "type": "array",
+  "prefixItems": [
+    { "type": ["string", "number", "boolean", "object", "array", "null"] },
+    { "type": ["string", "number", "boolean", "object", "array", "null"] }
+  ],
+  "items": false,
+  "minItems": 2,
+  "maxItems": 2
+}

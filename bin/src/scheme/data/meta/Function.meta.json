@@ -1,0 +1,182 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Function",
+  "description": "関数型を定義するためのメタスキーマ",
+  "type": "object",
+  "required": ["title", "type", "parameters", "returnType"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$metaSchema": {
+      "type": "string",
+      "const": "Function",
+      "description": "このスキーマが関数型メタスキーマであることを示す識別子"
+    },
+    "title": {
+      "type": "string",
+      "description": "関数型の名前"
+    },
+    "description": {
+      "type": "string",
+      "description": "関数型の説明"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["function"],
+      "description": "型のカテゴリ (関数のため 'function'固定)"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "関数の入力パラメータ",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["object"],
+          "default": "object",
+          "description": "パラメータの型 (オブジェクト形式)"
+        },
+        "properties": {
+          "type": "object",
+          "description": "パラメータのプロパティ定義",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "パラメータの型"
+              },
+              "description": {
+                "type": "string",
+                "description": "パラメータの説明"
+              },
+              "$ref": {
+                "type": "string",
+                "description": "別のスキーマへの参照"
+              },
+              "default": {
+                "description": "デフォルト値"
+              },
+              "required": {
+                "type": "boolean",
+                "description": "必須パラメータかどうか",
+                "default": false
+              },
+              "items": {
+                "type": "object",
+                "description": "配列要素の定義 (配列の場合)"
+              },
+              "properties": {
+                "type": "object",
+                "description": "ネストされたプロパティ (オブジェクトの場合)"
+              }
+            }
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "必須パラメータのリスト"
+        }
+      }
+    },
+    "returnType": {
+      "type": "object",
+      "description": "関数の戻り値の型",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "戻り値の型"
+        },
+        "description": {
+          "type": "string",
+          "description": "戻り値の説明"
+        },
+        "$ref": {
+          "type": "string",
+          "description": "別のスキーマへの参照"
+        },
+        "items": {
+          "type": "object",
+          "description": "配列要素の定義 (配列の場合)"
+        },
+        "properties": {
+          "type": "object",
+          "description": "オブジェクトプロパティの定義 (オブジェクトの場合)"
+        }
+      }
+    },
+    "async": {
+      "type": "boolean",
+      "description": "非同期関数かどうか",
+      "default": false
+    },
+    "exceptions": {
+      "type": "array",
+      "description": "発生する可能性のある例外のリスト",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "例外の名前"
+          },
+          "description": {
+            "type": "string",
+            "description": "例外の説明"
+          },
+          "code": {
+            "type": "string",
+            "description": "例外コード (存在する場合)"
+          }
+        }
+      }
+    },
+    "examples": {
+      "type": "array",
+      "description": "関数使用例",
+      "items": {
+        "type": "object",
+        "required": ["input", "output"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "例の説明"
+          },
+          "input": {
+            "description": "入力例"
+          },
+          "output": {
+            "description": "期待される出力"
+          }
+        }
+      }
+    },
+    "sideEffects": {
+      "type": "boolean",
+      "description": "関数が副作用を持つかどうか",
+      "default": false
+    },
+    "deprecated": {
+      "type": "boolean",
+      "description": "関数が非推奨かどうか",
+      "default": false
+    },
+    "deprecationMessage": {
+      "type": "string",
+      "description": "非推奨の場合のメッセージ"
+    },
+    "tags": {
+      "type": "array",
+      "description": "関数に関連するタグのリスト",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

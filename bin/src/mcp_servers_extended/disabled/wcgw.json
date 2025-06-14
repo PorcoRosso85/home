@@ -1,0 +1,14 @@
+{
+  "command": "wsl",
+  "args": [
+    "bash",
+    "-c",
+    "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib\":$LD_LIBRARY_PATH",
+    "uvx",
+    "--from",
+    "wcgw@latest",
+    "--python",
+    "3.12",
+    "wcgw_mcp"
+  ]
+}

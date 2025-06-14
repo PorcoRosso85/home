@@ -16,44 +16,20 @@
       pkgs = nixpkgs.legacyPackages.${system};
     in
     {
-      # nix build .#homeConfigurations.roccho.activationPackage
       homeConfigurations.roccho = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
           ./nix/home.nix
           {
             home = {
-              username = "ubuntu";
-              homeDirectory = "/home/ubuntu";
+              username = "nixos";
+              homeDirectory = "/home/nixos";
               # username = "${pkgs.lib.getEnv 'USER'}"; # あなたのユーザー名
               # homeDirectory = "/home/${pkgs.lib.getEnv 'USER'}"; # あなたのホームディレクトリ
-              stateVersion = "23.11";
+              stateVersion = "25.05";
             };
           }
         ];
       };
     };
-    
-    # 以下はこのflakeで`nix develop`を行う場合に使用する
-    #
-    #  // flake-utils.lib.eachDefaultSystem (system: {
-    #   # nix develop
-    #   devShells.default = import ./develop.nix { inherit pkgs; };
-    #   packages = {
-    #     default = pkgs.writeShellScriptBin "default" ''
-    #       echo "This is the default package"
-    #     '';
-    #   };
-    #   defaultPackage = self.packages.${system}.default;
-    #   # nix run
-    #   apps = {
-    #     webServer = flake-utils.lib.mkApp {
-    #       drv = pkgs.writeShellScriptBin "webServer" ''
-    #         #!/usr/bin/env bash
-    #         echo "Starting web server"
-    #         python3 -m http.server 8080
-    #       '';
-    #     };
-    #   };
-    # });
 }

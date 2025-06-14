@@ -1,0 +1,158 @@
+{
+  "$schema": "./data/meta/Requirement.meta.json",
+  "$metaSchema": "Requirement",
+  "id": "UserAuthenticationService",
+  "title": "ユーザー認証Service層機能",
+  "description": "ユーザー認証機能のサービス層実装",
+  "type": "requirement",
+  "implementationType": "function",
+  "outputPath": {
+    "default": "/src/service/authentication/UserAuthenticationService.ts"
+  },
+  "implementation": {
+    "function": {
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "ユーザー名"
+          },
+          "password": {
+            "type": "string",
+            "description": "パスワード"
+          },
+          "serviceOptions": {
+            "type": "object",
+            "description": "サービス層固有のオプション",
+            "properties": {
+              "tokenExpiration": {
+                "type": "number",
+                "description": "トークン有効期間（秒）"
+              },
+              "hashAlgorithm": {
+                "type": "string",
+                "description": "パスワードハッシュアルゴリズム",
+                "enum": ["bcrypt", "argon2", "pbkdf2"]
+              },
+              "lockThreshold": {
+                "type": "number",
+                "description": "アカウントロックまでの失敗試行回数"
+              }
+            }
+          }
+        },
+        "required": ["username", "password"]
+      },
+      "returnType": {
+        "type": "object",
+        "description": "サービス層の認証結果",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "認証が成功したかどうか"
+          },
+          "userId": {
+            "type": "string",
+            "description": "認証されたユーザーのID"
+          },
+          "userProfile": {
+            "type": "object",
+            "description": "ユーザープロファイル情報"
+          },
+          "permissions": {
+            "type": "array",
+            "description": "ユーザーの権限リスト",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sessionData": {
+            "type": "object",
+            "description": "セッション情報",
+            "properties": {
+              "token": {
+                "type": "string",
+                "description": "認証トークン"
+              },
+              "issuedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "トークン発行日時"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "トークン有効期限"
+              }
+            }
+          },
+          "failureReason": {
+            "type": "string",
+            "description": "認証失敗の理由"
+          },
+          "failureCode": {
+            "type": "string",
+            "description": "認証失敗のコード"
+          }
+        },
+        "required": ["success"]
+      },
+      "async": true,
+      "exceptions": [
+        {
+          "name": "DatabaseError",
+          "description": "データベース接続エラー"
+        },
+        {
+          "name": "PasswordHashingError",
+          "description": "パスワードハッシュ処理エラー"
+        },
+        {
+          "name": "TokenGenerationError",
+          "description": "トークン生成エラー"
+        },
+        {
+          "name": "UserRepositoryError",
+          "description": "ユーザーリポジトリエラー"
+        }
+      ],
+      "sideEffects": true,
+      "examples": [
+        {
+          "description": "サービス層での認証処理",
+          "input": {
+            "username": "test_user",
+            "password": "password123",
+            "serviceOptions": {
+              "tokenExpiration": 86400,
+              "hashAlgorithm": "bcrypt",
+              "lockThreshold": 5
+            }
+          },
+          "output": {
+            "success": true,
+            "userId": "user123",
+            "userProfile": {
+              "username": "test_user",
+              "email": "test@example.com",
+              "fullName": "Test User"
+            },
+            "permissions": ["read:data", "write:data", "user:profile"],
+            "sessionData": {
+              "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+              "issuedAt": "2025-03-23T05:00:00.000Z",
+              "expiresAt": "2025-03-24T05:00:00.000Z"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "dependencies": [],
+  "status": "draft",
+  "tags": ["auth", "security", "user", "service"],
+  "priority": "high",
+  "createdAt": "2025-03-23T05:00:00.000Z",
+  "updatedAt": "2025-03-23T05:00:00.000Z"
+}

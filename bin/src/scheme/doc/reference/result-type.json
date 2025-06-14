@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ResultType",
+  "description": "エラーユニオン型",
+  "$comment": "言語別取り扱い:
+    - Zig: !T またはエラーユニオン型として実装、エラー処理のための組み込み型
+    - Lean 4: 標準ライブラリにエラー用の直接的な型はないが、カスタム定義可能
+    - Rust: Result<T, E> として実装、Ok(T)またはErr(E)を返し、エラー処理パターンの基本
+    - TypeScript: 標準ではなくライブラリによる実装、型システムによるResult<T, E>型を定義",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "ok": { "type": ["string", "number", "boolean", "object", "array"] }
+      },
+      "required": ["ok"],
+      "not": { "required": ["err"] }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "err": { "type": ["string", "object"] }
+      },
+      "required": ["err"],
+      "not": { "required": ["ok"] }
+    }
+  ]
+}

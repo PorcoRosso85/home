@@ -1,0 +1,74 @@
+# ウィンドウ番号を1から開始
+# tmuxセッションを自動保存・復元する設定
+set -g @plugin 'tmux-plugins/tmux-resurrect'
+set -g @plugin 'tmux-plugins/tmux-continuum'
+
+# 自動保存を有効にする
+set -g @continuum-restore 'on'
+set -g @continuum-save-interval '15'  # 15分ごとに自動保存
+set -g base-index 1
+set -g pane-base-index 1
+
+# 新しいウィンドウを開くとき
+bind c run-shell 'tmux new-window -c "#{pane_current_path}" && tmux select-layout "$(cat ~/.tmux-layout)" && tmux display-message "新しいウィンドウにレイアウトを適用しました"'
+
+# 現在のペインを水平分割して新しいペインを開く
+bind % split-window -h -c '#{pane_current_path}'
+
+# 現在のペインを垂直分割して新しいペインを開く
+bind '"' split-window -v -c '#{pane_current_path}'
+
+set -g status-keys vi
+set -g mode-keys   vi
+setw -g clock-mode-style 24
+set -g default-terminal "screen-256color"
+set -g terminal-overrides ',xterm-256color:Tc'
+set -g window-style ''
+set -g window-active-style ''
+
+# 境界線のスタイルをダブルラインに
+set -g pane-border-lines 'double'  # 境界線のスタイルをダブルラインに
+# 境界線の上部にステータスを表示
+set -g pane-border-status 'top'  # 境界線の上部にステータスを表示
+set-window-option -g mode-keys vi
+bind-key h select-pane -L
+bind-key j select-pane -D
+bind-key k select-pane -U
+bind-key l select-pane -R
+
+# Prefix + \ の後に c を押してポップアップを開く
+bind-key \\ display-popup -w 80% -h 80% -E "cd $HOME && $SHELL"
+ 
+# 現在のレイアウトを保存するキーバインド (prefix + S)
+bind-key S run-shell 'tmux list-windows -F "#{window_layout}" > ~/.tmux-layout && tmux display-message "レイアウトを保存しました: ~/.tmux-layout"'
+
+# 保存したレイアウトを適用するキーバインド (prefix + L)
+bind-key L run-shell 'tmux new-window "tmux select-layout $(cat ~/.tmux-layout)" && tmux display-message "レイアウトを適用しました: ~/.tmux-layout"'
+
+# フォーカスしているペインの境界線を強調
+set -g pane-border-style 'fg=colour238,bg=default'  # 非アクティブなペインの境界線
+set -g pane-active-border-style 'fg=colour2,bg=default'  # アクティブなペインの境界線
+
+# ステータスバーの左側にホスト名、セッション名、ディレクトリ名を表示
+
+# TPMを初期化
+# run '~/.tmux/plugins/tpm/tpm'
+set-window-option -g status-left "#[fg=yellow]#{pane_current_path:t}"
+# set-window-option -g status-left "#[fg=green]#H #[fg=blue]#S #[fg=yellow]#{pane_current_path:t}"
+
+# ウィンドウごとにステータスバーの色を設定
+set-window-option -g status-style 'fg=white,bg=colour238'
+set-window-option -g window-status-current-style 'fg=black,bg=colour220'
+
+# 左ペインを特定のディレクトリで開く
+bind-key C run-shell 'tmux split-window -h -c /path/to/left-pane-directory'
+
+# 通知のスタイルを設定
+set -g display-panes-time 2000  # 通知を2秒間表示
+set -g display-panes-active-colour colour220  # 通知の背景色を黄色に
+set -g display-panes-colour colour238  # 通知の背景色を灰色に
+
+
+bind-key c new-window -a \
+    'split-window -h -p 30 ; \
+     split-window -h -p 30'

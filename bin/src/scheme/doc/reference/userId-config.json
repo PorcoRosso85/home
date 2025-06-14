@@ -1,0 +1,12 @@
+{
+  "title": "UserId",
+  "description": "ユーザーを一意に識別するID (UUID v4形式)",
+  "type": "string",
+  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+  "examples": [
+    "123e4567-e89b-42d3-a456-556642440000",
+    "a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6"
+  ],
+  "minLength": 36,
+  "maxLength": 36
+}

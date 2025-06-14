@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "kuzu": "npm:kuzu@^0.9.0"
+  },
+  "nodeModulesDir": "auto"
+}

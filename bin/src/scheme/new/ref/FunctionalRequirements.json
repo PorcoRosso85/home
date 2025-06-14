@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Functional Requirements",
+  "description": "システムの機能要件に関する定義（元のファイル名: 機能要件.json）",
+  "type": "object",
+  "properties": {
+    "ユーザー管理機能": {
+      "$ref": "./UserManagement.json"
+    },
+    "存在しない機能": {
+      "$ref": "./NonExistingFeature.json"
+    }
+  }
+}

@@ -2,23 +2,36 @@
 
 let
   # username = builtins.getEnv "USER";
-  username = "ubuntu";
+  # username = "nixos";
 in
 {
-  programs.home-manager.enable = true;
+  programs = {
+    home-manager.enable = true;
 
-  home.username = username;
-  home.homeDirectory = "/home/${username}";
+    bash = {
+      enable = true;
+      initExtra = ''
+        if [ -f "$HOME/.config/shell/main.sh" ]; then
+          source "$HOME/.config/shell/main.sh"
+        fi
+      '';
+    };
+
+    # dircolors = { enable = true; }; # カスタムカラーが必要ならここで設定
+
+    starship = {
+      enable = true;
+      # settings = { ... }; # starship の設定が必要ならここで追加
+    };
+
+    tmux = {
+        enable = true;
+    };
+
+  };
 
   home.packages = with pkgs; [
-    helix
-    tmux
-    starship
-    curl
-    wget
     unzip
-    git
-    gh
     tre-command
     fzf
     ripgrep
@@ -26,19 +39,17 @@ in
     bat
     zoxide
     eza
-    lazygit
     broot
 
-    gcc
+    pnpm
+    nodejs_22
+    uv
+    python311
+
     # aider-chat
+  ] ++ (import ./language.nix { inherit pkgs; });
 
-    # (import ./rust.nix { inherit pkgs; }) # rust.nixが単一パッケージを返す場合
-  ] 
-  ++ (import ./language.nix { inherit pkgs; })
-  ;
-
-  # ここにcargo, go, nodeツールをsourceするシェル設定をおいてもいいかもしれない
-  home.file.".homerc".text = ''
-    export EDITOR=hx
+  home.file.".profile".text = ''
+    source ~/.profile_
   '';
 }

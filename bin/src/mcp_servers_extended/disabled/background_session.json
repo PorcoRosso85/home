@@ -1,0 +1,25 @@
+{
+  "name": "background_session",
+  "description": "A tool for managing long-running processes in tmux background sessions. It addresses the need for executing time-consuming tasks (builds, servers, data processing) without blocking the conversation flow with AI assistants. The tool creates persistent background sessions that can be monitored, resumed, or terminated at any point, enabling users to continue discussions while processes run in the background. Usage: start sessions with 'background_session start session_name \"command\"', view status with 'background_session status session_name', check logs with 'background_session logs session_name', list all sessions with 'background_session list', and terminate sessions with 'background_session kill session_name'. Perfect for: lengthy Nix builds, running servers during discussions, managing resource-intensive operations, and freeing ports by cleanly terminating processes when done.",
+  "path": "/home/nixos/bin/src/tools/background_session",
+  "parameters": [
+    {
+      "name": "command",
+      "description": "Action to perform: start, status, logs, list, kill, or help",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "session_name",
+      "description": "Name of the tmux session to manage (required for all commands except 'list' and 'help')",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "process_command",
+      "description": "Command to execute in the background session (required for 'start' command)",
+      "type": "string",
+      "required": false
+    }
+  ]
+}

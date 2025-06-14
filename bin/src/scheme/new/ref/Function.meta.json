@@ -1,0 +1,332 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Function",
+  "description": "関数型プログラミングのための最適化された関数型メタスキーマ",
+  "type": "object",
+  "required": ["title", "type", "parameters", "returnType"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$metaSchema": {
+      "type": "string",
+      "const": "Function",
+      "description": "このスキーマが関数型メタスキーマであることを示す識別子"
+    },
+    "title": {
+      "type": "string",
+      "description": "関数型の名前"
+    },
+    "description": {
+      "type": "string",
+      "description": "関数型の説明"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["function"],
+      "description": "型のカテゴリ (関数のため 'function'固定)"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "関数の入力パラメータ",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["object"],
+          "default": "object",
+          "description": "パラメータの型 (オブジェクト形式)"
+        },
+        "properties": {
+          "type": "object",
+          "description": "パラメータのプロパティ定義",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "パラメータの型"
+              },
+              "description": {
+                "type": "string",
+                "description": "パラメータの説明"
+              },
+              "$ref": {
+                "type": "string",
+                "description": "別のスキーマへの参照"
+              },
+              "default": {
+                "description": "デフォルト値"
+              },
+              "required": {
+                "type": "boolean",
+                "description": "必須パラメータかどうか",
+                "default": false
+              },
+              "items": {
+                "type": "object",
+                "description": "配列要素の定義 (配列の場合)"
+              },
+              "properties": {
+                "type": "object",
+                "description": "ネストされたプロパティ (オブジェクトの場合)"
+              },
+              "immutable": {
+                "type": "boolean",
+                "description": "パラメータが不変かどうか",
+                "default": true
+              }
+            }
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "必須パラメータのリスト"
+        }
+      }
+    },
+    "returnType": {
+      "type": "object",
+      "description": "関数の戻り値の型",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "戻り値の型"
+        },
+        "description": {
+          "type": "string",
+          "description": "戻り値の説明"
+        },
+        "$ref": {
+          "type": "string",
+          "description": "別のスキーマへの参照"
+        },
+        "items": {
+          "type": "object",
+          "description": "配列要素の定義 (配列の場合)"
+        },
+        "properties": {
+          "type": "object",
+          "description": "オブジェクトプロパティの定義 (オブジェクトの場合)"
+        },
+        "immutable": {
+          "type": "boolean",
+          "description": "戻り値が不変かどうか",
+          "default": true
+        }
+      }
+    },
+    "async": {
+      "type": "boolean",
+      "description": "非同期関数かどうか",
+      "default": false
+    },
+    "pure": {
+      "type": "boolean",
+      "description": "純粋関数かどうか（同じ入力に対して常に同じ出力を返し、副作用がない）",
+      "default": true
+    },
+    "curried": {
+      "type": "boolean",
+      "description": "カリー化された関数かどうか",
+      "default": false
+    },
+    "lazy": {
+      "type": "boolean",
+      "description": "遅延評価が可能かどうか",
+      "default": false
+    },
+    "recursion": {
+      "type": "object",
+      "description": "再帰についての情報",
+      "properties": {
+        "isRecursive": {
+          "type": "boolean",
+          "description": "関数が再帰的かどうか",
+          "default": false
+        },
+        "tailRecursive": {
+          "type": "boolean",
+          "description": "末尾再帰最適化が可能かどうか",
+          "default": false
+        },
+        "recursionType": {
+          "type": "string",
+          "enum": ["direct", "mutual", "nested"],
+          "description": "再帰の種類（直接再帰、相互再帰、入れ子再帰）",
+          "default": "direct"
+        },
+        "terminationCondition": {
+          "type": "string",
+          "description": "再帰の終了条件の説明"
+        },
+        "complexityAnalysis": {
+          "type": "object",
+          "description": "再帰の計算量分析",
+          "properties": {
+            "time": {
+              "type": "string",
+              "description": "時間計算量（例: O(n), O(2^n)）"
+            },
+            "space": {
+              "type": "string",
+              "description": "空間計算量（例: O(n), O(log n)）"
+            }
+          }
+        },
+        "recursionDepth": {
+          "type": "object",
+          "description": "再帰の深さに関する情報",
+          "properties": {
+            "maximum": {
+              "type": "integer",
+              "description": "想定される最大再帰深度"
+            },
+            "average": {
+              "type": "number",
+              "description": "平均的な再帰深度"
+            },
+            "description": {
+              "type": "string",
+              "description": "再帰深度に関する追加情報"
+            }
+          }
+        },
+        "mutuallyRecursiveWith": {
+          "type": "array",
+          "description": "相互再帰している関数のリスト",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "相互再帰関数の名前"
+              },
+              "$ref": {
+                "type": "string",
+                "description": "相互再帰関数への参照"
+              }
+            }
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "description": "再帰の不変条件",
+          "items": {
+            "type": "string",
+            "description": "再帰中に維持される条件の説明"
+          }
+        },
+        "transformationType": {
+          "type": "array",
+          "description": "再帰から反復への変換可能性",
+          "items": {
+            "type": "string",
+            "enum": ["tailCall", "accumulator", "trampolined", "none"],
+            "description": "変換タイプ（末尾呼び出し最適化、蚀積変数使用、トランポリン使用可能）"
+          }
+        },
+        "structuralRecursion": {
+          "type": "boolean",
+          "description": "構造的再帰かどうか（入力データ構造に対して構造的に分解していく再帰）",
+          "default": false
+        }
+      }
+    },
+    "memoization": {
+      "type": "boolean",
+      "description": "メモ化をサポートするかどうか",
+      "default": false
+    },
+    "externalDependencies": {
+      "type": "array",
+      "description": "関数が依存する外部関数のリスト",
+      "items": {
+        "type": "object",
+        "required": ["$ref"],
+        "properties": {
+          "$ref": {
+            "type": "string",
+            "description": "依存関数のスキーマへの参照"
+          },
+          "description": {
+            "type": "string",
+            "description": "依存関係の説明（任意）"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "description": "発生する可能性のある例外のリスト",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "例外の名前"
+          },
+          "description": {
+            "type": "string",
+            "description": "例外の説明"
+          },
+          "code": {
+            "type": "string",
+            "description": "例外コード (存在する場合)"
+          }
+        }
+      }
+    },
+    "examples": {
+      "type": "array",
+      "description": "関数使用例",
+      "items": {
+        "type": "object",
+        "required": ["input", "output"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "例の説明"
+          },
+          "input": {
+            "description": "入力例"
+          },
+          "output": {
+            "description": "期待される出力"
+          },
+          "intermediateSteps": {
+            "type": "array",
+            "description": "計算の各ステップでの中間結果",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stepName": {
+                  "type": "string",
+                  "description": "ステップの名前"
+                },
+                "value": {
+                  "description": "中間値"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "deprecated": {
+      "type": "boolean",
+      "description": "関数が非推奨かどうか",
+      "default": false
+    },
+    "deprecationMessage": {
+      "type": "string",
+      "description": "非推奨の場合のメッセージ"
+    }
+  }
+}

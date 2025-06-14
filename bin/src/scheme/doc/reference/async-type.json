@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AsyncType",
+  "description": "非同期型",
+  "$comment": "言語別取り扱い:
+    - Zig: @Frame() として実装、非同期関数フレームを表す
+    - Lean 4: Task または IO型として実装、モナド的なアプローチ
+    - Rust: Future<Output=T>として実装、awaitで結果取得
+    - TypeScript: Promise<T>として実装、asyncとawaitでasync/promiseコードを簡潔に記述
+    JSONスキーマは非同期操作をネイティブでサポートしないため、これは概念的な表現",
+  "type": "object",
+  "properties": {
+    "pending": { "type": "boolean" },
+    "value": {},
+    "error": {}
+  },
+  "required": ["pending"]
+}

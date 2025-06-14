@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FixedArray",
+  "description": "固定長配列型",
+  "$comment": "言語別取り扱い:
+    - Zig: [N]T として実装（例: [5]u32）
+    - Lean 4: Array T N として実装（例: Array Nat 5）
+    - Rust: [T; N] として実装（例: [u32; 5]）
+    - TypeScript: 直接的な固定長配列型はないが、タプルで模倣可能",
+  "type": "array",
+  "items": {
+    "type": ["number", "string", "boolean", "object", "array", "null"]
+  },
+  "minItems": 3,
+  "maxItems": 3
+}
