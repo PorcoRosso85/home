@@ -212,6 +212,10 @@ $KUZU_CLI "$DB_PATH" < "$CYPHER_SCRIPT"
 # Clean up temporary file
 rm -f "$CYPHER_SCRIPT"
 
+# Execute post-processing to fix orphan LocationURIs
+echo -e "${YELLOW}Running post-processing to ensure data consistency...${NC}"
+$KUZU_CLI "$DB_PATH" < "/home/nixos/bin/src/kuzu/query/dml/fix_orphan_locationuris.cypher"
+
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Database initialization completed!${NC}"
 echo -e "${GREEN}Database location: $DB_PATH${NC}"
