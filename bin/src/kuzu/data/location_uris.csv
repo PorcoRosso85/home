@@ -112,3 +112,16 @@ file:///tests/unit
 file:///tests/unit/utils.test.ts
 http://localhost:3000/api/data
 https://api.example.com/v1/users?page=1
+file:///src/invitation
+file:///src/invitation/service.ts
+file:///src/invitation/service.ts#createInvitation
+file:///src/invitation/service.ts#traceInvitationPath
+file:///src/invitation/service.ts#validateInvitation
+file:///src/invitation/service.ts#getAffiliateTree
+file:///test
+file:///test/invitation
+file:///test/invitation/invitation.test.ts
+file:///test/invitation/invitation.test.ts#test_createInvitation
+file:///test/invitation/invitation.test.ts#test_traceInvitation
+file:///test/invitation/invitation.test.ts#test_validateInvitation
+file:///test/invitation/invitation.test.ts#test_getAffiliateTree

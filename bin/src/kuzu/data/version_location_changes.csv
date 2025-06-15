@@ -198,3 +198,7 @@ v0.1.1,file:///home/nixos/bin/src/kuzu/browse/TODO.md,DELETE
 v0.1.1,file:///home/nixos/bin/src/kuzu/browse/interface/elements/ErrorView.tsx,UPDATE
 v0.1.1,file:///home/nixos/bin/src/kuzu/browse/interface/elements/LoadingView.tsx,UPDATE
 v0.1.1,file:///home/nixos/bin/src/kuzu/browse/interface/elements/NodeDetailsPanel.tsx,UPDATE
+v1.3.0,file:///src/invitation,CREATE
+v1.3.0,file:///src/invitation/service.ts,CREATE
+v1.3.0,file:///test/invitation,CREATE
+v1.3.0,file:///test/invitation/invitation.test.ts,CREATE

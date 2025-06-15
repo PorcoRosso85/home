@@ -3,3 +3,7 @@ req_user_create,ユーザー作成機能,新規ユーザーを作成できるこ
 req_user_validate,ユーザー入力検証,入力データの妥当性を検証すること,medium,functional,true
 req_user_save,ユーザー保存機能,ユーザーデータをDBに保存できること,high,functional,true
 req_performance,レスポンス性能,ユーザー作成は1秒以内に完了すること,medium,non-functional,false
+req_invitation_create,招待状作成機能,新規招待状を作成してユニークなコードを発行できること,high,functional,true
+req_invitation_trace,招待経路追跡機能,招待コードから招待者の系譜を追跡できること,high,functional,true
+req_invitation_validate,招待状検証機能,招待コードの有効性を検証できること,high,functional,true
+req_affiliate_hierarchy,アフィリエイト階層管理,招待による階層構造を管理できること,medium,functional,true

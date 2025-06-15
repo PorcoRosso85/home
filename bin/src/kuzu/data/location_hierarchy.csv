@@ -44,3 +44,7 @@ file:///home/nixos/bin/src/kuzu/browse/interface,file:///home/nixos/bin/src/kuzu
 file:///home/nixos/bin/src/kuzu/browse/interface,file:///home/nixos/bin/src/kuzu/browse/interface/Page.tsx,file_hierarchy
 file:///home/nixos/bin/src/kuzu/browse/interface,file:///home/nixos/bin/src/kuzu/browse/interface/presentation,directory_hierarchy
 file:///home/nixos/bin/src/kuzu/browse/interface,file:///home/nixos/bin/src/kuzu/browse/interface/elements,directory_hierarchy
+file:///src,file:///src/invitation,directory_hierarchy
+file:///src/invitation,file:///src/invitation/service.ts,file_hierarchy
+file:///test,file:///test/invitation,directory_hierarchy
+file:///test/invitation,file:///test/invitation/invitation.test.ts,file_hierarchy

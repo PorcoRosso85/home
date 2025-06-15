@@ -5,3 +5,12 @@ test_createUser_v1.0,test_createUser,function,"test('creates user successfully')
 test_validateUser_v1.0,test_validateUserData,function,"test('validates user data')",2,50,80
 class_UserService_v1.0,UserService,class,"class UserService",10,1,300
 method_save_v1.0,save,method,"save(user: User): Promise<User>",6,150,180
+test_createInvitation_v1.0,test_createInvitation,function,"test('creates invitation with unique code')",4,10,40
+test_traceInvitation_v1.0,test_traceInvitation,function,"test('traces invitation path from code')",5,50,90
+test_validateInvitation_v1.0,test_validateInvitation,function,"test('validates invitation code')",3,100,130
+test_getAffiliateTree_v1.0,test_getAffiliateTree,function,"test('retrieves affiliate hierarchy')",6,140,180
+func_createInvitation_v1.0,createInvitation,function,"createInvitation(inviterId: string): InvitationResult",8,200,280
+func_traceInvitationPath_v1.0,traceInvitationPath,function,"traceInvitationPath(code: string): InvitationTrace[]",10,300,400
+func_validateInvitation_v1.0,validateInvitation,function,"validateInvitation(code: string): ValidationResult",5,420,470
+func_getAffiliateTree_v1.0,getAffiliateTree,function,"getAffiliateTree(userId: string): AffiliateNode",12,500,600
+class_InvitationService_v1.0,InvitationService,class,"class InvitationService",15,1,650

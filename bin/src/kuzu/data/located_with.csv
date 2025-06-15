@@ -5,3 +5,12 @@ file:///test/user.test.ts#test_createUser,test_createUser_v1.0,test
 file:///test/user.test.ts#test_validateUserData,test_validateUser_v1.0,test
 file:///src/user.ts,class_UserService_v1.0,code
 file:///src/user.ts#save,method_save_v1.0,code
+file:///src/invitation/service.ts#createInvitation,func_createInvitation_v1.0,code
+file:///src/invitation/service.ts#traceInvitationPath,func_traceInvitationPath_v1.0,code
+file:///src/invitation/service.ts#validateInvitation,func_validateInvitation_v1.0,code
+file:///src/invitation/service.ts#getAffiliateTree,func_getAffiliateTree_v1.0,code
+file:///src/invitation/service.ts,class_InvitationService_v1.0,code
+file:///test/invitation/invitation.test.ts#test_createInvitation,test_createInvitation_v1.0,test
+file:///test/invitation/invitation.test.ts#test_traceInvitation,test_traceInvitation_v1.0,test
+file:///test/invitation/invitation.test.ts#test_validateInvitation,test_validateInvitation_v1.0,test
+file:///test/invitation/invitation.test.ts#test_getAffiliateTree,test_getAffiliateTree_v1.0,test
