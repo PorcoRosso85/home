@@ -20,7 +20,7 @@
             owner = "kuzudb";
             repo = "kuzu";
             rev = "master"; # 特定のリリースを使用する場合はタグに変更することをお勧めします
-            sha256 = "sha256-RQhBB8sBqzfwdU9lrcSGksRk1dyrgyRJZsuqcQVJqK8=";
+            sha256 = "sha256-Ob8zS168SrI3j0tPTxch9I8gHfo86ylMXOLeYQeCpqQ=";
           };
 
           nativeBuildInputs = with pkgs; [
