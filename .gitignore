@@ -25,6 +25,7 @@
 !/.git*
 !/*shrc
 !*ME.md
+!CLAUDE.md
 # !/*profile
 !*nix
 !flake*
