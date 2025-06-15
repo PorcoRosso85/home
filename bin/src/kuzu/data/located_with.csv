@@ -1,0 +1,7 @@
+from_id,to_id,entity_type
+file:///src/user.ts#createUser,func_createUser_v1.0,code
+file:///src/user.ts#validateUserData,func_validateUser_v1.0,code
+file:///test/user.test.ts#test_createUser,test_createUser_v1.0,test
+file:///test/user.test.ts#test_validateUserData,test_validateUser_v1.0,test
+file:///src/user.ts,class_UserService_v1.0,code
+file:///src/user.ts#save,method_save_v1.0,code

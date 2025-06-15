@@ -26,7 +26,8 @@ CREATE NODE TABLE RequirementEntity (
   title STRING,
   description STRING,
   priority STRING,
-  requirement_type STRING
+  requirement_type STRING,
+  verification_required BOOLEAN DEFAULT true
 );
 
 // 4. VersionStateノード - バージョン管理情報
@@ -48,13 +49,7 @@ CREATE NODE TABLE ReferenceEntity (
   source_type STRING
 );
 
-// 6. RequirementVerificationノード - 要件の検証方法
-CREATE NODE TABLE RequirementVerification (
-  id STRING PRIMARY KEY,
-  name STRING,
-  description STRING,
-  verification_type STRING
-);
+// 6. RequirementVerificationノード - 削除（IS_VERIFIED_BY関係で代替）
 
 // 7. EntityAggregationViewノード - URI階層から上位構造を生成・集計
 CREATE NODE TABLE EntityAggregationView (
@@ -89,10 +84,10 @@ CREATE REL TABLE IS_IMPLEMENTED_BY (
   implementation_type STRING
 );
 
-// 5. VERIFICATION_IS_IMPLEMENTED_BY: 検証の実装関係
-CREATE REL TABLE VERIFICATION_IS_IMPLEMENTED_BY (
-  FROM RequirementVerification TO CodeEntity,
-  implementation_type STRING
+// 5. IS_VERIFIED_BY: 要件の検証関係
+CREATE REL TABLE IS_VERIFIED_BY (
+  FROM RequirementEntity TO CodeEntity,
+  test_type STRING -- 'unit' | 'integration' | 'e2e'
 );
 
 // 6. DEPENDS_ON: 要件間の依存関係
@@ -114,12 +109,15 @@ CREATE REL TABLE REFERS_TO (
   ref_type STRING
 );
 
-// 9. VERIFIED_BY: 要件と検証の関連付け
-CREATE REL TABLE VERIFIED_BY (
-  FROM RequirementEntity TO RequirementVerification
+// 9. VERIFIED_BY: 削除（IS_VERIFIED_BY関係で代替）
+
+// 10. TESTS: テストコードが実装コードをテストする関係
+CREATE REL TABLE TESTS (
+  FROM CodeEntity TO CodeEntity,
+  test_type STRING -- 'unit' | 'integration' | 'e2e'
 );
 
-// 10. CONTAINS_LOCATION: 位置情報間の階層関係
+// 11. CONTAINS_LOCATION: 位置情報間の階層関係
 CREATE REL TABLE CONTAINS_LOCATION (
   FROM LocationURI TO LocationURI,
   relation_type STRING

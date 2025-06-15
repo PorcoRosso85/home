@@ -1,6 +1,12 @@
 id
 file:///docs
 file:///docs/architecture.md
+file:///src/user.ts#createUser
+file:///src/user.ts#validateUserData
+file:///test/user.test.ts#test_createUser
+file:///test/user.test.ts#test_validateUserData
+file:///src/user.ts
+file:///src/user.ts#save
 file:///home/nixos/bin/src/kuzu
 file:///home/nixos/bin/src/kuzu/browse
 file:///home/nixos/bin/src/kuzu/browse/application

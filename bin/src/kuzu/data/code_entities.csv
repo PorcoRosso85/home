@@ -1,0 +1,7 @@
+persistent_id,name,type,signature,complexity,start_position,end_position
+func_createUser_v1.0,createUser,function,"createUser(data: UserData): User",8,100,200
+func_validateUser_v1.0,validateUserData,function,"validateUserData(data: UserData): boolean",5,50,90
+test_createUser_v1.0,test_createUser,function,"test('creates user successfully')",3,10,40
+test_validateUser_v1.0,test_validateUserData,function,"test('validates user data')",2,50,80
+class_UserService_v1.0,UserService,class,"class UserService",10,1,300
+method_save_v1.0,save,method,"save(user: User): Promise<User>",6,150,180

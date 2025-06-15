@@ -8,7 +8,13 @@ DB_PATH="/home/nixos/bin/src/kuzu/kuzu_db"
 
 # ヘルパー関数: クエリ実行して数値を取得
 run_query() {
-  echo "$1" | kuzu $DB_PATH 2>/dev/null | grep -E "│.*[0-9]+.*│" | tail -1 | sed 's/[^0-9]//g'
+  result=$(echo "$1" | kuzu $DB_PATH 2>/dev/null | grep -E "│.*[0-9]+.*│" | tail -1 | sed 's/[^0-9]//g')
+  # 結果が空の場合は0を返す
+  if [ -z "$result" ]; then
+    echo "0"
+  else
+    echo "$result"
+  fi
 }
 
 # ヘルパー関数: クエリ実行して結果を表示
@@ -140,12 +146,61 @@ echo "変更タイプ別の統計:"
 show_query "MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(r) ORDER BY count(r) DESC;" | grep -E "│.*(CREATE|UPDATE|DELETE).*│"
 
 echo ""
+echo "=== 要件トレーサビリティテスト ==="
+echo ""
+
+# テスト8: 要件と実装のトレーサビリティ
+echo "テスト8: 要件トレーサビリティの確認:"
+
+# 要件→テスト→実装のパス
+echo -n "  テスト経由の実装... "
+test_path_count=$(run_query "MATCH (r:RequirementEntity)-[:IS_VERIFIED_BY]->(test:CodeEntity)-[:TESTS]->(impl:CodeEntity) RETURN count(*);")
+if [ "$test_path_count" -gt "0" ]; then
+  echo "✓ $test_path_count 件のテスト経由実装"
+else
+  echo "△ テスト経由の実装なし"
+fi
+
+# 直接実装のパス
+echo -n "  直接実装（テストなし）... "
+direct_impl_count=$(run_query "MATCH (r:RequirementEntity)-[:IS_IMPLEMENTED_BY]->(impl:CodeEntity) RETURN count(*);")
+if [ "$direct_impl_count" -eq "0" ]; then
+  echo "✓ 直接実装なし（TDD準拠）"
+else
+  echo "△ $direct_impl_count 件の直接実装"
+fi
+
+# テスト9: 重複パスチェック
+echo ""
+echo "テスト9: 重複パスチェック:"
+duplicate_count=$(run_query "MATCH (r:RequirementEntity)-[:IS_IMPLEMENTED_BY]->(impl:CodeEntity) WHERE EXISTS((r)-[:IS_VERIFIED_BY]->(:CodeEntity)-[:TESTS]->(impl)) RETURN count(*);")
+
+if [ "$duplicate_count" -eq "0" ]; then
+  echo "  ✓ 重複パスなし"
+else
+  echo "  ✗ $duplicate_count 件の重複パスが検出されました"
+fi
+
+# テスト10: 未検証要件の検出
+echo ""
+echo "テスト10: 検証必須要件のチェック:"
+# 検証必須だが未検証の要件をカウント
+unverified_query="MATCH (r:RequirementEntity) WHERE r.verification_required = true OPTIONAL MATCH (r)-[:IS_VERIFIED_BY]->(c:CodeEntity) WITH r, c WHERE c IS NULL RETURN count(r);"
+unverified_count=$(run_query "$unverified_query")
+
+if [ "$unverified_count" -eq "0" ]; then
+  echo "  ✓ すべての必須要件が検証済み"
+else
+  echo "  △ $unverified_count 件の未検証要件"
+fi
+
+echo ""
 echo "=== テスト完了 ==="
 echo ""
 
 # 最終判定
-if [ ! -z "$active_count" ]; then
-  echo "✅ 修正版append-onlyクエリが正常に動作しています！"
+if [ ! -z "$active_count" ] && [ "$duplicate_count" -eq "0" ]; then
+  echo "✅ 修正版append-onlyクエリとトレーサビリティが正常に動作しています！"
 else
-  echo "❌ 修正版クエリに問題があります"
+  echo "❌ 修正版クエリまたはトレーサビリティに問題があります"
 fi

@@ -58,6 +58,29 @@ CREATE NODE TABLE LocationURI (
     PRIMARY KEY(id)
 );
 
+// Create CodeEntity node table
+CREATE NODE TABLE CodeEntity (
+    persistent_id STRING,
+    name STRING,
+    type STRING,
+    signature STRING,
+    complexity INT64,
+    start_position INT64,
+    end_position INT64,
+    PRIMARY KEY(persistent_id)
+);
+
+// Create RequirementEntity node table
+CREATE NODE TABLE RequirementEntity (
+    id STRING,
+    title STRING,
+    description STRING,
+    priority STRING,
+    requirement_type STRING,
+    verification_required BOOLEAN,
+    PRIMARY KEY(id)
+);
+
 // Create TRACKS_STATE_OF_LOCATED_ENTITY relationship table
 CREATE REL TABLE TRACKS_STATE_OF_LOCATED_ENTITY (
     FROM VersionState TO LocationURI,
@@ -78,6 +101,34 @@ CREATE REL TABLE CONTAINS_LOCATION (
     MANY_MANY
 );
 
+// Create LOCATED_WITH relationship table
+CREATE REL TABLE LOCATED_WITH (
+    FROM LocationURI TO CodeEntity,
+    entity_type STRING,
+    MANY_MANY
+);
+
+// Create IS_IMPLEMENTED_BY relationship table
+CREATE REL TABLE IS_IMPLEMENTED_BY (
+    FROM RequirementEntity TO CodeEntity,
+    implementation_type STRING,
+    MANY_MANY
+);
+
+// Create IS_VERIFIED_BY relationship table
+CREATE REL TABLE IS_VERIFIED_BY (
+    FROM RequirementEntity TO CodeEntity,
+    test_type STRING,
+    MANY_MANY
+);
+
+// Create TESTS relationship table
+CREATE REL TABLE TESTS (
+    FROM CodeEntity TO CodeEntity,
+    test_type STRING,
+    MANY_MANY
+);
+
 // ========================================
 // 2. Load Data from CSV files
 // ========================================
@@ -95,6 +146,24 @@ COPY FOLLOWS FROM '/home/nixos/bin/src/kuzu/data/version_follows.csv' (header=tr
 
 // Load CONTAINS_LOCATION relationships
 COPY CONTAINS_LOCATION FROM '/home/nixos/bin/src/kuzu/data/location_hierarchy.csv' (header=true, FROM='parent_id', TO='child_id');
+
+// Load CodeEntity nodes
+COPY CodeEntity FROM '/home/nixos/bin/src/kuzu/data/code_entities.csv' (header=true);
+
+// Load RequirementEntity nodes
+COPY RequirementEntity FROM '/home/nixos/bin/src/kuzu/data/requirement_entities.csv' (header=true);
+
+// Load LOCATED_WITH relationships
+COPY LOCATED_WITH FROM '/home/nixos/bin/src/kuzu/data/located_with.csv' (header=true, FROM='from_id', TO='to_id');
+
+// Load IS_IMPLEMENTED_BY relationships
+COPY IS_IMPLEMENTED_BY FROM '/home/nixos/bin/src/kuzu/data/is_implemented_by.csv' (header=true, FROM='from_id', TO='to_id');
+
+// Load IS_VERIFIED_BY relationships
+COPY IS_VERIFIED_BY FROM '/home/nixos/bin/src/kuzu/data/is_verified_by.csv' (header=true, FROM='from_id', TO='to_id');
+
+// Load TESTS relationships
+COPY TESTS FROM '/home/nixos/bin/src/kuzu/data/tests.csv' (header=true, FROM='from_id', TO='to_id');
 
 // ========================================
 // 3. Verification Queries

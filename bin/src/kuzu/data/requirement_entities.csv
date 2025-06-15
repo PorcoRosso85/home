@@ -1,0 +1,5 @@
+id,title,description,priority,requirement_type,verification_required
+req_user_create,ユーザー作成機能,新規ユーザーを作成できること,high,functional,true
+req_user_validate,ユーザー入力検証,入力データの妥当性を検証すること,medium,functional,true
+req_user_save,ユーザー保存機能,ユーザーデータをDBに保存できること,high,functional,true
+req_performance,レスポンス性能,ユーザー作成は1秒以内に完了すること,medium,non-functional,false
