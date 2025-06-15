@@ -59,6 +59,18 @@ RETURN root, member, length(path) as depth
   test_新機能ID_v1.0,func_新機能ID_v1.0,unit
   ```
 
+#### CSV記載ルール（重要）
+実装を再現可能にするため、以下のルールに従うこと：
+- **requirement_entities.csv**
+  - `description`フィールドに実装詳細を記載
+  - 【実装手順】タグ: セットアップやクエリの手順
+  - 【依存】タグ: 依存する他の要件ID
+  - 【クエリ】タグ: 使用するCypherクエリ
+- **code_entities.csv**
+  - `signature`フィールドに実装コードを含める
+  - /* IMPLEMENTATION: ... */ 形式でコメント内に記載
+  - テスト仕様も同様にコメントで記載
+
 **並列実行可能タスク**:
 - [ ] 2-P1: 既存要件との整合性チェック
 - [ ] 2-P2: 命名規則の確認
