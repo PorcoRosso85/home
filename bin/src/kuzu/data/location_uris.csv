@@ -125,3 +125,6 @@ file:///test/invitation/invitation.test.ts#test_createInvitation
 file:///test/invitation/invitation.test.ts#test_traceInvitation
 file:///test/invitation/invitation.test.ts#test_validateInvitation
 file:///test/invitation/invitation.test.ts#test_getAffiliateTree
+file:///src/search/hybrid_search.ts#test_hybridSearch
+file:///src/search/hybrid_search.ts#hybridSearch
+file:///src/search/hybrid_search.ts

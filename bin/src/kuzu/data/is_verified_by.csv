@@ -7,3 +7,4 @@ req_invitation_validate,test_validateInvitation_v1.0,unit
 req_affiliate_hierarchy,test_getAffiliateTree_v1.0,unit
 req_ocr_lead_email_poc,test_ocr_lead_email_poc_v1.0,unit
 req_wasm_idbfs_sync_poc,test_wasm_idbfs_sync_poc_v1.0,unit
+req_fts_vss_search,test_fts_vss_search_v1.3.5,integration
