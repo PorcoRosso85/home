@@ -6,3 +6,4 @@ test_traceInvitation_v1.0,func_traceInvitationPath_v1.0,unit
 test_validateInvitation_v1.0,func_validateInvitation_v1.0,unit
 test_getAffiliateTree_v1.0,func_getAffiliateTree_v1.0,unit
 test_ocr_lead_email_poc_v1.0,func_ocr_lead_email_poc_v1.0,unit
+test_wasm_idbfs_sync_poc_v1.0,func_wasm_idbfs_sync_poc_v1.0,unit

@@ -16,3 +16,5 @@ func_getAffiliateTree_v1.0,getAffiliateTree,function,"getAffiliateTree(userId: s
 class_InvitationService_v1.0,InvitationService,class,"class InvitationService",15,1,650
 test_ocr_lead_email_poc_v1.0,test_ocrLeadEmailPoC,function,"test('OCR名刺解析→リード調査→メール送信のフロー')",8,700,750
 func_ocr_lead_email_poc_v1.0,ocrLeadEmailPoC,function,"ocrLeadEmailPoC(imagePath: string): EmailResult",15,800,950
+test_wasm_idbfs_sync_poc_v1.0,test_wasmIdbfsSyncPoC,function,"test('KuzuDB WASM IDBFSブラウザ間同期のフロー')",10,1000,1080
+func_wasm_idbfs_sync_poc_v1.0,wasmIdbfsSyncPoC,function,"wasmIdbfsSyncPoC(config: SyncConfig): SyncResult",20,1100,1300
