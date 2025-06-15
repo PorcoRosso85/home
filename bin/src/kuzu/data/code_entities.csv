@@ -14,3 +14,5 @@ func_traceInvitationPath_v1.0,traceInvitationPath,function,"traceInvitationPath(
 func_validateInvitation_v1.0,validateInvitation,function,"validateInvitation(code: string): ValidationResult",5,420,470
 func_getAffiliateTree_v1.0,getAffiliateTree,function,"getAffiliateTree(userId: string): AffiliateNode",12,500,600
 class_InvitationService_v1.0,InvitationService,class,"class InvitationService",15,1,650
+test_ocr_lead_email_poc_v1.0,test_ocrLeadEmailPoC,function,"test('OCR名刺解析→リード調査→メール送信のフロー')",8,700,750
+func_ocr_lead_email_poc_v1.0,ocrLeadEmailPoC,function,"ocrLeadEmailPoC(imagePath: string): EmailResult",15,800,950

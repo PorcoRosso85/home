@@ -5,3 +5,4 @@ req_invitation_create,test_createInvitation_v1.0,unit
 req_invitation_trace,test_traceInvitation_v1.0,unit
 req_invitation_validate,test_validateInvitation_v1.0,unit
 req_affiliate_hierarchy,test_getAffiliateTree_v1.0,unit
+req_ocr_lead_email_poc,test_ocr_lead_email_poc_v1.0,unit

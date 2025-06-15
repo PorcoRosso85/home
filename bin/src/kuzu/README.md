@@ -1,4 +1,7 @@
-# 要件トレーサビリティシステム
+# 要件トレーサビリティシステム（TRD: Traced Requirements Driven）
+
+## 🚨 UsecaseDriven開発の鉄則
+**すべての機能開発はユースケース（DQL）から始まる**
 
 ## 概要
 要件→テスト→実装の一方向フローを実現するグラフデータベース。
@@ -11,11 +14,15 @@
 CSV:requirement_entities → is_verified_by → tests
 ```
 
-## 新機能追加の完全手順
+## 新機能追加フロー
 
-### 0. ユースケースDQLの設計（必須）
-新機能を追加する前に、その機能で実現したいユースケースのDQLを先に設計します。
+### Phase 1: ユースケース設計【Sequential】
+- [ ] 1-1: ビジネス要求の明確化
+- [ ] 1-2: ユースケースシナリオの作成
+- [ ] 1-3: DQLクエリの設計
+- [ ] 1-4: 必要なスキーマ（ノード・エッジ・プロパティ）の洗い出し
 
+#### DQL設計例
 ```cypher
 # 例: 招待トレースシステムの場合
 # ユースケース1: 特定の招待コードから系譜を追跡
@@ -28,43 +35,44 @@ WHERE root.id = $userId
 RETURN root, member, length(path) as depth
 ```
 
-**重要**: DQLで必要なノード・エッジ・プロパティを明確にしてから、以下の手順に進むこと。
+**ゲートチェック**: DQL設計レビュー完了？ → No なら Phase 1 をやり直し
 
-### 1. 要件を定義
-```csv
-# data/requirement_entities.csvに1行追加
-req_新機能ID,機能タイトル,詳細説明,high,functional,true
-```
+### Phase 2: TRD要件定義【Sequential】
+- [ ] 2-1: 要件CSVへの追加（requirement_entities.csv）
+  ```csv
+  req_新機能ID,機能タイトル,詳細説明,high,functional,true
+  ```
+- [ ] 2-2: テストコード定義（code_entities.csv）
+  ```csv
+  test_新機能ID_v1.0,test_新機能名,function,"test('新機能のテスト')",3,10,40
+  ```
+- [ ] 2-3: 実装コード定義（code_entities.csv）
+  ```csv
+  func_新機能ID_v1.0,新機能名,function,"新機能名(): void",5,50,100
+  ```
+- [ ] 2-4: 関係性の定義
+  ```csv
+  # data/is_verified_by.csv - 要件→テスト
+  req_新機能ID,test_新機能ID_v1.0,unit
+  
+  # data/tests.csv - テスト→実装
+  test_新機能ID_v1.0,func_新機能ID_v1.0,unit
+  ```
 
-### 2. テストコードを定義
-```csv
-# data/code_entities.csvに追加
-test_新機能ID_v1.0,test_新機能名,function,"test('新機能のテスト')",3,10,40
-```
+**並列実行可能タスク**:
+- [ ] 2-P1: 既存要件との整合性チェック
+- [ ] 2-P2: 命名規則の確認
 
-### 3. 実装コードを定義
-```csv
-# data/code_entities.csvに追加  
-func_新機能ID_v1.0,新機能名,function,"新機能名(): void",5,50,100
-```
+### Phase 3: データベース反映と検証【Sequential】
+- [ ] 3-1: kuzu.init.sh実行
+  ```bash
+  cd ~/bin/src/kuzu && bash kuzu.init.sh
+  ```
+- [ ] 3-2: テストスキーマ作成（CREATE NODE TABLE等）
+- [ ] 3-3: テストデータ投入
+- [ ] 3-4: ユースケースDQL実行確認
 
-### 4. 関係を接続
-```csv
-# data/is_verified_by.csv - 要件→テスト
-req_新機能ID,test_新機能ID_v1.0,unit
-
-# data/tests.csv - テスト→実装
-test_新機能ID_v1.0,func_新機能ID_v1.0,unit
-```
-
-### 5. システムに反映
-```bash
-cd ~/bin/src/kuzu && bash kuzu.init.sh
-```
-
-### 6. ユースケースDQLの動作確認（必須）
-設計したDQLが期待通り動作することを確認します。
-
+#### DQL動作確認例
 ```bash
 # テストデータの投入（DML）
 echo "CREATE (:User {id: 'user1', name: 'Alice'});" | kuzu kuzu_db
@@ -75,7 +83,53 @@ echo "MATCH (a:User {id: 'user1'}), (b:User {id: 'user2'}) CREATE (a)-[:INVITED]
 echo "MATCH path = (inviter:User)-[:INVITED*]->(invitee:User {code: 'ABC123'}) RETURN path;" | kuzu kuzu_db
 ```
 
-**重要**: DQLが期待するデータを返すことを確認してから実装に進むこと。
+**並列実行可能タスク**:
+- [ ] 3-P1: トレーサビリティクエリ実行
+- [ ] 3-P2: 要件ステータス確認
+
+**ゲートチェック**: DQLが期待通り動作？ → No なら Phase 1 に戻る
+
+### Phase 4: 実装開始【実装フェーズ】
+- [ ] 4-1: テストコード実装
+- [ ] 4-2: 本体コード実装
+- [ ] 4-3: 統合テスト
+
+## コマンドテンプレート集
+
+### 要件追加前の確認（並列実行）
+```bash
+{
+  # 現在の要件状況
+  echo "MATCH (r:RequirementEntity) RETURN count(r) as total_reqs;" | kuzu kuzu_db &
+  
+  # 未実装要件
+  echo "MATCH (r:RequirementEntity) WHERE r.verification_required = true 
+        OPTIONAL MATCH (r)-[:IS_VERIFIED_BY]->(t) 
+        WITH r WHERE t IS NULL RETURN count(r) as unimplemented;" | kuzu kuzu_db &
+  
+  wait
+}
+```
+
+### 要件トレーサビリティ確認（並列実行）
+```bash
+{
+  # テスト駆動実装の確認
+  echo "MATCH (r:RequirementEntity)-[:IS_VERIFIED_BY]->(t:CodeEntity)-[:TESTS]->(i:CodeEntity) 
+        RETURN r.id, t.name as test, i.name as impl 
+        ORDER BY r.id;" | kuzu kuzu_db > implemented.txt &
+  
+  # 未実装要件の抽出
+  echo "MATCH (r:RequirementEntity) WHERE r.verification_required = true 
+        OPTIONAL MATCH (r)-[:IS_VERIFIED_BY]->(t:CodeEntity)-[:TESTS]->(i:CodeEntity) 
+        WITH r,t,i WHERE t IS NULL 
+        RETURN r.id, r.title;" | kuzu kuzu_db > unimplemented.txt &
+  
+  wait
+  echo "=== 実装済み ===" && cat implemented.txt
+  echo "=== 未実装 ===" && cat unimplemented.txt
+}
+```
 
 ## 要件状態の確認
 
