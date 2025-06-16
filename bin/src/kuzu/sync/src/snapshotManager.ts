@@ -1,10 +1,12 @@
 /**
  * Snapshot Manager for KuzuDB sync system
- * Handles database export/import operations with R2-compatible storage
+ * Generates Cypher snapshots from patch history
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import type { GraphPatch } from './types/protocol.ts';
+import { patchToCypher } from './patch-to-cypher.ts';
 
 // Error types using union types pattern
 export type CreateSnapshotError = {
@@ -35,7 +37,7 @@ export type SnapshotMetadata = {
 
 // Success result types
 export type CreateSnapshotResult = SnapshotMetadata | CreateSnapshotError;
-export type LoadSnapshotResult = { success: true } | LoadSnapshotError;
+export type LoadSnapshotResult = { success: true; content: string } | LoadSnapshotError;
 export type GetLatestSnapshotResult = SnapshotMetadata | GetLatestSnapshotError;
 
 // Type guards
@@ -43,15 +45,18 @@ export function isError<T extends { code: string }>(result: T | any): result is 
   return 'code' in result && 'message' in result;
 }
 
-// Database interface (compatible with kuzu-wasm)
-export type KuzuDatabase = {
-  execute: (query: string) => Promise<any>;
+// Patch history entry
+export type PatchHistoryEntry = {
+  version: number;
+  patches: GraphPatch[];
+  clientId: string;
+  timestamp: number;
 };
 
 // Snapshot manager interface
 export type SnapshotManager = {
-  createSnapshot: (db: KuzuDatabase, version: number) => Promise<CreateSnapshotResult>;
-  loadSnapshot: (db: KuzuDatabase, snapshotId: string) => Promise<LoadSnapshotResult>;
+  createSnapshot: (patchHistory: PatchHistoryEntry[], version: number) => Promise<CreateSnapshotResult>;
+  loadSnapshot: (snapshotId: string) => Promise<LoadSnapshotResult>;
   getLatestSnapshot: () => Promise<GetLatestSnapshotResult>;
 };
 
@@ -75,72 +80,82 @@ export function createSnapshotManager(storageDir: string): SnapshotManager {
     await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
   }
 
-  // Create snapshot implementation using kuzu-wasm
-  async function createSnapshot(db: KuzuDatabase, version: number): Promise<CreateSnapshotResult> {
+  // Create snapshot implementation from patch history
+  async function createSnapshot(patchHistory: PatchHistoryEntry[], version: number): Promise<CreateSnapshotResult> {
     const snapshotId = `snapshot_${Date.now()}_v${version}`;
     const exportPath = path.join(storageDir, `${snapshotId}.cypher`);
 
     try {
-      // Get schema info first
-      const tablesResult = await db.execute('SHOW TABLES');
+      // Build Cypher content from patch history
+      let cypherContent = `-- KuzuDB Snapshot v${version}\n`;
+      cypherContent += `-- Generated at ${new Date().toISOString()}\n`;
+      cypherContent += `-- Total patches: ${patchHistory.reduce((sum, entry) => sum + entry.patches.length, 0)}\n\n`;
       
-      // Build Cypher export content
-      let cypherContent = '';
+      // Track created entities to avoid duplicates
+      const createdNodes = new Set<string>();
+      const createdEdges = new Set<string>();
+      const deletedNodes = new Set<string>();
+      const deletedEdges = new Set<string>();
       
-      // Process each table
-      for (const tableRow of tablesResult) {
-        const tableName = tableRow['name'];
-        const tableType = tableRow['type'];
+      // Process patches in order
+      for (const entry of patchHistory) {
+        cypherContent += `\n-- Version ${entry.version} by ${entry.clientId}\n`;
         
-        if (tableType === 'NODE') {
-          // Export nodes
-          const nodesResult = await db.execute(`MATCH (n:${tableName}) RETURN n`);
-          
-          if (nodesResult && nodesResult.length > 0) {
-            for (const row of nodesResult) {
-              const node = row['n'];
-              
-              // Extract properties
-              const props = Object.entries(node)
-                .filter(([k]) => !k.startsWith('_'))
-                .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
-                .join(', ');
-              
-              cypherContent += `CREATE (:${tableName}`;
-              if (props) cypherContent += ` {${props}}`;
-              cypherContent += ');\n';
+        for (const patch of entry.patches) {
+          try {
+            // Skip if entity was deleted
+            if (patch.op === 'delete_node' && 'nodeId' in patch) {
+              deletedNodes.add(patch.nodeId);
+              createdNodes.delete(patch.nodeId);
+              continue;
             }
-          }
-        } else if (tableType === 'REL') {
-          // Export relationships
-          const relsResult = await db.execute(`MATCH ()-[r:${tableName}]->() RETURN r`);
-          
-          if (relsResult && relsResult.length > 0) {
-            for (const row of relsResult) {
-              const rel = row['r'];
-              
-              // For relationships, we need to match the connected nodes
-              // This is a simplified version - in reality we'd need node identifiers
-              const relProps = Object.entries(rel)
-                .filter(([k]) => !k.startsWith('_'))
-                .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
-                .join(', ');
-              
-              // Note: This is simplified - actual implementation would need to track node IDs
-              cypherContent += `// Relationship: ${tableName}`;
-              if (relProps) cypherContent += ` {${relProps}}`;
-              cypherContent += '\n';
+            if (patch.op === 'delete_edge' && 'edgeId' in patch) {
+              deletedEdges.add(patch.edgeId);
+              createdEdges.delete(patch.edgeId);
+              continue;
             }
+            
+            // Skip if trying to update/create a deleted entity
+            if ('nodeId' in patch && deletedNodes.has(patch.nodeId)) continue;
+            if ('edgeId' in patch && deletedEdges.has(patch.edgeId)) continue;
+            
+            // Convert patch to Cypher
+            const cypherQuery = patchToCypher(patch);
+            
+            // For create operations, track the entity
+            if (patch.op === 'create_node' && 'nodeId' in patch) {
+              if (createdNodes.has(patch.nodeId)) continue; // Skip duplicate creates
+              createdNodes.add(patch.nodeId);
+            }
+            if (patch.op === 'create_edge' && 'edgeId' in patch) {
+              if (createdEdges.has(patch.edgeId)) continue; // Skip duplicate creates
+              createdEdges.add(patch.edgeId);
+            }
+            
+            // Add the Cypher statement
+            cypherContent += cypherQuery.statement;
+            
+            // Add parameters as comments for clarity
+            if (Object.keys(cypherQuery.parameters).length > 0) {
+              cypherContent += ` -- params: ${JSON.stringify(cypherQuery.parameters)}`;
+            }
+            cypherContent += '\n';
+            
+          } catch (patchError: any) {
+            // Log patch conversion errors but continue
+            cypherContent += `-- Error converting patch: ${patchError.message}\n`;
+            cypherContent += `-- Patch: ${JSON.stringify(patch)}\n`;
           }
         }
       }
 
-      // If empty database, create minimal content
-      if (!cypherContent) {
-        cypherContent = '// Empty database snapshot\n';
+      // If no valid operations, create minimal content
+      if (createdNodes.size === 0 && createdEdges.size === 0) {
+        cypherContent += '\n-- Empty database (no entities created)\n';
       }
 
       // Write to file
+      await fs.mkdir(storageDir, { recursive: true });
       await fs.writeFile(exportPath, cypherContent, 'utf-8');
 
       // Get file size
@@ -164,14 +179,14 @@ export function createSnapshotManager(storageDir: string): SnapshotManager {
     } catch (error: any) {
       return {
         code: 'EXPORT_FAILED',
-        message: `[KuzuDB Export] Failed to create snapshot: ${error.message}`,
+        message: `[Snapshot Creation] Failed to create snapshot: ${error.message}`,
         originalError: error.toString()
       };
     }
   }
 
-  // Load snapshot implementation using kuzu-wasm
-  async function loadSnapshot(db: KuzuDatabase, snapshotId: string): Promise<LoadSnapshotResult> {
+  // Load snapshot implementation - returns Cypher content
+  async function loadSnapshot(snapshotId: string): Promise<LoadSnapshotResult> {
     try {
       // Find snapshot metadata
       const allMetadata = await readMetadata();
@@ -190,22 +205,11 @@ export function createSnapshotManager(storageDir: string): SnapshotManager {
       // Read Cypher content
       const cypherContent = await fs.readFile(snapshot.path, 'utf-8');
 
-      // Clear existing data
-      await db.execute('MATCH (n) DETACH DELETE n');
-
-      // Execute each Cypher statement
-      const statements = cypherContent.split(';\n').filter(s => s.trim() && !s.trim().startsWith('//'));
-      for (const statement of statements) {
-        if (statement.trim()) {
-          await db.execute(statement);
-        }
-      }
-
-      return { success: true };
+      return { success: true, content: cypherContent };
     } catch (error: any) {
       return {
         code: 'IMPORT_FAILED',
-        message: `[KuzuDB Import] Failed to load snapshot: ${error.message}`,
+        message: `[Snapshot Load] Failed to load snapshot: ${error.message}`,
         originalError: error.toString()
       };
     }

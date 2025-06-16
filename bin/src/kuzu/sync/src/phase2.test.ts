@@ -75,7 +75,7 @@ describe('Phase 2 Integration Tests', () => {
   beforeEach(async () => {
     // Create a mock snapshot manager for testing
     const mockSnapshotManager = {
-      createSnapshot: async (db: any, version: number) => {
+      createSnapshot: async (patchHistory: any[], version: number) => {
         return {
           id: `snapshot-test-${version}`,
           timestamp: Date.now(),
@@ -84,8 +84,11 @@ describe('Phase 2 Integration Tests', () => {
           path: `/tmp/test-snapshots/snapshot-test-${version}.cypher`
         };
       },
-      loadSnapshot: async (db: any, snapshotId: string) => {
-        return { success: true };
+      loadSnapshot: async (snapshotId: string) => {
+        return { 
+          success: true as const,
+          content: '-- Test snapshot content\nCREATE (:TestNode {id: "test-1"});'
+        };
       },
       getLatestSnapshot: async () => {
         return {

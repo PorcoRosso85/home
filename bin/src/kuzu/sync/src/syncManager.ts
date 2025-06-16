@@ -24,8 +24,9 @@ import {
   serializeVersionVector
 } from './protocol.ts';
 
-import type { SnapshotManager } from './snapshotManager.ts';
+import type { SnapshotManager, PatchHistoryEntry } from './snapshotManager.ts';
 import type { DiffEngine } from './diffEngine.ts';
+import type { GraphPatch } from './types/protocol.ts';
 
 // Client connection interface
 export type ClientConnection = {
@@ -41,13 +42,6 @@ export type SyncManagerConfig = {
   maxHistorySize?: number;
 };
 
-// Patch history entry
-type HistoryEntry = {
-  version: Version;
-  patches: Patch[];
-  clientId: ClientId;
-  timestamp: number;
-};
 
 // Sync manager interface
 export type SyncManager = {
@@ -58,6 +52,85 @@ export type SyncManager = {
   getVersionVector: () => VersionVector;
 };
 
+// Convert protocol Patch to GraphPatch
+function convertToGraphPatch(patch: Patch, clientId: ClientId): GraphPatch | null {
+  const basePatch = {
+    id: patch.id,
+    timestamp: Date.now(),
+    clientId
+  };
+
+  // Parse the path to extract entity type and ID
+  const pathParts = patch.path.split('/').filter(p => p);
+  if (pathParts.length < 2) return null;
+
+  const [entityType, entityId] = pathParts;
+
+  switch (patch.operation) {
+    case 'CREATE_NODE':
+      return {
+        ...basePatch,
+        op: 'create_node',
+        nodeId: entityId,
+        data: {
+          label: patch.value?.label || 'Node',
+          properties: patch.value?.properties || {}
+        }
+      };
+    
+    case 'DELETE_NODE':
+      return {
+        ...basePatch,
+        op: 'delete_node',
+        nodeId: entityId
+      };
+    
+    case 'CREATE_EDGE':
+      return {
+        ...basePatch,
+        op: 'create_edge',
+        edgeId: entityId,
+        data: {
+          label: patch.value?.label || 'Edge',
+          fromNodeId: patch.value?.fromNodeId,
+          toNodeId: patch.value?.toNodeId,
+          properties: patch.value?.properties || {}
+        }
+      };
+    
+    case 'DELETE_EDGE':
+      return {
+        ...basePatch,
+        op: 'delete_edge',
+        edgeId: entityId
+      };
+    
+    case 'SET_PROPERTY':
+      if (!patch.property) return null;
+      return {
+        ...basePatch,
+        op: 'set_property',
+        targetType: entityType === 'nodes' ? 'node' : 'edge',
+        targetId: entityId,
+        propertyKey: patch.property,
+        propertyValue: patch.value
+      };
+    
+    case 'REMOVE_PROPERTY':
+      if (!patch.property) return null;
+      return {
+        ...basePatch,
+        op: 'remove_property',
+        targetType: entityType === 'nodes' ? 'node' : 'edge',
+        targetId: entityId,
+        propertyKey: patch.property
+      };
+    
+    default:
+      return null;
+  }
+}
+
 // Create sync manager
 export function createSyncManager(config: SyncManagerConfig): SyncManager {
   const { snapshotManager, diffEngine, maxHistorySize = 1000 } = config;
@@ -65,16 +138,11 @@ export function createSyncManager(config: SyncManagerConfig): SyncManager {
   // State
   const clients = new Map<ClientId, ClientConnection>();
   const versionVector = new Map<ClientId, Version>();
-  const patchHistory: HistoryEntry[] = [];
+  const patchHistory: PatchHistoryEntry[] = [];
   let currentVersion: Version = 0;
   
-  // Database state (in-memory for now)
-  let currentDb = {
-    execute: async (query: string) => {
-      // This would be replaced with actual KuzuDB instance
-      return [];
-    }
-  };
+  // Note: Server no longer maintains a database instance
+  // It only tracks patch history and generates snapshots from it
 
   // Broadcast message to all clients except sender
   function broadcast(message: SyncMessage, excludeClientId?: ClientId) {
@@ -91,8 +159,8 @@ export function createSyncManager(config: SyncManagerConfig): SyncManager {
     if (!connection) return;
 
     try {
-      // Create full snapshot
-      const snapshotResult = await snapshotManager.createSnapshot(currentDb, currentVersion);
+      // Create full snapshot from patch history
+      const snapshotResult = await snapshotManager.createSnapshot(patchHistory, currentVersion);
       
       if ('code' in snapshotResult) {
         const error: ErrorMessage = createMessage('ERROR', clientId, {
@@ -103,11 +171,23 @@ export function createSyncManager(config: SyncManagerConfig): SyncManager {
         return;
       }
 
-      // Send snapshot response
+      // Load the snapshot content
+      const loadResult = await snapshotManager.loadSnapshot(snapshotResult.id);
+      
+      if ('code' in loadResult) {
+        const error: ErrorMessage = createMessage('ERROR', clientId, {
+          code: 'SNAPSHOT_FAILED',
+          message: loadResult.message
+        });
+        connection.send(error);
+        return;
+      }
+
+      // Send snapshot response with Cypher content
       const response: SnapshotResponse = createMessage('SNAPSHOT_RESPONSE', clientId, {
         snapshotId: snapshotResult.id,
         version: currentVersion,
-        data: 'CREATE (:TestNode {id: 1});', // Mock data for testing
+        data: loadResult.content,
         incremental: false
       });
       
@@ -147,13 +227,22 @@ export function createSyncManager(config: SyncManagerConfig): SyncManager {
       return;
     }
 
+    // Convert patches to GraphPatch format
+    const graphPatches: GraphPatch[] = [];
+    for (const patch of patches) {
+      const graphPatch = convertToGraphPatch(patch, clientId);
+      if (graphPatch) {
+        graphPatches.push(graphPatch);
+      }
+    }
+
     // Assign new version
     currentVersion++;
     
     // Store in history
     patchHistory.push({
       version: currentVersion,
-      patches,
+      patches: graphPatches,
       clientId,
       timestamp: Date.now()
     });
