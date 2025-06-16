@@ -18,7 +18,11 @@
     "test:client": "node --experimental-strip-types src/test-client.ts",
     "test:sync-client": "node --test --experimental-strip-types src/sync-client.test.ts",
     "test:sync-standalone": "node --test --experimental-strip-types src/sync-client-standalone.test.ts",
-    "example:sync": "node --experimental-strip-types src/sync-client.test.ts"
+    "example:sync": "node --experimental-strip-types src/sync-client.test.ts",
+    "test:phase1": "node --test --experimental-strip-types src/phase1.test.ts",
+    "test:phase2": "node --test --experimental-strip-types src/phase2.test.ts",
+    "sync-server": "node --experimental-strip-types src/syncServer.ts",
+    "test:sync-server": "node --experimental-strip-types src/testSyncServer.ts"
   },
   "dependencies": {
     "kuzu-wasm": "^0.8.0",
