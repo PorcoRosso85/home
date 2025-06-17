@@ -1,8 +1,8 @@
 import { test, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { MinimalSyncClient } from './sync-client.ts';
+import { MinimalSyncClient } from './syncClient.ts';
 import { generateId } from './types/protocol.ts';
-import { patchToCypher } from './patch-to-cypher.ts';
+import { patchToCypher } from './patchToCypher.ts';
 
 describe('Sync Client Standalone Tests', () => {
   it('should create a client instance without connecting', () => {

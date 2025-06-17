@@ -10,8 +10,8 @@ import type {
   PropertyPatch
 } from './types/protocol.ts';
 import { generateId } from './types/protocol.ts';
-import { patchToCypher } from './patch-to-cypher.ts';
-import type { CypherQuery } from './patch-to-cypher.ts';
+import { patchToCypher } from './patchToCypher.ts';
+import type { CypherQuery } from './patchToCypher.ts';
 
 // Use require for Node.js environment
 const require = createRequire(import.meta.url);

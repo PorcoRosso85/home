@@ -11,7 +11,7 @@
  * - Server reconciliation
  */
 
-import { createSyncClient } from './sync-client.ts';
+import { createSyncClient } from './syncClient.ts';
 
 async function main() {
   console.log('KuzuDB Sync Client Example');

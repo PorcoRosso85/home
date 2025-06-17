@@ -1,6 +1,6 @@
 import { test, describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { MinimalSyncClient, createSyncClient } from './sync-client.ts';
+import { MinimalSyncClient, createSyncClient } from './syncClient.ts';
 
 describe('MinimalSyncClient', () => {
   let client: MinimalSyncClient | null = null;

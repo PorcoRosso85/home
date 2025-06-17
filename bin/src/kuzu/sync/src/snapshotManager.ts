@@ -6,7 +6,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { GraphPatch } from './types/protocol.ts';
-import { patchToCypher } from './patch-to-cypher.ts';
+import { patchToCypher } from './patchToCypher.ts';
 
 // Error types using union types pattern
 export type CreateSnapshotError = {
