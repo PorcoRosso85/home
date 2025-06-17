@@ -46,7 +46,7 @@ async function testSyncServer() {
         patches: [
           {
             id: 'patch-1',
-            operation: 'CREATE_NODE',
+            operation: 'createNode',
             path: '/nodes/test-node',
             value: { label: 'TestNode', properties: { name: 'Test' } }
           }

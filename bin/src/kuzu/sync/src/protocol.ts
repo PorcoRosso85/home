@@ -85,12 +85,12 @@ export type ErrorMessage = BaseMessage & {
 
 // Patch types for property-level operations
 export type PatchOperation = 
-  | 'CREATE_NODE'
-  | 'DELETE_NODE'
-  | 'SET_PROPERTY'
-  | 'REMOVE_PROPERTY'
-  | 'CREATE_EDGE'
-  | 'DELETE_EDGE';
+  | 'createNode'
+  | 'deleteNode'
+  | 'setProperty'
+  | 'removeProperty'
+  | 'createEdge'
+  | 'deleteEdge';
 
 export type Patch = {
   id: string;

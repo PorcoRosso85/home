@@ -207,7 +207,7 @@ export class MinimalSyncClient {
     const nodeId = generateId('node');
     const patch: NodePatch = {
       id: generateId('patch'),
-      op: 'create_node',
+      op: 'createNode',
       nodeId,
       timestamp: Date.now(),
       clientId: this.options.clientId,
@@ -225,7 +225,7 @@ export class MinimalSyncClient {
   async setProperty(targetType: 'node' | 'edge', targetId: string, key: string, value: any): Promise<void> {
     const patch: PropertyPatch = {
       id: generateId('patch'),
-      op: 'set_property',
+      op: 'setProperty',
       targetType,
       targetId,
       propertyKey: key,

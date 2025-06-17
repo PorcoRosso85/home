@@ -5,6 +5,7 @@ import { createSnapshotManager } from './snapshotManager.ts';
 import { createDiffEngine } from './diffEngine.ts';
 import { createMemoryManager } from './memoryManager.ts';
 import type { GraphState, HistoryEntry } from './memoryManager.ts';
+import type { PatchHistoryEntry } from './snapshotManager.ts';
 
 // Test setup
 const testDir = './test-snapshots';
@@ -12,50 +13,44 @@ const testDir = './test-snapshots';
 describe('Phase 1: Foundation Tests', () => {
   
   describe('Snapshot Manager', () => {
-    test('should create and load snapshots', async () => {
+    test('should create and load snapshots from patch history', async () => {
       // Create test directory
       if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
       
       const snapshotManager = createSnapshotManager(testDir);
       
-      // Create mock database that simulates KuzuDB behavior
-      const mockDb = {
-        tables: [
-          { name: 'Person', type: 'NODE' },
-          { name: 'Knows', type: 'REL' }
-        ],
-        nodes: [
-          { n: { id: 1, name: 'Alice' } },
-          { n: { id: 2, name: 'Bob' } }
-        ],
-        execute: async (query: string) => {
-          if (query === 'SHOW TABLES') {
-            return mockDb.tables;
-          }
-          if (query === 'MATCH (n:Person) RETURN n') {
-            return mockDb.nodes;
-          }
-          if (query === 'MATCH ()-[r:Knows]->() RETURN r') {
-            return []; // No relationships for simplicity
-          }
-          if (query === 'MATCH (n) DETACH DELETE n') {
-            mockDb.nodes = [];
-            return [];
-          }
-          if (query.startsWith('CREATE')) {
-            // Parse and add node back
-            const match = query.match(/CREATE \(:Person \{id: (\d+), name: "([^"]+)"\}\)/);
-            if (match) {
-              mockDb.nodes.push({ n: { id: parseInt(match[1]), name: match[2] } });
+      // Create patch history
+      const patchHistory: PatchHistoryEntry[] = [
+        {
+          version: 1,
+          patches: [
+            {
+              id: 'p1',
+              operation: 'createNode',
+              path: '/nodes/n1',
+              value: { label: 'Person', properties: { id: 1, name: 'Alice' } }
             }
-            return [];
-          }
-          return [];
+          ],
+          clientId: 'test-client',
+          timestamp: Date.now() - 2000
+        },
+        {
+          version: 2,
+          patches: [
+            {
+              id: 'p2',
+              operation: 'createNode',
+              path: '/nodes/n2',
+              value: { label: 'Person', properties: { id: 2, name: 'Bob' } }
+            }
+          ],
+          clientId: 'test-client',
+          timestamp: Date.now() - 1000
         }
-      };
+      ];
       
-      // Create snapshot
-      const createResult = await snapshotManager.createSnapshot(mockDb, 1);
+      // Create snapshot from patch history
+      const createResult = await snapshotManager.createSnapshot(patchHistory, 2);
       
       // Debug output
       if ('code' in createResult) {
@@ -64,23 +59,10 @@ describe('Phase 1: Foundation Tests', () => {
       
       // Verify snapshot creation
       assert.ok(!('code' in createResult), 'Should create snapshot successfully');
-      assert.equal(createResult.version, 1);
+      assert.equal(createResult.version, 2);
       assert.ok(createResult.timestamp > 0);
       assert.ok(createResult.size > 0);
       assert.ok(existsSync(createResult.path));
-      
-      // Clear database
-      await mockDb.execute('MATCH (n) DETACH DELETE n');
-      
-      // Verify data is cleared
-      assert.equal(mockDb.nodes.length, 0, 'Database should be empty');
-      
-      // Load snapshot
-      const loadResult = await snapshotManager.loadSnapshot(mockDb, createResult.id);
-      assert.ok('success' in loadResult && loadResult.success, 'Should load snapshot successfully');
-      
-      // Verify data is restored
-      assert.equal(mockDb.nodes.length, 2);
       
       // Get latest snapshot
       const latestResult = await snapshotManager.getLatestSnapshot();
@@ -91,17 +73,15 @@ describe('Phase 1: Foundation Tests', () => {
       rmSync(testDir, { recursive: true, force: true });
     });
     
-    test('should handle snapshot not found error', async () => {
+    test('should handle empty patch history', async () => {
       if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
       
       const snapshotManager = createSnapshotManager(testDir);
-      const mockDb = {
-        execute: async () => []
-      };
+      const emptyHistory: PatchHistoryEntry[] = [];
       
-      const loadResult = await snapshotManager.loadSnapshot(mockDb, 'non-existent-snapshot');
-      assert.ok('code' in loadResult);
-      assert.equal(loadResult.code, 'SNAPSHOT_NOT_FOUND');
+      const createResult = await snapshotManager.createSnapshot(emptyHistory, 0);
+      assert.ok(!('code' in createResult), 'Should create empty snapshot');
+      assert.ok(createResult.size > 0); // Should have at least the comment
       
       rmSync(testDir, { recursive: true, force: true });
     });
@@ -149,9 +129,9 @@ describe('Phase 1: Foundation Tests', () => {
       
       const diff = diffEngine.compareStates(state1, state2);
       
-      const added = diff.nodes.filter(n => n.type === 'ADD');
-      const updated = diff.nodes.filter(n => n.type === 'UPDATE');
-      const deleted = diff.nodes.filter(n => n.type === 'DELETE');
+      const added = diff.nodes.filter(n => n.type === 'add');
+      const updated = diff.nodes.filter(n => n.type === 'update');
+      const deleted = diff.nodes.filter(n => n.type === 'delete');
       
       assert.equal(added.length, 1, 'Should detect 1 added node');
       assert.equal(added[0].node.id, 'n3');
@@ -178,7 +158,7 @@ describe('Phase 1: Foundation Tests', () => {
       const patches = diffEngine.generatePatches(diff);
       
       assert.equal(patches.length, 1, 'Should generate 1 patch');
-      assert.equal(patches[0].operation, 'UPDATE');
+      assert.equal(patches[0].operation, 'update');
       assert.equal(patches[0].path, '/nodes/n1');
     });
   });

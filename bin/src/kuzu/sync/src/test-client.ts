@@ -40,7 +40,7 @@ class TestClient {
       id: `p_${crypto.randomUUID()}`,
       timestamp: Date.now(),
       clientId: this.clientId,
-      op: 'create_node',
+      op: 'createNode',
       nodeId: `n_${crypto.randomUUID()}`,
       data: {
         label: 'TestNode',

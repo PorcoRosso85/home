@@ -104,12 +104,12 @@ export function createSnapshotManager(storageDir: string): SnapshotManager {
         for (const patch of entry.patches) {
           try {
             // Skip if entity was deleted
-            if (patch.op === 'delete_node' && 'nodeId' in patch) {
+            if (patch.op === 'deleteNode' && 'nodeId' in patch) {
               deletedNodes.add(patch.nodeId);
               createdNodes.delete(patch.nodeId);
               continue;
             }
-            if (patch.op === 'delete_edge' && 'edgeId' in patch) {
+            if (patch.op === 'deleteEdge' && 'edgeId' in patch) {
               deletedEdges.add(patch.edgeId);
               createdEdges.delete(patch.edgeId);
               continue;
@@ -123,11 +123,11 @@ export function createSnapshotManager(storageDir: string): SnapshotManager {
             const cypherQuery = patchToCypher(patch);
             
             // For create operations, track the entity
-            if (patch.op === 'create_node' && 'nodeId' in patch) {
+            if (patch.op === 'createNode' && 'nodeId' in patch) {
               if (createdNodes.has(patch.nodeId)) continue; // Skip duplicate creates
               createdNodes.add(patch.nodeId);
             }
-            if (patch.op === 'create_edge' && 'edgeId' in patch) {
+            if (patch.op === 'createEdge' && 'edgeId' in patch) {
               if (createdEdges.has(patch.edgeId)) continue; // Skip duplicate creates
               createdEdges.add(patch.edgeId);
             }

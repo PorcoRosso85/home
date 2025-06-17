@@ -67,10 +67,10 @@ function convertToGraphPatch(patch: Patch, clientId: ClientId): GraphPatch | nul
   const [entityType, entityId] = pathParts;
 
   switch (patch.operation) {
-    case 'CREATE_NODE':
+    case 'createNode':
       return {
         ...basePatch,
-        op: 'create_node',
+        op: 'createNode',
         nodeId: entityId,
         data: {
           label: patch.value?.label || 'Node',
@@ -78,17 +78,17 @@ function convertToGraphPatch(patch: Patch, clientId: ClientId): GraphPatch | nul
         }
       };
     
-    case 'DELETE_NODE':
+    case 'deleteNode':
       return {
         ...basePatch,
-        op: 'delete_node',
+        op: 'deleteNode',
         nodeId: entityId
       };
     
-    case 'CREATE_EDGE':
+    case 'createEdge':
       return {
         ...basePatch,
-        op: 'create_edge',
+        op: 'createEdge',
         edgeId: entityId,
         data: {
           label: patch.value?.label || 'Edge',
@@ -98,29 +98,29 @@ function convertToGraphPatch(patch: Patch, clientId: ClientId): GraphPatch | nul
         }
       };
     
-    case 'DELETE_EDGE':
+    case 'deleteEdge':
       return {
         ...basePatch,
-        op: 'delete_edge',
+        op: 'deleteEdge',
         edgeId: entityId
       };
     
-    case 'SET_PROPERTY':
+    case 'setProperty':
       if (!patch.property) return null;
       return {
         ...basePatch,
-        op: 'set_property',
+        op: 'setProperty',
         targetType: entityType === 'nodes' ? 'node' : 'edge',
         targetId: entityId,
         propertyKey: patch.property,
         propertyValue: patch.value
       };
     
-    case 'REMOVE_PROPERTY':
+    case 'removeProperty':
       if (!patch.property) return null;
       return {
         ...basePatch,
-        op: 'remove_property',
+        op: 'removeProperty',
         targetType: entityType === 'nodes' ? 'node' : 'edge',
         targetId: entityId,
         propertyKey: patch.property

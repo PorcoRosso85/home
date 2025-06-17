@@ -57,7 +57,7 @@ export class ConflictResolver {
     const existingNode = this.state.nodes.get(patch.nodeId);
 
     switch (patch.op) {
-      case 'create_node':
+      case 'createNode':
         // Rule 1: Duplicate node creation
         if (existingNode && !existingNode.isDeleted) {
           return {
@@ -73,14 +73,14 @@ export class ConflictResolver {
             reason: 'resurrecting_deleted_node',
             modifiedPatch: {
               ...patch,
-              op: 'update_node' // Change to update instead
+              op: 'updateNode' // Change to update instead
             }
           };
         }
         
         return { action: 'accept' };
 
-      case 'update_node':
+      case 'updateNode':
         // Rule 3: Operations on deleted nodes
         if (!existingNode || existingNode.isDeleted) {
           return {
@@ -99,7 +99,7 @@ export class ConflictResolver {
         
         return { action: 'accept' };
 
-      case 'delete_node':
+      case 'deleteNode':
         if (!existingNode || existingNode.isDeleted) {
           return {
             action: 'reject',
@@ -126,7 +126,7 @@ export class ConflictResolver {
     const existingEdge = this.state.edges.get(patch.edgeId);
 
     switch (patch.op) {
-      case 'create_edge':
+      case 'createEdge':
         // Check edge already exists
         if (existingEdge && !existingEdge.isDeleted) {
           return {
@@ -169,7 +169,7 @@ export class ConflictResolver {
         
         return { action: 'accept' };
 
-      case 'update_edge':
+      case 'updateEdge':
         if (!existingEdge || existingEdge.isDeleted) {
           return {
             action: 'reject',
@@ -187,7 +187,7 @@ export class ConflictResolver {
         
         return { action: 'accept' };
 
-      case 'delete_edge':
+      case 'deleteEdge':
         if (!existingEdge || existingEdge.isDeleted) {
           return {
             action: 'reject',
@@ -212,7 +212,7 @@ export class ConflictResolver {
     }
     
     // Rule 5: Property type validation (simplified)
-    if (patch.op === 'set_property' && patch.propertyValue !== undefined) {
+    if (patch.op === 'setProperty' && patch.propertyValue !== undefined) {
       // Add your schema validation here
       if (!this.validatePropertyType(patch.propertyKey, patch.propertyValue)) {
         return {
@@ -282,7 +282,7 @@ export function applyPatch(state: GraphState, patch: GraphPatch): GraphState {
 
   if (isNodePatch(patch)) {
     switch (patch.op) {
-      case 'create_node':
+      case 'createNode':
         newState.nodes.set(patch.nodeId, {
           id: patch.nodeId,
           label: patch.data?.label || 'Node',
@@ -293,7 +293,7 @@ export function applyPatch(state: GraphState, patch: GraphPatch): GraphState {
         });
         break;
       
-      case 'update_node':
+      case 'updateNode':
         const node = newState.nodes.get(patch.nodeId)!;
         if (patch.data?.label) node.label = patch.data.label;
         if (patch.data?.properties) {
@@ -302,7 +302,7 @@ export function applyPatch(state: GraphState, patch: GraphPatch): GraphState {
         node.lastModified = patch.timestamp;
         break;
       
-      case 'delete_node':
+      case 'deleteNode':
         const nodeToDelete = newState.nodes.get(patch.nodeId)!;
         nodeToDelete.isDeleted = true;
         nodeToDelete.lastModified = patch.timestamp;
@@ -318,7 +318,7 @@ export function applyPatch(state: GraphState, patch: GraphPatch): GraphState {
     }
   } else if (isEdgePatch(patch)) {
     switch (patch.op) {
-      case 'create_edge':
+      case 'createEdge':
         newState.edges.set(patch.edgeId, {
           id: patch.edgeId,
           label: patch.data?.label || 'Edge',
@@ -331,7 +331,7 @@ export function applyPatch(state: GraphState, patch: GraphPatch): GraphState {
         });
         break;
       
-      case 'update_edge':
+      case 'updateEdge':
         const edge = newState.edges.get(patch.edgeId)!;
         if (patch.data?.label) edge.label = patch.data.label;
         if (patch.data?.properties) {
@@ -340,7 +340,7 @@ export function applyPatch(state: GraphState, patch: GraphPatch): GraphState {
         edge.lastModified = patch.timestamp;
         break;
       
-      case 'delete_edge':
+      case 'deleteEdge':
         const edgeToDelete = newState.edges.get(patch.edgeId)!;
         edgeToDelete.isDeleted = true;
         edgeToDelete.lastModified = patch.timestamp;
@@ -353,7 +353,7 @@ export function applyPatch(state: GraphState, patch: GraphPatch): GraphState {
       : newState.edges.get(patch.targetId);
     
     if (target) {
-      if (patch.op === 'set_property') {
+      if (patch.op === 'setProperty') {
         target.properties[patch.propertyKey] = patch.propertyValue;
       } else {
         delete target.properties[patch.propertyKey];

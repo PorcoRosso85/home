@@ -169,13 +169,13 @@ class SyncClient {
   private applyPatch(patch: GraphPatch) {
     this.patches.push(patch);
     
-    if (patch.op === 'create_node') {
+    if (patch.op === 'createNode') {
       this.nodes.set(patch.nodeId, {
         id: patch.nodeId,
         label: patch.data?.label,
         properties: patch.data?.properties || {}
       });
-    } else if (patch.op === 'update_node') {
+    } else if (patch.op === 'updateNode') {
       const node = this.nodes.get(patch.nodeId);
       if (node) {
         if (patch.data?.label) node.label = patch.data.label;
@@ -183,7 +183,7 @@ class SyncClient {
           Object.assign(node.properties, patch.data.properties);
         }
       }
-    } else if (patch.op === 'set_property' && patch.targetType === 'node') {
+    } else if (patch.op === 'setProperty' && patch.targetType === 'node') {
       const node = this.nodes.get(patch.targetId);
       if (node) {
         node.properties[patch.propertyKey] = patch.propertyValue;
@@ -206,7 +206,7 @@ class SyncClient {
       id: generateId('patch'),
       timestamp: Date.now(),
       clientId: this.clientId,
-      op: 'create_node',
+      op: 'createNode',
       nodeId,
       data: { label, properties }
     };
@@ -224,7 +224,7 @@ class SyncClient {
       id: generateId('patch'),
       timestamp: Date.now(),
       clientId: this.clientId,
-      op: 'set_property',
+      op: 'setProperty',
       targetType: 'node',
       targetId: nodeId,
       propertyKey: key,

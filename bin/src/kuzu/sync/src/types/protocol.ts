@@ -13,7 +13,7 @@ export interface BasePatch {
 
 // Node operations
 export interface NodePatch extends BasePatch {
-  op: 'create_node' | 'update_node' | 'delete_node';
+  op: 'createNode' | 'updateNode' | 'deleteNode';
   nodeId: string;       // Node UUID
   data?: {
     label?: string;
@@ -23,7 +23,7 @@ export interface NodePatch extends BasePatch {
 
 // Edge operations
 export interface EdgePatch extends BasePatch {
-  op: 'create_edge' | 'update_edge' | 'delete_edge';
+  op: 'createEdge' | 'updateEdge' | 'deleteEdge';
   edgeId: string;       // Edge UUID
   data?: {
     label?: string;
@@ -35,11 +35,11 @@ export interface EdgePatch extends BasePatch {
 
 // Property operations
 export interface PropertyPatch extends BasePatch {
-  op: 'set_property' | 'remove_property';
+  op: 'setProperty' | 'removeProperty';
   targetType: 'node' | 'edge';
   targetId: string;
   propertyKey: string;
-  propertyValue?: any;  // Not needed for remove_property
+  propertyValue?: any;  // Not needed for removeProperty
 }
 
 // Union type for all patches
@@ -96,5 +96,5 @@ export function isEdgePatch(patch: GraphPatch): patch is EdgePatch {
 }
 
 export function isPropertyPatch(patch: GraphPatch): patch is PropertyPatch {
-  return patch.op === 'set_property' || patch.op === 'remove_property';
+  return patch.op === 'setProperty' || patch.op === 'removeProperty';
 }

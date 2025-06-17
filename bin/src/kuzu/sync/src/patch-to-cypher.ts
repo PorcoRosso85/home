@@ -29,9 +29,9 @@ export function patchToCypher(patch: GraphPatch): CypherQuery {
 
 function convertNodePatch(patch: NodePatch): CypherQuery {
   switch (patch.op) {
-    case 'create_node':
+    case 'createNode':
       if (!patch.data?.label) {
-        throw new Error('Node label is required for create_node');
+        throw new Error('Node label is required for createNode');
       }
       
       // Build property string dynamically but safely
@@ -49,9 +49,9 @@ function convertNodePatch(patch: NodePatch): CypherQuery {
         }
       };
     
-    case 'update_node':
+    case 'updateNode':
       if (!patch.data?.properties) {
-        throw new Error('Properties are required for update_node');
+        throw new Error('Properties are required for updateNode');
       }
       
       const updateProps = patch.data.properties;
@@ -66,7 +66,7 @@ function convertNodePatch(patch: NodePatch): CypherQuery {
         }
       };
     
-    case 'delete_node':
+    case 'deleteNode':
       return {
         statement: 'MATCH (n {id: $nodeId}) DETACH DELETE n',
         parameters: {
@@ -78,9 +78,9 @@ function convertNodePatch(patch: NodePatch): CypherQuery {
 
 function convertEdgePatch(patch: EdgePatch): CypherQuery {
   switch (patch.op) {
-    case 'create_edge':
+    case 'createEdge':
       if (!patch.data?.label || !patch.data?.fromNodeId || !patch.data?.toNodeId) {
-        throw new Error('Edge label and node IDs are required for create_edge');
+        throw new Error('Edge label and node IDs are required for createEdge');
       }
       
       const edgeProps = patch.data.properties || {};
@@ -103,9 +103,9 @@ function convertEdgePatch(patch: EdgePatch): CypherQuery {
         }
       };
     
-    case 'update_edge':
+    case 'updateEdge':
       if (!patch.data?.properties) {
-        throw new Error('Properties are required for update_edge');
+        throw new Error('Properties are required for updateEdge');
       }
       
       const edgeUpdateProps = patch.data.properties;
@@ -120,7 +120,7 @@ function convertEdgePatch(patch: EdgePatch): CypherQuery {
         }
       };
     
-    case 'delete_edge':
+    case 'deleteEdge':
       return {
         statement: 'MATCH ()-[e {id: $edgeId}]->() DELETE e',
         parameters: {
@@ -134,7 +134,7 @@ function convertPropertyPatch(patch: PropertyPatch): CypherQuery {
   const targetVar = patch.targetType === 'node' ? 'n' : 'e';
   
   switch (patch.op) {
-    case 'set_property':
+    case 'setProperty':
       return {
         statement: `MATCH (${targetVar} {id: $targetId}) SET ${targetVar}.${sanitizePropertyKey(patch.propertyKey)} = $value`,
         parameters: {
@@ -143,7 +143,7 @@ function convertPropertyPatch(patch: PropertyPatch): CypherQuery {
         }
       };
     
-    case 'remove_property':
+    case 'removeProperty':
       return {
         statement: `MATCH (${targetVar} {id: $targetId}) REMOVE ${targetVar}.${sanitizePropertyKey(patch.propertyKey)}`,
         parameters: {

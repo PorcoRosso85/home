@@ -30,7 +30,7 @@ describe('Sync Client Standalone Tests', () => {
   it('should convert patches to Cypher queries', () => {
     const patch = {
       id: generateId('patch'),
-      op: 'create_node' as const,
+      op: 'createNode' as const,
       nodeId: generateId('node'),
       timestamp: Date.now(),
       clientId: 'test-client',
@@ -54,7 +54,7 @@ describe('Sync Client Standalone Tests', () => {
   it('should handle property patches', () => {
     const patch = {
       id: generateId('patch'),
-      op: 'set_property' as const,
+      op: 'setProperty' as const,
       targetType: 'node' as const,
       targetId: generateId('node'),
       propertyKey: 'status',
@@ -73,7 +73,7 @@ describe('Sync Client Standalone Tests', () => {
   it('should validate label names', () => {
     const invalidPatch = {
       id: generateId('patch'),
-      op: 'create_node' as const,
+      op: 'createNode' as const,
       nodeId: generateId('node'),
       timestamp: Date.now(),
       clientId: 'test-client',
@@ -93,7 +93,7 @@ describe('Sync Client Standalone Tests', () => {
   it('should validate property keys', () => {
     const invalidPatch = {
       id: generateId('patch'),
-      op: 'set_property' as const,
+      op: 'setProperty' as const,
       targetType: 'node' as const,
       targetId: generateId('node'),
       propertyKey: 'invalid-key!', // Invalid characters

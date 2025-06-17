@@ -34,7 +34,7 @@ export type MerkleTree = {
   edgeHashes: Map<EdgeId, string>;
 };
 
-export type DiffType = 'ADD' | 'UPDATE' | 'DELETE';
+export type DiffType = 'add' | 'update' | 'delete';
 
 export type NodeDiff = {
   type: DiffType;
@@ -138,16 +138,16 @@ export function compareStates(state1: GraphState, state2: GraphState): StateDiff
   state2.nodes.forEach((node2, nodeId) => {
     const node1 = state1.nodes.get(nodeId);
     if (!node1) {
-      nodeDiffs.push({ type: 'ADD', node: node2 });
+      nodeDiffs.push({ type: 'add', node: node2 });
     } else if (hashNode(node1) !== hashNode(node2)) {
-      nodeDiffs.push({ type: 'UPDATE', node: node2, oldNode: node1 });
+      nodeDiffs.push({ type: 'update', node: node2, oldNode: node1 });
     }
   });
   
   // Detect deleted nodes
   state1.nodes.forEach((node1, nodeId) => {
     if (!state2.nodes.has(nodeId)) {
-      nodeDiffs.push({ type: 'DELETE', node: node1 });
+      nodeDiffs.push({ type: 'delete', node: node1 });
     }
   });
   
@@ -155,16 +155,16 @@ export function compareStates(state1: GraphState, state2: GraphState): StateDiff
   state2.edges.forEach((edge2, edgeId) => {
     const edge1 = state1.edges.get(edgeId);
     if (!edge1) {
-      edgeDiffs.push({ type: 'ADD', edge: edge2 });
+      edgeDiffs.push({ type: 'add', edge: edge2 });
     } else if (hashEdge(edge1) !== hashEdge(edge2)) {
-      edgeDiffs.push({ type: 'UPDATE', edge: edge2, oldEdge: edge1 });
+      edgeDiffs.push({ type: 'update', edge: edge2, oldEdge: edge1 });
     }
   });
   
   // Detect deleted edges
   state1.edges.forEach((edge1, edgeId) => {
     if (!state2.edges.has(edgeId)) {
-      edgeDiffs.push({ type: 'DELETE', edge: edge1 });
+      edgeDiffs.push({ type: 'delete', edge: edge1 });
     }
   });
   
@@ -178,24 +178,24 @@ export function generatePatches(diff: StateDiff): Patch[] {
   // Generate patches for node changes
   diff.nodes.forEach(nodeDiff => {
     switch (nodeDiff.type) {
-      case 'ADD':
+      case 'add':
         patches.push({
-          operation: 'ADD',
+          operation: 'add',
           path: `/nodes/${nodeDiff.node.id}`,
           value: nodeDiff.node
         });
         break;
-      case 'UPDATE':
+      case 'update':
         patches.push({
-          operation: 'UPDATE',
+          operation: 'update',
           path: `/nodes/${nodeDiff.node.id}`,
           value: nodeDiff.node,
           oldValue: nodeDiff.oldNode
         });
         break;
-      case 'DELETE':
+      case 'delete':
         patches.push({
-          operation: 'DELETE',
+          operation: 'delete',
           path: `/nodes/${nodeDiff.node.id}`,
           oldValue: nodeDiff.node
         });
@@ -206,24 +206,24 @@ export function generatePatches(diff: StateDiff): Patch[] {
   // Generate patches for edge changes
   diff.edges.forEach(edgeDiff => {
     switch (edgeDiff.type) {
-      case 'ADD':
+      case 'add':
         patches.push({
-          operation: 'ADD',
+          operation: 'add',
           path: `/edges/${edgeDiff.edge.id}`,
           value: edgeDiff.edge
         });
         break;
-      case 'UPDATE':
+      case 'update':
         patches.push({
-          operation: 'UPDATE',
+          operation: 'update',
           path: `/edges/${edgeDiff.edge.id}`,
           value: edgeDiff.edge,
           oldValue: edgeDiff.oldEdge
         });
         break;
-      case 'DELETE':
+      case 'delete':
         patches.push({
-          operation: 'DELETE',
+          operation: 'delete',
           path: `/edges/${edgeDiff.edge.id}`,
           oldValue: edgeDiff.edge
         });

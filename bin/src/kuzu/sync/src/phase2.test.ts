@@ -32,7 +32,7 @@ const TEST_PORT = 9876;
 const TEST_URL = `ws://localhost:${TEST_PORT}`;
 
 // Helper to create test patches
-function createTestPatch(id: string, operation: string = 'SET_PROPERTY'): Patch {
+function createTestPatch(id: string, operation: string = 'setProperty'): Patch {
   return {
     id,
     operation: operation as any,
