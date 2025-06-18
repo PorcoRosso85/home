@@ -1,0 +1,42 @@
+{
+  "model": "opus",
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(pwd:*)",
+      "Bash(cd:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Bash(python:*)",
+      "Bash(make:*)",
+      "Bash(cargo:*)",
+      "Bash(rustc:*)",
+      "Bash(gcc:*)",
+      "Bash(g++:*)",
+      "Bash(cmake:*)",
+      "Bash(./bin/*)",
+      "Bash(~/bin/*)",
+      "WebFetch(domain:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /mnt/*)",
+      "Bash(rm -f /mnt/*)",
+      "Bash(rm /mnt/*)",
+      "Bash(sudo rm*:/mnt/*)",
+      "Bash(chmod*:/mnt/*)",
+      "Bash(chown*:/mnt/*)",
+      "Bash(mkfs*)",
+      "Bash(dd:*)",
+      "Bash(format:*)",
+      "Bash(*:/mnt/c/Windows/*)",
+      "Bash(*:/mnt/c/Program Files/*)",
+      "Bash(*:/mnt/c/Program Files (x86)/*)",
+      "Bash(*:/mnt/*/System32/*)",
+      "Bash(*:/mnt/*/SysWOW64/*)"
+    ]
+  }
+}
