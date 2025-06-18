@@ -1,12 +1,34 @@
-# KuzuDB WASM リアルタイム同期システム
+# KuzuDB Documentation
 
-ブラウザ間でKuzuDB WASMインスタンスをリアルタイム同期するシステムの設計・実装ドキュメントです。
+このディレクトリには、KuzuDBを使用したシステムに関するドキュメントが含まれています。
 
-## 概要
+## ドキュメント一覧
+
+### DAG管理システム（2024-06-18追加）
+
+1. **[kuzu_dag_overview.md](kuzu_dag_overview.md)**
+   - KuzuDBによる未来志向DAG管理システムの概要
+   - Version-URIを中心とした設計思想
+   - Bauplanとの違いと基本的なスキーマ設計
+
+2. **[kuzu_dag_validation.md](kuzu_dag_validation.md)**
+   - 論理的整合性の検証方法
+   - 事前検証と事後検証の実装例
+   - 決済機能開発の実例を通じた検証
+
+3. **[kuzu_dag_llm_architecture.md](kuzu_dag_llm_architecture.md)**
+   - LLM時代の意図駆動型アーキテクチャ記述言語
+   - 厳密さを捨てて継続性を重視する設計
+   - 人間とLLMの協働を前提とした最小構成
+
+4. **[kuzu_dag_practical_guide.md](kuzu_dag_practical_guide.md)**
+   - 実証済みの動作例とテストケース
+   - KuzuDBの制限事項と回避方法
+   - すぐに使えるクエリテンプレート
+
+### WASM リアルタイム同期システム
 
 Matthew Weidner氏の「Collaborative Text Editing without CRDTs or OT」のアプローチを採用し、最小限のサーバー機能で安全かつ効率的な同期を実現します。
-
-## ドキュメント構成
 
 - [concept.md](./concept.md) - 設計思想とコアコンセプト
 - [protocol.md](./protocol.md) - 同期プロトコル仕様
