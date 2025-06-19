@@ -1,0 +1,11 @@
+CREATE (v21:VersionState {id: "2.1.0", timestamp: "2024-02-01", description: "Add payment service", change_reason: "Payment integration", progress_percentage: 0.0});
+MATCH (v20:VersionState {id: "v2.0"}), (v21:VersionState {id: "2.1.0"}) CREATE (v20)-[:FOLLOWS]->(v21);
+CREATE (pay_api:LocationURI {id: "services/payment/api.py"});
+CREATE (pay_webhook:LocationURI {id: "services/payment/webhook.py"});
+CREATE (pay_req:RequirementEntity {id: "req_payment", title: "Payment service", description: "Stripe payment processing", priority: "high", requirement_type: "feature"});
+CREATE (stripe_req:RequirementEntity {id: "req_stripe", title: "Stripe SDK", description: "Stripe API integration", priority: "high", requirement_type: "library"});
+MATCH (v:VersionState {id: "2.1.0"}), (uri:LocationURI {id: "services/payment/api.py"}) CREATE (v)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(uri);
+MATCH (v:VersionState {id: "2.1.0"}), (uri:LocationURI {id: "services/payment/webhook.py"}) CREATE (v)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(uri);
+MATCH (uri:LocationURI {id: "services/payment/api.py"}), (req:RequirementEntity {id: "req_payment"}) CREATE (uri)-[:LOCATED_WITH_REQUIREMENT {entity_type: "feature"}]->(req);
+MATCH (pay:RequirementEntity {id: "req_payment"}), (auth:RequirementEntity {id: "req_auth"}) CREATE (pay)-[:DEPENDS_ON {dependency_type: "service"}]->(auth);
+MATCH (pay:RequirementEntity {id: "req_payment"}), (stripe:RequirementEntity {id: "req_stripe"}) CREATE (pay)-[:DEPENDS_ON {dependency_type: "library"}]->(stripe);
