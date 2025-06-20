@@ -1,92 +1,140 @@
 #!/usr/bin/env python3
-"""KuzuDB Vector Search - Pure VSS Implementation"""
+"""KuzuDB Native Vector Search - Using KuzuDB Vector Extension"""
 
 import sys
 sys.path.append('/home/nixos/bin/src')
 
-import numpy as np
 import time
 from sentence_transformers import SentenceTransformer
-from typing import List, Tuple, Dict, Any
+from typing import List, Dict, Any
 from db.kuzu.connection import get_connection
 
 
-class VectorSearch:
-    """Pure vector similarity search implementation."""
+class NativeVectorSearch:
+    """Native vector search using KuzuDB Vector extension."""
     
-    def __init__(self, embedder):
+    def __init__(self, conn, embedder):
+        self.conn = conn
         self.embedder = embedder
-    
-    def compute_similarity(self, query_embedding: np.ndarray, doc_embedding: np.ndarray) -> float:
-        """Compute cosine similarity between two embeddings."""
-        return np.dot(query_embedding, doc_embedding) / (
-            np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding)
-        )
-    
-    def search(self, query: str, documents: List[Dict[str, Any]], k: int = 10) -> List[Tuple[Dict[str, Any], float]]:
-        """Search for similar documents based on embeddings."""
-        query_embedding = self.embedder.encode(query)
+        self.index_name = "document_vec_index"
         
-        similarities = []
-        for doc in documents:
-            doc_embedding = np.array(doc['embedding'])
-            similarity = self.compute_similarity(query_embedding, doc_embedding)
-            similarities.append((doc, similarity))
+    def install_extension(self):
+        """Install and load Vector extension."""
+        try:
+            self.conn.execute("INSTALL VECTOR;")
+            print("Vector extension installed")
+        except:
+            print("Vector extension already installed")
+            
+        try:
+            self.conn.execute("LOAD EXTENSION VECTOR;")
+            print("Vector extension loaded")
+        except:
+            print("Vector extension already loaded")
+    
+    def create_index(self, rebuild: bool = False):
+        """Create vector index on Document embeddings."""
+        if rebuild:
+            try:
+                # Drop existing index if any
+                self.conn.execute(f"CALL DROP_VECTOR_INDEX('Document', '{self.index_name}');")
+                print(f"Dropped existing index: {self.index_name}")
+            except:
+                pass
         
-        similarities.sort(key=lambda x: x[1], reverse=True)
-        return similarities[:k]
-
-
-def get_all_documents(conn) -> List[Dict[str, Any]]:
-    """Retrieve all documents from database."""
-    result = conn.execute("MATCH (d:Document) RETURN d.id, d.title, d.content, d.embedding;")
-    docs = []
-    while result.has_next():
-        row = result.get_next()
-        docs.append({
-            'id': row[0],
-            'title': row[1],
-            'content': row[2],
-            'embedding': row[3]
-        })
-    return docs
+        try:
+            # Create vector index
+            self.conn.execute(f"""
+                CALL CREATE_VECTOR_INDEX(
+                    'Document', 
+                    '{self.index_name}', 
+                    'embedding'
+                );
+            """)
+            print(f"Created vector index: {self.index_name}")
+        except Exception as e:
+            if "already exists" in str(e):
+                print(f"Vector index already exists: {self.index_name}")
+            else:
+                raise
+    
+    def search(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
+        """Search for similar documents using native vector search."""
+        # Generate query embedding
+        query_embedding = self.embedder.encode(query).tolist()
+        
+        # Perform native vector search
+        search_query = f"""
+            CALL QUERY_VECTOR_INDEX(
+                'Document', 
+                '{self.index_name}', 
+                {query_embedding}, 
+                {k}
+            ) 
+            RETURN node, distance;
+        """
+        
+        result = self.conn.execute(search_query)
+        
+        # Collect results
+        results = []
+        while result.has_next():
+            row = result.get_next()
+            node = row[0]  # node object
+            distance = row[1]  # distance value
+            results.append({
+                'id': node['id'],
+                'title': node['title'],
+                'content': node['content'],
+                'distance': distance,
+                'similarity': 1 - distance  # Convert distance to similarity
+            })
+        
+        return results
 
 
 def main():
-    """Run vector search demo."""
+    """Run native vector search demo."""
     # Get connection
     conn = get_connection()
     
-    # Initialize embedder and vector search
+    # Initialize embedder
     embedder = SentenceTransformer("all-MiniLM-L6-v2")
-    vss = VectorSearch(embedder)
     
-    print("=== KuzuDB Vector Search Demo ===\n")
+    # Initialize native vector search
+    nvs = NativeVectorSearch(conn, embedder)
     
-    # Get all documents
-    docs = get_all_documents(conn)
+    print("=== KuzuDB Native Vector Search Demo ===\n")
     
-    if not docs:
+    # Setup vector extension and index
+    nvs.install_extension()
+    nvs.create_index(rebuild=True)
+    
+    # Check if documents exist
+    doc_count_result = conn.execute("MATCH (d:Document) RETURN COUNT(*);")
+    doc_count = doc_count_result.get_next()[0]
+    
+    if doc_count == 0:
         print("No documents found in database.")
         print("Please run 'python data/kuzu/setup.py' first to load data.")
         return
     
-    print(f"Found {len(docs)} documents in database\n")
+    print(f"\nFound {doc_count} documents in database")
     
     # 1. Basic vector search
-    print("1. Basic Vector Search")
+    print("\n1. Basic Vector Search")
     print("-" * 40)
     
     query = "neural networks and deep learning"
     print(f"Query: '{query}'")
     
     start_time = time.time()
-    results = vss.search(query, docs, k=3)
+    results = nvs.search(query, k=3)
     search_time = time.time() - start_time
     
-    print(f"\nVector search completed in {search_time:.3f}s")
-    for i, (doc, score) in enumerate(results, 1):
-        print(f"{i}. {doc['title']} (similarity: {score:.3f})")
+    print(f"\nNative vector search completed in {search_time:.3f}s")
+    for i, result in enumerate(results, 1):
+        print(f"{i}. {result['title']} (similarity: {result['similarity']:.3f})")
     
     # 2. Performance test with different queries
     print("\n\n2. Performance Comparison")
@@ -100,12 +148,12 @@ def main():
     
     for test_query in test_queries:
         start = time.time()
-        results = vss.search(test_query, docs, k=2)
+        results = nvs.search(test_query, k=2)
         elapsed = time.time() - start
         
         print(f"\nQuery: '{test_query}' ({elapsed:.3f}s)")
-        for doc, score in results[:2]:
-            print(f"  - {doc['title']}: {score:.3f}")
+        for result in results[:2]:
+            print(f"  - {result['title']}: {result['similarity']:.3f}")
 
 
 if __name__ == "__main__":

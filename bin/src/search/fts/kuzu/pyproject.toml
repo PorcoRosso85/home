@@ -1,0 +1,9 @@
+[project]
+name = "fts"
+version = "0.1.0"
+description = "KuzuDB Full Text Search - Using KuzuDB FTS Extension"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "kuzu>=0.6.0",
+]
