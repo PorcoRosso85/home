@@ -5,6 +5,6 @@ description = "KuzuDB Native Vector Search - Using KuzuDB Vector Extension"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "kuzu>=0.6.0",
+    "kuzu>=0.10.0",
     "sentence-transformers>=2.2.0",
 ]

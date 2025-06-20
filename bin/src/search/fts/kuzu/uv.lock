@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "kuzu", specifier = ">=0.6.0" }]
+requires-dist = [{ name = "kuzu", specifier = ">=0.10.0" }]
 
 [[package]]
 name = "kuzu"

@@ -1320,6 +1320,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "kuzu", specifier = ">=0.6.0" },
+    { name = "kuzu", specifier = ">=0.10.0" },
     { name = "sentence-transformers", specifier = ">=2.2.0" },
 ]
