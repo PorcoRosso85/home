@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""KuzuDB Vector Search - Self-contained implementation"""
+"""KuzuDB Vector Search - Pure VSS Implementation"""
 
-import kuzu
+import sys
+sys.path.append('/home/nixos/bin/src')
+
 import numpy as np
 import time
 from sentence_transformers import SentenceTransformer
 from typing import List, Tuple, Dict, Any
+from db.kuzu.connection import get_connection
 
 
 class VectorSearch:
@@ -34,64 +37,8 @@ class VectorSearch:
         return similarities[:k]
 
 
-def main():
-    # Connect to existing database or create in-memory
-    db_path = "/tmp/kuzu_vss_demo"
-    db = kuzu.Database(db_path)
-    conn = kuzu.Connection(db)
-    
-    # Initialize embedder and vector search
-    embedder = SentenceTransformer("all-MiniLM-L6-v2")
-    vss = VectorSearch(embedder)
-    
-    print("=== KuzuDB Vector Search Demo ===\n")
-    
-    # Create schema if needed
-    try:
-        conn.execute("""
-            CREATE NODE TABLE Document(
-                id INT64 PRIMARY KEY,
-                title STRING,
-                content STRING,
-                embedding DOUBLE[]
-            );
-        """)
-        
-        # Insert sample data
-        print("Creating sample data...")
-        documents = [
-            (1, "Introduction to Neural Networks", "Neural networks are computing systems inspired by biological neural networks"),
-            (2, "Quantum Computing Fundamentals", "Quantum computers use quantum mechanical phenomena to process information"),
-            (3, "Machine Learning Algorithms", "ML algorithms enable computers to learn from data without explicit programming"),
-            (4, "Graph Database Applications", "Graph databases excel at storing and querying interconnected data"),
-            (5, "Deep Learning Revolution", "Deep learning has transformed AI with multi-layered neural networks"),
-        ]
-        
-        for doc_id, title, content in documents:
-            full_text = f"{title}. {content}"
-            embedding = embedder.encode(full_text).tolist()
-            
-            conn.execute("""
-                CREATE (d:Document {
-                    id: $id,
-                    title: $title,
-                    content: $content,
-                    embedding: $embedding
-                });
-            """, {
-                "id": doc_id,
-                "title": title,
-                "content": content,
-                "embedding": embedding
-            })
-    except:
-        print("Using existing data...")
-    
-    # 1. Basic vector search
-    print("\n1. Basic Vector Search")
-    print("-" * 40)
-    
-    # Retrieve all documents
+def get_all_documents(conn) -> List[Dict[str, Any]]:
+    """Retrieve all documents from database."""
     result = conn.execute("MATCH (d:Document) RETURN d.id, d.title, d.content, d.embedding;")
     docs = []
     while result.has_next():
@@ -102,6 +49,33 @@ def main():
             'content': row[2],
             'embedding': row[3]
         })
+    return docs
+
+
+def main():
+    """Run vector search demo."""
+    # Get connection
+    conn = get_connection()
+    
+    # Initialize embedder and vector search
+    embedder = SentenceTransformer("all-MiniLM-L6-v2")
+    vss = VectorSearch(embedder)
+    
+    print("=== KuzuDB Vector Search Demo ===\n")
+    
+    # Get all documents
+    docs = get_all_documents(conn)
+    
+    if not docs:
+        print("No documents found in database.")
+        print("Please run 'python data/kuzu/setup.py' first to load data.")
+        return
+    
+    print(f"Found {len(docs)} documents in database\n")
+    
+    # 1. Basic vector search
+    print("1. Basic Vector Search")
+    print("-" * 40)
     
     query = "neural networks and deep learning"
     print(f"Query: '{query}'")
