@@ -10,12 +10,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # ロガーインポート
 from log import (
-    # グローバル関数
-    trace, debug, info, warn, error, fatal,
+    # メイン関数
+    log, parse, format, validate, create,
     # レイヤー別ログ
-    presentation_log, application_log, domain_log, infrastructure_log,
-    # ユーティリティ
-    create_logger, get_current_config
+    presentation_log, application_log, domain_log, infrastructure_log
 )
 
 def test_basic_logging():
@@ -26,12 +24,12 @@ def test_basic_logging():
     os.environ['LOG_CONFIG'] = '*:INFO'
     
     # 各レベルでログ出力
-    trace("このメッセージは表示されません（TRACE < INFO）")
-    debug("このメッセージも表示されません（DEBUG < INFO）")
-    info("情報メッセージ")
-    warn("警告メッセージ")
-    error("エラーメッセージ")
-    fatal("致命的エラーメッセージ")
+    log('TRACE', 'test', "このメッセージは表示されません（TRACE < INFO）")
+    log('DEBUG', 'test', "このメッセージも表示されません（DEBUG < INFO）")
+    log('INFO', 'test', "情報メッセージ")
+    log('WARN', 'test', "警告メッセージ")
+    log('ERROR', 'test', "エラーメッセージ")
+    log('FATAL', 'test', "致命的エラーメッセージ")
     
     print()
 
@@ -64,8 +62,8 @@ def test_json_format():
     os.environ['LOG_CONFIG'] = '*:INFO'
     os.environ['LOG_FORMAT'] = 'json'
     
-    info("JSON形式のログ", user_id=123, action='login')
-    error("エラー情報", error_code='DB_CONNECTION_FAILED', retry_count=3)
+    log('INFO', 'test', "JSON形式のログ", user_id=123, action='login')
+    log('ERROR', 'test', "エラー情報", error_code='DB_CONNECTION_FAILED', retry_count=3)
     
     # フォーマットを戻す
     os.environ['LOG_FORMAT'] = 'console'
@@ -79,10 +77,10 @@ def test_hierarchical_config():
     os.environ['LOG_CONFIG'] = '*:WARN,app:DEBUG,app.service:TRACE'
     
     # カスタムロガー作成
-    app_log = create_logger('app')
-    app_controller_log = create_logger('app.controller')
-    app_service_log = create_logger('app.service')
-    app_service_user_log = create_logger('app.service.user')
+    app_log = create('app')
+    app_controller_log = create('app.controller')
+    app_service_log = create('app.service')
+    app_service_user_log = create('app.service.user')
     
     # ログ出力
     app_log['debug']("アプリケーションデバッグ")  # 表示される
@@ -92,17 +90,17 @@ def test_hierarchical_config():
     
     print()
 
-def test_config_info():
-    """設定情報表示"""
-    print("=== 現在の設定情報 ===")
+def test_config_validation():
+    """設定検証テスト"""
+    print("=== 設定検証テスト ===")
     
-    config = get_current_config()
-    print(f"LOG_CONFIG: {config['raw_config']}")
-    print(f"LOG_FORMAT: {config['format']}")
-    print(f"パース済み設定:")
-    for key, value in config['parsed_config'].items():
-        if value:
-            print(f"  {key}: {value}")
+    # 正しい設定
+    is_valid, errors = validate("*:INFO,domain:DEBUG")
+    print(f"正しい設定: {is_valid}, エラー: {errors}")
+    
+    # 不正な設定
+    is_valid, errors = validate("app:INVALID")
+    print(f"不正な設定: {is_valid}, エラー: {errors}")
     
     print()
 
@@ -115,7 +113,7 @@ def main():
     test_layer_logging()
     test_json_format()
     test_hierarchical_config()
-    test_config_info()
+    test_config_validation()
     
     print("テスト完了")
 

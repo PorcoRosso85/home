@@ -695,6 +695,122 @@
     - 不要な機能、未使用の関数、冗長なコードは一切含めないこと
     - 1つのファイルは1つの明確な責務のみを持つこと
 
+## モジュールエントリポイント規約:
+  description: モジュール名、ファイル名、主要関数名を統一する全言語共通規約
+  rules:
+    - モジュール名 = ファイル名 = 主要関数名の原則
+    - 1モジュール1ファイル1関数を基本とする
+    - ファイル名と同名の関数のみを外部公開する
+    - 内部補助関数は言語の慣習に従って非公開とする（_プレフィックス等）
+    - 例外: Goは公開関数を大文字始まりとする言語仕様に従う
+  examples:
+    structure: |
+      log/
+      ├── log.py          # log() 関数のみ公開
+      ├── parse.py        # parse() 関数のみ公開
+      ├── format.py       # format() 関数のみ公開
+      └── validate.py     # validate() 関数のみ公開
+    
+    good: |
+      # Python: parse.py
+      def parse(config_string):
+          """設定文字列をパース（公開関数）"""
+          return _internal_parse(config_string)
+      
+      def _internal_parse(s):
+          """内部補助関数（非公開）"""
+          pass
+      
+      # TypeScript: parse.ts
+      export function parse(configString: string): ParseResult {
+          return internalParse(configString);
+      }
+      
+      function internalParse(s: string): ParseResult {
+          // 内部実装
+      }
+      
+      # Go: parse.go（例外：大文字始まり）
+      func Parse(configString string) ParseResult {
+          return internalParse(configString)
+      }
+      
+      func internalParse(s string) parseResult {
+          // 内部実装
+      }
+
+## 統一docstring規約:
+  description: 言語の形式は異なるが、内容構造を統一する
+  required_sections:
+    - 概要（1行説明）
+    - 使用例（必須、具体的なコード例を含む）
+    - 引数説明（ある場合）
+    - 戻り値説明（ある場合）
+  format_by_language:
+    Python: '"""docstring"""形式'
+    TypeScript: '/** JSDoc */形式'
+    JavaScript: '/** JSDoc */形式'
+    Go: '// 関数の直前にコメント'
+    Java: '/** Javadoc */形式'
+    Rust: '/// RustDoc形式'
+  examples:
+    python: |
+      def parse(config_string):
+          """設定文字列をパース
+          
+          使用例:
+              result = parse("*:INFO")
+              # => {'rules': {'*': 2}, 'excludes': set()}
+              
+              result = parse("app:DEBUG,app.service:TRACE")
+              # => {'rules': {'app': 1, 'app.service': 0}, 'excludes': set()}
+          
+          引数:
+              config_string: "module:level,..." 形式の文字列
+          
+          戻り値:
+              パース結果の辞書
+          """
+    
+    typescript: |
+      /**
+       * 設定文字列をパース
+       * 
+       * 使用例:
+       *     const result = parse("*:INFO");
+       *     // => {rules: {'*': 2}, excludes: new Set()}
+       *     
+       *     const result2 = parse("app:DEBUG,app.service:TRACE");
+       *     // => {rules: {app: 1, 'app.service': 0}, excludes: new Set()}
+       * 
+       * @param configString - "module:level,..." 形式の文字列
+       * @returns パース結果のオブジェクト
+       */
+      export function parse(configString: string): ParseResult {
+    
+    go: |
+      // Parse は設定文字列をパースします
+      //
+      // 使用例:
+      //     result := Parse("*:INFO")
+      //     // => ParseResult{Rules: map[string]int{"*": 2}, Excludes: []string{}}
+      //     
+      //     result2 := Parse("app:DEBUG,app.service:TRACE")
+      //     // => ParseResult{Rules: map[string]int{"app": 1, "app.service": 0}, Excludes: []string{}}
+      //
+      // 引数:
+      //     configString: "module:level,..." 形式の文字列
+      //
+      // 戻り値:
+      //     パース結果の構造体
+      func Parse(configString string) ParseResult {
+  
+  benefits:
+    - どの言語でも関数の使い方が明確にわかる
+    - 実行可能な使用例が必ず含まれる
+    - ファイル名から公開APIが予測可能
+    - 言語を超えた一貫性のあるドキュメント
+
 ## テスト:
   rules:
     - すべての関数にユニットテストを書くこと

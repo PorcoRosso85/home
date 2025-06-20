@@ -1,5 +1,5 @@
-# メインログ関数
-# CONVENTION.yaml準拠：関数ベース実装、エラーを返す（例外を投げない）
+# メインログ関数（ファイル名と同じ関数名）
+# CONVENTION.yaml準拠：モジュール名=ファイル名=関数名
 
 import os
 from datetime import datetime
@@ -31,17 +31,29 @@ def _get_cached_config():
     return _config_cache
 
 def log(level, module, message, **kwargs):
-    """メインログ関数
+    """ログメッセージを出力
     
-    Args:
+    使用例:
+        # 基本的な使用
+        log('INFO', 'app', 'Application started')
+        # => 2025-06-20 21:30:45.123 [app:INFO ] Application started
+        
+        # コンテキスト情報付き
+        log('ERROR', 'db', 'Connection failed', host='localhost', port=5432)
+        # => 2025-06-20 21:30:45.123 [db:ERROR] Connection failed {host=localhost port=5432}
+        
+        # ログレベル制御（LOG_CONFIG="*:WARN"の場合）
+        log('DEBUG', 'app', 'Debug info')  # 出力されない
+        log('ERROR', 'app', 'Error info')  # 出力される
+    
+    引数:
         level: ログレベル名（TRACE, DEBUG, INFO, WARN, ERROR, FATAL）
         module: モジュール名（レイヤー名や機能名）
         message: ログメッセージ
         **kwargs: 追加のコンテキスト情報
     
-    Returns:
-        dict: 成功時 {'status': 'logged'} または
-              エラー時 {'status': 'error', 'message': エラー内容}
+    戻り値:
+        成功時 {'status': 'logged'} またはエラー時 {'status': 'error', 'message': エラー内容}
     """
     try:
         # 設定を取得
@@ -83,63 +95,3 @@ def log(level, module, message, **kwargs):
     except Exception as e:
         # CONVENTION.yaml: 例外を投げずにエラー型を返す
         return {'status': 'error', 'message': str(e)}
-
-def create_logger(module_name):
-    """指定モジュール用のログ関数セットを生成
-    
-    Args:
-        module_name: モジュール名
-    
-    Returns:
-        dict: ログレベル別関数の辞書
-    """
-    def create_level_func(level):
-        def log_func(message, **kwargs):
-            return log(level, module_name, message, **kwargs)
-        log_func.__name__ = f"{module_name}_{level.lower()}"
-        return log_func
-    
-    return {
-        'trace': create_level_func('TRACE'),
-        'debug': create_level_func('DEBUG'),
-        'info': create_level_func('INFO'),
-        'warn': create_level_func('WARN'),
-        'error': create_level_func('ERROR'),
-        'fatal': create_level_func('FATAL')
-    }
-
-# 便利関数：グローバルログ関数
-def trace(message, module='global', **kwargs):
-    """TRACEレベルログ"""
-    return log('TRACE', module, message, **kwargs)
-
-def debug(message, module='global', **kwargs):
-    """DEBUGレベルログ"""
-    return log('DEBUG', module, message, **kwargs)
-
-def info(message, module='global', **kwargs):
-    """INFOレベルログ"""
-    return log('INFO', module, message, **kwargs)
-
-def warn(message, module='global', **kwargs):
-    """WARNレベルログ"""
-    return log('WARN', module, message, **kwargs)
-
-def error(message, module='global', **kwargs):
-    """ERRORレベルログ"""
-    return log('ERROR', module, message, **kwargs)
-
-def fatal(message, module='global', **kwargs):
-    """FATALレベルログ"""
-    return log('FATAL', module, message, **kwargs)
-
-# 設定確認用関数
-def get_current_config():
-    """現在のログ設定を取得（デバッグ用）"""
-    config = _get_cached_config()
-    return {
-        'raw_config': os.getenv('LOG_CONFIG', ''),
-        'format': os.getenv('LOG_FORMAT', 'console'),
-        'parsed_config': config,
-        'cache_valid': _config_timestamp is not None
-    }

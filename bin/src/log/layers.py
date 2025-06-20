@@ -11,12 +11,12 @@ def create_layer_logger(layer_name):
         dict: ログレベル別関数の辞書 {trace, debug, info, warn, error, fatal}
     """
     # 遅延インポート（循環依存回避）
-    from .logger import log
+    from .log import log as logger
     
     # カリー化：レイヤー名を固定した関数を生成
     def create_level_func(level):
         def log_func(message, **kwargs):
-            return log(level, layer_name, message, **kwargs)
+            return logger(level, layer_name, message, **kwargs)
         # 関数名を設定（デバッグ時に便利）
         log_func.__name__ = f"{layer_name}_{level.lower()}"
         return log_func
