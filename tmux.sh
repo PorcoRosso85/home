@@ -1,113 +1,112 @@
 #!/bin/bash
 
 # tmux統合スクリプト
-# セッション名: ディレクトリ名-gitブランチ
+
+# ヘルプ表示
+if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    cat << EOF
+Usage: $0 [options]
+
+tmux 3ペイン構成セッション作成スクリプト
+
+環境変数:
+  TMUX_APPS         アプリリスト (デフォルト: "hx,lazygit,yazi")
+  TMUX_RIGHT_SIZE   右ペインサイズ (デフォルト: 40)
+
+実行例:
+  # デフォルト設定で起動
+  ./tmux.sh
+
+  # カスタムアプリで起動
+  TMUX_APPS="vim,tig,ranger" ./tmux.sh
+
+  # 右ペインを50%に設定
+  TMUX_RIGHT_SIZE=50 ./tmux.sh
+
+  # 組み合わせ
+  TMUX_APPS="hx,lazygit,btop" TMUX_RIGHT_SIZE=60 ./tmux.sh
+
+キーバインド:
+  Ctrl-b + S  セッション切り替え
+  Ctrl-b + C  新規セッション作成
+  Ctrl-b + v  コピーモード
+  Ctrl-b + h/j/k/l  ペイン移動
+EOF
+    exit 0
+fi
+
+# 環境変数でカスタマイズ可能（デフォルト値付き）
+TMUX_APPS="${TMUX_APPS:-hx,lazygit,yazi}"
+TMUX_RIGHT_SIZE="${TMUX_RIGHT_SIZE:-40}"  # 右ペインのサイズ（%）
+
+# 配列に変換
+IFS=',' read -ra APPS <<< "$TMUX_APPS"
+
+# 左と中央のサイズを計算（残りを半分ずつ）
+LEFT_SIZE=$(( (100 - TMUX_RIGHT_SIZE) / 2 ))
+
+# セッション名
 GIT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
 SESSION_NAME="$(basename $(pwd))-${GIT_BRANCH}"
 
-# セッションが既に存在する場合は削除
+# セッション削除・作成
 tmux has-session -t $SESSION_NAME 2>/dev/null && tmux kill-session -t $SESSION_NAME
+tmux new-session -d -s $SESSION_NAME
 
-# 新しいセッションを作成
-tmux new-session -d -s $SESSION_NAME -n "editor"
+# tmux設定
+tmux set -g window-style 'fg=colour245'
+tmux set -g window-active-style 'fg=colour255'
+tmux set -g remain-on-exit on
+tmux set -g mode-keys vi
+tmux set -g status-keys vi
 
-# キーバインド設定
-# ペイン移動（プレフィックス経由）
+# キーバインド
 tmux bind-key h select-pane -L
 tmux bind-key j select-pane -D
 tmux bind-key k select-pane -U
 tmux bind-key l select-pane -R
+tmux bind-key v copy-mode
+tmux bind-key S detach-client -E "bash $HOME/tmux-select.sh"
+tmux bind-key C detach-client -E "bash $HOME/tmux-create.sh"
 
-# ウィンドウ切り替え（数字キーはデフォルトで動作）
-# Ctrl-b + 1/2/3 でウィンドウ切り替え
-
-# コントラスト設定
-tmux set -g window-style 'fg=colour245'
-tmux set -g window-active-style 'fg=colour255'
-
-# ペイン保護設定
-tmux set -g remain-on-exit on
-
-# Vimモード設定
-tmux set -g mode-keys vi
-tmux set -g status-keys vi
-
-# コピーモードのVimキーバインド
+# コピーモード
 tmux bind-key -T copy-mode-vi v send-keys -X begin-selection
 tmux bind-key -T copy-mode-vi y send-keys -X copy-selection-and-cancel
 tmux bind-key -T copy-mode-vi V send-keys -X select-line
 tmux bind-key -T copy-mode-vi C-v send-keys -X rectangle-toggle
 
-# コピーモード（Ctrl-b + [ がデフォルト、追加で v も設定）
-tmux bind-key v copy-mode
-
-# セッション切り替え: デタッチしてtmux-select.shを使う
-tmux bind-key S detach-client -E "bash $HOME/tmux-select.sh"
-
-# 新規セッション作成: デタッチしてtmux-create.shを使う
-tmux bind-key C detach-client -E "bash $HOME/tmux-create.sh"
-
-# tmuxログ有効化（デバッグ用）
-tmux set -g history-file ~/.tmux_history
-
-# エディタウィンドウ設定（Helix）
-tmux split-window -h -t $SESSION_NAME:editor
-tmux send-keys -t $SESSION_NAME:editor.0 "
-# 左ペインも保護
-while true; do
-    echo 'Left pane - Navigation'
-    bash
-    echo 'Shell exited. Restarting...'
-    sleep 1
-done" Enter
-tmux send-keys -t $SESSION_NAME:editor.1 "
-# Helixエディタを永続化
-while true; do
-    hx
-    echo 'Helix closed. Restarting in 1 second...'
-    sleep 1
-done" Enter
-
-# Gitウィンドウ設定（lazygit）
-tmux new-window -t $SESSION_NAME -n "git"
-tmux split-window -h -t $SESSION_NAME:git
-tmux send-keys -t $SESSION_NAME:git.0 "
-# 左ペインも保護
-while true; do
-    echo 'Left pane - Navigation'
-    bash
-    echo 'Shell exited. Restarting...'
-    sleep 1
-done" Enter
-tmux send-keys -t $SESSION_NAME:git.1 "
-# lazygitを永続化
-while true; do
-    lazygit
-    echo 'Lazygit closed. Restarting in 1 second...'
-    sleep 1
-done" Enter
-
-# ファイラーウィンドウ設定（yazi）
-tmux new-window -t $SESSION_NAME -n "files"
-tmux split-window -h -t $SESSION_NAME:files
-tmux send-keys -t $SESSION_NAME:files.0 "
-# 左ペインも保護
-while true; do
-    echo 'Left pane - Navigation'
-    bash
-    echo 'Shell exited. Restarting...'
-    sleep 1
-done" Enter
-tmux send-keys -t $SESSION_NAME:files.1 "
-# yaziを永続化
-while true; do
-    yazi
-    echo 'Yazi closed. Restarting in 1 second...'
-    sleep 1
-done" Enter
+# 各アプリのウィンドウ作成
+for i in ${!APPS[@]}; do
+    APP=${APPS[$i]}
+    
+    # アプリ名を抽出（引数を除去してウィンドウ名に使用）
+    APP_NAME=$(echo "$APP" | cut -d' ' -f1 | xargs basename)
+    
+    # ウィンドウ作成（最初以外）
+    if [ $i -eq 0 ]; then
+        tmux rename-window -t $SESSION_NAME "$APP_NAME"
+    else
+        tmux new-window -t $SESSION_NAME -n "$APP_NAME"
+    fi
+    
+    # 3ペイン作成
+    tmux split-window -h -t $SESSION_NAME:$APP_NAME
+    tmux split-window -h -t $SESSION_NAME:$APP_NAME.0
+    tmux resize-pane -t $SESSION_NAME:$APP_NAME.0 -x ${LEFT_SIZE}%
+    tmux resize-pane -t $SESSION_NAME:$APP_NAME.1 -x ${LEFT_SIZE}%
+    
+    # 左ペイン
+    tmux send-keys -t $SESSION_NAME:$APP_NAME.0 "while true; do bash; sleep 1; done" Enter
+    
+    # 中央ペイン
+    tmux send-keys -t $SESSION_NAME:$APP_NAME.1 "while true; do bash; sleep 1; done" Enter
+    
+    # 右ペイン（アプリ）
+    tmux send-keys -t $SESSION_NAME:$APP_NAME.2 "while true; do $APP; sleep 1; done" Enter
+done
 
 # 最初のウィンドウに戻る
-tmux select-window -t $SESSION_NAME:editor
+tmux select-window -t $SESSION_NAME:hx
 
-# セッションにアタッチ
+# アタッチ
 tmux attach-session -t $SESSION_NAME
