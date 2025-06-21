@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# tmux統合スクリプト
+SESSION_NAME="work"
+
+# セッションが既に存在する場合は削除
+tmux has-session -t $SESSION_NAME 2>/dev/null && tmux kill-session -t $SESSION_NAME
+
+# 新しいセッションを作成
+tmux new-session -d -s $SESSION_NAME -n "editor"
+
+# キーバインド設定
+tmux bind-key -n C-S-Left select-pane -L
+tmux bind-key -n C-S-Right select-pane -R
+tmux bind-key -n M-1 select-window -t 1
+tmux bind-key -n M-2 select-window -t 2
+tmux bind-key -n M-3 select-window -t 3
+
+# コントラスト設定
+tmux set -g window-style 'fg=colour245'
+tmux set -g window-active-style 'fg=colour255'
+
+# ペイン保護設定
+tmux set -g remain-on-exit on
+
+# Vimモード設定
+tmux set -g mode-keys vi
+tmux set -g status-keys vi
+
+# コピーモードのVimキーバインド
+tmux bind-key -T copy-mode-vi v send-keys -X begin-selection
+tmux bind-key -T copy-mode-vi y send-keys -X copy-selection-and-cancel
+tmux bind-key -T copy-mode-vi V send-keys -X select-line
+tmux bind-key -T copy-mode-vi C-v send-keys -X rectangle-toggle
+
+# コピーモードへの入り方
+tmux bind-key -n M-v copy-mode  # Alt+vでコピーモード開始
+
+# エディタウィンドウ設定（Helix）
+tmux split-window -h -t $SESSION_NAME:editor
+tmux send-keys -t $SESSION_NAME:editor.0 "echo 'Left pane - Navigation'; exec bash" Enter
+tmux send-keys -t $SESSION_NAME:editor.1 "
+# Helixエディタを永続化
+while true; do
+    hx
+    echo 'Helix closed. Restarting in 1 second...'
+    sleep 1
+done" Enter
+
+# Gitウィンドウ設定（lazygit）
+tmux new-window -t $SESSION_NAME -n "git"
+tmux split-window -h -t $SESSION_NAME:git
+tmux send-keys -t $SESSION_NAME:git.0 "echo 'Left pane - Navigation'; exec bash" Enter
+tmux send-keys -t $SESSION_NAME:git.1 "
+# lazygitを永続化
+while true; do
+    lazygit
+    echo 'Lazygit closed. Restarting in 1 second...'
+    sleep 1
+done" Enter
+
+# ファイラーウィンドウ設定（yazi）
+tmux new-window -t $SESSION_NAME -n "files"
+tmux split-window -h -t $SESSION_NAME:files
+tmux send-keys -t $SESSION_NAME:files.0 "echo 'Left pane - Navigation'; exec bash" Enter
+tmux send-keys -t $SESSION_NAME:files.1 "
+# yaziを永続化
+while true; do
+    yazi
+    echo 'Yazi closed. Restarting in 1 second...'
+    sleep 1
+done" Enter
+
+# 最初のウィンドウに戻る
+tmux select-window -t $SESSION_NAME:editor
+
+# セッションにアタッチ
+tmux attach-session -t $SESSION_NAME
