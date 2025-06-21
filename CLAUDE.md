@@ -16,3 +16,7 @@
 
 ## 前提
 - コーディング規約: ~/bin/src/CONVENTION.yaml
+
+## 作業の合言葉
+- **「tmuxで作業分担」「別ペインで実行」「tmuxでclaude操作」**: `/tmux-claude` コマンドを実行
+- **「新しいコマンド追加」「カスタムコマンド作成」**: `/add-command` コマンドを実行
