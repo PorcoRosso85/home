@@ -7,7 +7,7 @@ if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
     cat << EOF
 Usage: $0 [options]
 
-tmux 3ペイン構成セッション作成スクリプト
+tmux 3ペイン構成セッション作成スクリプト（1ウィンドウ版）
 
 環境変数:
   TMUX_APPS         アプリリスト (デフォルト: "hx,lazygit,yazi")
@@ -27,9 +27,10 @@ tmux 3ペイン構成セッション作成スクリプト
   TMUX_APPS="hx,lazygit,btop" TMUX_RIGHT_SIZE=60 ./tmux.sh
 
 キーバインド:
-  Ctrl-b + S  セッション切り替え
-  Ctrl-b + C  新規セッション作成
-  Ctrl-b + v  コピーモード
+  Alt+1/2/3         右ペインのアプリ切り替え
+  Ctrl-b + S        セッション切り替え
+  Ctrl-b + C        新規セッション作成
+  Ctrl-b + v        コピーモード
   Ctrl-b + h/j/k/l  ペイン移動
 EOF
     exit 0
@@ -60,6 +61,26 @@ tmux set -g remain-on-exit on
 tmux set -g mode-keys vi
 tmux set -g status-keys vi
 
+# 3ペイン作成
+tmux split-window -h -t $SESSION_NAME
+tmux split-window -h -t $SESSION_NAME.0
+tmux resize-pane -t $SESSION_NAME.0 -x ${LEFT_SIZE}%
+tmux resize-pane -t $SESSION_NAME.1 -x ${LEFT_SIZE}%
+
+# 左・中央ペイン（共有シェル）
+tmux send-keys -t $SESSION_NAME.0 "while true; do bash; sleep 1; done" Enter
+tmux send-keys -t $SESSION_NAME.1 "while true; do bash; sleep 1; done" Enter
+
+# 右ペイン（最初のアプリ）
+tmux send-keys -t $SESSION_NAME.2 "while true; do ${APPS[0]}; sleep 1; done" Enter
+
+# アプリ切り替えキーバインド（respawn-pane使用）
+for i in ${!APPS[@]}; do
+    APP="${APPS[$i]}"
+    # Alt+数字キーでアプリ切り替え
+    tmux bind-key -n M-$((i+1)) respawn-pane -t $SESSION_NAME.2 -k "while true; do $APP; sleep 1; done"
+done
+
 # キーバインド
 tmux bind-key h select-pane -L
 tmux bind-key j select-pane -D
@@ -75,38 +96,8 @@ tmux bind-key -T copy-mode-vi y send-keys -X copy-selection-and-cancel
 tmux bind-key -T copy-mode-vi V send-keys -X select-line
 tmux bind-key -T copy-mode-vi C-v send-keys -X rectangle-toggle
 
-# 各アプリのウィンドウ作成
-for i in ${!APPS[@]}; do
-    APP=${APPS[$i]}
-    
-    # アプリ名を抽出（引数を除去してウィンドウ名に使用）
-    APP_NAME=$(echo "$APP" | cut -d' ' -f1 | xargs basename)
-    
-    # ウィンドウ作成（最初以外）
-    if [ $i -eq 0 ]; then
-        tmux rename-window -t $SESSION_NAME "$APP_NAME"
-    else
-        tmux new-window -t $SESSION_NAME -n "$APP_NAME"
-    fi
-    
-    # 3ペイン作成
-    tmux split-window -h -t $SESSION_NAME:$APP_NAME
-    tmux split-window -h -t $SESSION_NAME:$APP_NAME.0
-    tmux resize-pane -t $SESSION_NAME:$APP_NAME.0 -x ${LEFT_SIZE}%
-    tmux resize-pane -t $SESSION_NAME:$APP_NAME.1 -x ${LEFT_SIZE}%
-    
-    # 左ペイン
-    tmux send-keys -t $SESSION_NAME:$APP_NAME.0 "while true; do bash; sleep 1; done" Enter
-    
-    # 中央ペイン
-    tmux send-keys -t $SESSION_NAME:$APP_NAME.1 "while true; do bash; sleep 1; done" Enter
-    
-    # 右ペイン（アプリ）
-    tmux send-keys -t $SESSION_NAME:$APP_NAME.2 "while true; do $APP; sleep 1; done" Enter
-done
-
-# 最初のウィンドウに戻る
-tmux select-window -t $SESSION_NAME:hx
+# ステータスラインにアプリ情報表示
+tmux set -g status-right "Apps: 1:${APPS[0]%%' '*} 2:${APPS[1]%%' '*} 3:${APPS[2]%%' '*}"
 
 # アタッチ
 tmux attach-session -t $SESSION_NAME
