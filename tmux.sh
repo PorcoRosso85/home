@@ -44,6 +44,9 @@ tmux bind-key v copy-mode
 # セッション切り替え: デタッチしてtmux-select.shを使う
 tmux bind-key S detach-client -E "bash $HOME/tmux-select.sh"
 
+# 新規セッション作成: デタッチしてtmux-create.shを使う
+tmux bind-key C detach-client -E "bash $HOME/tmux-create.sh"
+
 # tmuxログ有効化（デバッグ用）
 tmux set -g history-file ~/.tmux_history
 
