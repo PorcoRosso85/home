@@ -46,6 +46,10 @@
 !.vscode-server/data/
 !.vscode-server/data/Machine/
 !.vscode-server/data/Machine/**
+!.config/claude/
+!.config/claude/commands/
+!.config/claude/commands/**
+!.config/claude/settings.json
 !claude/
 !claude/**
 !.claude/

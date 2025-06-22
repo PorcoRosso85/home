@@ -16,4 +16,4 @@
 - owner: 戦略
 - executive: 分解
 - manager: 専門
-- actor: 実行
+- worker: 実行
