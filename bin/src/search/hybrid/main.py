@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 from collections import defaultdict
 from sentence_transformers import SentenceTransformer
 from db.kuzu.connection import get_connection
+from log import log
 
 
 class HybridSearch:
@@ -27,8 +28,9 @@ class HybridSearch:
         try:
             self.conn.execute("INSTALL VECTOR;")
             self.conn.execute("LOAD EXTENSION VECTOR;")
-        except:
-            pass
+            log('DEBUG', 'search.hybrid.vss', 'Vector extension initialized')
+        except Exception as e:
+            log('DEBUG', 'search.hybrid.vss', 'Vector extension already initialized', error=str(e))
         
         # Ensure vector index exists
         try:
@@ -39,16 +41,18 @@ class HybridSearch:
                     'embedding'
                 );
             """)
-        except:
-            pass
+            log('DEBUG', 'search.hybrid.vss', 'Vector index created')
+        except Exception as e:
+            log('DEBUG', 'search.hybrid.vss', 'Vector index already exists', error=str(e))
     
     def _init_fts(self):
         """Initialize Full-text Search extension and index."""
         try:
             self.conn.execute("INSTALL FTS;")
             self.conn.execute("LOAD EXTENSION FTS;")
-        except:
-            pass
+            log('DEBUG', 'search.hybrid.fts', 'FTS extension initialized')
+        except Exception as e:
+            log('DEBUG', 'search.hybrid.fts', 'FTS extension already initialized', error=str(e))
         
         # Ensure FTS index exists
         try:
@@ -59,12 +63,15 @@ class HybridSearch:
                     ['title', 'content']
                 );
             """)
-        except:
-            pass
+            log('DEBUG', 'search.hybrid.fts', 'FTS index created')
+        except Exception as e:
+            log('DEBUG', 'search.hybrid.fts', 'FTS index already exists', error=str(e))
     
     def vss_search(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """Vector similarity search."""
+        start_time = time.time()
         query_embedding = self.embedder.encode(query).tolist()
+        embedding_time = time.time() - start_time
         
         search_query = f"""
             CALL QUERY_VECTOR_INDEX(
@@ -76,7 +83,9 @@ class HybridSearch:
             RETURN node, distance;
         """
         
+        search_start = time.time()
         result = self.conn.execute(search_query)
+        search_time = time.time() - search_start
         
         results = []
         while result.has_next():
@@ -91,6 +100,13 @@ class HybridSearch:
                 'score': 1 - distance,  # Convert distance to similarity
                 'source': 'vss'
             })
+        
+        log('DEBUG', 'search.hybrid.vss', 'VSS completed',
+            query=query,
+            k=k,
+            results_count=len(results),
+            embedding_time_ms=embedding_time*1000,
+            search_time_ms=search_time*1000)
         
         return results
     
@@ -108,7 +124,9 @@ class HybridSearch:
             LIMIT {k};
         """
         
+        start_time = time.time()
         result = self.conn.execute(fts_query)
+        search_time = time.time() - start_time
         
         results = []
         while result.has_next():
@@ -123,6 +141,12 @@ class HybridSearch:
                 'score': score / 10.0,  # Normalize FTS score
                 'source': 'fts'
             })
+        
+        log('DEBUG', 'search.hybrid.fts', 'FTS completed',
+            query=query,
+            k=k,
+            results_count=len(results),
+            search_time_ms=search_time*1000)
         
         return results
     
@@ -154,7 +178,9 @@ class HybridSearch:
                         ORDER BY d.id;
                     """
                     
+                    start_time = time.time()
                     cat_result = self.conn.execute(cat_query, {"category": category})
+                    query_time = time.time() - start_time
                     
                     while cat_result.has_next():
                         row = cat_result.get_next()
@@ -167,6 +193,12 @@ class HybridSearch:
                             'source': 'cypher',
                             'match_type': 'category'
                         })
+                    
+                    if results:
+                        log('DEBUG', 'search.hybrid.cypher', 'Category match found',
+                            category=category,
+                            results_count=len(results),
+                            query_time_ms=query_time*1000)
         
         # 2. Title keyword search
         title_where_clauses = []
@@ -185,7 +217,9 @@ class HybridSearch:
                 RETURN d.id AS id, d.title AS title, d.content AS content, d.category AS category;
             """
             
+            start_time = time.time()
             title_result = self.conn.execute(title_query, title_params)
+            query_time = time.time() - start_time
             
             while title_result.has_next():
                 row = title_result.get_next()
@@ -201,6 +235,15 @@ class HybridSearch:
                         'source': 'cypher',
                         'match_type': 'title_keyword'
                     })
+            
+            log('DEBUG', 'search.hybrid.cypher', 'Title keyword search completed',
+                keywords_count=len(keywords),
+                results_count=len([r for r in results if r.get('match_type') == 'title_keyword']),
+                query_time_ms=query_time*1000)
+        
+        log('DEBUG', 'search.hybrid.cypher', 'Cypher search completed',
+            query=query,
+            total_results=len(results))
         
         return results
     
@@ -272,6 +315,13 @@ class HybridSearch:
         # Sort by combined score
         final_results.sort(key=lambda x: x['combined_score'], reverse=True)
         
+        log('DEBUG', 'search.hybrid', 'Results merged',
+            vss_count=len(vss_results),
+            fts_count=len(fts_results),
+            cypher_count=len(cypher_results),
+            merged_count=len(final_results),
+            weights=weights)
+        
         return final_results
     
     def search(self, query: str, k: int = 10, 
@@ -287,6 +337,8 @@ class HybridSearch:
         # Execute all searches in parallel (conceptually)
         print(f"\nExecuting hybrid search for: '{query}'")
         print("=" * 60)
+        
+        overall_start = time.time()
         
         # Vector Search
         print("\n1. Vector Similarity Search...")
@@ -311,10 +363,25 @@ class HybridSearch:
         
         # Merge results
         print("\n4. Merging results...")
+        merge_start = time.time()
         merged_results = self.merge_results(vss_results, fts_results, cypher_results, weights)
+        merge_time = time.time() - merge_start
+        
+        total_time = time.time() - overall_start
         
         print(f"\nTotal unique documents found: {len(merged_results)}")
         print(f"Total search time: {vss_time + fts_time + cypher_time:.3f}s")
+        
+        log('INFO', 'search.hybrid', 'Hybrid search completed',
+            query=query,
+            k=k,
+            vss_time_ms=vss_time*1000,
+            fts_time_ms=fts_time*1000,
+            cypher_time_ms=cypher_time*1000,
+            merge_time_ms=merge_time*1000,
+            total_time_ms=total_time*1000,
+            unique_documents=len(merged_results),
+            weights=weights)
         
         return merged_results[:k]
 
@@ -358,6 +425,11 @@ def main():
             print(f"   Content: {result['content'][:100]}...")
         
         print("\n" + "-" * 60)
+        
+        log('INFO', 'search.hybrid.demo', 'Query demonstration completed',
+            query=query,
+            results_shown=len(results),
+            top_score=results[0]['combined_score'] if results else 0)
 
 
 if __name__ == "__main__":

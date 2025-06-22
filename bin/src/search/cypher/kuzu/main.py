@@ -7,6 +7,7 @@ sys.path.append('/home/nixos/bin/src')
 import time
 from typing import List, Dict, Any, Optional
 from db.kuzu.connection import get_connection
+from log import log
 
 
 class CypherGraphSearch:
@@ -24,7 +25,9 @@ class CypherGraphSearch:
             ORDER BY d.id;
         """
         
+        start_time = time.time()
         result = self.conn.execute(query, {"category": category})
+        query_time = time.time() - start_time
         
         documents = []
         while result.has_next():
@@ -35,6 +38,11 @@ class CypherGraphSearch:
                 'content': row[2],
                 'category': row[3]
             })
+        
+        log('INFO', 'search.cypher', 'Category search completed',
+            category=category,
+            results_count=len(documents),
+            query_time_ms=query_time*1000)
         
         return documents
     
@@ -47,7 +55,9 @@ class CypherGraphSearch:
             ORDER BY d2.id;
         """
         
+        start_time = time.time()
         result = self.conn.execute(query, {"id": doc_id})
+        query_time = time.time() - start_time
         
         related = []
         while result.has_next():
@@ -59,6 +69,11 @@ class CypherGraphSearch:
                 'category': row[3],
                 'relationship': 'same_category'
             })
+        
+        log('INFO', 'search.cypher', 'Related documents search completed',
+            source_doc_id=doc_id,
+            results_count=len(related),
+            query_time_ms=query_time*1000)
         
         return related
     
@@ -83,7 +98,9 @@ class CypherGraphSearch:
             ORDER BY d.title;
         """
         
+        start_time = time.time()
         result = self.conn.execute(query, params)
+        query_time = time.time() - start_time
         
         documents = []
         while result.has_next():
@@ -94,6 +111,11 @@ class CypherGraphSearch:
                 'content': row[2],
                 'category': row[3]
             })
+        
+        log('INFO', 'search.cypher', 'Keyword search completed',
+            keywords=keywords,
+            results_count=len(documents),
+            query_time_ms=query_time*1000)
         
         return documents
     
@@ -106,7 +128,9 @@ class CypherGraphSearch:
                 RETURN c.name AS category, c.description AS description, COUNT(d) AS doc_count
                 ORDER BY doc_count DESC, c.name;
             """
+            start_time = time.time()
             result = self.conn.execute(query)
+            query_time = time.time() - start_time
             
             stats = []
             while result.has_next():
@@ -118,9 +142,13 @@ class CypherGraphSearch:
                 })
             
             if stats:
+                log('INFO', 'search.cypher', 'Category statistics retrieved',
+                    method='relationships',
+                    categories_count=len(stats),
+                    query_time_ms=query_time*1000)
                 return stats
-        except:
-            pass
+        except Exception as e:
+            log('DEBUG', 'search.cypher', 'Fallback to property-based grouping', error=str(e))
         
         # Fallback: group by category property
         query = """
@@ -129,7 +157,9 @@ class CypherGraphSearch:
             ORDER BY doc_count DESC, category;
         """
         
+        start_time = time.time()
         result = self.conn.execute(query)
+        query_time = time.time() - start_time
         
         stats = []
         while result.has_next():
@@ -139,6 +169,11 @@ class CypherGraphSearch:
                 'description': f"{row[0]} category",
                 'document_count': row[1]
             })
+        
+        log('INFO', 'search.cypher', 'Category statistics retrieved',
+            method='property_grouping',
+            categories_count=len(stats),
+            query_time_ms=query_time*1000)
         
         return stats
     
@@ -152,7 +187,9 @@ class CypherGraphSearch:
             ORDER BY size DESC;
         """
         
+        start_time = time.time()
         result = self.conn.execute(query)
+        query_time = time.time() - start_time
         
         components = []
         while result.has_next():
@@ -163,6 +200,11 @@ class CypherGraphSearch:
                 'documents': row[2],
                 'size': row[3]
             })
+        
+        log('INFO', 'search.cypher', 'Connected components found',
+            components_count=len(components),
+            total_documents=sum(c['size'] for c in components),
+            query_time_ms=query_time*1000)
         
         return components
 
@@ -182,10 +224,12 @@ def main():
     doc_count = doc_count_result.get_next()[0]
     
     if doc_count == 0:
+        log('WARN', 'search.cypher', 'No documents found in database')
         print("No documents found in database.")
         print("Please run 'python data/kuzu/setup.py' first to load data.")
         return
     
+    log('INFO', 'search.cypher', 'Documents found in database', document_count=doc_count)
     print(f"Found {doc_count} documents in database")
     
     # 1. Category Statistics
@@ -199,6 +243,10 @@ def main():
     print(f"Query completed in {elapsed:.3f}s")
     for stat in stats:
         print(f"  - {stat['category']}: {stat['document_count']} documents")
+    
+    log('INFO', 'search.cypher.demo', 'Category statistics displayed',
+        elapsed_ms=elapsed*1000,
+        categories_count=len(stats))
     
     # 2. Search by Category
     print("\n\n2. Search by Category")
@@ -215,6 +263,11 @@ def main():
     for doc in docs:
         print(f"  - [{doc['id']}] {doc['title']}")
     
+    log('INFO', 'search.cypher.demo', 'Category search demo',
+        category=category,
+        elapsed_ms=elapsed*1000,
+        results_count=len(docs))
+    
     # 3. Find Related Documents
     print("\n\n3. Find Related Documents")
     print("-" * 40)
@@ -229,6 +282,11 @@ def main():
     print(f"\nFound {len(related)} related documents in {elapsed:.3f}s")
     for doc in related:
         print(f"  - [{doc['id']}] {doc['title']} (via: {doc['relationship']})")
+    
+    log('INFO', 'search.cypher.demo', 'Related documents demo',
+        source_id=source_id,
+        elapsed_ms=elapsed*1000,
+        related_count=len(related))
     
     # 4. Keyword Search in Titles
     print("\n\n4. Keyword Search in Titles")
@@ -245,6 +303,11 @@ def main():
     for doc in results:
         print(f"  - {doc['title']} ({doc['category']})")
     
+    log('INFO', 'search.cypher.demo', 'Keyword search demo',
+        keywords=keywords,
+        elapsed_ms=elapsed*1000,
+        results_count=len(results))
+    
     # 5. Connected Components
     print("\n\n5. Document Grouping by Category")
     print("-" * 40)
@@ -260,6 +323,11 @@ def main():
             for doc in comp['documents']:
                 if doc['id'] is not None:  # Filter out null entries
                     print(f"  - [{doc['id']}] {doc['title']}")
+    
+    log('INFO', 'search.cypher.demo', 'Document grouping demo',
+        elapsed_ms=elapsed*1000,
+        components_count=len(components),
+        total_documents=sum(c['size'] for c in components if c['size'] > 0))
 
 
 if __name__ == "__main__":
