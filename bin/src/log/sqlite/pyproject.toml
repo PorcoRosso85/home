@@ -1,0 +1,18 @@
+[project]
+name = "sqlite"
+version = "0.1.0"
+description = "KuzuDB-SQLite integration for JSONL log management"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest>=8.4.1",
+]
+
+[project.optional-dependencies]
+kuzu = ["kuzu>=0.10.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["test_*.py"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
