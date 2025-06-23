@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-シンプルなクエリ抽出ツール
+Claude Telemetry POC メインエントリーポイント
 
-責務: claudeの--print --output-format stream-json出力からクエリを抽出
+責務: claude --print --output-format stream-jsonからJSONLを取得してクエリを抽出
 """
 
 import subprocess
@@ -74,7 +74,7 @@ def extract_queries(prompt: str) -> Dict[str, Any]:
 def main():
     """メイン実行"""
     if len(sys.argv) < 2:
-        print("Usage: python simple_query_extractor.py <prompt>")
+        print("Usage: python main.py <prompt>")
         sys.exit(1)
     
     prompt = " ".join(sys.argv[1:])
