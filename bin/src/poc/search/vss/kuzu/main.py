@@ -8,7 +8,7 @@ import time
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
 from db.kuzu.connection import get_connection
-from telemetry.telemetryLogger import log
+from telemetry import log
 
 
 class NativeVectorSearch:

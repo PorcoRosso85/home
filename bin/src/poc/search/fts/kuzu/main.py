@@ -7,7 +7,7 @@ sys.path.append('/home/nixos/bin/src')
 import time
 from typing import List, Dict, Any
 from db.kuzu.connection import get_connection
-from telemetry.telemetryLogger import log
+from telemetry import log
 
 
 class FullTextSearch:
