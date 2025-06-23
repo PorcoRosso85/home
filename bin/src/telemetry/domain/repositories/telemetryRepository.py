@@ -186,3 +186,5 @@ def test_repository_error_handling():
     
     query_result = repo.query_by_time_range("2024-01-01", "2024-01-02")
     assert "error" in query_result
+
+

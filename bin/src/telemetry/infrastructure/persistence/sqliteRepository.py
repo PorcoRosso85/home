@@ -335,3 +335,5 @@ def test_invalid_db_path_returns_error():
     
     count_result = repo.count()
     assert "error" in count_result
+
+

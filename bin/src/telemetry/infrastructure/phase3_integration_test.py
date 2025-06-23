@@ -237,8 +237,10 @@ def test_phase3_csv_export_workflow():
 
 def test_phase3_duckdb_persistence():
     """DuckDBファイル永続性"""
-    with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp:
-        db_path = tmp.name
+    # 一時ファイルのパスだけを生成（ファイルは作成しない）
+    fd, db_path = tempfile.mkstemp(suffix=".duckdb")
+    os.close(fd)
+    os.unlink(db_path)  # 一旦削除してDuckDBに作成させる
     
     try:
         # セッション1: データ保存

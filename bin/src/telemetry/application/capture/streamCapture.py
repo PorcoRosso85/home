@@ -330,3 +330,5 @@ def test_capture_real_claude_stream_format():
     # 保存されたログを確認
     logs = repo.query_by_type("log")
     assert len(logs) == 3
+
+

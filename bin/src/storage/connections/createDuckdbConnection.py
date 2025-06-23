@@ -5,7 +5,10 @@ DuckDB connection creator
 """
 
 from typing import Union, TypedDict, Literal, Any, Optional, List, Callable
-import duckdb
+try:
+    import duckdb
+except ImportError:
+    duckdb = None
 
 
 class DuckdbExecuteSuccess(TypedDict):
@@ -38,6 +41,15 @@ def create_duckdb_connection(db_path: str) -> Callable[[str, Optional[List[Any]]
         SQL実行関数
     """
     
+    # DuckDBが利用不可な場合
+    if duckdb is None:
+        def error_fn(sql: str, params: Optional[List[Any]] = None) -> DuckdbResult:
+            return {"type": "duckdb_error", "message": "DuckDB module not installed"}
+        return error_fn
+    
+    # 永続的な接続を保持
+    conn = duckdb.connect(db_path)
+    
     def execute_query(query: str, params: Optional[List[Any]] = None) -> DuckdbResult:
         """
         DuckDBクエリを実行
@@ -51,20 +63,22 @@ def create_duckdb_connection(db_path: str) -> Callable[[str, Optional[List[Any]]
             エラー: {"type": "duckdb_error", "message": エラーメッセージ}
         """
         try:
-            # DuckDB接続
-            conn = duckdb.connect(db_path)
-            
             # クエリ実行
+            cursor = conn.cursor()
+            
             if params:
-                result = conn.execute(query, params).fetchall()
+                cursor.execute(query, params)
             else:
-                result = conn.execute(query).fetchall()
+                cursor.execute(query)
             
-            # 行数取得（DuckDBでは別途countが必要な場合がある）
-            rowcount = len(result)
-            
-            # 接続を閉じる
-            conn.close()
+            # RETURNINGやSELECTの場合は結果を取得
+            try:
+                result = cursor.fetchall()
+                rowcount = len(result)
+            except:
+                # INSERT/UPDATE/DELETEでRETURNINGがない場合
+                result = []
+                rowcount = cursor.rowcount if hasattr(cursor, 'rowcount') else 0
             
             return {
                 "type": "execute_success",
@@ -146,8 +160,10 @@ def test_file_based_persistence():
     import tempfile
     import os
     
-    with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp:
-        db_path = tmp.name
+    # 一時ファイルのパスだけを生成（ファイルは作成しない）
+    fd, db_path = tempfile.mkstemp(suffix=".duckdb")
+    os.close(fd)
+    os.unlink(db_path)  # 一旦削除してDuckDBに作成させる
     
     try:
         # データ作成
@@ -163,3 +179,5 @@ def test_file_based_persistence():
         assert result["result"][0][0] == 42
     finally:
         os.unlink(db_path)
+
+

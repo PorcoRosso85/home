@@ -84,7 +84,7 @@ def create_duckdb_telemetry_repository(db_path: str) -> TelemetryRepository:
                 RETURNING id, created_at
             """, [record["type"], timestamp, json.dumps(record)])
             
-            if "error" in result:
+            if result["type"] == "duckdb_error":
                 return {"error": result["message"]}
             
             row = result["result"][0]
@@ -120,7 +120,7 @@ def create_duckdb_telemetry_repository(db_path: str) -> TelemetryRepository:
                 ORDER BY timestamp
             """, [start, end])
             
-            if "error" in result:
+            if result["type"] == "duckdb_error":
                 return {"error": result["message"]}
             
             return [json.loads(row[0]) for row in result["result"]]
@@ -133,7 +133,7 @@ def create_duckdb_telemetry_repository(db_path: str) -> TelemetryRepository:
                 ORDER BY timestamp
             """, [record_type])
             
-            if "error" in result:
+            if result["type"] == "duckdb_error":
                 return {"error": result["message"]}
             
             return [json.loads(row[0]) for row in result["result"]]
@@ -141,7 +141,7 @@ def create_duckdb_telemetry_repository(db_path: str) -> TelemetryRepository:
         def count(self) -> Union[int, Dict[str, str]]:
             result = execute_query("SELECT COUNT(*) FROM telemetry_records")
             
-            if "error" in result:
+            if result["type"] == "duckdb_error":
                 return {"error": result["message"]}
             
             return result["result"][0][0]
@@ -149,7 +149,7 @@ def create_duckdb_telemetry_repository(db_path: str) -> TelemetryRepository:
         def clear_all(self) -> Union[Dict[str, str], Dict[str, str]]:
             result = execute_query("DELETE FROM telemetry_records")
             
-            if "error" in result:
+            if result["type"] == "duckdb_error":
                 return {"error": result["message"]}
             
             return {"cleared": True}
@@ -220,9 +220,13 @@ def test_duckdb_batch_save_performance():
     # 100レコードのバッチ
     records = []
     for i in range(100):
+        # 時分秒を適切に計算
+        hours = i // 3600
+        minutes = (i % 3600) // 60
+        seconds = i % 60
         records.append({
             "type": "metric",
-            "timestamp": f"2024-01-01T00:00:{i:02d}Z",
+            "timestamp": f"2024-01-01T{hours:02d}:{minutes:02d}:{seconds:02d}Z",
             "name": f"metric_{i}",
             "value": i * 0.1
         })
@@ -237,7 +241,6 @@ def test_duckdb_batch_save_performance():
 def test_duckdb_advanced_json_queries():
     """DuckDBのJSON機能を活用したクエリ"""
     repo = create_duckdb_telemetry_repository(":memory:")
-    execute_query = create_duckdb_connection(":memory:")
     
     # テストデータ投入
     records = [
@@ -275,8 +278,10 @@ def test_duckdb_persistence_with_file():
     import tempfile
     import os
     
-    with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as tmp:
-        db_path = tmp.name
+    # 一時ファイルのパスだけを生成（ファイルは作成しない）
+    fd, db_path = tempfile.mkstemp(suffix=".duckdb")
+    os.close(fd)
+    os.unlink(db_path)  # 一旦削除してDuckDBに作成させる
     
     try:
         # セッション1
@@ -314,3 +319,5 @@ def test_duckdb_clear_all_empties_table():
     # 確認
     count = repo.count()
     assert count == 0
+
+

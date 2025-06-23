@@ -59,7 +59,10 @@ def create_kuzu_connection(db_path: str) -> Callable[[str], ExecuteResult]:
     return execute_query
 
 
-import pytest
+try:
+    import pytest
+except ImportError:
+    pytest = None
 
 
 def test_create_kuzu_connection():
@@ -68,8 +71,9 @@ def test_create_kuzu_connection():
     assert callable(execute_fn)
 
 
-@pytest.mark.skip(reason="KuzuDB segfault issue - TODO: fix libstdc++ dependency")
 def test_execute_query():
+    if pytest:
+        pytest.skip("KuzuDB segfault issue - TODO: fix libstdc++ dependency")
     """クエリ実行"""
     execute_fn = create_kuzu_connection("/tmp/test_kuzu")
     
@@ -77,11 +81,14 @@ def test_execute_query():
     assert result["type"] == "execute_success"
 
 
-@pytest.mark.skip(reason="KuzuDB segfault issue - TODO: fix libstdc++ dependency")
 def test_execute_error_handling():
+    if pytest:
+        pytest.skip("KuzuDB segfault issue - TODO: fix libstdc++ dependency")
     """エラー処理"""
     execute_fn = create_kuzu_connection("/tmp/test_kuzu")
     
     result = execute_fn("INVALID SYNTAX")
     assert result["type"] == "connection_error"
     assert "Parser exception" in result["message"]
+
+

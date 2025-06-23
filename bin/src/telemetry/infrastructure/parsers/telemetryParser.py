@@ -456,3 +456,5 @@ def test_create_parser_returns_callable():
     
     result = parser('{"type": "log", "body": "Test"}')
     assert "record" in result
+
+

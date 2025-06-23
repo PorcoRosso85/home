@@ -134,3 +134,5 @@ def test_invalid_connection_string():
     result = connect_fn()
     assert result["type"] == "connection_error"
     assert "Invalid connection string" in result["message"]
+
+

@@ -318,3 +318,5 @@ def test_format_csv_escapes_commas():
     row = format_csv_row(record)
     assert "failed, reason" not in row
     assert "failed; reason" in row
+
+

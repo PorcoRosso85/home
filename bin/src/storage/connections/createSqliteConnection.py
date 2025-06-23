@@ -140,3 +140,5 @@ def test_file_based_connection():
         assert len(result["result"]) == 1
     finally:
         os.unlink(db_path)
+
+
