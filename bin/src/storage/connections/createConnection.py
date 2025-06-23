@@ -62,6 +62,14 @@ def create_connection(connection_string: str) -> Callable[[], ConnectionResult]:
                 db_type="kuzu"
             )
         return kuzu_connection
+    
+    elif scheme == "duckdb":
+        def duckdb_connection() -> ConnectionResult:
+            return ConnectionSuccess(
+                type="connection_success",
+                db_type="duckdb"
+            )
+        return duckdb_connection
         
     else:
         def unsupported_connection() -> ConnectionResult:
@@ -96,6 +104,18 @@ def test_create_kuzu_connection():
     result = connect_fn()
     assert result["type"] == "connection_success"
     assert result["db_type"] == "kuzu"
+
+
+def test_create_duckdb_connection():
+    """DuckDB接続文字列から接続関数を作成"""
+    # duckdb:///path/to/db形式を受け付ける
+    connect_fn = create_connection("duckdb:///tmp/test.duckdb")
+    
+    assert callable(connect_fn)
+    
+    result = connect_fn()
+    assert result["type"] == "connection_success"
+    assert result["db_type"] == "duckdb"
 
 
 def test_unsupported_connection_type():
