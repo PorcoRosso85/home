@@ -109,6 +109,13 @@
   - デフォルト引数・デフォルト値は禁止
   - 設定は infrastructure/config に集約
   
+  package_managers:
+    - Python: uv（高速なPythonパッケージマネージャー）
+    - TypeScript: pnpm
+    - Go: go mod
+    - Rust: cargo
+    - Zig: zig build
+  
   example_pattern: |
     # 高階関数パターン（全言語適用可能）
     createFunction(dependency) -> function
@@ -163,7 +170,58 @@
 ## テスト指針:
   requirements:
     - すべての公開関数にテスト必須
-    - in-sourceテスト許可（if __name__ == "__main__"等）
+    - in-sourceテスト必須（実装ファイル内にtest_関数を記述）
+    - pytestで実装ファイルを直接実行
+    - 別途testsディレクトリは作成しない
+  
+  test_runners:
+    - Python: pytest必須（実装ファイル内のtest_*関数を実行）
+    - TypeScript: vitest必須
+    - Go: go test必須
+    - Rust: cargo test必須
+    - Zig: zig test必須
+  
+  test_structure:
+    python: |
+      # 実装ファイル内にテストを含める
+      src/module/function.py:
+        def my_function(x: int) -> int:
+            """本番用の関数"""
+            return x * 2
+        
+        def test_my_function():
+            """pytest用のテスト関数"""
+            assert my_function(2) == 4
+            assert my_function(0) == 0
+        
+        def test_my_function_negative():
+            """負の数のテスト"""
+            assert my_function(-1) == -2
+  
+  test_naming:
+    pattern: test_{機能}_{条件}_{期待結果}
+    examples:
+      - test_save_valid_record_returns_id
+      - test_query_invalid_date_returns_error
+    理由: テスト名だけで仕様が明確になる
+  
+  error_assertion:
+    pattern: assert "error" in result  # 必要十分
+    avoid: 詳細なメッセージ検証（メッセージ変更に脆い）
+    理由: エラー処理の一貫性と保守性向上
+  
+  pytest_config:
+    location: pytest.ini（プロジェクトルート）
+    content: |
+      [pytest]
+      testpaths = .
+      python_files = *.py
+      python_functions = test_*
+    理由: どのプロジェクトでも同じコマンドで実行可能
+  
+  imports:
+    rule: isort/ruff等の自動整形ツールに委任
+    理由: 手動ルールより確実で一貫性がある
   
   testability:
     - 純粋関数: 入出力のみテスト
@@ -174,4 +232,4 @@
     - 実装 > インメモリ実装 > スタブ（モック禁止）
     - 依存性注入でテスト容易性確保
     - プロパティベーステスト推奨
-    - 本番コードにテスト用分岐禁止
+    - 本番コードにテスト用分岐禁止（if __name__ == "__main__"除く）
