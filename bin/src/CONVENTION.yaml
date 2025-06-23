@@ -1,921 +1,177 @@
-# コーディング規約 (CONVENTION)
+# ユニバーサルコーディング規約
+# 対象言語: TypeScript, Python, Go, Rust, Zig
 
-## 基本原則:
-  description: 関数型プログラミングの原則に可能な限り従い、コードの予測可能性、テスト容易性、保守性を向上させる
+## 設計原則:
+  - データと処理を分離
+  - エラーを値として扱う
+  - 依存性を明示的に注入
+  - 最小構成を維持
+  - 関数の合成可能性を重視
+  - 副作用を境界に隔離
 
 ## 命名規則:
-  description: 各言語の標準的な命名規則に従い、一貫性のあるコードベースを維持する
-  note: ファイル名は全言語共通で関数と同じcamelCase命名フォーマットを使用する（例外: React ComponentファイルはPascalCase.tsx）
-  rules:
-    TypeScript:
-      - 変数・関数名: camelCase （例: getUserData, isValidInput）
-      - 型・インターフェース名: PascalCase （例: UserData, QueryResult）
-      - 定数: UPPER_SNAKE_CASE （例: MAX_RETRY_COUNT, API_ENDPOINT）
-      - ファイル名: camelCase.ts （例: userService.ts, queryExecutor.ts）
-      - コンポーネントファイル: PascalCase.tsx （例: UserProfile.tsx, DataTable.tsx）
-    Python:
-      - 変数・関数名: snake_case （例: get_user_data, is_valid_input）
-      - クラス名: PascalCase （例: UserData, QueryResult）
-      - 定数: UPPER_SNAKE_CASE （例: MAX_RETRY_COUNT, API_ENDPOINT）
-      - ファイル名: camelCase.py （例: userService.py, queryExecutor.py）
-    共通:
-      - 略語は避け、意味の明確な名前を使用すること
-      - ブール値を返す関数は is_, has_, can_ などのプレフィックスを使用
-      - プライベート関数・変数は _ プレフィックスを使用（Python）または private修飾子（TypeScript）
+  files:
+    all: camelCase（例: parseConfig.ts, parseConfig.py, parseConfig.go）
+    exceptions: 
+      - React components: PascalCase.tsx
+      - Go: snake_case許容（go.modの慣習）
   
-## 言語横断的な記述方式:
-  description: 汎用プログラミング言語の多くで共通可能な記述方法のみを使用する
-  rules:
-    - Result型、Option型、Maybe型などの関数型プログラミング特有の記述は禁止
-    - Monad、Functor、Applicativeなどの高度な関数型概念は使用禁止
-    - 言語固有の高度な型システム機能（Rust、Haskell、Scala等）は使用禁止
-    - ダミーフォールバックモック一切禁止
-    - 最小構成でコード維持を徹底する
-    - 複雑な条件分岐には積極的にパターンマッチを使用する
-    - 高階関数と依存性注入を活用し責務分離を徹底
-    - 以下の汎用的な機能のみを使用すること:
-      - 基本的なデータ型（文字列、数値、真偽値、配列、オブジェクト/辞書）
-      - 条件分岐（if/else、switch/case）
-      - ループ処理（for、while）
-      - 関数定義と呼び出し
-      - 高階関数（map、filter、reduce等の基本的なもの）
-      - 共用体型（Union型、Tagged Union）による分岐処理
-  examples:
-    prohibited: |
-      // 禁止: Result型の使用
-      function divide(a: number, b: number): Result<number, string> {
-        if (b === 0) {
-          return Err("Division by zero");
-        }
-        return Ok(a / b);
-      }
-      
-      // 禁止: Option型の使用
-      function findById(id: string): Option<User> {
-        const user = database.find(id);
-        return user ? Some(user) : None;
-      }
-      
-      // 禁止: モナディック処理
-      const result = divide(10, 2)
-        .map(x => x * 2)
-        .flatMap(x => divide(x, 3))
-        .unwrap();
-    
-    allowed: |
-      // 許可: 共用体型による分岐処理
-      interface DivisionSuccess { data: number; }
-      interface DivisionError { code: string; message: string; }
-      type DivisionResult = DivisionSuccess | DivisionError;
-      
-      function divide(a: number, b: number): DivisionResult {
-        if (b === 0) {
-          return { code: "DIVISION_BY_ZERO", message: "Cannot divide by zero" };
-        }
-        return { data: a / b };
-      }
-      
-      // 許可: 明示的な分岐処理
-      function processUser(id: string): UserResult | NotFoundError {
-        const user = database.find(id);
-        if (!user) {
-          return { code: "USER_NOT_FOUND", message: "User not found" };
-        }
-        return { data: user };
-      }
-      
-      // 許可: 基本的な高階関数
-      const numbers = [1, 2, 3, 4, 5];
-      const doubled = numbers.map(x => x * 2);
-      const evens = numbers.filter(x => x % 2 === 0);
-      const sum = numbers.reduce((acc, x) => acc + x, 0);
+  identifiers:
+    # 各言語の標準に従う
+    typescript: { variables: camelCase, types: PascalCase, constants: UPPER_SNAKE_CASE }
+    python: { variables: snake_case, classes: PascalCase, constants: UPPER_SNAKE_CASE }
+    go: { exported: PascalCase, unexported: camelCase, constants: PascalCase }
+    rust: { variables: snake_case, types: PascalCase, constants: UPPER_SNAKE_CASE }
+    zig: { variables: snake_case, types: PascalCase, constants: UPPER_SNAKE_CASE }
+
+## モジュール設計:
+  core_rules:
+    - ファイル名 = 主要機能名
+    - 1ファイル1公開機能（単一責任性）
+    - 内部機能は言語の慣習で隠蔽（_, internal, pubなし等）
+    - 純粋関数を優先（同じ入力→同じ出力）
+    - 高階関数で柔軟性を実現
   
-  reasoning: |
-    この制約により以下の効果を得る:
-    - Python、TypeScript、Java、C#、Go、Rust（基本機能のみ）等での一貫した実装が可能
-    - 学習コストを最小限に抑制
-    - 言語固有の高度な機能への依存を回避
-    - チーム内での知識共有が容易
-    - 将来的な言語移行時のリスク軽減
+  single_responsibility:
+    - 1関数1目的: 「かつ」でつながる説明は分割
+    - 変更理由は1つ: ビジネスロジックとI/Oを混在させない
+    - 抽象度を統一: 詳細と概要を同じ関数に書かない
   
-## 型定義:
-  rules:
-    - TypedDictを使用すること
-    - 各層のtypes.pyファイルに型定義を集約すること
-    - 可能な限り型アノテーションを使用すること
-    - TypeScriptではinterfaceによる型定義よりtype定義使用を優先すること
-    - 条件分岐は可能な限りパターンマッチで行い可読性向上に寄与させること
-  examples:
-    good: |
-      # Python例
-      from typing import TypedDict, List, Optional
-      
-      class FunctionData(TypedDict):
-          title: str
-          description: Optional[str]
-          type: str
-          pure: bool
-          parameters: List["ParameterData"]
-      
-      # TypeScript例（type定義を優先）
-      type FunctionData = {
-          title: string;
-          description?: string;
-          type: string;
-          pure: boolean;
-          parameters: ParameterData[];
-      };
-      
-      type ValidationError = {
-          code: "VALIDATION_ERROR";
-          message: string;
-          field: string;
-      };
-      
-      type NotFoundError = {
-          code: "NOT_FOUND_ERROR";
-          message: string;
-          resource: string;
-      };
-      
-      # 共用体型（Tagged Union）でのパターンマッチ
-      type ProcessResult = FunctionData | ValidationError | NotFoundError;
-      
-      function handleResult(result: ProcessResult): string {
-          # パターンマッチによる分岐（可読性向上）
-          switch (result.code) {
-              case "VALIDATION_ERROR":
-                  return `バリデーションエラー: ${result.field} - ${result.message}`;
-              case "NOT_FOUND_ERROR":
-                  return `リソースが見つかりません: ${result.resource}`;
-              default:
-                  # 成功時（codeプロパティが存在しない場合）
-                  return `処理成功: ${result.title}`;
-          }
-      }
-    
-    avoid: |
-      # 避けるべき例: interface使用
-      interface FunctionData {  // type定義を優先すべき
-          title: string;
-      }
-      
-      # 避けるべき例: 複雑な条件分岐
-      function handleResult(result: ProcessResult): string {
-          if ("code" in result && result.code === "VALIDATION_ERROR") {
-              return `バリデーションエラー: ${result.message}`;
-          } else if ("code" in result && result.code === "NOT_FOUND_ERROR") {
-              return `リソースが見つかりません: ${result.message}`;
-          } else {
-              return `処理成功: ${(result as FunctionData).title}`;
-          }
-      }
+  flexibility:
+    - 戦略パターン: 振る舞いを関数として注入
+    - 部分適用: 設定済み関数を返す高階関数
+    - 合成: 小さな関数から大きな機能を構築
+  
+  control_flow:
+    - パターンマッチ優先（switch/match）
+    - 共用体型の判別にはtypeフィールド使用
+    - 複雑なif-elseチェーンは避ける
+  
+  structure: |
+    telemetry/
+    ├── captureStream.{ts,py,go,rs,zig}  # capture_stream/CaptureStream関数のみ公開
+    ├── queryLogs.{ts,py,go,rs,zig}      # query_logs/QueryLogs関数のみ公開
+    └── formatLog.{ts,py,go,rs,zig}      # format_log/FormatLog関数のみ公開
 
 ## エラー処理:
+  principle: エラーを戻り値として扱う（例外を投げない）
+  
   rules:
-    - 例外を投げる代わりに、定義したエラー型を返却すること
-    - 関数の戻り値として成功/失敗を表現すること
-    - Result型は使用せず、以下の2+1種類の列挙型/共用体型を使用すること:
-      - 成功時の戻り値型
-      - 例外時の戻り値型
-      - (オプション)副作用型
-    - 全言語共通で以下の形式を採用すること:
-      - 成功時は元の型をそのまま返す
-      - 失敗時は特定のエラー型を返す
-      - 型の判定はプロパティの有無などで行う
-      - TypeScriptでは: 成功型 | エラー型A | エラー型B | ...
-      - Pythonでは: Union[成功型, エラー型A, エラー型B, ...]
-      - 言語を問わず同様の共用体型パターンを使用する
-    - エラーメッセージは純粋にすべて取得し、一切のメッセージ省略を禁止する
-    - エラーメッセージの加工は可読性・探索性向上のためのプレフィックス追加のみ許可する
-  examples:
-    good: |
-      # Python例（汎用記述方式）
-      from typing import TypedDict, Union, Literal
-      
-      class FunctionData(TypedDict):
-          title: str
-          description: str
-          parameters: List[str]
-      
-      class FunctionError(TypedDict):
-          code: str
-          message: str
-      
-      # 成功型とエラー型の共用体型として定義（汎用的な手法）
-      FunctionResult = Union[FunctionData, FunctionError]
-      
-      def add_function(data: dict) -> FunctionResult:
-          if not validate_data(data):
-              # エラー時は明示的にエラー型を返す（汎用的な手法）
-              return {"code": "INVALID_DATA", "message": "Invalid data"}
-          
-          # 処理...
-          
-          # 成功時は通常のデータを返す（汎用的な手法）
-          return {
-              "title": result_title,
-              "description": result_description,
-              "parameters": result_parameters
-          }
-      
-      # エラーかどうかの判別関数（汎用的な手法）
-      def is_error(result: FunctionResult) -> bool:
-          return "code" in result and "message" in result
-      
-      # 使用例（汎用的な手法）
-      result = add_function(input_data)
-      if is_error(result):
-          print(f"エラー: {result['message']}")
-      else:
-          print(f"成功: {result['title']}")
-    
+    - エラーメッセージは完全保持（省略禁止）
+    - メッセージ加工はプレフィックス追加のみ
+    - エラーハンドリングは呼び出し側の責務
+  
+  patterns:
     typescript: |
-      // TypeScript例（汎用記述方式）
-      interface FunctionData {
-          title: string;
-          description: string;
-          parameters: string[];
-      }
-      
-      interface FunctionError {
-          code: string;
-          message: string;
-      }
-      
-      // 成功型とエラー型の共用体型として定義（汎用的な手法）
-      type FunctionResult = FunctionData | FunctionError;
-      
-      function addFunction(data: any): FunctionResult {
-          if (!validateData(data)) {
-              // エラー時は明示的にエラー型を返す（汎用的な手法）
-              return { code: "INVALID_DATA", message: "Invalid data" };
-          }
-          
-          // 処理...
-          
-          // 成功時は通常のデータを返す（汎用的な手法）
-          return {
-              title: resultTitle,
-              description: resultDescription,
-              parameters: resultParameters
-          };
-      }
-      
-      // エラーかどうかの判別関数（汎用的な手法）
-      function isError(result: FunctionResult): result is FunctionError {
-          return 'code' in result && 'message' in result;
-      }
-      
-      // 使用例（汎用的な手法）
-      const result = addFunction(inputData);
-      if (isError(result)) {
-          console.error(`エラー: ${result.message}`);
-      } else {
-          console.log(`成功: ${result.title}`);
-      }
-    
-    note: |
-      汎用記述方式の重要な特徴:
-      - Result<T, E>やOption<T>などの関数型言語特有の型は使用しない
-      - 代わりに共用体型（Union型、Tagged Union）を使用する
-      - エラー判定は明示的な分岐処理で行う
-      - map、flatMap、unwrapなどのモナディック操作は使用しない
-      - 基本的な条件分岐とプロパティチェックのみを使用する
-    
-    error_message_handling: |
-      // 良い例: エラーメッセージの完全保持とプレフィックス追加
-      try {
-          const result = await database.execute(query);
-      } catch (error) {
-          // 元のエラーメッセージを完全に保持し、プレフィックスで文脈を追加
-          return {
-              code: "DB_EXECUTION_ERROR",
-              message: `[DuckDB Query Execution] ${error.message}`,
-              originalError: error.toString(),
-              stack: error.stack
-          };
-      }
-      
-      // 良い例: 複数エラーの集約時も全メッセージを保持
-      const errors = validationResults.filter(r => r.hasError);
-      if (errors.length > 0) {
-          return {
-              code: "VALIDATION_ERRORS",
-              message: `[Validation Failed] ${errors.length} errors found:\n${errors.map(e => `  - ${e.field}: ${e.message}`).join('\n')}`,
-              details: errors  // 元のエラー情報も完全に保持
-          };
-      }
-      
-      // 悪い例: エラーメッセージの省略や置換
-      catch (error) {
-          // NG: 元のメッセージを破棄
-          return { code: "ERROR", message: "Database error occurred" };
-      }
-      
-      // 悪い例: エラーメッセージの一部のみ使用
-      catch (error) {
-          // NG: メッセージを切り詰めている
-          return { code: "ERROR", message: error.message.substring(0, 50) + "..." };
-      }
-      
-      // 悪い例: エラーの詳細を隠蔽
-      catch (error) {
-          // NG: 一般的なメッセージで置換
-          return { code: "ERROR", message: "Something went wrong" };
-      }
+      type Result = { data: T } | { error: string }
+    python: |
+      Union[SuccessType, ErrorType]  # 共用体型
+    go: |
+      (result, error)  # 多値返却
+    rust: |
+      Result<T, E>  # 標準のResult型
+    zig: |
+      !T  # エラーユニオン
 
-## エラーメッセージの責務:
-  rules:
-    - エラーハンドリング自体は呼び出し側(cli.py)で行う
-    - エラーメッセージの内容はコマンド側の責務とする
-    - 各コマンドはエラー型の定義とメッセージを含むTypedDictエラー型を定義すること
-  examples:
-    good: |
-      # コマンドモジュール(initialize.py)内
-      from typing import TypedDict, Literal
-      
-      class InitError(TypedDict):
-          error_type: Literal["DB_PATH_ERROR", "VALIDATION_ERROR", "INIT_DATA_ERROR"]
-          message: str
-          details: dict
-      
-      # エラーメッセージのヘルプも提供
-      def get_error_help(error_type: str) -> str:
-          error_help = {
-              "DB_PATH_ERROR": "データベースパスの指定に問題があります。有効なパスを指定してください。\n例: --init /path/to/db または --init true",
-              "VALIDATION_ERROR": "SHACL検証エラーが発生しました。データモデルを確認してください。",
-              "INIT_DATA_ERROR": "初期データの登録に失敗しました。データファイルを確認してください。"
-          }
-          return error_help.get(error_type, "不明なエラーが発生しました。")
-      
-      # 実行例も提供
-      def get_command_examples() -> list:
-          return [
-              "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --init true --with-data",
-              "LD_LIBRARY_PATH=\"/nix/store/p44qan69linp3ii0xrviypsw2j4qdcp2-gcc-13.2.0-lib/lib/\":$LD_LIBRARY_PATH /home/nixos/bin/src/kuzu/upsert/.venv/bin/python /home/nixos/bin/src/kuzu/upsert/__main__.py --init /path/to/db --with-data"
-          ]
-      
-      # 呼び出し側(cli.py)はコマンド側が提供するヘルプ情報を取得して表示する
-      def handle_error(command_name: str, error: dict) -> None:
-          # コマンドモジュールを動的にインポート
-          module_name = command_name.replace("handle_", "")
-          module = importlib.import_module(f"upsert.interface.commands.{module_name}")
-          
-          # エラーヘルプと実行例を取得(実装されている場合)
-          error_help = getattr(module, "get_error_help", lambda x: "")(error.get("error_type", ""))
-          examples = getattr(module, "get_command_examples", lambda: [])()
-          
-          # エラーメッセージを表示
-          print(f"エラー: {error.get('message', '不明なエラー')}", file=sys.stderr)
-          
-          # エラーヘルプがある場合は表示
-          if error_help:
-              print(f"\n{error_help}", file=sys.stderr)
-          
-          # 実行例がある場合は表示
-          if examples:
-              print("\n実行例:", file=sys.stderr)
-              for example in examples:
-                  print(f"  {example}", file=sys.stderr)
+## データ構造:
+  principles:
+    - 不変性を優先（const, frozen, immutable）
+    - 型で意図を表現
+    - 振る舞いを持たないデータ構造
+    - 型定義は各層のtypes.{ext}に集約
+  
+  allowed:
+    - TypeScript: type優先（interface は外部向けのみ）
+    - Python: TypedDict, dataclass（frozen=True）
+    - Go: struct
+    - Rust: struct, enum
+    - Zig: struct, enum
+
+## 計算の文脈（世界）:
+  concept: |
+    各関数は「どの世界で動作するか」を型で明示する
+    
+  worlds:
+    - 純粋な世界: 副作用なし、同じ入力→同じ出力
+    - 失敗する世界: エラーを含む戻り値
+    - 非同期の世界: Promise/Future/async
+    - 状態を持つ世界: 明示的な状態の受け渡し
+    - 外部接続の世界: DB/API等の境界
+    
+  composition: |
+    同じ世界の関数は自由に合成可能
+    異なる世界を跨ぐときは明示的な変換
+
+## 依存性管理:
+  - 依存は関数の引数として注入
+  - グローバル状態を避ける
+  - 設定は明示的に渡す
+  - デフォルト引数・デフォルト値は禁止
+  - 設定は infrastructure/config に集約
+  
+  example_pattern: |
+    # 高階関数パターン（全言語適用可能）
+    createFunction(dependency) -> function
+    
+## 層構造（DDD）:
+  layers:
+    domain: ビジネスルール（何をするか）
+    application: ユースケース（どう組み合わせるか）
+    infrastructure: 技術詳細（どう実現するか）
+  
+  dependency_direction: infrastructure → application → domain
 
 ## 禁止事項:
-  items:
-    ### クラス:
-      description: classキーワードを使用したクラス定義は避ける
-      reason: オブジェクト指向設計の代わりに、関数とデータの明確な分離を行う
-      examples:
-        avoid: |
-          # 避けるべき例
-          class FunctionRepository:
-              def __init__(self, connection):
-                  self.connection = connection
-              
-              def save(self, function):
-                  # ...
-        good: |
-          # 良い例
-          def create_function_repository(connection):
-              def save(function):
-                  # ...
-              
-              def find_by_id(function_id):
-                  # ...
-              
-              return {
-                  "save": save,
-                  "find_by_id": find_by_id
-              }
-    
-    ### 例外:
-      description: try/exceptブロックや例外の使用は避ける
-      reason: 明示的なエラー型とエラーハンドリング関数を使用する
-      examples:
-        avoid: |
-          # 避けるべき例
-          def divide(a, b):
-              try:
-                  return a / b
-              except ZeroDivisionError:
-                  raise ValueError("Cannot divide by zero")
-        good: |
-          # 良い例
-          def divide(a, b):
-              if b == 0:
-                  return {"status": "error", "message": "Cannot divide by zero", "code": "ZERO_DIVISION"}
-              return {"status": "success", "data": a / b}
-    
-    ### ダミーフォールバックモック:
-      description: ダミーフォールバックモック実装は一切禁止
-      reason: 実装の不完全性を隠蔽し、バグの原因となる
-      rules:
-        - throw new Error('Mock not implemented')などのプレースホルダー実装は禁止
-        - 開発用の仮実装も禁止
-        - 実際に動作する最小実装のみを許可
-        - 未実装機能は型定義から除外すること
-      examples:
-        avoid: |
-          # 避けるべき例: ダミーモック
-          export function createMockRepository(): Repository {
-            throw new Error('Mock repository is not implemented. Use real implementation only.');
-          }
-          
-          # 避けるべき例: 仮実装
-          export function processData(data: any): ProcessResult {
-            // TODO: 実装予定
-            return { success: false, error: "Not implemented yet" };
-          }
-        good: |
-          # 良い例: 最小実装
-          export function createInMemoryRepository(): Repository {
-            const data: Map<string, any> = new Map();
-            
-            return {
-              save: (id: string, item: any) => {
-                data.set(id, item);
-                return { success: true };
-              },
-              find: (id: string) => {
-                const item = data.get(id);
-                return item ? { data: item } : { code: "NOT_FOUND", message: "Item not found" };
-              }
-            };
-          }
-
-## 推奨される実装スタイル:
-  items:
-    ### パターンマッチによる条件分岐:
-      description: 可能な限りパターンマッチで条件分岐を行い可読性向上に寄与させる
-      rules:
-        - Tagged Unionを活用してdiscriminated unionパターンを使用すること
-        - switch文やmatch文を優先的に使用すること
-        - 複雑なif-else chainは避けること
-        - パターンマッチできない言語でも類似の構造化された分岐を行うこと
-      examples:
-        good: |
-          # TypeScript例（パターンマッチ優先）
-          type QueryResult = 
-            | { status: "success"; data: any }
-            | { status: "validation_error"; field: string; message: string }
-            | { status: "execution_error"; code: string; message: string }
-            | { status: "not_found"; resource: string };
-          
-          function handleQueryResult(result: QueryResult): string {
-              # パターンマッチによる分岐（可読性が高い）
-              switch (result.status) {
-                  case "success":
-                      return `データ取得成功: ${JSON.stringify(result.data)}`;
-                  case "validation_error":
-                      return `バリデーションエラー [${result.field}]: ${result.message}`;
-                  case "execution_error":
-                      return `実行エラー [${result.code}]: ${result.message}`;
-                  case "not_found":
-                      return `リソースが見つかりません: ${result.resource}`;
-                  default:
-                      # 網羅性チェック（TypeScriptでnever型になる）
-                      const _exhaustive: never = result;
-                      throw new Error("未処理のケース");
-              }
-          }
-          
-          # Python例（辞書によるパターンマッチ風処理）
-          from typing import TypedDict, Union, Literal
-          
-          class SuccessResult(TypedDict):
-              status: Literal["success"]
-              data: any
-          
-          class ValidationErrorResult(TypedDict):
-              status: Literal["validation_error"]
-              field: str
-              message: str
-          
-          class ExecutionErrorResult(TypedDict):
-              status: Literal["execution_error"]
-              code: str
-              message: str
-          
-          QueryResult = Union[SuccessResult, ValidationErrorResult, ExecutionErrorResult]
-          
-          def handle_query_result(result: QueryResult) -> str:
-              # パターンマッチ風の構造化された分岐
-              handlers = {
-                  "success": lambda r: f"データ取得成功: {r['data']}",
-                  "validation_error": lambda r: f"バリデーションエラー [{r['field']}]: {r['message']}",
-                  "execution_error": lambda r: f"実行エラー [{r['code']}]: {r['message']}"
-              }
-              
-              handler = handlers.get(result["status"])
-              if handler:
-                  return handler(result)
-              else:
-                  raise ValueError(f"未処理のステータス: {result['status']}")
-        
-        avoid: |
-          # 避けるべき例: 複雑なif-else chain
-          function handleQueryResult(result: QueryResult): string {
-              if ("data" in result && result.status === "success") {
-                  return `データ取得成功: ${JSON.stringify(result.data)}`;
-              } else if ("field" in result && "message" in result && result.status === "validation_error") {
-                  return `バリデーションエラー [${result.field}]: ${result.message}`;
-              } else if ("code" in result && "message" in result && result.status === "execution_error") {
-                  return `実行エラー [${result.code}]: ${result.message}`;
-              } else {
-                  return "未知のエラー";
-              }
-          }
-    
-    ### 関数のみで実装:
-      description: 可能な限り純粋関数を使用する
-      rules:
-        - 同じ入力に対して常に同じ出力を返し、副作用のない関数を使用すること
-        - 状態を持つオブジェクトの代わりに、関数のクロージャを活用すること
-        - 高階関数（関数を引数として受け取るか、関数を返す関数）を活用すること
-      examples:
-        good: |
-          # 良い例
-          def create_validator(schema):
-              def validate(data):
-                  # schemaを使ってdataを検証
-                  # ...
-                  return is_valid, error_message
-              
-              return validate
-          
-          # 使用例
-          validate_function = create_validator(function_schema)
-          is_valid, error = validate_function(data)
-    
-    ### 高階関数による依存性注入:
-      description: 可能な限り高階関数による依存性注入を行う
-      reason: 純粋な関数合成により、テスト容易性と拡張性を向上させる
-      rules:
-        - 依存性は関数の引数として明示的に渡すこと
-        - 高階関数を使用してサービス関数を生成すること
-        - 依存性は型定義されたオブジェクトとして渡すこと
-        - 関数カリー化を活用して部分適用を可能にすること
-        - モジュール内でのグローバル状態は禁止すること
-      examples:
-        good: |
-          # TypeScript例
-          interface QueryDependencies {
-            repository: {
-              execute: (query: string, params: any) => Promise<QueryResult>;
-              validate: (query: string) => boolean;
-            };
-            logger: {
-              info: (message: string) => void;
-              error: (message: string, error: any) => void;
-            };
-          }
-          
-          // 高階関数による依存性注入
-          function createQueryService(deps: QueryDependencies) {
-            return function executeQuery(query: string, params: any): QueryResult {
-              if (!deps.repository.validate(query)) {
-                deps.logger.error("Invalid query", { query });
-                return { code: "INVALID_QUERY", message: "Query validation failed" };
-              }
-              
-              try {
-                const result = deps.repository.execute(query, params);
-                deps.logger.info("Query executed successfully");
-                return { data: result };
-              } catch (error) {
-                deps.logger.error("Query execution failed", error);
-                return { code: "EXECUTION_ERROR", message: error.message };
-              }
-            };
-          }
-          
-          // 関数カリー化による部分適用
-          function createTemplateProcessor(deps: ProcessorDependencies) {
-            return function processTemplate(templateName: string) {
-              return function withParams(params: any): ProcessResult {
-                // 依存性を使用した処理
-                const template = deps.templateLoader.load(templateName);
-                const validated = deps.validator.validate(params);
-                
-                if (!validated.isValid) {
-                  return { code: "VALIDATION_ERROR", message: validated.error };
-                }
-                
-                return deps.executor.process(template, params);
-              };
-            };
-          }
-          
-          # Python例
-          from typing import TypedDict, Callable, Any
-          
-          class QueryDependencies(TypedDict):
-              repository: dict
-              logger: dict
-          
-          def create_query_service(deps: QueryDependencies):
-              def execute_query(query: str, params: Any):
-                  if not deps["repository"]["validate"](query):
-                      deps["logger"]["error"]("Invalid query", {"query": query})
-                      return {"code": "INVALID_QUERY", "message": "Query validation failed"}
-                  
-                  result = deps["repository"]["execute"](query, params)
-                  deps["logger"]["info"]("Query executed successfully")
-                  return {"data": result}
-              
-              return execute_query
-          
-          # 使用例
-          dependencies = {
-              "repository": create_repository(connection),
-              "logger": create_logger(config)
-          }
-          
-          query_service = create_query_service(dependencies)
-          result = query_service("MATCH (n) RETURN n", {})
-        
-        avoid: |
-          # 避けるべき例: グローバル状態への依存
-          repository = None  # グローバル変数
-          
-          def execute_query(query: str):
-              global repository
-              return repository.execute(query)  # グローバル状態への依存
-          
-          # 避けるべき例: ハードコードされた依存性
-          def process_data(data):
-              db = PostgreSQLDatabase()  # ハードコード
-              validator = JsonValidator()  # ハードコード
-              return db.save(validator.validate(data))
-    
-    ### 不変性の確保:
-      description: データの変更は避け、新しいデータ構造を返す
-      rules:
-        - データの変更は避け、新しいデータ構造を返すこと
-        - リスト操作にはmap、filter、reduceなどの高階関数を使用すること
-      examples:
-        avoid: |
-          # 避けるべき例
-          def add_parameter(function, parameter):
-              function["parameters"].append(parameter)
-              return function
-        good: |
-          # 良い例
-          def add_parameter(function, parameter):
-              return {
-                  **function,
-                  "parameters": [*function["parameters"], parameter]
-              }
-
-## ファイル構造とモジュール設計:
-  rules:
-    - 各モジュールは明確に定義された単一の責任を持つべき
-    - 関連する関数をモジュールにグループ化すること
-    - 循環依存を避けるために、依存関係グラフを意識すること
-    - 最小構成でコード維持を徹底すること
-    - 不要な機能、未使用の関数、冗長なコードは一切含めないこと
-    - 1つのファイルは1つの明確な責務のみを持つこと
-
-## モジュールエントリポイント規約:
-  description: モジュール名、ファイル名、主要関数名を統一する全言語共通規約
-  rules:
-    - モジュール名 = ファイル名 = 主要関数名の原則
-    - 1モジュール1ファイル1関数を基本とする
-    - ファイル名と同名の関数のみを外部公開する
-    - 内部補助関数は言語の慣習に従って非公開とする（_プレフィックス等）
-    - 例外: Goは公開関数を大文字始まりとする言語仕様に従う
-  examples:
-    structure: |
-      log/
-      ├── log.py          # log() 関数のみ公開
-      ├── parse.py        # parse() 関数のみ公開
-      ├── format.py       # format() 関数のみ公開
-      └── validate.py     # validate() 関数のみ公開
-    
-    good: |
-      # Python: parse.py
-      def parse(config_string):
-          """設定文字列をパース（公開関数）"""
-          return _internal_parse(config_string)
-      
-      def _internal_parse(s):
-          """内部補助関数（非公開）"""
-          pass
-      
-      # TypeScript: parse.ts
-      export function parse(configString: string): ParseResult {
-          return internalParse(configString);
-      }
-      
-      function internalParse(s: string): ParseResult {
-          // 内部実装
-      }
-      
-      # Go: parse.go（例外：大文字始まり）
-      func Parse(configString string) ParseResult {
-          return internalParse(configString)
-      }
-      
-      func internalParse(s string) parseResult {
-          // 内部実装
-      }
-
-## 統一docstring規約:
-  description: 言語の形式は異なるが、内容構造を統一する
-  required_sections:
-    - 概要（1行説明）
-    - 使用例（必須、具体的なコード例を含む）
-    - 引数説明（ある場合）
-    - 戻り値説明（ある場合）
-  format_by_language:
-    Python: '"""docstring"""形式'
-    TypeScript: '/** JSDoc */形式'
-    JavaScript: '/** JSDoc */形式'
-    Go: '// 関数の直前にコメント'
-    Java: '/** Javadoc */形式'
-    Rust: '/// RustDoc形式'
-  examples:
-    python: |
-      def parse(config_string):
-          """設定文字列をパース
-          
-          使用例:
-              result = parse("*:INFO")
-              # => {'rules': {'*': 2}, 'excludes': set()}
-              
-              result = parse("app:DEBUG,app.service:TRACE")
-              # => {'rules': {'app': 1, 'app.service': 0}, 'excludes': set()}
-          
-          引数:
-              config_string: "module:level,..." 形式の文字列
-          
-          戻り値:
-              パース結果の辞書
-          """
-    
-    typescript: |
-      /**
-       * 設定文字列をパース
-       * 
-       * 使用例:
-       *     const result = parse("*:INFO");
-       *     // => {rules: {'*': 2}, excludes: new Set()}
-       *     
-       *     const result2 = parse("app:DEBUG,app.service:TRACE");
-       *     // => {rules: {app: 1, 'app.service': 0}, excludes: new Set()}
-       * 
-       * @param configString - "module:level,..." 形式の文字列
-       * @returns パース結果のオブジェクト
-       */
-      export function parse(configString: string): ParseResult {
-    
-    go: |
-      // Parse は設定文字列をパースします
-      //
-      // 使用例:
-      //     result := Parse("*:INFO")
-      //     // => ParseResult{Rules: map[string]int{"*": 2}, Excludes: []string{}}
-      //     
-      //     result2 := Parse("app:DEBUG,app.service:TRACE")
-      //     // => ParseResult{Rules: map[string]int{"app": 1, "app.service": 0}, Excludes: []string{}}
-      //
-      // 引数:
-      //     configString: "module:level,..." 形式の文字列
-      //
-      // 戻り値:
-      //     パース結果の構造体
-      func Parse(configString string) ParseResult {
+  global:
+    - 例外の投げ上げ（panic, throw, raise）
+    - グローバル変数の書き換え
+    - 暗黙的な型変換
+    - TODO/FIXME（未実装コード）
+    - ダミー実装・モック実装・フォールバック
+    - 「仮実装」「後で実装」等のプレースホルダー
   
-  benefits:
-    - どの言語でも関数の使い方が明確にわかる
-    - 実行可能な使用例が必ず含まれる
-    - ファイル名から公開APIが予測可能
-    - 言語を超えた一貫性のあるドキュメント
+  language_specific:
+    - TypeScript: any型、@ts-ignore
+    - Python: type: ignore、スター付きimport
+    - Go: panic（main関数除く）、init関数での複雑な処理
+    - Rust: unwrap（本番コード）、unsafe（必要最小限）
+    - Zig: unreachable（デバッグ以外）
 
-## テスト:
-  rules:
-    - すべての関数にユニットテストを書くこと
-    - テストは関数の入出力のみに焦点を当てること
-    - テストは目的を明確に示す命名を使用すること
-    - 各言語のテストフレームワークの規約に従って記述すること
-    - 自動テストは実装ファイル内に記述可能（in-source test）
-    - 各テストフレームワークに準拠したテスト記述のみが可能
 ## ドキュメント:
-  rules:
-    - すべての関数に適切なドキュメント文字列を書くこと
-    - パラメータの型と戻り値の型を文書化すること
-    - 複雑なロジックには説明コメントを追加すること
-
-## 設定管理:
-  rules:
-    - デフォルト設定は一切禁止
-    - デフォルト引数も同様にデフォルト設定なので禁止
-    - 設定箇所は以下のみを許可する:
-      - infrastructure/variables.py
-
-
-## アーキテクチャ設計:
-  description: 3層アーキテクチャ（DDD準拠）を採用し、責務の明確な分離を行う
-  layers:
-    domain:
-      description: ビジネスルールとビジネスロジックを管理
-      structure:
-        - types: エンティティ、値オブジェクト、ドメイン固有の型定義
-        - service/: ドメインサービス（複数エンティティにまたがるビジネスロジック）
-        - constants/: ドメイン固有の定数定義（オプション）
-      rules:
-        - 外部システムへの依存を持たない
-        - 純粋なビジネスルールとロジックのみを実装
-        - ビルダーやファクトリーなどのオブジェクト生成ロジックはserviceに配置
-    
-    application:
-      description: ユースケースとワークフローの調整
-      structure:
-        - usecase/: アプリケーションのユースケース実装
-        - types/: アプリケーション固有の型定義（DTOなど）
-        - hooks/: フロントエンド固有のカスタムフック（React等の場合）
-        - services/: アプリケーション層のサービス（外部API呼び出しなど）
-        - utils/: ユーティリティ関数（オプション）
-      rules:
-        - ドメイン層とインフラ層を調整する役割
-        - ビジネスロジックは含まない（ドメイン層に委譲）
-        - トランザクション境界の管理
-        - 複数のドメインサービスやリポジトリを組み合わせる
-    
-    infrastructure:
-      description: 外部システムとの接続、技術的な実装詳細
-      structure:
-        - repository/: データアクセス層の実装
-        - database/: データベース接続とクエリ管理
-        - config/: 設定管理
-        - logger/: ロギング実装
-      rules:
-        - 技術的な実装詳細を隠蔽
-        - ドメイン層への依存のみ許可（循環依存を避ける）
-        - 外部ライブラリやフレームワークへの依存を隔離
-    
-    interface:
-      description: UIやAPI エンドポイントなどの外部インターフェース（オプション）
-      structure:
-        - components/: UIコンポーネント（フロントエンドの場合）
-        - pages/: ページコンポーネント
-        - elements/: 基本UI要素
-        - presentation/: プレゼンテーション層のロジック
-        - utils/: UI固有のユーティリティ
-      rules:
-        - UIフレームワーク固有の実装
-        - アプリケーション層のユースケースを呼び出す
-        - ビジネスロジックは含まない
-    
-    shared:
-      description: 全層で共有される横断的関心事（オプション）
-      structure:
-        - errors.ts: エラー型定義とエラーハンドリング
-        - types.ts: 共通型定義
-        - utils.ts: 共通ユーティリティ関数
-      rules:
-        - どの層からも参照可能
-        - ビジネスロジックは含まない
-        - 最小限の実装に留める
-    
-    common:
-      description: 共通定義や設定（sharedの代替、オプション）
-      structure:
-        - constants/: アプリケーション全体の定数
-        - types/: 共通型定義
-        - config/: 共通設定
-      rules:
-        - sharedと同様の役割（プロジェクトによってどちらか選択）
+  required:
+    - 公開関数: 概要、使用例、引数、戻り値
+    - 複雑なロジック: 意図の説明
+    - 使用例は実行可能なコード必須
   
-  dependency_rules:
-    - "依存の方向: interface → application → domain ← infrastructure"
-    - "domain層は他の層に依存しない（純粋性を保つ）"
-    - "infrastructure層はdomain層の型のみに依存"
-    - "shared/common層は全層から参照可能だが、他層への依存は禁止"
-    - "循環依存は絶対に避ける"
+  format:
+    - TypeScript/JavaScript: JSDoc
+    - Python: docstring（"""で囲む）
+    - Go: ゴーコメント
+    - Rust: ///ドキュメントコメント
+    - Zig: ///ドキュメントコメント
+
+## 関数の合成とパイプライン:
+  principles:
+    - 小さな関数を組み合わせて大きな機能を作る
+    - 各段階でエラーチェック可能
+    - データフローが明確
   
-  file_placement_guidelines:
-    - "新しい機能追加時は、まずdomain層から設計を始める"
-    - "ビジネスロジックはdomain/serviceに配置"
-    - "ワークフローの調整はapplication/usecaseに配置"
-    - "データアクセスはinfrastructure/repositoryに配置"
-    - "設定値はinfrastructure/config（または各層のvariables.ts）に配置"
+  pattern: |
+    input → validate → transform → enrich → output
+    各段階で失敗する可能性を型で表現
+
+## テスト指針:
+  requirements:
+    - すべての公開関数にテスト必須
+    - in-sourceテスト許可（if __name__ == "__main__"等）
+  
+  testability:
+    - 純粋関数: 入出力のみテスト
+    - 副作用: 境界でのみ最小限のスタブ使用可
+    - エラー: 全ての失敗ケースを網羅
+  
+  principles:
+    - 実装 > インメモリ実装 > スタブ（モック禁止）
+    - 依存性注入でテスト容易性確保
+    - プロパティベーステスト推奨
+    - 本番コードにテスト用分岐禁止
