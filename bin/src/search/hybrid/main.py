@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional
 from collections import defaultdict
 from sentence_transformers import SentenceTransformer
 from db.kuzu.connection import get_connection
-from log import log
+from telemetry.telemetryLogger import log
 
 
 class HybridSearch:

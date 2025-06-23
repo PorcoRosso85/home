@@ -7,7 +7,7 @@ sys.path.append('/home/nixos/bin/src')
 import time
 from typing import List, Dict, Any, Optional
 from db.kuzu.connection import get_connection
-from log import log
+from telemetry.telemetryLogger import log
 
 
 class CypherGraphSearch:
