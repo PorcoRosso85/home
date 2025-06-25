@@ -1,1 +1,0 @@
-gcloud logging read "resource.type=global" --project=$PROJECT_ID --freshness=1h --limit=100 --format="json" | jq '.' > log.json
