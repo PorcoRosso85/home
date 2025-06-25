@@ -1,0 +1,130 @@
+# ユニバーサルコーディング規約
+# 対象言語: TypeScript, Python, Go, Rust, Zig
+
+## 設計原則:
+  - データと処理を分離
+  - エラーを値として扱う
+  - 依存性を明示的に注入
+  - 最小構成を維持
+  - 関数の合成可能性を重視
+  - 副作用を境界に隔離
+
+## 命名規則:
+  files:
+    all: camelCase（例: parseConfig.ts, parseConfig.py）
+    exceptions: 
+      - React components: PascalCase.tsx
+      - Go: snake_case許容
+  
+  identifiers:
+    typescript: { var: camelCase, type: PascalCase, const: UPPER_SNAKE_CASE }
+    python: { var: snake_case, class: PascalCase, const: UPPER_SNAKE_CASE }
+    go: { exported: PascalCase, unexported: camelCase, const: PascalCase }
+    rust: { var: snake_case, type: PascalCase, const: UPPER_SNAKE_CASE }
+    zig: { var: snake_case, type: PascalCase, const: UPPER_SNAKE_CASE }
+
+## モジュール設計:
+  core_rules:
+    - 1ファイル1公開機能
+    - 純粋関数を優先
+    - 高階関数で柔軟性を実現
+    - プラグインベースの設計
+    - mod.tsから一元エクスポート
+  
+  structure: |
+    module/
+    ├── types.{ext}      # 型定義
+    ├── core.{ext}       # ビジネスロジック
+    ├── adapters.{ext}   # 外部依存
+    └── mod.{ext}        # エクスポート
+
+## エラー処理:
+  principle: エラーを戻り値として扱う
+  
+  rules:
+    - try/catchは使用可だが、エラーは必ず値として返す
+    - エラーメッセージは完全保持
+    - ジェネリックResult型は禁止、具体的な型を定義
+  
+  patterns:
+    typescript: |
+      type FetchResult = { ok: true; data: Data } | { ok: false; error: Error }
+    python: |
+      Union[SuccessType, ErrorDict]  # TypedDict使用
+    go: |
+      (result, error)
+    rust: |
+      Result<T, E>
+    zig: |
+      !T
+
+## データ構造:
+  principles:
+    - 不変性を優先
+    - 振る舞いを持たないデータ構造
+    - ハードコード値禁止（型/const使用）
+  
+  allowed:
+    typescript: type（interface禁止）, enum許容
+    python: TypedDict, dataclass(frozen=True)
+    go: struct
+    rust: struct, enum
+    zig: struct, enum
+
+## 依存性管理:
+  - 関数の引数として注入
+  - グローバル状態禁止
+  - デフォルト引数禁止
+  - 高階関数パターン: createFunction(deps) → function
+  
+  package_managers:
+    Python: uv, TypeScript: pnpm, Go: go mod, Rust: cargo, Zig: zig build
+
+## 層構造（DDD）:
+  layers:
+    domain: ビジネスルール
+    application: ユースケース
+    infrastructure: 技術詳細
+  
+  dependency: infrastructure → application → domain
+
+## 禁止事項:
+  global:
+    - 例外の投げ上げ（panic, throw, raise）※エラーハンドリング外
+    - グローバル変数の書き換え
+    - TODO/FIXME
+    - ダミー実装・モック（本番コード内）
+    - クラスベースOOP
+  
+  language_specific:
+    TypeScript: any型, @ts-ignore, interface（typeを使用）
+    Python: "type: ignore", "import *"
+    Go: panic（main以外）, 複雑なinit
+    Rust: unwrap（本番）, 過剰なunsafe
+    Zig: unreachable（デバッグ以外）
+
+## ドキュメント:
+  required:
+    - 公開関数: 概要、使用例、引数、戻り値
+    - 使用例は実行可能なコード
+    - mod.{ext}に使用例記載（README不要）
+  
+  format:
+    TypeScript: JSDoc, Python: docstring, Go: ゴーコメント, Rust/Zig: ///
+
+## テスト:
+  requirements:
+    - 公開関数にテスト必須
+    - in-sourceテスト（実装ファイル内にtest_関数）
+    - 別途testsディレクトリ不要
+  
+  test_runners:
+    Python: pytest, TypeScript: vitest, Go: go test, Rust: cargo test, Zig: zig test
+  
+  test_naming: test_{機能}_{条件}_{期待結果}
+  
+  pytest_config: |
+    [pytest]
+    testpaths = .
+    python_files = *.py
+    python_functions = test_*
