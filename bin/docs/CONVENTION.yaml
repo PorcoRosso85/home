@@ -11,10 +11,13 @@
 
 ## 命名規則:
   files:
-    all: camelCase（例: parseConfig.ts, parseConfig.py）
+    typescript: camelCase（例: parseConfig.ts）
+    python: snake_case（例: parse_config.py）
+    go: snake_case（例: parse_config.go）
+    rust: snake_case（例: parse_config.rs）
+    zig: snake_case（例: parse_config.zig）
     exceptions: 
       - React components: PascalCase.tsx
-      - Go: snake_case許容
   
   identifiers:
     typescript: { var: camelCase, type: PascalCase, const: UPPER_SNAKE_CASE }
