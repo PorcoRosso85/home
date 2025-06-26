@@ -11,21 +11,27 @@ from ..application.decision_service import create_decision_service
 from .jsonl_repository import create_jsonl_repository
 
 
-def create_cli(repository_path: str = None):
+def create_cli(repository_path: str = None, use_kuzu: bool = True):
     """
     CLIを作成
     
     Args:
-        repository_path: JSONLファイルパス（デフォルト: ~/.rgl/decisions.jsonl）
+        repository_path: データベースパス
+        use_kuzu: KuzuDBを使用するか（デフォルト: True）
     
     Returns:
         CLI実行関数
     """
-    if repository_path is None:
-        repository_path = os.path.expanduser("~/.rgl/decisions.jsonl")
+    if use_kuzu:
+        from .kuzu_repository import create_kuzu_repository
+        if repository_path is None:
+            repository_path = os.path.expanduser("~/.rgl/graph.db")
+        repository = create_kuzu_repository(repository_path)
+    else:
+        if repository_path is None:
+            repository_path = os.path.expanduser("~/.rgl/decisions.jsonl")
+        repository = create_jsonl_repository(repository_path)
     
-    # リポジトリとサービスを作成
-    repository = create_jsonl_repository(repository_path)
     service = create_decision_service(repository)
     
     def run_cli(args: List[str] = None):

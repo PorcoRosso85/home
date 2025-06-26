@@ -59,23 +59,30 @@ from .application.decision_service import create_decision_service
 
 # Infrastructure exports
 from .infrastructure.jsonl_repository import create_jsonl_repository
+from .infrastructure.kuzu_repository import create_kuzu_repository
 from .infrastructure.cli_adapter import create_cli
 
 
-def create_rgl_service(repository_path: Optional[str] = None):
+def create_rgl_service(repository_path: Optional[str] = None, use_kuzu: bool = True):
     """
     RGLサービスを作成（便利関数）
     
     Args:
-        repository_path: JSONLファイルパス（デフォルト: ~/.rgl/decisions.jsonl）
+        repository_path: データベースパス
+        use_kuzu: KuzuDBを使用するか（デフォルト: True）
         
     Returns:
         DecisionService関数の辞書
     """
-    if repository_path is None:
-        repository_path = os.path.expanduser("~/.rgl/decisions.jsonl")
+    if use_kuzu:
+        if repository_path is None:
+            repository_path = os.path.expanduser("~/.rgl/graph.db")
+        repository = create_kuzu_repository(repository_path)
+    else:
+        if repository_path is None:
+            repository_path = os.path.expanduser("~/.rgl/decisions.jsonl")
+        repository = create_jsonl_repository(repository_path)
     
-    repository = create_jsonl_repository(repository_path)
     return create_decision_service(repository)
 
 
