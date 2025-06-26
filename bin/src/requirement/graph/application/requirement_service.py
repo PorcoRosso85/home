@@ -431,12 +431,3 @@ def test_hierarchy_depth_limit_prevents_deep_nesting():
         assert l5_result["type"] == "ConstraintViolationError"
         assert l5_result["constraint"] == "max_depth"
         assert "exceed" in l5_result["message"].lower()
-
-
-if __name__ == "__main__":
-    test_requirement_service_create_with_dependencies_returns_saved()
-    test_requirement_service_analyze_impact_returns_affected_list()
-    test_create_requirement_hierarchy_creates_parent_of_relation()
-    test_find_abstract_requirement_from_implementation_returns_vision()
-    test_hierarchy_depth_limit_prevents_deep_nesting()
-    print("All requirement service tests passed!")

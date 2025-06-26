@@ -205,9 +205,3 @@ def test_cli_search_command_matching_query_returns_results():
         
     finally:
         os.unlink(temp_path)
-
-
-if __name__ == "__main__":
-    test_cli_add_command_valid_args_prints_success_message()
-    test_cli_search_command_matching_query_returns_results()
-    print("All CLI adapter tests passed!")

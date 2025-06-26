@@ -124,11 +124,3 @@ def test_create_embedding_similar_texts_returns_higher_similarity():
         
         # 類似テキストの方が高い類似度
         assert sim12 > sim13
-
-
-if __name__ == "__main__":
-    test_create_embedding_valid_text_returns_normalized_vector()
-    test_create_embedding_same_input_returns_same_output()
-    test_create_embedding_empty_text_returns_error()
-    test_create_embedding_similar_texts_returns_higher_similarity()
-    print("All embedder tests passed!")

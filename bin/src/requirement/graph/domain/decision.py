@@ -135,11 +135,3 @@ def test_calculate_similarity_opposite_vectors_returns_negative_one():
     vec2 = [-1.0] * 50
     similarity = calculate_similarity(vec1, vec2)
     assert abs(similarity - (-1.0)) < 1e-9
-
-
-if __name__ == "__main__":
-    test_create_decision_valid_input_returns_decision_object()
-    test_create_decision_invalid_input_returns_validation_error()
-    test_calculate_similarity_identical_vectors_returns_one()
-    test_calculate_similarity_opposite_vectors_returns_negative_one()
-    print("All decision tests passed!")

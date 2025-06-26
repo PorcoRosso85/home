@@ -215,11 +215,3 @@ def test_validate_implementation_completeness_partial_returns_status():
     assert result["is_complete"] == False
     assert "1 implementations pending" in result["missing"]
     assert "1 tests missing" in result["missing"]
-
-
-if __name__ == "__main__":
-    test_validate_no_circular_dependency_with_cycle_returns_error()
-    test_validate_no_circular_dependency_without_cycle_returns_true()
-    test_validate_max_depth_exceeded_returns_error()
-    test_validate_implementation_completeness_partial_returns_status()
-    print("All constraint tests passed!")

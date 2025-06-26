@@ -2,7 +2,7 @@
 requirement/graph domain types - 純粋な型定義
 外部依存: なし
 """
-from typing import TypedDict, Literal, Union, List
+from typing import TypedDict, Literal, Union, List, Any, Dict, Optional
 from datetime import datetime
 
 
@@ -40,9 +40,25 @@ class EmbeddingError(TypedDict):
     text: str
 
 
+# Cypher Query型定義
+class QueryError(TypedDict):
+    """Cypherクエリ実行エラー"""
+    type: Literal["SyntaxError", "EmptyQueryError", "ConnectionError", "ValidationError"]
+    message: str
+    query: str
+    
+    
+class QuerySuccess(TypedDict):
+    """Cypherクエリ実行成功結果"""
+    columns: List[str]
+    data: List[List]
+    row_count: int
+
+
 # Union型
 DecisionError = Union[DecisionNotFoundError, InvalidDecisionError, EmbeddingError]
 DecisionResult = Union[Decision, DecisionError]
+QueryResult = Union[QuerySuccess, QueryError]
 
 
 # Test cases (in-source test)
@@ -77,9 +93,3 @@ def test_error_types_creation_valid_structure_returns_correct_types():
         "details": ["Missing title", "Invalid status"]
     }
     assert len(invalid["details"]) == 2
-
-
-if __name__ == "__main__":
-    test_decision_type_creation_valid_data_returns_complete_decision()
-    test_error_types_creation_valid_structure_returns_correct_types()
-    print("All domain type tests passed!")

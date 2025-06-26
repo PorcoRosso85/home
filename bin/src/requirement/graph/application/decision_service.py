@@ -85,18 +85,24 @@ def create_decision_service(repository: DecisionRepository):
         
         # ソートして上位を返す
         results.sort(key=lambda x: x[0], reverse=True)
-        return [decision for _, decision in results[:limit]]
+        # 類似度を含めて返す
+        return [{**decision, "similarity": sim} for sim, decision in results[:limit]]
     
     def list_by_tag(tag: str) -> List[Decision]:
         """タグで決定事項を検索"""
         all_decisions = repository["find_all"]()
-        return [d for d in all_decisions if tag in d["tags"]]
+        return [d for d in all_decisions if tag in d.get("tags", [])]
+    
+    def list_all() -> List[Decision]:
+        """全ての決定事項を取得"""
+        return repository["find_all"]()
     
     return {
         "add_decision": add_decision,
         "find_decision": find_decision,
         "search_similar": search_similar,
-        "list_by_tag": list_by_tag
+        "list_by_tag": list_by_tag,
+        "list_all": list_all
     }
 
 
@@ -196,9 +202,3 @@ def test_decision_service_search_similar_query_returns_matching_decisions():
     # 少なくとも1つはデータベース関連
     assert any("データベース" in r["title"] or "データベース" in r["description"] 
                for r in results)
-
-
-if __name__ == "__main__":
-    test_decision_service_add_valid_data_returns_saved_decision()
-    test_decision_service_search_similar_query_returns_matching_decisions()
-    print("All decision service tests passed!")

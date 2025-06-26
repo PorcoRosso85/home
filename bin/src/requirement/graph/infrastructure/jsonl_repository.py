@@ -180,9 +180,3 @@ def test_jsonl_repository_find_nonexistent_id_returns_error():
         
     finally:
         os.unlink(temp_path)
-
-
-if __name__ == "__main__":
-    test_jsonl_repository_crud_operations_returns_expected_results()
-    test_jsonl_repository_find_nonexistent_id_returns_error()
-    print("All JSONL repository tests passed!")
