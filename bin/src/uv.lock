@@ -1,6 +1,12 @@
 version = 1
 requires-python = ">=3.11"
 
+[manifest]
+members = [
+    "monitor-rules",
+    "src",
+]
+
 [[package]]
 name = "colorama"
 version = "0.4.6"
@@ -72,6 +78,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/30/e7/3a25f52c1a6c5ffb2aa90e81f4d0a0f9cf84897fc024ddb07242bf578887/kuzu-0.10.0-cp313-cp313t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:57ed7e0054ac3f2fef4a9c5875f77c15b32ef16ea40d8cc129c492edcce21900", size = 6101063 },
     { url = "https://files.pythonhosted.org/packages/cb/de/469d26653805a47b7fa67b77741e7a2271d1316c531463640cd39d063db0/kuzu-0.10.0-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:964ff28e3540a55e1c865eb8748de6a9385d391b07358ff069c257df3fe76dd0", size = 6897320 },
 ]
+
+[[package]]
+name = "monitor-rules"
+version = "0.1.0"
+source = { virtual = "poc/monitor_rules" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.4.1" }]
 
 [[package]]
 name = "packaging"

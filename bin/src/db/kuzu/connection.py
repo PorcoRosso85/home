@@ -2,8 +2,18 @@
 """KuzuDB connection module."""
 
 import os
+import sys
+
+# Ensure we import the correct kuzu package, not the local directory
+# Remove local kuzu directory from path if present
+current_dir = os.path.dirname(os.path.abspath(__file__))
+kuzu_dir = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'kuzu')
+if kuzu_dir in sys.path:
+    sys.path.remove(kuzu_dir)
+
+# Now import the actual kuzu package
 import kuzu
-from telemetry.telemetryLogger import log
+from telemetry import log
 
 
 def get_connection(db_path: str = None):

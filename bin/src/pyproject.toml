@@ -9,3 +9,6 @@ dependencies = [
     "pytest>=8.4.1",
     "kuzu>=0.0.12",
 ]
+
+[tool.uv.workspace]
+members = ["poc/monitor_rules"]

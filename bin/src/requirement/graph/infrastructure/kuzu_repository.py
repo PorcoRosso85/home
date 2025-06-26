@@ -4,6 +4,7 @@ KuzuDB Repository - グラフデータベース永続化
 外部依存: kuzu
 """
 import os
+import sys
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 from datetime import datetime
@@ -11,6 +12,27 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..domain.types import Decision, DecisionResult, DecisionNotFoundError, DecisionError
+
+# LD_LIBRARY_PATH設定用のパスリスト
+import glob
+known_working_paths = [
+    '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/',
+    '/nix/store/2y8c3b7ydkl68liz336035llfhmm6r95-gfortran-14-20241116-lib/lib/',
+]
+gcc_paths = glob.glob('/nix/store/*gcc*lib/lib/')
+all_paths = known_working_paths + gcc_paths + [
+    '/usr/lib/x86_64-linux-gnu',
+    '/usr/local/lib',
+]
+
+# LD_LIBRARY_PATH自動設定 - モジュールレベルで実行
+if 'LD_LIBRARY_PATH' not in os.environ:
+    for path in all_paths:
+        if os.path.exists(path):
+            # libstdc++.so.6の存在を確認
+            if os.path.exists(os.path.join(path, 'libstdc++.so.6')):
+                os.environ['LD_LIBRARY_PATH'] = path
+                break
 
 
 def create_kuzu_repository(db_path: str = None) -> Dict:
@@ -24,16 +46,32 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         Repository関数の辞書
     """
     # Try to import from the existing connection module
-    import sys
-    import os
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../'))
     
-    # Check if we need to use LD_LIBRARY_PATH
-    if 'LD_LIBRARY_PATH' not in os.environ:
-        os.environ['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/'
-    
     # Use fixed connection module to avoid kuzu name conflict
-    from db.kuzu.connection_fixed import get_connection
+    try:
+        from db.kuzu.connection_fixed import get_connection
+    except ImportError as e:
+        if "libstdc++.so.6" in str(e):
+            # 見つかったパスを提案
+            suggested_path = None
+            for path in all_paths:
+                if os.path.exists(path) and os.path.exists(os.path.join(path, 'libstdc++.so.6')):
+                    suggested_path = path
+                    break
+            
+            error_msg = f"""
+KuzuDB import failed due to missing libstdc++.so.6.
+
+To fix this, set LD_LIBRARY_PATH before running Python:
+export LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'}
+
+Or run with:
+LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
+"""
+            raise ImportError(error_msg) from e
+        else:
+            raise
     
     if db_path is None:
         db_path = os.path.expanduser("~/.rgl/graph.db")
