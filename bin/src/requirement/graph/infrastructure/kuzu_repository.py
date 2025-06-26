@@ -116,7 +116,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                     r.priority = $priority,
                     r.requirement_type = $requirement_type,
                     r.status = $status,
-                    r.tags = $tags,
                     r.embedding = $embedding,
                     r.created_at = $created_at
                 RETURN r
@@ -127,7 +126,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                 "priority": "medium",  # デフォルト値
                 "requirement_type": "functional",  # デフォルト値
                 "status": decision["status"],
-                "tags": decision["tags"],
                 "embedding": decision["embedding"],
                 "created_at": decision["created_at"].isoformat()
             })
@@ -137,7 +135,7 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                 # LocationURIを生成
                 from ..domain.version_tracking import create_location_uri, create_version_id, create_requirement_snapshot
                 
-                location_uri = create_location_uri(decision["id"], decision.get("tags", []))
+                location_uri = create_location_uri(decision["id"])
                 version_id = create_version_id(decision["id"])
                 
                 # LocationURIノードを作成
@@ -200,7 +198,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                         priority: $priority,
                         requirement_type: $requirement_type,
                         status: $status,
-                        tags: $tags,
                         embedding: $embedding,
                         created_at: $created_at,
                         snapshot_at: $snapshot_at,
@@ -274,7 +271,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                     "title": node["title"],
                     "description": node["description"],
                     "status": node["status"],
-                    "tags": node["tags"],
                     "created_at": datetime.fromisoformat(node["created_at"]),
                     "embedding": node["embedding"]
                 }
@@ -312,7 +308,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                     "title": node["title"],
                     "description": node["description"],
                     "status": node["status"],
-                    "tags": node["tags"],
                     "created_at": datetime.fromisoformat(node["created_at"]),
                     "embedding": node["embedding"]
                 })
@@ -393,7 +388,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                             "title": node["title"],
                             "description": node["description"],
                             "status": node["status"],
-                            "tags": node["tags"],
                             "created_at": datetime.fromisoformat(node["created_at"]),
                             "embedding": node["embedding"]
                         },
@@ -428,38 +422,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                     "title": node["title"],
                     "description": node["description"],
                     "status": node["status"],
-                    "tags": node["tags"],
-                    "created_at": datetime.fromisoformat(node["created_at"]),
-                    "embedding": node["embedding"]
-                })
-            
-            return requirements
-            
-        except Exception as e:
-            return []
-    
-    def find_by_tag(tag: str) -> List[Decision]:
-        """タグで要件を検索"""
-        try:
-            result = conn.execute("""
-                MATCH (r:RequirementEntity)
-                WHERE $tag IN r.tags
-                RETURN r
-                ORDER BY r.created_at DESC
-            """, {"tag": tag})
-            
-            requirements = []
-            while result.has_next():
-                row = result.get_next()
-                node = row[0]
-                
-                from datetime import datetime
-                requirements.append({
-                    "id": node["id"],
-                    "title": node["title"],
-                    "description": node["description"],
-                    "status": node["status"],
-                    "tags": node["tags"],
                     "created_at": datetime.fromisoformat(node["created_at"]),
                     "embedding": node["embedding"]
                 })
@@ -496,7 +458,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                             "title": node["title"],
                             "description": node["description"],
                             "status": node["status"],
-                            "tags": node["tags"],
                             "created_at": datetime.fromisoformat(node["created_at"]),
                             "embedding": node["embedding"]
                         },
@@ -535,7 +496,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                             "title": node["title"],
                             "description": node["description"],
                             "status": node["status"],
-                            "tags": node["tags"],
                             "created_at": datetime.fromisoformat(node["created_at"]),
                             "embedding": node["embedding"]
                         },
@@ -624,7 +584,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
                     "title": snapshot["title"],
                     "description": snapshot["description"],
                     "status": snapshot["status"],
-                    "tags": snapshot["tags"],
                     "created_at": snapshot["created_at"],
                     "embedding": snapshot["embedding"],
                     "snapshot_at": snapshot["snapshot_at"],
@@ -641,7 +600,6 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
         "find": find,
         "find_all": find_all,
         "search": search,
-        "find_by_tag": find_by_tag,
         "add_dependency": add_dependency,
         "find_dependencies": find_dependencies,
         "find_ancestors": find_ancestors,
@@ -722,7 +680,6 @@ def test_kuzu_repository_basic_crud_returns_saved_requirement():
             "find": find_func,
             "find_all": lambda: list(test_conn.storage.nodes.values()),
             "search": lambda query, threshold=0.7: [],
-            "find_by_tag": lambda tag: [],
             "add_dependency": lambda from_id, to_id, dep_type="depends_on", reason="": {"success": True},
             "find_dependencies": lambda req_id, depth=1: [],
             "find_ancestors": lambda req_id, depth=10: [],
@@ -741,7 +698,6 @@ def test_kuzu_repository_basic_crud_returns_saved_requirement():
             "title": "Test Requirement",
             "description": "Test description",
             "status": "proposed",
-            "tags": ["test"],
             "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }
@@ -787,7 +743,6 @@ def test_kuzu_repository_dependency_management_handles_relationships():
             "title": "認証システム",
             "description": "OAuth2.0実装",
             "status": "proposed",
-            "tags": ["security"],
             "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }
@@ -796,7 +751,6 @@ def test_kuzu_repository_dependency_management_handles_relationships():
             "title": "データベース",
             "description": "PostgreSQL",
             "status": "proposed",
-            "tags": ["infrastructure"],
             "created_at": datetime.now(),
             "embedding": [0.2] * 50
         }
@@ -860,8 +814,7 @@ def test_kuzu_repository_circular_dependency_returns_error():
                 "title": f"Requirement {req_id}",
                 "description": f"Description {req_id}",
                 "status": "proposed",
-                "tags": ["test"],
-                "created_at": datetime.now(),
+                    "created_at": datetime.now(),
                 "embedding": [0.1] * 50
             })
         
@@ -915,17 +868,17 @@ def test_circular_dependency_detection_prevents_creation():
         # A→B→Cの依存関係を作成
         req_a = {
             "id": "A", "title": "要件A", "description": "A",
-            "status": "proposed", "tags": [], "created_at": datetime.now(),
+            "status": "proposed", "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }
         req_b = {
             "id": "B", "title": "要件B", "description": "B",
-            "status": "proposed", "tags": [], "created_at": datetime.now(),
+            "status": "proposed", "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }
         req_c = {
             "id": "C", "title": "要件C", "description": "C",
-            "status": "proposed", "tags": [], "created_at": datetime.now(),
+            "status": "proposed", "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }
         
@@ -968,7 +921,7 @@ def test_self_dependency_returns_error():
         
         req = {
             "id": "self", "title": "自己参照", "description": "Self",
-            "status": "proposed", "tags": [], "created_at": datetime.now(),
+            "status": "proposed", "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }
         
@@ -1002,7 +955,7 @@ def test_nonexistent_parent_returns_error():
         
         req = {
             "id": "orphan", "title": "孤児", "description": "Orphan",
-            "status": "proposed", "tags": [], "created_at": datetime.now(),
+            "status": "proposed", "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }
         
@@ -1058,7 +1011,7 @@ def test_dependency_graph_traversal_returns_all_dependencies():
         for req_id in ["A", "B", "C", "D"]:
             repo["save"]({
                 "id": req_id, "title": f"要件{req_id}", "description": req_id,
-                "status": "proposed", "tags": [], "created_at": datetime.now(),
+                "status": "proposed", "created_at": datetime.now(),
                 "embedding": [0.1] * 50
             })
         

@@ -47,7 +47,6 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
         add_parser = subparsers.add_parser("add", help="Add new decision")
         add_parser.add_argument("title", help="Decision title")
         add_parser.add_argument("description", help="Decision description")
-        add_parser.add_argument("--tags", nargs="*", default=[], help="Tags")
         
         # find command
         find_parser = subparsers.add_parser("find", help="Find decision by ID")
@@ -61,7 +60,6 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
         
         # list command
         list_parser = subparsers.add_parser("list", help="List decisions")
-        list_parser.add_argument("--tag", help="Filter by tag")
         
         # Parse arguments
         parsed_args = parser.parse_args(args)
@@ -75,7 +73,6 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
             result = service["add_decision"](
                 title=parsed_args.title,
                 description=parsed_args.description,
-                tags=parsed_args.tags
             )
             
             if "type" in result:
@@ -87,8 +84,6 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
                 print(f"Added decision: {result['id']}")
                 print(f"Title: {result['title']}")
                 print(f"Status: {result['status']}")
-                if result["tags"]:
-                    print(f"Tags: {', '.join(result['tags'])}")
         
         elif parsed_args.command == "find":
             result = service["find_decision"](parsed_args.id)
@@ -100,8 +95,6 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
                 print(f"Title: {result['title']}")
                 print(f"Description: {result['description']}")
                 print(f"Status: {result['status']}")
-                if result["tags"]:
-                    print(f"Tags: {', '.join(result['tags'])}")
         
         elif parsed_args.command == "search":
             results = service["search_similar"](
@@ -117,16 +110,10 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
                 for i, decision in enumerate(results, 1):
                     print(f"\n{i}. {decision['id']}: {decision['title']}")
                     print(f"   {decision['description']}")
-                    if decision["tags"]:
-                        print(f"   Tags: {', '.join(decision['tags'])}")
         
         elif parsed_args.command == "list":
-            if parsed_args.tag:
-                results = service["list_by_tag"](parsed_args.tag)
-                print(f"Decisions with tag '{parsed_args.tag}':")
-            else:
-                results = repository["find_all"]()
-                print("All decisions:")
+            results = repository["find_all"]()
+            print("All decisions:")
             
             if not results:
                 print("No decisions found")
@@ -134,8 +121,6 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
                 for decision in results:
                     print(f"\n- {decision['id']}: {decision['title']}")
                     print(f"  Status: {decision['status']}")
-                    if decision["tags"]:
-                        print(f"  Tags: {', '.join(decision['tags'])}")
     
     return run_cli
 
@@ -158,7 +143,7 @@ def test_cli_add_command_valid_args_prints_success_message():
         sys.stdout = buffer = io.StringIO()
         
         # add コマンド実行
-        cli(["add", "Test Decision", "This is a test", "--tags", "test", "cli"])
+        cli(["add", "Test Decision", "This is a test"])
         
         output = buffer.getvalue()
         sys.stdout = old_stdout

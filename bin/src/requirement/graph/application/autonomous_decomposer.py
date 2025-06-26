@@ -233,10 +233,10 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
         """階層的分解（抽象から具体へ）"""
         sub_requirements = []
         
-        # タグから階層レベルを判定
-        tags = requirement.get("tags", [])
-        is_l0 = any("L0" in tag for tag in tags)
-        is_l1 = any("L1" in tag for tag in tags)
+        # 階層レベルをIDから推定 (TODO: RELATIONで判定)
+        req_id = requirement.get("id", "")
+        is_l0 = "L0" in req_id or "vision" in requirement.get("title", "").lower()
+        is_l1 = "L1" in req_id or "architecture" in requirement.get("title", "").lower()
         
         if is_l0:
             # L0 -> L1レベルの分解
@@ -257,14 +257,14 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
                 "title": f"{requirement['title']} - {aspect.capitalize()}",
                 "description": f"{aspect.capitalize()} aspects of {requirement['description']}",
                 "status": "proposed",
-                "tags": requirement.get("tags", []) + [aspect]
+                "hierarchy_level": aspect  # TODO: RELATIONで表現
             }
             
-            # L0ならL1タグを追加
+            # 階層情報を設定
             if is_l0:
-                sub_req["tags"].append(f"L1_{aspect}")
+                sub_req["hierarchy_level"] = f"L1_{aspect}"
             elif is_l1:
-                sub_req["tags"].append(f"L2_{aspect}")
+                sub_req["hierarchy_level"] = f"L2_{aspect}"
                 
             sub_requirements.append(sub_req)
         
@@ -294,7 +294,7 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
                 "title": f"{requirement['title']} - {func.replace('_', ' ').title()}",
                 "description": f"Handle {func.replace('_', ' ')} for {requirement['description']}",
                 "status": "proposed",
-                "tags": requirement.get("tags", []) + [f"function_{func}"]
+                "function_area": func  # TODO: RELATIONで表現
             })
         
         return sub_requirements
@@ -312,7 +312,7 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
                 "title": f"{requirement['title']} - Phase {i+1}: {phase.capitalize()}",
                 "description": f"{phase.capitalize()} phase for {requirement['description']}",
                 "status": "proposed",
-                "tags": requirement.get("tags", []) + [f"phase_{i+1}", phase]
+                "phase": f"phase_{i+1}_{phase}"  # TODO: RELATIONで表現
             })
         
         # フェーズ間の依存関係を後で追加
@@ -342,7 +342,7 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
                     "id": child["id"],
                     "title": child["title"],
                     "type": "child",
-                    "tags": child.get("tags", [])
+                    "hierarchy_info": child.get("hierarchy_level", "")
                 }
                 for child in children
             ]
@@ -364,7 +364,7 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
         # 依存関係の設定を提案
         if len(children) > 1:
             # 時系列タグがある場合は順序依存を提案
-            phase_children = [c for c in children if any("phase_" in tag for tag in c.get("tags", []))]
+            phase_children = [c for c in children if "phase" in c]
             if len(phase_children) > 1:
                 suggestions.append({
                     "action": "add_dependencies",
@@ -390,10 +390,9 @@ def test_decompose_requirement_hierarchical_creates_children():
     requirements = {
         "req_001": {
             "id": "req_001",
-            "title": "Build RGL System",
+            "title": "Vision for RGL System",  # visionを含むタイトルに変更
             "description": "Requirement Graph Logic system",
             "status": "proposed",
-            "tags": ["L0_vision"],
             "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }
@@ -414,6 +413,15 @@ def test_decompose_requirement_hierarchical_creates_children():
     }
     
     # モックLLM Hooks API
+    class MockLLMHooksAPI:
+        def query(self, request):
+            # 簡単なモック実装
+            if request.get("query_type") == "score_requirements":
+                return {"status": "success", "scores": [0.5] * len(request.get("requirement_ids", []))}
+            if request.get("query") == "find_children":
+                return {"status": "success", "data": []}
+            return {"status": "success", "result": "ok"}
+    
     mock_hooks = MockLLMHooksAPI()
     
     # サービス作成
@@ -429,7 +437,7 @@ def test_decompose_requirement_hierarchical_creates_children():
     # L0 -> L1への分解を確認
     for req, parent_id in saved_requirements:
         assert parent_id == "req_001"
-        assert any("L1_" in tag for tag in req["tags"])
+        assert "L1_" in req.get("hierarchy_level", "")
 
 
 def test_analyze_decomposition_quality_calculates_metrics():

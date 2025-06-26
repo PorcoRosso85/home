@@ -13,7 +13,6 @@ class Decision(TypedDict):
     title: str
     description: str
     status: Literal["proposed", "approved", "implemented", "deprecated"]
-    tags: List[str]
     created_at: datetime
     embedding: List[float]  # 50次元ベクトル
 
@@ -69,7 +68,6 @@ def test_decision_type_creation_valid_data_returns_complete_decision():
         "title": "RGLをKuzuDBに移行",
         "description": "JSONLからKuzuDBへ移行し関係性クエリを可能にする",
         "status": "proposed",
-        "tags": ["L0_vision", "architecture"],
         "created_at": datetime.now(),
         "embedding": [0.1] * 50
     }

@@ -85,10 +85,9 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
             RETURN r, collect(c) as implementations
         """,
         
-        # 進捗集計
+        # 進捗集計（全体）
         "calculate_progress": """
             MATCH (r:RequirementEntity)
-            WHERE $tag IN r.tags
             WITH count(r) as total,
                  count(CASE WHEN r.status = 'completed' THEN 1 END) as completed
             RETURN total, completed, 

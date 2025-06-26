@@ -59,7 +59,7 @@ def create_version_service(repository: VersionRepository):
         version_id = create_version_id(requirement_id)
         
         # LocationURIを生成または取得
-        location_uri = create_location_uri(requirement_id, requirement.get("tags", []))
+        location_uri = create_location_uri(requirement_id)
         
         # LocationURIノードを作成
         repository["execute"]("""
@@ -122,7 +122,6 @@ def create_version_service(repository: VersionRepository):
                 priority: $priority,
                 requirement_type: $requirement_type,
                 status: $status,
-                tags: $tags,
                 embedding: $embedding,
                 created_at: $created_at,
                 snapshot_at: $snapshot_at,
@@ -250,7 +249,6 @@ def test_version_service_track_change_creates_version():
             "title": "Test Requirement",
             "description": "Test description",
             "status": "proposed",
-            "tags": ["L0_vision"],
             "embedding": [0.1] * 50,
             "created_at": datetime.now()
         }

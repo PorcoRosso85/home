@@ -11,7 +11,6 @@ def create_decision(
     id: str,
     title: str,
     description: str,
-    tags: Optional[List[str]] = None,
     embedding: Optional[List[float]] = None
 ) -> DecisionResult:
     """
@@ -21,7 +20,6 @@ def create_decision(
         id: 決定事項ID
         title: タイトル
         description: 説明
-        tags: タグリスト
         embedding: 埋め込みベクトル
         
     Returns:
@@ -55,7 +53,6 @@ def create_decision(
         "title": title.strip(),
         "description": description.strip(),
         "status": "proposed",
-        "tags": tags or [],
         "created_at": datetime.now(),
         "embedding": embedding or [0.0] * 50
     }
@@ -93,7 +90,6 @@ def test_create_decision_valid_input_returns_decision_object():
         id="req_001",
         title="KuzuDB移行",
         description="関係性クエリを可能にする",
-        tags=["architecture"]
     )
     
     # エラーでないことを確認

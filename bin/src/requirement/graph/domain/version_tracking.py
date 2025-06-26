@@ -17,37 +17,16 @@ def create_version_id(requirement_id: str, timestamp: Optional[datetime] = None)
     return f"v_{timestamp.isoformat()}_{requirement_id}"
 
 
-def create_location_uri(requirement_id: str, tags: List[str]) -> str:
+def create_location_uri(requirement_id: str) -> str:
     """
     LocationURIを生成
-    タグから階層を推測してURIを構築
+    階層はRELATIONとEntityAggregationViewで管理されるため、
+    シンプルなURIフォーマットを使用
     
     例:
-    - tags=["L0_vision"] -> "req://L0/vision/{id}"
-    - tags=["L1_architecture", "database"] -> "req://L1/architecture/database/{id}"
+    - "req://rgl/requirements/{id}"
     """
-    if not tags:
-        return f"req://rgl/{requirement_id}"
-    
-    # L0, L1, L2タグを優先
-    level_tag = None
-    category_tags = []
-    
-    for tag in tags:
-        if tag.startswith(("L0_", "L1_", "L2_")):
-            level_tag = tag
-        else:
-            category_tags.append(tag)
-    
-    if level_tag:
-        level, category = level_tag.split("_", 1)
-        path_parts = [level, category]
-        path_parts.extend(category_tags[:2])  # 最大2つのカテゴリタグ
-        return f"req://{'/'.join(path_parts)}/{requirement_id}"
-    else:
-        # レベルタグがない場合
-        path_parts = ["rgl"] + category_tags[:3]  # 最大3つのタグ
-        return f"req://{'/'.join(path_parts)}/{requirement_id}"
+    return f"req://rgl/requirements/{requirement_id}"
 
 
 def parse_location_uri(uri: str) -> Dict[str, str]:
@@ -100,7 +79,6 @@ def create_requirement_snapshot(
         "priority": requirement.get("priority", "medium"),
         "requirement_type": requirement.get("requirement_type", "functional"),
         "status": requirement["status"],
-        "tags": requirement["tags"],
         "embedding": requirement["embedding"],
         "created_at": requirement["created_at"].isoformat(),
         "snapshot_at": datetime.now().isoformat(),
@@ -117,9 +95,7 @@ def calculate_requirement_diff(
     
     Returns:
         {
-            "changed_fields": [("field_name", old_value, new_value), ...],
-            "added_tags": ["tag1", "tag2"],
-            "removed_tags": ["tag3"]
+            "changed_fields": [("field_name", old_value, new_value), ...]
         }
     """
     changed_fields = []
@@ -129,14 +105,8 @@ def calculate_requirement_diff(
         if old_snapshot.get(field) != new_snapshot.get(field):
             changed_fields.append((field, old_snapshot.get(field), new_snapshot.get(field)))
     
-    # タグの差分
-    old_tags = set(old_snapshot.get("tags", []))
-    new_tags = set(new_snapshot.get("tags", []))
-    
     return {
-        "changed_fields": changed_fields,
-        "added_tags": list(new_tags - old_tags),
-        "removed_tags": list(old_tags - new_tags)
+        "changed_fields": changed_fields
     }
 
 
@@ -154,22 +124,22 @@ def test_create_version_id_generates_unique_id():
     assert "req_001" in id2
 
 
-def test_create_location_uri_with_level_tags():
-    """create_location_uri_レベルタグ付き_階層URI生成"""
-    uri = create_location_uri("req_001", ["L0_vision", "autonomous"])
-    assert uri == "req://L0/vision/autonomous/req_001"
+def test_create_location_uri_generates_standard_uri():
+    """create_location_uri_標準URI_生成される"""
+    uri = create_location_uri("req_001")
+    assert uri == "req://rgl/requirements/req_001"
     
-    uri2 = create_location_uri("req_002", ["L1_architecture"])
-    assert uri2 == "req://L1/architecture/req_002"
+    uri2 = create_location_uri("req_002")
+    assert uri2 == "req://rgl/requirements/req_002"
 
 
 def test_parse_location_uri_extracts_components():
     """parse_location_uri_URI解析_コンポーネント抽出"""
-    result = parse_location_uri("req://L0/vision/autonomous/req_001")
+    result = parse_location_uri("req://rgl/requirements/req_001")
     
     assert result["scheme"] == "req"
-    assert result["path"] == "/L0/vision/autonomous/req_001"
-    assert result["hierarchy"] == ["L0", "vision", "autonomous"]
+    assert result["path"] == "/rgl/requirements/req_001"
+    assert result["hierarchy"] == ["rgl", "requirements"]
     assert result["id"] == "req_001"
 
 
@@ -178,14 +148,12 @@ def test_calculate_requirement_diff_detects_changes():
     old = {
         "title": "Old Title",
         "description": "Old desc",
-        "tags": ["tag1", "tag2"],
         "status": "proposed"
     }
     
     new = {
         "title": "New Title",
         "description": "Old desc",  # 変更なし
-        "tags": ["tag2", "tag3"],
         "status": "approved"
     }
     
@@ -194,5 +162,3 @@ def test_calculate_requirement_diff_detects_changes():
     assert len(diff["changed_fields"]) == 2
     assert ("title", "Old Title", "New Title") in diff["changed_fields"]
     assert ("status", "proposed", "approved") in diff["changed_fields"]
-    assert diff["added_tags"] == ["tag3"]
-    assert diff["removed_tags"] == ["tag1"]

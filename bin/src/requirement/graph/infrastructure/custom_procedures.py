@@ -375,12 +375,10 @@ class CustomProcedures:
                 suggestions.append({
                     "parent_id": requirement_id,
                     "title": f"{requirement['title']} - {aspect.capitalize()}",
-                    "tags": ["L1_" + aspect],
                     "create_query": """
                         CREATE (r:RequirementEntity {
                             id: $id,
                             title: $title,
-                            tags: $tags,
                             status: 'proposed'
                         })
                         WITH r
@@ -391,7 +389,6 @@ class CustomProcedures:
                     "parameters": {
                         "id": f"{requirement_id}_{aspect}",
                         "title": f"{requirement['title']} - {aspect.capitalize()}",
-                        "tags": ["L1_" + aspect],
                         "parent_id": requirement_id
                     }
                 })

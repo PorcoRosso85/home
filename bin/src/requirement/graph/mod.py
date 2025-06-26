@@ -13,7 +13,6 @@
         "title": "ユーザー認証",
         "description": "OAuth2による認証実装",
         "status": "proposed",
-        "tags": ["security", "L0_vision"],
         "created_at": datetime.now(),
         "embedding": [0.1] * 50
     }
@@ -39,9 +38,11 @@ from .domain.types import (
     Decision,
     DecisionResult,
     DecisionError,
-    DecisionNotFoundError,
-    create_decision,
-    create_decision_not_found_error
+    DecisionNotFoundError
+)
+
+from .domain.decision import (
+    create_decision
 )
 
 from .domain.constraints import (
@@ -55,8 +56,7 @@ from .domain.version_tracking import (
     create_location_uri,
     create_version_id,
     create_requirement_snapshot,
-    parse_location_uri,
-    get_parent_uri
+    parse_location_uri
 )
 
 # Application層
@@ -88,7 +88,6 @@ __all__ = [
     "DecisionNotFoundError",
     "ConstraintViolationError",
     "create_decision",
-    "create_decision_not_found_error",
     "validate_no_circular_dependency",
     "validate_max_depth",
     "validate_implementation_completeness",
@@ -96,7 +95,6 @@ __all__ = [
     "create_version_id",
     "create_requirement_snapshot",
     "parse_location_uri",
-    "get_parent_uri",
     # Application
     "optimize_implementation_order_with_layers",
     "find_critical_path",

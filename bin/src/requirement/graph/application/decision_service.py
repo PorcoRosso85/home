@@ -26,8 +26,7 @@ def create_decision_service(repository: DecisionRepository):
     
     def add_decision(
         title: str,
-        description: str,
-        tags: Optional[List[str]] = None
+        description: str
     ) -> DecisionResult:
         """新しい決定事項を追加"""
         # ID生成（簡易版）
@@ -44,7 +43,6 @@ def create_decision_service(repository: DecisionRepository):
             id=decision_id,
             title=title,
             description=description,
-            tags=tags,
             embedding=embedding_result
         )
         
@@ -88,10 +86,6 @@ def create_decision_service(repository: DecisionRepository):
         # 類似度を含めて返す
         return [{**decision, "similarity": sim} for sim, decision in results[:limit]]
     
-    def list_by_tag(tag: str) -> List[Decision]:
-        """タグで決定事項を検索"""
-        all_decisions = repository["find_all"]()
-        return [d for d in all_decisions if tag in d.get("tags", [])]
     
     def list_all() -> List[Decision]:
         """全ての決定事項を取得"""
@@ -101,7 +95,6 @@ def create_decision_service(repository: DecisionRepository):
         "add_decision": add_decision,
         "find_decision": find_decision,
         "search_similar": search_similar,
-        "list_by_tag": list_by_tag,
         "list_all": list_all
     }
 
@@ -140,7 +133,6 @@ def test_decision_service_add_valid_data_returns_saved_decision():
     result = service["add_decision"](
         title="KuzuDB移行",
         description="関係性クエリを可能にする",
-        tags=["architecture", "L1"]
     )
     
     assert "type" not in result
@@ -159,7 +151,6 @@ def test_decision_service_search_similar_query_returns_matching_decisions():
             "title": "データベース移行",
             "description": "PostgreSQLからKuzuDBへ",
             "status": "approved",
-            "tags": ["db"],
             "created_at": None,
             "embedding": create_embedding("データベース移行 PostgreSQLからKuzuDBへ")
         },
@@ -168,7 +159,6 @@ def test_decision_service_search_similar_query_returns_matching_decisions():
             "title": "API設計",
             "description": "RESTful APIの実装",
             "status": "approved",
-            "tags": ["api"],
             "created_at": None,
             "embedding": create_embedding("API設計 RESTful APIの実装")
         },
@@ -177,7 +167,6 @@ def test_decision_service_search_similar_query_returns_matching_decisions():
             "title": "データベース最適化",
             "description": "クエリパフォーマンス改善",
             "status": "approved", 
-            "tags": ["db"],
             "created_at": None,
             "embedding": create_embedding("データベース最適化 クエリパフォーマンス改善")
         }

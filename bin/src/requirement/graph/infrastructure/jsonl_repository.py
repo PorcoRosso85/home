@@ -137,7 +137,6 @@ def test_jsonl_repository_crud_operations_returns_expected_results():
             "title": "Test Decision",
             "description": "Test description",
             "status": "proposed",
-            "tags": ["test"],
             "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }

@@ -1,0 +1,28 @@
+[project]
+name = "requirement-graph"
+version = "0.1.0"
+description = "LLM-driven requirement management system with graph database"
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+]
+
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["."]
+python_files = ["*.py"]
+python_functions = ["test_*"]
+# KuzuDBのLD_LIBRARY_PATH設定が必要な場合のためのマーカー
+markers = [
+    "requires_kuzu: marks tests that require KuzuDB (deselect with '-m \"not requires_kuzu\"')",
+]
+# in-sourceテストを検出
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-v",
+    "--ignore=mod.py",
+]
