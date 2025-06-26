@@ -307,8 +307,8 @@ def test_version_service_history_returns_sorted_versions():
     
     def mock_execute(query, params=None):
         if "ORDER BY v.timestamp DESC" in query:
-            return MockResult(history_data)
-        return MockResult([])
+            return create_mock_result(history_data)
+        return create_mock_result([])
     
     repository = {
         "execute": mock_execute,
@@ -326,18 +326,27 @@ def test_version_service_history_returns_sorted_versions():
     assert history[1]["version_id"] == "v2"
 
 
-# モッククラス
-class MockResult:
-    def __init__(self, data):
-        self.data = data if isinstance(data, list) else [data]
-        self._index = 0
+# テスト用ヘルパー関数
+def create_mock_result(data):
+    """テスト用のモック結果オブジェクトを作成"""
+    items = data if isinstance(data, list) else [data]
+    index = [0]  # クロージャで状態を保持
     
-    def has_next(self):
-        return self._index < len(self.data)
+    def has_next():
+        return index[0] < len(items)
     
-    def get_next(self):
-        if self.has_next():
-            result = self.data[self._index]
-            self._index += 1
+    def get_next():
+        if has_next():
+            result = items[index[0]]
+            index[0] += 1
             return result
         return None
+    
+    # オブジェクト風のアクセスを提供
+    mock = type('MockResult', (), {
+        'has_next': has_next,
+        'get_next': get_next,
+        '_data': items
+    })()
+    
+    return mock

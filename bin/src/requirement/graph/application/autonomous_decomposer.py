@@ -442,8 +442,8 @@ def test_analyze_decomposition_quality_calculates_metrics():
     }
     
     # モックLLM Hooks API
-    mock_hooks = MockLLMHooksAPI()
-    mock_hooks.set_children("req_001", [
+    mock_hooks = create_mock_llm_hooks()
+    mock_hooks["set_children"]("req_001", [
         {"id": "req_001_01", "title": "Child 1"},
         {"id": "req_001_02", "title": "Child 2"},
         {"id": "req_001_03", "title": "Child 3"},
@@ -472,8 +472,8 @@ def test_suggest_refinements_detects_issues():
     }
     
     # 子要件が少ないケース
-    mock_hooks = MockLLMHooksAPI()
-    mock_hooks.set_children("req_001", [
+    mock_hooks = create_mock_llm_hooks()
+    mock_hooks["set_children"]("req_001", [
         {"id": "req_001_01", "title": "Only child"}
     ])
     
@@ -486,15 +486,15 @@ def test_suggest_refinements_detects_issues():
     assert any(r["type"] == "add_children" for r in refinements)
 
 
-# モッククラス
-class MockLLMHooksAPI:
-    def __init__(self):
-        self.children_data = {}
+# テスト用モック関数
+def create_mock_llm_hooks():
+    """テスト用のモックLLM Hooks APIを作成"""
+    children_data = {}
     
-    def set_children(self, parent_id, children):
-        self.children_data[parent_id] = children
+    def set_children(parent_id, children):
+        children_data[parent_id] = children
     
-    def query(self, request):
+    def query(request):
         query_type = request.get("type")
         
         if query_type == "template":
@@ -502,11 +502,11 @@ class MockLLMHooksAPI:
                 parent_id = request["parameters"]["parent_id"]
                 return {
                     "status": "success",
-                    "data": self.children_data.get(parent_id, [])
+                    "data": children_data.get(parent_id, [])
                 }
             elif request["query"] == "calculate_progress":
                 req_id = request["parameters"]["req_id"]
-                children = self.children_data.get(req_id, [])
+                children = children_data.get(req_id, [])
                 if children:
                     return {
                         "status": "success",
@@ -524,3 +524,9 @@ class MockLLMHooksAPI:
                 }
         
         return {"status": "error", "error": "Unknown query"}
+    
+    return {
+        "query": query,
+        "set_children": set_children,
+        "_children_data": children_data  # デバッグ用
+    }

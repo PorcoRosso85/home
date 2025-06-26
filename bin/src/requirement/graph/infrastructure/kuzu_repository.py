@@ -47,118 +47,13 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     db = None  # Not needed when using get_connection
     
     def init_schema():
-        """スキーマ初期化"""
-        # RequirementEntityテーブル作成
-        conn.execute("""
-            CREATE NODE TABLE IF NOT EXISTS RequirementEntity (
-                id STRING PRIMARY KEY,
-                title STRING,
-                description STRING,
-                priority STRING,
-                requirement_type STRING,
-                status STRING,
-                tags STRING[],
-                embedding DOUBLE[],
-                created_at STRING
-            )
-        """)
-        
-        # 関係テーブル作成
-        conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS DEPENDS_ON (
-                FROM RequirementEntity TO RequirementEntity,
-                dependency_type STRING,
-                reason STRING
-            )
-        """)
-        
-        conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS PARENT_OF (
-                FROM RequirementEntity TO RequirementEntity
-            )
-        """)
-        
-        # Phase 3: 時系列追跡のためのテーブル追加
-        # LocationURIテーブル - 階層的アドレス管理
-        conn.execute("""
-            CREATE NODE TABLE IF NOT EXISTS LocationURI (
-                id STRING PRIMARY KEY
-            )
-        """)
-        
-        # VersionStateテーブル - 時系列管理
-        conn.execute("""
-            CREATE NODE TABLE IF NOT EXISTS VersionState (
-                id STRING PRIMARY KEY,
-                timestamp STRING,
-                description STRING,
-                change_reason STRING,
-                author STRING
-            )
-        """)
-        
-        # RequirementSnapshotテーブル - イミュータブル履歴
-        conn.execute("""
-            CREATE NODE TABLE IF NOT EXISTS RequirementSnapshot (
-                snapshot_id STRING PRIMARY KEY,
-                requirement_id STRING,
-                version_id STRING,
-                title STRING,
-                description STRING,
-                priority STRING,
-                requirement_type STRING,
-                status STRING,
-                tags STRING[],
-                embedding DOUBLE[],
-                created_at STRING,
-                snapshot_at STRING,
-                is_deleted BOOLEAN
-            )
-        """)
-        
-        # 位置関係
-        conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS LOCATED_WITH_REQUIREMENT (
-                FROM LocationURI TO RequirementEntity,
-                entity_type STRING
-            )
-        """)
-        
-        # バージョン順序関係
-        conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS FOLLOWS (
-                FROM VersionState TO VersionState
-            )
-        """)
-        
-        # バージョンと位置の状態追跡
-        conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS TRACKS_STATE_OF_LOCATED_ENTITY (
-                FROM VersionState TO LocationURI,
-                operation STRING
-            )
-        """)
-        
-        # LocationURI階層関係
-        conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS CONTAINS_LOCATION (
-                FROM LocationURI TO LocationURI,
-                relation_type STRING
-            )
-        """)
-        
-        # スナップショット関係
-        conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS HAS_SNAPSHOT (
-                FROM RequirementEntity TO RequirementSnapshot
-            )
-        """)
-        
-        conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS SNAPSHOT_OF_VERSION (
-                FROM RequirementSnapshot TO VersionState
-            )
-        """)
+        """スキーマ初期化 - DDL v2スキーマは事前適用済みと仮定"""
+        # schema_v2.cypherが適用済みであることを前提とする
+        # 必要に応じて存在確認のみ実施
+        try:
+            conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
+        except:
+            raise RuntimeError("Schema not initialized. Run apply_ddl_schema.py first")
     
     # 初回はスキーマ作成
     init_schema()
@@ -213,10 +108,10 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     RETURN l
                 """, {"uri": location_uri})
                 
-                # 要件とLocationURIを関連付け
+                # 要件とLocationURIを関連付け（新スキーマ対応）
                 conn.execute("""
                     MATCH (l:LocationURI {id: $uri}), (r:RequirementEntity {id: $req_id})
-                    MERGE (l)-[:LOCATED_WITH_REQUIREMENT {entity_type: 'requirement'}]->(r)
+                    MERGE (l)-[:LOCATES_LocationURI_RequirementEntity {entity_type: 'requirement'}]->(r)
                 """, {"uri": location_uri, "req_id": decision["id"]})
                 
                 # VersionStateを作成
@@ -240,7 +135,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 if not is_new:
                     conn.execute("""
                         MATCH (v_new:VersionState {id: $new_version}),
-                              (v_old:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: $uri})
+                              (v_old:VersionState)-[:TRACKS_STATE_OF]->(l:LocationURI {id: $uri})
                         WHERE v_old.id <> $new_version
                         WITH v_new, v_old
                         ORDER BY v_old.timestamp DESC
@@ -251,7 +146,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 # バージョンと位置の関係を作成
                 conn.execute("""
                     MATCH (v:VersionState {id: $version_id}), (l:LocationURI {id: $uri})
-                    CREATE (v)-[:TRACKS_STATE_OF_LOCATED_ENTITY {operation: $operation}]->(l)
+                    CREATE (v)-[:TRACKS_STATE_OF {operation: $operation}]->(l)
                 """, {"version_id": version_id, "uri": location_uri, "operation": operation})
                 
                 # スナップショットを作成
@@ -287,8 +182,8 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     CREATE (s)-[:SNAPSHOT_OF_VERSION]->(v)
                 """, {"snap_id": snapshot["snapshot_id"], "ver_id": version_id})
             
-            # 親子関係を設定
-            if parent_id:
+            # 親子関係を設定（LocationURI階層として）
+            if parent_id and track_version:
                 # 親の存在確認
                 parent_check = conn.execute("""
                     MATCH (parent:RequirementEntity {id: $parent_id})
@@ -302,12 +197,15 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                         "decision_id": parent_id
                     }
                 
+                # 親のLocationURIを取得して階層関係を作成
+                parent_uri = location_uri.rsplit('/', 1)[0]  # 親パスを推定
                 conn.execute("""
-                    MATCH (parent:RequirementEntity {id: $parent_id}), (child:RequirementEntity {id: $child_id})
-                    CREATE (parent)-[:PARENT_OF]->(child)
+                    MATCH (parent:LocationURI {id: $parent_uri})
+                    MATCH (child:LocationURI {id: $child_uri})
+                    MERGE (parent)-[:CONTAINS_LOCATION {relation_type: 'hierarchy'}]->(child)
                 """, {
-                    "parent_id": parent_id, 
-                    "child_id": decision["id"]
+                    "parent_uri": parent_uri, 
+                    "child_uri": location_uri
                 })
             
             return decision
@@ -536,8 +434,12 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     def find_ancestors(requirement_id: str, depth: int = 10) -> List[Dict]:
         """要件の祖先（親・祖父母など）を探索"""
         try:
+            # LocationURI階層を利用
             result = conn.execute(f"""
-                MATCH path = (child:RequirementEntity {{id: $id}})<-[:PARENT_OF*1..{depth}]-(ancestor:RequirementEntity)
+                MATCH (r:RequirementEntity {{id: $id}})
+                MATCH (l:LocationURI)-[:LOCATES_LocationURI_RequirementEntity]->(r)
+                MATCH path = (l)<-[:CONTAINS_LOCATION*1..{depth}]-(parent_l:LocationURI)
+                MATCH (parent_l)-[:LOCATES_LocationURI_RequirementEntity]->(ancestor:RequirementEntity)
                 RETURN DISTINCT ancestor, length(path) as distance
                 ORDER BY distance
             """, {"id": requirement_id})
@@ -571,8 +473,12 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     def find_children(requirement_id: str, depth: int = 10) -> List[Dict]:
         """要件の子孫（子・孫など）を探索"""
         try:
+            # LocationURI階層を利用
             result = conn.execute(f"""
-                MATCH path = (parent:RequirementEntity {{id: $id}})-[:PARENT_OF*1..{depth}]->(child:RequirementEntity)
+                MATCH (r:RequirementEntity {{id: $id}})
+                MATCH (l:LocationURI)-[:LOCATES_LocationURI_RequirementEntity]->(r)
+                MATCH path = (l)-[:CONTAINS_LOCATION*1..{depth}]->(child_l:LocationURI)
+                MATCH (child_l)-[:LOCATES_LocationURI_RequirementEntity]->(child:RequirementEntity)
                 RETURN DISTINCT child, length(path) as distance
                 ORDER BY distance, child.created_at DESC
             """, {"id": requirement_id})

@@ -6,9 +6,12 @@ from typing import List, Dict, Union, Optional, Any
 from .types import Decision, DecisionError
 
 
-class ConstraintViolationError(Dict):
+# ConstraintViolationError型定義（TypedDictとして）
+from typing import TypedDict
+
+class ConstraintViolationError(TypedDict):
     """制約違反エラー"""
-    type: str = "ConstraintViolationError"
+    type: str
     message: str
     constraint: str
     details: List[str]
