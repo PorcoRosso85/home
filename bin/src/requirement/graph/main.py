@@ -85,5 +85,93 @@ def main():
         }
         print(json.dumps(error_response, ensure_ascii=False))
 
+def test_main_階層違反クエリ_エラーレスポンスとスコアマイナス1():
+    """main_階層違反Cypherクエリ_適切なJSONエラーレスポンス"""
+    import io
+    import contextlib
+    
+    # 標準入力をモック
+    test_input = json.dumps({
+        "type": "cypher",
+        "query": """
+        CREATE (task:RequirementEntity {
+            id: 'test_task',
+            title: 'タスク実装'
+        }),
+        (vision:RequirementEntity {
+            id: 'test_vision',
+            title: 'ビジョン'
+        }),
+        (task)-[:DEPENDS_ON]->(vision)
+        """
+    })
+    
+    # 標準出力をキャプチャ
+    output = io.StringIO()
+    
+    # mainを実行（標準入出力を置き換え）
+    original_stdin = sys.stdin
+    original_stdout = sys.stdout
+    try:
+        sys.stdin = io.StringIO(test_input)
+        sys.stdout = output
+        main()
+    finally:
+        sys.stdin = original_stdin
+        sys.stdout = original_stdout
+    
+    # レスポンスを検証
+    response = json.loads(output.getvalue())
+    assert response["status"] == "error"
+    assert response["score"] == -1.0
+    assert "階層違反" in response["message"]
+    assert "階層ルールに従ってください" in response["suggestion"]
+
+
+def test_main_正常クエリ_KuzuDB実行へ進む():
+    """main_正常なCypherクエリ_階層検証を通過してDB実行へ"""
+    import io
+    
+    test_input = json.dumps({
+        "type": "cypher",
+        "query": """
+        CREATE (arch:RequirementEntity {
+            id: 'test_arch',
+            title: 'アーキテクチャ設計'
+        }),
+        (module:RequirementEntity {
+            id: 'test_module',
+            title: 'モジュール実装'
+        }),
+        (arch)-[:DEPENDS_ON]->(module)
+        """
+    })
+    
+    output = io.StringIO()
+    original_stdin = sys.stdin
+    original_stdout = sys.stdout
+    
+    try:
+        sys.stdin = io.StringIO(test_input)
+        sys.stdout = output
+        # 環境変数が未設定の場合のエラーハンドリングも含む
+        try:
+            main()
+        except EnvironmentError:
+            # 環境変数未設定は想定内
+            pass
+    finally:
+        sys.stdin = original_stdin
+        sys.stdout = original_stdout
+    
+    # 階層違反エラーが出ていないことを確認
+    output_str = output.getvalue()
+    if output_str:
+        response = json.loads(output_str)
+        # 階層違反以外のエラー（環境変数など）は許容
+        if response.get("message"):
+            assert "階層違反" not in response["message"]
+
+
 if __name__ == "__main__":
     main()
