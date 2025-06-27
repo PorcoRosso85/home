@@ -152,29 +152,3 @@ def test_apply_ddl_schema_スキーマなし_エラー処理():
         
     finally:
         sys.path[0] = original_path
-
-
-if __name__ == "__main__":
-    # コマンドライン引数の処理
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Apply DDL schema to KuzuDB")
-    parser.add_argument("--db-path", help="Database path")
-    parser.add_argument("--test-data", action="store_true", help="Create test data")
-    parser.add_argument("--run-tests", action="store_true", help="Run tests instead of applying schema")
-    
-    args = parser.parse_args()
-    
-    if args.run_tests:
-        print("Running apply_ddl_schema tests...")
-        
-        test_apply_ddl_schema_テスト環境_正常適用()
-        print("✓ test_apply_ddl_schema_テスト環境_正常適用")
-        
-        test_apply_ddl_schema_スキーマなし_エラー処理()
-        print("✓ test_apply_ddl_schema_スキーマなし_エラー処理")
-        
-        print("All tests passed!")
-    else:
-        # 実際のスキーマ適用
-        apply_ddl_schema(db_path=args.db_path, create_test_data=args.test_data)

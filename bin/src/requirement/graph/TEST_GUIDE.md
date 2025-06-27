@@ -6,48 +6,41 @@ requirement/graphプロジェクトのin-sourceテスト実行方法
 
 本プロジェクトは規約(CONVENTION.yaml)に従い、すべてのテストをin-source（実装ファイル内）に記述しています。
 
+**重要**: テストの実行は`uv run`コマンドのみで行います。
+
 ## テスト実行方法
 
-### 1. pytest（推奨）
+### uvコマンドによる実行（唯一の方法）
 
 ```bash
 # 全テスト実行
-bash run_pytest.sh
+uv run pytest
 
 # 詳細出力
-bash run_pytest.sh -v
+uv run pytest -v
 
 # 特定ディレクトリのみ
-bash run_pytest.sh infrastructure/
+uv run pytest infrastructure/
 
 # キーワード指定
-bash run_pytest.sh -k "階層違反"
+uv run pytest -k "階層違反"
 
 # 特定ファイル
-bash run_pytest.sh infrastructure/hierarchy_validator.py
+uv run pytest infrastructure/hierarchy_validator.py
+
+# 特定のテスト関数
+uv run pytest infrastructure/requirement_validator.py::test_曖昧な表現_速い_エラーと改善提案
 ```
 
-**メリット:**
-- パラメータ化テスト
-- フィクスチャ
-- より良いエラーレポート
-- 部分実行が容易
+### 環境変数
 
-### 2. unittest形式（pytest未インストール時）
-
-```bash
-# 全テスト実行
-python run_all_tests_with_env.py
-
-# 個別モジュール実行
-LD_LIBRARY_PATH=/nix/store/1n4957f86zjh8gv7j8a1ga1gx35naqqk-gcc-12.3.0-lib/lib \
-RGL_DB_PATH=./rgl_db \
-python -m requirement.graph.infrastructure.hierarchy_validator test
-```
+環境変数は`conftest.py`で自動設定されます：
+- `LD_LIBRARY_PATH`: KuzuDB用ライブラリパス
+- `RGL_DB_PATH`: データベースファイルパス
 
 ## テスト作成ガイドライン
 
-### pytest形式（新規推奨）
+### pytest形式（必須）
 
 ```python
 import pytest
@@ -75,45 +68,44 @@ class TestMyFeature:
         assert input * 2 == expected
 ```
 
-### unittest形式（後方互換性）
+### 禁止事項
 
-```python
-import unittest
+- `if __name__ == "__main__"`ブロック
+- `unittest.main()`の使用
+- 独自のテストランナー
+- pytest以外のテストフレームワーク
 
-def test_関数形式():
-    """unittest.main()で実行される"""
-    assert True
+## プロジェクト設定
 
-if __name__ == "__main__":
-    unittest.main()
+### pyproject.toml
+
+```toml
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["."]
+python_files = ["*.py"]
+python_functions = ["test_*"]
 ```
 
-## 環境変数
+### conftest.py
 
-以下の環境変数が必要です（run_pytest.shで自動設定）：
-
-- `LD_LIBRARY_PATH`: KuzuDB用ライブラリパス
-- `RGL_DB_PATH`: データベースファイルパス
-
-## テスト統計（2024年現在）
-
-- 総テスト数: 119個
-- pytest成功率: 86%（102/119）
-- 主要モジュール:
-  - hierarchy_validator.py: 12テスト
-  - requirement_validator.py: 13テスト
-  - main.py: 3テスト（DB統合テスト含む）
+自動的に以下を設定：
+- 環境変数
+- テスト収集時の除外ファイル
+- カスタムフィクスチャ
 
 ## トラブルシューティング
 
-### ImportError
-環境変数が設定されていません。run_pytest.shを使用してください。
+### uvコマンドが見つからない
 
-### pytest not found
-仮想環境をアクティベートしてください：
 ```bash
-source /home/nixos/bin/src/.venv/bin/activate
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
+### ImportError
+
+`conftest.py`が環境変数を自動設定するため、通常は発生しません。
+
 ### テストが見つからない
+
 in-sourceテストは`test_`で始まる関数名が必要です。

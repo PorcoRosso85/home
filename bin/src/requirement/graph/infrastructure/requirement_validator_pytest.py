@@ -167,19 +167,4 @@ def test_長い説明文_出力制限():
     assert len(result["errors"][0]) > 100  # エラーメッセージが長い
 
 
-if __name__ == "__main__":
-    # 通常のunittest形式も維持（後方互換性）
-    import unittest
-    
-    class TestRequirementValidatorUnittest(unittest.TestCase):
-        def test_unittest形式も動作(self):
-            validator = RequirementValidator()
-            result = validator.validate_clarity("速い処理")
-            self.assertFalse(result["is_valid"])
-    
-    # pytestがインストールされていればpytest、なければunittest
-    try:
-        import sys
-        sys.exit(pytest.main([__file__, "-v"]))
-    except:
-        unittest.main()
+# pytest専用 - uv runコマンドで実行

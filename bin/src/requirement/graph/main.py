@@ -247,25 +247,3 @@ def test_実DB統合_要件作成からクエリまで():
         query_response = json.loads(result.stdout)
         assert query_response["status"] == "success"
         assert query_response["data"][0][0] == "システムビジョン"
-
-
-if __name__ == "__main__":
-    # テスト実行モード判定
-    if len(sys.argv) > 1 and sys.argv[1] == "test":
-        import unittest
-        
-        # テストクラスを動的に作成
-        class TestRGLMain(unittest.TestCase):
-            def test_main_階層違反クエリ_エラーレスポンスとスコアマイナス1(self):
-                test_main_階層違反クエリ_エラーレスポンスとスコアマイナス1()
-            
-            def test_main_正常クエリ_KuzuDB実行へ進む(self):
-                test_main_正常クエリ_KuzuDB実行へ進む()
-            
-            def test_実DB統合_要件作成からクエリまで(self):
-                test_実DB統合_要件作成からクエリまで()
-        
-        # テスト実行
-        unittest.main(argv=[''], exit=False, verbosity=2)
-    else:
-        main()

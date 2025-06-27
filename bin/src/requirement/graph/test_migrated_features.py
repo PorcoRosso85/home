@@ -998,7 +998,3 @@ def calculate_parallel_schedule(
         "critical_path": critical_path,
         "parallel_tracks": parallel_tracks
     }
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

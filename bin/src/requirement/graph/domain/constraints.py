@@ -308,32 +308,3 @@ def test_セキュリティ要件なし_エラー():
     assert "セキュリティ要件が定義されていません" in result["error"]
     assert "認証方式" in result["suggestion"]
     assert "認可ルール" in result["suggestion"]
-
-
-if __name__ == "__main__":
-    import sys
-    import unittest
-    
-    if len(sys.argv) > 1 and sys.argv[1] == "test":
-        # テストクラスを動的に作成
-        class TestConstraints(unittest.TestCase):
-            def test_validate_no_circular_dependency_with_cycle_returns_error(self):
-                test_validate_no_circular_dependency_with_cycle_returns_error()
-            
-            def test_validate_no_circular_dependency_without_cycle_returns_true(self):
-                test_validate_no_circular_dependency_without_cycle_returns_true()
-            
-            def test_validate_max_depth_exceeded_returns_error(self):
-                test_validate_max_depth_exceeded_returns_error()
-            
-            def test_validate_implementation_completeness_partial_returns_status(self):
-                test_validate_implementation_completeness_partial_returns_status()
-            
-            def test_パフォーマンス要件なし_警告(self):
-                test_パフォーマンス要件なし_警告()
-            
-            def test_セキュリティ要件なし_エラー(self):
-                test_セキュリティ要件なし_エラー()
-        
-        # テスト実行
-        unittest.main(argv=[''], exit=False, verbosity=2)

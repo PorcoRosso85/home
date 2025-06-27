@@ -352,29 +352,3 @@ def test_rollback_適用済みスキーマ_ロールバック成功():
             pass  # Expected
         
         conn.close()
-
-
-if __name__ == "__main__":
-    print("Running DDL schema manager tests...")
-    
-    test_parse_cypher_statements_コメント除去_正しくパース()
-    print("✓ test_parse_cypher_statements_コメント除去_正しくパース")
-    
-    test_generate_drop_statement_各種CREATE_DROP生成()
-    print("✓ test_generate_drop_statement_各種CREATE_DROP生成")
-    
-    test_handle_duplicate_rel_tables_重複テーブル_リネーム()
-    print("✓ test_handle_duplicate_rel_tables_重複テーブル_リネーム")
-    
-    # 以下のテストはKuzuDB接続が必要
-    import os
-    if 'LD_LIBRARY_PATH' in os.environ:
-        test_apply_schema_正常系_スキーマ適用()
-        print("✓ test_apply_schema_正常系_スキーマ適用")
-        
-        test_rollback_適用済みスキーマ_ロールバック成功()
-        print("✓ test_rollback_適用済みスキーマ_ロールバック成功")
-    else:
-        print("⚠ Skipping KuzuDB tests (LD_LIBRARY_PATH not set)")
-    
-    print("DDL schema manager tests completed!")

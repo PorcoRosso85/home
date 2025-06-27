@@ -97,26 +97,3 @@ def test_定数_変更不可():
     
     # Pythonでは定数の変更を防ぐことはできないが、
     # 規約として大文字の変数は変更しない
-
-
-if __name__ == "__main__":
-    import sys
-    import unittest
-    
-    if len(sys.argv) > 1 and sys.argv[1] == "test":
-        # テストクラスを動的に作成
-        class TestVariables(unittest.TestCase):
-            def test__check_env_未設定時_明確なエラーメッセージ(self):
-                test__check_env_未設定時_明確なエラーメッセージ()
-            
-            def test_必須環境変数_設定時_正常に取得(self):
-                test_必須環境変数_設定時_正常に取得()
-            
-            def test_オプション環境変数_未設定時_デフォルト値(self):
-                test_オプション環境変数_未設定時_デフォルト値()
-            
-            def test_定数_変更不可(self):
-                test_定数_変更不可()
-        
-        # テスト実行
-        unittest.main(argv=[''], exit=False, verbosity=2)

@@ -486,20 +486,3 @@ def test_llm_hooks_api_suggest_action_要件なし_全体提案():
     assert len(suggestions) >= 2
     assert any(s["action"] == "find_incomplete" for s in suggestions)
     assert any(s["action"] == "check_circular_dependencies" for s in suggestions)
-
-
-if __name__ == "__main__":
-    test_llm_hooks_api_template_query_正常実行()
-    print("✓ test_llm_hooks_api_template_query_正常実行")
-    
-    test_llm_hooks_api_batch_query_複数実行()
-    print("✓ test_llm_hooks_api_batch_query_複数実行")
-    
-    test_llm_hooks_api_cypher_query_検証あり_実行()
-    print("✓ test_llm_hooks_api_cypher_query_検証あり_実行")
-    
-    test_llm_hooks_api_procedure_call_スコア計算()
-    print("✓ test_llm_hooks_api_procedure_call_スコア計算")
-    
-    test_llm_hooks_api_suggest_action_要件なし_全体提案()
-    print("✓ test_llm_hooks_api_suggest_action_要件なし_全体提案")

@@ -505,35 +505,3 @@ def test_重複要件_同一内容別表現_エラー():
     assert result["score"] == -0.8
     assert "完全な重複" in result["message"]
     assert "統合が必要" in result["suggestion"]
-
-
-if __name__ == "__main__":
-    import sys
-    import unittest
-    
-    if len(sys.argv) > 1 and sys.argv[1] == "test":
-        # テストクラスを動的に作成
-        class TestRequirementService(unittest.TestCase):
-            def test_requirement_service_create_with_dependencies_returns_saved(self):
-                test_requirement_service_create_with_dependencies_returns_saved()
-            
-            def test_requirement_service_analyze_impact_returns_affected_list(self):
-                test_requirement_service_analyze_impact_returns_affected_list()
-            
-            def test_create_requirement_hierarchy_creates_parent_of_relation(self):
-                test_create_requirement_hierarchy_creates_parent_of_relation()
-            
-            def test_find_abstract_requirement_from_implementation_returns_vision(self):
-                test_find_abstract_requirement_from_implementation_returns_vision()
-            
-            def test_hierarchy_depth_limit_prevents_deep_nesting(self):
-                test_hierarchy_depth_limit_prevents_deep_nesting()
-            
-            def test_重複要件_類似度90パーセント以上_警告(self):
-                test_重複要件_類似度90パーセント以上_警告()
-            
-            def test_重複要件_同一内容別表現_エラー(self):
-                test_重複要件_同一内容別表現_エラー()
-        
-        # テスト実行
-        unittest.main(argv=[''], exit=False, verbosity=2)

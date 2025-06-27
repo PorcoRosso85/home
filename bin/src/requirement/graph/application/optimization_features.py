@@ -412,16 +412,3 @@ def test_calculate_foundation_priority_共通基盤_高スコア():
     
     assert scores["common"] > scores["A"]
     assert scores["common"] > scores["B"]
-
-
-if __name__ == "__main__":
-    test_optimize_implementation_order_レイヤー順序_正しく並ぶ()
-    print("✓ test_optimize_implementation_order_レイヤー順序_正しく並ぶ")
-    
-    test_find_critical_path_ダイヤモンド_最長パス()
-    print("✓ test_find_critical_path_ダイヤモンド_最長パス")
-    
-    test_calculate_foundation_priority_共通基盤_高スコア()
-    print("✓ test_calculate_foundation_priority_共通基盤_高スコア")
-    
-    print("All optimization features tests passed!")
