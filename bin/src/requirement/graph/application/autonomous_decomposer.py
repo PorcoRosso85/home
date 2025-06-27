@@ -233,19 +233,23 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
         """階層的分解（抽象から具体へ）"""
         sub_requirements = []
         
-        # 階層レベルをIDから推定 (TODO: RELATIONで判定)
-        req_id = requirement.get("id", "")
-        is_l0 = "L0" in req_id or "vision" in requirement.get("title", "").lower()
-        is_l1 = "L1" in req_id or "architecture" in requirement.get("title", "").lower()
+        # 要件の深さに基づいて分解戦略を決定
+        # 深さ0-1: 高レベルアーキテクチャ分解
+        # 深さ2-3: 中レベル設計分解
+        # 深さ4+: 詳細実装分解
         
-        if is_l0:
-            # L0 -> L1レベルの分解
+        # 親要件の深さを推定（本来はRELATIONで判定）
+        # TODO: repository.get_depth(requirement_id) で実際の深さを取得
+        depth = 0  # デフォルト深さ
+        
+        if depth <= 1:
+            # 高レベル分解
             aspects = ["architecture", "implementation", "testing", "deployment", "monitoring"]
-        elif is_l1:
-            # L1 -> L2レベルの分解
+        elif depth <= 3:
+            # 中レベル分解
             aspects = ["design", "development", "validation", "integration"]
         else:
-            # 一般的な機能分解
+            # 詳細分解
             aspects = ["core", "interface", "data", "security", "performance"]
         
         # 必要な数だけ選択
@@ -257,14 +261,8 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
                 "title": f"{requirement['title']} - {aspect.capitalize()}",
                 "description": f"{aspect.capitalize()} aspects of {requirement['description']}",
                 "status": "proposed",
-                "hierarchy_level": aspect  # TODO: RELATIONで表現
+                "decomposition_aspect": aspect
             }
-            
-            # 階層情報を設定
-            if is_l0:
-                sub_req["hierarchy_level"] = f"L1_{aspect}"
-            elif is_l1:
-                sub_req["hierarchy_level"] = f"L2_{aspect}"
                 
             sub_requirements.append(sub_req)
         
@@ -434,10 +432,10 @@ def test_decompose_requirement_hierarchical_creates_children():
     assert result["decomposed_count"] == 5
     assert len(saved_requirements) == 5
     
-    # L0 -> L1への分解を確認
+    # 親から子への分解を確認
     for req, parent_id in saved_requirements:
         assert parent_id == "req_001"
-        assert "L1_" in req.get("hierarchy_level", "")
+        assert any(aspect in req.get("decomposition_aspect", "") for aspect in ["architecture", "implementation", "testing", "deployment", "monitoring"])
 
 
 def test_analyze_decomposition_quality_calculates_metrics():

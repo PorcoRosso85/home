@@ -36,8 +36,8 @@ def parse_location_uri(uri: str) -> Dict[str, str]:
     Returns:
         {
             "scheme": "req",
-            "path": "/L0/vision/req_001",
-            "hierarchy": ["L0", "vision"],
+            "path": "/rgl/requirements/req_001",
+            "hierarchy": ["rgl", "requirements"],
             "id": "req_001"
         }
     """

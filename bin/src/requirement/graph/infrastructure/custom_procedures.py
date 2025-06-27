@@ -369,7 +369,7 @@ class CustomProcedures:
         
         # 戦略に基づいて分解案を生成
         if strategy == "hierarchical":
-            # L0 → L1 への分解
+            # 親要件から子要件への階層的分解
             aspects = ["architecture", "implementation", "testing"]
             for i, aspect in enumerate(aspects[:target_count]):
                 suggestions.append({

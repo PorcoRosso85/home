@@ -193,21 +193,10 @@ def create_requirement_service(repository: RequirementRepository):
         return repository["find_children"](requirement_id, depth)
     
     def find_abstract_requirement(requirement_id: str) -> Dict:
-        """具体的な要件がどの抽象的な要件のためのものかを探索"""
+        """具体的な要件がどの抽象的な要件（ルート要件）を探索"""
         ancestors = repository["find_ancestors"](requirement_id, 10)
         
-        # 最も抽象的な要件（L0タグを持つもの）を探す
-        for ancestor in ancestors:
-            req = ancestor["requirement"]
-            # TODO: L0判定をRELATIONで実装
-            if "L0" in req.get("id", ""):
-                return {
-                    "abstract_requirement": req,
-                    "path_length": ancestor["distance"],
-                    "found": True
-                }
-        
-        # L0が見つからなければ最も遠い祖先を返す
+        # 最も遠い祖先（ルート要件）を返す
         if ancestors:
             return {
                 "abstract_requirement": ancestors[-1]["requirement"],
@@ -394,25 +383,25 @@ def test_hierarchy_depth_limit_prevents_deep_nesting():
         service = create_requirement_service(repo)
         
         # 5階層まで作成
-        l0 = service["create_requirement"](
-            title="L0", description="Level 0"        )
+        level0 = service["create_requirement"](
+            title="Vision", description="Top level vision"        )
         
-        l1 = service["create_requirement"](
-            title="L1", description="Level 1", parent_id=l0["id"]        )
+        level1 = service["create_requirement"](
+            title="Architecture", description="System architecture", parent_id=level0["id"]        )
         
-        l2 = service["create_requirement"](
-            title="L2", description="Level 2", parent_id=l1["id"]        )
+        level2 = service["create_requirement"](
+            title="Module Design", description="Module level design", parent_id=level1["id"]        )
         
-        l3 = service["create_requirement"](
-            title="L3", description="Level 3", parent_id=l2["id"]        )
+        level3 = service["create_requirement"](
+            title="Component", description="Component implementation", parent_id=level2["id"]        )
         
-        l4 = service["create_requirement"](
-            title="L4", description="Level 4", parent_id=l3["id"]        )
+        level4 = service["create_requirement"](
+            title="Detailed Task", description="Detailed implementation task", parent_id=level3["id"]        )
         
         # 6階層目はエラー
-        l5_result = service["create_requirement"](
-            title="L5", description="Level 5", parent_id=l4["id"]        )
+        level5_result = service["create_requirement"](
+            title="Sub-task", description="Too deep sub-task", parent_id=level4["id"]        )
         
-        assert l5_result["type"] == "ConstraintViolationError"
-        assert l5_result["constraint"] == "max_depth"
-        assert "exceed" in l5_result["message"].lower()
+        assert level5_result["type"] == "ConstraintViolationError"
+        assert level5_result["constraint"] == "max_depth"
+        assert "exceed" in level5_result["message"].lower()

@@ -182,14 +182,14 @@ def test_validate_no_circular_dependency_without_cycle_returns_true():
 def test_validate_max_depth_exceeded_returns_error():
     """validate_max_depth_深さ超過_エラーを返す"""
     hierarchy = {
-        "L4": "L3",
-        "L3": "L2",
-        "L2": "L1",
-        "L1": "L0"
+        "req_004": "req_003",
+        "req_003": "req_002",
+        "req_002": "req_001",
+        "req_001": "req_000"
     }
     
-    # L5 -> L4 で深さ5を超える
-    result = validate_max_depth("L5", "L4", hierarchy, max_depth=5)
+    # req_005 -> req_004 で深さ5を超える
+    result = validate_max_depth("req_005", "req_004", hierarchy, max_depth=5)
     
     assert isinstance(result, dict)
     assert result["type"] == "ConstraintViolationError"
