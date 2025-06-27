@@ -1,96 +1,41 @@
-# Claude SDK POC
+# Claude Continue
 
-Claude Code Max Subscriptionでの動作確認用POC（Python & TypeScript）
+Minimal Claude CLI wrapper with automatic session continuation.
 
-## 概要
-
-このPOCは、Claude Code環境でAPIキー不要でClaude SDKを使用できることを確認するためのものです。
-
-## Python POC
-
-### セットアップ
+## Usage
 
 ```bash
-cd bin/src/poc/claude_sdk
-uv sync
+# Both --uri and --print are required
+tsx claude.ts --uri <directory> --print <prompt>
+
+# Examples
+tsx claude.ts --uri .claude --print "say hello"
+tsx claude.ts --uri /tmp/session --print "what's 2+2?"
+
+# Via npm
+npm run claude -- --uri .claude --print "your prompt"
 ```
 
-### 実行方法
+## Features
 
-#### 基本的な使用例
-```bash
-uv run python main.py
-```
+- Always uses `--output-format stream-json --verbose`
+- Automatically adds `--continue` when session exists
+- Saves conversation history to `<uri>/session.json`
+- Saves stream output to `<uri>/stream.jsonl` (append mode)
+- Maintains last 6 exchanges as context
+- **Sets Claude Code's working directory (cwd) to the `--uri` path**
+- **Each directory maintains its own independent session**
 
-#### 高度な使用例（ストリーミング、非同期、ツール使用）
-```bash
-uv run python advanced_example.py
-```
+## Arguments
 
-#### Claude Code SDK経由のテスト
-```bash
-uv run python test_sdk_cli.py
-```
+- `--uri <directory>` - Required. Directory for session storage AND Claude's working directory
+- `--print <prompt>` - Required. Your prompt to Claude
 
-## TypeScript POC
+## Files Created
 
-### 機能
+- `<uri>/session.json` - Conversation history
+- `<uri>/stream.jsonl` - Raw JSON stream (one JSON per line)
 
-1. ✅ **セッション継続機能** (--continueのような機能)
-   - セッション履歴の保存・読み込み
-   - コンテキストを保持した会話の継続
+## Implementation
 
-2. ✅ **リアルタイムstream-json解析**
-   - ストリーミングレスポンスのリアルタイム処理
-   - 文字単位での表示とパフォーマンス測定
-
-3. ✅ **SDKへのリクエスト送信**
-   - 柔軟なオプション設定
-   - エラーハンドリングと中断制御
-
-### セットアップ
-
-```bash
-cd bin/src/poc/claude_sdk
-npm install
-```
-
-### 実行方法
-
-#### 統合デモ（全機能）
-```bash
-npm start
-```
-
-#### ストリーミング特化デモ
-```bash
-npm run stream-demo
-```
-
-#### セッション管理デモ
-```bash
-npm run session-demo
-```
-
-### TypeScriptファイル構成
-
-```
-src/
-├── main.ts         # 統合デモ（全機能実装）
-├── stream-demo.ts  # ストリーミング特化デモ
-└── session-demo.ts # セッション管理デモ
-```
-
-## 重要な発見
-
-### Python
-- 直接のAnthropic SDK: APIキーが必要（環境変数なしでは動作しない）
-- Claude Code SDK: Claude Code CLI経由で動作し、APIキー不要（CLIが認証を処理）
-
-### TypeScript
-- `@anthropic-ai/claude-code`パッケージはCLIツールのみ
-- SDKとして使用する場合も、内部でsubprocessを使ってCLIを呼び出す
-
-### 結論
-- どちらの言語でも、Claude Code使用時はCLI経由（subprocess）が必須
-- APIキーなしでClaude Codeを使うには、CLI経由が唯一の方法
+Single file: `claude.ts` (191 lines)
