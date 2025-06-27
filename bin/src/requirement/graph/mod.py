@@ -79,6 +79,7 @@ from .infrastructure.jsonl_repository import create_jsonl_repository
 from .infrastructure.cli_adapter import create_cli_adapter
 from .infrastructure.apply_ddl_schema import apply_ddl_schema
 from .infrastructure.ddl_schema_manager import DDLSchemaManager
+from .infrastructure.hierarchy_validator import HierarchyValidator
 
 __all__ = [
     # Domain
@@ -110,5 +111,6 @@ __all__ = [
     "create_jsonl_repository",
     "create_cli_adapter",
     "apply_ddl_schema",
-    "DDLSchemaManager"
+    "DDLSchemaManager",
+    "HierarchyValidator"
 ]

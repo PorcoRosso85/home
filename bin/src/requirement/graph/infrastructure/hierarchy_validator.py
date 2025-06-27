@@ -5,6 +5,7 @@ Hierarchy Validator - 階層ルールの検証と強制
 """
 from typing import Dict, Tuple, Optional, List
 import re
+import sys
 
 
 class HierarchyValidator:
@@ -19,8 +20,31 @@ class HierarchyValidator:
         4: {"name": "task", "keywords": ["タスク", "task", "実装"]}
     }
     
+    def detect_hierarchy_level_from_title(self, title: str) -> Optional[int]:
+        """タイトルから階層レベルを推定"""
+        title_lower = title.lower()
+        for level, definition in self.HIERARCHY_DEFINITIONS.items():
+            for keyword in definition["keywords"]:
+                if keyword.lower() in title_lower:
+                    return level
+        return None
+    
     def validate_hierarchy_constraints(self, cypher: str) -> Dict:
-        """階層制約を検証"""
+        """
+        階層制約を検証
+        
+        Args:
+            cypher: 検証対象のCypherクエリ文字列
+            
+        Returns:
+            Dict: {
+                "is_valid": bool,  # 検証成功かどうか
+                "score": float,    # -1.0（違反）〜0.0（正常）
+                "error": str,      # エラーメッセージ（違反時）
+                "warning": str,    # 警告メッセージ（非推奨時）
+                "details": List[str]  # 詳細情報
+            }
+        """
         result = {
             "is_valid": True,
             "score": 0.0,
@@ -28,6 +52,7 @@ class HierarchyValidator:
             "warning": None,
             "details": []
         }
+        
         
         # 1. 親子関係の階層レベルチェック - 複数パターンに対応
         # パターン1: 変数名にparent/childが含まれる場合
@@ -80,7 +105,66 @@ class HierarchyValidator:
                 result["details"].append(f"Level {parent_level} cannot be parent of Level {child_level}")
                 return result
         
-        # 2. タイトルと階層レベルの整合性チェック
+        # 2. タイトルベースの階層違反チェック（新規実装）
+        # CREATE文でDEPENDS_ONの関係を作成する場合
+        # 複数行にまたがるCREATE文にも対応
+        create_depends = re.search(
+            r"\((\w+)\)-\[:DEPENDS_ON\]->\((\w+)\)",
+            cypher,
+            re.DOTALL | re.MULTILINE
+        )
+        
+        if create_depends:
+            
+            # 各エンティティの情報を抽出
+            entities = {}
+            
+            # パターン: (var:Type {properties})
+            entity_pattern = r"\((\w+):\w+\s*\{([^}]+)\}\)"
+            for match in re.finditer(entity_pattern, cypher):
+                var_name = match.group(1)
+                props_str = match.group(2)
+                
+                # titleプロパティを抽出
+                title_match = re.search(r"title:\s*['\"]([^'\"]+)['\"]", props_str)
+                if title_match:
+                    title = title_match.group(1)
+                    entities[var_name] = {
+                        "title": title,
+                        "level": self.detect_hierarchy_level_from_title(title)
+                    }
+            
+            # DEPENDS_ON関係の親子を特定
+            parent_var = create_depends.group(1).strip()
+            child_var = create_depends.group(2).strip()
+            
+            if parent_var in entities and child_var in entities:
+                parent_info = entities[parent_var]
+                child_info = entities[child_var]
+                
+                if parent_info["level"] is not None and child_info["level"] is not None:
+                    # 階層違反チェック: 下位が上位に依存することはできない
+                    if parent_info["level"] > child_info["level"]:
+                        result["is_valid"] = False
+                        result["score"] = -1.0
+                        result["error"] = "階層違反"
+                        result["details"].append(
+                            f"{parent_info['title']}(Level {parent_info['level']})が"
+                            f"{child_info['title']}(Level {child_info['level']})に依存しています。"
+                            f"下位階層は上位階層に依存できません。"
+                        )
+                        
+            # 自己参照チェック
+            if parent_var == child_var:
+                result["is_valid"] = False
+                result["score"] = -1.0
+                result["error"] = "自己参照エラー"
+                result["details"].append(
+                    f"ノード'{parent_var}'が自分自身に依存しています。"
+                    f"自己参照は許可されていません。"
+                )
+        
+        # 3. タイトルと階層レベルの整合性チェック（既存）
         title_match = re.search(r"title:\s*'([^']+)'.*?hierarchy_level:\s*(\d+)", cypher, re.DOTALL)
         
         if title_match:
@@ -192,52 +276,83 @@ def test_detect_hierarchy_level_from_context_タイトル解析_レベル推定(
         assert level == expected_level
 
 
-def test_integration_with_llm_hooks_api_階層違反_負のスコア返却():
-    """integration_llm_hooks_api_階層違反時_負のスコアとエラーを返す"""
-    # LLM Hooks APIモックを準備
-    from .llm_hooks_api import create_llm_hooks_api
-    
-    class MockRepository:
-        def __init__(self):
-            self.db = self
-            
-        def connect(self):
-            return MockConnection()
-    
-    class MockConnection:
-        def execute(self, query, params=None):
-            return MockResult()
-    
-    class MockResult:
-        def has_next(self):
-            return False
-            
-        def get_next(self):
-            return []
-    
-    # 階層検証を統合したLLM Hooks APIを作成
-    mock_repo = {"db": MockRepository(), "connection": MockConnection()}
-    api = create_llm_hooks_api(mock_repo)
-    
-    # 階層違反するCypherクエリ
-    request = {
-        "type": "cypher",
-        "query": """
-        MATCH (task:RequirementEntity {hierarchy_level: 4})
-        MATCH (vision:RequirementEntity {hierarchy_level: 0})
-        CREATE (task)-[:PARENT_OF]->(vision)
-        """,
-        "validate_hierarchy": True
-    }
-    
-    # 階層検証機能を追加（実際の統合では llm_hooks_api.py に実装）
+def test_階層違反_タスクがビジョンの親_エラーとスコアマイナス1():
+    """階層違反検出_タスクがビジョンに依存_エラーとペナルティスコア"""
     validator = HierarchyValidator()
-    hierarchy_result = validator.validate_hierarchy_constraints(request["query"])
     
-    # デバッグ用出力
-    # print(f"Validation result: {hierarchy_result}")
+    # タスク実装（Level 4）がビジョン（Level 0）に依存する違反ケース
+    cypher = """
+    CREATE (parent:RequirementEntity {
+        id: 'test_parent_task',
+        title: 'タスク実装',
+        description: '具体的なタスク',
+        priority: 'medium',
+        requirement_type: 'functional',
+        verification_required: true
+    }),
+    (child:RequirementEntity {
+        id: 'test_child_vision', 
+        title: 'ビジョン',
+        description: '上位ビジョン',
+        priority: 'high',
+        requirement_type: 'functional',
+        verification_required: true
+    }),
+    (parent)-[:DEPENDS_ON]->(child)
+    """
     
-    # 階層違反の検証
-    assert hierarchy_result["is_valid"] == False
-    assert hierarchy_result["score"] == -1.0
-    assert "階層違反" in hierarchy_result["error"]
+    result = validator.validate_hierarchy_constraints(cypher)
+    
+    # 階層違反が検出される
+    assert result["is_valid"] == False
+    assert result["score"] == -1.0
+    assert result["error"] == "階層違反"
+    assert "タスク実装(Level 4)がビジョン(Level 0)に依存" in str(result["details"])
+
+
+def test_自己参照_同一ノード間の依存_エラーとスコアマイナス1():
+    """自己参照検出_同じノードが自分に依存_エラーとペナルティスコア"""
+    validator = HierarchyValidator()
+    
+    cypher = """
+    CREATE (r:RequirementEntity {id: 'self_ref_test'}),
+    (r)-[:DEPENDS_ON]->(r)
+    """
+    
+    result = validator.validate_hierarchy_constraints(cypher)
+    
+    # 自己参照が検出される
+    assert result["is_valid"] == False
+    assert result["score"] == -1.0
+    assert result["error"] == "自己参照エラー"
+    assert "自分自身に依存" in str(result["details"])
+
+
+def test_正常な階層依存_上位が下位に依存_成功():
+    """正常な階層_上位階層が下位階層に依存_エラーなし"""
+    validator = HierarchyValidator()
+    
+    cypher = """
+    CREATE (arch:RequirementEntity {
+        id: 'test_arch',
+        title: 'アーキテクチャ設計',
+        description: 'システムアーキテクチャ'
+    }),
+    (module:RequirementEntity {
+        id: 'test_module',
+        title: 'モジュール実装',
+        description: '機能モジュール'
+    }),
+    (arch)-[:DEPENDS_ON]->(module)
+    """
+    
+    result = validator.validate_hierarchy_constraints(cypher)
+    
+    # エラーなし
+    assert result["is_valid"] == True
+    assert result["score"] == 0.0
+    assert result["error"] is None
+
+
+# 実際のKuzuDBを使った統合テストが必要な場合は、
+# in-memory KuzuDBインスタンスを作成して使用する
