@@ -1,19 +1,10 @@
 {
-  "name": "claude-sdk-ts-poc",
-  "version": "1.0.0",
-  "description": "Claude Code SDK TypeScript POC with session continuation and streaming",
-  "type": "module",
+  "name": "claude-continue",
   "scripts": {
-    "claude": "tsx src/claudeContinue.ts",
-    "test": "tsx --test src/sessionManager.ts",
-    "test:py": "cd . && python -m pytest session.py -v"
-  },
-  "dependencies": {
-    "@anthropic-ai/claude-code": "*"
+    "claude": "tsx claude.ts",
+    "test": "NODE_TEST=1 tsx claude.ts"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
     "tsx": "^4.0.0"
   }
 }
