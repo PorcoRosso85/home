@@ -173,5 +173,99 @@ def test_main_正常クエリ_KuzuDB実行へ進む():
             assert "階層違反" not in response["message"]
 
 
+def test_実DB統合_要件作成からクエリまで():
+    """実DB統合_要件作成と取得_エンドツーエンドで動作確認"""
+    import tempfile
+    import subprocess
+    
+    # テスト用の一時DBディレクトリ
+    with tempfile.TemporaryDirectory() as temp_db:
+        # 環境変数設定
+        env = os.environ.copy()
+        env['RGL_DB_PATH'] = temp_db
+        env['LD_LIBRARY_PATH'] = os.environ.get('LD_LIBRARY_PATH', '')
+        
+        # 1. スキーマ初期化
+        schema_cmd = [
+            sys.executable, '-m', 
+            'requirement.graph.infrastructure.apply_ddl_schema'
+        ]
+        result = subprocess.run(
+            schema_cmd, 
+            env=env, 
+            capture_output=True, 
+            text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        )
+        assert result.returncode == 0, f"Schema init failed: {result.stderr}"
+        
+        # 2. 要件を作成
+        create_input = json.dumps({
+            "type": "cypher",
+            "query": """
+                CREATE (vision:RequirementEntity {
+                    id: 'test_vision_db',
+                    title: 'システムビジョン',
+                    description: 'テスト用ビジョン',
+                    priority: 'high',
+                    requirement_type: 'functional',
+                    verification_required: true
+                })
+            """
+        })
+        
+        main_cmd = [sys.executable, '-m', 'requirement.graph.main']
+        result = subprocess.run(
+            main_cmd,
+            input=create_input,
+            env=env,
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        )
+        assert result.returncode == 0, f"Create failed: {result.stderr}"
+        
+        create_response = json.loads(result.stdout)
+        assert create_response["status"] == "success", f"Create failed: {create_response}"
+        
+        # 3. 作成した要件を取得
+        query_input = json.dumps({
+            "type": "cypher",
+            "query": "MATCH (r:RequirementEntity {id: 'test_vision_db'}) RETURN r.title"
+        })
+        
+        result = subprocess.run(
+            main_cmd,
+            input=query_input,
+            env=env,
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        )
+        assert result.returncode == 0, f"Query failed: {result.stderr}"
+        
+        query_response = json.loads(result.stdout)
+        assert query_response["status"] == "success"
+        assert query_response["data"][0][0] == "システムビジョン"
+
+
 if __name__ == "__main__":
-    main()
+    # テスト実行モード判定
+    if len(sys.argv) > 1 and sys.argv[1] == "test":
+        import unittest
+        
+        # テストクラスを動的に作成
+        class TestRGLMain(unittest.TestCase):
+            def test_main_階層違反クエリ_エラーレスポンスとスコアマイナス1(self):
+                test_main_階層違反クエリ_エラーレスポンスとスコアマイナス1()
+            
+            def test_main_正常クエリ_KuzuDB実行へ進む(self):
+                test_main_正常クエリ_KuzuDB実行へ進む()
+            
+            def test_実DB統合_要件作成からクエリまで(self):
+                test_実DB統合_要件作成からクエリまで()
+        
+        # テスト実行
+        unittest.main(argv=[''], exit=False, verbosity=2)
+    else:
+        main()

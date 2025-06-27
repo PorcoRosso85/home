@@ -163,6 +163,71 @@ class HierarchyValidator:
                     f"ノード'{parent_var}'が自分自身に依存しています。"
                     f"自己参照は許可されていません。"
                 )
+                
+        # 3. 間接的循環参照チェック（A→B→C→A）
+        # CREATE文から全ての依存関係を抽出
+        dependencies = []
+        depends_pattern = re.findall(
+            r"\((\w+)\)-\[:DEPENDS_ON\]->\((\w+)\)",
+            cypher
+        )
+        
+        for from_var, to_var in depends_pattern:
+            # 各変数のIDを取得
+            from_id = None
+            to_id = None
+            
+            # CREATE文からIDを抽出
+            for var_name, entity_info in entities.items():
+                # IDパターンを探す
+                id_match = re.search(
+                    rf"\({var_name}:[^{{]*\{{[^}}]*id:\s*['\"]([^'\"]+)['\"]",
+                    cypher
+                )
+                if id_match:
+                    if var_name == from_var:
+                        from_id = id_match.group(1)
+                    elif var_name == to_var:
+                        to_id = id_match.group(1)
+            
+            if from_id and to_id:
+                dependencies.append((from_id, to_id))
+        
+        # 循環参照の検出（深さ優先探索）
+        def find_cycle(graph, start, current, visited, path):
+            """循環を検出し、循環パスを返す"""
+            if current == start and len(path) > 1:
+                return path + [start]
+            
+            if current in visited:
+                return None
+            
+            visited.add(current)
+            
+            for from_id, to_id in graph:
+                if from_id == current:
+                    cycle = find_cycle(graph, start, to_id, visited.copy(), path + [current])
+                    if cycle:
+                        return cycle
+            
+            return None
+        
+        # 各ノードから循環をチェック
+        all_nodes = set()
+        for from_id, to_id in dependencies:
+            all_nodes.add(from_id)
+            all_nodes.add(to_id)
+        
+        for node in all_nodes:
+            cycle = find_cycle(dependencies, node, node, set(), [])
+            if cycle and len(cycle) > 2:  # 自己参照でない循環
+                result["is_valid"] = False
+                result["score"] = -1.0
+                result["error"] = "循環参照"
+                cycle_str = " → ".join(cycle)
+                result["details"].append(
+                    f"循環参照が検出されました: {cycle_str}"
+                )
         
         # 3. タイトルと階層レベルの整合性チェック（既存）
         title_match = re.search(r"title:\s*'([^']+)'.*?hierarchy_level:\s*(\d+)", cypher, re.DOTALL)
@@ -402,5 +467,85 @@ def test_MATCH後のCREATE_既存ノードとの関係で階層違反():
     # 将来的な拡張のためのテストケース
 
 
+def test_間接的循環参照_AからBからCからA_検出():
+    """間接的循環参照_3段階の循環_エラーとペナルティスコア"""
+    validator = HierarchyValidator()
+    
+    # A→B→C→Aの循環を作るクエリ
+    cypher = """
+    CREATE (a:RequirementEntity {id: 'req_a', title: 'モジュールA'}),
+           (b:RequirementEntity {id: 'req_b', title: 'モジュールB'}),
+           (c:RequirementEntity {id: 'req_c', title: 'モジュールC'}),
+           (a)-[:DEPENDS_ON]->(b),
+           (b)-[:DEPENDS_ON]->(c),
+           (c)-[:DEPENDS_ON]->(a)
+    """
+    
+    result = validator.validate_hierarchy_constraints(cypher)
+    
+    # 循環参照が検出される
+    assert result["is_valid"] == False
+    assert result["score"] == -1.0
+    assert "循環参照" in result["error"]
+    assert "req_a → req_b → req_c → req_a" in str(result["details"])
+
+
+def test_要件の曖昧性_具体化プロセス():
+    """要望の曖昧性_対話的に具体化_測定可能な要件に変換"""
+    # TODO: 新しいモジュールrequirement_clarifier.pyが必要
+    # 1. 曖昧な表現の検出
+    # 2. 質問生成
+    # 3. 回答から具体的な要件生成
+    pass
+
+
+def test_重複要件検出_embedding類似度():
+    """重複要件_embedding類似度計算_マージ提案"""
+    # TODO: embedding比較機能の実装
+    # domain/embedder.pyの活用
+    pass
+
+
 # 実際のKuzuDBを使った統合テストが必要な場合は、
 # in-memory KuzuDBインスタンスを作成して使用する
+
+
+if __name__ == "__main__":
+    import sys
+    import unittest
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "test":
+        # テストクラスを動的に作成
+        class TestHierarchyValidator(unittest.TestCase):
+            def test_validate_hierarchy_rule_parent_child_level_違反検出_エラーとペナルティ(self):
+                test_validate_hierarchy_rule_parent_child_level_違反検出_エラーとペナルティ()
+            
+            def test_validate_hierarchy_rule_title_level_mismatch_不整合検出_警告(self):
+                test_validate_hierarchy_rule_title_level_mismatch_不整合検出_警告()
+            
+            def test_enforce_hierarchy_constraint_PARENT_OF作成_制約追加(self):
+                test_enforce_hierarchy_constraint_PARENT_OF作成_制約追加()
+            
+            def test_detect_hierarchy_level_from_context_タイトル解析_レベル推定(self):
+                test_detect_hierarchy_level_from_context_タイトル解析_レベル推定()
+            
+            def test_階層違反_タスクがビジョンの親_エラーとスコアマイナス1(self):
+                test_階層違反_タスクがビジョンの親_エラーとスコアマイナス1()
+            
+            def test_自己参照_同一ノード間の依存_エラーとスコアマイナス1(self):
+                test_自己参照_同一ノード間の依存_エラーとスコアマイナス1()
+            
+            def test_正常な階層依存_上位が下位に依存_成功(self):
+                test_正常な階層依存_上位が下位に依存_成功()
+            
+            def test_複数CREATE文_各文を個別に検証(self):
+                test_複数CREATE文_各文を個別に検証()
+            
+            def test_MATCH後のCREATE_既存ノードとの関係で階層違反(self):
+                test_MATCH後のCREATE_既存ノードとの関係で階層違反()
+            
+            def test_間接的循環参照_AからBからCからA_検出(self):
+                test_間接的循環参照_AからBからCからA_検出()
+        
+        # テスト実行
+        unittest.main(argv=[''], exit=False, verbosity=2)
