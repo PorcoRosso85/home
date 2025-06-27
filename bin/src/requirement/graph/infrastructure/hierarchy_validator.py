@@ -196,7 +196,6 @@ def test_integration_with_llm_hooks_api_階層違反_負のスコア返却():
     """integration_llm_hooks_api_階層違反時_負のスコアとエラーを返す"""
     # LLM Hooks APIモックを準備
     from .llm_hooks_api import create_llm_hooks_api
-    from .query_validator import QueryValidator
     
     class MockRepository:
         def __init__(self):

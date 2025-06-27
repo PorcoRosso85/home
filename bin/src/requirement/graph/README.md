@@ -5,8 +5,16 @@ LLM専用の要件管理システム。階層ルールを強制し、フィー�
 ## 使い方（これ以外は使わない）
 
 ```bash
-echo '{"type": "cypher", "query": "CREATE ..."}' | LD_LIBRARY_PATH=/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/ python run.py
+echo '{"type": "cypher", "query": "CREATE ..."}' | \
+  LD_LIBRARY_PATH=/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/ \
+  RGL_DB_PATH=./rgl_db \
+  python run.py
 ```
+
+## 必須環境変数
+
+- `LD_LIBRARY_PATH`: KuzuDB用のライブラリパス
+- `RGL_DB_PATH`: データベースファイルのパス
 
 ## フィードバックループ
 

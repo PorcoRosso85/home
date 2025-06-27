@@ -9,9 +9,13 @@ Requirement Graph - LLM専用エントリーポイント
 """
 import sys
 import json
-from infrastructure.llm_hooks_api import create_llm_hooks_api
-from infrastructure.kuzu_repository import create_kuzu_repository
-from infrastructure.hierarchy_validator import HierarchyValidator
+import os
+
+# 相対インポートのみ使用
+from .infrastructure.llm_hooks_api import create_llm_hooks_api
+from .infrastructure.kuzu_repository import create_kuzu_repository
+from .infrastructure.hierarchy_validator import HierarchyValidator
+from .infrastructure.variables import get_db_path
 
 def main():
     """LLMからのCypherクエリを受け取り、検証・実行・フィードバックを返す"""
@@ -49,7 +53,7 @@ def main():
         
         # 階層検証を通過した場合のみDBアクセス
         # KuzuDBリポジトリを作成
-        repository = create_kuzu_repository("./kuzu_db")
+        repository = create_kuzu_repository()
         
         # 階層検証機能を統合したAPIを作成
         api = create_llm_hooks_api(repository)

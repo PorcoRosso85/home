@@ -8,31 +8,10 @@ import sys
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 from datetime import datetime
-# インポートエラーを回避するため、必要時にのみインポート
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from ..domain.types import Decision, DecisionResult, DecisionNotFoundError, DecisionError
 
-# LD_LIBRARY_PATH設定用のパスリスト
-import glob
-known_working_paths = [
-    '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/',
-    '/nix/store/2y8c3b7ydkl68liz336035llfhmm6r95-gfortran-14-20241116-lib/lib/',
-]
-gcc_paths = glob.glob('/nix/store/*gcc*lib/lib/')
-all_paths = known_working_paths + gcc_paths + [
-    '/usr/lib/x86_64-linux-gnu',
-    '/usr/local/lib',
-]
-
-# LD_LIBRARY_PATH自動設定 - モジュールレベルで実行
-if 'LD_LIBRARY_PATH' not in os.environ:
-    for path in all_paths:
-        if os.path.exists(path):
-            # libstdc++.so.6の存在を確認
-            if os.path.exists(os.path.join(path, 'libstdc++.so.6')):
-                os.environ['LD_LIBRARY_PATH'] = path
-                break
+# 相対インポートのみ使用
+from ..domain.types import Decision, DecisionResult, DecisionNotFoundError, DecisionError
+from .variables import get_db_path, LD_LIBRARY_PATH
 
 
 def create_kuzu_repository(db_path: str = None) -> Dict:
@@ -45,44 +24,36 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     Returns:
         Repository関数の辞書
     """
-    # Try to import from the existing connection module
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../'))
-    
-    # Use fixed connection module to avoid kuzu name conflict
+    # KuzuDBのインポート - 強制インポート使用
     try:
-        from db.kuzu.connection_fixed import get_connection
-    except ImportError as e:
-        if "libstdc++.so.6" in str(e):
-            # 見つかったパスを提案
-            suggested_path = None
-            for path in all_paths:
-                if os.path.exists(path) and os.path.exists(os.path.join(path, 'libstdc++.so.6')):
-                    suggested_path = path
-                    break
-            
-            error_msg = f"""
-KuzuDB import failed due to missing libstdc++.so.6.
-
-To fix this, set LD_LIBRARY_PATH before running Python:
-export LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'}
-
-Or run with:
-LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
-"""
-            raise ImportError(error_msg) from e
-        else:
-            raise
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "kuzu", 
+            "/home/nixos/bin/src/.venv/lib/python3.11/site-packages/kuzu/__init__.py"
+        )
+        kuzu = importlib.util.module_from_spec(spec)
+        sys.modules['kuzu'] = kuzu
+        spec.loader.exec_module(kuzu)
+    except Exception as e:
+        raise ImportError(
+            f"KuzuDB import failed: {e}\n"
+            f"LD_LIBRARY_PATH is set to: {LD_LIBRARY_PATH}"
+        )
+    
+    # コネクション作成関数
+    def get_connection(db_path):
+        db = kuzu.Database(str(db_path))
+        return kuzu.Connection(db)
     
     if db_path is None:
-        db_path = os.path.expanduser("~/.rgl/graph.db")
+        db_path = get_db_path()
     
     # ディレクトリ作成
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     
     # データベース作成
-    # Use the existing connection module
-    conn = get_connection(db_path)
-    db = None  # Not needed when using get_connection
+    db = kuzu.Database(str(db_path))
+    conn = kuzu.Connection(db)
     
     def init_schema():
         """スキーマ初期化 - DDL v2スキーマは事前適用済みと仮定"""
@@ -595,6 +566,10 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
         except Exception as e:
             return None
     
+    # CypherExecutorを作成
+    from .cypher_executor import CypherExecutor
+    executor = CypherExecutor(conn)
+    
     return {
         "save": save,
         "find": find,
@@ -606,7 +581,10 @@ LD_LIBRARY_PATH={suggested_path or '/path/to/gcc/lib'} python your_script.py
         "find_children": find_children,
         "get_requirement_history": get_requirement_history,
         "get_requirement_at_version": get_requirement_at_version,
-        "db": db  # テスト用にDBオブジェクトも返す
+        "db": db,  # テスト用にDBオブジェクトも返す
+        "connection": conn,  # LLM Hooks API用
+        "execute": conn.execute,  # CypherExecutor用
+        "executor": executor  # LLM Hooks API用
     }
 
 

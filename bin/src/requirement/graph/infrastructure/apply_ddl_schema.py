@@ -8,7 +8,25 @@ from typing import Optional
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 sys.path.insert(0, project_root)
 
-from db.kuzu.connection_fixed import get_connection
+# 強制インポートを使用
+import importlib.util
+spec = importlib.util.spec_from_file_location(
+    "kuzu", 
+    "/home/nixos/bin/src/.venv/lib/python3.11/site-packages/kuzu/__init__.py"
+)
+kuzu = importlib.util.module_from_spec(spec)
+sys.modules['kuzu'] = kuzu
+spec.loader.exec_module(kuzu)
+
+# 環境変数を要求
+LD_LIBRARY_PATH = os.environ.get('LD_LIBRARY_PATH')
+RGL_DB_PATH = os.environ.get('RGL_DB_PATH')
+
+if not LD_LIBRARY_PATH:
+    raise EnvironmentError("LD_LIBRARY_PATH environment variable is required")
+if not RGL_DB_PATH:
+    raise EnvironmentError("RGL_DB_PATH environment variable is required")
+
 from requirement.graph.infrastructure.ddl_schema_manager import DDLSchemaManager
 
 
@@ -38,7 +56,11 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
     
     # 接続を確立
     try:
-        conn = get_connection(db_path)
+        if db_path is None:
+            db_path = RGL_DB_PATH
+        os.makedirs(db_path, exist_ok=True)
+        db = kuzu.Database(db_path)
+        conn = kuzu.Connection(db)
     except Exception as e:
         print(f"Error: Failed to connect to database: {e}")
         return False

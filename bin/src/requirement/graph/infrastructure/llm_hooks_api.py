@@ -4,9 +4,12 @@ LLM Hooks API - LLMが直接クエリできる統一インターフェース（�
 外部依存: なし
 """
 from typing import Dict, List, Any, Optional, Union
+
+# 相対インポートのみ使用
 from .cypher_executor import CypherExecutor
 from .query_validator import QueryValidator
 from .custom_procedures import CustomProcedures
+from .variables import get_db_path
 
 
 def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
@@ -117,20 +120,29 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
                 params = request.get("parameters", {})
                 
                 # クエリ検証
-                validation = validator.validate_query(query_str)
-                if not validation["is_valid"]:
+                is_valid, error = validator.validate(query_str)
+                if not is_valid:
                     return {
                         "status": "error",
                         "error": "Query validation failed",
-                        "details": validation["errors"]
+                        "details": error
                     }
                 
                 # 実行
                 result = executor.execute(query_str, params)
+                if "error" in result:
+                    return {
+                        "status": "error",
+                        "error": result["error"]["message"],
+                        "type": result["error"]["type"]
+                    }
                 return {
                     "status": "success",
-                    "data": result["rows"],
-                    "metadata": result["metadata"]
+                    "data": result.get("data", []),
+                    "metadata": {
+                        "row_count": result.get("row_count", 0),
+                        "columns": result.get("columns", [])
+                    }
                 }
                 
             elif query_type == "template":
@@ -147,10 +159,19 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
                 
                 query_str = query_templates[template_name]
                 result = executor.execute(query_str, params)
+                if "error" in result:
+                    return {
+                        "status": "error",
+                        "error": result["error"]["message"],
+                        "type": result["error"]["type"]
+                    }
                 return {
                     "status": "success",
-                    "data": result["rows"],
-                    "metadata": result["metadata"]
+                    "data": result.get("data", []),
+                    "metadata": {
+                        "row_count": result.get("row_count", 0),
+                        "columns": result.get("columns", [])
+                    }
                 }
                 
             elif query_type == "procedure":
@@ -251,7 +272,7 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
                 {"req_id": current_req_id}
             )
             
-            if dep_result["rows"] and dep_result["rows"][0]["dep_count"] > 0:
+            if not dep_result.get("error") and dep_result.get("data") and len(dep_result["data"]) > 0 and dep_result["data"][0][0] > 0:
                 suggestions.append({
                     "action": "check_dependencies",
                     "description": "Check if dependencies are completed",
