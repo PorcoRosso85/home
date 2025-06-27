@@ -1,0 +1,35 @@
+[package]
+name = "similarity-rs"
+version = "0.2.3"
+edition = "2021"
+license = "MIT"
+description = "CLI tool for detecting code duplication in Rust projects"
+authors = ["mizchi"]
+repository = "https://github.com/mizchi/similarity"
+homepage = "https://github.com/mizchi/similarity"
+documentation = "https://docs.rs/similarity-rs"
+keywords = ["rust", "duplicate", "detection", "cli", "similarity"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "similarity-rs"
+path = "src/main.rs"
+
+[lib]
+name = "similarity_rs"
+
+[dependencies]
+similarity-core = { version = "0.2.3", path = "../core" }
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+rayon = "1.10"
+ignore = "0.4"
+walkdir = "2.5"
+globset = "0.4"
+tree-sitter = { workspace = true }
+tree-sitter-rust = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.10"
