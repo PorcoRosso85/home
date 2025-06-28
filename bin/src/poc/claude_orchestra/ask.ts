@@ -1,17 +1,37 @@
 #!/usr/bin/env -S deno run --allow-env --allow-read --allow-run
-import { join } from "@std/path";
+import { getConfig, getSessionPath } from "./variables.ts";
+import { exists } from "https://deno.land/std@0.220.0/fs/mod.ts";
 
-// CLIとして直接実行可能
-async function ask(worktree: string, task: string) {
-  // worktree-practiceディレクトリのパス
-  const worktreeRoot = join(Deno.env.get("HOME")!, "worktree-practice");
-  const sessionDir = join(worktreeRoot, `work-${worktree}`, ".claude_session");
+export interface AskOptions {
+  worktree: string;
+  task: string;
+  command?: string;  // テスト用にコマンドを差し替え可能
+}
+
+// テスト可能な関数として分離
+export async function askClaude(options: AskOptions): Promise<void> {
+  const config = getConfig();
+  const sessionDir = getSessionPath(config, options.worktree);
   
-  const proc = new Deno.Command("tsx", {
+  // worktreeディレクトリの存在確認
+  const worktreeExists = await exists(sessionDir, { isDirectory: true });
+  if (!worktreeExists) {
+    throw new Error(`Worktree directory not found: ${sessionDir}`);
+  }
+  
+  // claude.tsの存在確認
+  const claudePath = config.claudeSdkPath;
+  const claudeExists = await exists(claudePath, { isFile: true });
+  if (!claudeExists) {
+    throw new Error(`Claude SDK not found: ${claudePath}`);
+  }
+  
+  const command = options.command || "tsx";
+  const proc = new Deno.Command(command, {
     args: [
-      "../claude_sdk/claude.ts",
+      claudePath,
       "--uri", sessionDir,
-      "--print", task
+      "--print", options.task
     ],
     stdin: "inherit",
     stdout: "inherit",
@@ -20,7 +40,7 @@ async function ask(worktree: string, task: string) {
   
   const status = await proc.output();
   if (!status.success) {
-    Deno.exit(1);
+    throw new Error(`Command failed with exit code ${status.code}`);
   }
 }
 
@@ -29,7 +49,17 @@ if (import.meta.main) {
   const [worktree, ...taskParts] = Deno.args;
   if (!worktree) {
     console.error("Usage: deno task ask <worktree> <task>");
+    console.error("Example: deno task ask feature/auth 'Implement authentication'");
     Deno.exit(1);
   }
-  await ask(worktree, taskParts.join(" "));
+  
+  try {
+    await askClaude({
+      worktree,
+      task: taskParts.join(" ")
+    });
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    Deno.exit(1);
+  }
 }
