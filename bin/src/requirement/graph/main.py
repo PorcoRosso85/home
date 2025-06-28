@@ -11,11 +11,19 @@ import sys
 import json
 import os
 
-# 相対インポートのみ使用
-from .infrastructure.llm_hooks_api import create_llm_hooks_api
-from .infrastructure.kuzu_repository import create_kuzu_repository
-from .infrastructure.hierarchy_validator import HierarchyValidator
-from .infrastructure.variables import get_db_path
+# インポート（相対インポートと絶対インポートの両対応）
+try:
+    # パッケージとして実行される場合
+    from .infrastructure.llm_hooks_api import create_llm_hooks_api
+    from .infrastructure.kuzu_repository import create_kuzu_repository
+    from .infrastructure.hierarchy_validator import HierarchyValidator
+    from .infrastructure.variables import get_db_path
+except ImportError:
+    # 直接実行される場合
+    from infrastructure.llm_hooks_api import create_llm_hooks_api
+    from infrastructure.kuzu_repository import create_kuzu_repository
+    from infrastructure.hierarchy_validator import HierarchyValidator
+    from infrastructure.variables import get_db_path
 
 def main():
     """LLMからのCypherクエリを受け取り、検証・実行・フィードバックを返す"""
