@@ -1,19 +1,19 @@
-# Claude Continue
+# Claude SDK for Deno
 
-Minimal Claude CLI wrapper with automatic session continuation.
+Minimal Claude CLI wrapper with automatic session continuation, built for Deno.
 
 ## Usage
 
 ```bash
-# Both --uri and --print are required
-tsx claude.ts --uri <directory> --print <prompt>
+# Run with deno task
+deno task claude --uri <directory> --print <prompt>
 
 # Examples
-tsx claude.ts --uri .claude --print "say hello"
-tsx claude.ts --uri /tmp/session --print "what's 2+2?"
+deno task claude --uri .claude --print "say hello"
+deno task claude --uri /tmp/session --print "what's 2+2?"
 
-# Via npm
-npm run claude -- --uri .claude --print "your prompt"
+# Run directly
+deno run --allow-all claude.ts --uri .claude --print "your prompt"
 ```
 
 ## Features
@@ -21,10 +21,12 @@ npm run claude -- --uri .claude --print "your prompt"
 - Always uses `--output-format stream-json --verbose`
 - Automatically adds `--continue` when session exists
 - Saves conversation history to `<uri>/session.json`
-- Saves stream output to `<uri>/stream.jsonl` (append mode)
+- Saves stream output with metadata to `<uri>/stream.jsonl`
 - Maintains last 6 exchanges as context
 - **Sets Claude Code's working directory (cwd) to the `--uri` path**
 - **Each directory maintains its own independent session**
+- Standard error handling with try/catch
+- Full Deno compatibility
 
 ## Arguments
 
@@ -34,8 +36,28 @@ npm run claude -- --uri .claude --print "your prompt"
 ## Files Created
 
 - `<uri>/session.json` - Conversation history
-- `<uri>/stream.jsonl` - Raw JSON stream (one JSON per line)
+- `<uri>/stream.jsonl` - JSON stream with metadata (id, timestamp, data)
 
-## Implementation
+## Development
 
-Single file: `claude.ts` (191 lines)
+```bash
+# Run tests
+deno task test
+
+# Format code
+deno task fmt
+
+# Lint code
+deno task lint
+
+# Run all checks
+deno task check
+```
+
+## Module Structure
+
+- `claude.ts` - Main executable
+- `core.ts` - Core business logic
+- `types.ts` - Type definitions
+- `mod.ts` - Module exports
+- `claude.test.ts` - Tests
