@@ -6,6 +6,8 @@ from typing import Dict, List, Tuple, Optional, Set
 from collections import defaultdict, deque
 import math
 
+from ..infrastructure.variables.constants import LAYER_PRIORITY
+
 
 def optimize_implementation_order_with_layers(
     requirements: List[Dict], 
@@ -17,16 +19,6 @@ def optimize_implementation_order_with_layers(
     技術レイヤーを考慮した実装順序の最適化
     DB層→API層→UI層の順序を基本とする
     """
-    # レイヤー優先度定義
-    layer_priority = {
-        "database": 1,
-        "infrastructure": 2,
-        "domain": 3,
-        "api": 4,
-        "service": 5,
-        "ui": 6,
-        "frontend": 7
-    }
     
     # 要件IDとコードエンティティのマッピング
     req_to_code = {}
@@ -50,7 +42,7 @@ def optimize_implementation_order_with_layers(
         if in_degree[req["id"]] == 0:
             code_id = req_to_code.get(req["id"])
             if code_id and code_id in code_types:
-                priority = layer_priority.get(code_types[code_id], 999)
+                priority = LAYER_PRIORITY.get(code_types[code_id], 999)
             else:
                 priority = 999
             queue.append((priority, req["id"]))
@@ -67,7 +59,7 @@ def optimize_implementation_order_with_layers(
             if in_degree[dependent] == 0:
                 code_id = req_to_code.get(dependent)
                 if code_id and code_id in code_types:
-                    priority = layer_priority.get(code_types[code_id], 999)
+                    priority = LAYER_PRIORITY.get(code_types[code_id], 999)
                 else:
                     priority = 999
                 queue.append((priority, dependent))

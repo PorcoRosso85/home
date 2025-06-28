@@ -13,6 +13,8 @@ from datetime import datetime
 # 相対インポートのみ使用
 from ..domain.types import Decision, DecisionResult, DecisionNotFoundError, DecisionError
 from .variables import get_db_path, LD_LIBRARY_PATH
+from .variables.paths import get_kuzu_module_path
+from .variables.env_vars import should_skip_schema_check
 from .logger import debug, info, warn, error
 
 
@@ -29,15 +31,21 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     info("rgl.repo", "Creating KuzuDB repository", db_path=db_path)
     # KuzuDBのインポート - 強制インポート使用
     try:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "kuzu", 
-            "/home/nixos/bin/src/.venv/lib/python3.11/site-packages/kuzu/__init__.py"
-        )
-        kuzu = importlib.util.module_from_spec(spec)
-        sys.modules['kuzu'] = kuzu
-        spec.loader.exec_module(kuzu)
-        debug("rgl.repo", "KuzuDB module loaded successfully")
+        kuzu_path = get_kuzu_module_path()
+        if kuzu_path:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "kuzu", 
+                os.path.join(kuzu_path, "__init__.py")
+            )
+            kuzu = importlib.util.module_from_spec(spec)
+            sys.modules['kuzu'] = kuzu
+            spec.loader.exec_module(kuzu)
+            debug("rgl.repo", "KuzuDB module loaded successfully")
+        else:
+            # 通常のインポートを試みる
+            import kuzu
+            debug("rgl.repo", "KuzuDB module imported normally")
     except Exception as e:
         error("rgl.repo", "KuzuDB import failed", error=str(e), ld_path=LD_LIBRARY_PATH)
         raise ImportError(
@@ -74,7 +82,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             raise RuntimeError("Schema not initialized. Run apply_ddl_schema.py first")
     
     # 初回はスキーマ作成（テスト時はスキップ可能）
-    if os.getenv("RGL_SKIP_SCHEMA_CHECK") != "true":
+    if not should_skip_schema_check():
         init_schema()
     
     # 階層処理用UDFを登録
@@ -563,11 +571,12 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "id": requirement["id"],
                     "title": requirement["title"],
                     "description": requirement["description"],
-                    "status": snapshot["status"],
-                    "created_at": snapshot["created_at"],
-                    "embedding": snapshot["embedding"],
-                    "snapshot_at": snapshot["snapshot_at"],
-                    "version_id": snapshot["version_id"]
+                    "status": requirement.get("status", "proposed"),
+                    "priority": requirement.get("priority", "medium"),
+                    "created_at": requirement.get("created_at"),
+                    "embedding": requirement.get("embedding"),
+                    "version_id": version["id"],
+                    "timestamp": version["timestamp"]
                 }
             
             return None

@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Callable, Tuple
 from datetime import datetime
 from ..domain.types import Decision, DecisionResult
 from ..domain.embedder import create_embedding
+from ..infrastructure.variables.constants import AUTONOMOUS_MAX_DEPTH, AUTONOMOUS_TARGET_SIZE
 
 
 # Repository型定義（依存性注入用）
@@ -28,8 +29,8 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
     def decompose_requirement(
         requirement_id: str,
         decomposition_strategy: str = "hierarchical",
-        max_depth: int = 3,
-        target_size: int = 5
+        max_depth: int = AUTONOMOUS_MAX_DEPTH,
+        target_size: int = AUTONOMOUS_TARGET_SIZE
     ) -> Dict:
         """
         要件を自律的に分解

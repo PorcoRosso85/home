@@ -1,0 +1,95 @@
+"""
+Variables モジュール - 外部変数定義の集約
+
+このパッケージは、アプリケーション全体の外部変数定義を一元管理します。
+すべての環境変数、設定値、定数はこのモジュールを通じてアクセスされます。
+"""
+
+from .env_vars import (
+    # 必須環境変数
+    LD_LIBRARY_PATH,
+    RGL_DB_PATH,
+    # オプション環境変数
+    RGL_LOG_LEVEL,
+    RGL_LOG_FORMAT,
+    RGL_HIERARCHY_MODE,
+    RGL_MAX_HIERARCHY,
+    RGL_TEAM,
+    RGL_HIERARCHY_KEYWORDS,
+    RGL_SKIP_SCHEMA_CHECK,
+    # 関数
+    get_db_path,
+    get_log_level,
+    get_log_format,
+    get_hierarchy_mode,
+    get_max_hierarchy,
+    get_team,
+    get_hierarchy_keywords,
+    should_skip_schema_check,
+)
+
+from .constants import (
+    # 埋め込み関連
+    EMBEDDING_DIM,
+    # 階層関連
+    MAX_HIERARCHY_DEPTH,
+    DEFAULT_HIERARCHY_KEYWORDS,
+    # ログ関連
+    LOG_LEVELS,
+    # レイヤー優先度
+    LAYER_PRIORITY,
+    # 自律的分解関連
+    AUTONOMOUS_MAX_DEPTH,
+    AUTONOMOUS_TARGET_SIZE,
+    # 検索関連
+    DEFAULT_SEARCH_THRESHOLD,
+    DEFAULT_SEARCH_LIMIT,
+)
+
+from .paths import (
+    # KuzuDB関連パス
+    get_kuzu_module_path,
+    # デフォルトパス
+    DEFAULT_DB_PATH,
+    DEFAULT_JSONL_PATH,
+    get_default_kuzu_db_path,
+    get_default_jsonl_path,
+)
+
+__all__ = [
+    # 環境変数
+    'LD_LIBRARY_PATH',
+    'RGL_DB_PATH',
+    'RGL_LOG_LEVEL',
+    'RGL_LOG_FORMAT',
+    'RGL_HIERARCHY_MODE',
+    'RGL_MAX_HIERARCHY',
+    'RGL_TEAM',
+    'RGL_HIERARCHY_KEYWORDS',
+    'RGL_SKIP_SCHEMA_CHECK',
+    # 環境変数アクセス関数
+    'get_db_path',
+    'get_log_level',
+    'get_log_format',
+    'get_hierarchy_mode',
+    'get_max_hierarchy',
+    'get_team',
+    'get_hierarchy_keywords',
+    'should_skip_schema_check',
+    # 定数
+    'EMBEDDING_DIM',
+    'MAX_HIERARCHY_DEPTH',
+    'DEFAULT_HIERARCHY_KEYWORDS',
+    'LOG_LEVELS',
+    'LAYER_PRIORITY',
+    'AUTONOMOUS_MAX_DEPTH',
+    'AUTONOMOUS_TARGET_SIZE',
+    'DEFAULT_SEARCH_THRESHOLD',
+    'DEFAULT_SEARCH_LIMIT',
+    # パス関連
+    'get_kuzu_module_path',
+    'DEFAULT_DB_PATH',
+    'DEFAULT_JSONL_PATH',
+    'get_default_kuzu_db_path',
+    'get_default_jsonl_path',
+]

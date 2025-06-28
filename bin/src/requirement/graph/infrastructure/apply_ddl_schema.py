@@ -12,24 +12,22 @@ from typing import Optional
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 sys.path.insert(0, project_root)
 
+from .variables.paths import get_kuzu_module_path
+from .variables.env_vars import LD_LIBRARY_PATH, RGL_DB_PATH
+
 # 強制インポートを使用
-import importlib.util
-spec = importlib.util.spec_from_file_location(
-    "kuzu", 
-    "/home/nixos/bin/src/.venv/lib/python3.11/site-packages/kuzu/__init__.py"
-)
-kuzu = importlib.util.module_from_spec(spec)
-sys.modules['kuzu'] = kuzu
-spec.loader.exec_module(kuzu)
-
-# 環境変数を要求
-LD_LIBRARY_PATH = os.environ.get('LD_LIBRARY_PATH')
-RGL_DB_PATH = os.environ.get('RGL_DB_PATH')
-
-if not LD_LIBRARY_PATH:
-    raise EnvironmentError("LD_LIBRARY_PATH environment variable is required")
-if not RGL_DB_PATH:
-    raise EnvironmentError("RGL_DB_PATH environment variable is required")
+kuzu_path = get_kuzu_module_path()
+if kuzu_path:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "kuzu", 
+        os.path.join(kuzu_path, "__init__.py")
+    )
+    kuzu = importlib.util.module_from_spec(spec)
+    sys.modules['kuzu'] = kuzu
+    spec.loader.exec_module(kuzu)
+else:
+    import kuzu
 
 from .ddl_schema_manager import DDLSchemaManager
 from .logger import debug, info, warn, error

@@ -2,28 +2,21 @@
 シンプルなロガー実装
 後から削除しやすいように [RGL_DEBUG] プレフィックスを使用
 """
-import os
 import sys
 import json
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-# 環境変数
-LOG_LEVEL = os.environ.get('RGL_LOG_LEVEL', '*:WARN')
-LOG_FORMAT = os.environ.get('RGL_LOG_FORMAT', 'console')
+from .variables.constants import LOG_LEVELS
+from .variables.env_vars import get_log_level, get_log_format
 
-# レベル優先度
-LEVELS = {
-    'TRACE': 0,
-    'DEBUG': 1,
-    'INFO': 2,
-    'WARN': 3,
-    'ERROR': 4
-}
+# 環境変数
+LOG_LEVEL = get_log_level()
+LOG_FORMAT = get_log_format()
 
 def _should_log(level: str, module: str) -> bool:
     """ログ出力するかどうかを判定"""
-    level_value = LEVELS.get(level, 2)
+    level_value = LOG_LEVELS.get(level, 2)
     
     # 環境変数からモジュール別設定を解析
     module_levels = {}
@@ -34,9 +27,9 @@ def _should_log(level: str, module: str) -> bool:
         if len(parts) == 2:
             mod, lev = parts
             if mod == '*':
-                default_level = LEVELS.get(lev, 3)
+                default_level = LOG_LEVELS.get(lev, 3)
             else:
-                module_levels[mod] = LEVELS.get(lev, 3)
+                module_levels[mod] = LOG_LEVELS.get(lev, 3)
     
     # モジュールに対する設定を取得
     threshold = default_level

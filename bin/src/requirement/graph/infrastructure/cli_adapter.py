@@ -9,6 +9,8 @@ import os
 from typing import Dict, List
 from ..application.decision_service import create_decision_service
 from .jsonl_repository import create_jsonl_repository
+from .variables.constants import DEFAULT_SEARCH_THRESHOLD, DEFAULT_SEARCH_LIMIT
+from .variables.paths import get_default_kuzu_db_path, get_default_jsonl_path
 
 
 def create_cli(repository_path: str = None, use_kuzu: bool = True):
@@ -25,11 +27,11 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
     if use_kuzu:
         from .kuzu_repository import create_kuzu_repository
         if repository_path is None:
-            repository_path = os.path.expanduser("~/.rgl/graph.db")
+            repository_path = get_default_kuzu_db_path()
         repository = create_kuzu_repository(repository_path)
     else:
         if repository_path is None:
-            repository_path = os.path.expanduser("~/.rgl/decisions.jsonl")
+            repository_path = get_default_jsonl_path()
         repository = create_jsonl_repository(repository_path)
     
     service = create_decision_service(repository)
@@ -55,8 +57,8 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
         # search command
         search_parser = subparsers.add_parser("search", help="Search similar decisions")
         search_parser.add_argument("query", help="Search query")
-        search_parser.add_argument("--threshold", type=float, default=0.5, help="Similarity threshold")
-        search_parser.add_argument("--limit", type=int, default=10, help="Max results")
+        search_parser.add_argument("--threshold", type=float, default=DEFAULT_SEARCH_THRESHOLD, help="Similarity threshold")
+        search_parser.add_argument("--limit", type=int, default=DEFAULT_SEARCH_LIMIT, help="Max results")
         
         # list command
         list_parser = subparsers.add_parser("list", help="List decisions")

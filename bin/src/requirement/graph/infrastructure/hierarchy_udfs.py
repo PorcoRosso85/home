@@ -3,25 +3,21 @@
 依存: なし
 外部依存: kuzu
 """
-import os
 import json
 from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
+
+from .variables.constants import DEFAULT_HIERARCHY_KEYWORDS, MAX_HIERARCHY_DEPTH
+from .variables.env_vars import get_hierarchy_mode, get_max_hierarchy, get_team, get_hierarchy_keywords
 
 
 @dataclass(frozen=True)
 class HierarchyConfig:
     """階層設定を管理するデータクラス"""
     mode: str = "legacy"
-    max_depth: int = 5
+    max_depth: int = MAX_HIERARCHY_DEPTH
     team: str = "product"
-    keywords: Dict[int, list[str]] = field(default_factory=lambda: {
-        0: ["ビジョン", "vision", "戦略", "目標"],
-        1: ["エピック", "epic", "大規模", "イニシアチブ"],
-        2: ["フィーチャー", "feature", "機能", "capability"],
-        3: ["ストーリー", "story", "ユーザーストーリー"],
-        4: ["タスク", "task", "実装", "バグ"]
-    })
+    keywords: Dict[int, list[str]] = field(default_factory=lambda: DEFAULT_HIERARCHY_KEYWORDS)
     
     @classmethod
     def from_env(cls) -> "HierarchyConfig":
@@ -35,20 +31,14 @@ class HierarchyConfig:
         """
         try:
             # 階層キーワード定義
-            keywords_json = os.getenv("RGL_HIERARCHY_KEYWORDS", "{}")
-            if keywords_json == "{}":
-                keywords = cls.__dataclass_fields__["keywords"].default_factory()
-            else:
-                raw_keywords = json.loads(keywords_json)
-                keywords = {
-                    int(k): v.split(",") if isinstance(v, str) else v
-                    for k, v in raw_keywords.items()
-                }
+            keywords = get_hierarchy_keywords()
+            if keywords is None:
+                keywords = DEFAULT_HIERARCHY_KEYWORDS
             
             return cls(
-                mode=os.getenv("RGL_HIERARCHY_MODE", "legacy"),
-                max_depth=int(os.getenv("RGL_MAX_HIERARCHY", "5")),
-                team=os.getenv("RGL_TEAM", "product"),
+                mode=get_hierarchy_mode(),
+                max_depth=get_max_hierarchy(),
+                team=get_team(),
                 keywords=keywords
             )
         except (json.JSONDecodeError, ValueError) as e:

@@ -11,14 +11,20 @@ os.environ['LD_LIBRARY_PATH'] = os.environ.get('LD_LIBRARY_PATH', '/usr/lib')
 os.environ['RGL_DB_PATH'] = os.environ.get('RGL_DB_PATH', '/tmp/test_rgl_db')
 
 # Import kuzu
-import importlib.util
-spec = importlib.util.spec_from_file_location(
-    "kuzu", 
-    "/home/nixos/bin/src/.venv/lib/python3.11/site-packages/kuzu/__init__.py"
-)
-kuzu = importlib.util.module_from_spec(spec)
-sys.modules['kuzu'] = kuzu
-spec.loader.exec_module(kuzu)
+from .variables.paths import get_kuzu_module_path
+
+kuzu_path = get_kuzu_module_path()
+if kuzu_path:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "kuzu", 
+        os.path.join(kuzu_path, "__init__.py")
+    )
+    kuzu = importlib.util.module_from_spec(spec)
+    sys.modules['kuzu'] = kuzu
+    spec.loader.exec_module(kuzu)
+else:
+    import kuzu
 
 from .apply_ddl_schema import apply_ddl_schema
 

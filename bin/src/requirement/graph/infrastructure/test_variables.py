@@ -2,7 +2,8 @@
 
 import os
 import pytest
-from .variables import _check_env, get_db_path, get_log_level, EMBEDDING_DIM, MAX_HIERARCHY_DEPTH
+from .variables import get_db_path, get_log_level, EMBEDDING_DIM, MAX_HIERARCHY_DEPTH
+from .variables.env_vars import _check_env
 
 
 class TestVariables:
