@@ -64,8 +64,13 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         except:
             raise RuntimeError("Schema not initialized. Run apply_ddl_schema.py first")
     
-    # 初回はスキーマ作成
-    init_schema()
+    # 初回はスキーマ作成（テスト時はスキップ可能）
+    if os.getenv("RGL_SKIP_SCHEMA_CHECK") != "true":
+        init_schema()
+    
+    # 階層処理用UDFを登録
+    from .hierarchy_udfs import register_hierarchy_udfs
+    register_hierarchy_udfs(conn)
     
     def save(decision: Decision, parent_id: Optional[str] = None, track_version: bool = True) -> DecisionResult:
         """要件を保存（バージョン追跡付き）"""
