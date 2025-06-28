@@ -1,10 +1,10 @@
 #!/usr/bin/env deno run --allow-all
 
-import { parseArgs, loadSession, saveSession, appendStream, buildPrompt } from "./core.ts";
+import { parseArgs, loadSession, saveSession, appendStream, buildPrompt, formatToJsonl } from "./core.ts";
 
 // Main function
 export async function main(args: string[]): Promise<void> {
-  const { uri, prompt } = parseArgs(args);
+  const { claudeId, uri, prompt } = parseArgs(args);
   
   // Load session
   const session = await loadSession(uri);
@@ -28,6 +28,17 @@ export async function main(args: string[]): Promise<void> {
   // Ensure directory exists for stream
   await Deno.mkdir(uri, { recursive: true });
   
+  // Log user input to stream
+  const userEntry = {
+    type: "user",
+    prompt: prompt,
+    fullPrompt: fullPrompt,
+    timestamp: new Date().toISOString()
+  };
+  const userJsonl = formatToJsonl(userEntry, claudeId);
+  console.log(userJsonl);
+  await appendStream(uri, userJsonl);
+  
   const process = command.spawn();
   let response = "";
   
@@ -46,31 +57,33 @@ export async function main(args: string[]): Promise<void> {
       buffer = lines.pop() || "";
       
       for (const line of lines.filter(Boolean)) {
-        console.log(line);
-        try {
-          await appendStream(uri, line);
-        } catch (error) {
-          console.error("Failed to append stream:", error);
-        }
-        
         try {
           const json = JSON.parse(line);
+          const jsonl = formatToJsonl(json, claudeId);
+          console.log(jsonl);
+          await appendStream(uri, jsonl);
+          
           if (json.type === "assistant" && json.message?.content?.[0]?.text) {
             response += json.message.content[0].text;
           }
-        } catch {
-          // Ignore JSON parse errors
+        } catch (error) {
+          // For non-JSON lines, output as-is
+          console.log(line);
+          await appendStream(uri, line);
         }
       }
     }
     
     // Process remaining buffer
     if (buffer.trim()) {
-      console.log(buffer);
       try {
+        const json = JSON.parse(buffer);
+        const jsonl = formatToJsonl(json, claudeId);
+        console.log(jsonl);
+        await appendStream(uri, jsonl);
+      } catch {
+        console.log(buffer);
         await appendStream(uri, buffer);
-      } catch (error) {
-        console.error("Failed to append stream:", error);
       }
     }
   } finally {

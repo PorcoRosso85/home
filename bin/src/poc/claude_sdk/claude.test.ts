@@ -1,16 +1,25 @@
 import { assertEquals, assertThrows } from "https://deno.land/std@0.224.0/testing/asserts.ts";
-import { parseArgs, buildPrompt, loadSession, saveSession, appendStream } from "./core.ts";
+import { parseArgs, buildPrompt, loadSession, saveSession, appendStream, formatToJsonl } from "./core.ts";
 
 // parseArgs tests
-Deno.test("test_parseArgs_valid_returnsUriAndPrompt", () => {
-  const result = parseArgs(["--uri", "test", "--print", "hello", "world"]);
+Deno.test("test_parseArgs_valid_returnsAllParams", () => {
+  const result = parseArgs(["--claude-id", "test-id", "--uri", "test", "--print", "hello", "world"]);
+  assertEquals(result.claudeId, "test-id");
   assertEquals(result.uri, "test");
   assertEquals(result.prompt, "hello world");
 });
 
+Deno.test("test_parseArgs_missingClaudeId_throwsError", () => {
+  assertThrows(
+    () => parseArgs(["--uri", "test", "--print", "hello"]),
+    Error,
+    "--claude-id is required"
+  );
+});
+
 Deno.test("test_parseArgs_missingUri_throwsError", () => {
   assertThrows(
-    () => parseArgs(["--print", "test"]),
+    () => parseArgs(["--claude-id", "test-id", "--print", "test"]),
     Error,
     "Usage:"
   );
@@ -18,15 +27,23 @@ Deno.test("test_parseArgs_missingUri_throwsError", () => {
 
 Deno.test("test_parseArgs_missingPrint_throwsError", () => {
   assertThrows(
-    () => parseArgs(["--uri", "test"]),
+    () => parseArgs(["--claude-id", "test-id", "--uri", "test"]),
     Error,
     "Usage:"
   );
 });
 
+Deno.test("test_parseArgs_emptyClaudeId_throwsError", () => {
+  assertThrows(
+    () => parseArgs(["--claude-id", "", "--uri", "test", "--print", "hello"]),
+    Error,
+    "--claude-id cannot be empty"
+  );
+});
+
 Deno.test("test_parseArgs_emptyValues_throwsError", () => {
   assertThrows(
-    () => parseArgs(["--uri", "", "--print", ""]),
+    () => parseArgs(["--claude-id", "test-id", "--uri", "", "--print", ""]),
     Error,
     "required"
   );
@@ -80,29 +97,11 @@ Deno.test("test_saveSession_writesJsonFile", async () => {
 });
 
 // appendStream tests
-Deno.test("test_appendStream_withMetadata_addsIdAndTimestamp", async () => {
+Deno.test("test_appendStream_writesLineToFile", async () => {
   const tempDir = await Deno.makeTempDir();
-  const testData = { type: "test", content: "hello" };
+  const testLine = "test line";
   
-  await appendStream(tempDir, JSON.stringify(testData), true);
-  
-  const content = await Deno.readTextFile(`${tempDir}/stream.jsonl`);
-  const parsed = JSON.parse(content.trim());
-  
-  assertEquals(typeof parsed.id, "string");
-  assertEquals(parsed.id.length, 36); // UUID length
-  assertEquals(typeof parsed.timestamp, "string");
-  assertEquals(parsed.timestamp.includes("T"), true); // ISO format
-  assertEquals(parsed.data, testData);
-  
-  await Deno.remove(tempDir, { recursive: true });
-});
-
-Deno.test("test_appendStream_withoutMetadata_appendsRawLine", async () => {
-  const tempDir = await Deno.makeTempDir();
-  const testLine = "raw test line";
-  
-  await appendStream(tempDir, testLine, false);
+  await appendStream(tempDir, testLine);
   
   const content = await Deno.readTextFile(`${tempDir}/stream.jsonl`);
   assertEquals(content.trim(), testLine);
@@ -110,14 +109,28 @@ Deno.test("test_appendStream_withoutMetadata_appendsRawLine", async () => {
   await Deno.remove(tempDir, { recursive: true });
 });
 
-Deno.test("test_appendStream_invalidJson_appendsAsIs", async () => {
-  const tempDir = await Deno.makeTempDir();
-  const invalidJson = "not valid json {";
+// formatToJsonl tests
+Deno.test("test_formatToJsonl_withClaudeId_addsClaudeIdAndTimestamp", () => {
+  const testData = { type: "test", content: "hello" };
+  const claudeId = "test-claude-id";
+  const result = formatToJsonl(testData, claudeId);
+  const parsed = JSON.parse(result);
   
-  await appendStream(tempDir, invalidJson, true);
-  
-  const content = await Deno.readTextFile(`${tempDir}/stream.jsonl`);
-  assertEquals(content.trim(), invalidJson);
-  
-  await Deno.remove(tempDir, { recursive: true });
+  assertEquals(parsed.claude_id, claudeId);
+  assertEquals(typeof parsed.timestamp, "string");
+  assertEquals(parsed.timestamp.includes("T"), true); // ISO format
+  assertEquals(parsed.data, testData);
 });
+
+Deno.test("test_formatToJsonl_withoutClaudeId_returnsJsonString", () => {
+  const testData = { type: "test", content: "hello" };
+  const result = formatToJsonl(testData);
+  assertEquals(result, JSON.stringify(testData));
+});
+
+Deno.test("test_formatToJsonl_stringWithoutClaudeId_returnsString", () => {
+  const testString = "raw string";
+  const result = formatToJsonl(testString);
+  assertEquals(result, testString);
+});
+

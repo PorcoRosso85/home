@@ -5,7 +5,7 @@ export type Session = { h: SessionHistory };
 
 // Stream entry with metadata
 export type StreamEntry = {
-  id: string;
+  claude_id: string;
   timestamp: string;
   data: unknown;
 };

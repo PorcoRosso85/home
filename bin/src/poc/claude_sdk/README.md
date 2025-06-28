@@ -6,14 +6,14 @@ Minimal Claude CLI wrapper with automatic session continuation, built for Deno.
 
 ```bash
 # Run with deno task
-deno task claude --uri <directory> --print <prompt>
+deno task claude --claude-id <id> --uri <directory> --print <prompt>
 
 # Examples
-deno task claude --uri .claude --print "say hello"
-deno task claude --uri /tmp/session --print "what's 2+2?"
+deno task claude --claude-id task-001 --uri .claude --print "say hello"
+deno task claude --claude-id debug-xyz --uri /tmp/session --print "what's 2+2?"
 
 # Run directly
-deno run --allow-all claude.ts --uri .claude --print "your prompt"
+deno run --allow-all claude.ts --claude-id my-task --uri .claude --print "your prompt"
 ```
 
 ## Features
@@ -30,6 +30,7 @@ deno run --allow-all claude.ts --uri .claude --print "your prompt"
 
 ## Arguments
 
+- `--claude-id <id>` - Required. Unique identifier for this Claude execution (used in logs)
 - `--uri <directory>` - Required. Directory for session storage AND Claude's working directory
 - `--print <prompt>` - Required. Your prompt to Claude
 
@@ -57,7 +58,14 @@ deno task check
 ## Module Structure
 
 - `claude.ts` - Main executable
-- `core.ts` - Core business logic
-- `types.ts` - Type definitions
+- `core.ts` - Core business logic (JSONL formatting, persistence)
+- `types.ts` - Type definitions  
 - `mod.ts` - Module exports
 - `claude.test.ts` - Tests
+
+## Architecture
+
+- **JSONL formatting layer**: `formatToJsonl()` generates JSONL with metadata
+- **Persistence layer**: `appendStream()` writes to file
+- **Output layer**: Console output shows the same JSONL that gets persisted
+- Single responsibility principle: Each function has one clear purpose

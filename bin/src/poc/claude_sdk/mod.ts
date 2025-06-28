@@ -7,25 +7,30 @@
  * import { main } from "https://deno.land/x/claude_sdk/mod.ts";
  * 
  * // Direct command line usage
- * await main(["--uri", ".claude", "--print", "Hello Claude!"]);
+ * await main(["--claude-id", "task-123", "--uri", ".claude", "--print", "Hello Claude!"]);
  * 
  * // Or use individual functions
  * import { parseArgs, loadSession, saveSession, buildPrompt } from "https://deno.land/x/claude_sdk/mod.ts";
  * 
- * const { uri, prompt } = parseArgs(["--uri", ".claude", "--print", "Hello"]);
+ * const { claudeId, uri, prompt } = parseArgs(["--claude-id", "test", "--uri", ".claude", "--print", "Hello"]);
  * const session = await loadSession(uri);
  * const fullPrompt = buildPrompt(session.h, prompt);
  * console.log(fullPrompt);
+ * 
+ * // Format data to JSONL with metadata
+ * const jsonl = formatToJsonl({ type: "user", message: "Hello" }, claudeId);
+ * console.log(jsonl);  // Output to console
+ * await appendStream(uri, jsonl);  // Persist to file
  * ```
  * 
  * ## CLI usage:
  * 
  * ```bash
  * # Run with deno task
- * deno task claude --uri .claude --print "Hello Claude!"
+ * deno task claude --claude-id task-123 --uri .claude --print "Hello Claude!"
  * 
  * # Or run directly
- * deno run --allow-all https://deno.land/x/claude_sdk/claude.ts --uri .claude --print "Hello"
+ * deno run --allow-all https://deno.land/x/claude_sdk/claude.ts --claude-id my-task --uri .claude --print "Hello"
  * ```
  * 
  * ## Features:
@@ -38,7 +43,7 @@
  */
 
 export { main } from "./claude.ts";
-export { parseArgs, loadSession, saveSession, appendStream, buildPrompt } from "./core.ts";
+export { parseArgs, loadSession, saveSession, appendStream, buildPrompt, formatToJsonl } from "./core.ts";
 export type {
   SessionHistory,
   Session,
