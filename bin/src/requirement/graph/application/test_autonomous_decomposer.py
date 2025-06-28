@@ -1,9 +1,6 @@
 """
 Tests for Autonomous Decomposer
 """
-import os
-os.environ['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/'
-
 import tempfile
 import pytest
 import kuzu

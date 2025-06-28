@@ -7,7 +7,6 @@ import os
 import sys
 
 # Environment variables setup for tests
-os.environ['LD_LIBRARY_PATH'] = os.environ.get('LD_LIBRARY_PATH', '/usr/lib')
 os.environ['RGL_DB_PATH'] = os.environ.get('RGL_DB_PATH', '/tmp/test_rgl_db')
 
 # Import kuzu
