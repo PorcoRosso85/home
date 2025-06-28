@@ -1,5 +1,5 @@
 [project]
-name = "requirement-graph"
+name = "requirement_graph"
 version = "0.1.0"
 description = "LLM-driven requirement management system with graph database"
 requires-python = ">=3.11"
@@ -8,16 +8,19 @@ dependencies = [
 ]
 
 [project.scripts]
-requirement-graph = "main:main"
-requirement-graph-schema = "infrastructure.apply_ddl_schema:main"
+requirement-graph = "cli:main"
+requirement-graph-schema = "cli:schema_main"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["main", "mod", "conftest", "__main__"]
+py-modules = ["main", "mod", "cli", "conftest"]
 packages = ["application", "domain", "infrastructure", "query"]
+
+[tool.setuptools.package-data]
+"*" = ["*.cypher", "*.yaml", "*.json"]
 
 [project.optional-dependencies]
 test = [

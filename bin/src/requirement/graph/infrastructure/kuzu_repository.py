@@ -12,6 +12,7 @@ from datetime import datetime
 # 相対インポートのみ使用
 from ..domain.types import Decision, DecisionResult, DecisionNotFoundError, DecisionError
 from .variables import get_db_path, LD_LIBRARY_PATH
+from .logger import debug, info, warn, error
 
 
 def create_kuzu_repository(db_path: str = None) -> Dict:
@@ -24,6 +25,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     Returns:
         Repository関数の辞書
     """
+    info("rgl.repo", "Creating KuzuDB repository", db_path=db_path)
     # KuzuDBのインポート - 強制インポート使用
     try:
         import importlib.util
@@ -34,7 +36,9 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         kuzu = importlib.util.module_from_spec(spec)
         sys.modules['kuzu'] = kuzu
         spec.loader.exec_module(kuzu)
+        debug("rgl.repo", "KuzuDB module loaded successfully")
     except Exception as e:
+        error("rgl.repo", "KuzuDB import failed", error=str(e), ld_path=LD_LIBRARY_PATH)
         raise ImportError(
             f"KuzuDB import failed: {e}\n"
             f"LD_LIBRARY_PATH is set to: {LD_LIBRARY_PATH}"
@@ -42,11 +46,15 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     
     # コネクション作成関数
     def get_connection(db_path):
+        debug("rgl.repo", "Creating database connection", path=str(db_path))
         db = kuzu.Database(str(db_path))
-        return kuzu.Connection(db)
+        conn = kuzu.Connection(db)
+        debug("rgl.repo", "Database connection created")
+        return conn
     
     if db_path is None:
         db_path = get_db_path()
+    debug("rgl.repo", "Using database path", path=str(db_path))
     
     # ディレクトリ作成
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)

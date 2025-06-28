@@ -10,6 +10,7 @@ from .cypher_executor import CypherExecutor
 from .query_validator import QueryValidator
 from .custom_procedures import CustomProcedures
 from .variables import get_db_path
+from .logger import debug, info, warn, error
 
 
 def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:

@@ -4,6 +4,7 @@ Cypher Executor - Cypherクエリ実行層
 外部依存: kuzu
 """
 from typing import Dict, List, Any, Optional, Union
+from .logger import debug, info, warn, error
 
 
 class CypherExecutor:
@@ -50,6 +51,7 @@ class CypherExecutor:
             while result.has_next():
                 data.append(result.get_next())
             
+            debug("rgl.executor", "Returning results", row_count=len(data), column_count=len(columns))
             return {
                 "columns": columns,
                 "data": data,
@@ -66,6 +68,9 @@ class CypherExecutor:
                 error_type = "ConnectionError"
             else:
                 error_type = "ExecutionError"
+            
+            error("rgl.executor", "Query execution failed", 
+                  error_type=error_type, error_message=error_msg)
             
             return {
                 "error": {

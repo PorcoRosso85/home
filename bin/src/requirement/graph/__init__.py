@@ -1,3 +1,4 @@
 """
-Requirement Graph - LLM-driven requirement management system
+Requirement Graph Logic (RGL) パッケージ
 """
+__version__ = "0.1.0"
