@@ -131,3 +131,33 @@
     testpaths = .
     python_files = *.py
     python_functions = test_*
+
+## TDD開発プロセス:
+  style: t-wada TDD
+  cycle:
+    - RED: 失敗するテストを先に書く
+    - GREEN: テストを通す最小限の実装
+    - REFACTOR: コードの改善（テストは通したまま）
+  
+  principles:
+    - テストファーストを厳守
+    - 1つのテストに1つのアサーション
+    - テストは仕様書として機能
+    - モックよりも実際の値を使用
+  
+  requirements:
+    - 新機能追加時はテストから開始
+    - テスト失敗確認後に実装着手
+    - リファクタリング時もテスト維持
+    - in-sourceテストでRED-GREEN-REFACTORサイクルを回す
+  
+  example: |
+    # RED: 失敗するテストを書く
+    def test_calculate_score_正常系_スコア計算():
+        assert calculate_score(10, 20) == 30  # まだ関数は存在しない
+    
+    # GREEN: 最小限の実装
+    def calculate_score(a, b):
+        return a + b
+    
+    # REFACTOR: 必要に応じて改善（テストは通したまま）
