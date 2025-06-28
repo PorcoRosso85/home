@@ -14,6 +14,7 @@ CREATE NODE TABLE RequirementEntity (
     description STRING,
     priority STRING DEFAULT 'medium',
     requirement_type STRING DEFAULT 'functional',
+    status STRING DEFAULT 'proposed',  // v4で追加: 要件の状態
     verification_required BOOLEAN DEFAULT true,
     // v3で追加: 実装詳細プロパティ
     implementation_details STRING,      // JSON形式の実装詳細
@@ -43,7 +44,11 @@ CREATE NODE TABLE VersionState (
     timestamp STRING,
     description STRING,
     change_reason STRING,
-    progress_percentage DOUBLE DEFAULT 0.0
+    progress_percentage DOUBLE DEFAULT 0.0,
+    // v4で追加: バージョン時点の状態追跡
+    operation STRING DEFAULT 'UPDATE',  // CREATE, UPDATE, DELETE
+    author STRING DEFAULT 'system',
+    changed_fields STRING  // JSON形式の変更フィールドリスト
 );
 
 // 参照エンティティ（既存）

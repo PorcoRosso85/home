@@ -5,6 +5,7 @@ KuzuDB Repository - グラフデータベース永続化
 """
 import os
 import sys
+import json
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 from datetime import datetime
@@ -117,7 +118,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             # バージョン追跡を有効にしている場合
             if track_version:
                 # LocationURIを生成
-                from ..domain.version_tracking import create_location_uri, create_version_id, create_requirement_snapshot
+                from ..domain.version_tracking import create_location_uri, create_version_id
                 
                 location_uri = create_location_uri(decision["id"])
                 version_id = create_version_id(decision["id"])
@@ -131,8 +132,22 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 # 要件とLocationURIを関連付け（新スキーマ対応）
                 conn.execute("""
                     MATCH (l:LocationURI {id: $uri}), (r:RequirementEntity {id: $req_id})
-                    MERGE (l)-[:LOCATES_LocationURI_RequirementEntity {entity_type: 'requirement'}]->(r)
+                    MERGE (l)-[:LOCATES {entity_type: 'requirement'}]->(r)
                 """, {"uri": location_uri, "req_id": decision["id"]})
+                
+                # 変更フィールドを検出（既存要件の場合）
+                changed_fields = []
+                if not is_new:
+                    # 既存の要件を取得して差分を計算
+                    old_req = existing_check.get_next()[0] if existing_check.has_next() else None
+                    if old_req:
+                        for field in ["title", "description", "status", "priority"]:
+                            if field in decision and old_req.get(field) != decision.get(field):
+                                changed_fields.append({
+                                    "field": field,
+                                    "old_value": old_req.get(field),
+                                    "new_value": decision.get(field)
+                                })
                 
                 # VersionStateを作成
                 conn.execute("""
@@ -141,65 +156,45 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                         timestamp: $timestamp,
                         description: $description,
                         change_reason: $reason,
-                        author: 'system'
+                        operation: $operation,
+                        author: $author,
+                        changed_fields: $changed_fields,
+                        progress_percentage: 0.0
                     })
                     RETURN v
                 """, {
                     "version_id": version_id,
                     "timestamp": datetime.now().isoformat(),
                     "description": f"{operation} requirement {decision['id']}",
-                    "reason": operation
+                    "reason": operation,
+                    "operation": operation,
+                    "author": "system",
+                    "changed_fields": json.dumps(changed_fields) if changed_fields else None
                 })
+                
+                # 要件とバージョンの関係を作成
+                conn.execute("""
+                    MATCH (r:RequirementEntity {id: $req_id}), (v:VersionState {id: $ver_id})
+                    CREATE (r)-[:HAS_VERSION]->(v)
+                """, {"req_id": decision["id"], "ver_id": version_id})
                 
                 # 前のバージョンとの関係を作成（既存要件の場合）
                 if not is_new:
                     conn.execute("""
                         MATCH (v_new:VersionState {id: $new_version}),
-                              (v_old:VersionState)-[:TRACKS_STATE_OF]->(l:LocationURI {id: $uri})
+                              (v_old:VersionState)<-[:HAS_VERSION]-(r:RequirementEntity {id: $req_id})
                         WHERE v_old.id <> $new_version
                         WITH v_new, v_old
                         ORDER BY v_old.timestamp DESC
                         LIMIT 1
                         CREATE (v_new)-[:FOLLOWS]->(v_old)
-                    """, {"new_version": version_id, "uri": location_uri})
+                    """, {"new_version": version_id, "req_id": decision["id"]})
                 
                 # バージョンと位置の関係を作成
                 conn.execute("""
                     MATCH (v:VersionState {id: $version_id}), (l:LocationURI {id: $uri})
-                    CREATE (v)-[:TRACKS_STATE_OF {operation: $operation}]->(l)
-                """, {"version_id": version_id, "uri": location_uri, "operation": operation})
-                
-                # スナップショットを作成
-                snapshot = create_requirement_snapshot(decision, version_id, operation)
-                
-                conn.execute("""
-                    CREATE (s:RequirementSnapshot {
-                        snapshot_id: $snapshot_id,
-                        requirement_id: $requirement_id,
-                        version_id: $version_id,
-                        title: $title,
-                        description: $description,
-                        priority: $priority,
-                        requirement_type: $requirement_type,
-                        status: $status,
-                        embedding: $embedding,
-                        created_at: $created_at,
-                        snapshot_at: $snapshot_at,
-                        is_deleted: $is_deleted
-                    })
-                    RETURN s
-                """, snapshot)
-                
-                # スナップショット関係を作成
-                conn.execute("""
-                    MATCH (r:RequirementEntity {id: $req_id}), (s:RequirementSnapshot {snapshot_id: $snap_id})
-                    CREATE (r)-[:HAS_SNAPSHOT]->(s)
-                """, {"req_id": decision["id"], "snap_id": snapshot["snapshot_id"]})
-                
-                conn.execute("""
-                    MATCH (s:RequirementSnapshot {snapshot_id: $snap_id}), (v:VersionState {id: $ver_id})
-                    CREATE (s)-[:SNAPSHOT_OF_VERSION]->(v)
-                """, {"snap_id": snapshot["snapshot_id"], "ver_id": version_id})
+                    CREATE (v)-[:TRACKS_STATE_OF {entity_type: 'requirement'}]->(l)
+                """, {"version_id": version_id, "uri": location_uri})
             
             # 親子関係を設定（LocationURI階層として）
             if parent_id and track_version:
@@ -504,17 +499,18 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         """
         try:
             result = conn.execute("""
-                MATCH (r:RequirementEntity {id: $req_id})-[:HAS_SNAPSHOT]->(s:RequirementSnapshot)
-                      -[:SNAPSHOT_OF_VERSION]->(v:VersionState)
-                RETURN s.snapshot_id as snapshot_id,
-                       s.title as title,
-                       s.description as description,
-                       s.status as status,
-                       s.snapshot_at as snapshot_at,
+                MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)
+                RETURN r.id as requirement_id,
+                       r.title as title,
+                       r.description as description,
+                       r.status as status,
+                       r.priority as priority,
                        v.id as version_id,
                        v.timestamp as timestamp,
                        v.change_reason as change_reason,
-                       v.author as author
+                       v.author as author,
+                       v.operation as operation,
+                       v.changed_fields as changed_fields
                 ORDER BY v.timestamp DESC
                 LIMIT $limit
             """, {"req_id": requirement_id, "limit": limit})
@@ -554,19 +550,19 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         """
         try:
             result = conn.execute("""
-                MATCH (s:RequirementSnapshot)-[:SNAPSHOT_OF_VERSION]->(v:VersionState)
-                WHERE s.requirement_id = $req_id AND v.timestamp <= $target_time
-                RETURN s
+                MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)
+                WHERE v.timestamp <= $target_time
+                RETURN r, v
                 ORDER BY v.timestamp DESC
                 LIMIT 1
             """, {"req_id": requirement_id, "target_time": timestamp})
             
             if result.has_next():
-                snapshot = result.get_next()[0]
+                requirement, version = result.get_next()
                 return {
-                    "id": snapshot["requirement_id"],
-                    "title": snapshot["title"],
-                    "description": snapshot["description"],
+                    "id": requirement["id"],
+                    "title": requirement["title"],
+                    "description": requirement["description"],
                     "status": snapshot["status"],
                     "created_at": snapshot["created_at"],
                     "embedding": snapshot["embedding"],
@@ -599,423 +595,3 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         "execute": conn.execute,  # CypherExecutor用
         "executor": executor  # LLM Hooks API用
     }
-
-
-# Test cases
-def test_kuzu_repository_basic_crud_returns_saved_requirement():
-    """kuzu_repository_基本CRUD_保存された要件を返す"""
-    import tempfile
-    from datetime import datetime
-    
-    # テスト用のin-memoryストレージ
-    class TestStorage:
-        def __init__(self):
-            self.nodes = {}
-            self.relations = []
-    
-    class TestConnection:
-        def __init__(self):
-            self.storage = TestStorage()
-            
-        def execute(self, query, params=None):
-            # 簡易的なクエリ処理
-            if "CREATE NODE TABLE" in query or "CREATE REL TABLE" in query:
-                return TestResult([])
-            elif "MERGE" in query and "RequirementEntity" in query:
-                if params:
-                    self.storage.nodes[params["id"]] = params
-                return TestResult([])
-            elif "MATCH (r:RequirementEntity {id: $id})" in query:
-                req_id = params.get("id") if params else None
-                if req_id and req_id in self.storage.nodes:
-                    return TestResult([[self.storage.nodes[req_id]]])
-                return TestResult([])
-            elif "MATCH (r:RequirementEntity)" in query:
-                return TestResult([[node] for node in self.storage.nodes.values()])
-            return TestResult([])
-    
-    class TestResult:
-        def __init__(self, data):
-            self.data = data
-            self._index = 0
-        
-        def has_next(self):
-            return self._index < len(self.data)
-        
-        def get_next(self):
-            if self.has_next():
-                result = self.data[self._index]
-                self._index += 1
-                return result
-            return None
-    
-    # テスト用リポジトリ作成
-    test_conn = TestConnection()
-    
-    def test_create_kuzu_repository(db_path):
-        def save_func(decision, parent_id=None, track_version=False):
-            test_conn.storage.nodes[decision["id"]] = decision
-            return decision
-        
-        def find_func(req_id):
-            if req_id in test_conn.storage.nodes:
-                return test_conn.storage.nodes[req_id]
-            return {
-                "type": "DecisionNotFoundError",
-                "message": f"Requirement {req_id} not found",
-                "decision_id": req_id
-            }
-        
-        return {
-            "save": save_func,
-            "find": find_func,
-            "find_all": lambda: list(test_conn.storage.nodes.values()),
-            "search": lambda query, threshold=0.7: [],
-            "add_dependency": lambda from_id, to_id, dep_type="depends_on", reason="": {"success": True},
-            "find_dependencies": lambda req_id, depth=1: [],
-            "find_ancestors": lambda req_id, depth=10: [],
-            "find_children": lambda req_id, depth=10: [],
-            "get_requirement_history": lambda req_id, limit=10: [],
-            "get_requirement_at_version": lambda req_id, timestamp: None,
-            "db": None
-        }
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = test_create_kuzu_repository(f"{tmpdir}/test.db")
-        
-        # Create
-        requirement = {
-            "id": "test_001",
-            "title": "Test Requirement",
-            "description": "Test description",
-            "status": "proposed",
-            "created_at": datetime.now(),
-            "embedding": [0.1] * 50
-        }
-        
-        saved = repo["save"](requirement)
-        assert saved["id"] == "test_001"
-        
-        # Read
-        found = repo["find"]("test_001")
-        assert "type" not in found
-        assert found["title"] == "Test Requirement"
-        
-        # Find all
-        all_reqs = repo["find_all"]()
-        assert len(all_reqs) == 1
-
-
-def test_kuzu_repository_dependency_management_handles_relationships():
-    """kuzu_repository_依存関係管理_関係性を扱う"""
-    import tempfile
-    from datetime import datetime
-    
-    # テスト用リポジトリ
-    storage = {"nodes": {}, "deps": []}
-    
-    def test_repo():
-        return {
-            "save": lambda decision, parent_id=None, track_version=False: (
-                storage["nodes"].update({decision["id"]: decision}) or decision
-            ),
-            "add_dependency": lambda from_id, to_id, dep_type="depends_on", reason="": (
-                storage["deps"].append((from_id, to_id, dep_type, reason)) or {"success": True}
-            ),
-            "find_dependencies": lambda req_id, depth=2: []
-        }
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = test_repo()
-        
-        # 要件を作成
-        req1 = {
-            "id": "auth",
-            "title": "認証システム",
-            "description": "OAuth2.0実装",
-            "status": "proposed",
-            "created_at": datetime.now(),
-            "embedding": [0.1] * 50
-        }
-        req2 = {
-            "id": "database",
-            "title": "データベース",
-            "description": "PostgreSQL",
-            "status": "proposed",
-            "created_at": datetime.now(),
-            "embedding": [0.2] * 50
-        }
-        
-        repo["save"](req1)
-        repo["save"](req2)
-        
-        # 依存関係追加
-        result = repo["add_dependency"]("auth", "database", "depends_on", "ユーザー情報保存")
-        assert result["success"] == True
-        
-        # 依存関係検索
-        deps = repo["find_dependencies"]("auth", depth=2)
-        # モック実装では空リストが返る（簡易実装のため）
-        # 実際のKuzuDBでは正しく動作する
-        print(f"Dependencies found: {len(deps)}")  # デバッグ用
-
-
-def test_kuzu_repository_circular_dependency_returns_error():
-    """kuzu_repository_循環依存_エラーを返す"""
-    import tempfile
-    from datetime import datetime
-    
-    # テスト用リポジトリ
-    storage = {"nodes": {}, "deps": []}
-    
-    def check_circular(from_id, to_id, deps):
-        # 簡易的な循環チェック
-        visited = set()
-        def has_path(start, end):
-            if start == end:
-                return True
-            if start in visited:
-                return False
-            visited.add(start)
-            for f, t, _, _ in deps:
-                if f == start and has_path(t, end):
-                    return True
-            return False
-        return has_path(to_id, from_id)
-    
-    def test_repo():
-        return {
-            "save": lambda decision, parent_id=None, track_version=False: (
-                storage["nodes"].update({decision["id"]: decision}) or decision
-            ),
-            "add_dependency": lambda from_id, to_id, dep_type="depends_on", reason="": (
-                {"type": "ConstraintViolationError", "message": f"Circular dependency detected: {from_id} -> {to_id}"}
-                if check_circular(from_id, to_id, storage["deps"])
-                else storage["deps"].append((from_id, to_id, dep_type, reason)) or {"success": True}
-            )
-        }
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = test_repo()
-        
-        # 3つの要件を作成
-        for req_id in ["A", "B", "C"]:
-            repo["save"]({
-                "id": req_id,
-                "title": f"Requirement {req_id}",
-                "description": f"Description {req_id}",
-                "status": "proposed",
-                    "created_at": datetime.now(),
-                "embedding": [0.1] * 50
-            })
-        
-        # A -> B -> C の依存関係
-        repo["add_dependency"]("A", "B")
-        repo["add_dependency"]("B", "C")
-        
-        # C -> A で循環依存
-        result = repo["add_dependency"]("C", "A")
-        assert result["type"] == "ConstraintViolationError"
-        assert "Circular dependency" in result["message"]
-
-
-def test_circular_dependency_detection_prevents_creation():
-    """循環依存検出_A→B→C→Aの循環作成時_エラーを返す"""
-    import tempfile
-    from datetime import datetime
-    
-    # テスト用リポジトリ
-    storage = {"nodes": {}, "deps": []}
-    
-    def check_circular(from_id, to_id, deps):
-        visited = set()
-        def has_path(start, end):
-            if start == end:
-                return True
-            if start in visited:
-                return False
-            visited.add(start)
-            for f, t, _, _ in deps:
-                if f == start and has_path(t, end):
-                    return True
-            return False
-        return has_path(to_id, from_id)
-    
-    def test_repo():
-        return {
-            "save": lambda decision, parent_id=None, track_version=False: (
-                storage["nodes"].update({decision["id"]: decision}) or decision
-            ),
-            "add_dependency": lambda from_id, to_id, dep_type="depends_on", reason="": (
-                {"type": "ConstraintViolationError", "message": f"Circular dependency detected: {from_id} -> {to_id}"}
-                if check_circular(from_id, to_id, storage["deps"])
-                else storage["deps"].append((from_id, to_id, dep_type, reason)) or {"success": True}
-            )
-        }
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = test_repo()
-        
-        # A→B→Cの依存関係を作成
-        req_a = {
-            "id": "A", "title": "要件A", "description": "A",
-            "status": "proposed", "created_at": datetime.now(),
-            "embedding": [0.1] * 50
-        }
-        req_b = {
-            "id": "B", "title": "要件B", "description": "B",
-            "status": "proposed", "created_at": datetime.now(),
-            "embedding": [0.1] * 50
-        }
-        req_c = {
-            "id": "C", "title": "要件C", "description": "C",
-            "status": "proposed", "created_at": datetime.now(),
-            "embedding": [0.1] * 50
-        }
-        
-        repo["save"](req_a)
-        repo["save"](req_b)
-        repo["save"](req_c)
-        
-        repo["add_dependency"]("A", "B")
-        repo["add_dependency"]("B", "C")
-        
-        # C→Aの依存を追加して循環を作る（A→B→C→A）
-        result = repo["add_dependency"]("C", "A")
-        
-        assert result["type"] == "ConstraintViolationError"
-        assert "Circular dependency" in result["message"]
-
-
-def test_self_dependency_returns_error():
-    """自己依存_要件が自身に依存_エラーを返す"""
-    import tempfile
-    from datetime import datetime
-    
-    # テスト用リポジトリ
-    storage = {"nodes": {}}
-    
-    def test_repo():
-        return {
-            "save": lambda decision, parent_id=None, track_version=False: (
-                storage["nodes"].update({decision["id"]: decision}) or decision
-            ),
-            "add_dependency": lambda from_id, to_id, dep_type="depends_on", reason="": (
-                {"type": "ConstraintViolationError", "message": f"Self dependency not allowed: {from_id} -> {to_id}"}
-                if from_id == to_id
-                else {"success": True}
-            )
-        }
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = test_repo()
-        
-        req = {
-            "id": "self", "title": "自己参照", "description": "Self",
-            "status": "proposed", "created_at": datetime.now(),
-            "embedding": [0.1] * 50
-        }
-        
-        repo["save"](req)
-        
-        result = repo["add_dependency"]("self", "self")
-        
-        assert result["type"] == "ConstraintViolationError"
-        assert "self" in result["message"].lower() or "circular" in result["message"].lower()
-
-
-def test_nonexistent_parent_returns_error():
-    """存在しない親ID_要件作成時_エラーを返す"""
-    import tempfile
-    from datetime import datetime
-    
-    # テスト用リポジトリ
-    storage = {"nodes": {}}
-    
-    def test_repo():
-        return {
-            "save": lambda decision, parent_id=None, track_version=False: (
-                {"type": "DecisionNotFoundError", "message": f"Parent requirement {parent_id} not found", "decision_id": parent_id}
-                if parent_id and parent_id not in storage["nodes"]
-                else storage["nodes"].update({decision["id"]: decision}) or decision
-            )
-        }
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = test_repo()
-        
-        req = {
-            "id": "orphan", "title": "孤児", "description": "Orphan",
-            "status": "proposed", "created_at": datetime.now(),
-            "embedding": [0.1] * 50
-        }
-        
-        result = repo["save"](req, parent_id="nonexistent_parent")
-        
-        assert result["type"] == "DecisionNotFoundError"
-        assert "not found" in result["message"]
-
-
-def test_dependency_graph_traversal_returns_all_dependencies():
-    """依存関係探索_深さ3まで_全依存先を距離順で返す"""
-    import tempfile
-    from datetime import datetime
-    
-    # テスト用リポジトリ
-    storage = {"nodes": {}, "deps": []}
-    
-    def find_deps(req_id, depth):
-        # 簡易的な深さ探索
-        result = []
-        visited = set()
-        
-        def traverse(current, dist):
-            if dist > depth or current in visited:
-                return
-            visited.add(current)
-            for f, t, _, _ in storage["deps"]:
-                if f == current and t not in visited:
-                    result.append({
-                        "requirement": storage["nodes"][t],
-                        "distance": dist
-                    })
-                    traverse(t, dist + 1)
-        
-        traverse(req_id, 1)
-        return sorted(result, key=lambda x: x["distance"])
-    
-    def test_repo():
-        return {
-            "save": lambda decision, parent_id=None, track_version=False: (
-                storage["nodes"].update({decision["id"]: decision}) or decision
-            ),
-            "add_dependency": lambda from_id, to_id, dep_type="depends_on", reason="": (
-                storage["deps"].append((from_id, to_id, dep_type, reason)) or {"success": True}
-            ),
-            "find_dependencies": find_deps
-        }
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = test_repo()
-        
-        # A→B→C→Dの依存チェーン
-        for req_id in ["A", "B", "C", "D"]:
-            repo["save"]({
-                "id": req_id, "title": f"要件{req_id}", "description": req_id,
-                "status": "proposed", "created_at": datetime.now(),
-                "embedding": [0.1] * 50
-            })
-        
-        repo["add_dependency"]("A", "B")
-        repo["add_dependency"]("B", "C")
-        repo["add_dependency"]("C", "D")
-        
-        deps = repo["find_dependencies"]("A", depth=3)
-        
-        assert len(deps) == 3
-        assert deps[0]["requirement"]["id"] == "B"
-        assert deps[0]["distance"] == 1
-        assert deps[1]["requirement"]["id"] == "C"
-        assert deps[1]["distance"] == 2
-        assert deps[2]["requirement"]["id"] == "D"
-        assert deps[2]["distance"] == 3

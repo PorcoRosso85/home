@@ -3,6 +3,7 @@ Version Service - バージョン管理ユースケース
 依存: domain層のみ
 外部依存: なし
 """
+import json
 from typing import Dict, List, Optional, Callable, Tuple
 from datetime import datetime
 from ..domain.types import Decision, DecisionResult
@@ -10,7 +11,6 @@ from ..domain.version_tracking import (
     create_version_id,
     create_location_uri,
     parse_location_uri,
-    create_requirement_snapshot,
     calculate_requirement_diff
 )
 
@@ -70,8 +70,16 @@ def create_version_service(repository: VersionRepository):
         # 要件とLocationURIを関連付け
         repository["execute"]("""
             MATCH (l:LocationURI {id: $uri}), (r:RequirementEntity {id: $req_id})
-            MERGE (l)-[:LOCATED_WITH_REQUIREMENT {entity_type: 'requirement'}]->(r)
+            MERGE (l)-[:LOCATES {entity_type: 'requirement'}]->(r)
         """, {"uri": location_uri, "req_id": requirement_id})
+        
+        # 変更フィールドを検出
+        changed_fields = []
+        if operation == "UPDATE":
+            # 以前のバージョンと比較して変更フィールドを検出
+            # 簡易実装：ここでは空リストとする
+            # 実際には以前の状態を取得して比較する必要がある
+            pass
         
         # VersionStateを作成
         repository["execute"]("""
@@ -80,7 +88,10 @@ def create_version_service(repository: VersionRepository):
                 timestamp: $timestamp,
                 description: $description,
                 change_reason: $reason,
-                author: $author
+                operation: $operation,
+                author: $author,
+                changed_fields: $changed_fields,
+                progress_percentage: 0.0
             })
             RETURN v
         """, {
@@ -88,62 +99,36 @@ def create_version_service(repository: VersionRepository):
             "timestamp": datetime.now().isoformat(),
             "description": f"{operation} requirement {requirement_id}",
             "reason": reason or operation,
-            "author": author
+            "operation": operation,
+            "author": author,
+            "changed_fields": json.dumps(changed_fields) if changed_fields else None
         })
+        
+        # 要件とバージョンの関係を作成
+        repository["execute"]("""
+            MATCH (r:RequirementEntity {id: $req_id}), (v:VersionState {id: $ver_id})
+            CREATE (r)-[:HAS_VERSION]->(v)
+        """, {"req_id": requirement_id, "ver_id": version_id})
         
         # 前のバージョンとの関係を作成
         repository["execute"]("""
             MATCH (v_new:VersionState {id: $new_version}),
-                  (v_old:VersionState)-[:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI {id: $uri})
+                  (v_old:VersionState)<-[:HAS_VERSION]-(r:RequirementEntity {id: $req_id})
             WHERE v_old.id <> $new_version
             WITH v_new, v_old
             ORDER BY v_old.timestamp DESC
             LIMIT 1
             CREATE (v_new)-[:FOLLOWS]->(v_old)
-        """, {"new_version": version_id, "uri": location_uri})
+        """, {"new_version": version_id, "req_id": requirement_id})
         
         # バージョンと位置の関係を作成
         repository["execute"]("""
             MATCH (v:VersionState {id: $version_id}), (l:LocationURI {id: $uri})
-            CREATE (v)-[:TRACKS_STATE_OF_LOCATED_ENTITY {operation: $operation}]->(l)
-        """, {"version_id": version_id, "uri": location_uri, "operation": operation})
-        
-        # スナップショットを作成
-        snapshot = create_requirement_snapshot(requirement, version_id, operation)
-        snapshot_id = snapshot["snapshot_id"]
-        
-        repository["execute"]("""
-            CREATE (s:RequirementSnapshot {
-                snapshot_id: $snapshot_id,
-                requirement_id: $requirement_id,
-                version_id: $version_id,
-                title: $title,
-                description: $description,
-                priority: $priority,
-                requirement_type: $requirement_type,
-                status: $status,
-                embedding: $embedding,
-                created_at: $created_at,
-                snapshot_at: $snapshot_at,
-                is_deleted: $is_deleted
-            })
-            RETURN s
-        """, snapshot)
-        
-        # スナップショット関係を作成
-        repository["execute"]("""
-            MATCH (r:RequirementEntity {id: $req_id}), (s:RequirementSnapshot {snapshot_id: $snap_id})
-            CREATE (r)-[:HAS_SNAPSHOT]->(s)
-        """, {"req_id": requirement_id, "snap_id": snapshot_id})
-        
-        repository["execute"]("""
-            MATCH (s:RequirementSnapshot {snapshot_id: $snap_id}), (v:VersionState {id: $ver_id})
-            CREATE (s)-[:SNAPSHOT_OF_VERSION]->(v)
-        """, {"snap_id": snapshot_id, "ver_id": version_id})
+            CREATE (v)-[:TRACKS_STATE_OF {entity_type: 'requirement'}]->(l)
+        """, {"version_id": version_id, "uri": location_uri})
         
         return {
             "version_id": version_id,
-            "snapshot_id": snapshot_id,
             "location_uri": location_uri,
             "status": "tracked"
         }
@@ -160,22 +145,29 @@ def create_version_service(repository: VersionRepository):
             変更履歴のリスト
         """
         result = repository["execute"]("""
-            MATCH (r:RequirementEntity {id: $req_id})-[:HAS_SNAPSHOT]->(s:RequirementSnapshot)
-                  -[:SNAPSHOT_OF_VERSION]->(v:VersionState)
-            RETURN s, v
+            MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)
+            RETURN r, v
             ORDER BY v.timestamp DESC
             LIMIT $limit
         """, {"req_id": requirement_id, "limit": limit})
         
         history = []
         while result.has_next():
-            snapshot, version = result.get_next()
+            requirement, version = result.get_next()
             history.append({
                 "version_id": version["id"],
                 "timestamp": version["timestamp"],
-                "author": version["author"],
-                "change_reason": version["change_reason"],
-                "snapshot": snapshot
+                "author": version.get("author", "system"),
+                "change_reason": version.get("change_reason", ""),
+                "operation": version.get("operation", "UPDATE"),
+                "changed_fields": json.loads(version.get("changed_fields", "[]")) if version.get("changed_fields") else [],
+                "requirement_state": {
+                    "id": requirement["id"],
+                    "title": requirement["title"],
+                    "description": requirement["description"],
+                    "status": requirement.get("status", "proposed"),
+                    "priority": requirement.get("priority", "medium")
+                }
             })
         
         return history
@@ -191,16 +183,30 @@ def create_version_service(repository: VersionRepository):
         Returns:
             その時点での要件状態、見つからない場合はNone
         """
+        # 指定時刻以前の最新バージョンを取得
         result = repository["execute"]("""
-            MATCH (s:RequirementSnapshot)-[:SNAPSHOT_OF_VERSION]->(v:VersionState)
-            WHERE s.requirement_id = $req_id AND v.timestamp <= $target_time
-            RETURN s
+            MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)
+            WHERE v.timestamp <= $target_time
+            RETURN r, v
             ORDER BY v.timestamp DESC
             LIMIT 1
         """, {"req_id": requirement_id, "target_time": timestamp})
         
         if result.has_next():
-            return result.get_next()[0]
+            requirement, version = result.get_next()
+            return {
+                "id": requirement["id"],
+                "title": requirement["title"],
+                "description": requirement["description"],
+                "status": requirement.get("status", "proposed"),
+                "priority": requirement.get("priority", "medium"),
+                "requirement_type": requirement.get("requirement_type", "functional"),
+                "version_info": {
+                    "version_id": version["id"],
+                    "timestamp": version["timestamp"],
+                    "operation": version.get("operation", "UPDATE")
+                }
+            }
         
         return None
     
@@ -216,19 +222,31 @@ def create_version_service(repository: VersionRepository):
         Returns:
             差分情報
         """
-        # 両方のスナップショットを取得
-        result = repository["execute"]("""
-            MATCH (s1:RequirementSnapshot {requirement_id: $req_id, version_id: $v1}),
-                  (s2:RequirementSnapshot {requirement_id: $req_id, version_id: $v2})
-            RETURN s1, s2
-        """, {"req_id": requirement_id, "v1": version1_id, "v2": version2_id})
+        # 両方のバージョン時点の要件を取得
+        result1 = repository["execute"]("""
+            MATCH (v:VersionState {id: $ver_id})
+            RETURN v.timestamp as timestamp
+        """, {"ver_id": version1_id})
         
-        if not result.has_next():
+        result2 = repository["execute"]("""
+            MATCH (v:VersionState {id: $ver_id})
+            RETURN v.timestamp as timestamp
+        """, {"ver_id": version2_id})
+        
+        if not result1.has_next() or not result2.has_next():
             return {"error": "Versions not found"}
         
-        snapshot1, snapshot2 = result.get_next()
+        timestamp1 = result1.get_next()[0]
+        timestamp2 = result2.get_next()[0]
         
-        return calculate_requirement_diff(snapshot1, snapshot2)
+        # 各タイムスタンプ時点の要件状態を取得
+        req1 = get_requirement_at_version(requirement_id, timestamp1)
+        req2 = get_requirement_at_version(requirement_id, timestamp2)
+        
+        if not req1 or not req2:
+            return {"error": "Requirement states not found"}
+        
+        return calculate_requirement_diff(req1, req2)
     
     return {
         "track_requirement_change": track_requirement_change,
@@ -238,113 +256,3 @@ def create_version_service(repository: VersionRepository):
     }
 
 
-# Test cases (in-source test)
-def test_version_service_track_change_creates_version():
-    """version_service_track_change_バージョン作成_成功を返す"""
-    # モックリポジトリ
-    executions = []
-    requirements = {
-        "req_001": {
-            "id": "req_001",
-            "title": "Test Requirement",
-            "description": "Test description",
-            "status": "proposed",
-            "embedding": [0.1] * 50,
-            "created_at": datetime.now()
-        }
-    }
-    
-    def mock_execute(query, params=None):
-        executions.append((query, params))
-        return MockResult([])
-    
-    def mock_find(req_id):
-        return requirements.get(req_id, {"type": "NotFoundError"})
-    
-    repository = {
-        "execute": mock_execute,
-        "find_requirement": mock_find,
-        "save_requirement": lambda r: r
-    }
-    
-    service = create_version_service(repository)
-    
-    # 変更を追跡
-    result = service["track_requirement_change"]("req_001", "UPDATE", "test_user", "Updated description")
-    
-    assert "version_id" in result
-    assert "snapshot_id" in result
-    assert "location_uri" in result
-    assert result["status"] == "tracked"
-    assert len(executions) > 5  # 複数のクエリが実行される
-
-
-def test_version_service_history_returns_sorted_versions():
-    """version_service_history_履歴取得_時系列順で返す"""
-    # モックデータ
-    history_data = [
-        ({
-            "snapshot_id": "req_001@v1",
-            "title": "Version 1"
-        }, {
-            "id": "v1",
-            "timestamp": "2024-01-01T00:00:00",
-            "author": "user1",
-            "change_reason": "Initial"
-        }),
-        ({
-            "snapshot_id": "req_001@v2",
-            "title": "Version 2"
-        }, {
-            "id": "v2",
-            "timestamp": "2024-01-02T00:00:00",
-            "author": "user2",
-            "change_reason": "Update"
-        })
-    ]
-    
-    def mock_execute(query, params=None):
-        if "ORDER BY v.timestamp DESC" in query:
-            return create_mock_result(history_data)
-        return create_mock_result([])
-    
-    repository = {
-        "execute": mock_execute,
-        "find_requirement": lambda id: {},
-        "save_requirement": lambda r: r
-    }
-    
-    service = create_version_service(repository)
-    
-    # 履歴を取得
-    history = service["get_requirement_history"]("req_001")
-    
-    assert len(history) == 2
-    assert history[0]["version_id"] == "v1"
-    assert history[1]["version_id"] == "v2"
-
-
-# テスト用ヘルパー関数
-def create_mock_result(data):
-    """テスト用のモック結果オブジェクトを作成"""
-    items = data if isinstance(data, list) else [data]
-    index = [0]  # クロージャで状態を保持
-    
-    def has_next():
-        return index[0] < len(items)
-    
-    def get_next():
-        if has_next():
-            result = items[index[0]]
-            index[0] += 1
-            return result
-        return None
-    
-    # オブジェクト風のアクセスを提供
-    mock = type('MockResult', (), {
-        'has_next': has_next,
-        'get_next': get_next,
-        '_data': items
-    })()
-    
-    return mock

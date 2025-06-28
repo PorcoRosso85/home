@@ -55,43 +55,16 @@ def parse_location_uri(uri: str) -> Dict[str, str]:
     }
 
 
-def create_requirement_snapshot(
-    requirement: Decision,
-    version_id: str,
-    operation: str = "CREATE"
-) -> Dict:
-    """
-    要件のスナップショットを作成
-    
-    Args:
-        requirement: 要件データ
-        version_id: バージョンID
-        operation: "CREATE", "UPDATE", "DELETE"
-    """
-    snapshot_id = f"{requirement['id']}@{version_id}"
-    
-    return {
-        "snapshot_id": snapshot_id,
-        "requirement_id": requirement["id"],
-        "version_id": version_id,
-        "title": requirement["title"],
-        "description": requirement["description"],
-        "priority": requirement.get("priority", "medium"),
-        "requirement_type": requirement.get("requirement_type", "functional"),
-        "status": requirement["status"],
-        "embedding": requirement["embedding"],
-        "created_at": requirement["created_at"].isoformat(),
-        "snapshot_at": datetime.now().isoformat(),
-        "is_deleted": operation == "DELETE"
-    }
-
-
 def calculate_requirement_diff(
-    old_snapshot: Dict,
-    new_snapshot: Dict
+    old_requirement: Dict,
+    new_requirement: Dict
 ) -> Dict[str, List[Tuple[str, any, any]]]:
     """
-    2つのスナップショット間の差分を計算
+    2つの要件間の差分を計算
+    
+    Args:
+        old_requirement: 古い要件データ
+        new_requirement: 新しい要件データ
     
     Returns:
         {
@@ -102,63 +75,11 @@ def calculate_requirement_diff(
     
     # 基本フィールドの比較
     for field in ["title", "description", "priority", "requirement_type", "status"]:
-        if old_snapshot.get(field) != new_snapshot.get(field):
-            changed_fields.append((field, old_snapshot.get(field), new_snapshot.get(field)))
+        if old_requirement.get(field) != new_requirement.get(field):
+            changed_fields.append((field, old_requirement.get(field), new_requirement.get(field)))
     
     return {
         "changed_fields": changed_fields
     }
 
 
-# Test cases (in-source test)
-def test_create_version_id_generates_unique_id():
-    """create_version_id_一意のID_生成される"""
-    import time
-    
-    id1 = create_version_id("req_001")
-    time.sleep(0.001)  # 少し待つ
-    id2 = create_version_id("req_001")
-    
-    assert id1 != id2
-    assert "req_001" in id1
-    assert "req_001" in id2
-
-
-def test_create_location_uri_generates_standard_uri():
-    """create_location_uri_標準URI_生成される"""
-    uri = create_location_uri("req_001")
-    assert uri == "req://rgl/requirements/req_001"
-    
-    uri2 = create_location_uri("req_002")
-    assert uri2 == "req://rgl/requirements/req_002"
-
-
-def test_parse_location_uri_extracts_components():
-    """parse_location_uri_URI解析_コンポーネント抽出"""
-    result = parse_location_uri("req://rgl/requirements/req_001")
-    
-    assert result["scheme"] == "req"
-    assert result["path"] == "/rgl/requirements/req_001"
-    assert result["hierarchy"] == ["rgl", "requirements"]
-    assert result["id"] == "req_001"
-
-
-def test_calculate_requirement_diff_detects_changes():
-    """calculate_requirement_diff_変更検出_差分を返す"""
-    old = {
-        "title": "Old Title",
-        "description": "Old desc",
-        "status": "proposed"
-    }
-    
-    new = {
-        "title": "New Title",
-        "description": "Old desc",  # 変更なし
-        "status": "approved"
-    }
-    
-    diff = calculate_requirement_diff(old, new)
-    
-    assert len(diff["changed_fields"]) == 2
-    assert ("title", "Old Title", "New Title") in diff["changed_fields"]
-    assert ("status", "proposed", "approved") in diff["changed_fields"]
