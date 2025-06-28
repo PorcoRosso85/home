@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "ask": "deno run --allow-env --allow-read --allow-run ask.ts",
+    "status": "deno run --allow-env --allow-read status.ts",
+    "setup": "deno run --allow-env --allow-read --allow-write --allow-run setup-worktree.ts"
+  },
+  "imports": {
+    "@std/path": "https://deno.land/std@0.220.0/path/mod.ts"
+  }
+}
