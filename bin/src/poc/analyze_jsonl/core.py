@@ -224,8 +224,36 @@ class JSONLAnalyzer:
                     WHERE 1=0
                 """)
             else:
-                union_parts = [f"SELECT *, '{v}' as source FROM {v}" for v in non_empty_views]
-                sql = f"CREATE OR REPLACE VIEW {view_name} AS {' UNION ALL '.join(union_parts)}"
+                # 各ビューの共通カラムを見つける
+                common_columns = None
+                for v in non_empty_views:
+                    try:
+                        # ビューのカラムを取得
+                        columns_result = self.conn.execute(f"""
+                            SELECT column_name 
+                            FROM information_schema.columns 
+                            WHERE table_name = '{v}'
+                            ORDER BY ordinal_position
+                        """).fetchall()
+                        columns = [col[0] for col in columns_result]
+                        
+                        if common_columns is None:
+                            common_columns = set(columns)
+                        else:
+                            common_columns = common_columns.intersection(columns)
+                    except:
+                        pass
+                
+                if common_columns:
+                    # 共通カラムのみを選択
+                    column_list = ', '.join(sorted(common_columns))
+                    union_parts = [f"SELECT {column_list}, '{v}' as source FROM {v}" for v in non_empty_views]
+                    sql = f"CREATE OR REPLACE VIEW {view_name} AS {' UNION ALL '.join(union_parts)}"
+                else:
+                    # 共通カラムがない場合は全カラムを使用（エラーになる可能性あり）
+                    union_parts = [f"SELECT *, '{v}' as source FROM {v}" for v in non_empty_views]
+                    sql = f"CREATE OR REPLACE VIEW {view_name} AS {' UNION ALL '.join(union_parts)}"
+                
                 self.conn.execute(sql)
             
             return {
