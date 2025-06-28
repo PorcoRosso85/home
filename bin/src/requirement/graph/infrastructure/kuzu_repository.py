@@ -56,8 +56,8 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     conn = kuzu.Connection(db)
     
     def init_schema():
-        """スキーマ初期化 - DDL v2スキーマは事前適用済みと仮定"""
-        # schema_v2.cypherが適用済みであることを前提とする
+        """スキーマ初期化 - graph/ddl/schema.cypherは事前適用済みと仮定"""
+        # graph/ddl/schema.cypherが適用済みであることを前提とする
         # 必要に応じて存在確認のみ実施
         try:
             conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")

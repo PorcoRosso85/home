@@ -1,4 +1,8 @@
-"""DDLスキーマ適用スクリプト"""
+"""
+DDLスキーマ適用スクリプト
+重要: graph/ddl/ディレクトリのスキーマのみを参照すること
+他のDDL（kuzu/query/ddl等）は参照禁止
+"""
 
 import os
 import sys
@@ -27,7 +31,7 @@ if not LD_LIBRARY_PATH:
 if not RGL_DB_PATH:
     raise EnvironmentError("RGL_DB_PATH environment variable is required")
 
-from requirement.graph.infrastructure.ddl_schema_manager import DDLSchemaManager
+from .ddl_schema_manager import DDLSchemaManager
 
 
 def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = False) -> bool:
@@ -41,13 +45,12 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
     Returns:
         成功したかどうか
     """
-    # スキーマファイルのパスを取得
+    # スキーマファイルのパスを取得（graph/ddl/を参照）
     schema_path = os.path.join(
-        project_root, 
-        "kuzu", 
-        "query", 
+        os.path.dirname(__file__), 
+        "..", 
         "ddl", 
-        "schema_v2.cypher"
+        "schema.cypher"
     )
     
     if not os.path.exists(schema_path):
@@ -111,7 +114,8 @@ def test_apply_ddl_schema_テスト環境_正常適用():
         assert success
         
         # スキーマが適用されたか確認
-        conn = get_connection(temp_dir)
+        test_db = kuzu.Database(temp_dir)
+        conn = kuzu.Connection(test_db)
         
         # LocationURIノードの確認
         result = conn.execute("MATCH (l:LocationURI) RETURN count(l) as cnt")
