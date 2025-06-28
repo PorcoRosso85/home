@@ -5,7 +5,7 @@ from .unified_query_interface import UnifiedQueryInterface
 
 
 # テスト用のモッククラス
-class TestCypherExecutor:
+class MockCypherExecutor:
     def execute(self, query, parameters=None):
         return {
             "data": [{"id": "req_001", "title": "Test Requirement"}],
@@ -14,7 +14,7 @@ class TestCypherExecutor:
         }
 
 
-class TestCustomProcedures:
+class MockCustomProcedures:
     def __init__(self):
         self.procedures = {
             "requirement.score": self._mock_score,
@@ -42,8 +42,8 @@ class TestUnifiedQueryInterface:
     @pytest.fixture
     def interface(self):
         """テスト用のインターフェースを作成"""
-        mock_cypher = TestCypherExecutor()
-        mock_procedures = TestCustomProcedures()
+        mock_cypher = MockCypherExecutor()
+        mock_procedures = MockCustomProcedures()
         mock_validator = TestQueryValidator()
         
         return UnifiedQueryInterface(mock_cypher, mock_procedures, mock_validator)
@@ -120,7 +120,7 @@ class TestUnifiedQueryInterface:
         # 混合
         assert interface._detect_query_type("MATCH (n) CALL proc(n) RETURN n") == "mixed"
 
-    def test_validation_error_returns_error_status(self):
+    def test_validation_error_returns_error_status(self, connection):
         """validate_検証エラー_エラーステータスを返す"""
         # バリデーションエラーを返すモック
         class FailingValidator:
@@ -130,9 +130,12 @@ class TestUnifiedQueryInterface:
             def sanitize_parameters(self, params):
                 return params
         
+        cypher_executor = CypherExecutor(connection)
+        custom_procedures = CustomProcedures(connection)
+        
         interface = UnifiedQueryInterface(
-            TestCypherExecutor(),
-            TestCustomProcedures(),
+            cypher_executor,
+            custom_procedures,
             FailingValidator()
         )
         

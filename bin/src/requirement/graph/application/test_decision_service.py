@@ -1,37 +1,49 @@
 """
 Tests for Decision Service
 """
+import os
+os.environ['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/'
+
+import tempfile
+import pytest
+import kuzu
+from datetime import datetime
 from ..domain.embedder import create_embedding
 from .decision_service import create_decision_service
+from ..infrastructure.kuzu_repository import create_kuzu_repository
 
 
-def test_decision_service_add_valid_data_returns_saved_decision():
+@pytest.fixture
+def db_path():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield tmpdir
+
+@pytest.fixture
+def connection(db_path):
+    db = kuzu.Database(db_path)
+    conn = kuzu.Connection(db)
+    
+    # スキーマのセットアップ
+    conn.execute("""
+        CREATE NODE TABLE IF NOT EXISTS RequirementEntity (
+            id STRING PRIMARY KEY,
+            title STRING,
+            description STRING,
+            status STRING,
+            priority STRING,
+            created_at TIMESTAMP,
+            updated_at TIMESTAMP,
+            tags STRING[],
+            embedding DOUBLE[]
+        )
+    """)
+    
+    return conn
+
+
+def test_decision_service_add_valid_data_returns_saved_decision(connection):
     """decision_service_add_正常データ_保存された決定事項を返す"""
-    # モックリポジトリ
-    storage = {}
-    
-    def mock_save(decision):
-        storage[decision["id"]] = decision
-        return decision
-    
-    def mock_find(decision_id):
-        if decision_id in storage:
-            return storage[decision_id]
-        return {
-            "type": "DecisionNotFoundError",
-            "message": f"Decision {decision_id} not found",
-            "decision_id": decision_id
-        }
-    
-    def mock_find_all():
-        return list(storage.values())
-    
-    repository = {
-        "save": mock_save,
-        "find": mock_find,
-        "find_all": mock_find_all,
-    }
-    
+    repository = create_kuzu_repository(connection)
     service = create_decision_service(repository)
     
     # 決定事項を追加
@@ -45,18 +57,20 @@ def test_decision_service_add_valid_data_returns_saved_decision():
     assert len(result["embedding"]) == 50
 
 
-def test_decision_service_search_similar_query_returns_matching_decisions():
+def test_decision_service_search_similar_query_returns_matching_decisions(connection):
     """decision_service_search_類似クエリ_マッチする決定事項を返す"""
-    storage = {}
+    repository = create_kuzu_repository(connection)
+    service = create_decision_service(repository)
     
-    # 3つの決定事項を準備
+    # 3つの決定事項を作成
     decisions = [
         {
             "id": "req_001",
             "title": "データベース移行",
             "description": "PostgreSQLからKuzuDBへ",
             "status": "approved",
-            "created_at": None,
+            "priority": "high",
+            "created_at": datetime.now(),
             "embedding": create_embedding("データベース移行 PostgreSQLからKuzuDBへ")
         },
         {
@@ -64,29 +78,23 @@ def test_decision_service_search_similar_query_returns_matching_decisions():
             "title": "API設計",
             "description": "RESTful APIの実装",
             "status": "approved",
-            "created_at": None,
+            "priority": "medium",
+            "created_at": datetime.now(),
             "embedding": create_embedding("API設計 RESTful APIの実装")
         },
         {
             "id": "req_003",
             "title": "データベース最適化",
             "description": "クエリパフォーマンス改善",
-            "status": "approved", 
-            "created_at": None,
+            "status": "approved",
+            "priority": "medium",
+            "created_at": datetime.now(),
             "embedding": create_embedding("データベース最適化 クエリパフォーマンス改善")
         }
     ]
     
     for d in decisions:
-        storage[d["id"]] = d
-    
-    repository = {
-        "save": lambda d: d,
-        "find": lambda id: storage.get(id),
-        "find_all": lambda: list(storage.values()),
-    }
-    
-    service = create_decision_service(repository)
+        repository["save"](d)
     
     # "データベース"で検索
     results = service["search_similar"]("データベース", threshold=0.3)

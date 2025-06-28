@@ -1,45 +1,61 @@
 """
 Tests for Requirement Service
 """
+import os
+os.environ['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/'
+
 import tempfile
+import pytest
+import kuzu
 from ..infrastructure.kuzu_repository import create_kuzu_repository
 from .requirement_service import create_requirement_service
 
 
-def test_requirement_service_create_with_dependencies_returns_saved():
+@pytest.fixture
+def db_path():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield tmpdir
+
+@pytest.fixture
+def connection(db_path):
+    db = kuzu.Database(db_path)
+    conn = kuzu.Connection(db)
+    
+    # スキーマのセットアップ
+    conn.execute("""
+        CREATE NODE TABLE IF NOT EXISTS RequirementEntity (
+            id STRING PRIMARY KEY,
+            title STRING,
+            description STRING,
+            status STRING,
+            priority STRING,
+            created_at TIMESTAMP,
+            updated_at TIMESTAMP,
+            tags STRING[],
+            embedding DOUBLE[]
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS DEPENDS_ON (
+            FROM RequirementEntity TO RequirementEntity,
+            type STRING DEFAULT 'depends_on',
+            reason STRING DEFAULT ''
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS PARENT_OF (
+            FROM RequirementEntity TO RequirementEntity
+        )
+    """)
+    
+    return conn
+
+
+def test_requirement_service_create_with_dependencies_returns_saved(connection):
     """requirement_service_create_依存関係付き作成_保存結果を返す"""
-    # モックリポジトリ
-    storage = {}
-    dependencies = {}
-    
-    def mock_save(requirement, parent_id=None):
-        storage[requirement["id"]] = requirement
-        return requirement
-    
-    def mock_find(req_id):
-        if req_id in storage:
-            return storage[req_id]
-        return {"type": "DecisionNotFoundError", "message": "Not found", "decision_id": req_id}
-    
-    def mock_add_dependency(from_id, to_id, dep_type, reason):
-        if from_id not in dependencies:
-            dependencies[from_id] = []
-        dependencies[from_id].append({"to": to_id, "type": dep_type, "reason": reason})
-        return {"success": True, "from": from_id, "to": to_id}
-    
-    def mock_find_dependencies(req_id, depth):
-        return []
-    
-    repository = {
-        "save": mock_save,
-        "find": mock_find,
-        "find_all": lambda: list(storage.values()),
-        "add_dependency": mock_add_dependency,
-        "find_dependencies": mock_find_dependencies,
-        "find_ancestors": lambda req_id, depth: [],
-        "find_children": lambda req_id, depth: []
-    }
-    
+    repository = create_kuzu_repository(connection)
     service = create_requirement_service(repository)
     
     # 依存先を先に作成
@@ -57,36 +73,24 @@ def test_requirement_service_create_with_dependencies_returns_saved():
     
     assert "type" not in auth_req
     assert auth_req["title"] == "認証システム"
-    assert db_req["id"] in [d["to"] for d in dependencies.get(auth_req["id"], [])]
+    # 依存関係の確認
+    deps = repository["get_dependencies"](auth_req["id"])
+    assert db_req["id"] in [d["to"] for d in deps]
 
 
-def test_requirement_service_analyze_impact_returns_affected_list():
+def test_requirement_service_analyze_impact_returns_affected_list(connection):
     """requirement_service_影響分析_影響リストを返す"""
-    storage = {
-        "req_001": {"id": "req_001", "title": "Core"},
-        "req_002": {"id": "req_002", "title": "Feature A"},
-        "req_003": {"id": "req_003", "title": "Feature B"}
-    }
-    
-    def mock_find_dependencies(req_id, depth):
-        if req_id == "req_001":
-            return [
-                {"requirement": storage["req_002"], "distance": 1},
-                {"requirement": storage["req_003"], "distance": 2}
-            ]
-        return []
-    
-    repository = {
-        "save": lambda r, p=None: r,
-        "find": lambda id: storage.get(id, {"type": "DecisionNotFoundError"}),
-        "find_all": lambda: list(storage.values()),
-        "add_dependency": lambda f, t, dt, r: {"success": True},
-        "find_dependencies": mock_find_dependencies,
-        "find_ancestors": lambda req_id, depth: [],
-        "find_children": lambda req_id, depth: []
-    }
-    
+    repository = create_kuzu_repository(connection)
     service = create_requirement_service(repository)
+    
+    # テスト用要件を作成
+    req_001 = service["create_requirement"](title="Core", description="Core component")
+    req_002 = service["create_requirement"](title="Feature A", description="Feature A")
+    req_003 = service["create_requirement"](title="Feature B", description="Feature B")
+    
+    # 依存関係を設定 (req_002 -> req_001, req_003 -> req_002)
+    repository["add_dependency"](req_002["id"], req_001["id"], "depends_on", "needs core")
+    repository["add_dependency"](req_003["id"], req_002["id"], "depends_on", "needs feature A")
     
     impact = service["analyze_impact"]("req_001")
     
@@ -96,108 +100,90 @@ def test_requirement_service_analyze_impact_returns_affected_list():
     assert impact["total_affected"] == 2
 
 
-def test_create_requirement_hierarchy_creates_parent_of_relation():
+def test_create_requirement_hierarchy_creates_parent_of_relation(connection):
     """要件階層作成_parent_id指定時_PARENT_OF関係が作成される"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = create_kuzu_repository(f"{tmpdir}/test.db")
-        service = create_requirement_service(repo)
-        
-        parent = service["create_requirement"](
-            title="ビジョン",
-            description="システムの目的",
-        )
-        
-        child = service["create_requirement"](
-            title="アーキテクチャ",
-            description="設計方針",
-            parent_id=parent["id"],
-        )
-        
-        ancestors = service["find_ancestors"](child["id"])
-        assert len(ancestors) == 1
-        assert ancestors[0]["requirement"]["id"] == parent["id"]
-        assert ancestors[0]["distance"] == 1
+    repository = create_kuzu_repository(connection)
+    service = create_requirement_service(repository)
+    
+    parent = service["create_requirement"](
+        title="ビジョン",
+        description="システムの目的",
+    )
+    
+    child = service["create_requirement"](
+        title="アーキテクチャ",
+        description="設計方針",
+        parent_id=parent["id"],
+    )
+    
+    ancestors = service["find_ancestors"](child["id"])
+    assert len(ancestors) == 1
+    assert ancestors[0]["requirement"]["id"] == parent["id"]
+    assert ancestors[0]["distance"] == 1
 
 
-def test_find_abstract_requirement_from_implementation_returns_vision():
+def test_find_abstract_requirement_from_implementation_returns_vision(connection):
     """抽象要件探索_L2実装から_L0ビジョンを返す"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = create_kuzu_repository(f"{tmpdir}/test.db")
-        service = create_requirement_service(repo)
-        
-        vision = service["create_requirement"](
-            title="システムビジョン",
-            description="最上位の目的",
-        )
-        
-        arch = service["create_requirement"](
-            title="アーキテクチャ",
-            description="中間層",
-            parent_id=vision["id"],
-        )
-        
-        impl = service["create_requirement"](
-            title="具体実装",
-            description="実装詳細",
-            parent_id=arch["id"],
-        )
-        
-        result = service["find_abstract_requirement"](impl["id"])
-        
-        assert result["found"] == True
-        assert result["abstract_requirement"]["id"] == vision["id"]
-        assert result["path_length"] == 2
+    repository = create_kuzu_repository(connection)
+    service = create_requirement_service(repository)
+    
+    vision = service["create_requirement"](
+        title="システムビジョン",
+        description="最上位の目的",
+    )
+    
+    arch = service["create_requirement"](
+        title="アーキテクチャ",
+        description="中間層",
+        parent_id=vision["id"],
+    )
+    
+    impl = service["create_requirement"](
+        title="具体実装",
+        description="実装詳細",
+        parent_id=arch["id"],
+    )
+    
+    result = service["find_abstract_requirement"](impl["id"])
+    
+    assert result["found"] == True
+    assert result["abstract_requirement"]["id"] == vision["id"]
+    assert result["path_length"] == 2
 
 
-def test_hierarchy_depth_limit_prevents_deep_nesting():
+def test_hierarchy_depth_limit_prevents_deep_nesting(connection):
     """階層深さ制限_6階層目作成時_エラーを返す"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo = create_kuzu_repository(f"{tmpdir}/test.db")
-        service = create_requirement_service(repo)
-        
-        # 5階層まで作成
-        level0 = service["create_requirement"](
-            title="Vision", description="Top level vision"        )
-        
-        level1 = service["create_requirement"](
-            title="Architecture", description="System architecture", parent_id=level0["id"]        )
-        
-        level2 = service["create_requirement"](
-            title="Module Design", description="Module level design", parent_id=level1["id"]        )
-        
-        level3 = service["create_requirement"](
-            title="Component", description="Component implementation", parent_id=level2["id"]        )
-        
-        level4 = service["create_requirement"](
-            title="Detailed Task", description="Detailed implementation task", parent_id=level3["id"]        )
-        
-        # 6階層目はエラー
-        level5_result = service["create_requirement"](
-            title="Sub-task", description="Too deep sub-task", parent_id=level4["id"]        )
-        
-        assert level5_result["type"] == "ConstraintViolationError"
-        assert level5_result["constraint"] == "max_depth"
-        assert "exceed" in level5_result["message"].lower()
+    repository = create_kuzu_repository(connection)
+    service = create_requirement_service(repository)
+    
+    # 5階層まで作成
+    level0 = service["create_requirement"](
+        title="Vision", description="Top level vision")
+    
+    level1 = service["create_requirement"](
+        title="Architecture", description="System architecture", parent_id=level0["id"])
+    
+    level2 = service["create_requirement"](
+        title="Module Design", description="Module level design", parent_id=level1["id"])
+    
+    level3 = service["create_requirement"](
+        title="Component", description="Component implementation", parent_id=level2["id"])
+    
+    level4 = service["create_requirement"](
+        title="Detailed Task", description="Detailed implementation task", parent_id=level3["id"])
+    
+    # 6階層目はエラー
+    level5_result = service["create_requirement"](
+        title="Sub-task", description="Too deep sub-task", parent_id=level4["id"])
+    
+    assert level5_result["type"] == "ConstraintViolationError"
+    assert level5_result["constraint"] == "max_depth"
+    assert "exceed" in level5_result["message"].lower()
 
 
-def test_重複要件_類似度90パーセント以上_警告():
+def test_重複要件_類似度90パーセント以上_警告(connection):
     """既存要件との重複_マージ提案_スコアマイナス0.3"""
-    # モックリポジトリ
-    storage = {}
-    
-    def mock_save(requirement, parent_id=None):
-        storage[requirement["id"]] = requirement
-        return requirement
-    
-    def mock_find_all():
-        return list(storage.values())
-    
-    repository = {
-        "save_requirement": mock_save,
-        "find_all_requirements": mock_find_all
-    }
-    
-    # check_duplicate機能を追加したサービス
+    repository = create_kuzu_repository(connection)
     service = create_requirement_service(repository)
     
     # REDフェーズ：まだ実装されていないのでAttributeError
@@ -231,23 +217,9 @@ def test_重複要件_類似度90パーセント以上_警告():
     assert "マージを検討" in result["suggestion"]
 
 
-def test_重複要件_同一内容別表現_エラー():
+def test_重複要件_同一内容別表現_エラー(connection):
     """完全重複_統合必須_スコアマイナス0.8"""
-    # モックリポジトリ
-    storage = {}
-    
-    def mock_save(requirement, parent_id=None):
-        storage[requirement["id"]] = requirement
-        return requirement
-    
-    def mock_find_all():
-        return list(storage.values())
-    
-    repository = {
-        "save_requirement": mock_save,
-        "find_all_requirements": mock_find_all
-    }
-    
+    repository = create_kuzu_repository(connection)
     service = create_requirement_service(repository)
     
     # REDフェーズ：まだ実装されていないのでモック

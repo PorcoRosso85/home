@@ -76,4 +76,5 @@ class TestVariables:
         """get_log_level_環境変数の値_そのまま返す"""
         # 関数が値を返すことを確認
         assert get_log_level() is not None
-        assert get_log_level() in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        # デフォルト値は '*:WARN' 形式
+        assert ':' in get_log_level() or get_log_level() in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']

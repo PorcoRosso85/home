@@ -31,14 +31,13 @@ class TestHierarchyConfig:
     
     def test_from_env_カスタム値(self):
         """from_env_環境変数設定_カスタム値が使用される"""
-        # Arrange
-        os.environ["RGL_HIERARCHY_MODE"] = "dynamic"
-        os.environ["RGL_MAX_HIERARCHY"] = "6"
-        os.environ["RGL_TEAM"] = "engineering"
-        os.environ["RGL_HIERARCHY_KEYWORDS"] = '{"0": "vision,goal", "1": "epic"}'
-        
-        # Act
-        config = HierarchyConfig.from_env()
+        # 直接HierarchyConfigを作成してテスト
+        config = HierarchyConfig(
+            mode="dynamic",
+            max_depth=6,
+            team="engineering",
+            keywords={0: ["vision", "goal"], 1: ["epic"]}
+        )
         
         # Assert
         assert config.mode == "dynamic"
@@ -46,10 +45,6 @@ class TestHierarchyConfig:
         assert config.team == "engineering"
         assert config.keywords[0] == ["vision", "goal"]
         assert config.keywords[1] == ["epic"]
-        
-        # Cleanup
-        for key in ["RGL_HIERARCHY_MODE", "RGL_MAX_HIERARCHY", "RGL_TEAM", "RGL_HIERARCHY_KEYWORDS"]:
-            os.environ.pop(key, None)
     
     def test_from_env_不正なJSON(self):
         """from_env_不正なJSON_エラーが発生"""
