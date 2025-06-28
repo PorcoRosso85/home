@@ -67,6 +67,7 @@ CONVENTION.yaml準拠のモジュール設計：
 - `core.py` - ビジネスロジック（in-sourceテスト含む）
 - `adapters.py` - 外部依存（DuckDB、ファイルシステム）
 - `mod.py` - エクスポート用インターフェース
+- `test_integration.py` - 統合テスト
 
 ## TDD開発
 
