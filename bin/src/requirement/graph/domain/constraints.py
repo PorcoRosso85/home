@@ -34,19 +34,24 @@ def validate_no_circular_dependency(
         True または ConstraintViolationError
     """
     def find_cycle(current: str, visited: set, path: List[str]) -> Optional[List[str]]:
-        if current in visited:
-            # 循環を検出
+        if current in path:
+            # 循環を検出 - pathに既に存在する場合
             cycle_start = path.index(current)
             return path[cycle_start:] + [current]
+        
+        if current in visited:
+            # 既に訪問済みだが循環ではない
+            return None
         
         visited.add(current)
         path.append(current)
         
-        for dep in all_dependencies_map.get(current, []):
-            cycle = find_cycle(dep, visited.copy(), path.copy())
+        for dep in temp_map.get(current, []):
+            cycle = find_cycle(dep, visited, path.copy())
             if cycle:
                 return cycle
         
+        path.pop()  # バックトラック
         return None
     
     # 新しい依存関係を仮追加

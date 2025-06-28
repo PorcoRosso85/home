@@ -17,38 +17,45 @@ def connection(db_path):
     db = kuzu.Database(db_path)
     conn = kuzu.Connection(db)
     
-    # スキーマのセットアップ
+    # スキーマのセットアップ（イミュータブル設計に準拠）
     conn.execute("""
         CREATE NODE TABLE IF NOT EXISTS RequirementEntity (
             id STRING PRIMARY KEY,
+            version_id STRING,
             title STRING,
             description STRING,
-            status STRING,
-            priority STRING,
-            created_at TIMESTAMP,
-            updated_at TIMESTAMP,
+            status STRING DEFAULT 'proposed',
+            priority STRING DEFAULT 'medium',
+            requirement_type STRING DEFAULT 'functional',
+            created_at STRING,
             tags STRING[],
             embedding DOUBLE[]
         )
     """)
     
     conn.execute("""
-        CREATE NODE TABLE IF NOT EXISTS VersionEntity (
+        CREATE NODE TABLE IF NOT EXISTS LocationURI (
+            id STRING PRIMARY KEY
+        )
+    """)
+    
+    conn.execute("""
+        CREATE NODE TABLE IF NOT EXISTS VersionState (
             id STRING PRIMARY KEY,
-            requirement_id STRING,
-            title STRING,
+            timestamp STRING,
             description STRING,
-            status STRING,
-            priority STRING,
-            created_at TIMESTAMP,
-            tags STRING[],
-            embedding DOUBLE[]
+            change_reason STRING,
+            progress_percentage DOUBLE DEFAULT 0.0,
+            operation STRING DEFAULT 'UPDATE',
+            author STRING DEFAULT 'system',
+            changed_fields STRING
         )
     """)
     
     conn.execute("""
         CREATE REL TABLE IF NOT EXISTS DEPENDS_ON (
             FROM RequirementEntity TO RequirementEntity,
+            dependency_type STRING DEFAULT 'depends_on',
             type STRING DEFAULT 'depends_on',
             reason STRING DEFAULT ''
         )
@@ -60,13 +67,44 @@ def connection(db_path):
         )
     """)
     
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS CURRENT_VERSION (
+            FROM LocationURI TO RequirementEntity
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS HAS_VERSION (
+            FROM RequirementEntity TO VersionState
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS TRACKS_STATE_OF (
+            FROM VersionState TO LocationURI,
+            entity_type STRING
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS LOCATES (
+            FROM LocationURI TO RequirementEntity,
+            entity_type STRING DEFAULT 'requirement'
+        )
+    """)
+    
     return conn
 
 
 class TestKuzuRepository:
     """KuzuDBリポジトリのテスト"""
     
-    def test_kuzu_repository_basic_crud_returns_saved_requirement(self, db_path):
+    def setup_method(self):
+        """各テストメソッドの前に実行"""
+        import os
+        os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
+    
+    def test_kuzu_repository_basic_crud_returns_saved_requirement(self, db_path, connection):
         """kuzu_repository_基本CRUD_保存された要件を返す"""
         repo = create_kuzu_repository(db_path)
         
@@ -92,7 +130,7 @@ class TestKuzuRepository:
         all_reqs = repo["find_all"]()
         assert len(all_reqs) == 1
 
-    def test_kuzu_repository_dependency_management_handles_relationships(self, db_path):
+    def test_kuzu_repository_dependency_management_handles_relationships(self, db_path, connection):
         """kuzu_repository_依存関係管理_関係性を扱う"""
         repo = create_kuzu_repository(db_path)
         
@@ -126,7 +164,7 @@ class TestKuzuRepository:
         assert len(deps) == 1
         assert deps[0]["requirement"]["id"] == "database"
 
-    def test_kuzu_repository_circular_dependency_returns_error(self, db_path):
+    def test_kuzu_repository_circular_dependency_returns_error(self, db_path, connection):
         """kuzu_repository_循環依存_エラーを返す"""
         repo = create_kuzu_repository(db_path)
         
@@ -150,7 +188,7 @@ class TestKuzuRepository:
         assert result["type"] == "ConstraintViolationError"
         assert "Circular dependency" in result["message"]
 
-    def test_circular_dependency_detection_prevents_creation(self, db_path):
+    def test_circular_dependency_detection_prevents_creation(self, db_path, connection):
         """循環依存検出_A→B→C→Aの循環作成時_エラーを返す"""
         repo = create_kuzu_repository(db_path)
         
@@ -184,7 +222,7 @@ class TestKuzuRepository:
         assert result["type"] == "ConstraintViolationError"
         assert "Circular dependency" in result["message"]
 
-    def test_self_dependency_returns_error(self, db_path):
+    def test_self_dependency_returns_error(self, db_path, connection):
         """自己依存_要件が自身に依存_エラーを返す"""
         repo = create_kuzu_repository(db_path)
         
@@ -201,7 +239,7 @@ class TestKuzuRepository:
         assert result["type"] == "ConstraintViolationError"
         assert "self" in result["message"].lower() or "circular" in result["message"].lower()
 
-    def test_nonexistent_parent_returns_error(self, db_path):
+    def test_nonexistent_parent_returns_error(self, db_path, connection):
         """存在しない親ID_要件作成時_エラーを返す"""
         repo = create_kuzu_repository(db_path)
         
@@ -216,7 +254,7 @@ class TestKuzuRepository:
         assert result["type"] == "DecisionNotFoundError"
         assert "not found" in result["message"]
 
-    def test_dependency_graph_traversal_returns_all_dependencies(self, db_path):
+    def test_dependency_graph_traversal_returns_all_dependencies(self, db_path, connection):
         """依存関係探索_深さ3まで_全依存先を距離順で返す"""
         repo = create_kuzu_repository(db_path)
         

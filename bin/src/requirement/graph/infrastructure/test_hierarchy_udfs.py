@@ -8,6 +8,7 @@ from .hierarchy_udfs import (
     reset_config,
     _get_config
 )
+from .variables.constants import DEFAULT_HIERARCHY_KEYWORDS
 
 
 class TestHierarchyConfig:
@@ -47,13 +48,15 @@ class TestHierarchyConfig:
         assert config.keywords[1] == ["epic"]
     
     def test_from_env_不正なJSON(self):
-        """from_env_不正なJSON_エラーが発生"""
+        """from_env_不正なJSON_デフォルト値にフォールバック"""
         # Arrange
         os.environ["RGL_HIERARCHY_KEYWORDS"] = "invalid json"
         
-        # Act & Assert
-        with pytest.raises(ValueError, match="環境変数の解析エラー"):
-            HierarchyConfig.from_env()
+        # Act
+        config = HierarchyConfig.from_env()
+        
+        # Assert - 不正なJSONの場合はデフォルト値が使われる
+        assert config.keywords == DEFAULT_HIERARCHY_KEYWORDS
         
         # Cleanup
         os.environ.pop("RGL_HIERARCHY_KEYWORDS", None)

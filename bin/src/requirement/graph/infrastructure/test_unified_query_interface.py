@@ -118,9 +118,9 @@ class TestUnifiedQueryInterface:
         assert interface._detect_query_type("CALL requirement.score('id', 'query', 'type')") == "procedure_only"
         
         # 混合
-        assert interface._detect_query_type("MATCH (n) CALL proc(n) RETURN n") == "mixed"
+        assert interface._detect_query_type("MATCH (n) CALL requirement.score(n.id, 'query', 'type') RETURN n") == "mixed"
 
-    def test_validation_error_returns_error_status(self, connection):
+    def test_validation_error_returns_error_status(self):
         """validate_検証エラー_エラーステータスを返す"""
         # バリデーションエラーを返すモック
         class FailingValidator:
@@ -130,12 +130,12 @@ class TestUnifiedQueryInterface:
             def sanitize_parameters(self, params):
                 return params
         
-        cypher_executor = CypherExecutor(connection)
-        custom_procedures = CustomProcedures(connection)
+        mock_cypher = MockCypherExecutor()
+        mock_procedures = MockCustomProcedures()
         
         interface = UnifiedQueryInterface(
-            cypher_executor,
-            custom_procedures,
+            mock_cypher,
+            mock_procedures,
             FailingValidator()
         )
         

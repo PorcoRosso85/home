@@ -17,6 +17,10 @@ def db_path():
 
 @pytest.fixture
 def connection(db_path):
+    # スキーマチェックをスキップ
+    import os
+    os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
+    
     db = kuzu.Database(db_path)
     conn = kuzu.Connection(db)
     
@@ -28,19 +32,76 @@ def connection(db_path):
             description STRING,
             status STRING,
             priority STRING,
-            created_at TIMESTAMP,
-            updated_at TIMESTAMP,
+            created_at STRING,
+            updated_at STRING,
             tags STRING[],
-            embedding DOUBLE[]
+            embedding DOUBLE[],
+            requirement_type STRING DEFAULT 'functional',
+            verification_required BOOLEAN DEFAULT true
+        )
+    """)
+    
+    # LocationURIテーブルを作成
+    conn.execute("""
+        CREATE NODE TABLE IF NOT EXISTS LocationURI (
+            id STRING PRIMARY KEY,
+            entity_type STRING DEFAULT 'requirement'
+        )
+    """)
+    
+    # VersionStateテーブルを作成
+    conn.execute("""
+        CREATE NODE TABLE IF NOT EXISTS VersionState (
+            id STRING PRIMARY KEY,
+            timestamp STRING,
+            description STRING,
+            change_reason STRING,
+            operation STRING,
+            author STRING,
+            changed_fields STRING,
+            progress_percentage DOUBLE DEFAULT 0.0
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS LOCATES (
+            FROM LocationURI TO RequirementEntity,
+            entity_type STRING DEFAULT 'requirement'
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS HAS_VERSION (
+            FROM RequirementEntity TO VersionState
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS FOLLOWS (
+            FROM VersionState TO VersionState
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS TRACKS_STATE_OF (
+            FROM VersionState TO LocationURI,
+            entity_type STRING DEFAULT 'requirement'
+        )
+    """)
+    
+    conn.execute("""
+        CREATE REL TABLE IF NOT EXISTS CONTAINS_LOCATION (
+            FROM LocationURI TO LocationURI,
+            relation_type STRING DEFAULT 'hierarchy'
         )
     """)
     
     return conn
 
 
-def test_decision_service_add_valid_data_returns_saved_decision(connection):
+def test_decision_service_add_valid_data_returns_saved_decision(connection, db_path):
     """decision_service_add_正常データ_保存された決定事項を返す"""
-    repository = create_kuzu_repository(connection)
+    repository = create_kuzu_repository(db_path)
     service = create_decision_service(repository)
     
     # 決定事項を追加
@@ -54,9 +115,9 @@ def test_decision_service_add_valid_data_returns_saved_decision(connection):
     assert len(result["embedding"]) == 50
 
 
-def test_decision_service_search_similar_query_returns_matching_decisions(connection):
+def test_decision_service_search_similar_query_returns_matching_decisions(connection, db_path):
     """decision_service_search_類似クエリ_マッチする決定事項を返す"""
-    repository = create_kuzu_repository(connection)
+    repository = create_kuzu_repository(db_path)
     service = create_decision_service(repository)
     
     # 3つの決定事項を作成

@@ -17,27 +17,36 @@ def test_validate_no_circular_dependency_with_cycle_returns_error():
         "C": []  # 現在Cに依存なし
     }
     
-    # C -> A の依存を追加すると A->B->C->A の循環が発生
+    # C -> A の依存を追加すると C->A->B->C の循環が発生
     result = validate_no_circular_dependency("C", ["A"], all_deps)
     
     # デバッグ出力
+    print(f"Result: {result}")
+    print(f"Result type: {type(result)}")
     if not isinstance(result, dict):
-        print(f"Unexpected result type: {type(result)}, value: {result}")
-        print(f"all_deps before: {all_deps}")
+        print(f"ERROR: Expected dict but got {type(result)}")
+        
         # 手動で循環チェック
-        # C -> A -> B -> C の経路が存在するはず
         temp_deps = all_deps.copy()
         temp_deps["C"] = ["A"]
         print(f"temp_deps: {temp_deps}")
-        # C から始めて A -> B -> C と辿れるか確認
+        
+        # C -> A -> B -> C の経路が存在するはず
         path = ["C"]
         current = "C"
+        visited = set()
+        
         for _ in range(4):  # 最大4ステップ
+            if current in visited:
+                print(f"Already visited {current}")
+                break
+            visited.add(current)
+            
             next_nodes = temp_deps.get(current, [])
             if next_nodes:
                 current = next_nodes[0]
                 path.append(current)
-                if current == "C":
+                if current == "C" and len(path) > 1:
                     print(f"Found cycle: {' -> '.join(path)}")
                     break
         else:

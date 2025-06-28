@@ -38,14 +38,17 @@ class TestDB:
         return TestConnection()
 
 
+class TestExecutor:
+    def execute(self, query, params=None):
+        return {"data": [], "metadata": {"row_count": 0}}
+
+
 def create_test_repository():
     """テスト用のモックリポジトリを作成"""
     return {
         "db": TestDB(),
         "connection": TestConnection(),
-        "executor": {
-            "execute": lambda q, p: {"rows": [], "metadata": {"row_count": 0}}
-        },
+        "executor": TestExecutor(),
         "procedures": TestProcedures(),
         "validator": TestValidator()
     }
@@ -87,9 +90,12 @@ class TestLLMHooksAPI:
         """create_llm_hooks_api_Cypherクエリ_検証後に実行"""
         # カスタムのexecutorを持つリポジトリ
         repo = create_test_repository()
-        repo["executor"] = {
-            "execute": lambda q, p: {"rows": [{"id": "req_001"}], "metadata": {"row_count": 1}}
-        }
+        
+        class CustomExecutor:
+            def execute(self, query, params=None):
+                return {"data": [{"id": "req_001"}], "metadata": {"row_count": 1}}
+        
+        repo["executor"] = CustomExecutor()
         
         api = create_llm_hooks_api(repo)
         

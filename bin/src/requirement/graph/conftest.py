@@ -6,11 +6,24 @@ import sys
 import pytest
 
 # 環境変数の設定（テスト実行前）
-os.environ.setdefault('LD_LIBRARY_PATH', '/nix/store/1n4957f86zjh8gv7j8a1ga1gx35naqqk-gcc-12.3.0-lib/lib')
+os.environ.setdefault('LD_LIBRARY_PATH', '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib')
 os.environ.setdefault('RGL_DB_PATH', os.path.join(os.path.dirname(__file__), 'rgl_db'))
 
 # プロジェクトルートをPythonパスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+# Check if kuzu is available
+try:
+    import kuzu
+    KUZU_AVAILABLE = hasattr(kuzu, 'Database')
+except ImportError:
+    KUZU_AVAILABLE = False
+
+# Skip kuzu tests if not available
+requires_kuzu = pytest.mark.skipif(
+    not KUZU_AVAILABLE, 
+    reason="KuzuDB not available or improperly installed"
+)
 
 
 # 収集時に除外するファイル

@@ -9,21 +9,8 @@ import sys
 # Environment variables setup for tests
 os.environ['RGL_DB_PATH'] = os.environ.get('RGL_DB_PATH', '/tmp/test_rgl_db')
 
-# Import kuzu
-from .variables.paths import get_kuzu_module_path
-
-kuzu_path = get_kuzu_module_path()
-if kuzu_path:
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "kuzu", 
-        os.path.join(kuzu_path, "__init__.py")
-    )
-    kuzu = importlib.util.module_from_spec(spec)
-    sys.modules['kuzu'] = kuzu
-    spec.loader.exec_module(kuzu)
-else:
-    import kuzu
+# Import kuzu directly
+import kuzu
 
 from .apply_ddl_schema import apply_ddl_schema
 
@@ -54,8 +41,8 @@ def test_apply_ddl_schema_テスト環境_正常適用():
         assert result.has_next()
         assert result.get_next()[0] >= 2
         
-        # LOCATES関係の確認（リネームされたテーブル名を使用）
-        result = conn.execute("MATCH (l:LocationURI)-[:LOCATES_LocationURI_RequirementEntity]->(r:RequirementEntity) RETURN count(*) as cnt")
+        # LOCATES関係の確認
+        result = conn.execute("MATCH (l:LocationURI)-[:LOCATES]->(r:RequirementEntity) RETURN count(*) as cnt")
         assert result.has_next()
         assert result.get_next()[0] >= 2
         

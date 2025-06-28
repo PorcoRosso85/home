@@ -7,6 +7,11 @@ import os
 import subprocess
 import tempfile
 import pytest
+
+# 環境変数をテスト用に設定
+os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
+os.environ["RGL_DB_PATH"] = "/tmp/test_main.db"
+
 from .main import main
 
 

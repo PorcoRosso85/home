@@ -24,12 +24,9 @@ LD_LIBRARY_PATH = _check_env('LD_LIBRARY_PATH')
 RGL_DB_PATH = _check_env('RGL_DB_PATH')
 
 # オプション環境変数（デフォルト値付き）
+# 注意: 動的に読み込むため、module-levelでキャッシュしない
 RGL_LOG_LEVEL = os.environ.get('RGL_LOG_LEVEL', '*:WARN')
 RGL_LOG_FORMAT = os.environ.get('RGL_LOG_FORMAT', 'console')
-RGL_HIERARCHY_MODE = os.environ.get('RGL_HIERARCHY_MODE', 'legacy')
-RGL_MAX_HIERARCHY = os.environ.get('RGL_MAX_HIERARCHY', '5')
-RGL_TEAM = os.environ.get('RGL_TEAM', 'product')
-RGL_HIERARCHY_KEYWORDS = os.environ.get('RGL_HIERARCHY_KEYWORDS', None)
 RGL_SKIP_SCHEMA_CHECK = os.environ.get('RGL_SKIP_SCHEMA_CHECK', 'false')
 
 # アクセス関数
@@ -39,33 +36,37 @@ def get_db_path() -> str:
 
 def get_log_level() -> str:
     """ログレベルを取得"""
-    return RGL_LOG_LEVEL
+    return os.environ.get('RGL_LOG_LEVEL', '*:WARN')
 
 def get_log_format() -> str:
     """ログフォーマットを取得"""
-    return RGL_LOG_FORMAT
+    return os.environ.get('RGL_LOG_FORMAT', 'console')
 
 def get_hierarchy_mode() -> str:
-    """階層モードを取得"""
-    return RGL_HIERARCHY_MODE
+    """階層モードを取得（動的読み込み）"""
+    return os.environ.get('RGL_HIERARCHY_MODE', 'legacy')
 
 def get_max_hierarchy() -> int:
-    """最大階層深度を取得"""
-    return int(RGL_MAX_HIERARCHY)
+    """最大階層深度を取得（動的読み込み）"""
+    return int(os.environ.get('RGL_MAX_HIERARCHY', '5'))
 
 def get_team() -> str:
-    """チーム設定を取得"""
-    return RGL_TEAM
+    """チーム設定を取得（動的読み込み）"""
+    return os.environ.get('RGL_TEAM', 'product')
 
 def get_hierarchy_keywords() -> Optional[Dict[int, List[str]]]:
     """階層キーワード定義を取得（環境変数から）"""
-    if RGL_HIERARCHY_KEYWORDS:
+    keywords_str = os.environ.get('RGL_HIERARCHY_KEYWORDS', None)
+    if keywords_str:
         try:
-            return json.loads(RGL_HIERARCHY_KEYWORDS)
-        except json.JSONDecodeError:
+            # キーを整数に変換
+            raw_dict = json.loads(keywords_str)
+            return {int(k): v for k, v in raw_dict.items()}
+        except (json.JSONDecodeError, ValueError):
             return None
     return None
 
 def should_skip_schema_check() -> bool:
     """スキーマチェックをスキップするかどうか"""
-    return RGL_SKIP_SCHEMA_CHECK.lower() in ('true', '1', 'yes', 'on')
+    skip_check = os.environ.get('RGL_SKIP_SCHEMA_CHECK', 'false')
+    return skip_check.lower() in ('true', '1', 'yes', 'on')

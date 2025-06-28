@@ -29,8 +29,14 @@ def create_jsonl_repository(file_path: str) -> Dict:
                 pass
     
     def save(decision: Decision) -> DecisionResult:
-        """決定事項を保存"""
+        """決定事項を保存（既存の場合は更新）"""
         ensure_file_exists()
+        
+        # 既存のレコードをチェック
+        existing = find(decision["id"])
+        if "type" not in existing or existing.get("type") != "DecisionNotFoundError":
+            # 既存レコードがある場合は更新
+            return update(decision)
         
         # datetime → ISO形式文字列に変換
         save_data = decision.copy()

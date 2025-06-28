@@ -119,14 +119,14 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
             品質メトリクス
         """
         # LLM Hooks APIを使用して分析
-        progress_result = llm_hooks_api.query({
+        progress_result = llm_hooks_api["query"]({
             "type": "template",
             "query": "calculate_progress",
             "parameters": {"req_id": requirement_id}
         })
         
         # 制約違反チェック
-        constraint_result = llm_hooks_api.query({
+        constraint_result = llm_hooks_api["query"]({
             "type": "procedure",
             "procedure": "requirement.validate",
             "args": [requirement_id, "add_child", None]
@@ -320,7 +320,7 @@ def create_autonomous_decomposer(repository: DecomposerRepository, llm_hooks_api
     def _get_existing_children(requirement_id: str) -> List[Dict]:
         """既存の子要件を取得"""
         # LLM Hooks APIを使用
-        result = llm_hooks_api.query({
+        result = llm_hooks_api["query"]({
             "type": "template",
             "query": "find_children",
             "parameters": {"parent_id": requirement_id}

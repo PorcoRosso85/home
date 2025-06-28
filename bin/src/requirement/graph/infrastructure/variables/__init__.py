@@ -9,13 +9,9 @@ from .env_vars import (
     # 必須環境変数
     LD_LIBRARY_PATH,
     RGL_DB_PATH,
-    # オプション環境変数
+    # オプション環境変数（module-level変数）
     RGL_LOG_LEVEL,
     RGL_LOG_FORMAT,
-    RGL_HIERARCHY_MODE,
-    RGL_MAX_HIERARCHY,
-    RGL_TEAM,
-    RGL_HIERARCHY_KEYWORDS,
     RGL_SKIP_SCHEMA_CHECK,
     # 関数
     get_db_path,
@@ -62,10 +58,6 @@ __all__ = [
     'RGL_DB_PATH',
     'RGL_LOG_LEVEL',
     'RGL_LOG_FORMAT',
-    'RGL_HIERARCHY_MODE',
-    'RGL_MAX_HIERARCHY',
-    'RGL_TEAM',
-    'RGL_HIERARCHY_KEYWORDS',
     'RGL_SKIP_SCHEMA_CHECK',
     # 環境変数アクセス関数
     'get_db_path',

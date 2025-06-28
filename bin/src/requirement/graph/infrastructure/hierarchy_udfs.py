@@ -181,8 +181,20 @@ def register_hierarchy_udfs(connection: Any) -> None:
         config = _get_config()
         return config.max_depth
     
-    # UDFを登録
-    connection.create_function("infer_hierarchy_level", infer_hierarchy_level)
-    connection.create_function("generate_hierarchy_uri", generate_hierarchy_uri)
-    connection.create_function("is_valid_hierarchy", is_valid_hierarchy)
-    connection.create_function("get_max_hierarchy_depth", get_max_hierarchy_depth)
+    # UDFを登録（既に存在する場合はスキップ）
+    functions_to_register = [
+        ("infer_hierarchy_level", infer_hierarchy_level),
+        ("generate_hierarchy_uri", generate_hierarchy_uri),
+        ("is_valid_hierarchy", is_valid_hierarchy),
+        ("get_max_hierarchy_depth", get_max_hierarchy_depth)
+    ]
+    
+    for func_name, func in functions_to_register:
+        try:
+            connection.create_function(func_name, func)
+        except RuntimeError as e:
+            if "already exists" in str(e):
+                # 既に存在する場合はスキップ（テスト環境での再登録時）
+                pass
+            else:
+                raise

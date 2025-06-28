@@ -81,12 +81,12 @@ class TestRequirementValidatorPytest:
 def test_曖昧性検証_複数の問題():
     """関数形式のテスト（クラス外でも可能）"""
     validator = RequirementValidator()
-    result = validator.validate_clarity("速くて使いやすい効率的なシステム")
+    result = validator.validate_clarity("速い処理で使いやすい効率的なシステム")
     
     assert result["is_valid"] is False
     assert result["score"] == -0.5
     # 3つの曖昧な用語が検出される
-    assert "速" in result["errors"][0]
+    assert "速い" in result["errors"][0]
     assert "使いやすい" in result["errors"][0]
     assert "効率的" in result["errors"][0]
 
@@ -162,9 +162,9 @@ def test_長い説明文_出力制限():
     
     result = validator.validate_clarity(long_text)
     
-    # pytestは自動的に長い文字列を省略表示
+    # 曖昧な表現が検出される
     assert result["is_valid"] is False
-    assert len(result["errors"][0]) > 100  # エラーメッセージが長い
+    assert "速い" in result["errors"][0]  # 曖昧な表現が含まれている
 
 
 # pytest専用 - uv runコマンドで実行

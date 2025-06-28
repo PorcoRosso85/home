@@ -141,10 +141,12 @@ def test_UDF登録がmain起動時に実行される():
     """main.py起動時_UDF自動登録_kuzu_repositoryで実行"""
     import sys
     import io
-    from requirement.graph.infrastructure.kuzu_repository import create_kuzu_repository
     
     # テスト用DB
     with tempfile.TemporaryDirectory() as tmpdir:
+        # 環境変数を設定してからインポート
+        os.environ["RGL_DB_PATH"] = f"{tmpdir}/test.db"
+        from requirement.graph.infrastructure.kuzu_repository import create_kuzu_repository
         os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
         repo = create_kuzu_repository(f"{tmpdir}/test.db")
         conn = repo["connection"]

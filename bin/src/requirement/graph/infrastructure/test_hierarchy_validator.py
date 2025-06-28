@@ -219,6 +219,57 @@ class TestHierarchyValidator:
         assert "循環参照" in result["error"]
         assert "req_a → req_b → req_c → req_a" in str(result["details"])
 
+    def test_階層キーワードなしタイトル_依存関係のみでは検出されない(self):
+        """階層キーワードなしタイトル_階層レベル推定不可_エラー検出されない"""
+        validator = HierarchyValidator()
+        
+        # 階層を示すキーワードが含まれないタイトル
+        cypher = """
+        CREATE (parent:RequirementEntity {
+            id: 'test_generic_1',
+            title: '階層違反エラーケース',  # タスク、ビジョン等のキーワードなし
+            description: 'テスト用の要件'
+        }),
+        (child:RequirementEntity {
+            id: 'test_generic_2',
+            title: 'ビジョン要件',  # ビジョンキーワードあり
+            description: '上位の要件'
+        }),
+        (parent)-[:DEPENDS_ON]->(child)
+        """
+        
+        result = validator.validate_hierarchy_constraints(cypher)
+        
+        # 階層レベルが推定できないため、階層違反が検出されない
+        assert result["is_valid"] == True  # エラーにならない
+        assert result["score"] == 0.0
+        assert result["error"] is None
+        # これは現在の実装の制限事項
+
+    def test_部分的階層キーワード_片方のみレベル推定可能(self):
+        """部分的階層キーワード_片方のノードのみレベル推定_エラー検出されない"""
+        validator = HierarchyValidator()
+        
+        cypher = """
+        CREATE (parent:RequirementEntity {
+            id: 'test_partial_1',
+            title: '何らかの要件',  # レベル推定不可
+            description: '説明'
+        }),
+        (child:RequirementEntity {
+            id: 'test_partial_2',
+            title: 'システムビジョン',  # Level 0
+            description: '最上位要件'
+        }),
+        (parent)-[:DEPENDS_ON]->(child)
+        """
+        
+        result = validator.validate_hierarchy_constraints(cypher)
+        
+        # 片方のレベルが不明なため、検証がスキップされる
+        assert result["is_valid"] == True
+        assert result["error"] is None
+
     def test_要件の曖昧性_具体化プロセス(self):
         """要望の曖昧性_対話的に具体化_測定可能な要件に変換"""
         # TODO: 新しいモジュールrequirement_clarifier.pyが必要

@@ -32,8 +32,11 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
     
     validator = QueryValidator()
     
+    # proceduresが提供されていればそれを使用
+    if "procedures" in repository:
+        procedures = repository["procedures"]
     # connectionが提供されていればそれを使用
-    if "connection" in repository:
+    elif "connection" in repository:
         procedures = CustomProcedures(repository["connection"])
     else:
         procedures = CustomProcedures(repository["db"].connect())

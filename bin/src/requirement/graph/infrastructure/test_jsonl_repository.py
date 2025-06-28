@@ -37,9 +37,9 @@ class TestJsonlRepository:
             assert "type" not in found
             assert found["title"] == "Test Decision"
             
-            # Update
+            # Update (using save for consistency with immutable design)
             decision["status"] = "approved"
-            updated = repo["update"](decision)
+            updated = repo["save"](decision)
             assert updated["status"] == "approved"
             
             # Find all

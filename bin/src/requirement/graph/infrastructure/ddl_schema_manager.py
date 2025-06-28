@@ -177,9 +177,9 @@ class DDLSchemaManager:
             # CodeEntity
             "CREATE (c1:CodeEntity {persistent_id: 'func_login_001', name: 'login', type: 'function', signature: 'login(username, password)', complexity: 15, start_position: 10, end_position: 50});",
             
-            # 関係（リネームされたテーブル名を使用）
-            "MATCH (l:LocationURI {id: 'req://L0/vision/req_001'}), (r:RequirementEntity {id: 'req_001'}) CREATE (l)-[:LOCATES_LocationURI_RequirementEntity {entity_type: 'requirement'}]->(r);",
-            "MATCH (l:LocationURI {id: 'req://L0/vision/auth/req_002'}), (r:RequirementEntity {id: 'req_002'}) CREATE (l)-[:LOCATES_LocationURI_RequirementEntity {entity_type: 'requirement'}]->(r);",
+            # 関係（スキーマ定義に従った正しいテーブル名を使用）
+            "MATCH (l:LocationURI {id: 'req://L0/vision/req_001'}), (r:RequirementEntity {id: 'req_001'}) CREATE (l)-[:LOCATES {entity_type: 'requirement'}]->(r);",
+            "MATCH (l:LocationURI {id: 'req://L0/vision/auth/req_002'}), (r:RequirementEntity {id: 'req_002'}) CREATE (l)-[:LOCATES {entity_type: 'requirement'}]->(r);",
             "MATCH (l:LocationURI {id: 'file://src/auth/login.py'}), (c:CodeEntity {persistent_id: 'func_login_001'}) CREATE (l)-[:LOCATES {entity_type: 'code'}]->(c);",
             "MATCH (r:RequirementEntity {id: 'req_002'}), (c:CodeEntity {persistent_id: 'func_login_001'}) CREATE (r)-[:IS_IMPLEMENTED_BY {implementation_type: 'direct'}]->(c);",
         ]

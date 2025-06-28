@@ -11,7 +11,11 @@ def get_kuzu_module_path() -> Optional[str]:
     """KuzuDBモジュールのパスを動的に検出"""
     try:
         import kuzu
-        return os.path.dirname(kuzu.__file__)
+        if hasattr(kuzu, '__file__') and kuzu.__file__:
+            return os.path.dirname(kuzu.__file__)
+        else:
+            # Built-in module or C extension without __file__
+            return None
     except ImportError:
         # フォールバック（既知のパス）
         fallback_path = "/home/nixos/bin/src/.venv/lib/python3.11/site-packages/kuzu"
