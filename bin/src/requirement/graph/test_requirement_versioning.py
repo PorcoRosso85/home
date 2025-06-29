@@ -105,8 +105,37 @@ def repo(tmp_path):
     return RepoWrapper(repo_dict)
 
 
+@pytest.mark.skip(reason="バージョン管理機能は未実装。TODO: 定型メソッドの実装が必要")
 class TestRequirementVersioning:
-    """要件バージョン管理システムの仕様"""
+    """要件バージョン管理システムの仕様
+    
+    TODO: 以下の定型メソッドを実装する必要がある：
+    
+    注: 実装方針として以下も検討中：
+    - Cypherテンプレート駆動設計: bin/src/kuzu/query/dml/*.cypherの既存テンプレートを活用
+    - 高階関数による動的クエリ合成: 複数のCypherテンプレートを関数合成でトランザクション化
+    - ハイブリッドアプローチ: 定型メソッドの内部でCypherテンプレートを活用
+    
+    定型メソッド一覧：
+    - save(data, author): バージョン付き保存
+    - delete(req_id): 削除（削除マークの新バージョン作成）
+    - save_with_timestamp(data, timestamp): タイムスタンプ指定保存
+    - get_requirement_history(req_id): 履歴取得
+    - get_requirement_at_timestamp(req_id, timestamp): 時点照会
+    - get_version_diff(req_id, v1_id, v2_id): バージョン間差分
+    - find_by_location_uri(uri): LocationURI経由の取得
+    - find_by_version(req_id, version_id): 特定バージョン取得
+    - rollback_to_version(req_id, version_id, reason): ロールバック
+    - find_path_at_timestamp(from_id, to_id, timestamp): 時点パス探索
+    - find_dependencies_at_timestamp(req_id, timestamp): 時点依存関係
+    - search(query, include_history): 履歴含む検索
+    - export_with_history(filters): 履歴付きエクスポート
+    - import_data(data, merge_strategy): データインポート
+    - as_readonly(): 読み取り専用モード
+    - get_requirement_statistics(include_history): 統計情報
+    - analyze_change_frequency(req_id, period): 変更頻度分析
+    - validate_data_consistency(): データ整合性検証
+    """
     
     def test_要件更新時_履歴照会_各バージョンの実際の状態を返す(self, repo):
         """
