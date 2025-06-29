@@ -137,7 +137,7 @@ class TestScoringService:
             "violations": ["deep_hierarchy", "missing_parent", "invalid_status"]
         }
         score = scoring_service["calculate_score"](constraints)
-        assert score == -0.6
+        assert abs(score - (-0.6)) < 0.0001
         
         # 5つ以上の違反で最低スコア
         constraints = {

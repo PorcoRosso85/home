@@ -46,3 +46,8 @@ addopts = [
     "-v",
     "--ignore=mod.py",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]

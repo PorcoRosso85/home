@@ -196,6 +196,14 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
                     issues = procedures.validate_graph_constraints()
                     return {"status": "success", "data": {"issues": issues}}
                     
+                elif proc_name == "requirement.score":
+                    # スコア計算プロシージャ
+                    if hasattr(procedures, 'score_requirement_similarity'):
+                        score = procedures.score_requirement_similarity(args[0], args[1], args[2] if len(args) > 2 else "similarity")
+                        return {"status": "success", "data": {"score": score}}
+                    else:
+                        return {"status": "error", "error": "Score procedure not implemented"}
+                    
                 else:
                     return {
                         "status": "error",

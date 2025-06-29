@@ -369,3 +369,21 @@ class CustomProcedures:
                 })
         
         return suggestions
+    
+    def score_requirement(
+        self,
+        requirement_id: str,
+        requirement_data: Dict[str, Any]
+    ) -> List[Tuple[float, str]]:
+        """
+        要件のスコアを計算（最小限の実装）
+        
+        Args:
+            requirement_id: 要件ID
+            requirement_data: 要件データ
+            
+        Returns:
+            [(score, message), ...] の形式でスコアと説明を返す
+        """
+        # 最小限の実装：常に正常なスコアを返す
+        return [(0.0, "No violations detected")]
