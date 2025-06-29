@@ -127,7 +127,7 @@ def test_decision_service_search_similar_query_returns_matching_decisions(connec
             "title": "データベース移行",
             "description": "PostgreSQLからKuzuDBへ",
             "status": "approved",
-            "priority": "high",
+            "priority": 2,
             "created_at": datetime.now(),
             "embedding": create_embedding("データベース移行 PostgreSQLからKuzuDBへ")
         },
@@ -136,7 +136,7 @@ def test_decision_service_search_similar_query_returns_matching_decisions(connec
             "title": "API設計",
             "description": "RESTful APIの実装",
             "status": "approved",
-            "priority": "medium",
+            "priority": 1,
             "created_at": datetime.now(),
             "embedding": create_embedding("API設計 RESTful APIの実装")
         },
@@ -145,7 +145,7 @@ def test_decision_service_search_similar_query_returns_matching_decisions(connec
             "title": "データベース最適化",
             "description": "クエリパフォーマンス改善",
             "status": "approved",
-            "priority": "medium",
+            "priority": 1,
             "created_at": datetime.now(),
             "embedding": create_embedding("データベース最適化 クエリパフォーマンス改善")
         }

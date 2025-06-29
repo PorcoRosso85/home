@@ -49,6 +49,58 @@ def create_scoring_service() -> Dict[str, Any]:
         }
     }
     
+    # チーム摩擦スコアリング定義
+    FRICTION_DEFINITIONS = {
+        # 曖昧性摩擦
+        "ambiguity_friction": {
+            "levels": {
+                "high": {"threshold": 2, "score": -0.6, "message": "要件に複数の解釈が存在します"},
+                "medium": {"threshold": 1, "score": -0.3, "message": "要件に曖昧さがあります"},
+                "none": {"threshold": 0, "score": 0.0, "message": "要件は明確です"}
+            }
+        },
+        
+        # 優先度摩擦
+        "priority_friction": {
+            "levels": {
+                "severe": {"high_priority_count": 3, "has_conflict": True, "score": -0.7, 
+                          "message": "複数の高優先度要件が競合しています"},
+                "moderate": {"high_priority_count": 2, "has_conflict": False, "score": -0.4,
+                            "message": "高優先度要件が複数存在します"},
+                "none": {"high_priority_count": 1, "has_conflict": False, "score": 0.0,
+                         "message": "優先度は適切に管理されています"}
+            }
+        },
+        
+        # 時間経過摩擦
+        "temporal_friction": {
+            "levels": {
+                "complete_drift": {"evolution_steps": 2, "has_ai": True, "score": -0.8,
+                                 "message": "要件が原型を留めないほど変質しています"},
+                "major_change": {"evolution_steps": 2, "has_ai": False, "score": -0.5,
+                               "message": "要件が大幅に変更されています"},
+                "minor_change": {"evolution_steps": 1, "has_ai": False, "score": -0.3,
+                               "message": "要件に軽微な変更があります"},
+                "stable": {"evolution_steps": 0, "has_ai": False, "score": 0.0,
+                          "message": "要件は安定しています"}
+            }
+        },
+        
+        # 矛盾摩擦
+        "contradiction_friction": {
+            "levels": {
+                "unresolvable": {"contradiction_count": 3, "score": -0.9,
+                               "message": "解決困難な矛盾が存在します"},
+                "severe": {"contradiction_count": 2, "score": -0.6,
+                          "message": "深刻な矛盾が存在します"},
+                "moderate": {"contradiction_count": 1, "score": -0.4,
+                           "message": "矛盾する要求があります"},
+                "none": {"contradiction_count": 0, "score": 0.0,
+                        "message": "矛盾は検出されません"}
+            }
+        }
+    }
+    
     def calculate_score(violation: Dict[str, Any]) -> float:
         """
         違反情報からスコアを計算
@@ -171,9 +223,115 @@ def create_scoring_service() -> Dict[str, Any]:
         
         return result
     
+    def calculate_friction_score(friction_type: str, metrics: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        摩擦タイプに基づいてスコアを計算
+        
+        Args:
+            friction_type: 摩擦のタイプ
+            metrics: 計測値の辞書
+            
+        Returns:
+            スコアとメッセージを含む辞書
+        """
+        if friction_type not in FRICTION_DEFINITIONS:
+            return {"score": 0.0, "message": "Unknown friction type"}
+        
+        friction_def = FRICTION_DEFINITIONS[friction_type]
+        
+        # 曖昧性摩擦
+        if friction_type == "ambiguity_friction":
+            interpretation_count = metrics.get("interpretation_count", 0)
+            if interpretation_count >= 2:
+                return friction_def["levels"]["high"]
+            elif interpretation_count == 1:
+                return friction_def["levels"]["medium"]
+            else:
+                return friction_def["levels"]["none"]
+        
+        # 優先度摩擦
+        elif friction_type == "priority_friction":
+            high_priority_count = metrics.get("high_priority_count", 0)
+            has_conflict = metrics.get("has_conflict", False)
+            if high_priority_count > 2 and has_conflict:
+                return friction_def["levels"]["severe"]
+            elif high_priority_count > 1:
+                return friction_def["levels"]["moderate"]
+            else:
+                return friction_def["levels"]["none"]
+        
+        # 時間経過摩擦
+        elif friction_type == "temporal_friction":
+            evolution_steps = metrics.get("evolution_steps", 0)
+            has_ai = metrics.get("has_ai_features", False)
+            if evolution_steps >= 2 and has_ai:
+                return friction_def["levels"]["complete_drift"]
+            elif evolution_steps >= 2:
+                return friction_def["levels"]["major_change"]
+            elif evolution_steps == 1:
+                return friction_def["levels"]["minor_change"]
+            else:
+                return friction_def["levels"]["stable"]
+        
+        # 矛盾摩擦
+        elif friction_type == "contradiction_friction":
+            contradiction_count = metrics.get("contradiction_count", 0)
+            if contradiction_count >= 3:
+                return friction_def["levels"]["unresolvable"]
+            elif contradiction_count == 2:
+                return friction_def["levels"]["severe"]
+            elif contradiction_count == 1:
+                return friction_def["levels"]["moderate"]
+            else:
+                return friction_def["levels"]["none"]
+    
+    def calculate_total_friction_score(friction_scores: Dict[str, float]) -> Dict[str, Any]:
+        """
+        総合摩擦スコアを計算
+        
+        Args:
+            friction_scores: 各摩擦タイプのスコア
+            
+        Returns:
+            総合スコアとプロジェクト健全性
+        """
+        weights = {
+            "ambiguity": 0.2,
+            "priority": 0.3,
+            "temporal": 0.2,
+            "contradiction": 0.3
+        }
+        
+        total_score = sum(
+            friction_scores.get(key, 0.0) * weight 
+            for key, weight in weights.items()
+        )
+        
+        # プロジェクト健全性の判定
+        if total_score > -0.2:
+            health = "healthy"
+            recommendation = "継続的なモニタリングを推奨"
+        elif total_score > -0.5:
+            health = "needs_attention"
+            recommendation = "週次レビューでの確認を推奨"
+        elif total_score > -0.7:
+            health = "at_risk"
+            recommendation = "即座の介入が必要"
+        else:
+            health = "critical"
+            recommendation = "プロジェクトの根本的見直しが必要"
+        
+        return {
+            "total_score": total_score,
+            "health": health,
+            "recommendation": recommendation
+        }
+
     return {
         "calculate_score": calculate_score,
         "evaluate_violations": evaluate_violations,
         "get_score_message": get_score_message,
-        "get_violation_details": get_violation_details
+        "get_violation_details": get_violation_details,
+        "calculate_friction_score": calculate_friction_score,
+        "calculate_total_friction_score": calculate_total_friction_score
     }

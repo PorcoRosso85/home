@@ -130,7 +130,7 @@ class TestMain:
                         id: 'test_vision_db',
                         title: 'システムビジョン',
                         description: 'テスト用ビジョン',
-                        priority: 'high',
+                        priority: 2,
                         requirement_type: 'functional',
                         verification_required: true
                     })

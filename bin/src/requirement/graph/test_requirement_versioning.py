@@ -153,7 +153,7 @@ class TestRequirementVersioning:
             "title": "ユーザー認証機能",
             "description": "IDとパスワードでログイン",
             "status": "proposed",
-            "priority": "high"
+            "priority": 2
         })
         
         # 2回目: タイトルとステータス変更
@@ -162,7 +162,7 @@ class TestRequirementVersioning:
             "title": "OAuth2.0認証機能",  # 変更
             "description": "IDとパスワードでログイン",
             "status": "approved",  # 変更
-            "priority": "high"
+            "priority": 2
         })
         
         # 3回目: 説明とステータス変更
@@ -171,7 +171,7 @@ class TestRequirementVersioning:
             "title": "OAuth2.0認証機能",
             "description": "Google/GitHub/Microsoftアカウントでログイン",  # 変更
             "status": "implemented",  # 変更
-            "priority": "high"
+            "priority": 2
         })
         
         # Assert: 履歴照会
@@ -258,21 +258,21 @@ class TestRequirementVersioning:
         repo.save_with_timestamp({
             "id": req_id,
             "title": "初期仕様",
-            "priority": "low",
+            "priority": 0,
             "estimated_hours": 10
         }, timestamp=t1)
         
         repo.save_with_timestamp({
             "id": req_id,
             "title": "仕様変更版",
-            "priority": "medium",
+            "priority": 1,
             "estimated_hours": 20
         }, timestamp=t2)
         
         repo.save_with_timestamp({
             "id": req_id,
             "title": "最終仕様",
-            "priority": "high",
+            "priority": 2,
             "estimated_hours": 40
         }, timestamp=t3)
         
@@ -477,7 +477,7 @@ class TestRequirementVersioning:
             "id": req_id,
             "title": "タイトル追加",
             "description": "",  # nullから空文字へ
-            "priority": "low"  # 新規追加
+            "priority": 0  # 新規追加
         })
         
         # Assert
@@ -713,7 +713,7 @@ class TestRequirementVersioning:
             "id": req_id,
             "title": "並行編集テスト",
             "description": "元の説明",
-            "priority": "medium",
+            "priority": 1,
             "assignee": "user1"
         })
         
@@ -722,7 +722,7 @@ class TestRequirementVersioning:
         update1 = repo.save_with_base_version({
             "id": req_id,
             "title": "並行編集テスト（更新）",
-            "priority": "high"
+            "priority": 2
         }, base_version_id=base_version["version_id"])
         
         # ユーザー2: 説明と担当者を更新
@@ -1020,7 +1020,7 @@ class TestRequirementVersioning:
             "id": req_id,
             "title": "完全な要件",
             "description": "詳細な説明",
-            "priority": "high",
+            "priority": 2,
             "category": "feature",
             "tags": ["important", "urgent"],
             "custom_field": "custom_value"
@@ -1292,7 +1292,7 @@ class TestRequirementVersioning:
         Then: 戦略に従って適切に処理される
         """
         # Arrange: 既存データ
-        repo.save({"id": "IMPORT-001", "title": "既存データ", "priority": "low"})
+        repo.save({"id": "IMPORT-001", "title": "既存データ", "priority": 0})
         
         # インポートデータ
         import_data = {
@@ -1301,7 +1301,7 @@ class TestRequirementVersioning:
                     "id": "IMPORT-001",
                     "current_version": {
                         "title": "インポートデータ",
-                        "priority": "high"
+                        "priority": 2
                     }
                 },
                 {

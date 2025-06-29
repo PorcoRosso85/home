@@ -1,7 +1,8 @@
-// KuzuDB要件管理システム スキーマ定義 v3
+// KuzuDB要件管理システム スキーマ定義 v3.1 (UINT8 priority)
 // 作成日: 2024年
 // 目的: 実装詳細を含む完全な要件管理
 // 原則: このファイルが唯一の正式なスキーマ定義
+// 変更: priority フィールドを STRING から UINT8 に変更
 
 // ========================================
 // ノードテーブル（エンティティ）
@@ -12,7 +13,7 @@ CREATE NODE TABLE RequirementEntity (
     id STRING PRIMARY KEY,
     title STRING,
     description STRING,
-    priority STRING DEFAULT 'medium',
+    priority UINT8 DEFAULT 1,  // 0-255の範囲で優先度を表現（大きいほど高優先度）
     requirement_type STRING DEFAULT 'functional',
     status STRING DEFAULT 'proposed',  // v4で追加: 要件の状態
     verification_required BOOLEAN DEFAULT true,

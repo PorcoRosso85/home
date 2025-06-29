@@ -63,7 +63,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
                 id: 'vision_health_app_001',
                 title: '革新的な健康管理アプリ',
                 description: 'AIを活用して個人の健康データを分析し、パーソナライズされた健康アドバイスを提供するモバイルアプリケーション',
-                priority: 'high',
+                priority: 2,
                 requirement_type: 'functional',
                 status: 'proposed',
                 acceptance_criteria: '1. 健康データの自動収集が可能 2. AI分析による健康アドバイス提供 3. 医療機関との連携機能'
@@ -98,7 +98,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
                 id: 'arch_backend_001',
                 title: 'バックエンドシステム',
                 description: 'ヘルスケアデータ処理とAPI提供を行うバックエンドシステム',
-                priority: 'high',
+                priority: 2,
                 requirement_type: 'functional',
                 status: 'proposed'
             })
@@ -106,7 +106,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
                 id: 'arch_mobile_001',
                 title: 'モバイルアプリケーション',
                 description: 'iOS/Androidネイティブアプリケーション',
-                priority: 'medium',
+                priority: 50,
                 requirement_type: 'functional',
                 status: 'proposed'
             })
@@ -114,7 +114,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
                 id: 'arch_ai_001',
                 title: 'AI分析エンジン',
                 description: '健康データを分析しパーソナライズされたアドバイスを生成',
-                priority: 'high',
+                priority: 2,
                 requirement_type: 'functional',
                 status: 'proposed'
             })
@@ -174,9 +174,9 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
             MATCH (r:RequirementEntity)
             WHERE r.id IN ['arch_backend_001', 'arch_mobile_001', 'arch_ai_001']
             SET r.priority = CASE r.id
-                WHEN 'arch_backend_001' THEN 'critical'
-                WHEN 'arch_mobile_001' THEN 'medium'
-                WHEN 'arch_ai_001' THEN 'high'
+                WHEN 'arch_backend_001' THEN 250
+                WHEN 'arch_mobile_001' THEN 50
+                WHEN 'arch_ai_001' THEN 150
                 ELSE r.priority
             END
             RETURN r.id, r.priority
@@ -200,7 +200,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
                 id: 'mod_auth_001',
                 title: '認証・認可モジュール',
                 description: 'OAuth2/JWTベースの認証システム',
-                priority: 'high',
+                priority: 2,
                 requirement_type: 'functional',
                 status: 'proposed',
                 technical_specifications: '{"framework": "FastAPI", "auth": "OAuth2", "database": "PostgreSQL"}'
@@ -209,7 +209,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
                 id: 'mod_data_001',
                 title: 'データ管理モジュール',
                 description: 'ヘルスケアデータのCRUD操作',
-                priority: 'high',
+                priority: 2,
                 requirement_type: 'functional',
                 status: 'proposed'
             })
@@ -217,7 +217,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
                 id: 'mod_api_001',
                 title: 'REST APIモジュール',
                 description: 'モバイルアプリ向けRESTful API',
-                priority: 'high',
+                priority: 2,
                 requirement_type: 'functional',
                 status: 'proposed'
             })
@@ -253,7 +253,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
             WITH vision, count(DISTINCT r) as total_requirements,
                  count(DISTINCT CASE WHEN r.status = 'completed' THEN r END) as completed,
                  count(DISTINCT CASE WHEN r.technical_specifications IS NOT NULL THEN r END) as specified,
-                 collect(DISTINCT CASE WHEN r.priority = 'critical' AND r.status = 'proposed' THEN r.title END) as critical_pending
+                 collect(DISTINCT CASE WHEN r.priority >= 200 AND r.status = 'proposed' THEN r.title END) as critical_pending
             RETURN vision.title as project,
                    total_requirements,
                    completed,
@@ -282,7 +282,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
             "query": """
             // リスクカウントのみを返すシンプルなクエリに変更
             MATCH (r:RequirementEntity)
-            WHERE r.priority IN ['critical', 'high'] 
+            WHERE r.priority >= 150 
             AND (r.technical_specifications IS NULL OR r.acceptance_criteria IS NULL)
             RETURN count(r) as risk_count
             """,
@@ -310,9 +310,9 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
                  count(DISTINCT r) as total_requirements,
                  count(DISTINCT CASE WHEN depth = 2 THEN r END) as level_1_count,
                  count(DISTINCT CASE WHEN depth = 3 THEN r END) as level_2_count,
-                 count(DISTINCT CASE WHEN r.priority = 'critical' THEN r END) as critical_count,
-                 count(DISTINCT CASE WHEN r.priority = 'high' THEN r END) as high_count,
-                 count(DISTINCT CASE WHEN r.priority = 'medium' THEN r END) as medium_count,
+                 count(DISTINCT CASE WHEN r.priority >= 200 THEN r END) as critical_count,
+                 count(DISTINCT CASE WHEN r.priority >= 150 AND r.priority < 200 THEN r END) as high_count,
+                 count(DISTINCT CASE WHEN r.priority >= 50 AND r.priority < 150 THEN r END) as medium_count,
                  count(DISTINCT CASE WHEN r.status = 'completed' THEN r END) as completed_count,
                  count(DISTINCT CASE WHEN r.status = 'in_progress' THEN r END) as in_progress_count,
                  count(DISTINCT CASE WHEN r.status = 'proposed' THEN r END) as proposed_count
@@ -493,14 +493,14 @@ def test_startup_cto_journey_実装見積もりとリソース計画():
                 id: 'mod_auth',
                 title: '認証モジュール',
                 description: 'ユーザー認証機能',
-                priority: 'high',
+                priority: 2,
                 status: 'proposed'
             })
             CREATE (task1:RequirementEntity {
                 id: 'task_db_schema',
                 title: 'DB スキーマ設計',
                 description: 'ユーザーテーブル設計',
-                priority: 'high',
+                priority: 2,
                 status: 'proposed',
                 implementation_details: '{"estimated_hours": 8, "required_skills": ["PostgreSQL", "データモデリング"]}'
             })
@@ -508,7 +508,7 @@ def test_startup_cto_journey_実装見積もりとリソース計画():
                 id: 'task_api_impl',
                 title: 'API 実装',
                 description: 'ログイン/ログアウトAPI',
-                priority: 'high',
+                priority: 2,
                 status: 'proposed',
                 implementation_details: '{"estimated_hours": 16, "required_skills": ["Python", "FastAPI", "JWT"]}'
             })
@@ -516,7 +516,7 @@ def test_startup_cto_journey_実装見積もりとリソース計画():
                 id: 'task_testing',
                 title: 'テスト作成',
                 description: '単体・統合テスト',
-                priority: 'medium',
+                priority: 50,
                 status: 'proposed',
                 implementation_details: '{"estimated_hours": 12, "required_skills": ["Python", "pytest"]}'
             })

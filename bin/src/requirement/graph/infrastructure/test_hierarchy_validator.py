@@ -86,7 +86,7 @@ class TestHierarchyValidator:
             id: 'test_parent_task',
             title: 'タスク実装',
             description: '具体的なタスク',
-            priority: 'medium',
+            priority: 50,
             requirement_type: 'functional',
             verification_required: true
         }),
@@ -94,7 +94,7 @@ class TestHierarchyValidator:
             id: 'test_child_vision', 
             title: 'ビジョン',
             description: '上位ビジョン',
-            priority: 'high',
+            priority: 2,
             requirement_type: 'functional',
             verification_required: true
         }),

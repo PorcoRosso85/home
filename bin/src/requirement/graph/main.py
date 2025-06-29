@@ -96,6 +96,41 @@ def safe_main():
             result["warning"] = input_data["_hierarchy_warning"]
             result["score"] = max(result.get("score", 0.0), input_data["_hierarchy_score"])
         
+        # CREATE操作の場合、摩擦検出を実行
+        if input_data.get("type") == "cypher" and result.get("status") == "success":
+            query = input_data.get("query", "").upper()
+            if "CREATE" in query and "RequirementEntity" in query:
+                debug("rgl.main", "Detected CREATE operation, analyzing friction")
+                
+                # 摩擦検出を実行
+                from .application.friction_detector import create_friction_detector
+                detector = create_friction_detector()
+                friction_result = detector["detect_all"](repository["connection"])
+                
+                # 結果に摩擦分析を追加
+                result["friction_analysis"] = friction_result
+                
+                # 総合スコアが悪い場合は警告
+                total_score = friction_result["total"]["total_score"]
+                if total_score < -0.5:
+                    result["alert"] = {
+                        "level": "warning" if total_score > -0.7 else "critical",
+                        "message": f"プロジェクトの健全性: {friction_result['total']['health']}",
+                        "recommendation": friction_result["total"]["recommendation"],
+                        "score": total_score
+                    }
+                    
+                # 個別の摩擦で深刻なものがあれば詳細を提供
+                for friction_type, friction_data in friction_result["frictions"].items():
+                    if friction_data["score"] < -0.5:
+                        if "friction_details" not in result:
+                            result["friction_details"] = []
+                        result["friction_details"].append({
+                            "type": friction_type,
+                            "score": friction_data["score"],
+                            "message": friction_data["message"]
+                        })
+        
         output = json.dumps(result, ensure_ascii=False)
         debug("rgl.main", "Sending response", response_length=len(output))
         print(output)

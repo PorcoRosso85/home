@@ -138,7 +138,7 @@ def test_decompose_requirement_hierarchical_creates_children(connection, db_path
         "title": "Vision for RGL System",
         "description": "Requirement Graph Logic system",
         "status": "proposed",
-        "priority": "high",
+        "priority": 2,
         "created_at": datetime.now(),
         "embedding": [0.1] * 50
     }
@@ -185,7 +185,7 @@ def test_analyze_decomposition_quality_calculates_metrics(connection, db_path):
         "title": "Parent Requirement",
         "description": "Parent",
         "status": "approved",
-        "priority": "high",
+        "priority": 2,
         "created_at": datetime.now(),
         "embedding": [0.1] * 50
     }
@@ -198,7 +198,7 @@ def test_analyze_decomposition_quality_calculates_metrics(connection, db_path):
             "title": f"Child {i}",
             "description": f"Child requirement {i}",
             "status": "proposed",
-            "priority": "medium",
+            "priority": 1,
             "created_at": datetime.now(),
             "embedding": [0.1] * 50
         }
@@ -241,7 +241,7 @@ def test_suggest_refinements_detects_issues(connection, db_path):
         "title": "Parent Requirement",
         "description": "Parent",
         "status": "approved",
-        "priority": "high",
+        "priority": 2,
         "created_at": datetime.now(),
         "embedding": [0.1] * 50
     }
@@ -253,7 +253,7 @@ def test_suggest_refinements_detects_issues(connection, db_path):
         "title": "Only child",
         "description": "Single child requirement",
         "status": "proposed",
-        "priority": "medium",
+        "priority": 1,
         "created_at": datetime.now(),
         "embedding": [0.1] * 50
     }
