@@ -19,3 +19,4 @@
 - **「新しいコマンド追加」「カスタムコマンド作成」**: `/add-command` コマンドを実行
 - **「TDD Red」「失敗するテスト」「t-wada」**: `/tdd_red` コマンドを実行
 - **「POC」「記事を保存」「ドキュメント保存」「readability」**: `/poc` コマンドを実行
+- **「ASCII」「シーケンス図」「処理の流れ」「sequential diagram」**: `/ascii` コマンドを実行
