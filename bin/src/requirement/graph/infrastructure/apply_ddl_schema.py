@@ -106,3 +106,13 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
     return True
 
 
+if __name__ == "__main__":
+    """スクリプトとして実行された場合"""
+    import argparse
+    parser = argparse.ArgumentParser(description="Apply DDL schema to KuzuDB")
+    parser.add_argument("--db-path", help="Database path", default=None)
+    parser.add_argument("--test-data", action="store_true", help="Create test data")
+    args = parser.parse_args()
+    
+    success = apply_ddl_schema(db_path=args.db_path, create_test_data=args.test_data)
+    sys.exit(0 if success else 1)

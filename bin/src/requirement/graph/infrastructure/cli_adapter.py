@@ -109,9 +109,13 @@ def create_cli(repository_path: str = None, use_kuzu: bool = True):
                 print("No matching decisions found")
             else:
                 print(f"Found {len(results)} matching decisions:")
-                for i, decision in enumerate(results, 1):
+                for i, result in enumerate(results, 1):
+                    # Extract decision data (similarity is added by search_similar)
+                    decision = {k: v for k, v in result.items() if k != 'similarity'}
+                    similarity = result.get('similarity', 0)
                     print(f"\n{i}. {decision['id']}: {decision['title']}")
                     print(f"   {decision['description']}")
+                    print(f"   Similarity: {similarity:.2f}")
         
         elif parsed_args.command == "list":
             results = repository["find_all"]()
