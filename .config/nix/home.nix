@@ -1,10 +1,15 @@
 { config, pkgs, lib, ... }:
 
-let
-  # username = builtins.getEnv "USER";
-  # username = "nixos";
-in
 {
+  imports = [
+    ./modules/packages.nix
+  ];
+
+  # Home Manager needs this
+  home.username = "nixos";
+  home.homeDirectory = "/home/nixos";
+  home.stateVersion = "25.05";
+
   programs = {
     home-manager.enable = true;
 
@@ -17,17 +22,13 @@ in
       '';
     };
 
-    # dircolors = { enable = true; }; # カスタムカラーが必要ならここで設定
-
     starship = {
       enable = true;
-      # settings = { ... }; # starship の設定が必要ならここで追加
     };
 
     tmux = {
-        enable = true;
+      enable = true;
     };
-
   };
 
   home.packages = with pkgs; [
@@ -40,14 +41,12 @@ in
     zoxide
     eza
     broot
-
+    
     pnpm
     nodejs_22
     uv
     python311
-
-    # aider-chat
-  ] ++ (import ./language.nix { inherit pkgs; });
+  ];
 
   home.file.".profile".text = ''
     source ~/.profile_

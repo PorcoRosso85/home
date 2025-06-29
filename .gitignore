@@ -42,6 +42,8 @@
 !nix/dev/
 !nix/dev/*
 !nix/dev/**
+!.config/nix/
+!.config/nix/**
 !.vscode-server/
 !.vscode-server/data/
 !.vscode-server/data/Machine/

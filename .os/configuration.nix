@@ -1,52 +1,29 @@
-{ config, lib, pkgs, ... }:
-let
-  # nixpkgsのunstableブランチをインポート
-  nixpkgs = import <nixpkgs> {
-    system = "x86_64-linux"; # 必要なら他のアーキテクチャを指定
-    overlays = [
-      (self: super: {
-        unstable = import (builtins.fetchTarball {
-          url = "https://github.com/NixOS/nixpkgs/archive/nixpkgs-unstable.tar.gz";
-        }) { inherit (super) system; };
-      })
-    ];
-  };
-in
+{ config, lib, pkgs, pkgs-unstable, ... }:
+
 {
   imports = [
-    <nixos-wsl/modules>
-    # nixos-vscode-serverをimportsに追加
-    (builtins.fetchTarball "https://github.com/nix-community/nixos-vscode-server/tarball/master")
+    # Hardware configuration will be added when available
+    # ./hardware-configuration.nix
   ];
 
   wsl.enable = true;
   wsl.defaultUser = "nixos";
-  # WSL環境でsystemdを有効化
-  wsl.nativeSystemd = true;
-  # VSCode Serverの設定を有効にする
+  
   services = {
-    vscode-server = {
-      enable = true;
-      # お使いのNode.jsバージョンを指定（オプション）
-      # nodejsPackage = pkgs.nodejs_22;
-    };
-    tailscale = {
-      enable = true;
-    };
-    # D-Bus設定
+    vscode-server.enable = true;
+    tailscale.enable = true;
     dbus = {
       enable = true;
       implementation = "dbus";
     };
   };
   
-  # WSL関連の追加設定
   wsl.wslConf.automount.root = "/mnt";
   wsl.wslConf.interop.appendWindowsPath = true;
   wsl.wslConf.network.generateHosts = true;
+  
   system.stateVersion = "25.05";
   
-  # 以下は変更なし
   nix = {
     package = pkgs.nix;
     extraOptions = ''
@@ -54,7 +31,7 @@ in
     '';
   };
   
-  environment.systemPackages = with nixpkgs.unstable; [
+  environment.systemPackages = with pkgs-unstable; [
     wget
     curl
     git
@@ -94,15 +71,9 @@ in
     };
   };
   
-  virtualisation = {
-    docker = {
-      enable = true;
-    };
-  };
+  virtualisation.docker.enable = true;
   
-  users.users = {
-    nixos = {
-      extraGroups = [ "docker" ];
-    };
+  users.users.nixos = {
+    extraGroups = [ "docker" ];
   };
 }
