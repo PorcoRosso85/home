@@ -1,0 +1,15 @@
+[project]
+name = "kuzu-udf-poc"
+version = "0.1.0"
+description = "KuzuDB User Defined Functions POC"
+requires-python = ">=3.11"
+dependencies = [
+    "kuzu>=0.10.0",
+    "pytest>=8.4.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
