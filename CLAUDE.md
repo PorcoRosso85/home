@@ -14,9 +14,8 @@
 ## プロジェクト
 - KuzuDB要件管理: ~/bin/src/kuzu/
 
-## 前提
-- コーディング規約: ~/bin/src/CONVENTION.yaml
-
 ## 作業の合言葉
 - **「組織」「別のClaudeに依頼」「階層構造」**: `/org` コマンドを実行
 - **「新しいコマンド追加」「カスタムコマンド作成」**: `/add-command` コマンドを実行
+- **「TDD Red」「失敗するテスト」「t-wada」**: `/tdd_red` コマンドを実行
+- **「POC」「記事を保存」「ドキュメント保存」「readability」**: `/poc` コマンドを実行
