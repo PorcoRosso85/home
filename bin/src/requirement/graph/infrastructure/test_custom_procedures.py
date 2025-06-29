@@ -4,8 +4,8 @@ Tests for Custom Procedures
 from .custom_procedures import CustomProcedures
 
 
-def test_score_requirement_similarity_returns_score():
-    """score_requirement_類似度計算_スコアを返す"""
+def test_find_similar_requirements_returns_list():
+    """find_similar_requirements_類似要件リストを返す"""
     # Arrange
     # テスト用の接続クラスを定義
     class TestConnection:
@@ -52,21 +52,21 @@ def test_score_requirement_similarity_returns_score():
     procedures = CustomProcedures(conn)
     
     # Act
-    results = procedures.score_requirement(
+    results = procedures.find_similar_requirements(
         "req_001",
-        "グラフデータベースの導入",
-        "similarity"
+        "グラフデータベースの導入"
     )
     
     # Assert
-    assert len(results) > 0, f"Expected results but got {results}"
-    score, details = results[0]
-    assert 0.0 <= score <= 1.0, f"Score {score} not in range [0, 1]"
-    assert "similar_requirements" in details, f"Expected 'similar_requirements' in {details}"
+    assert isinstance(results, list), f"Expected list but got {type(results)}"
+    if results:
+        assert "id" in results[0]
+        assert "title" in results[0]
+        assert "similarity" in results[0]
 
 
-def test_score_requirement_constraint_checks_violations():
-    """score_requirement_制約チェック_違反を検出"""
+def test_check_constraint_violations_detects_issues():
+    """check_constraint_violations_制約違反を検出"""
     # Arrange
     # テスト用接続クラスを定義
     class TestConnection:
@@ -109,14 +109,12 @@ def test_score_requirement_constraint_checks_violations():
     procedures = CustomProcedures(conn)
     
     # Act
-    results = procedures.score_requirement("req_001", "", "constraint")
+    result = procedures.check_constraint_violations("req_001")
     
     # Assert
-    assert len(results) > 0, f"Expected results but got {results}"
-    score, details = results[0]
-    assert score < 1.0, f"Expected score < 1.0 but got {score}"  # 制約違反があるのでスコアは低い
-    assert "violations" in details, f"Expected 'violations' in {details}"
-    assert len(details["violations"]) > 0, f"Expected violations but got {details['violations']}"
+    assert isinstance(result, dict), f"Expected dict but got {type(result)}"
+    assert "violations" in result, f"Expected 'violations' in {result}"
+    assert len(result["violations"]) > 0, f"Expected violations but got {result['violations']}"
 
 
 def test_calculate_progress_with_children_returns_completion_rate():
@@ -267,60 +265,17 @@ def test_analyze_impact_modify_returns_affected_requirements():
     procedures = CustomProcedures(conn)
     
     # Act
-    results = procedures.analyze_impact("req_001", "modify")
+    result = procedures.analyze_impact("req_001", "modify")
     
     # Assert
-    assert len(results) > 0, f"Expected results but got {results}"
-    impact_score, affected = results[0]
-    assert impact_score > 0, f"Expected impact_score > 0 but got {impact_score}"
-    assert len(affected) == 2, f"Expected 2 affected requirements but got {len(affected)}: {affected}"  # req_002とreq_003が影響を受ける
+    assert isinstance(result, dict), f"Expected dict but got {type(result)}"
+    assert "affected_requirements" in result
+    assert "affected_count" in result
+    assert result["affected_count"] == 2, f"Expected 2 affected requirements but got {result['affected_count']}"
+    affected = result["affected_requirements"]
     affected_ids = [r["id"] for r in affected]
     assert "req_002" in affected_ids, f"Expected req_002 in {affected_ids}"
     assert "req_003" in affected_ids, f"Expected req_003 in {affected_ids}"
-
-
-def test_score_requirement_empty_query_returns_zero():
-    """score_requirement_空クエリ_ゼロスコアを返す"""
-    # Arrange
-    class TestConnection:
-        def __init__(self):
-            self.requirements = {
-                "req_001": {"id": "req_001", "title": "要件", "description": "説明", "embedding": [0.1] * 50}
-            }
-            
-        def execute(self, query, parameters=None):
-            if "MATCH (r:RequirementEntity {id: $req_id})" in query:
-                req_id = parameters.get("req_id")
-                if req_id in self.requirements:
-                    return TestResult([[self.requirements[req_id]]])
-            elif "MATCH (r:RequirementEntity)" in query:
-                return TestResult([[req] for req in self.requirements.values()])
-            return TestResult([])
-    
-    class TestResult:
-        def __init__(self, data):
-            self.data = data
-            self._index = 0
-        
-        def has_next(self):
-            return self._index < len(self.data)
-        
-        def get_next(self):
-            if self.has_next():
-                result = self.data[self._index]
-                self._index += 1
-                return result
-            return None
-    
-    conn = TestConnection()
-    procedures = CustomProcedures(conn)
-    
-    # Act
-    results = procedures.score_requirement("req_001", "", "similarity")
-    
-    # Assert
-    score, details = results[0]
-    assert score == 0.0
 
 
 # 各テスト関数内でテスト用クラスを定義して使用

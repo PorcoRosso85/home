@@ -21,6 +21,7 @@ def safe_main():
         from .infrastructure.hierarchy_validator import HierarchyValidator
         from .infrastructure.variables import get_db_path
         from .infrastructure.logger import debug, info, warn, error
+        from .application.scoring_service import create_scoring_service
         
         info("rgl.main", "Starting main function")
         
@@ -32,6 +33,7 @@ def safe_main():
         
         # 階層検証は最初に実行（DBアクセス前）
         hierarchy_validator = HierarchyValidator()
+        scoring_service = create_scoring_service()
         
         # Cypherクエリの場合は階層検証を実行
         if input_data.get("type") == "cypher":
@@ -40,13 +42,20 @@ def safe_main():
             
             # 階層検証
             hierarchy_result = hierarchy_validator.validate_hierarchy_constraints(query)
-            debug("rgl.main", "Hierarchy validation result", is_valid=hierarchy_result["is_valid"], score=hierarchy_result["score"])
+            debug("rgl.main", "Hierarchy validation result", is_valid=hierarchy_result["is_valid"], violation_type=hierarchy_result["violation_type"])
             
             if not hierarchy_result["is_valid"]:
+                # 違反情報をスコアリングサービスに渡してスコアを計算
+                violation = {
+                    "type": hierarchy_result["violation_type"],
+                    **hierarchy_result.get("violation_info", {})
+                }
+                score = scoring_service["calculate_score"](violation)
+                
                 # 階層違反 - 負のフィードバック
                 response = {
                     "status": "error",
-                    "score": hierarchy_result["score"],
+                    "score": score,
                     "message": hierarchy_result["error"],
                     "details": hierarchy_result["details"],
                     "suggestion": "階層ルールに従ってください。親は子より上位の階層である必要があります。"
@@ -56,9 +65,16 @@ def safe_main():
             
             # 警告がある場合
             if hierarchy_result["warning"]:
+                # 違反情報をスコアリングサービスに渡してスコアを計算
+                violation = {
+                    "type": hierarchy_result["violation_type"],
+                    **hierarchy_result.get("violation_info", {})
+                }
+                score = scoring_service["calculate_score"](violation)
+                
                 # クエリは実行するが、警告を含める
                 input_data["_hierarchy_warning"] = hierarchy_result["warning"]
-                input_data["_hierarchy_score"] = hierarchy_result["score"]
+                input_data["_hierarchy_score"] = score
         
         # 階層検証を通過した場合のみDBアクセス
         # KuzuDBリポジトリを作成
@@ -88,7 +104,6 @@ def safe_main():
         # JSONパースエラー
         error_response = {
             "status": "error",
-            "score": -0.5,
             "message": "Invalid JSON input",
             "details": str(e),
             "suggestion": "正しいJSON形式で入力してください"
@@ -98,7 +113,6 @@ def safe_main():
         # インポートエラー
         error_response = {
             "status": "error",
-            "score": -1.0,
             "message": "Module import failed",
             "details": str(e),
             "suggestion": "実行環境を確認してください。python -m requirement.graph.main として実行してください"
@@ -108,7 +122,6 @@ def safe_main():
         # その他のエラー
         error_response = {
             "status": "error",
-            "score": -0.5,
             "message": str(e),
             "error_type": type(e).__name__,
             "suggestion": "エラーが発生しました。クエリを確認してください"

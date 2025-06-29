@@ -38,19 +38,21 @@ class HierarchyValidator:
             
         Returns:
             Dict: {
-                "is_valid": bool,  # 検証成功かどうか
-                "score": float,    # -1.0（違反）〜0.0（正常）
-                "error": str,      # エラーメッセージ（違反時）
-                "warning": str,    # 警告メッセージ（非推奨時）
-                "details": List[str]  # 詳細情報
+                "is_valid": bool,       # 検証成功かどうか
+                "violation_type": str,  # 違反タイプ
+                "error": str,          # エラーメッセージ（違反時）
+                "warning": str,        # 警告メッセージ（非推奨時）
+                "details": List[str],  # 詳細情報
+                "violation_info": Dict # 違反の詳細情報（ScoringService用）
             }
         """
         result = {
             "is_valid": True,
-            "score": 0.0,
+            "violation_type": "no_violation",
             "error": None,
             "warning": None,
-            "details": []
+            "details": [],
+            "violation_info": {}
         }
         
         
@@ -100,9 +102,13 @@ class HierarchyValidator:
         if parent_level is not None and child_level is not None:
             if parent_level >= child_level:
                 result["is_valid"] = False
-                result["score"] = -1.0
+                result["violation_type"] = "hierarchy_violation"
                 result["error"] = "階層違反"
                 result["details"].append(f"Level {parent_level} cannot be parent of Level {child_level}")
+                result["violation_info"] = {
+                    "from_level": parent_level,
+                    "to_level": child_level
+                }
                 return result
         
         # 2. タイトルベースの階層違反チェック（新規実装）
@@ -146,23 +152,33 @@ class HierarchyValidator:
                     # 階層違反チェック: 下位が上位に依存することはできない
                     if parent_info["level"] > child_info["level"]:
                         result["is_valid"] = False
-                        result["score"] = -1.0
+                        result["violation_type"] = "hierarchy_violation"
                         result["error"] = "階層違反"
                         result["details"].append(
                             f"{parent_info['title']}(Level {parent_info['level']})が"
                             f"{child_info['title']}(Level {child_info['level']})に依存しています。"
                             f"下位階層は上位階層に依存できません。"
                         )
+                        result["violation_info"] = {
+                            "from_level": parent_info["level"],
+                            "to_level": child_info["level"],
+                            "from_title": parent_info["title"],
+                            "to_title": child_info["title"]
+                        }
                         
             # 自己参照チェック
             if parent_var == child_var:
                 result["is_valid"] = False
-                result["score"] = -1.0
+                result["violation_type"] = "self_reference"
                 result["error"] = "自己参照エラー"
                 result["details"].append(
                     f"ノード'{parent_var}'が自分自身に依存しています。"
                     f"自己参照は許可されていません。"
                 )
+                result["violation_info"] = {
+                    "node_id": parent_var,
+                    "node_title": entities.get(parent_var, {}).get("title", parent_var)
+                }
                 
         # 3. 間接的循環参照チェック（A→B→C→A）
         # CREATE文から全ての依存関係を抽出
@@ -222,12 +238,15 @@ class HierarchyValidator:
             cycle = find_cycle(dependencies, node, node, set(), [])
             if cycle and len(cycle) > 2:  # 自己参照でない循環
                 result["is_valid"] = False
-                result["score"] = -1.0
+                result["violation_type"] = "circular_reference"
                 result["error"] = "循環参照"
                 cycle_str = " → ".join(cycle)
                 result["details"].append(
                     f"循環参照が検出されました: {cycle_str}"
                 )
+                result["violation_info"] = {
+                    "cycle_path": cycle
+                }
         
         # 3. タイトルと階層レベルの整合性チェック（既存）
         title_match = re.search(r"title:\s*'([^']+)'.*?hierarchy_level:\s*(\d+)", cypher, re.DOTALL)
@@ -239,8 +258,13 @@ class HierarchyValidator:
             for expected_level, definition in self.HIERARCHY_DEFINITIONS.items():
                 for keyword in definition["keywords"]:
                     if keyword in title and level != expected_level:
-                        result["score"] = -0.3
+                        result["violation_type"] = "title_level_mismatch"
                         result["warning"] = f"{keyword}は通常Level {expected_level}"
+                        result["violation_info"] = {
+                            "title": title,
+                            "actual_level": level,
+                            "expected_level": expected_level
+                        }
                         break
         
         return result

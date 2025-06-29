@@ -7,8 +7,8 @@ from .hierarchy_validator import HierarchyValidator
 class TestHierarchyValidator:
     """HierarchyValidatorのテスト"""
     
-    def test_validate_hierarchy_rule_parent_child_level_違反検出_エラーとペナルティ(self):
-        """validate_hierarchy_rule_親子レベル違反_エラーとペナルティを返す"""
+    def test_validate_hierarchy_rule_parent_child_level_違反検出_エラー(self):
+        """validate_hierarchy_rule_親子レベル違反_エラーを返す"""
         validator = HierarchyValidator()
         
         # L4の要件がL0の親になろうとする
@@ -21,7 +21,7 @@ class TestHierarchyValidator:
         result = validator.validate_hierarchy_constraints(cypher)
         
         assert result["is_valid"] == False
-        assert result["score"] == -1.0  # 最大ペナルティ
+        assert result["violation_type"] == "hierarchy_violation"
         assert "階層違反" in result["error"]
         assert "Level 4 cannot be parent of Level 0" in result["details"]
 
@@ -41,7 +41,7 @@ class TestHierarchyValidator:
         result = validator.validate_hierarchy_constraints(cypher)
         
         assert result["is_valid"] == True  # 警告のみ
-        assert result["score"] == -0.3  # 軽いペナルティ
+        assert result["violation_type"] == "title_level_mismatch"
         assert "warning" in result
         assert "ビジョンは通常Level 0" in result["warning"]
 
@@ -76,8 +76,8 @@ class TestHierarchyValidator:
             level = validator.detect_hierarchy_level_from_context(title)
             assert level == expected_level
 
-    def test_階層違反_タスクがビジョンの親_エラーとスコアマイナス1(self):
-        """階層違反検出_タスクがビジョンに依存_エラーとペナルティスコア"""
+    def test_階層違反_タスクがビジョンの親_エラー(self):
+        """階層違反検出_タスクがビジョンに依存_エラー"""
         validator = HierarchyValidator()
         
         # タスク実装（Level 4）がビジョン（Level 0）に依存する違反ケース
@@ -105,12 +105,12 @@ class TestHierarchyValidator:
         
         # 階層違反が検出される
         assert result["is_valid"] == False
-        assert result["score"] == -1.0
+        assert result["violation_type"] == "hierarchy_violation"
         assert result["error"] == "階層違反"
         assert "タスク実装(Level 4)がビジョン(Level 0)に依存" in str(result["details"])
 
-    def test_自己参照_同一ノード間の依存_エラーとスコアマイナス1(self):
-        """自己参照検出_同じノードが自分に依存_エラーとペナルティスコア"""
+    def test_自己参照_同一ノード間の依存_エラー(self):
+        """自己参照検出_同じノードが自分に依存_エラー"""
         validator = HierarchyValidator()
         
         cypher = """
@@ -122,7 +122,7 @@ class TestHierarchyValidator:
         
         # 自己参照が検出される
         assert result["is_valid"] == False
-        assert result["score"] == -1.0
+        assert result["violation_type"] == "self_reference"
         assert result["error"] == "自己参照エラー"
         assert "自分自身に依存" in str(result["details"])
 
@@ -148,7 +148,7 @@ class TestHierarchyValidator:
         
         # エラーなし
         assert result["is_valid"] == True
-        assert result["score"] == 0.0
+        assert result["violation_type"] == "no_violation"
         assert result["error"] is None
 
     def test_複数CREATE文_各文を個別に検証(self):
@@ -176,7 +176,7 @@ class TestHierarchyValidator:
         
         # 2つ目のCREATE文で階層違反
         assert result["is_valid"] == False
-        assert result["score"] == -1.0
+        assert result["violation_type"] == "hierarchy_violation"
 
     def test_MATCH後のCREATE_既存ノードとの関係で階層違反(self):
         """MATCH後CREATE_既存ノードとの階層違反を検出"""
@@ -215,7 +215,7 @@ class TestHierarchyValidator:
         
         # 循環参照が検出される
         assert result["is_valid"] == False
-        assert result["score"] == -1.0
+        assert result["violation_type"] == "circular_reference"
         assert "循環参照" in result["error"]
         assert "req_a → req_b → req_c → req_a" in str(result["details"])
 
@@ -242,7 +242,7 @@ class TestHierarchyValidator:
         
         # 階層レベルが推定できないため、階層違反が検出されない
         assert result["is_valid"] == True  # エラーにならない
-        assert result["score"] == 0.0
+        assert result["violation_type"] == "no_violation"
         assert result["error"] is None
         # これは現在の実装の制限事項
 

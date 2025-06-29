@@ -184,9 +184,9 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
                 args = request.get("args", [])
                 
                 # プロシージャ実行
-                if proc_name == "requirement.score":
-                    score = procedures.score_requirement_similarity(args[0], args[1], args[2])
-                    return {"status": "success", "data": {"score": score}}
+                if proc_name == "requirement.similar":
+                    similar = procedures.find_similar_requirements(args[0], args[1])
+                    return {"status": "success", "data": {"similar_requirements": similar}}
                     
                 elif proc_name == "requirement.progress":
                     progress = procedures.calculate_requirement_progress(args[0])
@@ -201,7 +201,7 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
                         "status": "error",
                         "error": f"Unknown procedure: {proc_name}",
                         "available_procedures": [
-                            "requirement.score",
+                            "requirement.similar",
                             "requirement.progress",
                             "graph.validate"
                         ]

@@ -19,7 +19,6 @@ except EnvironmentError as e:
     # 環境変数エラーを適切にフォーマット
     error_response = {
         "status": "error",
-        "score": -1.0,
         "message": str(e),
         "suggestion": "必要な環境変数を設定してください"
     }
@@ -29,7 +28,6 @@ except Exception as e:
     # その他のエラー
     error_response = {
         "status": "error",
-        "score": -0.5,
         "message": str(e),
         "suggestion": "エラーが発生しました。環境を確認してください"
     }

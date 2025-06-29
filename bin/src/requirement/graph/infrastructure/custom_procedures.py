@@ -29,50 +29,30 @@ class CustomProcedures:
         # ここでは登録済みと仮定
         return True
     
-    def score_requirement(
+    def find_similar_requirements(
         self,
         requirement_id: str,
-        query_text: str,
-        score_type: str = "similarity"
-    ) -> List[Tuple[str, Any]]:
+        query_text: str
+    ) -> List[Dict]:
         """
-        要件のスコアを計算
+        類似要件を検索（スコアリングは行わない）
         
         Args:
             requirement_id: 対象要件ID
-            query_text: 比較用テキスト（類似度計算用）
-            score_type: "similarity" | "constraint" | "impact"
+            query_text: 比較用テキスト
             
         Returns:
-            [(score, details), ...] の形式で結果を返す
+            類似要件のリスト
         """
-        if score_type == "similarity":
-            return self._score_similarity(requirement_id, query_text)
-        elif score_type == "constraint":
-            return self._score_constraint(requirement_id)
-        elif score_type == "impact":
-            return self._score_impact(requirement_id)
-        else:
-            return [(0.0, {"error": f"Unknown score type: {score_type}"})]
+        return self._find_similar(requirement_id, query_text)
     
-    def _score_similarity(self, requirement_id: str, query_text: str) -> List[Tuple[float, Dict]]:
-        """類似度スコアを計算"""
+    def _find_similar(self, requirement_id: str, query_text: str) -> List[Dict]:
+        """類似要件を検索"""
         if not query_text:
-            return [(0.0, {"similar_requirements": []})]
+            return []
         
         # クエリの埋め込みを生成（簡易版）
         query_embedding = self._create_simple_embedding(query_text)
-        
-        # 対象要件を取得（モックの実装を考慮）
-        target_result = self.connection.execute(
-            "MATCH (r:RequirementEntity {id: $req_id}) RETURN r",
-            {"req_id": requirement_id}
-        )
-        
-        # 対象要件の存在確認（モックでは要件が登録されているはず）
-        if not target_result.has_next():
-            # 要件が存在しない場合でも類似度計算を続行
-            pass
         
         # すべての要件を取得して類似度計算
         all_result = self.connection.execute("MATCH (r:RequirementEntity) RETURN r")
@@ -92,12 +72,11 @@ class CustomProcedures:
         # 類似度でソート
         similar_reqs.sort(key=lambda x: x["similarity"], reverse=True)
         
-        # 最高スコアを返す
-        max_score = similar_reqs[0]["similarity"] if similar_reqs else 0.0
-        return [(max_score, {"similar_requirements": similar_reqs[:5]})]
+        # 上位5件を返す
+        return similar_reqs[:5]
     
-    def _score_constraint(self, requirement_id: str) -> List[Tuple[float, Dict]]:
-        """制約違反スコアを計算（違反があれば低スコア）"""
+    def check_constraint_violations(self, requirement_id: str) -> Dict[str, List[str]]:
+        """制約違反をチェック（スコアリングは行わない）"""
         violations = []
         
         # 循環依存チェック
@@ -123,12 +102,10 @@ class CustomProcedures:
             if depth > 5:
                 violations.append(f"deep_hierarchy: {depth}")
         
-        # スコア計算（違反1つにつき0.2減点）
-        score = max(0.0, 1.0 - len(violations) * 0.2)
-        return [(score, {"violations": violations})]
+        return {"violations": violations}
     
-    def _score_impact(self, requirement_id: str) -> List[Tuple[float, Dict]]:
-        """影響度スコアを計算"""
+    def get_impact_analysis(self, requirement_id: str) -> Dict[str, Any]:
+        """影響度分析（スコアリングは行わない）"""
         # この要件に依存している要件数を数える
         dependent_result = self.connection.execute("""
             MATCH (r:RequirementEntity)-[:DEPENDS_ON]->(target:RequirementEntity {id: $req_id})
@@ -139,9 +116,7 @@ class CustomProcedures:
         if dependent_result.has_next():
             dependent_count = dependent_result.get_next()[0]
         
-        # 影響度スコア（依存要件数に基づく）
-        impact_score = min(1.0, dependent_count / 10.0)  # 10件で最大スコア
-        return [(impact_score, {"dependent_count": dependent_count})]
+        return {"dependent_count": dependent_count}
     
     def _create_simple_embedding(self, text: str) -> List[float]:
         """簡易的な埋め込みベクトル生成"""
@@ -290,16 +265,16 @@ class CustomProcedures:
         self,
         requirement_id: str,
         change_type: str = "modify"
-    ) -> List[Tuple[str, Any]]:
+    ) -> Dict[str, Any]:
         """
-        変更の影響範囲を分析
+        変更の影響範囲を分析（スコアリングは行わない）
         
         Args:
             requirement_id: 対象要件ID
             change_type: "modify" | "delete" | "complete"
             
         Returns:
-            [(impact_score, affected_requirements), ...] の形式で結果を返す
+            影響分析結果の辞書
         """
         affected = []
         
@@ -333,10 +308,10 @@ class CustomProcedures:
                     "impact_type": "parent_child"
                 })
         
-        # 影響スコアを計算（影響要件数に基づく）
-        impact_score = min(1.0, len(affected) / 5.0)  # 5件で最大スコア
-        
-        return [(impact_score, affected)]
+        return {
+            "affected_requirements": affected,
+            "affected_count": len(affected)
+        }
     
     def suggest_decomposition(
         self,

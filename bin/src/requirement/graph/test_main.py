@@ -106,7 +106,7 @@ class TestMain:
             # 環境変数設定
             env = os.environ.copy()
             env['RGL_DB_PATH'] = temp_db
-            env['LD_LIBRARY_PATH'] = os.environ.get('LD_LIBRARY_PATH', '')
+            env['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib'
             
             # 1. スキーマ初期化
             schema_cmd = [
@@ -189,7 +189,7 @@ class TestMain:
         
         response = json.loads(output.getvalue())
         assert response["status"] == "error"
-        assert response["score"] == -0.5
+        assert "score" not in response  # システムエラーにはスコアがない
         assert "Invalid JSON" in response["message"]
         assert "正しいJSON形式" in response["suggestion"]
 
@@ -211,5 +211,5 @@ class TestMain:
         
         response = json.loads(output.getvalue())
         assert response["status"] == "error"
-        assert response["score"] == -0.5
+        assert "score" not in response  # システムエラーにはスコアがない
         assert "JSON" in response["message"]
