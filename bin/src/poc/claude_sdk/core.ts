@@ -1,11 +1,12 @@
 import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
-import type { SessionHistory, Session, StreamEntry } from "./types.ts";
+import type { SessionHistory, Session, StreamEntry, StreamEntryWithWorktree } from "./types.ts";
 
 // Parse arguments
-export function parseArgs(args: string[]): { claudeId: string; uri: string; prompt: string } {
+export function parseArgs(args: string[]): { claudeId: string; uri: string; prompt: string; allowWrite?: boolean } {
   const claudeIdIndex = args.indexOf("--claude-id");
   const uriIndex = args.indexOf("--uri");
   const printIndex = args.indexOf("--print");
+  const allowWriteIndex = args.indexOf("--allow-write");
   
   if (claudeIdIndex === -1) {
     throw new Error("--claude-id is required");
@@ -18,6 +19,7 @@ export function parseArgs(args: string[]): { claudeId: string; uri: string; prom
   const claudeId = args[claudeIdIndex + 1];
   const uri = args[uriIndex + 1];
   const prompt = args.slice(printIndex + 1).join(" ");
+  const allowWrite = allowWriteIndex !== -1;
   
   if (!claudeId) {
     throw new Error("--claude-id cannot be empty");
@@ -27,7 +29,7 @@ export function parseArgs(args: string[]): { claudeId: string; uri: string; prom
     throw new Error("All parameters --claude-id, --uri and --print are required");
   }
   
-  return { claudeId, uri, prompt };
+  return { claudeId, uri, prompt, allowWrite };
 }
 
 // Persistence layer
@@ -87,3 +89,13 @@ export function formatToJsonl(data: unknown, claudeId?: string): string {
   };
   return JSON.stringify(entry);
 }
+
+export function formatToJsonlWithWorktree(data: unknown, worktreeUri: string): string {
+  return JSON.stringify({
+    worktree_uri: worktreeUri,
+    process_id: Deno.pid,
+    timestamp: new Date().toISOString(),
+    data: data
+  });
+}
+

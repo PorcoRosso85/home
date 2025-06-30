@@ -1,10 +1,10 @@
 #!/usr/bin/env deno run --allow-all
 
-import { parseArgs, loadSession, saveSession, appendStream, buildPrompt, formatToJsonl } from "./core.ts";
+import { parseArgs, loadSession, saveSession, appendStream, buildPrompt, formatToJsonl, formatToJsonlWithWorktree } from "./core.ts";
 
 // Main function
 export async function main(args: string[]): Promise<void> {
-  const { claudeId, uri, prompt } = parseArgs(args);
+  const { claudeId, uri, prompt, allowWrite } = parseArgs(args);
   
   // Load session
   const session = await loadSession(uri);
@@ -13,7 +13,15 @@ export async function main(args: string[]): Promise<void> {
   const fullPrompt = buildPrompt(session.h, prompt);
   
   // Run claude
-  const cmd = ["claude", "--output-format", "stream-json", "--verbose", "--print", fullPrompt];
+  const cmd = ["claude", "--output-format", "stream-json", "--verbose"];
+  
+  // Add permission inheritance options if requested
+  if (allowWrite) {
+    cmd.push("--add-dir", uri);
+    cmd.push("--allowedTools", "Write,Edit,MultiEdit,Bash,Read,Glob,Grep,LS");
+  }
+  
+  cmd.push("--print", fullPrompt);
   if (session.h.length) cmd.push("--continue");
   
   const command = new Deno.Command(cmd[0], {
@@ -35,7 +43,7 @@ export async function main(args: string[]): Promise<void> {
     fullPrompt: fullPrompt,
     timestamp: new Date().toISOString()
   };
-  const userJsonl = formatToJsonl(userEntry, claudeId);
+  const userJsonl = formatToJsonlWithWorktree(userEntry, uri);
   console.log(userJsonl);
   await appendStream(uri, userJsonl);
   
@@ -59,7 +67,7 @@ export async function main(args: string[]): Promise<void> {
       for (const line of lines.filter(Boolean)) {
         try {
           const json = JSON.parse(line);
-          const jsonl = formatToJsonl(json, claudeId);
+          const jsonl = formatToJsonlWithWorktree(json, uri);
           console.log(jsonl);
           await appendStream(uri, jsonl);
           
@@ -78,7 +86,7 @@ export async function main(args: string[]): Promise<void> {
     if (buffer.trim()) {
       try {
         const json = JSON.parse(buffer);
-        const jsonl = formatToJsonl(json, claudeId);
+        const jsonl = formatToJsonlWithWorktree(json, uri);
         console.log(jsonl);
         await appendStream(uri, jsonl);
       } catch {

@@ -9,3 +9,11 @@ export type StreamEntry = {
   timestamp: string;
   data: unknown;
 };
+
+export type StreamEntryWithWorktree = {
+  worktree_uri: string;
+  process_id: number;
+  timestamp: string;
+  data: unknown;
+};
+

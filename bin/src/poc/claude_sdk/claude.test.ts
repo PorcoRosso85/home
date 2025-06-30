@@ -1,5 +1,7 @@
-import { assertEquals, assertThrows } from "https://deno.land/std@0.224.0/testing/asserts.ts";
+import { assertEquals, assertThrows, assertExists, assertStringIncludes } from "https://deno.land/std@0.224.0/testing/asserts.ts";
 import { parseArgs, buildPrompt, loadSession, saveSession, appendStream, formatToJsonl } from "./core.ts";
+// @ts-ignore - main関数をテスト用にインポート
+import { main } from "./claude.ts";
 
 // parseArgs tests
 Deno.test("test_parseArgs_valid_returnsAllParams", () => {
@@ -132,5 +134,115 @@ Deno.test("test_formatToJsonl_stringWithoutClaudeId_returnsString", () => {
   const testString = "raw string";
   const result = formatToJsonl(testString);
   assertEquals(result, testString);
+});
+
+// 統合テスト：session.jsonなしでは会話継続できない
+Deno.test("test_sessionJson必要性_なし_文脈が失われる", async () => {
+  const tempDir = await Deno.makeTempDir();
+  const testUri = tempDir;
+  
+  try {
+    // 1回目：数字を記憶させる
+    const cmd1 = new Deno.Command("claude", {
+      args: ["--print", "123という数字を覚えてください", "--continue", "--output-format", "stream-json", "--verbose"],
+      cwd: testUri,
+      env: { ...Deno.env.toObject(), CLAUDE_NON_INTERACTIVE: "1" },
+      stdout: "piped",
+      stderr: "piped"
+    });
+    
+    const result1 = await cmd1.output();
+    const output1 = new TextDecoder().decode(result1.stdout);
+    assertStringIncludes(output1, "123");  // 数字を認識したはず
+    
+    // 2回目：前の数字を聞く（session.jsonなし）
+    const cmd2 = new Deno.Command("claude", {
+      args: ["--print", "覚えた数字は何でしたか？", "--continue", "--output-format", "stream-json", "--verbose"],
+      cwd: testUri,
+      env: { ...Deno.env.toObject(), CLAUDE_NON_INTERACTIVE: "1" },
+      stdout: "piped",
+      stderr: "piped"
+    });
+    
+    const result2 = await cmd2.output();
+    const output2 = new TextDecoder().decode(result2.stdout);
+    
+    // session.jsonがないので、数字を覚えていないはず
+    // しかし、Claude CLIの--continueが効いて覚えている可能性もある
+    console.log("Output without session.json:", output2.includes("123"));
+    
+    // この時点でsession_idが異なることを確認
+    const sessionId1 = output1.match(/"session_id":"([^"]+)"/)?.[1];
+    const sessionId2 = output2.match(/"session_id":"([^"]+)"/)?.[1];
+    
+    // 重要：session_idが毎回変わる！
+    assertExists(sessionId1);
+    assertExists(sessionId2);
+    assertEquals(sessionId1 === sessionId2, false, "session_idは毎回異なるはず");
+    
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
+});
+
+// buildPromptの重要性：明示的な文脈構築
+Deno.test("test_buildPrompt_文脈構築_session履歴を含む", () => {
+  const history: Array<[string, string]> = [
+    ["user", "123を覚えて"],
+    ["assistant", "123を覚えました"],
+  ];
+  
+  const prompt = buildPrompt(history, "覚えた数字は？");
+  
+  // buildPromptは過去の会話を明示的に含める
+  assertStringIncludes(prompt, "123を覚えて");
+  assertStringIncludes(prompt, "123を覚えました");
+  assertStringIncludes(prompt, "覚えた数字は？");
+  
+  // これにより、session_idが変わっても文脈が保持される
+});
+
+// claude_sdk vs 直接CLIの比較テスト（このテストは失敗するはず）
+Deno.test("test_比較_SDK対CLI_文脈保持の違い", async () => {
+  const tempDir1 = await Deno.makeTempDir();
+  const tempDir2 = await Deno.makeTempDir();
+  
+  try {
+    // ケース1: claude_sdk使用（session.jsonあり）
+    // 期待：文脈が保持される（ただし現在は未実装なので失敗）
+    await main(["--claude-id", "test", "--uri", tempDir1, "--print", "私の名前は太郎です"]);
+    await main(["--claude-id", "test", "--uri", tempDir1, "--print", "私の名前は何でしたか？"]);
+    
+    const sdkStream = await Deno.readTextFile(`${tempDir1}/stream.jsonl`);
+    const sdkHasContext = sdkStream.includes("太郎");
+    
+    // ケース2: CLI直接使用（session.jsonなし）
+    const cli1 = new Deno.Command("claude", {
+      args: ["--print", "私の名前は花子です", "--continue"],
+      cwd: tempDir2,
+      stdout: "piped"
+    });
+    await cli1.output();
+    
+    const cli2 = new Deno.Command("claude", {
+      args: ["--print", "私の名前は何でしたか？", "--continue"],
+      cwd: tempDir2,
+      stdout: "piped"
+    });
+    const result2 = await cli2.output();
+    const cliOutput = new TextDecoder().decode(result2.stdout);
+    const cliHasContext = cliOutput.includes("花子");
+    
+    // 期待：SDKは文脈を保持、CLIは保持しない（実際は逆かも）
+    console.log("SDK has context:", sdkHasContext);
+    console.log("CLI has context:", cliHasContext);
+    
+    // このアサーションは現在の実装では失敗するはず
+    assertEquals(sdkHasContext, true, "SDKは文脈を保持すべき");
+    
+  } finally {
+    await Deno.remove(tempDir1, { recursive: true });
+    await Deno.remove(tempDir2, { recursive: true });
+  }
 });
 
