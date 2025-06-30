@@ -99,7 +99,7 @@ def safe_main():
         # CREATE操作の場合、摩擦検出を実行
         if input_data.get("type") == "cypher" and result.get("status") == "success":
             query = input_data.get("query", "").upper()
-            if "CREATE" in query and "RequirementEntity" in query:
+            if "CREATE" in query and "REQUIREMENTENTITY" in query:
                 debug("rgl.main", "Detected CREATE operation, analyzing friction")
                 
                 # 摩擦検出を実行
