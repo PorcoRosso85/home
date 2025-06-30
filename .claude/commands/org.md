@@ -44,9 +44,8 @@ claude_sdkで`--allow-write`により以下のツールが使用可能：
 1. タスクの識別（ユーザー要求を解釈、分割は自分で判断）
 2. 各タスクに対してworktreeを作成
 3. 各タスクごとにClaudeインスタンスを起動して依頼（並列実行）
-4. DuckDBによる進捗監視（stream.jsonlの分析）
-5. 完了判定とルール遵守報告の収集
-6. 結果の統合とユーザーへの報告
+4. stream.jsonl生成開始の確認（DuckDBで確認）
+5. 監視終了（依頼完了時点で終了）
 
 # 関連ツール
 - **claude_sdk**: Claudeインスタンスの起動と管理 → `~/bin/src/poc/claude_sdk/`
@@ -149,71 +148,55 @@ for i in "${!TASK_NAMES[@]}"; do
     echo "✗ 依頼失敗: [$TASK] $WORKTREE_PATH - stream.jsonlが作成されていません"
   fi
 done
+
+echo "=== 監視終了 ==="
+echo "すべてのタスクへの依頼が完了しました。"
+echo "各Claudeインスタンスが独立して作業を進めています。"
 ```
 
-## 5. 進捗監視
+
+# 監視終了後の確認方法
+
+## 1. タスク進捗の監視
 ```bash
-# DuckDBを使用してタスク進捗を監視
+# worktreeベースディレクトリを設定
+WORKTREE_BASE="/home/nixos/.worktrees/claude-org"
+
+# 全体の進捗状況を確認
 nix run nixpkgs#duckdb -- -json -c "
 SELECT 
     worktree_uri,
     process_id,
-    CASE
-        WHEN EXISTS (
-            SELECT 1 FROM read_json_auto('$WORKTREE_BASE/*/stream.jsonl') sub
-            WHERE sub.worktree_uri = main.worktree_uri 
-            AND sub.process_id = main.process_id
-            AND json_extract_string(sub.data, '$.type') = 'assistant'
-            AND LOWER(json_extract_string(sub.data, '$.message.content[0].text')) LIKE '%task completed%'
-        ) THEN 'completed'
-        WHEN MAX(timestamp) < datetime('now', '-30 minutes') THEN 'timeout'
-        ELSE 'in_progress'
-    END as status,
-    CASE
-        WHEN EXISTS (
-            SELECT 1 FROM read_json_auto('$WORKTREE_BASE/*/stream.jsonl') sub
-            WHERE sub.worktree_uri = main.worktree_uri
-            AND sub.process_id = main.process_id
-            AND json_extract_string(sub.data, '$.type') = 'assistant'
-            AND json_extract_string(sub.data, '$.message.content[0].text') LIKE '%遵守したコーディング規約%'
-        ) THEN 'reported'
-        ELSE 'not_reported'
-    END as rule_compliance,
     MAX(timestamp) as last_activity,
     COUNT(*) as activity_count
-FROM read_json_auto('$WORKTREE_BASE/*/stream.jsonl') main
+FROM read_json_auto('$WORKTREE_BASE/*/stream.jsonl')
 GROUP BY worktree_uri, process_id
 ORDER BY worktree_uri
 "
 
-# より詳細な進捗確認（タスク名ごと）
-for TASK in "${TASK_NAMES[@]}"; do
-    echo "=== タスク進捗: $TASK ==="
-    WORKTREE_PATH="$WORKTREE_BASE/${TASK}-$TIMESTAMP"
-    
-    # 最新のアクティビティを確認
-    nix run nixpkgs#duckdb -- -json -c "
-    SELECT 
-        json_extract_string(data, '$.type') as msg_type,
-        SUBSTRING(COALESCE(
-            json_extract_string(data, '$.message.content[0].text'),
-            json_extract_string(data, '$.message')
-        ), 1, 100) as message_preview,
-        timestamp
-    FROM read_json_auto('$WORKTREE_PATH/stream.jsonl')
-    WHERE json_extract_string(data, '$.type') = 'assistant'
-    ORDER BY timestamp DESC
-    LIMIT 3
-    " | jq -r '.[] | "[\(.timestamp)] \(.message_preview)"' 2>/dev/null || echo "進捗なし"
-done
+# 特定タスクの最新アクティビティ
+TASK="browser-sync-poc"  # タスク名を指定
+TIMESTAMP="1735527600"   # タイムスタンプを指定
+WORKTREE_PATH="$WORKTREE_BASE/${TASK}-$TIMESTAMP"
+
+nix run nixpkgs#duckdb -- -json -c "
+SELECT 
+    json_extract_string(data, '$.type') as msg_type,
+    SUBSTRING(COALESCE(
+        json_extract_string(data, '$.message.content[0].text'),
+        json_extract_string(data, '$.message')
+    ), 1, 200) as message_preview,
+    timestamp
+FROM read_json_auto('$WORKTREE_PATH/stream.jsonl')
+WHERE json_extract_string(data, '$.type') = 'assistant'
+ORDER BY timestamp DESC
+LIMIT 5
+"
 ```
 
-## 6. 結果収集
+## 2. タスク完了の確認
 ```bash
-# DuckDBを使用して結果を収集
-echo "=== 結果収集 ==="
-
-# 完了報告とルール遵守報告を抽出
+# 完了報告を検索
 nix run nixpkgs#duckdb -- -json -c "
 SELECT 
     worktree_uri,
@@ -222,67 +205,43 @@ SELECT
 FROM read_json_auto('$WORKTREE_BASE/*/stream.jsonl')
 WHERE json_extract_string(data, '$.type') = 'assistant'
 AND json_extract_string(data, '$.message.content[0].type') = 'text'
-AND (
-    LOWER(json_extract_string(data, '$.message.content[0].text')) LIKE '%task completed%'
-    OR json_extract_string(data, '$.message.content[0].text') LIKE '%遵守したコーディング規約%'
-)
-ORDER BY worktree_uri, timestamp DESC
-" > /tmp/org_results.json
+AND LOWER(json_extract_string(data, '$.message.content[0].text')) LIKE '%task completed%'
+ORDER BY timestamp DESC
+" | jq -r '.[] | "[" + (.worktree_uri | split("/")[-1]) + "] " + (.timestamp)'
 
-# 結果を整形して表示
-if [ -s /tmp/org_results.json ]; then
-    cat /tmp/org_results.json | jq -r '.[] | 
-        "\n[" + (.worktree_uri | split("/")[-1]) + "] " + (.timestamp) + "\n" + 
-        (.message | split("\n")[0:5] | join("\n") | .[0:300]) + "..."
-    ' 2>/dev/null || {
-        # jqが使えない場合の代替処理
-        echo "結果の整形にはjqが必要です。生データ:"
-        cat /tmp/org_results.json
-    }
-else
-    echo "完了報告が見つかりませんでした。"
-fi
-
-# タスクごとの最終状態を確認
-echo -e "\n=== タスク最終状態 ==="
-for TASK in "${TASK_NAMES[@]}"; do
-    WORKTREE_PATH="$WORKTREE_BASE/${TASK}-$TIMESTAMP"
-    
-    # 最終メッセージを取得
-    LAST_MESSAGE=$(nix run nixpkgs#duckdb -- -json -c "
-    SELECT json_extract_string(data, '$.message.content[0].text') as text
-    FROM read_json_auto('$WORKTREE_PATH/stream.jsonl')
-    WHERE json_extract_string(data, '$.type') = 'assistant'
-    AND json_extract_string(data, '$.message.content[0].type') = 'text'
-    ORDER BY timestamp DESC
-    LIMIT 1
-    " | jq -r '.[0].text' 2>/dev/null | head -c 200)
-    
-    # 完了判定
-    if echo "$LAST_MESSAGE" | grep -qi "task completed"; then
-        STATUS="✓ 完了"
-    else
-        STATUS="○ 進行中"
-    fi
-    
-    echo "[$TASK] $STATUS"
-    echo "  最終メッセージ: ${LAST_MESSAGE}..."
-    echo ""
-done
+# ルール遵守報告の確認
+nix run nixpkgs#duckdb -- -json -c "
+SELECT 
+    worktree_uri,
+    json_extract_string(data, '$.message.content[0].text') as message
+FROM read_json_auto('$WORKTREE_BASE/*/stream.jsonl')
+WHERE json_extract_string(data, '$.type') = 'assistant'
+AND json_extract_string(data, '$.message.content[0].text') LIKE '%遵守したコーディング規約%'
+"
 ```
 
-# ルール遵守の連鎖
-1. **/orgを実行したClaude → 各タスク担当Claude**: ルール遵守報告を義務化
-2. **各タスク担当Claude → /orgを実行したClaude**: 完了時に遵守内容を報告
-3. **/orgを実行したClaude → ユーザー**: 統合報告でルール遵守状況を含める
+## 3. リアルタイム監視（tail -f相当）
+```bash
+# 特定worktreeの活動を監視
+watch -n 2 "tail -n 10 $WORKTREE_PATH/stream.jsonl | grep -E '(assistant|user)' | tail -5"
+
+# 完了待機スクリプト
+timeout 300 bash -c 'while true; do
+  if grep -q "Task completed" /home/nixos/.worktrees/claude-org/*/stream.jsonl 2>/dev/null; then
+    echo "✓ タスク完了を検出"
+    break
+  fi
+  sleep 10
+done'
+```
 
 # 注意事項
 - 各Claudeは独立したworktreeで作業（ファイル競合なし）
 - session.jsonで会話継続性を保証
 - stream.jsonlは削除禁止（分析用）
-- ルール遵守報告なしは不完全な完了扱い
 - 同時実行数: /orgを実行したClaudeの判断に従う（1〜n個）
 - 依頼完了確認: stream.jsonl作成で判定
+- **監視は依頼時点で終了**（タスク完了を待たない）
 - 識別子: worktree_uriとprocess_idで各Claudeを識別
 - DuckDB分析: `nix run nixpkgs#duckdb`で実行（analyze_jsonl不要）
 
