@@ -171,8 +171,8 @@ class DDLSchemaManager:
             "CREATE (l3:LocationURI {id: 'file://src/auth/login.py'});",
             
             # RequirementEntity
-            "CREATE (r1:RequirementEntity {id: 'req_001', title: 'ビジョン定義', description: 'システム全体のビジョン', priority: 'high', requirement_type: 'functional', verification_required: true});",
-            "CREATE (r2:RequirementEntity {id: 'req_002', title: 'ユーザー認証', description: 'OAuth2による認証実装', priority: 'high', requirement_type: 'functional', verification_required: true});",
+            "CREATE (r1:RequirementEntity {id: 'req_001', title: 'ビジョン定義', description: 'システム全体のビジョン', priority: 2, requirement_type: 'functional', verification_required: true});",
+            "CREATE (r2:RequirementEntity {id: 'req_002', title: 'ユーザー認証', description: 'OAuth2による認証実装', priority: 2, requirement_type: 'functional', verification_required: true});",
             
             # CodeEntity
             "CREATE (c1:CodeEntity {persistent_id: 'func_login_001', name: 'login', type: 'function', signature: 'login(username, password)', complexity: 15, start_position: 10, end_position: 50});",
