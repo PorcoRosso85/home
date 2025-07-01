@@ -38,10 +38,18 @@
         apps.test-red = {
           type = "app";
           program = "${pkgs.writeShellScript "run-red-phase" ''
-            echo "=== 基本テスト ==="
-            ${pythonEnv}/bin/python schema_event_sourcing.py
-            echo -e "\n=== 本番レベルテスト ==="
-            ${pythonEnv}/bin/python schema_event_sourcing_production.py
+            echo "=== ステージング環境テスト ==="
+            ${pythonEnv}/bin/python schema_event_sourcing_stg.py
+            echo -e "\n=== 本番環境テスト ==="
+            ${pythonEnv}/bin/python schema_event_sourcing_prod.py
+          ''}";
+        };
+        
+        apps.test-stg = {
+          type = "app";
+          program = "${pkgs.writeShellScript "run-staging-tests" ''
+            cd ${./.}
+            ${pythonEnv}/bin/pytest -v schema_event_sourcing_stg.py "$@"
           ''}";
         };
         
@@ -49,7 +57,7 @@
           type = "app";
           program = "${pkgs.writeShellScript "run-production-tests" ''
             cd ${./.}
-            ${pythonEnv}/bin/pytest -v schema_event_sourcing_production.py "$@"
+            ${pythonEnv}/bin/pytest -v schema_event_sourcing_prod.py "$@"
           ''}";
         };
       });
