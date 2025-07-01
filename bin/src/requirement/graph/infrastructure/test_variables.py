@@ -25,7 +25,7 @@ class TestVariables:
             # エラーメッセージの検証
             assert test_env_name in str(e)
             assert "not set" in str(e)
-            assert f"Run with: {test_env_name}=<value>" in str(e)
+            assert f"Set {test_env_name}=<value>" in str(e)
 
     def test_必須環境変数_設定時_正常に取得(self):
         """必須環境変数_設定されている場合_値を正しく取得"""
@@ -75,7 +75,15 @@ class TestVariables:
 
     def test_get_log_level_環境変数を返す(self):
         """get_log_level_環境変数の値_そのまま返す"""
-        # 関数が値を返すことを確認
-        assert get_log_level() is not None
-        # デフォルト値は '*:WARN' 形式
-        assert ':' in get_log_level() or get_log_level() in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        # 環境変数が未設定の場合はNoneを返すのが正しい動作
+        original = os.environ.get('RGL_LOG_LEVEL')
+        
+        # テスト用に設定
+        os.environ['RGL_LOG_LEVEL'] = 'DEBUG'
+        assert get_log_level() == 'DEBUG'
+        
+        # クリーンアップ
+        if original:
+            os.environ['RGL_LOG_LEVEL'] = original
+        else:
+            del os.environ['RGL_LOG_LEVEL']

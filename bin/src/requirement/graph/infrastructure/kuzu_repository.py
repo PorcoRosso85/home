@@ -27,29 +27,21 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         Repository関数の辞書
     """
     info("rgl.repo", "Creating KuzuDB repository", db_path=db_path)
-    # KuzuDBのインポート - 強制インポート使用
-    try:
-        kuzu_path = get_kuzu_module_path()
-        if kuzu_path:
-            import importlib.util
-            spec = importlib.util.spec_from_file_location(
-                "kuzu", 
-                os.path.join(kuzu_path, "__init__.py")
-            )
-            kuzu = importlib.util.module_from_spec(spec)
-            sys.modules['kuzu'] = kuzu
-            spec.loader.exec_module(kuzu)
-            debug("rgl.repo", "KuzuDB module loaded successfully")
-        else:
-            # 通常のインポートを試みる
-            import kuzu
-            debug("rgl.repo", "KuzuDB module imported normally")
-    except Exception as e:
-        error("rgl.repo", "KuzuDB import failed", error=str(e), ld_path=LD_LIBRARY_PATH)
+    # KuzuDBのインポート - ヘルパーを使用
+    from .variables.kuzu_path_helper import import_kuzu
+    
+    kuzu_result = import_kuzu()
+    if kuzu_result["status"] == "error":
+        error("rgl.repo", "KuzuDB import failed", 
+              error=kuzu_result["message"], 
+              ld_path=LD_LIBRARY_PATH)
         raise ImportError(
-            f"KuzuDB import failed: {e}\n"
+            f"KuzuDB import failed: {kuzu_result['message']}\n"
             f"LD_LIBRARY_PATH is set to: {LD_LIBRARY_PATH}"
         )
+    
+    kuzu = kuzu_result["module"]
+    debug("rgl.repo", "KuzuDB module loaded successfully")
     
     # コネクション作成関数
     def get_connection(db_path):

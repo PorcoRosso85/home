@@ -9,6 +9,7 @@
 - 関数として提供（グローバル状態禁止）
 """
 import os
+import sys
 from typing import Optional, Dict, List
 import json
 
@@ -107,8 +108,33 @@ def get_shared_db_path() -> Optional[str]:
 # パス関連（環境変数ベース）
 
 def get_kuzu_module_path() -> Optional[str]:
-    """KuzuDBモジュールパス（環境変数から）"""
-    return _optional_env('RGL_KUZU_MODULE_PATH')
+    """KuzuDBモジュールパス（環境変数またはフォールバック）"""
+    # 環境変数から取得
+    env_path = _optional_env('RGL_KUZU_MODULE_PATH')
+    if env_path:
+        return env_path
+    
+    # フォールバックパスを試す
+    fallback_paths = [
+        "/home/nixos/bin/src/.venv/lib/python3.11/site-packages/kuzu",
+        "/home/nixos/bin/src/requirement/graph/.venv/lib/python3.11/site-packages/kuzu",
+        ".venv/lib/python3.11/site-packages/kuzu",
+        "../.venv/lib/python3.11/site-packages/kuzu",
+    ]
+    
+    for path in fallback_paths:
+        if os.path.exists(path) and os.path.exists(os.path.join(path, "__init__.py")):
+            return path
+    
+    # 動的に検出を試みる
+    try:
+        import kuzu
+        if hasattr(kuzu, '__file__') and kuzu.__file__:
+            return os.path.dirname(kuzu.__file__)
+    except ImportError:
+        pass
+    
+    return None
 
 # 設定検証
 

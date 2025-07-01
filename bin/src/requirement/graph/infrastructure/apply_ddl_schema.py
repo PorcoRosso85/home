@@ -12,21 +12,15 @@ from typing import Optional
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 sys.path.insert(0, project_root)
 
-from .variables import LD_LIBRARY_PATH, RGL_DB_PATH, get_kuzu_module_path
+from .variables import LD_LIBRARY_PATH, RGL_DB_PATH
+from .variables.kuzu_path_helper import import_kuzu
 
-# 強制インポートを使用
-kuzu_path = get_kuzu_module_path()
-if kuzu_path:
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "kuzu", 
-        os.path.join(kuzu_path, "__init__.py")
-    )
-    kuzu = importlib.util.module_from_spec(spec)
-    sys.modules['kuzu'] = kuzu
-    spec.loader.exec_module(kuzu)
-else:
-    import kuzu
+# KuzuDBのインポート - ヘルパーを使用
+kuzu_result = import_kuzu()
+if kuzu_result["status"] == "error":
+    raise ImportError(f"KuzuDB import failed: {kuzu_result['message']}")
+
+kuzu = kuzu_result["module"]
 
 from .ddl_schema_manager import DDLSchemaManager
 from .logger import debug, info, warn, error

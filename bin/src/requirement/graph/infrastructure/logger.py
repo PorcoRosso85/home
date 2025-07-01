@@ -10,9 +10,9 @@ from typing import Any, Dict, Optional
 from .variables.constants import LOG_LEVELS
 from .variables import get_log_level, get_log_format
 
-# 環境変数
-LOG_LEVEL = get_log_level()
-LOG_FORMAT = get_log_format()
+# 環境変数（Noneの場合はデフォルト値を使用）
+LOG_LEVEL = get_log_level() or "*:WARN"
+LOG_FORMAT = get_log_format() or "console"
 
 def _should_log(level: str, module: str) -> bool:
     """ログ出力するかどうかを判定"""
