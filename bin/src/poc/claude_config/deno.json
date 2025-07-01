@@ -1,0 +1,15 @@
+{
+  "tasks": {
+    "test": "deno test --allow-all",
+    "test:red": "deno test --allow-all || echo 'Expected failures (TDD Red phase)'",
+    "run:config": "deno run --allow-all ./src/config.ts",
+    "example:readonly": "echo '{\"prompt\": \"Review code\", \"mode\": \"readonly\"}' | deno run --allow-all ./src/config.ts",
+    "example:dev": "echo '{\"prompt\": \"Fix bug\", \"mode\": \"development\"}' | deno run --allow-all ./src/config.ts"
+  },
+  "test": {
+    "include": ["src/**/*.test.ts"]
+  },
+  "fmt": {
+    "include": ["src/**/*.ts", "*.md", "*.json"]
+  }
+}

@@ -1,0 +1,10 @@
+# Deno
+deno.lock
+
+# Test artifacts
+*.log
+.claude/
+
+# Nix
+result
+result-*
