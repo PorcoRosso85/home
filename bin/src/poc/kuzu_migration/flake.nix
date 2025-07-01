@@ -31,14 +31,25 @@
           type = "app";
           program = "${pkgs.writeShellScript "run-tests" ''
             cd ${./.}
-            ${pythonEnv}/bin/pytest -v schema_event_sourcing.py "$@"
+            ${pythonEnv}/bin/pytest -v "$@"
           ''}";
         };
         
         apps.test-red = {
           type = "app";
           program = "${pkgs.writeShellScript "run-red-phase" ''
+            echo "=== 基本テスト ==="
             ${pythonEnv}/bin/python schema_event_sourcing.py
+            echo -e "\n=== 本番レベルテスト ==="
+            ${pythonEnv}/bin/python schema_event_sourcing_production.py
+          ''}";
+        };
+        
+        apps.test-prod = {
+          type = "app";
+          program = "${pkgs.writeShellScript "run-production-tests" ''
+            cd ${./.}
+            ${pythonEnv}/bin/pytest -v schema_event_sourcing_production.py "$@"
           ''}";
         };
       });
