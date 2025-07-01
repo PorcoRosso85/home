@@ -31,7 +31,7 @@
           type = "app";
           program = "${pkgs.writeShellScript "run-tests" ''
             cd ${./.}
-            ${pythonEnv}/bin/pytest -v "$@"
+            ${pythonEnv}/bin/pytest -v schema_event_sourcing_stg.py schema_event_sourcing_prod.py "$@"
           ''}";
         };
         

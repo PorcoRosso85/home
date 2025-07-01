@@ -9,210 +9,130 @@
 - 関数として提供（グローバル状態禁止）
 """
 import os
-from typing import Dict, Optional, TypedDict
+from typing import Optional, Dict, List
+import json
 
+# エラー型定義
+class EnvironmentError(Exception):
+    """環境変数関連エラー"""
+    pass
 
-class EnvironmentError(TypedDict):
-    """環境変数エラー"""
-    type: str
-    message: str
-    variable: str
-    suggestion: str
-
-
-class EnvironmentConfig(TypedDict):
-    """環境設定"""
-    # 必須環境変数
-    ld_library_path: str
-    rgl_db_path: str
-    
-    # オプション環境変数
-    rgl_log_level: Optional[str]
-    rgl_log_format: Optional[str]
-    rgl_hierarchy_mode: Optional[str]
-    rgl_team: Optional[str]
-    rgl_skip_schema_check: Optional[str]
-    rgl_max_hierarchy: Optional[str]
-    rgl_hierarchy_keywords: Optional[str]
-    
-    # /org用共有DB設定
-    rgl_shared_db_path: Optional[str]
-    rgl_org_mode: Optional[str]
-
-
-def get_required_env(name: str) -> str:
+# 必須環境変数チェック
+def _require_env(name: str) -> str:
     """必須環境変数を取得（デフォルト値なし）"""
     value = os.environ.get(name)
-    if value is None:
-        raise ValueError({
-            "type": "EnvironmentError",
-            "message": f"Required environment variable not set: {name}",
-            "variable": name,
-            "suggestion": f"Set {name}=<value> before running the application"
-        })
+    if not value:
+        raise EnvironmentError(
+            f"{name} not set. Set {name}=<value> before running the application"
+        )
     return value
 
-
-def get_optional_env(name: str) -> Optional[str]:
+# オプション環境変数取得
+def _optional_env(name: str) -> Optional[str]:
     """オプション環境変数を取得"""
     return os.environ.get(name)
 
+# 環境変数アクセス関数
 
-def load_environment() -> EnvironmentConfig:
-    """
-    環境変数をロード
+def get_ld_library_path() -> str:
+    """LD_LIBRARY_PATH（必須）"""
+    return _require_env('LD_LIBRARY_PATH')
+
+def get_rgl_db_path() -> str:
+    """RGL_DB_PATH（必須）"""
+    return _require_env('RGL_DB_PATH')
+
+def get_db_path() -> str:
+    """DBパスを取得（/orgモード対応）"""
+    # /orgモードで共有DBが設定されている場合はそちらを優先
+    org_mode = _optional_env('RGL_ORG_MODE')
+    shared_db = _optional_env('RGL_SHARED_DB_PATH')
     
-    Returns:
-        EnvironmentConfig: 環境設定
-        
-    Raises:
-        ValueError: 必須環境変数が未設定の場合
-        
-    Example:
-        >>> os.environ['LD_LIBRARY_PATH'] = '/path/to/lib'
-        >>> os.environ['RGL_DB_PATH'] = '/path/to/db'
-        >>> config = load_environment()
-        >>> config['rgl_db_path']
-        '/path/to/db'
-    """
+    if org_mode and org_mode.lower() == 'true' and shared_db:
+        return shared_db
+    return get_rgl_db_path()
+
+def get_log_level() -> Optional[str]:
+    """ログレベル（オプション）"""
+    return _optional_env('RGL_LOG_LEVEL')
+
+def get_log_format() -> Optional[str]:
+    """ログフォーマット（オプション）"""
+    return _optional_env('RGL_LOG_FORMAT')
+
+def should_skip_schema_check() -> bool:
+    """スキーマチェックをスキップするか"""
+    value = _optional_env('RGL_SKIP_SCHEMA_CHECK')
+    return value and value.lower() in ('true', '1', 'yes')
+
+def get_hierarchy_mode() -> Optional[str]:
+    """階層モード（オプション）"""
+    return _optional_env('RGL_HIERARCHY_MODE')
+
+def get_max_hierarchy() -> Optional[int]:
+    """最大階層深度（オプション）"""
+    value = _optional_env('RGL_MAX_HIERARCHY')
+    if value:
+        try:
+            return int(value)
+        except ValueError:
+            raise EnvironmentError(f"RGL_MAX_HIERARCHY must be an integer, got: {value}")
+    return None
+
+def get_team() -> Optional[str]:
+    """チーム名（オプション）"""
+    return _optional_env('RGL_TEAM')
+
+def get_hierarchy_keywords() -> Optional[Dict[int, List[str]]]:
+    """階層キーワード（オプション）"""
+    value = _optional_env('RGL_HIERARCHY_KEYWORDS')
+    if value:
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError as e:
+            raise EnvironmentError(f"RGL_HIERARCHY_KEYWORDS must be valid JSON: {e}")
+    return None
+
+# /org モード関連
+
+def is_org_mode() -> bool:
+    """/orgモードが有効か"""
+    mode = _optional_env('RGL_ORG_MODE')
+    return mode and mode.lower() == 'true'
+
+def get_shared_db_path() -> Optional[str]:
+    """共有DBパス（/orgモード用）"""
+    return _optional_env('RGL_SHARED_DB_PATH')
+
+# パス関連（環境変数ベース）
+
+def get_kuzu_module_path() -> Optional[str]:
+    """KuzuDBモジュールパス（環境変数から）"""
+    return _optional_env('RGL_KUZU_MODULE_PATH')
+
+# 設定検証
+
+def validate_environment() -> Dict[str, str]:
+    """環境設定を検証し、問題があればエラー詳細を返す"""
+    errors = {}
+    
+    # 必須環境変数チェック
+    required = ['LD_LIBRARY_PATH', 'RGL_DB_PATH']
+    for var in required:
+        if not os.environ.get(var):
+            errors[var] = f"Required environment variable {var} is not set"
+    
+    # /orgモード設定の整合性チェック
+    if is_org_mode() and not get_shared_db_path():
+        errors['RGL_SHARED_DB_PATH'] = "RGL_SHARED_DB_PATH must be set when RGL_ORG_MODE=true"
+    
+    return errors
+
+# テスト用ヘルパー
+
+def get_test_env_config() -> Dict[str, str]:
+    """テスト用の最小環境設定を返す"""
     return {
-        # 必須
-        "ld_library_path": get_required_env("LD_LIBRARY_PATH"),
-        "rgl_db_path": get_required_env("RGL_DB_PATH"),
-        
-        # オプション
-        "rgl_log_level": get_optional_env("RGL_LOG_LEVEL"),
-        "rgl_log_format": get_optional_env("RGL_LOG_FORMAT"),
-        "rgl_hierarchy_mode": get_optional_env("RGL_HIERARCHY_MODE"),
-        "rgl_team": get_optional_env("RGL_TEAM"),
-        "rgl_skip_schema_check": get_optional_env("RGL_SKIP_SCHEMA_CHECK"),
-        "rgl_max_hierarchy": get_optional_env("RGL_MAX_HIERARCHY"),
-        "rgl_hierarchy_keywords": get_optional_env("RGL_HIERARCHY_KEYWORDS"),
-        
-        # /org用
-        "rgl_shared_db_path": get_optional_env("RGL_SHARED_DB_PATH"),
-        "rgl_org_mode": get_optional_env("RGL_ORG_MODE")
+        'LD_LIBRARY_PATH': '/test/lib',
+        'RGL_DB_PATH': '/test/db'
     }
-
-
-def get_db_path(config: EnvironmentConfig) -> str:
-    """
-    DBパスを解決（/org対応）
-    
-    Args:
-        config: 環境設定
-        
-    Returns:
-        str: DBパス
-        
-    Example:
-        >>> config = {"rgl_org_mode": "true", "rgl_shared_db_path": "/shared/db", "rgl_db_path": "/local/db"}
-        >>> get_db_path(config)
-        '/shared/db'
-    """
-    # /orgモードの場合は共有DBを優先
-    if config.get("rgl_org_mode") == "true" and config.get("rgl_shared_db_path"):
-        return config["rgl_shared_db_path"]
-    
-    return config["rgl_db_path"]
-
-
-def parse_bool(value: Optional[str]) -> bool:
-    """
-    文字列をboolに変換
-    
-    Args:
-        value: 文字列値
-        
-    Returns:
-        bool: 変換結果
-        
-    Example:
-        >>> parse_bool("true")
-        True
-        >>> parse_bool("false")
-        False
-        >>> parse_bool(None)
-        False
-    """
-    if value is None:
-        return False
-    return value.lower() in ("true", "1", "yes", "on")
-
-
-def parse_int(value: Optional[str], name: str) -> Optional[int]:
-    """
-    文字列をintに変換
-    
-    Args:
-        value: 文字列値
-        name: 変数名（エラー用）
-        
-    Returns:
-        Optional[int]: 変換結果
-        
-    Raises:
-        ValueError: 変換失敗時
-    """
-    if value is None:
-        return None
-    
-    try:
-        return int(value)
-    except ValueError:
-        raise ValueError({
-            "type": "EnvironmentError",
-            "message": f"Invalid integer value for {name}: {value}",
-            "variable": name,
-            "suggestion": f"Set {name} to a valid integer"
-        })
-
-
-# In-source tests
-def test_load_environment_success():
-    """環境変数が正しく設定されている場合"""
-    import os
-    os.environ["LD_LIBRARY_PATH"] = "/test/lib"
-    os.environ["RGL_DB_PATH"] = "/test/db"
-    
-    config = load_environment()
-    
-    assert config["ld_library_path"] == "/test/lib"
-    assert config["rgl_db_path"] == "/test/db"
-
-
-def test_load_environment_missing_required():
-    """必須環境変数が未設定の場合"""
-    import os
-    if "RGL_DB_PATH" in os.environ:
-        del os.environ["RGL_DB_PATH"]
-    
-    try:
-        load_environment()
-        assert False, "Should raise ValueError"
-    except ValueError as e:
-        error = e.args[0]
-        assert error["type"] == "EnvironmentError"
-        assert "RGL_DB_PATH" in error["message"]
-
-
-def test_get_db_path_org_mode():
-    """/orgモードでの共有DB優先"""
-    config = {
-        "rgl_org_mode": "true",
-        "rgl_shared_db_path": "/shared/db",
-        "rgl_db_path": "/local/db"
-    }
-    
-    assert get_db_path(config) == "/shared/db"
-
-
-def test_get_db_path_normal_mode():
-    """通常モードでのDB選択"""
-    config = {
-        "rgl_org_mode": "false",
-        "rgl_shared_db_path": "/shared/db",
-        "rgl_db_path": "/local/db"
-    }
-    
-    assert get_db_path(config) == "/local/db"
