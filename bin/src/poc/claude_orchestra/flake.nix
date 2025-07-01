@@ -4,12 +4,9 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    # 他のPOCを依存として追加
-    claude-config.url = "path:../claude_config";
-    claude-sdk.url = "path:../claude_sdk";
   };
 
-  outputs = { self, nixpkgs, flake-utils, claude-config, claude-sdk }:
+  outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -25,45 +22,19 @@
             echo "Claude Orchestra - Integration Testing POC"
             echo ""
             echo "Commands:"
-            echo "  deno test              - Run integration tests"
-            echo "  nix run .#test-red     - Run TDD Red phase tests"
-            echo "  nix run .#scenario-readonly  - Run readonly scenario"
+            echo "  nix run .#test - Run all integration tests"
             echo ""
           '';
         };
         
         apps = {
-          # TDD Red フェーズテスト
-          test-red = {
+          # 統合テスト実行
+          test = {
             type = "app";
-            program = "${pkgs.writeShellScript "run-red-tests" ''
-              echo "=== TDD Red Phase: Integration Tests ==="
+            program = "${pkgs.writeShellScript "run-tests" ''
+              echo "=== Claude Orchestra Integration Tests ==="
               echo ""
-              export PATH="${pkgs.deno}/bin:$PATH"
-              export TEST_DIR=$(mktemp -d)
-              
-              # POCのパスを環境変数として設定
-              export CLAUDE_CONFIG_PATH="${claude-config}"
-              export CLAUDE_SDK_PATH="${claude-sdk}"
-              
-              cp -r ${./.}/* $TEST_DIR/
-              cd $TEST_DIR
-              ${pkgs.deno}/bin/deno test --allow-all --no-lock || echo "Expected failures ✓"
-              rm -rf $TEST_DIR
-            ''}";
-          };
-          
-          # シナリオ: 読み取り専用
-          scenario-readonly = {
-            type = "app";
-            program = "${pkgs.writeShellScript "scenario-readonly" ''
-              echo "=== Scenario: Readonly Code Review ==="
-              
-              # 1. 設定生成
-              echo '{"prompt": "Review this code", "mode": "readonly"}' | \
-                ${claude-config}/bin/config
-              
-              # TODO: SDKとの統合
+              ${pkgs.deno}/bin/deno test --no-lock --allow-all src/
             ''}";
           };
         };

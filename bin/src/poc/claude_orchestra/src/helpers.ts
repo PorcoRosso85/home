@@ -3,6 +3,8 @@
  */
 
 import type { ConfigOutput } from "./types.ts";
+import { dirname, join } from "https://deno.land/std@0.224.0/path/mod.ts";
+import { fromFileUrl } from "https://deno.land/std@0.224.0/path/mod.ts";
 
 /**
  * claude_configを実行して設定を生成
@@ -13,10 +15,11 @@ export async function runConfig(input: {
   workdir?: string;
 }): Promise<{ success: boolean; output?: ConfigOutput; error?: string }> {
   try {
-    const configPath = "../claude_config/src/config.ts";
+    const thisDir = dirname(fromFileUrl(import.meta.url));
+    const configPath = join(thisDir, "../../claude_config/src/config.ts");
     
     const cmd = new Deno.Command(Deno.execPath(), {
-      args: ["run", "--allow-all", configPath],
+      args: ["run", "--no-lock", "--allow-all", configPath],
       stdin: "piped",
       stdout: "piped",
       stderr: "piped"
@@ -52,10 +55,11 @@ export async function runSdk(config: ConfigOutput): Promise<{
   code: number;
 }> {
   try {
-    const sdkPath = "../claude_sdk/claude.ts";
+    const thisDir = dirname(fromFileUrl(import.meta.url));
+    const sdkPath = join(thisDir, "../../claude_sdk/claude.ts");
     
     const args = [
-      "run", "--allow-all", sdkPath,
+      "run", "--no-lock", "--allow-all", sdkPath,
       "--claude-id", config.claudeId,
       "--uri", config.workdir,
       "--print", config.prompt
@@ -114,4 +118,20 @@ export async function runPipeline(input: {
   const sdkResult = await runSdk(configResult.output);
   
   return { configResult, sdkResult };
+}
+
+/**
+ * SDKのJSONL出力をパース
+ */
+export function parseJsonlOutput(stdout?: string): any[] {
+  if (!stdout) return [];
+  
+  const lines = stdout.split('\n').filter(l => l.trim());
+  return lines.map(line => {
+    try {
+      return JSON.parse(line);
+    } catch {
+      return null;
+    }
+  }).filter(e => e !== null);
 }

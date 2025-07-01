@@ -37,15 +37,18 @@ config(invalid) → エラー → パイプライン中断
 
 ## 実行方法
 
+### テスト実行
+
 ```bash
-# 開発環境
+# Nixコマンド
+nix run .#test
+```
+
+### 開発環境
+
+```bash
+# 開発シェル起動
 nix develop
-
-# TDD Red フェーズ（失敗するテスト）
-nix run .#test-red
-
-# 個別テスト
-deno test --allow-all
 ```
 
 ## 依存関係
