@@ -33,6 +33,7 @@
 !.sh
 !.sh/**
 !tmux.conf
+!.tmux.conf
 !.tmux.conf.d/
 !.tmux.conf.d/*
 !.tmux.conf.d/**
@@ -68,3 +69,19 @@
 !bin
 !bin/**
 bin/src/.venv/
+
+# Claude org worktrees
+.worktrees/
+
+# KuzuDB and Python artifacts
+*.kz
+*.hindex
+*.hindex.ovf
+.lock
+.shadow
+.wal
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+uv.lock
