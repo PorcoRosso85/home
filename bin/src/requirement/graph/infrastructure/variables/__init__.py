@@ -22,15 +22,12 @@ from .env import (
     get_hierarchy_keywords,
     is_org_mode,
     get_shared_db_path,
-    get_kuzu_module_path,
     validate_environment,
 )
 
 # 互換性のための変数（直接アクセスは非推奨）
-try:
-    LD_LIBRARY_PATH = get_ld_library_path()
-except EnvironmentError:
-    LD_LIBRARY_PATH = None
+# LD_LIBRARY_PATHはNixが管理するため、常に空文字列を返す
+LD_LIBRARY_PATH = get_ld_library_path()
 
 try:
     RGL_DB_PATH = get_rgl_db_path()
@@ -85,7 +82,6 @@ __all__ = [
     'should_skip_schema_check',
     'is_org_mode',
     'get_shared_db_path',
-    'get_kuzu_module_path',
     'validate_environment',
     # 定数
     'EMBEDDING_DIM',

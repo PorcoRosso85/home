@@ -30,14 +30,11 @@ class TestVariables:
     def test_必須環境変数_設定時_正常に取得(self):
         """必須環境変数_設定されている場合_値を正しく取得"""
         # テスト環境で必須環境変数を設定
-        test_ld_path = "/test/ld/path"
         test_db_path = "/test/db/path"
         
-        os.environ['LD_LIBRARY_PATH'] = test_ld_path
         os.environ['RGL_DB_PATH'] = test_db_path
         
         # 環境変数が設定されていれば正常に取得できる
-        assert _check_env('LD_LIBRARY_PATH') == test_ld_path
         assert _check_env('RGL_DB_PATH') == test_db_path
 
     def test_オプション環境変数_未設定時_デフォルト値(self):

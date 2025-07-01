@@ -36,8 +36,8 @@ def _optional_env(name: str) -> Optional[str]:
 # 環境変数アクセス関数
 
 def get_ld_library_path() -> str:
-    """LD_LIBRARY_PATH（必須）"""
-    return _require_env('LD_LIBRARY_PATH')
+    """LD_LIBRARY_PATH（オプション - Nixが管理）"""
+    return _optional_env('LD_LIBRARY_PATH') or ""
 
 def get_rgl_db_path() -> str:
     """RGL_DB_PATH（必須）"""
@@ -105,36 +105,7 @@ def get_shared_db_path() -> Optional[str]:
     """共有DBパス（/orgモード用）"""
     return _optional_env('RGL_SHARED_DB_PATH')
 
-# パス関連（環境変数ベース）
-
-def get_kuzu_module_path() -> Optional[str]:
-    """KuzuDBモジュールパス（環境変数またはフォールバック）"""
-    # 環境変数から取得
-    env_path = _optional_env('RGL_KUZU_MODULE_PATH')
-    if env_path:
-        return env_path
-    
-    # フォールバックパスを試す
-    fallback_paths = [
-        "/home/nixos/bin/src/.venv/lib/python3.11/site-packages/kuzu",
-        "/home/nixos/bin/src/requirement/graph/.venv/lib/python3.11/site-packages/kuzu",
-        ".venv/lib/python3.11/site-packages/kuzu",
-        "../.venv/lib/python3.11/site-packages/kuzu",
-    ]
-    
-    for path in fallback_paths:
-        if os.path.exists(path) and os.path.exists(os.path.join(path, "__init__.py")):
-            return path
-    
-    # 動的に検出を試みる
-    try:
-        import kuzu
-        if hasattr(kuzu, '__file__') and kuzu.__file__:
-            return os.path.dirname(kuzu.__file__)
-    except ImportError:
-        pass
-    
-    return None
+# パス関連は削除（環境設定で解決）
 
 # 設定検証
 
@@ -142,8 +113,8 @@ def validate_environment() -> Dict[str, str]:
     """環境設定を検証し、問題があればエラー詳細を返す"""
     errors = {}
     
-    # 必須環境変数チェック
-    required = ['LD_LIBRARY_PATH', 'RGL_DB_PATH']
+    # 必須環境変数チェック（LD_LIBRARY_PATHは削除 - Nixが管理）
+    required = ['RGL_DB_PATH']
     for var in required:
         if not os.environ.get(var):
             errors[var] = f"Required environment variable {var} is not set"
@@ -159,6 +130,5 @@ def validate_environment() -> Dict[str, str]:
 def get_test_env_config() -> Dict[str, str]:
     """テスト用の最小環境設定を返す"""
     return {
-        'LD_LIBRARY_PATH': '/test/lib',
         'RGL_DB_PATH': '/test/db'
     }

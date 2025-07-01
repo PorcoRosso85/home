@@ -13,14 +13,9 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_
 sys.path.insert(0, project_root)
 
 from .variables import LD_LIBRARY_PATH, RGL_DB_PATH
-from .variables.kuzu_path_helper import import_kuzu
 
-# KuzuDBのインポート - ヘルパーを使用
-kuzu_result = import_kuzu()
-if kuzu_result["status"] == "error":
-    raise ImportError(f"KuzuDB import failed: {kuzu_result['message']}")
-
-kuzu = kuzu_result["module"]
+# KuzuDBのインポート - シンプルに
+import kuzu
 
 from .ddl_schema_manager import DDLSchemaManager
 from .logger import debug, info, warn, error

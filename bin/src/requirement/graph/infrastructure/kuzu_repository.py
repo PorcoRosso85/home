@@ -12,7 +12,7 @@ from datetime import datetime
 
 # 相対インポートのみ使用
 from ..domain.types import Decision, DecisionResult, DecisionNotFoundError, DecisionError
-from .variables import get_db_path, LD_LIBRARY_PATH, should_skip_schema_check, get_kuzu_module_path
+from .variables import get_db_path, LD_LIBRARY_PATH, should_skip_schema_check
 from .logger import debug, info, warn, error
 
 
@@ -27,21 +27,18 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         Repository関数の辞書
     """
     info("rgl.repo", "Creating KuzuDB repository", db_path=db_path)
-    # KuzuDBのインポート - ヘルパーを使用
-    from .variables.kuzu_path_helper import import_kuzu
-    
-    kuzu_result = import_kuzu()
-    if kuzu_result["status"] == "error":
+    # KuzuDBのインポート - シンプルに
+    try:
+        import kuzu
+        debug("rgl.repo", "KuzuDB module loaded successfully")
+    except ImportError as e:
         error("rgl.repo", "KuzuDB import failed", 
-              error=kuzu_result["message"], 
+              error=str(e), 
               ld_path=LD_LIBRARY_PATH)
         raise ImportError(
-            f"KuzuDB import failed: {kuzu_result['message']}\n"
+            f"KuzuDB import failed: {e}\n"
             f"LD_LIBRARY_PATH is set to: {LD_LIBRARY_PATH}"
         )
-    
-    kuzu = kuzu_result["module"]
-    debug("rgl.repo", "KuzuDB module loaded successfully")
     
     # コネクション作成関数
     def get_connection(db_path):
