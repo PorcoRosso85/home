@@ -12,18 +12,49 @@
 - すべての実作業（調査、分析、コーディング）は委任先のClaudeが行う
 
 ## ツール制限の推奨設定
-### 依頼する側（/orgを実行したClaude）への制限
+
+### 権限管理パイプライン
+
+#### 今すぐ使える例
 ```bash
-# /org実行時の推奨起動方法
-claude --allowedTools "Read" "LS" "TodoRead" "TodoWrite" \
-       "Bash(git:*)" "Bash(nix:*)" "Bash(cd:*)" "Bash(export:*)" \
-       --disallowedTools "Write" "Edit" "MultiEdit" "Task" "WebSearch" "WebFetch"
+# /orgで使う場合のCONFIG_PATHとSDK_PATHの設定
+CONFIG_PATH="$(find ~/bin/src/poc -name "config.ts" -path "*/claude_config/*" | head -1)"
+SDK_PATH="$(find ~/bin/src/poc -name "claude.ts" -path "*/claude_sdk/*" | head -1)"
+
+# 1. 読み取り専用（ファイル編集不可）
+echo '{"prompt": "src/のコードをレビューして", "mode": "readonly"}' | \
+  deno run --allow-all $CONFIG_PATH | deno run --allow-all $SDK_PATH
+
+# 2. 開発モード（すべて許可）
+echo '{"prompt": "新機能を実装して", "mode": "development"}' | \
+  deno run --allow-all $CONFIG_PATH | deno run --allow-all $SDK_PATH
+
+# 3. 本番モード（rm/dd等の危険コマンドブロック）
+echo '{"prompt": "本番環境のログを確認", "mode": "production"}' | \
+  deno run --allow-all $CONFIG_PATH | deno run --allow-all $SDK_PATH
 ```
 
-### 依頼される側（作業するClaude）への設定
-claude_sdkで`--allow-write`により以下のツールが使用可能：
-- `Write`, `Edit`, `MultiEdit` - ファイル編集
-- `Bash`, `Read`, `Glob`, `Grep`, `LS` - 開発作業全般
+#### プリセットの中身（~/bin/src/poc/claude_config/src/config.ts）
+```typescript
+readonly: {
+  allowedTools: ["Read", "Glob", "Grep", "LS"],
+  settings: { permissions: { /* 読み取りのみ */ } }
+}
+
+development: {
+  allowedTools: ["*"],  // すべて許可
+  permissionMode: "acceptEdits"
+}
+
+production: {
+  disallowedTools: ["Bash", "Write", "Edit"],
+  settings: {
+    permissions: {
+      deny: ["rm:**", "dd:**", "mkfs:**", "/etc/**"]
+    }
+  }
+}
+```
 
 ### 依頼する側に許可されるツール
 - `Read`, `LS` - 進捗確認のためのファイル読み取り
@@ -48,8 +79,13 @@ claude_sdkで`--allow-write`により以下のツールが使用可能：
 5. 監視終了（依頼完了時点で終了）
 
 # 関連ツール
+- **claude_config**: 権限設定生成 → `~/bin/src/poc/claude_config/`
 - **claude_sdk**: Claudeインスタンスの起動と管理 → `~/bin/src/poc/claude_sdk/`
+- **claude_orchestra**: 統合テストと動作検証 → `~/bin/src/poc/claude_orchestra/`
 - **DuckDB**: stream.jsonlの分析とクエリ（`nix run nixpkgs#duckdb`経由）
+
+## 詳細ドキュメント
+- 権限とフックの完全仕様 → `~/bin/src/poc/claude_permission_principle.md`
 
 # 実行フロー
 
@@ -103,7 +139,7 @@ done
 TodoWrite: [${TODO_ITEMS[@]}]
 ```
 
-## 4. Claude起動（ルール遵守報告を含む）
+## 4. Claude起動（権限管理パイプライン経由）
 ```bash
 RULE_REPORT="
 【重要】タスク完了時には以下を必ず報告してください：
@@ -114,6 +150,10 @@ RULE_REPORT="
 最後に必ず「Task completed: [タスク名]」と報告してください。
 "
 
+# パイプラインパスを検出
+CONFIG_PATH="$(find "$GIT_ROOT" -name "config.ts" -path "*/poc/claude_config/*" | head -1)"
+SDK_PATH="$(find "$GIT_ROOT" -name "claude.ts" -path "*/poc/claude_sdk/*" | head -1)"
+
 # 各タスクに対してClaude起動（バックグラウンド実行）
 PIDS=()
 for i in "${!TASK_NAMES[@]}"; do
@@ -121,19 +161,24 @@ for i in "${!TASK_NAMES[@]}"; do
   TASK_PROMPT="${TASK_PROMPTS[$i]}"
   WORKTREE_PATH="$WORKTREE_BASE/${TASK}-$TIMESTAMP"
   
-  # claude_sdkパスを検出
-  CLAUDE_SDK_PATH="$(find "$GIT_ROOT" -name "claude.ts" -path "*/poc/claude_sdk/*" | head -1)"
+  # タスクの種類に応じてモード決定
+  if [[ "$TASK_PROMPT" =~ "レビュー" || "$TASK_PROMPT" =~ "確認" ]]; then
+    MODE="readonly"
+  elif [[ "$TASK_PROMPT" =~ "本番" || "$TASK_PROMPT" =~ "production" ]]; then
+    MODE="production"
+  else
+    MODE="development"  # デフォルトは開発モード
+  fi
   
-  nix run github:NixOS/nixpkgs/nixos-unstable#deno -- run --allow-all \
-    "$CLAUDE_SDK_PATH" \
-    --claude-id "$TASK-$TIMESTAMP" \
-    --uri "$WORKTREE_PATH" \
-    --allow-write \
-    --print "$TASK_PROMPT $RULE_REPORT" &
+  # 権限管理パイプライン経由で起動
+  echo "{\"prompt\": \"$TASK_PROMPT $RULE_REPORT\", \"mode\": \"$MODE\", \"workdir\": \"$WORKTREE_PATH\"}" | \
+    nix run github:NixOS/nixpkgs/nixos-unstable#deno -- run --allow-all "$CONFIG_PATH" | \
+    nix run github:NixOS/nixpkgs/nixos-unstable#deno -- run --allow-all "$SDK_PATH" \
+      --claude-id "$TASK-$TIMESTAMP" &
   
   PID=$!
   PIDS+=($PID)
-  echo "Started Claude for [$TASK] with PID: $PID at $WORKTREE_PATH"
+  echo "Started Claude for [$TASK] with mode:$MODE PID:$PID at $WORKTREE_PATH"
 done
 
 # 依頼完了確認（各タスクの初期起動を確認）
@@ -244,5 +289,56 @@ done'
 - **監視は依頼時点で終了**（タスク完了を待たない）
 - 識別子: worktree_uriとprocess_idで各Claudeを識別
 - DuckDB分析: `nix run nixpkgs#duckdb`で実行（analyze_jsonl不要）
+
+## 実際の権限動作例
+
+### 読み取り専用モードの場合
+```bash
+# Claudeがファイル作成を試みると...
+→ "Claude requested permissions to use Write"
+# ファイルは作成されない
+```
+
+### 本番モードの場合
+```bash
+# 危険なコマンド（rm -rf等）を実行しようとすると...
+→ "Permission to use Bash with command rm -rf has been denied."
+→ "The command is being blocked"
+```
+
+### 開発モードの場合
+```bash
+# すべてのツールが使用可能
+→ ファイル作成・編集・コマンド実行すべてOK
+```
+
+## フック設定例（高度な制御）
+
+### コマンドログ記録
+```json
+// ~/.claude/settings.json に追加
+"hooks": {
+  "PreToolUse": [{
+    "matcher": "Bash",
+    "hooks": [{
+      "type": "command",
+      "command": "echo $(date) $TOOL_NAME >> /tmp/claude-commands.log"
+    }]
+  }]
+}
+```
+
+### 危険コマンドブロック
+```json
+"hooks": {
+  "PreToolUse": [{
+    "matcher": "Bash",
+    "hooks": [{
+      "type": "command", 
+      "command": "~/bin/validate-command.py"  // exit 2でブロック
+    }]
+  }]
+}
+```
 
 ARGUMENTS: なし（現在のタスクから自動判断）
