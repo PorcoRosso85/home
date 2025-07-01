@@ -34,29 +34,21 @@ nix run
 echo 'MATCH (n:RequirementEntity) RETURN n LIMIT 5' | nix run
 ```
 
-### スキーマ適用
-```bash
-nix run .#apply-schema
-```
+## 環境管理の仕組み
 
-## 移行ガイド
+NixはC++ライブラリ（gcc）を提供し、uvがPythonパッケージ管理を担当します：
 
-以前は`test.sh`を使用していましたが、現在はNixで環境を完全に管理しています：
+- **Nixの責務**: システムライブラリ（libstdc++など）の提供、LD_LIBRARY_PATHの設定
+- **uvの責務**: Pythonパッケージ（kuzu含む）の管理、依存関係の解決
 
-```bash
-# 以前
-./test.sh
-
-# 現在
-nix run .#test
-```
+この分担により、Nix環境以外でも`LD_LIBRARY_PATH`を適切に設定すればuvで動作可能です。
 
 ## 利点
 
 1. **環境の再現性**: どの環境でも同じ結果が得られる
-2. **自動的な依存解決**: gcc、Python、uvなどが自動的に設定される
-3. **環境変数の管理**: LD_LIBRARY_PATHなどが自動的に設定される
-4. **クリーンな環境**: システムのPythonパッケージと混在しない
+2. **uvとの互換性**: Python開発者に馴染みのあるワークフロー
+3. **自動的なライブラリ設定**: LD_LIBRARY_PATHが自動的に設定される
+4. **クリーンな分離**: システムライブラリとPythonパッケージの責務が明確
 
 ## トラブルシューティング
 

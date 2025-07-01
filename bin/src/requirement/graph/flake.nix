@@ -11,66 +11,53 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # Python環境（kuzuを含む）
-        pythonEnv = pkgs.python311.withPackages (ps: with ps; [
-          pytest
-          kuzu
-          # その他の依存関係はuv.lockから
-        ]);
-        
       in {
         # 開発シェル
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            pythonEnv
+            python311
             uv
+            gcc
+          ];
+          
+          # C++ライブラリへのパスを提供
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+            pkgs.stdenv.cc.cc.lib
           ];
           
           shellHook = ''
             echo "RGL Development Environment"
             export RGL_DB_PATH="./rgl_db"
             echo "RGL_DB_PATH: $RGL_DB_PATH"
+            echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+            
+            # uvの仮想環境をアクティベート（存在する場合）
+            if [ -f .venv/bin/activate ]; then
+              source .venv/bin/activate
+            fi
           '';
         };
         
         # アプリケーション
         apps = {
-          # メインアプリケーション
+          # 実装（メインアプリケーション）
           default = {
             type = "app";
             program = "${pkgs.writeShellScript "rgl" ''
+              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}"
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              exec ${pkgs.uv}/bin/uv run python -m requirement.graph.main "$@"
+              exec ${pkgs.uv}/bin/uv run python run.py "$@"
             ''}";
           };
           
-          # テスト実行（uvを使用）
+          # テスト
           test = {
             type = "app";
             program = "${pkgs.writeShellScript "test" ''
+              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}"
               export RGL_DB_PATH="/tmp/test_rgl_db"
               export RGL_SKIP_SCHEMA_CHECK="true"
               exec ${pkgs.uv}/bin/uv run pytest "$@"
-            ''}";
-          };
-          
-          # テスト実行（純粋なpythonEnv使用）
-          test-nix = {
-            type = "app";
-            program = "${pkgs.writeShellScript "test-nix" ''
-              export RGL_DB_PATH="/tmp/test_rgl_db"
-              export RGL_SKIP_SCHEMA_CHECK="true"
-              cd ${./.}
-              exec ${pythonEnv}/bin/pytest "$@"
-            ''}";
-          };
-          
-          # スキーマ適用
-          apply-schema = {
-            type = "app";
-            program = "${pkgs.writeShellScript "apply-schema" ''
-              export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              exec ${pkgs.uv}/bin/uv run python -m requirement.graph.infrastructure.apply_ddl_schema "$@"
             ''}";
           };
         };
