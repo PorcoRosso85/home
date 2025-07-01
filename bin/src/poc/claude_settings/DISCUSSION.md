@@ -1,36 +1,37 @@
 # POC考察：動的settings.json書き換えによる権限制御
 
-## なぜモックでテスト可能か
+## なぜClaude SDKを使うか
 
-### モックが証明できること
-1. **基本的な読み込み動作**: settings.jsonファイルの存在確認と読み込み
-2. **権限チェックロジック**: allowedToolsによる単純な権限制御
-3. **フック実行フロー**: PreToolUse/PostToolUse/Stopのタイミング
+### SDKの役割
+1. **実際のCLI呼び出し**: 本物のClaude CLIを間接的に実行
+2. **セッション管理**: --uriディレクトリでの独立したセッション
+3. **ログ記録**: stream.jsonlへの実行ログ保存
 
-### モックでは証明できないこと
-1. **実際のClaude CLIの内部実装**: 本物のsettings.json読み込みタイミング
-2. **複雑なフック動作**: JSONパイプライン、並列実行、タイムアウト処理
-3. **完全な権限システム**: allowedToolsの実際の実装詳細
+### テストで検証できること
+1. **settings.json読み込み**: 実際のCLIが設定を読むか
+2. **権限制御の動作**: allowedToolsが機能するか
+3. **フック実行**: PreToolUse/Stopフックが動くか
 
-## 実証の意味
+## 実証の限界
 
 このPOCが示すのは：
-- **概念実証**: 動的権限制御が**理論的に可能**であること
-- **インターフェース確認**: settings.jsonの構造と期待される動作
-- **SDKとの統合可能性**: claude_sdkでの活用方法
+- **基本動作の確認**: settings.jsonによる制御が可能
+- **SDKとの統合**: claude_sdkでの動的設定管理
+- **実用性の検証**: 実際の開発での利用可能性
 
-完全な証明には実際のClaude CLIでのテストが必要ですが、
-基本的な動作原理の確認には十分です。
+ただし：
+- **内部実装は不明**: Claude CLIの詳細な動作は分からない
+- **エラーメッセージは予測不能**: 実際のエラー内容は変わる可能性
+- **SDKの影響**: 直接CLIを使う場合と挙動が異なるかも
 
 ## 規約への準拠
 
-CONVENTION.yamlの「モックよりも実際の値を使用」に従い、
-test_utils.tsで実際のCLIを優先的に使用する仕組みを実装しました。
+CONVENTION.yamlに従い、モックを削除して実際のCLI（SDK経由）を使用：
 
 ```typescript
-// 実際のCLIがあれば使用、なければモック
-const claudeCmd = await getClaudeCommand();
+// poc/claude_sdkをラッパーとして使用
+const sdkPath = join(Deno.cwd(), "../../claude_sdk/claude.ts");
+return ["deno", "run", "--allow-all", sdkPath];
 ```
 
-これにより、将来的に実際のClaude CLIでテストする際も
-テストコードの変更なしに移行できます。
+これにより、より現実的な動作検証が可能になりました。

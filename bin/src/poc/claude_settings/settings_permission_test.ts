@@ -12,10 +12,10 @@ Deno.test("permission: 読み取り専用モードではWriteツールがブロ�
   
   await createSettings(testDir, readOnlySettings);
   
-  // Claude CLIを呼び出し
+  // Claude SDKを呼び出し
   const claudeCmd = await getClaudeCommand();
   const cmd = new Deno.Command(claudeCmd[0], {
-    args: [...claudeCmd.slice(1), "--print", "test.txtというファイルを作成してください"],
+    args: [...claudeCmd.slice(1), "--claude-id", "test-readonly", "--uri", testDir, "--print", "test.txtというファイルを作成してください"],
     cwd: testDir,
     stdout: "piped",
     stderr: "piped"
@@ -37,22 +37,18 @@ Deno.test("permission: 読み取り専用モードではWriteツールがブロ�
 
 Deno.test("permission: 権限昇格フラグで書き込みが可能になる", async () => {
   const testDir = await Deno.makeTempDir();
-  const settingsDir = `${testDir}/.claude`;
-  await ensureDir(settingsDir);
   
   // フル権限設定を作成
   const fullPermissionSettings = {
     allowedTools: ["Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep", "LS"]
   };
   
-  await Deno.writeTextFile(
-    `${settingsDir}/settings.json`,
-    JSON.stringify(fullPermissionSettings, null, 2)
-  );
+  await createSettings(testDir, fullPermissionSettings);
   
-  // Claude CLIを呼び出し
-  const cmd = new Deno.Command("claude", {
-    args: ["--print", "test.txtというファイルを作成してください"],
+  // Claude SDKを呼び出し
+  const claudeCmd = await getClaudeCommand();
+  const cmd = new Deno.Command(claudeCmd[0], {
+    args: [...claudeCmd.slice(1), "--claude-id", "test-fullperm", "--uri", testDir, "--allow-write", "--print", "test.txtというファイルを作成してください"],
     cwd: testDir,
     stdout: "piped",
     stderr: "piped"
@@ -74,19 +70,14 @@ Deno.test("permission: 権限昇格フラグで書き込みが可能になる", 
 
 Deno.test("permission: settings.jsonの動的更新が反映される", async () => {
   const testDir = await Deno.makeTempDir();
-  const settingsDir = `${testDir}/.claude`;
-  await ensureDir(settingsDir);
-  const settingsPath = `${settingsDir}/settings.json`;
-  
+  const claudeCmd = await getClaudeCommand();
+
   // 初期設定：読み取り専用
-  await Deno.writeTextFile(
-    settingsPath,
-    JSON.stringify({ allowedTools: ["Read"] }, null, 2)
-  );
-  
+  await createSettings(testDir, { allowedTools: ["Read"] });
+
   // 最初の実行：失敗することを確認
-  const cmd1 = new Deno.Command("claude", {
-    args: ["--print", "ファイルを作成して"],
+  const cmd1 = new Deno.Command(claudeCmd[0], {
+    args: [...claudeCmd.slice(1), "--claude-id", "test-dynamic1", "--uri", testDir, "--print", "ファイルを作成して"],
     cwd: testDir,
     stdout: "piped",
     stderr: "piped"
@@ -97,14 +88,11 @@ Deno.test("permission: settings.jsonの動的更新が反映される", async ()
   assertEquals(result1.code, 1);
   
   // 設定を更新：書き込み権限を追加
-  await Deno.writeTextFile(
-    settingsPath,
-    JSON.stringify({ allowedTools: ["Read", "Write"] }, null, 2)
-  );
+  await createSettings(testDir, { allowedTools: ["Read", "Write"] });
   
   // 2回目の実行：成功することを確認
-  const cmd2 = new Deno.Command("claude", {
-    args: ["--print", "ファイルを作成して"],
+  const cmd2 = new Deno.Command(claudeCmd[0], {
+    args: [...claudeCmd.slice(1), "--claude-id", "test-dynamic2", "--uri", testDir, "--allow-write", "--print", "ファイルを作成して"],
     cwd: testDir,
     stdout: "piped",
     stderr: "piped"

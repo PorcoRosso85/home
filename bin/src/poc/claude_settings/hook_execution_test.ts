@@ -4,9 +4,7 @@ import { getClaudeCommand, createSettings } from "./test_utils.ts";
 
 Deno.test("hook: PreToolUseフックが実行される", async () => {
   const testDir = await Deno.makeTempDir();
-  const settingsDir = `${testDir}/.claude`;
   const logFile = `${testDir}/hook_executed.log`;
-  await ensureDir(settingsDir);
   
   // フック付き設定を作成
   const settingsWithHook = {
@@ -21,14 +19,12 @@ Deno.test("hook: PreToolUseフックが実行される", async () => {
     }
   };
   
-  await Deno.writeTextFile(
-    `${settingsDir}/settings.json`,
-    JSON.stringify(settingsWithHook, null, 2)
-  );
+  await createSettings(testDir, settingsWithHook);
   
-  // Claude CLIを実行
-  const cmd = new Deno.Command("claude", {
-    args: ["--print", "現在のディレクトリの内容を表示して"],
+  // Claude SDKを実行
+  const claudeCmd = await getClaudeCommand();
+  const cmd = new Deno.Command(claudeCmd[0], {
+    args: [...claudeCmd.slice(1), "--claude-id", "test-hook1", "--uri", testDir, "--print", "現在のディレクトリの内容を表示して"],
     cwd: testDir,
     stdout: "piped",
     stderr: "piped"
@@ -53,10 +49,6 @@ Deno.test("hook: PreToolUseフックが実行される", async () => {
 Deno.test("hook: 設定ごとに異なるフックが実行される", async () => {
   const testDir1 = await Deno.makeTempDir();
   const testDir2 = await Deno.makeTempDir();
-  const settingsDir1 = `${testDir1}/.claude`;
-  const settingsDir2 = `${testDir2}/.claude`;
-  await ensureDir(settingsDir1);
-  await ensureDir(settingsDir2);
   
   // プロジェクト1の設定：IDを記録
   const settings1 = {
@@ -84,19 +76,13 @@ Deno.test("hook: 設定ごとに異なるフックが実行される", async () 
     }
   };
   
-  await Deno.writeTextFile(
-    `${settingsDir1}/settings.json`,
-    JSON.stringify(settings1, null, 2)
-  );
+  await createSettings(testDir1, settings1);
+  await createSettings(testDir2, settings2);
   
-  await Deno.writeTextFile(
-    `${settingsDir2}/settings.json`,
-    JSON.stringify(settings2, null, 2)
-  );
-  
-  // プロジェクト1でClaude実行
-  const cmd1 = new Deno.Command("claude", {
-    args: ["--print", "Hello"],
+  // プロジェクト1でClaude SDK実行
+  const claudeCmd = await getClaudeCommand();
+  const cmd1 = new Deno.Command(claudeCmd[0], {
+    args: [...claudeCmd.slice(1), "--claude-id", "test-proj1", "--uri", testDir1, "--print", "Hello"],
     cwd: testDir1,
     stdout: "piped",
     stderr: "piped"
@@ -105,9 +91,9 @@ Deno.test("hook: 設定ごとに異なるフックが実行される", async () 
   const process1 = cmd1.spawn();
   await process1.output();
   
-  // プロジェクト2でClaude実行
-  const cmd2 = new Deno.Command("claude", {
-    args: ["--print", "Hello"],
+  // プロジェクト2でClaude SDK実行
+  const cmd2 = new Deno.Command(claudeCmd[0], {
+    args: [...claudeCmd.slice(1), "--claude-id", "test-proj2", "--uri", testDir2, "--print", "Hello"],
     cwd: testDir2,
     stdout: "piped",
     stderr: "piped"
@@ -130,9 +116,7 @@ Deno.test("hook: 設定ごとに異なるフックが実行される", async () 
 
 Deno.test("hook: フックによるツール使用のブロック", async () => {
   const testDir = await Deno.makeTempDir();
-  const settingsDir = `${testDir}/.claude`;
   const blockLog = `${testDir}/blocked.log`;
-  await ensureDir(settingsDir);
   
   // Bashコマンドをブロックするフック
   const blockingHookSettings = {
@@ -147,14 +131,12 @@ Deno.test("hook: フックによるツール使用のブロック", async () => 
     }
   };
   
-  await Deno.writeTextFile(
-    `${settingsDir}/settings.json`,
-    JSON.stringify(blockingHookSettings, null, 2)
-  );
+  await createSettings(testDir, blockingHookSettings);
   
   // Bashコマンドを実行しようとする
-  const cmd = new Deno.Command("claude", {
-    args: ["--print", "echo 'test' を実行して"],
+  const claudeCmd = await getClaudeCommand();
+  const cmd = new Deno.Command(claudeCmd[0], {
+    args: [...claudeCmd.slice(1), "--claude-id", "test-block", "--uri", testDir, "--print", "echo 'test' を実行して"],
     cwd: testDir,
     stdout: "piped",
     stderr: "piped"

@@ -3,6 +3,7 @@
 ## 概要
 
 Claude Codeのsettings.jsonを動的に書き換えることで、実行時の権限制御を実現するPOC。
+`poc/claude_sdk`をラッパーとして使用し、実際のClaude CLIの動作を検証。
 
 ## 実証内容
 
@@ -40,14 +41,14 @@ deno test --allow-all --filter=hook       # フック実行テスト
 - 設定ごとに異なるフックが実行される
 - フックによるツール使用のブロック
 
-## モックCLI
+## Claude SDKとの連携
 
-`mock_claude.ts`は、Claude Codeの動作を模倣するシンプルなCLI：
+`poc/claude_sdk`をラッパーとして使用：
 
-- settings.jsonの読み込み
-- allowedToolsによる権限チェック
-- フックの実行（PreToolUse/Stop）
-- exit code 2でのブロック処理
+- `--claude-id`: セッション識別子
+- `--uri`: 作業ディレクトリ（settings.jsonの配置場所）
+- `--allow-write`: 書き込み権限フラグ
+- Claude SDKが実際のClaude CLIを呼び出し
 
 ## 実際の使用例
 
@@ -80,28 +81,17 @@ const cmd = new Deno.Command("claude", {
 });
 ```
 
-## なぜモックでテスト可能か
+## テストの意味
 
-### モックの役割
-- **動作の再現**: settings.json読み込みと権限チェックの基本動作を模倣
-- **高速実行**: 実際のClaude CLIより高速にテスト実行可能
-- **制御可能**: 確定的な動作でテストの再現性を保証
+### 検証内容
+- **settings.jsonの読み込み**: Claude CLIが実際に設定ファイルを読むか
+- **権限制御**: allowedToolsが機能するか
+- **フック実行**: PreToolUse/Stopフックが動作するか
 
-### モックの限界
-- **完全な証明ではない**: 実際のClaude CLIの内部実装とは異なる
-- **フック実行の違い**: 実際のフックシステムの複雑な動作は再現できない
-- **権限システムの簡略化**: allowedToolsの実際の実装詳細は不明
-
-### 実際のClaude CLIでのテスト
-
-規約（CONVENTION.yaml）に従い「モックよりも実際の値を使用」すべきため、
-実際のClaude CLIが利用可能な場合はそちらを使用：
-
-```typescript
-// test_utils.tsで自動判定
-const claudeCmd = await getClaudeCommand();
-// ["claude"] または ["deno", "run", "--allow-all", "mock_claude.ts"]
-```
+### 制限事項
+- **完全な証明ではない**: 実際のClaude CLIの内部実装詳細は不明
+- **SDK経由の影響**: claude_sdkが間に入ることの影響
+- **エラーメッセージの不確実性**: 実際のエラー内容は予測できない
 
 ## 結論
 

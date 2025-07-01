@@ -1,28 +1,13 @@
-import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
+import { join, dirname, fromFileUrl } from "https://deno.land/std@0.224.0/path/mod.ts";
 
 /**
- * Get the appropriate Claude command based on availability
+ * Get the appropriate Claude command - use poc/claude_sdk
  */
 export async function getClaudeCommand(): Promise<string[]> {
-  // Check if real Claude CLI is available
-  try {
-    const cmd = new Deno.Command("which", {
-      args: ["claude"],
-      stdout: "piped",
-      stderr: "piped"
-    });
-    
-    const { code } = await cmd.output();
-    if (code === 0) {
-      return ["claude"];
-    }
-  } catch {
-    // Continue to mock
-  }
-  
-  // Use mock Claude
-  const mockPath = join(Deno.cwd(), "mock_claude.ts");
-  return ["deno", "run", "--allow-all", mockPath];
+  // Use poc/claude_sdk as a wrapper - resolve relative to this file
+  const thisDir = dirname(fromFileUrl(import.meta.url));
+  const sdkPath = join(thisDir, "../claude_sdk/claude.ts");
+  return ["deno", "run", "--allow-all", sdkPath];
 }
 
 /**
