@@ -41,6 +41,7 @@ cat task.json |
   tee config-output.json
 ```
 
+
 ### 3. Nix経由
 
 ```bash
@@ -125,3 +126,8 @@ nix run .#test-red
 - より細かい権限制御
 - フック設定の動的生成
 - 環境別設定の外部化
+
+## 参照
+
+- 権限とフックの詳細仕様: `~/bin/src/poc/claude_permission_principle.md`
+- 統合動作の確認: `~/bin/src/poc/claude_orchestra/`
