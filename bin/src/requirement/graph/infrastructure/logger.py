@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from .variables.constants import LOG_LEVELS
-from .variables.env_vars import get_log_level, get_log_format
+from .variables import get_log_level, get_log_format
 
 # 環境変数
 LOG_LEVEL = get_log_level()

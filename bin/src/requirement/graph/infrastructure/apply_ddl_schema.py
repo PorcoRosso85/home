@@ -12,8 +12,7 @@ from typing import Optional
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 sys.path.insert(0, project_root)
 
-from .variables.paths import get_kuzu_module_path
-from .variables.env_vars import LD_LIBRARY_PATH, RGL_DB_PATH
+from .variables import LD_LIBRARY_PATH, RGL_DB_PATH, get_kuzu_module_path
 
 # 強制インポートを使用
 kuzu_path = get_kuzu_module_path()

@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
 
 from .variables.constants import DEFAULT_HIERARCHY_KEYWORDS, MAX_HIERARCHY_DEPTH
-from .variables.env_vars import get_hierarchy_mode, get_max_hierarchy, get_team, get_hierarchy_keywords
+from .variables import get_hierarchy_mode, get_max_hierarchy, get_team, get_hierarchy_keywords
 
 
 @dataclass(frozen=True)

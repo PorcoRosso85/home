@@ -2,8 +2,9 @@
 
 import os
 import pytest
-from .variables import get_db_path, get_log_level, EMBEDDING_DIM, MAX_HIERARCHY_DEPTH
-from .variables.env_vars import _check_env
+from .variables import get_db_path, get_log_level, EMBEDDING_DIM, MAX_HIERARCHY_DEPTH, EnvironmentError
+# 内部関数のテストなので、直接インポート
+from .variables.env import _require_env as _check_env
 
 
 class TestVariables:
