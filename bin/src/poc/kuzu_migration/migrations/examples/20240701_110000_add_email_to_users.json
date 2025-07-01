@@ -1,0 +1,13 @@
+{
+  "id": "20240701_110000_add_email_to_users",
+  "name": "Add email column to users table",
+  "operations": [
+    {
+      "type": "add_column",
+      "table": "User",
+      "column": "email",
+      "data_type": "STRING",
+      "default": ""
+    }
+  ]
+}

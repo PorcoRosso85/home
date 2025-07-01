@@ -13,6 +13,7 @@
         
         pythonEnv = pkgs.python311.withPackages (ps: with ps; [
           pytest
+          kuzu
         ]);
       in
       {
