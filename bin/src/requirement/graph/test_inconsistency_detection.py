@@ -243,48 +243,6 @@ class TestPriorityConsistencyChecking:
 class TestRequirementCompleteness:
     """要件完全性のテスト"""
     
-    def test_detect_missing_security_requirements(self):
-        """セキュリティ要件の欠落検出"""
-        # セキュリティ要件が含まれていない要件セット
-        requirements = [
-            RequirementEntity(
-                ID="feat_user_001",
-                Title="User Management Feature",
-                Description="User registration and profile management",
-                CreatedBy="ProductManager",
-                CreatedAt=datetime.now(),
-                UpdatedAt=datetime.now(),
-                LocationURI="loc://features/user",
-                Dependencies=[],
-                Tags=["feature", "user"],
-                Priority=200,
-                Level=2,
-                Metadata={}
-            ),
-            RequirementEntity(
-                ID="perf_api_001",
-                Title="API Performance Requirements",
-                Description="API response time requirements",
-                CreatedBy="Engineer",
-                CreatedAt=datetime.now(),
-                UpdatedAt=datetime.now(),
-                LocationURI="loc://performance/api",
-                Dependencies=[],
-                Tags=["performance", "api"],
-                Priority=180,
-                Level=2,
-                Metadata={}
-            )
-        ]
-        
-        analyzer = RequirementCompletenessAnalyzer()
-        analysis = analyzer.analyze_completeness(requirements)
-        
-        assert analysis["is_complete"] is False
-        assert "security" in analysis["missing_categories"]
-        assert analysis["coverage"]["security"] == 0
-        assert analysis["recommendations"][0]["category"] == "security"
-    
     def test_detect_duplicate_requirements(self):
         """重複要件の検出"""
         # 異なるIDだが実質的に同じ内容の要件

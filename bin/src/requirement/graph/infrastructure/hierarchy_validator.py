@@ -141,43 +141,48 @@ class HierarchyValidator:
                     }
             
             # DEPENDS_ON関係の親子を特定
-            parent_var = create_depends.group(1).strip()
-            child_var = create_depends.group(2).strip()
+            # A DEPENDS_ON B の場合、Aが依存元（dependent）、Bが依存先（dependency）
+            dependent_var = create_depends.group(1).strip()  # 依存元
+            dependency_var = create_depends.group(2).strip()  # 依存先
             
-            if parent_var in entities and child_var in entities:
-                parent_info = entities[parent_var]
-                child_info = entities[child_var]
+            if dependent_var in entities and dependency_var in entities:
+                dependent_info = entities[dependent_var]
+                dependency_info = entities[dependency_var]
                 
-                if parent_info["level"] is not None and child_info["level"] is not None:
-                    # 階層違反チェック: 下位が上位に依存することはできない
-                    if parent_info["level"] > child_info["level"]:
+                if dependent_info["level"] is not None and dependency_info["level"] is not None:
+                    # 階層違反チェック: 下位階層（大きい数字）が上位階層（小さい数字）に依存することはできない
+                    # OK: アーキテクチャ(1) -> モジュール(2) - 上位が下位に依存
+                    # OK: ビジョン(0) -> アーキテクチャ(1) - 上位が下位に依存
+                    # NG: モジュール(2) -> アーキテクチャ(1) - 下位が上位に依存
+                    # NG: タスク(4) -> ビジョン(0) - 下位が上位に依存
+                    if dependent_info["level"] > dependency_info["level"]:
                         result["is_valid"] = False
                         result["violation_type"] = "hierarchy_violation"
                         result["error"] = "階層違反"
                         result["details"].append(
-                            f"{parent_info['title']}(Level {parent_info['level']})が"
-                            f"{child_info['title']}(Level {child_info['level']})に依存しています。"
+                            f"{dependent_info['title']}(Level {dependent_info['level']})が"
+                            f"{dependency_info['title']}(Level {dependency_info['level']})に依存しています。"
                             f"下位階層は上位階層に依存できません。"
                         )
                         result["violation_info"] = {
-                            "from_level": parent_info["level"],
-                            "to_level": child_info["level"],
-                            "from_title": parent_info["title"],
-                            "to_title": child_info["title"]
+                            "from_level": dependent_info["level"],
+                            "to_level": dependency_info["level"],
+                            "from_title": dependent_info["title"],
+                            "to_title": dependency_info["title"]
                         }
                         
             # 自己参照チェック
-            if parent_var == child_var:
+            if dependent_var == dependency_var:
                 result["is_valid"] = False
                 result["violation_type"] = "self_reference"
                 result["error"] = "自己参照エラー"
                 result["details"].append(
-                    f"ノード'{parent_var}'が自分自身に依存しています。"
+                    f"ノード'{dependent_var}'が自分自身に依存しています。"
                     f"自己参照は許可されていません。"
                 )
                 result["violation_info"] = {
-                    "node_id": parent_var,
-                    "node_title": entities.get(parent_var, {}).get("title", parent_var)
+                    "node_id": dependent_var,
+                    "node_title": entities.get(dependent_var, {}).get("title", dependent_var)
                 }
                 
         # 3. 間接的循環参照チェック（A→B→C→A）

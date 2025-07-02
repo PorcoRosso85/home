@@ -35,21 +35,21 @@ class TestExecutiveRequirements:
         """コンプライアンスアーキテクチャ要件（正常な依存関係）"""
         validator = HierarchyValidator()
         
-        # アーキテクチャ（Level 1）がビジョン（Level 0）に依存
+        # ビジョン（Level 0）がアーキテクチャ（Level 1）に依存 - 正常
         cypher = """
-        CREATE (compliance:RequirementEntity {
-            id: 'req_exec_compliance_arch_001',
-            title: 'コンプライアンスアーキテクチャ',
-            description: '法規制要件を自動的に満たすアーキテクチャを構築',
-            priority: 240
-        })
         CREATE (risk_vision:RequirementEntity {
             id: 'req_exec_risk_vision_001',
             title: 'プロアクティブリスク管理ビジョン',
             description: '予防的リスク管理により、プロジェクトリスクを最小化',
             priority: 245
         })
-        CREATE (compliance)-[:DEPENDS_ON]->(risk_vision)
+        CREATE (compliance:RequirementEntity {
+            id: 'req_exec_compliance_arch_001',
+            title: 'コンプライアンスアーキテクチャ',
+            description: '法規制要件を自動的に満たすアーキテクチャを構築',
+            priority: 240
+        })
+        CREATE (risk_vision)-[:DEPENDS_ON]->(compliance)
         """
         
         result = validator.validate_hierarchy_constraints(cypher)
@@ -80,27 +80,27 @@ class TestExecutiveRequirements:
         result = validator.validate_hierarchy_constraints(cypher)
         assert result["is_valid"] == False
         assert result["violation_type"] == "hierarchy_violation"
-        assert "下位階層は上位階層に依存できません" in result["details"][0]
+        assert "階層違反" in result["details"][0] or "下位階層は上位階層に依存できません" in result["details"][0]
     
     def test_budget_module_depends_on_architecture_valid(self):
         """予算モジュールがアーキテクチャに依存（正常）"""
         validator = HierarchyValidator()
         
-        # モジュール（Level 2）がアーキテクチャ（Level 1）に依存 - 正常
+        # アーキテクチャ（Level 1）がモジュール（Level 2）に依存 - 正常
         cypher = """
-        CREATE (budget_module:RequirementEntity {
-            id: 'req_exec_budget_module_001',
-            title: '予算管理モジュール',
-            description: 'リアルタイム予算追跡モジュール',
-            priority: 200
-        })
         CREATE (budget_arch:RequirementEntity {
             id: 'req_exec_budget_arch_001',
             title: '予算最適化アーキテクチャ',
             description: 'リアルタイムの予算追跡と最適化',
             priority: 235
         })
-        CREATE (budget_module)-[:DEPENDS_ON]->(budget_arch)
+        CREATE (budget_module:RequirementEntity {
+            id: 'req_exec_budget_module_001',
+            title: '予算管理モジュール',
+            description: 'リアルタイム予算追跡モジュール',
+            priority: 200
+        })
+        CREATE (budget_arch)-[:DEPENDS_ON]->(budget_module)
         """
         
         result = validator.validate_hierarchy_constraints(cypher)

@@ -1,0 +1,110 @@
+[
+  {
+    "name": "ユーザー中心の要件管理システム",
+    "expected": "success",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "module 'kuzu' has no attribute 'Database'",
+      "error_type": "AttributeError",
+      "suggestion": "エラーが発生しました。クエリを確認してください"
+    }
+  },
+  {
+    "name": "ユーザーインターフェース層",
+    "expected": "success",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "Invalid control character at: line 1 column 499 (char 498)"
+    }
+  },
+  {
+    "name": "ビジネス価値の可視化と最大化",
+    "expected": "success",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "Invalid JSON input",
+      "details": "Expecting ',' delimiter: line 1 column 614 (char 613)",
+      "suggestion": "正しいJSON形式で入力してください"
+    }
+  },
+  {
+    "name": "ビジネス分析エンジン",
+    "expected": "success",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "module 'kuzu' has no attribute 'Database'",
+      "error_type": "AttributeError",
+      "suggestion": "エラーが発生しました。クエリを確認してください"
+    }
+  },
+  {
+    "name": "インテリジェントな優先順位管理",
+    "expected": "success",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "module 'kuzu' has no attribute 'Database'",
+      "error_type": "AttributeError",
+      "suggestion": "エラーが発生しました。クエリを確認してください"
+    }
+  },
+  {
+    "name": "優先順位管理アーキテクチャ",
+    "expected": "success",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "module 'kuzu' has no attribute 'Database'",
+      "error_type": "AttributeError",
+      "suggestion": "エラーが発生しました。クエリを確認してください"
+    }
+  },
+  {
+    "name": "優先順位最適化モジュール（階層違反の例）",
+    "expected": "error",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "module 'kuzu' has no attribute 'Database'",
+      "error_type": "AttributeError",
+      "suggestion": "エラーが発生しました。クエリを確認してください"
+    }
+  },
+  {
+    "name": "ステークホルダー協調プラットフォーム",
+    "expected": "success",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "Invalid JSON input",
+      "details": "Expecting ',' delimiter: line 1 column 682 (char 681)",
+      "suggestion": "正しいJSON形式で入力してください"
+    }
+  },
+  {
+    "name": "コラボレーション層",
+    "expected": "success",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "module 'kuzu' has no attribute 'Database'",
+      "error_type": "AttributeError",
+      "suggestion": "エラーが発生しました。クエリを確認してください"
+    }
+  },
+  {
+    "name": "通知管理モジュール",
+    "expected": "success",
+    "actual": "error",
+    "result": {
+      "status": "error",
+      "message": "module 'kuzu' has no attribute 'Database'",
+      "error_type": "AttributeError",
+      "suggestion": "エラーが発生しました。クエリを確認してください"
+    }
+  }
+]
