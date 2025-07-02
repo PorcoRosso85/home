@@ -37,21 +37,21 @@
               echo ""
               
               echo "=== Single Container Tests ==="
-              (cd ${./single} && ${bats}/bin/bats test_container.bats) || true
+              (cd /home/nixos/bin/src/poc/container/single && ${bats}/bin/bats test_container.bats) || true
               
               echo ""
               echo "=== Orchestra Tests ==="  
-              (cd ${./orchestra} && ${bats}/bin/bats test_orchestra.bats) || true
+              (cd /home/nixos/bin/src/poc/container/orchestra && ${bats}/bin/bats test_orchestra.bats) || true
             '')
             
             (pkgs.writeShellScriptBin "test-single" ''
               echo "=== Single Container Tests ==="
-              cd ${./single} && ${bats}/bin/bats test_container.bats
+              cd /home/nixos/bin/src/poc/container/single && ${bats}/bin/bats test_container.bats
             '')
             
             (pkgs.writeShellScriptBin "test-orchestra" ''
               echo "=== Orchestra Tests ==="
-              cd ${./orchestra} && ${bats}/bin/bats test_orchestra.bats
+              cd /home/nixos/bin/src/poc/container/orchestra && ${bats}/bin/bats test_orchestra.bats
             '')
           ];
           
