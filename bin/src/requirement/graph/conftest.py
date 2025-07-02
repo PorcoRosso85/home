@@ -50,6 +50,13 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "integration: marks tests as integration tests"
     )
+    
+    # データベースキャッシュをクリア（テスト開始時）
+    try:
+        from infrastructure.database_factory import clear_database_cache
+        clear_database_cache()
+    except ImportError:
+        pass
 
 
 @pytest.fixture(scope="session")

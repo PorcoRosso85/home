@@ -16,13 +16,22 @@ from .logger import debug, info, error
 _database_cache: Dict[str, Any] = {}
 
 
-def create_database(path: Optional[str] = None, in_memory: bool = False) -> Any:
+def clear_database_cache():
+    """データベースキャッシュをクリア"""
+    global _database_cache
+    _database_cache.clear()
+    debug("rgl.db_factory", "Database cache cleared")
+
+
+def create_database(path: Optional[str] = None, in_memory: bool = False, use_cache: bool = True, test_unique: bool = False) -> Any:
     """
     KuzuDBデータベースインスタンスを作成
     
     Args:
         path: データベースファイルパス（in_memory=Falseの場合必須）
         in_memory: インメモリデータベースとして作成するか
+        use_cache: キャッシュを使用するか（テスト時はFalse推奨）
+        test_unique: テスト用にユニークなインスタンスを生成（インメモリ時のみ有効）
         
     Returns:
         kuzu.Database インスタンス
@@ -31,13 +40,31 @@ def create_database(path: Optional[str] = None, in_memory: bool = False) -> Any:
         ImportError: KuzuDBのインポートに失敗した場合
         ValueError: パラメータが不正な場合
     """
-    # インメモリの場合は特別なキー
-    cache_key = ":memory:" if in_memory else str(path)
+    import time
+    # インメモリの場合のキー設定
+    if in_memory:
+        if test_unique:
+            # テスト用にユニークなキーを生成
+            cache_key = f":memory:{time.time_ns()}"
+        else:
+            cache_key = ":memory:"
+    else:
+        cache_key = str(path)
+    
+    # テストモードではインメモリデータベースのキャッシュを無効化
+    is_test_mode = os.environ.get("RGL_SKIP_SCHEMA_CHECK") == "true"
+    if is_test_mode and in_memory:
+        use_cache = False
+        test_unique = True  # テストモードでは常にユニークなインスタンスを作成
+        debug("rgl.db_factory", "Test mode: disabling cache for in-memory DB", 
+              is_test_mode=is_test_mode, in_memory=in_memory, test_unique=test_unique)
     
     # キャッシュから取得
-    if cache_key in _database_cache:
-        debug("rgl.db_factory", "Using cached database instance", key=cache_key)
-        return _database_cache[cache_key]
+    if use_cache and cache_key in _database_cache:
+        # インメモリデータベースはテストモードではキャッシュしない
+        if not (is_test_mode and in_memory):
+            debug("rgl.db_factory", "Using cached database instance", key=cache_key)
+            return _database_cache[cache_key]
     
     # KuzuDBのインポート
     try:
@@ -71,8 +98,13 @@ def create_database(path: Optional[str] = None, in_memory: bool = False) -> Any:
             info("rgl.db_factory", "Creating persistent database", path=str(db_path))
             db = kuzu.Database(str(db_path))
         
-        # キャッシュに保存
-        _database_cache[cache_key] = db
+        # キャッシュに保存（テストモードではインメモリデータベースをキャッシュしない）
+        if use_cache and not (is_test_mode and in_memory):
+            _database_cache[cache_key] = db
+            debug("rgl.db_factory", "Database cached", key=cache_key)
+        else:
+            debug("rgl.db_factory", "Database not cached", 
+                  key=cache_key, in_memory=in_memory, use_cache=use_cache, is_test_mode=is_test_mode)
         
         return db
         

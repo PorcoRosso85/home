@@ -12,6 +12,11 @@ from pathlib import Path
 class TestDatabaseFactory:
     """データベースファクトリーのテスト"""
     
+    def setup_method(self):
+        """各テストの前にキャッシュをクリア"""
+        from .database_factory import clear_database_cache
+        clear_database_cache()
+    
     def test_create_persistent_database(self, tmp_path):
         """永続化データベースの作成"""
         from .database_factory import create_database
