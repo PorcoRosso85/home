@@ -1,0 +1,30 @@
+# Project-specific configuration for kuzu_migration
+
+[project]
+name = "kuzu-migration-tool"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+# -----------------
+#  RUFF CONFIGURATION
+# -----------------
+[tool.ruff]
+# Extend the central ruff.toml configuration
+# This makes our project portable as long as the base file is available
+# at the specified path during development.
+# For Nix Flakes, ensure the base ruff.toml is included in the build inputs.
+extend = "/home/nixos/bin/src/ruff.toml"
+
+# You can override or extend rules for this specific project below
+# For example:
+# [tool.ruff.lint]
+# ignore = [
+#     "ANN101", # Inherited from base
+#     "D103",   # Ignore missing docstrings in public methods for this project
+# ]
