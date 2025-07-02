@@ -81,7 +81,7 @@
   - 高階関数パターン: createFunction(deps) → function
   
   package_managers:
-    Python: uv, TypeScript: pnpm, Go: go mod, Rust: cargo, Zig: zig build
+    Python: uv, TypeScript: pnpm or deno, Go: go mod, Rust: cargo, Zig: zig build
 
 ## 層構造（DDD）:
   layers:
@@ -118,19 +118,16 @@
 ## テスト:
   requirements:
     - 公開関数にテスト必須
-    - in-sourceテスト（実装ファイル内にtest_関数）
-    - 別途testsディレクトリ不要
+    - テストファイルは対象ファイルと同じディレクトリに配置
+  
+  file_naming:
+    Python: test_<target_file_name>.py
+    TypeScript: <target_file_name>.test.ts
   
   test_runners:
-    Python: pytest, TypeScript: vitest, Go: go test, Rust: cargo test, Zig: zig test
+    Python: pytest, TypeScript: node test or deno test, Go: go test, Rust: cargo test, Zig: zig test
   
   test_naming: test_{機能}_{条件}_{期待結果}
-  
-  pytest_config: |
-    [pytest]
-    testpaths = .
-    python_files = *.py
-    python_functions = test_*
 
 ## TDD開発プロセス:
   style: t-wada TDD
@@ -149,7 +146,6 @@
     - 新機能追加時はテストから開始
     - テスト失敗確認後に実装着手
     - リファクタリング時もテスト維持
-    - in-sourceテストでRED-GREEN-REFACTORサイクルを回す
   
   example: |
     # RED: 失敗するテストを書く
