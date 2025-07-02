@@ -30,16 +30,12 @@ class HierarchyConfig:
             ValueError: 環境変数の値が不正な場合
         """
         try:
-            # 階層キーワード定義
-            keywords = get_hierarchy_keywords()
-            if keywords is None:
-                keywords = DEFAULT_HIERARCHY_KEYWORDS
-            
+            # 階層キーワード定義 - conventionに従いデフォルト値なし
             return cls(
                 mode=get_hierarchy_mode(),
                 max_depth=get_max_hierarchy(),
                 team=get_team(),
-                keywords=keywords
+                keywords=get_hierarchy_keywords()  # Noneの場合はそのまま
             )
         except (json.JSONDecodeError, ValueError) as e:
             raise ValueError(f"環境変数の解析エラー: {e}")
