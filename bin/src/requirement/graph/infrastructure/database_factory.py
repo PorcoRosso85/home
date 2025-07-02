@@ -103,8 +103,8 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
             info("rgl.db_factory", "Creating persistent database", path=str(db_path))
             db = kuzu.Database(str(db_path))
         
-        # キャッシュに保存（テストモードではインメモリデータベースをキャッシュしない）
-        if use_cache and not (is_test_mode and in_memory):
+        # キャッシュに保存（テストモードではキャッシュしない）
+        if use_cache and not is_test_mode:
             _database_cache[cache_key] = db
             debug("rgl.db_factory", "Database cached", key=cache_key)
         else:
