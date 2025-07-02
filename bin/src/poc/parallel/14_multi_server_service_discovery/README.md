@@ -70,8 +70,12 @@
 ## TDDアプローチ
 
 ### Red Phase (サービスディスカバリーのテスト)
-```javascript
-// test/service-discovery.test.js
+```typescript
+// test/service-discovery.test.ts
+import { assertEquals, assert, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { describe, it, beforeAll } from "https://deno.land/std@0.208.0/testing/bdd.ts";
+import { delay } from "https://deno.land/std@0.208.0/async/delay.ts";
+
 describe('Service Discovery with Consul', () => {
   let consul;
   let services;
@@ -120,72 +124,67 @@ describe('Service Discovery with Consul', () => {
     
     // 登録確認
     const catalog = await consul.catalog.service.list();
-    expect(Object.keys(catalog)).toContain('api');
-    expect(Object.keys(catalog)).toContain('database');
-    expect(Object.keys(catalog)).toContain('cache');
+    assert(Object.keys(catalog).includes('api'));
+    assert(Object.keys(catalog).includes('database'));
+    assert(Object.keys(catalog).includes('cache'));
     
     // 各サービスの詳細確認
     const apiServices = await consul.health.service('api');
-    expect(apiServices).toHaveLength(2); // v1とv2
+    assertEquals(apiServices.length, 2); // v1とv2
     
     // タグでのフィルタリング
     const v2Services = apiServices.filter(s => 
       s.Service.Tags.includes('v2')
     );
-    expect(v2Services).toHaveLength(1);
-    expect(v2Services[0].Service.Port).toBe(3002);
+    assertEquals(v2Services.length, 1);
+    assertEquals(v2Services[0].Service.Port, 3002);
   });
 
   it('should handle service health state changes', async () => {
     // 初期状態：すべて健全
     let healthyServices = await consul.health.service('api', { passing: true });
-    expect(healthyServices).toHaveLength(2);
+    assertEquals(healthyServices.length, 2);
     
     // 1つのサービスを不健全に
     await simulateServiceFailure('api-3001');
     
     // ヘルスチェックの更新を待つ
-    await new Promise(resolve => setTimeout(resolve, 15000));
+    await delay(15000);
     
     // 健全なサービスのみ取得
     healthyServices = await consul.health.service('api', { passing: true });
-    expect(healthyServices).toHaveLength(1);
-    expect(healthyServices[0].Service.ID).toBe('api-3002');
+    assertEquals(healthyServices.length, 1);
+    assertEquals(healthyServices[0].Service.ID, 'api-3002');
     
     // 不健全なサービスも含めて取得
     const allServices = await consul.health.service('api');
     const unhealthyService = allServices.find(s => 
       s.Checks.some(c => c.Status === 'critical')
     );
-    expect(unhealthyService).toBeDefined();
-    expect(unhealthyService.Service.ID).toBe('api-3001');
+    assertExists(unhealthyService);
+    assertEquals(unhealthyService.Service.ID, 'api-3001');
   });
 
   it('should support DNS-based service discovery', async () => {
-    const dns = require('dns').promises;
+    // Note: DNS resolution would need to be done via system calls or a Deno DNS library
     
     // ConsulのDNSインターフェース経由で解決
     const addresses = await dns.resolve4('api.service.consul');
     
-    expect(addresses).toHaveLength(2); // 2つのAPIサービス
-    expect(addresses).toEqual(
-      expect.arrayContaining(['127.0.0.1', '127.0.0.2'])
-    );
+    assertEquals(addresses.length, 2); // 2つのAPIサービス
+    assert(addresses.includes('127.0.0.1'));
+    assert(addresses.includes('127.0.0.2'));
     
     // SRVレコードでポート情報も取得
     const srvRecords = await dns.resolveSrv('_api._tcp.service.consul');
     
-    expect(srvRecords).toHaveLength(2);
-    expect(srvRecords).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ port: 3001 }),
-        expect.objectContaining({ port: 3002 })
-      ])
-    );
+    assertEquals(srvRecords.length, 2);
+    assert(srvRecords.some(r => r.port === 3001));
+    assert(srvRecords.some(r => r.port === 3002));
     
     // タグベースのDNS解決
     const v2Addresses = await dns.resolve4('v2.api.service.consul');
-    expect(v2Addresses).toHaveLength(1);
+    assertEquals(v2Addresses.length, 1);
   });
 
   it('should provide client-side load balancing', async () => {
@@ -206,10 +205,10 @@ describe('Service Discovery with Consul', () => {
     }
     
     // ほぼ均等に分散（±10%）
-    expect(requestDistribution['api-3001']).toBeGreaterThan(450);
-    expect(requestDistribution['api-3001']).toBeLessThan(550);
-    expect(requestDistribution['api-3002']).toBeGreaterThan(450);
-    expect(requestDistribution['api-3002']).toBeLessThan(550);
+    assert(requestDistribution['api-3001'] > 450);
+    assert(requestDistribution['api-3001'] < 550);
+    assert(requestDistribution['api-3002'] > 450);
+    assert(requestDistribution['api-3002'] < 550);
     
     // ヘルスチェック失敗時の自動除外
     await simulateServiceFailure('api-3001');
@@ -218,7 +217,7 @@ describe('Service Discovery with Consul', () => {
     // 失敗後は全てapi-3002へ
     for (let i = 0; i < 100; i++) {
       const instance = await servicePool.getInstance();
-      expect(instance.id).toBe('api-3002');
+      assertEquals(instance.id, 'api-3002');
     }
   });
 
@@ -251,7 +250,7 @@ describe('Service Discovery with Consul', () => {
     const result = await consul.kv.get('config/app/production');
     const retrievedConfig = JSON.parse(result.Value);
     
-    expect(retrievedConfig).toEqual(config);
+    assertEquals(retrievedConfig, config);
     
     // 設定の監視（ウォッチ）
     const watcher = consul.watch({
@@ -270,10 +269,10 @@ describe('Service Discovery with Consul', () => {
     await consul.kv.set('config/app/production', JSON.stringify(config));
     
     // 変更通知を確認
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await delay(1000);
     
-    expect(changes).toHaveLength(1);
-    expect(changes[0].features.newFeature.enabled).toBe(true);
+    assertEquals(changes.length, 1);
+    assertEquals(changes[0].features.newFeature.enabled, true);
     
     watcher.end();
   });
@@ -301,7 +300,7 @@ describe('Service Discovery with Consul', () => {
           results.push({ process: i, action: 'acquired', time: Date.now() });
           
           // クリティカルセクション
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await delay(1000);
           
           // ロックの解放
           await consul.kv.delete(lockKey);
@@ -318,8 +317,8 @@ describe('Service Discovery with Consul', () => {
     
     // 同時に1つのプロセスのみがロックを保持
     const acquiredCount = results.filter(r => r.action === 'acquired').length;
-    expect(acquiredCount).toBeGreaterThanOrEqual(1);
-    expect(acquiredCount).toBeLessThanOrEqual(3);
+    assert(acquiredCount >= 1);
+    assert(acquiredCount <= 3);
     
     // 各取得の間に最低1秒の間隔
     const acquiredEvents = results
@@ -328,7 +327,7 @@ describe('Service Discovery with Consul', () => {
     
     for (let i = 1; i < acquiredEvents.length; i++) {
       const timeDiff = acquiredEvents[i].time - acquiredEvents[i-1].time;
-      expect(timeDiff).toBeGreaterThanOrEqual(1000);
+      assert(timeDiff >= 1000);
     }
   });
 
@@ -349,14 +348,14 @@ describe('Service Discovery with Consul', () => {
     // クエリの実行
     const results = await consul.query.execute(query.ID);
     
-    expect(results.Service).toBe('api');
-    expect(results.Nodes).toHaveLength(1); // production tagを持つもの
+    assertEquals(results.Service, 'api');
+    assertEquals(results.Nodes.length, 1); // production tagを持つもの
     
     // DNSでも利用可能
-    const dns = require('dns').promises;
-    const addresses = await dns.resolve4('api-with-failover.query.consul');
+    // Note: DNS resolution would need to be done via system calls or a Deno DNS library
+    // const addresses = await resolveDNS('api-with-failover.query.consul');
     
-    expect(addresses).toHaveLength(1);
+    assertEquals(addresses.length, 1);
   });
 });
 
@@ -382,41 +381,44 @@ describe('Service Mesh Features', () => {
     const webToApi = intentions.find(i => 
       i.Source === 'web' && i.Destination === 'api'
     );
-    expect(webToApi.Action).toBe('allow');
+    assertEquals(webToApi.Action, 'allow');
     
     const webToDb = intentions.find(i => 
       i.Source === 'web' && i.Destination === 'database'
     );
-    expect(webToDb.Action).toBe('deny');
+    assertEquals(webToDb.Action, 'deny');
   });
 });
 ```
 
 ### Green Phase (サービスディスカバリー実装)
-```javascript
-// service-registry.js
-const consul = require('consul');
-const EventEmitter = require('events');
+```typescript
+// service-registry.ts
 
-class ServiceRegistry extends EventEmitter {
-  constructor(options = {}) {
+class ServiceRegistry extends EventTarget {
+  private consul: any;
+  private serviceId: string | null = null;
+  private healthCheckInterval: number | null = null;
+  private watchHandles: Map<string, any>;
+  
+  constructor(options: any = {}) {
     super();
     
-    this.consul = consul({
+    // In Deno, we'll use the Consul HTTP API directly
+    this.consul = {
       host: options.consulHost || 'consul',
-      port: options.consulPort || 8500,
-      promisify: true
-    });
+      port: options.consulPort || 8500
+    };
     
     this.serviceId = null;
     this.healthCheckInterval = null;
     this.watchHandles = new Map();
   }
   
-  async register(serviceConfig) {
+  async register(serviceConfig: any) {
     const { name, port, tags = [], meta = {}, healthCheck } = serviceConfig;
     
-    this.serviceId = `${name}-${port}-${process.pid}`;
+    this.serviceId = `${name}-${port}-${Deno.pid}`;
     
     const registration = {
       id: this.serviceId,
@@ -425,14 +427,23 @@ class ServiceRegistry extends EventEmitter {
       tags,
       meta: {
         ...meta,
-        pid: process.pid.toString(),
+        pid: Deno.pid.toString(),
         startTime: new Date().toISOString()
       },
       check: this.buildHealthCheck(healthCheck, port)
     };
     
     try {
-      await this.consul.agent.service.register(registration);
+      // Use Consul HTTP API
+      const response = await fetch(`http://${this.consul.host}:${this.consul.port}/v1/agent/service/register`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registration)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Registration failed: ${response.statusText}`);
+      }
       console.log(`Service ${this.serviceId} registered successfully`);
       
       // TTLベースのヘルスチェックの場合は定期更新
@@ -440,14 +451,14 @@ class ServiceRegistry extends EventEmitter {
         this.startTTLUpdate(healthCheck.ttl);
       }
       
-      this.emit('registered', registration);
+      this.dispatchEvent(new CustomEvent('registered', { detail: registration }));
     } catch (error) {
       console.error('Service registration failed:', error);
       throw error;
     }
   }
   
-  buildHealthCheck(healthCheck, port) {
+  buildHealthCheck(healthCheck: any, port: number) {
     if (!healthCheck) {
       return {
         http: `http://localhost:${port}/health`,
@@ -478,7 +489,7 @@ class ServiceRegistry extends EventEmitter {
     };
   }
   
-  startTTLUpdate(ttl) {
+  startTTLUpdate(ttl: string) {
     // TTLの80%の間隔で更新
     const interval = this.parseTTL(ttl) * 0.8 * 1000;
     
@@ -491,7 +502,7 @@ class ServiceRegistry extends EventEmitter {
     }, interval);
   }
   
-  parseTTL(ttl) {
+  parseTTL(ttl: string): number {
     const match = ttl.match(/(\d+)([smh])/);
     if (!match) return 10;
     
@@ -523,7 +534,7 @@ class ServiceRegistry extends EventEmitter {
       }
       this.watchHandles.clear();
       
-      this.emit('deregistered', this.serviceId);
+      this.dispatchEvent(new CustomEvent('deregistered', { detail: this.serviceId }));
     } catch (error) {
       console.error('Service deregistration failed:', error);
     }
@@ -576,7 +587,7 @@ class ServiceRegistry extends EventEmitter {
     
     watcher.on('error', (err) => {
       console.error('Watch error:', err);
-      this.emit('watch-error', { service: serviceName, error: err });
+      this.dispatchEvent(new CustomEvent('watch-error', { detail: { service: serviceName, error: err } }));
     });
     
     this.watchHandles.set(serviceName, watcher);
@@ -597,7 +608,7 @@ class ServiceRegistry extends EventEmitter {
   async setConfig(key, value) {
     try {
       await this.consul.kv.set(key, JSON.stringify(value));
-      this.emit('config-updated', { key, value });
+      this.dispatchEvent(new CustomEvent('config-updated', { detail: { key, value } }));
     } catch (error) {
       console.error(`Failed to set config ${key}:`, error);
       throw error;
@@ -678,7 +689,7 @@ class Lock {
     }, interval);
   }
   
-  parseTTL(ttl) {
+  parseTTL(ttl: string): number {
     const match = ttl.match(/(\d+)s/);
     return match ? parseInt(match[1]) : 15;
   }
@@ -803,7 +814,7 @@ class ServiceDiscoveryApp {
     }
     
     // グレースフルシャットダウン
-    process.on('SIGTERM', async () => {
+    Deno.addSignalListener('SIGTERM', async () => {
       await this.shutdown();
     });
   }
@@ -837,11 +848,11 @@ class ServiceDiscoveryApp {
     // サービス登録解除
     await this.registry.deregister();
     
-    process.exit(0);
+    Deno.exit(0);
   }
 }
 
-module.exports = {
+export {
   ServiceRegistry,
   ServicePool,
   ServiceDiscoveryApp,
@@ -894,7 +905,7 @@ version: '3.8'
 services:
   # Consulクラスター
   consul-server-1:
-    image: consul:1.16
+    image: hashicorp/consul:1.16
     command: agent -server -ui -node=server-1 -bootstrap-expect=3 -client=0.0.0.0
     ports:
       - "8500:8500"  # HTTP API
@@ -907,7 +918,7 @@ services:
       - consul-net
 
   consul-server-2:
-    image: consul:1.16
+    image: hashicorp/consul:1.16
     command: agent -server -node=server-2 -bootstrap-expect=3 -join=consul-server-1
     volumes:
       - consul-data-2:/consul/data
@@ -917,7 +928,7 @@ services:
       - consul-net
 
   consul-server-3:
-    image: consul:1.16
+    image: hashicorp/consul:1.16
     command: agent -server -node=server-3 -bootstrap-expect=3 -join=consul-server-1
     volumes:
       - consul-data-3:/consul/data
@@ -928,7 +939,11 @@ services:
 
   # サンプルサービス
   api-v1:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read app.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     environment:
       SERVICE_NAME: api
       SERVICE_PORT: 3001
@@ -942,7 +957,11 @@ services:
       - consul-net
 
   api-v2:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read app.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     environment:
       SERVICE_NAME: api
       SERVICE_PORT: 3002

@@ -706,6 +706,29 @@ class NetworkController {
 module.exports = { ResourceManager, NetworkController };
 ```
 
+### Dockerfile
+```dockerfile
+# Dockerfile
+FROM denoland/deno:alpine
+
+WORKDIR /app
+
+# Install stress-ng and other tools
+RUN apk add --no-cache stress-ng iperf3 iproute2
+
+# Copy dependencies
+COPY deps.ts .
+RUN deno cache deps.ts
+
+# Copy application
+COPY . .
+RUN deno cache resource-manager.ts
+
+EXPOSE 3000
+
+CMD ["deno", "run", "--allow-net", "--allow-read", "--allow-write", "--allow-env", "--allow-run", "resource-manager.ts"]
+```
+
 ### Docker Compose設定
 ```yaml
 # docker-compose.yml

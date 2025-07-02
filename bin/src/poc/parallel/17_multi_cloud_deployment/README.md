@@ -1111,20 +1111,21 @@ class AzureProvider extends CloudProvider {
   }
 }
 
-module.exports = {
+export {
   MultiCloudDeploymentManager,
-  CloudProviderFactory: {
-    create(type, config) {
-      switch (type) {
-        case 'aws':
-          return new AWSProvider(config);
-        case 'gcp':
-          return new GCPProvider(config);
-        case 'azure':
-          return new AzureProvider(config);
-        default:
-          throw new Error(`Unknown cloud provider: ${type}`);
-      }
+};
+
+export const CloudProviderFactory = {
+  create(type: string, config: any) {
+    switch (type) {
+      case 'aws':
+        return new AWSProvider(config);
+      case 'gcp':
+        return new GCPProvider(config);
+      case 'azure':
+        return new AzureProvider(config);
+      default:
+        throw new Error(`Unknown cloud provider: ${type}`);
     }
   }
 };

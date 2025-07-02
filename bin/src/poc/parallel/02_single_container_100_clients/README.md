@@ -59,16 +59,14 @@
 ## TDDアプローチ
 
 ### Red Phase (高負荷でのテスト)
-```javascript
-// test/scale-100.test.js
-describe('Single Container - 100 Clients Scale Test', () => {
-  let metricsCollector;
-  
-  beforeAll(() => {
-    metricsCollector = new MetricsCollector();
-  });
+```typescript
+// scale-100.test.ts
+import { assertEquals, assertLess } from "@std/assert";
+import { MetricsCollector } from "./test-utils.ts";
 
-  it('should handle 100 concurrent connections efficiently', async () => {
+Deno.test("test_scale_100_clients_handle_efficiently", async () => {
+  const metricsCollector = new MetricsCollector();
+
     const clients = Array(100).fill(0).map((_, i) => ({
       id: `client-${i}`,
       requests: []
@@ -127,9 +125,9 @@ describe('Single Container - 100 Clients Scale Test', () => {
     
     expect(p95).toBeLessThan(200);
     expect(p99).toBeLessThan(500);
-  });
+});
 
-  it('should not degrade performance over time', async () => {
+Deno.test("test_performance_no_degradation_over_time", async () => {
     const measurements = [];
     const measurementInterval = 1000; // 1秒ごと
     const totalDuration = 60000; // 1分間
@@ -168,9 +166,13 @@ describe('Single Container - 100 Clients Scale Test', () => {
     
     // 後半が前半より20%以上遅くならないこと
     expect(avgSecondHalf).toBeLessThan(avgFirstHalf * 1.2);
-  });
+});
 
-  it('should efficiently use resources', async () => {
+Deno.test({
+  name: "test_resources_use_efficiently",
+  sanitizeOps: false,
+  sanitizeResources: false,
+}, async () => {
     const resourceSnapshots = [];
     
     // リソース使用状況を監視
@@ -198,198 +200,193 @@ describe('Single Container - 100 Clients Scale Test', () => {
     // メモリ使用量が1GB以下
     const maxMemory = Math.max(...resourceSnapshots.map(s => s.memory));
     expect(maxMemory).toBeLessThan(1024 * 1024 * 1024);
-  });
 });
 ```
 
 ### Green Phase (最適化された実装)
-```javascript
-// server.js
-const cluster = require('cluster');
-const os = require('os');
-const express = require('express');
+```typescript
+// server.ts
+import { createServer, setupGracefulShutdown } from "../01_single_container_10_clients/mod.ts";
+import { Application, Router } from "@oak/oak";
+import { Pool } from "./worker-pool.ts";
 
-if (cluster.isMaster) {
-  // CPUコア数に基づいてワーカーを起動
-  const numCPUs = os.cpus().length;
-  const numWorkers = Math.min(numCPUs, 4); // 最大4ワーカー
+// ワーカープールの設定
+const numWorkers = Math.min(navigator.hardwareConcurrency || 4, 4);
+const workerPool = new Pool(numWorkers, "./worker.ts");
+
+// リクエストキューの管理
+let activeRequests = 0;
+const MAX_CONCURRENT_REQUESTS = 50;
+
+// データキャッシュ（LRU実装）
+class LRUCache<T> {
+  private cache = new Map<string, { data: T; timestamp: number }>();
+  constructor(private maxSize: number, private ttl: number) {}
   
-  console.log(`Master ${process.pid} is running`);
-  console.log(`Forking ${numWorkers} workers...`);
-  
-  // ワーカーの起動
-  for (let i = 0; i < numWorkers; i++) {
-    cluster.fork();
+  get(key: string): T | undefined {
+    const item = this.cache.get(key);
+    if (!item) return undefined;
+    
+    if (Date.now() - item.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return undefined;
+    }
+    
+    // LRU: 再度セットして最新に
+    this.cache.delete(key);
+    this.cache.set(key, item);
+    return item.data;
   }
   
-  // ワーカーの監視と再起動
-  cluster.on('exit', (worker, code, signal) => {
-    console.log(`Worker ${worker.process.pid} died`);
-    console.log('Starting a new worker...');
-    cluster.fork();
-  });
-  
-  // グレースフルシャットダウン
-  process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully...');
-    for (const id in cluster.workers) {
-      cluster.workers[id].kill();
-    }
-  });
-} else {
-  // ワーカープロセス
-  const app = express();
-  
-  // 最適化されたミドルウェア
-  app.use(express.json({ limit: '1mb' }));
-  
-  // コネクションプールの設定
-  const http = require('http');
-  const server = http.createServer(app);
-  server.keepAliveTimeout = 65000;
-  server.headersTimeout = 66000;
-  
-  // リクエストキューの管理
-  let activeRequests = 0;
-  const MAX_CONCURRENT_REQUESTS = 50;
-  
-  app.use((req, res, next) => {
-    if (activeRequests >= MAX_CONCURRENT_REQUESTS) {
-      res.status(503).json({
-        error: 'Server too busy',
-        retry_after: 1
-      });
-      return;
+  set(key: string, data: T): void {
+    // サイズ制限
+    if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
     }
     
-    activeRequests++;
-    res.on('finish', () => {
-      activeRequests--;
-    });
-    
-    next();
-  });
-  
-  // データキャッシュ（簡易実装）
-  const cache = new Map();
-  const CACHE_TTL = 60000; // 1分
-  
-  // APIエンドポイント
-  app.get('/api/data/:clientId', async (req, res) => {
-    const { clientId } = req.params;
-    const cacheKey = `data:${clientId}`;
-    
-    // キャッシュチェック
-    const cached = cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return res.json(cached.data);
-    }
-    
-    // データ生成（実際の処理をシミュレート）
-    const data = {
-      clientId,
+    this.cache.set(key, {
+      data,
       timestamp: Date.now(),
-      workerId: process.pid,
-      data: generateData(clientId)
+    });
+  }
+  
+  get size(): number {
+    return this.cache.size;
+  }
+}
+
+const cache = new LRUCache<any>(1000, 60000); // 1000エントリ、TTL 1分
+
+// カスタムハンドラー
+const requestHandler = async (request: Request): Promise<Response> => {
+  const url = new URL(request.url);
+  
+  // リクエスト制限
+  if (activeRequests >= MAX_CONCURRENT_REQUESTS) {
+    return new Response(
+      JSON.stringify({
+        error: "Server too busy",
+        retry_after: 1,
+      }),
+      {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+  
+  activeRequests++;
+  
+  try {
+    // データエンドポイント
+    const dataMatch = url.pathname.match(/^\/api\/data\/(.+)$/);
+    if (dataMatch) {
+      const clientId = dataMatch[1];
+      const cacheKey = `data:${clientId}`;
+      
+      // キャッシュチェック
+      let data = cache.get(cacheKey);
+      if (!data) {
+        // ワーカープールで処理
+        data = await workerPool.run("generateData", clientId);
+        cache.set(cacheKey, data);
+      }
+      
+      return new Response(JSON.stringify(data), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    
+    // 既存のエンドポイントにフォールバック
+    return await originalHandler(request);
+  } finally {
+    activeRequests--;
+  }
+};
+
+// サーバー作成（拡張版）
+const server = createServer({
+  port: parseInt(Deno.env.get("PORT") || "3000"),
+  maxMetricsSize: 10000,
+  customHandler: requestHandler,
+});
+
+const instance = server.start();
+
+// グレースフルシャットダウン
+const abortController = new AbortController();
+setupGracefulShutdown(abortController);
+
+Deno.addSignalListener("SIGTERM", () => {
+  workerPool.terminate();
+});
+
+await instance.finished;
+
+// worker.ts - ワーカープロセスでの処理
+self.onmessage = (e: MessageEvent) => {
+  const { id, method, args } = e.data;
+  
+  if (method === "generateData") {
+    const clientId = args[0];
+    const data = {
+      id: clientId,
+      value: Math.random() * 1000,
+      workerId: self.name,
+      items: Array(10).fill(0).map((_, i) => ({
+        index: i,
+        data: `Item ${i} for client ${clientId}`,
+      })),
     };
     
-    // キャッシュに保存
-    cache.set(cacheKey, {
-      data,
-      timestamp: Date.now()
-    });
-    
-    // キャッシュサイズ制限
-    if (cache.size > 1000) {
-      const oldestKey = cache.keys().next().value;
-      cache.delete(oldestKey);
-    }
-    
-    res.json(data);
-  });
-  
-  // ヘルスチェック（軽量）
-  app.get('/api/health', (req, res) => {
-    res.status(200).json({
-      status: 'healthy',
-      worker: process.pid,
-      activeRequests,
-      cacheSize: cache.size
-    });
-  });
-  
-  // メトリクスエンドポイント
-  app.get('/api/metrics', (req, res) => {
-    const usage = process.memoryUsage();
-    res.json({
-      process: {
-        pid: process.pid,
-        uptime: process.uptime(),
-        activeRequests
-      },
-      memory: {
-        rss: usage.rss,
-        heapTotal: usage.heapTotal,
-        heapUsed: usage.heapUsed,
-        external: usage.external
-      },
-      cache: {
-        size: cache.size,
-        hitRate: calculateCacheHitRate()
-      }
-    });
-  });
-  
-  const PORT = process.env.PORT || 3000;
-  server.listen(PORT, () => {
-    console.log(`Worker ${process.pid} started on port ${PORT}`);
-  });
-}
-
-// ヘルパー関数
-function generateData(clientId) {
-  // 実際のビジネスロジックをシミュレート
-  return {
-    id: clientId,
-    value: Math.random() * 1000,
-    items: Array(10).fill(0).map((_, i) => ({
-      index: i,
-      data: `Item ${i} for client ${clientId}`
-    }))
-  };
-}
-
-let cacheHits = 0;
-let cacheMisses = 0;
-
-function calculateCacheHitRate() {
-  const total = cacheHits + cacheMisses;
-  return total > 0 ? cacheHits / total : 0;
-}
+    self.postMessage({ id, result: data });
+  }
+};
 ```
 
 ### Refactor Phase (さらなる最適化)
-```javascript
-// optimizations.js
+```typescript
+// optimizations.ts
 
 // 1. 非同期処理の最適化
-const pLimit = require('p-limit');
-const limit = pLimit(10); // 同時実行数を制限
+export class ConcurrencyLimiter {
+  private queue: Array<() => void> = [];
+  private running = 0;
+  
+  constructor(private limit: number) {}
+  
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    while (this.running >= this.limit) {
+      await new Promise<void>((resolve) => this.queue.push(resolve));
+    }
+    
+    this.running++;
+    try {
+      return await fn();
+    } finally {
+      this.running--;
+      const next = this.queue.shift();
+      if (next) next();
+    }
+  }
+}
 
 // 2. メモリプールの実装
-class ObjectPool {
-  constructor(factory, reset, maxSize = 100) {
-    this.factory = factory;
-    this.reset = reset;
-    this.pool = [];
-    this.maxSize = maxSize;
-  }
+export class ObjectPool<T> {
+  private pool: T[] = [];
   
-  acquire() {
+  constructor(
+    private factory: () => T,
+    private reset: (obj: T) => void,
+    private maxSize = 100,
+  ) {}
+  
+  acquire(): T {
     return this.pool.pop() || this.factory();
   }
   
-  release(obj) {
+  release(obj: T): void {
     if (this.pool.length < this.maxSize) {
       this.reset(obj);
       this.pool.push(obj);
@@ -398,16 +395,17 @@ class ObjectPool {
 }
 
 // 3. バッチ処理の実装
-class BatchProcessor {
-  constructor(processFn, batchSize = 10, flushInterval = 100) {
-    this.processFn = processFn;
-    this.batchSize = batchSize;
-    this.flushInterval = flushInterval;
-    this.batch = [];
-    this.timer = null;
-  }
+export class BatchProcessor<T> {
+  private batch: T[] = [];
+  private timer?: number;
   
-  add(item) {
+  constructor(
+    private processFn: (items: T[]) => void | Promise<void>,
+    private batchSize = 10,
+    private flushInterval = 100,
+  ) {}
+  
+  add(item: T): void {
     this.batch.push(item);
     
     if (this.batch.length >= this.batchSize) {
@@ -417,7 +415,7 @@ class BatchProcessor {
     }
   }
   
-  flush() {
+  flush(): void {
     if (this.batch.length === 0) return;
     
     const items = this.batch.splice(0);
@@ -425,7 +423,7 @@ class BatchProcessor {
     
     if (this.timer) {
       clearTimeout(this.timer);
-      this.timer = null;
+      this.timer = undefined;
     }
   }
 }
@@ -436,27 +434,27 @@ class BatchProcessor {
 ### 1. Docker設定の最適化
 ```dockerfile
 # Dockerfile
-FROM node:20-alpine
+FROM denoland/deno:alpine-2.0.0
 
 # システムの最適化
 RUN apk add --no-cache tini
 
 WORKDIR /app
 
-# マルチステージビルド
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+# 依存関係のキャッシュ
+COPY deno.json deno.lock ./
+RUN deno cache --lock=deno.lock deno.json
 
+# アプリケーションコピー
 COPY . .
 
-# Node.js最適化フラグ
-ENV NODE_ENV=production
-ENV UV_THREADPOOL_SIZE=8
+# 事前コンパイル
+RUN deno cache server.ts
 
 EXPOSE 3000
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "--max-old-space-size=768", "server.js"]
+CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "server.ts"]
 ```
 
 ### 2. Docker Compose設定
@@ -491,39 +489,57 @@ services:
 ```
 
 ### 3. 負荷テストツール設定
-```javascript
-// k6-load-test.js
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { Rate } from 'k6/metrics';
+```typescript
+// load-test-100.ts
+import { createLoadTestRunner, LOAD_TEST_CONFIG } from "../01_single_container_10_clients/load-test.ts";
 
-const errorRate = new Rate('errors');
+export const SCALE_TEST_CONFIG = {
+  ...LOAD_TEST_CONFIG,
+  CLIENTS: 100,
+  DURATION_MS: 180000, // 3分間
+  REQUEST_INTERVAL_MS: 50, // より高頻度
 
-export const options = {
-  stages: [
-    { duration: '30s', target: 50 },   // ウォームアップ
-    { duration: '1m', target: 100 },   // 100クライアントまで増加
-    { duration: '3m', target: 100 },   // 100クライアントを維持
-    { duration: '30s', target: 0 },    // クールダウン
-  ],
-  thresholds: {
-    http_req_duration: ['p(95)<200', 'p(99)<500'],
-    errors: ['rate<0.001'], // 0.1%未満のエラー率
-  },
 };
 
-export default function () {
-  const clientId = `client-${__VU}`;
-  const res = http.get(`http://localhost:3000/api/data/${clientId}`);
+// ステージ付き負荷テスト
+export async function runStagedLoadTest() {
+  const stages = [
+    { duration: 30000, targetClients: 50 },   // ウォームアップ
+    { duration: 60000, targetClients: 100 },  // 100クライアントまで増加
+    { duration: 180000, targetClients: 100 }, // 100クライアントを維持
+    { duration: 30000, targetClients: 0 },    // クールダウン
+  ];
   
-  const success = check(res, {
-    'status is 200': (r) => r.status === 200,
-    'response time < 200ms': (r) => r.timings.duration < 200,
-  });
+  console.log("Starting staged load test...");
   
-  errorRate.add(!success);
-  
-  sleep(0.1); // 100ms間隔
+  for (const stage of stages) {
+    console.log(`Stage: ${stage.targetClients} clients for ${stage.duration / 1000}s`);
+    
+    const config = {
+      ...SCALE_TEST_CONFIG,
+      clients: stage.targetClients,
+      durationMs: stage.duration,
+      targetUrl: "http://localhost:3000/api/data/client-${id}",
+    };
+    
+    const runner = createLoadTestRunner(config);
+    const { summary, metrics } = await runner();
+    
+    // 閾値チェック
+    if (summary.responseTime.p95 > 200) {
+      console.error(`❌ P95 response time ${summary.responseTime.p95}ms exceeds 200ms`);
+    }
+    if (summary.responseTime.p99 > 500) {
+      console.error(`❌ P99 response time ${summary.responseTime.p99}ms exceeds 500ms`);
+    }
+    if (parseFloat(summary.errorRate) > 0.1) {
+      console.error(`❌ Error rate ${summary.errorRate} exceeds 0.1%`);
+    }
+  }
+}
+
+if (import.meta.main) {
+  await runStagedLoadTest();
 }
 ```
 
@@ -538,14 +554,14 @@ docker-compose up -d
 curl http://localhost:3000/api/health
 
 # 3. 単体テスト実行
-npm test
+deno test --allow-net scale-100.test.ts
 
-# 4. k6による負荷テスト
-k6 run k6-load-test.js
+# 4. 負荷テスト実行
+deno run --allow-net load-test-100.ts
 
 # 5. リアルタイムモニタリング
 docker stats
-watch -n 1 'curl -s http://localhost:3000/api/metrics | jq'
+watch -n 1 'curl -s http://localhost:3000/api/metrics'
 
 # 6. ログ確認
 docker-compose logs -f
@@ -553,12 +569,12 @@ docker-compose logs -f
 
 ## パフォーマンスチューニング
 
-### 1. Node.js最適化
+### 1. Deno最適化
 ```bash
 # V8オプション
---max-old-space-size=768  # ヒープサイズ制限
---optimize-for-size       # メモリ最適化
---gc-interval=100        # GC頻度調整
+--v8-flags=--max-old-space-size=768  # ヒープサイズ制限
+--v8-flags=--optimize-for-size       # メモリ最適化
+--v8-flags=--gc-interval=100         # GC頻度調整
 ```
 
 ### 2. OS最適化
@@ -573,10 +589,10 @@ sysctl -w net.ipv4.ip_local_port_range="1024 65535"
 ```
 
 ### 3. アプリケーション最適化
-- クラスタリングによる並列処理
-- キャッシング戦略
-- コネクションプーリング
-- 非同期バッチ処理
+- Web Workersによる並列処理
+- LRUキャッシング戦略
+- 非同期リクエスト制限
+- バッチ処理パターン
 
 ## 成功基準
 
@@ -602,19 +618,19 @@ docker run --ulimit nofile=65536:65536 ...
 ```
 
 ### 問題: メモリ使用量が増加し続ける
-```javascript
+```typescript
 // ヒープダンプ取得
-process.on('SIGUSR2', () => {
-  const heapdump = require('heapdump');
-  heapdump.writeSnapshot(`heap-${Date.now()}.heapsnapshot`);
+Deno.addSignalListener("SIGUSR2", async () => {
+  const snapshot = await Deno.core.takeHeapSnapshot();
+  await Deno.writeTextFile(`heap-${Date.now()}.heapsnapshot`, snapshot);
 });
 ```
 
 ### 問題: CPU使用率が高い
 ```bash
 # プロファイリング実行
-node --prof server.js
-node --prof-process isolate-*.log > profile.txt
+deno run --inspect-brk --allow-net --allow-env server.ts
+# Chrome DevToolsでプロファイリング
 ```
 
 ## 次のステップ
@@ -625,12 +641,12 @@ node --prof-process isolate-*.log > profile.txt
 
 - 単純な10倍スケールは線形ではない
 - リソース管理とキャッシングが重要
-- クラスタリングで効率的な並列処理
+- Web Workersで効率的な並列処理
 - 適切な監視とメトリクスが必須
 
 ## 参考資料
 
-- [Node.js Cluster Documentation](https://nodejs.org/api/cluster.html)
-- [High Performance Node.js](https://nodejs.org/en/docs/guides/simple-profiling/)
-- [k6 Load Testing Guide](https://k6.io/docs/)
+- [Deno Workers Documentation](https://docs.deno.com/runtime/manual/runtime/workers)
+- [High Performance Deno](https://deno.land/manual/runtime/performance)
+- [Deno Testing Guide](https://docs.deno.com/runtime/manual/basics/testing/)
 - [Docker Resource Management](https://docs.docker.com/config/containers/resource_constraints/)

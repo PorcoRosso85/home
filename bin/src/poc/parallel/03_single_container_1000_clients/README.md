@@ -62,27 +62,29 @@
 ## TDDアプローチ
 
 ### Red Phase (限界を超えるテスト)
-```javascript
-// test/extreme-load.test.js
-describe('Single Container - 1000 Clients Extreme Load', () => {
-  let loadGenerator;
-  let metricsCollector;
+```typescript
+// extreme-load.test.ts
+import { assertEquals, assertExists } from "@std/assert";
+import { DistributedLoadGenerator } from "./load-generator.ts";
+import { MetricsCollector } from "./metrics-collector.ts";
+
+Deno.test({
+  name: "test_extreme_1000_clients_identify_breaking_point",
+  sanitizeOps: false,
+  sanitizeResources: false,
+}, async () => {
+  const loadGenerator = new DistributedLoadGenerator({
+    targetClients: 1000,
+    rampUpTime: 60000, // 1分でランプアップ
+    connectionTimeout: 5000,
+    requestTimeout: 2000,
+  });
   
-  beforeAll(() => {
-    loadGenerator = new DistributedLoadGenerator({
-      targetClients: 1000,
-      rampUpTime: 60000, // 1分でランプアップ
-      connectionTimeout: 5000,
-      requestTimeout: 2000
-    });
-    
-    metricsCollector = new MetricsCollector({
-      interval: 100,
-      detailed: true
-    });
+  const metricsCollector = new MetricsCollector({
+    interval: 100,
+    detailed: true,
   });
 
-  it('should identify breaking point with 1000 clients', async () => {
     const results = {
       maxSuccessfulConnections: 0,
       breakingPoint: null,
@@ -144,18 +146,18 @@ describe('Single Container - 1000 Clients Extreme Load', () => {
     }
     
     // 結果の分析
-    expect(results.maxSuccessfulConnections).toBeGreaterThan(500); // 最低500接続は処理できるはず
-    expect(results.breakingPoint).toBeDefined(); // 限界点が特定できること
+    assert(results.maxSuccessfulConnections > 500); // 最低500接続は処理できるはず
+    assertExists(results.breakingPoint); // 限界点が特定できること
     
     // パフォーマンス劣化の分析
     const degradationAnalysis = analyzeDegradation(results.performanceMetrics);
-    expect(degradationAnalysis.isExponential).toBe(true); // 指数的な劣化を確認
-  });
+    assertEquals(degradationAnalysis.isExponential, true); // 指数的な劣化を確認
+});
 
-  it('should measure resource exhaustion patterns', async () => {
+Deno.test("test_resource_exhaustion_patterns", async () => {
     const resourceMonitor = new ResourceMonitor({
-      containerId: process.env.CONTAINER_ID,
-      metrics: ['cpu', 'memory', 'network', 'fileDescriptors']
+      containerId: Deno.env.get("CONTAINER_ID") || "local",
+      metrics: ["cpu", "memory", "network", "fileDescriptors"],
     });
     
     // リソース監視を開始
@@ -183,11 +185,11 @@ describe('Single Container - 1000 Clients Extreme Load', () => {
       .filter(([_, point]) => point !== null)
       .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
     
-    expect(firstBottleneck).toBeDefined();
+    assertExists(firstBottleneck);
     console.log(`First bottleneck: ${firstBottleneck[0]} at ${firstBottleneck[1].clientCount} clients`);
-  });
+});
 
-  it('should test recovery after overload', async () => {
+Deno.test("test_recovery_after_overload", async () => {
     // システムを過負荷状態にする
     await loadGenerator.blast({
       clients: 2000, // 意図的に限界を超える
@@ -216,9 +218,8 @@ describe('Single Container - 1000 Clients Extreme Load', () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
-    expect(recovered).toBe(true);
-    expect(recoveryTime).toBeLessThan(30000); // 30秒以内に回復
-  });
+    assertEquals(recovered, true);
+    assert(recoveryTime < 30000); // 30秒以内に回復
 });
 
 // ヘルパー関数
@@ -252,189 +253,169 @@ function analyzeDegradation(metrics) {
 ```
 
 ### Green Phase (極限最適化の実装)
-```javascript
-// server.js - 極限まで最適化されたサーバー
-const cluster = require('cluster');
-const os = require('os');
-const net = require('net');
+```typescript
+// server.ts - 極限まで最適化されたサーバー
+import { serve } from "@std/http/server";
+import { Pool } from "./worker-pool.ts";
+import { BufferPool } from "./buffer-pool.ts";
 
-if (cluster.isMaster) {
-  // 全CPUコアを使用
-  const numCPUs = os.cpus().length;
+// TCPサーバーの低レベル実装
+const listener = Deno.listen({ port: 3000 });
+console.log(`Server listening on port 3000`);
+
+// 接続プールとバッファプール
+const connectionPool = new Map<string, Connection>();
+const bufferPool = new BufferPool(1000, 4096); // 1000個の4KBバッファ
+
+// パフォーマンスカウンター
+let requestCount = 0;
+let errorCount = 0;
+
+// ワーカープールでの並列処理
+const numWorkers = navigator.hardwareConcurrency || 4;
+const workerPool = new Pool(numWorkers, "./tcp-worker.ts");
+
+// 接続ハンドラー
+async function handleConnection(conn: Deno.Conn) {
+  const connectionId = generateConnectionId();
+  const buffer = bufferPool.acquire();
   
-  console.log(`Master ${process.pid} starting ${numCPUs} workers...`);
+  const connection: Connection = {
+    id: connectionId,
+    conn,
+    buffer,
+    state: "connected",
+    lastActivity: Date.now(),
+  };
   
-  // SO_REUSEPORTを有効にしてワーカーを起動
-  for (let i = 0; i < numCPUs; i++) {
-    const worker = cluster.fork();
-    worker.on('message', (msg) => {
-      if (msg.cmd === 'notifyRequest') {
-        // グローバルメトリクスの更新
-        updateMetrics(msg.data);
-      }
-    });
-  }
+  connectionPool.set(connectionId, connection);
   
-  cluster.on('exit', (worker, code, signal) => {
-    console.log(`Worker ${worker.process.pid} died, restarting...`);
-    cluster.fork();
-  });
-} else {
-  // ワーカープロセス - 低レベル最適化
-  const server = net.createServer({
-    pauseOnConnect: false, // 接続時の一時停止を無効化
-    noDelay: true // Nagleアルゴリズムを無効化
-  });
-  
-  // 接続プールとバッファプール
-  const connectionPool = new Map();
-  const bufferPool = new BufferPool(1000, 4096); // 1000個の4KBバッファ
-  
-  // パフォーマンスカウンター
-  let requestCount = 0;
-  let errorCount = 0;
-  
-  server.on('connection', (socket) => {
-    // ソケット最適化
-    socket.setNoDelay(true);
-    socket.setKeepAlive(true, 60000);
+  try {
+    // 接続設定
+    // DenoではTCP_NODELAYがデフォルトで有効
     
-    // タイムアウト設定
-    socket.setTimeout(30000);
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
     
-    // 接続管理
-    const connectionId = generateConnectionId();
-    const connection = {
-      id: connectionId,
-      socket: socket,
-      buffer: bufferPool.acquire(),
-      state: 'connected',
-      lastActivity: Date.now()
-    };
-    
-    connectionPool.set(connectionId, connection);
-    
-    // 非同期でリクエスト処理
-    socket.on('data', (data) => {
-      setImmediate(() => {
+    // リクエスト読み取りループ
+    for await (const chunk of conn.readable) {
+      const data = decoder.decode(chunk);
+      
+      // ワーカープールで非同期処理
+      queueMicrotask(async () => {
         try {
-          handleRequest(connection, data);
+          const response = await handleRequest(connection, data);
+          await conn.write(encoder.encode(response));
+          requestCount++;
+          
+          // バッチでメトリクス更新
+          if (requestCount % 100 === 0) {
+            await workerPool.run("updateMetrics", {
+              requests: 100,
+              errors: errorCount,
+            });
+            errorCount = 0;
+          }
         } catch (error) {
           errorCount++;
-          socket.destroy();
+          console.error("Request handling error:", error);
         }
       });
-    });
-    
-    socket.on('close', () => {
-      connectionPool.delete(connectionId);
-      bufferPool.release(connection.buffer);
-    });
-    
-    socket.on('error', (err) => {
-      errorCount++;
-      connectionPool.delete(connectionId);
-    });
-    
-    socket.on('timeout', () => {
-      socket.destroy();
-    });
-  });
-  
-  // HTTPプロトコルの最小実装
-  function handleRequest(connection, data) {
-    const { buffer, socket } = connection;
-    
-    // シンプルなHTTPレスポンス（パース処理を最小化）
-    if (data.indexOf('GET /api/health') === 0) {
-      const response = 'HTTP/1.1 200 OK\r\n' +
-                      'Content-Type: application/json\r\n' +
-                      'Content-Length: 15\r\n' +
-                      'Connection: keep-alive\r\n' +
-                      '\r\n' +
-                      '{"status":"ok"}';
       
-      socket.write(response);
-      requestCount++;
-      
-      // バッチでマスターに通知（オーバーヘッド削減）
-      if (requestCount % 100 === 0) {
-        process.send({
-          cmd: 'notifyRequest',
-          data: {
-            requests: 100,
-            errors: errorCount
-          }
-        });
-        errorCount = 0;
-      }
-    } else if (data.indexOf('GET /api/data') === 0) {
-      // より複雑なレスポンス
-      const jsonData = JSON.stringify({
-        id: connection.id,
-        timestamp: Date.now(),
-        worker: process.pid
-      });
-      
-      const response = `HTTP/1.1 200 OK\r\n` +
-                      `Content-Type: application/json\r\n` +
-                      `Content-Length: ${jsonData.length}\r\n` +
-                      `Connection: keep-alive\r\n` +
-                      `\r\n` +
-                      jsonData;
-      
-      socket.write(response);
-      requestCount++;
+      connection.lastActivity = Date.now();
     }
-    
-    connection.lastActivity = Date.now();
+  } catch (error) {
+    errorCount++;
+    console.error("Connection error:", error);
+  } finally {
+    connectionPool.delete(connectionId);
+    bufferPool.release(buffer);
+    try {
+      conn.close();
+    } catch {}
   }
-  
-  // 定期的なクリーンアップ
-  setInterval(() => {
-    const now = Date.now();
-    const timeout = 60000; // 1分
-    
-    for (const [id, connection] of connectionPool) {
-      if (now - connection.lastActivity > timeout) {
-        connection.socket.destroy();
-        connectionPool.delete(id);
-      }
-    }
-  }, 10000); // 10秒ごと
-  
-  // サーバー起動
-  const PORT = 3000 + cluster.worker.id - 1;
-  server.listen(PORT, () => {
-    console.log(`Worker ${process.pid} listening on port ${PORT}`);
-  });
-  
-  // グレースフルシャットダウン
-  process.on('SIGTERM', () => {
-    server.close(() => {
-      connectionPool.forEach(conn => conn.socket.destroy());
-      process.exit(0);
-    });
-  });
 }
 
-// バッファプール実装
-class BufferPool {
-  constructor(size, bufferSize) {
-    this.buffers = [];
-    this.bufferSize = bufferSize;
+// HTTPプロトコルの最小実装
+async function handleRequest(connection: Connection, data: string): Promise<string> {
+  // シンプルなHTTPレスポンス（パース処理を最小化）
+  if (data.indexOf("GET /api/health") === 0) {
+    return "HTTP/1.1 200 OK\r\n" +
+           "Content-Type: application/json\r\n" +
+           "Content-Length: 15\r\n" +
+           "Connection: keep-alive\r\n" +
+           "\r\n" +
+           '{"status":"ok"}';
+  } else if (data.indexOf("GET /api/data") === 0) {
+    // より複雑なレスポンス
+    const jsonData = JSON.stringify({
+      id: connection.id,
+      timestamp: Date.now(),
+      worker: Deno.pid,
+    });
     
+    return `HTTP/1.1 200 OK\r\n` +
+           `Content-Type: application/json\r\n` +
+           `Content-Length: ${jsonData.length}\r\n` +
+           `Connection: keep-alive\r\n` +
+           `\r\n` +
+           jsonData;
+  }
+  
+  return "HTTP/1.1 404 Not Found\r\n" +
+         "Content-Length: 0\r\n" +
+         "\r\n";
+}
+
+// 定期的なクリーンアップ
+setInterval(() => {
+  const now = Date.now();
+  const timeout = 60000; // 1分
+  
+  for (const [id, connection] of connectionPool) {
+    if (now - connection.lastActivity > timeout) {
+      try {
+        connection.conn.close();
+      } catch {}
+      connectionPool.delete(id);
+    }
+  }
+}, 10000); // 10秒ごと
+
+// メインループ
+for await (const conn of listener) {
+  // 非同期で接続を処理
+  handleConnection(conn).catch(console.error);
+}
+
+// グレースフルシャットダウン
+Deno.addSignalListener("SIGTERM", () => {
+  listener.close();
+  connectionPool.forEach((conn) => {
+    try {
+      conn.conn.close();
+    } catch {}
+  });
+  workerPool.terminate();
+  Deno.exit(0);
+});
+
+// バッファプール実装
+export class BufferPool {
+  private buffers: Uint8Array[] = [];
+  
+  constructor(private size: number, private bufferSize: number) {
     // 事前割り当て
     for (let i = 0; i < size; i++) {
-      this.buffers.push(Buffer.allocUnsafe(bufferSize));
+      this.buffers.push(new Uint8Array(bufferSize));
     }
   }
   
-  acquire() {
-    return this.buffers.pop() || Buffer.allocUnsafe(this.bufferSize);
+  acquire(): Uint8Array {
+    return this.buffers.pop() || new Uint8Array(this.bufferSize);
   }
   
-  release(buffer) {
+  release(buffer: Uint8Array): void {
     if (this.buffers.length < 1000) {
       buffer.fill(0); // セキュリティのためクリア
       this.buffers.push(buffer);
@@ -442,10 +423,19 @@ class BufferPool {
   }
 }
 
+// 接続情報の型
+interface Connection {
+  id: string;
+  conn: Deno.Conn;
+  buffer: Uint8Array;
+  state: string;
+  lastActivity: number;
+}
+
 // 高速ID生成
 let idCounter = 0;
-function generateConnectionId() {
-  return `${process.pid}-${Date.now()}-${++idCounter}`;
+function generateConnectionId(): string {
+  return `${Deno.pid}-${Date.now()}-${++idCounter}`;
 }
 ```
 
@@ -480,31 +470,33 @@ sysctl -w vm.dirty_background_ratio=5
 ### 1. 最適化されたDockerfile
 ```dockerfile
 # Dockerfile
-FROM node:20-alpine AS builder
+FROM denoland/deno:alpine-2.0.0 AS builder
 
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
+COPY deno.json deno.lock ./
+RUN deno cache --lock=deno.lock deno.json
 
-FROM alpine:3.18
+COPY . .
+RUN deno cache server.ts
+
+FROM denoland/deno:alpine-2.0.0
 
 # 最小限のランタイム
-RUN apk add --no-cache nodejs tini
+RUN apk add --no-cache tini
 
 WORKDIR /app
-COPY --from=builder /app/node_modules ./node_modules
-COPY . .
+COPY --from=builder /app .
 
 # セキュリティ設定
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+RUN addgroup -g 1001 -S deno && \
+    adduser -S deno -u 1001
 
-USER nodejs
+USER deno
 
-EXPOSE 3000-3015
+EXPOSE 3000
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "--max-old-space-size=2048", "--max-semi-space-size=128", "server.js"]
+CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "--allow-write", "--v8-flags=--max-old-space-size=2048,--max-semi-space-size=128", "server.ts"]
 ```
 
 ### 2. Docker Compose with システムチューニング
@@ -518,8 +510,8 @@ services:
     ports:
       - "3000-3015:3000-3015"
     environment:
-      NODE_ENV: production
-      UV_THREADPOOL_SIZE: 128
+      DENO_DIR: /app/.deno
+      RUST_BACKTRACE: 1
     deploy:
       resources:
         limits:
@@ -543,6 +535,11 @@ services:
       - net.ipv4.tcp_tw_reuse=1
     cap_add:
       - NET_ADMIN
+    volumes:
+      - deno-cache:/app/.deno
+
+volumes:
+  deno-cache:
 ```
 
 ## パフォーマンス分析
@@ -563,44 +560,37 @@ services:
 ```
 
 ### メトリクス収集
-```javascript
-// metrics-collector.js
-class MetricsCollector {
-  constructor() {
-    this.metrics = {
-      connections: new Map(),
-      performance: [],
-      resources: []
-    };
-  }
+```typescript
+// metrics-collector.ts
+export class MetricsCollector {
+  private metrics = {
+    connections: new Map<string, any>(),
+    performance: [] as any[],
+    resources: [] as any[],
+    eventLoopLag: 0,
+  };
   
   collectSystemMetrics() {
-    const usage = process.memoryUsage();
-    const cpuUsage = process.cpuUsage();
+    const memoryUsage = Deno.memoryUsage();
     
     return {
       timestamp: Date.now(),
       memory: {
-        rss: usage.rss,
-        heapTotal: usage.heapTotal,
-        heapUsed: usage.heapUsed,
-        external: usage.external,
-        arrayBuffers: usage.arrayBuffers
-      },
-      cpu: {
-        user: cpuUsage.user,
-        system: cpuUsage.system
+        rss: memoryUsage.rss,
+        heapTotal: memoryUsage.heapTotal,
+        heapUsed: memoryUsage.heapUsed,
+        external: memoryUsage.external,
       },
       connections: this.metrics.connections.size,
-      eventLoop: this.measureEventLoopLag()
+      eventLoop: this.measureEventLoopLag(),
     };
   }
   
-  measureEventLoopLag() {
-    const start = process.hrtime.bigint();
+  measureEventLoopLag(): number {
+    const start = performance.now();
     
-    setImmediate(() => {
-      const lag = Number(process.hrtime.bigint() - start) / 1e6;
+    queueMicrotask(() => {
+      const lag = performance.now() - start;
       this.metrics.eventLoopLag = lag;
     });
     
@@ -640,4 +630,4 @@ class MetricsCollector {
 - [The C10K Problem](http://www.kegel.com/c10k.html)
 - [Linux Kernel Tuning for C500K](https://www.kernel.org/doc/Documentation/networking/scaling.txt)
 - [High Performance Browser Networking](https://hpbn.co/)
-- [Node.js Under The Hood](https://nodejs.org/en/docs/guides/)
+- [Deno Runtime API](https://docs.deno.com/runtime/manual)

@@ -602,9 +602,7 @@ spec:
 
 #### シークレット管理
 ```javascript
-// secret-management.js
-const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
-const crypto = require('crypto');
+// secret-management.ts
 
 class SecretManager {
   constructor() {

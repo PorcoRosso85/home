@@ -65,8 +65,12 @@
 ## TDDアプローチ
 
 ### Red Phase (Consistent Hashingのテスト)
-```javascript
-// test/consistent-hashing.test.js
+```typescript
+// test/consistent-hashing.test.ts
+import { assertEquals, assert, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { describe, it, beforeAll } from "https://deno.land/std@0.208.0/testing/bdd.ts";
+import { ConsistentHashRing, OrderPreservingHashRing } from "./consistent-hash-ring.ts";
+
 describe('Consistent Hashing Implementation', () => {
   let hashRing;
   let servers;
@@ -109,13 +113,13 @@ describe('Consistent Hashing Implementation', () => {
       console.log(`${server}: ${count} keys (${(count/keyCount*100).toFixed(2)}%)`);
       
       // 5%以内の偏差を許容
-      expect(deviation).toBeLessThan(0.05);
+      assert(deviation < 0.05);
     });
     
     // 標準偏差の確認
     const values = Object.values(distribution);
     const stdDev = calculateStandardDeviation(values);
-    expect(stdDev).toBeLessThan(idealCount * 0.05);
+    assert(stdDev < idealCount * 0.05);
   });
 
   it('should minimize data movement when adding a server', () => {
@@ -160,11 +164,11 @@ describe('Consistent Hashing Implementation', () => {
     console.log('Movement details:', movementDetails);
     
     // 実際の移動率が理論値に近いことを確認
-    expect(moveRate).toBeGreaterThan(0.20);
-    expect(moveRate).toBeLessThan(0.30);
+    assert(moveRate > 0.20);
+    assert(moveRate < 0.30);
     
     // 新サーバーがほぼ均等に引き受けたことを確認
-    expect(movementDetails['server-4'].gained).toBeGreaterThan(movedKeys * 0.9);
+    assert(movementDetails['server-4'].gained > movedKeys * 0.9);
   });
 
   it('should handle server removal gracefully', () => {
@@ -208,10 +212,10 @@ describe('Consistent Hashing Implementation', () => {
     }
     
     // すべてのデータがアクセス可能
-    expect(accessibleCount).toBe(1000);
+    assertEquals(accessibleCount, 1000);
     
     // レプリケーションが再構築される
-    expect(replicationMaintained).toBe(1000);
+    assertEquals(replicationMaintained, 1000);
   });
 
   it('should support virtual nodes for better distribution', () => {
@@ -242,14 +246,14 @@ describe('Consistent Hashing Implementation', () => {
       });
       
       // 期待される標準偏差以下であることを確認
-      expect(stdDevRatio).toBeLessThan(config.expectedStdDev);
+      assert(stdDevRatio < config.expectedStdDev);
     }
     
     console.table(results);
     
     // 仮想ノードが増えるほど分散が改善
     for (let i = 1; i < results.length; i++) {
-      expect(results[i].stdDevRatio).toBeLessThan(results[i-1].stdDevRatio);
+      assert(results[i].stdDevRatio < results[i-1].stdDevRatio);
     }
   });
 
@@ -291,7 +295,7 @@ describe('Consistent Hashing Implementation', () => {
     
     // どのサーバーも平均の125%を超えない
     Object.values(load).forEach(serverLoad => {
-      expect(serverLoad).toBeLessThan(avgLoad * 1.25);
+      assert(serverLoad < avgLoad * 1.25);
     });
   });
 
@@ -310,7 +314,7 @@ describe('Consistent Hashing Implementation', () => {
     const rangeServers = orderedRing.getServersForRange(startKey, endKey);
     
     // 最大3台のサーバーに分散（理想的）
-    expect(rangeServers.length).toBeLessThanOrEqual(3);
+    assert(rangeServers.length <= 3);
     
     // 各サーバーが担当する範囲
     const ranges = orderedRing.getRangesPerServer();
@@ -318,7 +322,7 @@ describe('Consistent Hashing Implementation', () => {
     
     // 範囲が重複していないことを確認
     for (let i = 0; i < ranges.length - 1; i++) {
-      expect(ranges[i].end).toBeLessThanOrEqual(ranges[i + 1].start);
+      assert(ranges[i].end <= ranges[i + 1].start);
     }
   });
 });
@@ -339,32 +343,41 @@ describe('Quorum-based Operations', () => {
     
     const writeResult = await quorumRing.write(key, value);
     
-    expect(writeResult.successful).toBeGreaterThanOrEqual(2);
-    expect(writeResult.failed).toBeLessThanOrEqual(1);
+    assert(writeResult.successful >= 2);
+    assert(writeResult.failed <= 1);
     
     // 読み取りテスト
     const readResult = await quorumRing.read(key);
     
-    expect(readResult.successful).toBeGreaterThanOrEqual(2);
-    expect(readResult.value).toEqual(value);
+    assert(readResult.successful >= 2);
+    assertEquals(readResult.value, value);
     
     // 一貫性の検証 (R + W > N)
     const N = 3; // レプリケーション係数
     const R = 2; // 読み取りクォーラム
     const W = 2; // 書き込みクォーラム
     
-    expect(R + W).toBeGreaterThan(N); // 強一貫性を保証
+    assert(R + W > N); // 強一貫性を保証
   });
 });
 ```
 
 ### Green Phase (Consistent Hashing実装)
-```javascript
-// consistent-hash-ring.js
-const crypto = require('crypto');
+```typescript
+// consistent-hash-ring.ts
+// consistent-hash-ring.ts
 
 class ConsistentHashRing {
-  constructor(options = {}) {
+  private servers: Map<string, any>;
+  private ring: Map<number, any>;
+  private sortedKeys: number[];
+  private virtualNodes: number;
+  private hashFunction: string;
+  private replicationFactor: number;
+  private loadFactor: number;
+  private loads: Map<string, number>;
+  
+  constructor(options: any = {}) {
     this.servers = new Map();
     this.ring = new Map();
     this.sortedKeys = [];
@@ -383,19 +396,20 @@ class ConsistentHashRing {
     }
   }
   
-  hash(key) {
-    return crypto
-      .createHash(this.hashFunction)
-      .update(key)
-      .digest('hex');
+  async hash(key: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(key);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
   
-  hashToPosition(hash) {
+  hashToPosition(hash: string): number {
     // ハッシュを0-2^32の整数に変換
     return parseInt(hash.substring(0, 8), 16);
   }
   
-  addServer(server) {
+  async addServer(server: any) {
     if (this.servers.has(server.id)) {
       throw new Error(`Server ${server.id} already exists`);
     }
@@ -408,7 +422,7 @@ class ConsistentHashRing {
     
     for (let i = 0; i < vnodes; i++) {
       const virtualKey = `${server.id}:${i}`;
-      const hash = this.hash(virtualKey);
+      const hash = await this.hash(virtualKey);
       const position = this.hashToPosition(hash);
       
       this.ring.set(position, {
@@ -424,7 +438,7 @@ class ConsistentHashRing {
     console.log(`Added server ${server.id} with ${vnodes} virtual nodes`);
   }
   
-  removeServer(serverId) {
+  removeServer(serverId: string) {
     if (!this.servers.has(serverId)) {
       throw new Error(`Server ${serverId} not found`);
     }
@@ -449,16 +463,16 @@ class ConsistentHashRing {
     console.log(`Removed server ${serverId} (${toRemove.length} virtual nodes)`);
   }
   
-  updateSortedKeys() {
+  updateSortedKeys(): void {
     this.sortedKeys = Array.from(this.ring.keys()).sort((a, b) => a - b);
   }
   
-  getNode(key) {
+  async getNode(key: string) {
     if (this.sortedKeys.length === 0) {
       throw new Error('No servers available');
     }
     
-    const hash = this.hash(key);
+    const hash = await this.hash(key);
     const position = this.hashToPosition(hash);
     
     // 二分探索で最初の大きいキーを見つける
@@ -482,7 +496,7 @@ class ConsistentHashRing {
     return this.ring.get(nodePosition).server;
   }
   
-  getNodes(key, count = 1) {
+  async getNodes(key: string, count = 1) {
     if (count > this.servers.size) {
       count = this.servers.size;
     }
@@ -490,7 +504,7 @@ class ConsistentHashRing {
     const nodes = [];
     const seen = new Set();
     
-    const hash = this.hash(key);
+    const hash = await this.hash(key);
     const position = this.hashToPosition(hash);
     
     // 開始位置を見つける
@@ -517,8 +531,8 @@ class ConsistentHashRing {
     return nodes;
   }
   
-  getNodeWithBoundedLoad(key, weight = 1) {
-    const candidates = this.getNodes(key, this.servers.size);
+  async getNodeWithBoundedLoad(key: string, weight = 1) {
+    const candidates = await this.getNodes(key, this.servers.size);
     
     for (const server of candidates) {
       const currentLoad = this.loads.get(server.id) || 0;
@@ -537,13 +551,13 @@ class ConsistentHashRing {
     return server;
   }
   
-  getTotalLoad() {
+  getTotalLoad(): number {
     return Array.from(this.loads.values()).reduce((a, b) => a + b, 0);
   }
   
-  async write(key, value, options = {}) {
+  async write(key: string, value: any, options: any = {}) {
     const quorum = options.writeQuorum || Math.floor(this.replicationFactor / 2) + 1;
-    const nodes = this.getNodes(key, this.replicationFactor);
+    const nodes = await this.getNodes(key, this.replicationFactor);
     
     const results = await Promise.allSettled(
       nodes.map(node => this.writeToNode(node, key, value))
@@ -559,9 +573,9 @@ class ConsistentHashRing {
     return { successful, failed, quorum };
   }
   
-  async read(key, options = {}) {
+  async read(key: string, options: any = {}) {
     const quorum = options.readQuorum || Math.floor(this.replicationFactor / 2) + 1;
-    const nodes = this.getNodes(key, this.replicationFactor);
+    const nodes = await this.getNodes(key, this.replicationFactor);
     
     const results = await Promise.allSettled(
       nodes.map(node => this.readFromNode(node, key))
@@ -586,19 +600,19 @@ class ConsistentHashRing {
     };
   }
   
-  async writeToNode(node, key, value) {
+  async writeToNode(node: any, key: string, value: any) {
     // 実際の実装ではHTTPリクエストなど
     console.log(`Writing to ${node.id}: ${key}`);
     return { success: true };
   }
   
-  async readFromNode(node, key) {
+  async readFromNode(node: any, key: string) {
     // 実際の実装ではHTTPリクエストなど
     console.log(`Reading from ${node.id}: ${key}`);
     return { data: 'value', timestamp: Date.now() };
   }
   
-  getStatistics() {
+  getStatistics(): any {
     const stats = {
       servers: this.servers.size,
       virtualNodes: this.sortedKeys.length,
@@ -610,7 +624,7 @@ class ConsistentHashRing {
     return stats;
   }
   
-  analyzeKeyDistribution() {
+  analyzeKeyDistribution(): any {
     // リング上の各セグメントのサイズを計算
     const segments = [];
     
@@ -651,7 +665,10 @@ class ConsistentHashRing {
 
 // 順序保持版（範囲クエリ対応）
 class OrderPreservingHashRing extends ConsistentHashRing {
-  constructor(options) {
+  private partitions: number;
+  private partitionMap: Map<number, any>;
+  
+  constructor(options: any) {
     super(options);
     this.partitions = options.partitions || 100;
     this.setupPartitions();
@@ -679,9 +696,9 @@ class OrderPreservingHashRing extends ConsistentHashRing {
     }
   }
   
-  getServersForRange(startKey, endKey) {
-    const startHash = this.hashToPosition(this.hash(startKey));
-    const endHash = this.hashToPosition(this.hash(endKey));
+  async getServersForRange(startKey: string, endKey: string) {
+    const startHash = this.hashToPosition(await this.hash(startKey));
+    const endHash = this.hashToPosition(await this.hash(endKey));
     
     const servers = new Set();
     
@@ -745,7 +762,7 @@ class OrderPreservingHashRing extends ConsistentHashRing {
   }
 }
 
-module.exports = { ConsistentHashRing, OrderPreservingHashRing };
+export { ConsistentHashRing, OrderPreservingHashRing };
 ```
 
 ### Docker Compose設定
@@ -756,9 +773,11 @@ version: '3.8'
 services:
   # Consistent Hashingコーディネーター
   coordinator:
-    build:
-      context: .
-      dockerfile: Dockerfile.coordinator
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read coordinator.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     ports:
       - "8080:8080"
     environment:
@@ -771,7 +790,12 @@ services:
       - server-3
 
   server-1:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read --allow-write server.ts
+    volumes:
+      - ./:/app
+      - server1-data:/data
+    working_dir: /app
     ports:
       - "5001:5000"
     environment:
@@ -782,7 +806,12 @@ services:
       - server1-data:/data
 
   server-2:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read --allow-write server.ts
+    volumes:
+      - ./:/app
+      - server2-data:/data
+    working_dir: /app
     ports:
       - "5002:5000"
     environment:
@@ -793,7 +822,12 @@ services:
       - server2-data:/data
 
   server-3:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read --allow-write server.ts
+    volumes:
+      - ./:/app
+      - server3-data:/data
+    working_dir: /app
     ports:
       - "5003:5000"
     environment:
@@ -805,9 +839,11 @@ services:
 
   # 監視
   monitor:
-    build:
-      context: .
-      dockerfile: Dockerfile.monitor
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read monitor.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     ports:
       - "9000:9000"
     environment:
@@ -832,7 +868,7 @@ curl http://localhost:8080/api/ring/status | jq
 ### 2. キー分散テスト
 ```bash
 # テストデータの投入
-npm run test:distribution -- --keys=10000
+deno task test:distribution --keys=10000
 
 # 分散状況の確認
 curl http://localhost:8080/api/ring/statistics | jq

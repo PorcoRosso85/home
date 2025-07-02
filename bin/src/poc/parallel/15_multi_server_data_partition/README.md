@@ -69,8 +69,12 @@
 ## TDDアプローチ
 
 ### Red Phase (データパーティショニングのテスト)
-```javascript
-// test/data-partitioning.test.js
+```typescript
+// test/data-partitioning.test.ts
+import { assertEquals, assert, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { describe, it, beforeAll } from "https://deno.land/std@0.208.0/testing/bdd.ts";
+import { delay } from "https://deno.land/std@0.208.0/async/delay.ts";
+
 describe('Multi-Server Data Partitioning', () => {
   let partitionManager;
   let shards;
@@ -111,13 +115,13 @@ describe('Multi-Server Data Partitioning', () => {
     const idealCount = 2500;
     Object.values(distribution).forEach(count => {
       const deviation = Math.abs(count - idealCount) / idealCount;
-      expect(deviation).toBeLessThan(0.15); // 15%以内の偏差
+      assert(deviation < 0.15); // 15%以内の偏差
     });
     
     // 標準偏差も確認
     const counts = Object.values(distribution);
     const stdDev = calculateStandardDeviation(counts);
-    expect(stdDev).toBeLessThan(idealCount * 0.1);
+    assert(stdDev < idealCount * 0.1);
   });
 
   it('should handle range queries efficiently', async () => {
@@ -145,17 +149,17 @@ describe('Multi-Server Data Partitioning', () => {
       
       // クエリが正しいデータを返すか確認
       results.forEach(user => {
-        expect(user.name[0]).toBeGreaterThanOrEqual(query.start);
-        expect(user.name[0]).toBeLessThanOrEqual(query.end);
+        assert(user.name[0] >= query.start);
+        assert(user.name[0] <= query.end);
       });
       
       // パフォーマンス基準
       if (query.start === 'A' && query.end === 'Z') {
         // 全シャードクエリは500ms以内
-        expect(queryTime).toBeLessThan(500);
+        assert(queryTime < 500);
       } else {
         // 部分クエリは200ms以内
-        expect(queryTime).toBeLessThan(200);
+        assert(queryTime < 200);
       }
       
       // クエリプランの確認
@@ -164,7 +168,7 @@ describe('Multi-Server Data Partitioning', () => {
       
       // 必要なシャードのみアクセスしているか
       const expectedShards = getExpectedShards(query.start, query.end);
-      expect(plan.accessedShards).toEqual(expectedShards);
+      assertEquals(plan.accessedShards, expectedShards);
     }
   });
 
@@ -203,22 +207,22 @@ describe('Multi-Server Data Partitioning', () => {
     console.log(`Join execution time: ${joinTime}ms`);
     
     // 結果の検証
-    expect(results).toHaveLength(4); // 4リージョン
+    assertEquals(results.length, 4); // 4リージョン
     results.forEach(row => {
-      expect(row.order_count).toBeGreaterThan(0);
-      expect(row.total).toBeGreaterThan(0);
+      assert(row.order_count > 0);
+      assert(row.total > 0);
     });
     
     // パフォーマンス基準（1秒以内）
-    expect(joinTime).toBeLessThan(1000);
+    assert(joinTime < 1000);
   });
 
   it('should handle shard failures with replicas', async () => {
     // レプリケーション設定の確認
     const replicationStatus = await partitionManager.getReplicationStatus();
     
-    expect(replicationStatus.factor).toBe(2);
-    expect(replicationStatus.healthy).toBe(true);
+    assertEquals(replicationStatus.factor, 2);
+    assertEquals(replicationStatus.healthy, true);
     
     // シャード1を停止
     await shards[0].stop();
@@ -233,12 +237,12 @@ describe('Multi-Server Data Partitioning', () => {
     for (const query of testQueries) {
       const result = await partitionManager.get('users', query.id);
       
-      expect(result).toBeDefined();
-      expect(result.id).toBe(query.id);
+      assertExists(result);
+      assertEquals(result.id, query.id);
       
       // レプリカから読み取られたことを確認
       const queryLog = await partitionManager.getLastQueryLog();
-      expect(queryLog.source).toContain('replica');
+      assert(queryLog.source.includes('replica'));
     }
     
     // 書き込みもレプリカに切り替わるか
@@ -248,8 +252,8 @@ describe('Multi-Server Data Partitioning', () => {
       { lastActive: new Date() }
     );
     
-    expect(writeResult.success).toBe(true);
-    expect(writeResult.promotedReplica).toBe(true);
+    assertEquals(writeResult.success, true);
+    assertEquals(writeResult.promotedReplica, true);
   });
 
   it('should perform online resharding', async () => {
@@ -295,7 +299,7 @@ describe('Multi-Server Data Partitioning', () => {
     
     // 95%以上の操作が成功
     const successRate = opResults.filter(r => r.success).length / opResults.length;
-    expect(successRate).toBeGreaterThan(0.95);
+    assert(successRate > 0.95);
     
     // リシャーディング完了を待つ
     await resharding.waitForCompletion();
@@ -308,7 +312,7 @@ describe('Multi-Server Data Partitioning', () => {
     const afterStdDev = calculateStandardDeviation(Object.values(afterDistribution));
     const beforeStdDev = calculateStandardDeviation(Object.values(beforeDistribution));
     
-    expect(afterStdDev).toBeLessThan(beforeStdDev);
+    assert(afterStdDev < beforeStdDev);
   });
 
   it('should optimize for data locality', async () => {
@@ -340,7 +344,7 @@ describe('Multi-Server Data Partitioning', () => {
     }
     
     // データが適切なリージョンに移動したか確認
-    await new Promise(resolve => setTimeout(resolve, 5000)); // 再配置を待つ
+    await delay(5000); // 再配置を待つ
     
     const localityStats = await partitionManager.getLocalityStats();
     
@@ -351,7 +355,7 @@ describe('Multi-Server Data Partitioning', () => {
       const region = accessPatterns[index].region;
       const hitRate = localityStats[region].localHitRate;
       
-      expect(hitRate).toBeGreaterThan(0.8); // 80%以上のローカルヒット
+      assert(hitRate > 0.8); // 80%以上のローカルヒット
     });
   });
 
@@ -400,10 +404,10 @@ describe('Multi-Server Data Partitioning', () => {
       
       if (query.region === 'all') {
         // 全リージョンだが特定の時間範囲のみ
-        expect(accessedPartitions.length).toBeLessThanOrEqual(3);
+        assert(accessedPartitions.length <= 3);
       } else {
         // 特定リージョンの特定時間
-        expect(accessedPartitions.length).toBe(1);
+        assertEquals(accessedPartitions.length, 1);
       }
     }
   });
@@ -426,28 +430,36 @@ describe('Global Secondary Index', () => {
     
     const queryTime = Date.now() - startTime;
     
-    expect(user).toBeDefined();
-    expect(user.email).toBe(email);
-    expect(queryTime).toBeLessThan(50); // インデックス使用で高速
+    assertExists(user);
+    assertEquals(user.email, email);
+    assert(queryTime < 50); // インデックス使用で高速
     
     // インデックスの一貫性チェック
     const indexStats = await partitionManager.getIndexStats('users', 'email');
     
-    expect(indexStats.totalEntries).toBe(10000);
-    expect(indexStats.uniqueViolations).toBe(0);
-    expect(indexStats.distribution).toBeDefined();
+    assertEquals(indexStats.totalEntries, 10000);
+    assertEquals(indexStats.uniqueViolations, 0);
+    assertExists(indexStats.distribution);
   });
 });
 ```
 
 ### Green Phase (データパーティショニング実装)
-```javascript
-// partition-manager.js
-const { ConsistentHashRing } = require('./consistent-hash');
-const { Pool } = require('pg');
+```typescript
+// partition-manager.ts
+import { ConsistentHashRing } from "./consistent-hash.ts";
+import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 
 class PartitionManager {
-  constructor(config) {
+  private config: any;
+  private shards: Map<string, any>;
+  private strategy: string;
+  private replicationFactor: number;
+  private partitioner: any;
+  private globalIndexes: Map<string, any>;
+  private metrics: any;
+  
+  constructor(config: any) {
     this.config = config;
     this.shards = new Map();
     this.strategy = config.strategy || 'range-based';
@@ -493,7 +505,7 @@ class PartitionManager {
     }
   }
   
-  async insert(table, data) {
+  async insert(table: string, data: any) {
     const shard = this.partitioner.getShardForData(table, data);
     
     try {
@@ -662,8 +674,8 @@ class PartitionManager {
     primaryShard.replicas = replicaShards;
     
     // レプリケーションストリームの設定
-    primaryShard.on('write', async (operation) => {
-      await this.replicateToReplicas(primaryShard, operation);
+    primaryShard.addEventListener('write', async (event) => {
+      await this.replicateToReplicas(primaryShard, event.detail);
     });
   }
   
@@ -698,21 +710,28 @@ class PartitionManager {
 
 // シャード実装
 class Shard {
-  constructor(config) {
+  private id: string;
+  private range: string;
+  private pool: Pool;
+  private replicas: any[];
+  private metrics: any;
+  
+  constructor(config: any) {
     this.id = config.id;
     this.range = config.range;
     this.pool = new Pool({
-      host: config.host || 'localhost',
+      hostname: config.host || 'localhost',
       port: config.port,
       database: config.database || `shard_${config.id}`,
-      max: 20
-    });
+      user: config.user || 'dbuser',
+      password: config.password || 'dbpass'
+    }, 20);
     
     this.replicas = [];
     this.metrics = new ShardMetrics();
   }
   
-  async insert(table, data) {
+  async insert(table: string, data: any) {
     const keys = Object.keys(data);
     const values = Object.values(data);
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
@@ -810,7 +829,7 @@ class RangePartitioner {
     this.ranges = this.buildRangeMap();
   }
   
-  buildRangeMap() {
+  buildRangeMap(): any[] {
     const ranges = [];
     
     for (const [id, shard] of this.shards) {
@@ -829,7 +848,7 @@ class RangePartitioner {
     return ranges;
   }
   
-  getShardForData(table, data) {
+  getShardForData(table: string, data: any) {
     const partitionKey = this.getPartitionKey(table, data);
     
     for (const range of this.ranges) {
@@ -841,7 +860,7 @@ class RangePartitioner {
     throw new Error(`No shard found for partition key: ${partitionKey}`);
   }
   
-  getShardsForQuery(table, query) {
+  getShardsForQuery(table: string, query: any) {
     const affectedShards = [];
     
     // クエリ条件から影響を受ける範囲を特定
@@ -856,13 +875,13 @@ class RangePartitioner {
     return affectedShards;
   }
   
-  getPartitionKey(table, data) {
+  getPartitionKey(table: string, data: any): string {
     // テーブルごとのパーティションキー設定
     const keyField = this.getKeyField(table);
     return data[keyField]?.[0]?.toUpperCase() || 'A';
   }
   
-  getKeyField(table) {
+  getKeyField(table: string): string {
     const keyFields = {
       users: 'name',
       orders: 'user_id',
@@ -872,7 +891,7 @@ class RangePartitioner {
     return keyFields[table] || 'id';
   }
   
-  extractQueryRange(query) {
+  extractQueryRange(query: any): any {
     // WHERE句から範囲を抽出
     if (query.where?.name) {
       const condition = query.where.name;
@@ -885,7 +904,7 @@ class RangePartitioner {
     return { start: 'A', end: 'Z' };
   }
   
-  rangesOverlap(range1, range2) {
+  rangesOverlap(range1: any, range2: any): boolean {
     return range1.start <= range2.end && range1.end >= range2.start;
   }
 }
@@ -908,7 +927,7 @@ class GlobalSecondaryIndex {
     });
   }
   
-  async buildFromExistingData() {
+  async buildFromExistingData(): Promise<void> {
     console.log(`Building global index for ${this.table}.${this.field}`);
     
     const buildPromises = [];
@@ -922,7 +941,7 @@ class GlobalSecondaryIndex {
     console.log('Global index build complete');
   }
   
-  async buildShardIndex(shard) {
+  async buildShardIndex(shard: any): Promise<void> {
     const batchSize = 1000;
     let offset = 0;
     
@@ -942,12 +961,12 @@ class GlobalSecondaryIndex {
     }
   }
   
-  async addToIndex(primaryKey, indexValue, shardId) {
+  async addToIndex(primaryKey: string, indexValue: any, shardId: string): Promise<void> {
     if (this.sparse && !indexValue) {
       return; // スパースインデックスはnull値をスキップ
     }
     
-    const indexShard = this.indexShards.getNode(indexValue);
+    const indexShard = await this.indexShards.getNode(indexValue);
     
     const entry = {
       indexValue,
@@ -968,8 +987,8 @@ class GlobalSecondaryIndex {
     await indexShard.insert(`${this.table}_${this.field}_idx`, entry);
   }
   
-  async lookup(value) {
-    const indexShard = this.indexShards.getNode(value);
+  async lookup(value: any): Promise<any | null> {
+    const indexShard = await this.indexShards.getNode(value);
     
     const result = await indexShard.query(
       `SELECT * FROM ${this.table}_${this.field}_idx WHERE indexValue = $1`,
@@ -981,7 +1000,7 @@ class GlobalSecondaryIndex {
 }
 
 // リシャーディング操作
-class ReshardingOperation extends EventEmitter {
+class ReshardingOperation extends EventTarget {
   constructor(plan) {
     super();
     this.plan = plan;
@@ -989,7 +1008,7 @@ class ReshardingOperation extends EventEmitter {
     this.state = 'preparing';
   }
   
-  async prepareNewShards() {
+  async prepareNewShards(): Promise<void> {
     this.state = 'preparing';
     
     // 新しいシャードの作成と初期化
@@ -1000,7 +1019,7 @@ class ReshardingOperation extends EventEmitter {
     this.state = 'copying';
   }
   
-  async startDataCopy() {
+  async startDataCopy(): Promise<void> {
     const sourceShardId = this.plan.splitShard;
     const totalRows = await this.countSourceRows(sourceShardId);
     
@@ -1017,33 +1036,35 @@ class ReshardingOperation extends EventEmitter {
       copiedRows += batch.length;
       this.progress = (copiedRows / totalRows) * 100;
       
-      this.emit('progress', {
-        progress: this.progress,
-        copiedRows,
-        totalRows
-      });
+      this.dispatchEvent(new CustomEvent('progress', { 
+        detail: {
+          progress: this.progress,
+          copiedRows,
+          totalRows
+        }
+      }));
     }
     
     this.state = 'finalizing';
     this.finalize();
   }
   
-  async finalize() {
+  async finalize(): Promise<void> {
     // 最終的な一貫性チェック
     await this.verifyDataIntegrity();
     
     this.state = 'completed';
-    this.emit('complete');
+    this.dispatchEvent(new CustomEvent('complete'));
   }
   
-  async waitForCompletion() {
+  async waitForCompletion(): Promise<void> {
     return new Promise((resolve) => {
-      this.once('complete', resolve);
+      this.addEventListener('complete', resolve, { once: true });
     });
   }
 }
 
-module.exports = {
+export {
   PartitionManager,
   Shard,
   RangePartitioner,
@@ -1112,7 +1133,11 @@ services:
 
   # パーティションマネージャー
   partition-manager:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read partition-manager.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     ports:
       - "8080:8080"
     environment:
@@ -1127,9 +1152,11 @@ services:
 
   # モニタリング
   shard-monitor:
-    build:
-      context: .
-      dockerfile: Dockerfile.monitor
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read monitor.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     ports:
       - "9000:9000"
     environment:
@@ -1155,7 +1182,7 @@ docker-compose up -d
 ### 2. データ分散テスト
 ```bash
 # テストデータの投入
-npm run test:load-data -- --records=100000
+deno task test:load-data --records=100000
 
 # 分散状況の確認
 curl http://localhost:8080/api/distribution | jq
@@ -1164,13 +1191,13 @@ curl http://localhost:8080/api/distribution | jq
 ### 3. パフォーマンステスト
 ```bash
 # 範囲クエリ
-npm run benchmark:range-queries
+deno task benchmark:range-queries
 
 # 分散JOIN
-npm run benchmark:distributed-joins
+deno task benchmark:distributed-joins
 
 # グローバルインデックス
-npm run benchmark:global-index
+deno task benchmark:global-index
 ```
 
 ## 成功基準

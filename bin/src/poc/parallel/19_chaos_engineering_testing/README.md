@@ -629,9 +629,8 @@ function findRecoveryTime(results) {
 
 ### Green Phase (カオスエンジニアリング実装)
 ```javascript
-// chaos-orchestrator.js
-const k8s = require('@kubernetes/client-node');
-const { ChaosExperiment } = require('./experiments');
+// chaos-orchestrator.ts
+import { ChaosExperiment } from "./experiments.ts";
 
 class ChaosOrchestrator {
   constructor(config) {

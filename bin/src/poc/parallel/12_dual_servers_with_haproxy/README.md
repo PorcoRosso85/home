@@ -69,8 +69,12 @@ HAProxyを導入し、2台のサーバー間で自動的な負荷分散とフェ
 ## TDDアプローチ
 
 ### Red Phase (HAProxy機能のテスト)
-```javascript
-// test/haproxy-loadbalancing.test.js
+```typescript
+// test/haproxy-loadbalancing.test.ts
+import { assertEquals, assert, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { describe, it, beforeAll } from "https://deno.land/std@0.208.0/testing/bdd.ts";
+import { delay } from "https://deno.land/std@0.208.0/async/delay.ts";
+
 describe('HAProxy Load Balancing', () => {
   let haproxy;
   let server1, server2;
@@ -107,15 +111,15 @@ describe('HAProxy Load Balancing', () => {
     // 分散を確認
     const distribution = countBy(responses);
     
-    expect(distribution.server1).toBeCloseTo(500, -1); // ±10
-    expect(distribution.server2).toBeCloseTo(500, -1); // ±10
+    assert(Math.abs(distribution.server1 - 500) < 10); // ±10
+    assert(Math.abs(distribution.server2 - 500) < 10); // ±10
     
     // 統計情報での確認
     const stats = await statsClient.getStats();
     const backend = stats.backends.find(b => b.name === 'webservers');
     
-    expect(backend.servers[0].requests).toBeCloseTo(500, -1);
-    expect(backend.servers[1].requests).toBeCloseTo(500, -1);
+    assert(Math.abs(backend.servers[0].requests - 500) < 10);
+    assert(Math.abs(backend.servers[1].requests - 500) < 10);
   });
 
   it('should handle automatic failover', async () => {
@@ -144,7 +148,7 @@ describe('HAProxy Load Balancing', () => {
           results.failed++;
         }
         
-        await sleep(100); // 100ms間隔
+        await delay(100); // 100ms間隔
       }
       
       return results;
@@ -154,7 +158,7 @@ describe('HAProxy Load Balancing', () => {
     const requestPromise = requestLoop();
     
     // 5秒後にserver1を停止
-    await sleep(5000);
+    await delay(5000);
     console.log('Stopping server1...');
     await server1.stop();
     
@@ -162,19 +166,19 @@ describe('HAProxy Load Balancing', () => {
     const results = await requestPromise;
     
     // フェイルオーバーの確認
-    expect(results.success).toBeGreaterThan(195); // 97.5%以上成功
-    expect(results.failed).toBeLessThan(5);
+    assert(results.success > 195); // 97.5%以上成功
+    assert(results.failed < 5);
     
     // server1への初期リクエストと、停止後のserver2への移行を確認
-    expect(results.servers.server1).toBeGreaterThan(40);
-    expect(results.servers.server2).toBeGreaterThan(150);
+    assert(results.servers.server1 > 40);
+    assert(results.servers.server2 > 150);
     
     // HAProxy統計での確認
     const stats = await statsClient.getStats();
     const server1Stats = stats.servers.find(s => s.name === 'server1');
     
-    expect(server1Stats.status).toBe('DOWN');
-    expect(server1Stats.check_status).toBe('L4CON');
+    assertEquals(server1Stats.status, 'DOWN');
+    assertEquals(server1Stats.check_status, 'L4CON');
   });
 
   it('should maintain sticky sessions', async () => {
@@ -216,12 +220,12 @@ describe('HAProxy Load Balancing', () => {
     // 各クライアントが同じサーバーに固定されているか確認
     for (const client of clients) {
       const servers = unique(client.requests.map(r => r.server));
-      expect(servers).toHaveLength(1);
-      expect(servers[0]).toBe(client.assignedServer);
+      assertEquals(servers.length, 1);
+      assertEquals(servers[0], client.assignedServer);
       
       // セッションIDも一貫しているか
       const sessionIds = unique(client.requests.map(r => r.sessionId));
-      expect(sessionIds).toHaveLength(1);
+      assertEquals(sessionIds.length, 1);
     }
   });
 
@@ -235,7 +239,7 @@ describe('HAProxy Load Balancing', () => {
     );
     
     // 1秒後にserver1をDRAIN状態に
-    await sleep(1000);
+    await delay(1000);
     await statsClient.setServerState('webservers/server1', 'drain');
     
     // 新規リクエストがserver2に向かうことを確認
@@ -246,11 +250,11 @@ describe('HAProxy Load Balancing', () => {
     );
     
     const servers = newRequests.map(r => r.server);
-    expect(servers.every(s => s === 'server2')).toBe(true);
+    assert(servers.every(s => s === 'server2'));
     
     // 既存の長時間リクエストは完了することを確認
     const longResults = await Promise.all(longRequests);
-    expect(longResults.every(r => r.ok)).toBe(true);
+    assert(longResults.every(r => r.ok));
   });
 
   it('should enforce rate limiting', async () => {
@@ -274,9 +278,9 @@ describe('HAProxy Load Balancing', () => {
     }
     
     // 約20リクエストが受け入れられ、10がレート制限されるはず
-    expect(results.accepted).toBeGreaterThan(18);
-    expect(results.accepted).toBeLessThan(22);
-    expect(results.ratelimited).toBeGreaterThan(8);
+    assert(results.accepted > 18);
+    assert(results.accepted < 22);
+    assert(results.ratelimited > 8);
   });
 
   it('should provide detailed statistics', async () => {
@@ -301,21 +305,21 @@ describe('HAProxy Load Balancing', () => {
     
     // フロントエンド統計
     const frontend = stats.frontends[0];
-    expect(frontend.requests_total).toBe(180);
-    expect(frontend.responses_2xx).toBeGreaterThan(140);
-    expect(frontend.responses_4xx).toBe(10);
-    expect(frontend.responses_5xx).toBe(20);
+    assertEquals(frontend.requests_total, 180);
+    assert(frontend.responses_2xx > 140);
+    assertEquals(frontend.responses_4xx, 10);
+    assertEquals(frontend.responses_5xx, 20);
     
     // バックエンド統計
     const backend = stats.backends[0];
-    expect(backend.avg_response_time).toBeGreaterThan(50);
-    expect(backend.avg_response_time).toBeLessThan(200);
+    assert(backend.avg_response_time > 50);
+    assert(backend.avg_response_time < 200);
     
     // サーバー個別統計
     for (const server of backend.servers) {
-      expect(server.status).toBe('UP');
-      expect(server.health_checks.passed).toBeGreaterThan(0);
-      expect(server.queue_current).toBe(0);
+      assertEquals(server.status, 'UP');
+      assert(server.health_checks.passed > 0);
+      assertEquals(server.queue_current, 0);
     }
   });
 });
@@ -327,23 +331,23 @@ describe('HAProxy Advanced Features', () => {
       agent: new https.Agent({ rejectUnauthorized: false })
     });
     
-    expect(httpsResponse.ok).toBe(true);
+    assert(httpsResponse.ok);
     
     const data = await httpsResponse.json();
-    expect(data.protocol).toBe('https');
-    expect(data.tls_version).toMatch(/TLSv1\.[23]/);
+    assertEquals(data.protocol, 'https');
+    assert(/TLSv1\.[23]/.test(data.tls_version));
   });
   
   it('should apply custom routing rules', async () => {
     // パスベースルーティング
     const apiResponse = await fetch('http://localhost/api/v2/users');
     const apiData = await apiResponse.json();
-    expect(apiData.server).toMatch(/^api-server/);
+    assert(/^api-server/.test(apiData.server));
     
     // ホストベースルーティング
     const adminResponse = await fetch('http://admin.localhost/dashboard');
     const adminData = await adminResponse.json();
-    expect(adminData.server).toBe('admin-server');
+    assertEquals(adminData.server, 'admin-server');
   });
 });
 ```
@@ -473,127 +477,120 @@ listen stats
     stats admin if TRUE
 ```
 
-```javascript
-// haproxy-backend-app.js
-const express = require('express');
-const session = require('express-session');
-const app = express();
+```typescript
+// haproxy-backend-app.ts
+import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
+import { Session } from "https://deno.land/x/oak_sessions@v4.1.9/mod.ts";
 
-const SERVER_NAME = process.env.SERVER_NAME || 'server1';
-const PORT = process.env.PORT || 3001;
+const SERVER_NAME = Deno.env.get('SERVER_NAME') || 'server1';
+const PORT = parseInt(Deno.env.get('PORT') || '3001');
+
+const app = new Application();
+const router = new Router();
 
 // セッション設定
-app.use(session({
-  secret: 'haproxy-test-secret',
-  resave: false,
-  saveUninitialized: true,
-  cookie: { 
-    secure: false,
-    httpOnly: true,
-    maxAge: 3600000 // 1時間
-  }
-}));
-
-app.use(express.json());
+const session = new Session();
+app.use(session.initMiddleware());
 
 // ロギングミドルウェア
-app.use((req, res, next) => {
-  console.log(`[${SERVER_NAME}] ${req.method} ${req.path} - Session: ${req.sessionID}`);
-  next();
+app.use(async (ctx, next) => {
+  console.log(`[${SERVER_NAME}] ${ctx.request.method} ${ctx.request.url.pathname} - Session: ${await ctx.state.session.id}`);
+  await next();
 });
 
 // ヘルスチェックエンドポイント
-app.get('/health', (req, res) => {
+router.get('/health', (ctx) => {
   // HAProxyのヘルスチェックに応答
-  res.status(200).send('OK');
+  ctx.response.status = 200;
+  ctx.response.body = 'OK';
 });
 
 // サーバー識別エンドポイント
-app.get('/api/whoami', (req, res) => {
-  res.json({
+router.get('/api/whoami', (ctx) => {
+  ctx.response.body = {
     server: SERVER_NAME,
     timestamp: new Date().toISOString(),
-    headers: req.headers
-  });
+    headers: Object.fromEntries(ctx.request.headers)
+  };
 });
 
 // セッションテスト
-app.get('/api/session', (req, res) => {
-  if (!req.session.visits) {
-    req.session.visits = 0;
-  }
+router.get('/api/session', async (ctx) => {
+  const sessionData = await ctx.state.session.get('data') || { visits: 0 };
+  sessionData.visits++;
+  await ctx.state.session.set('data', sessionData);
   
-  req.session.visits++;
-  
-  res.json({
+  ctx.response.body = {
     server: SERVER_NAME,
-    sessionId: req.sessionID,
-    visits: req.session.visits,
-    created: req.session.cookie._expires
-  });
+    sessionId: await ctx.state.session.id,
+    visits: sessionData.visits,
+    created: new Date().toISOString()
+  };
 });
 
 // 長時間実行オペレーション
-app.post('/api/long-operation', async (req, res) => {
-  const duration = req.body.duration || 5000;
+router.post('/api/long-operation', async (ctx) => {
+  const body = await ctx.request.body({ type: 'json' }).value;
+  const duration = body.duration || 5000;
   
   console.log(`[${SERVER_NAME}] Starting long operation (${duration}ms)`);
   
   // グレースフルシャットダウンのテスト用
-  await new Promise(resolve => setTimeout(resolve, duration));
+  await delay(duration);
   
-  res.json({
+  ctx.response.body = {
     server: SERVER_NAME,
     duration,
     completed: true
-  });
+  };
 });
 
 // パフォーマンステスト用エンドポイント
-app.get('/api/fast', (req, res) => {
-  res.json({ server: SERVER_NAME, type: 'fast' });
+router.get('/api/fast', (ctx) => {
+  ctx.response.body = { server: SERVER_NAME, type: 'fast' };
 });
 
-app.get('/api/slow', async (req, res) => {
-  await new Promise(resolve => setTimeout(resolve, 400 + Math.random() * 200));
-  res.json({ server: SERVER_NAME, type: 'slow' });
+router.get('/api/slow', async (ctx) => {
+  await delay(400 + Math.random() * 200);
+  ctx.response.body = { server: SERVER_NAME, type: 'slow' };
 });
 
-app.get('/api/error', (req, res) => {
-  res.status(500).json({ error: 'Simulated error', server: SERVER_NAME });
+router.get('/api/error', (ctx) => {
+  ctx.response.status = 500;
+  ctx.response.body = { error: 'Simulated error', server: SERVER_NAME };
 });
 
 // グレースフルシャットダウン
 let isShuttingDown = false;
 
-process.on('SIGTERM', () => {
+Deno.addSignalListener('SIGTERM', () => {
   console.log(`[${SERVER_NAME}] SIGTERM received, starting graceful shutdown`);
   isShuttingDown = true;
   
   // 新規リクエストを拒否
-  app.use((req, res, next) => {
+  app.use(async (ctx, next) => {
     if (isShuttingDown) {
-      res.status(503).send('Server is shutting down');
+      ctx.response.status = 503;
+      ctx.response.body = 'Server is shutting down';
       return;
     }
-    next();
+    await next();
   });
   
   // 30秒後に強制終了
   setTimeout(() => {
     console.log(`[${SERVER_NAME}] Forcing shutdown`);
-    process.exit(0);
+    Deno.exit(0);
   }, 30000);
 });
 
-// サーバー起動
-const server = app.listen(PORT, () => {
-  console.log(`[${SERVER_NAME}] Server listening on port ${PORT}`);
-});
+// ルーターの設定
+app.use(router.routes());
+app.use(router.allowedMethods());
 
-// Keep-Alive設定
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
+// サーバー起動
+console.log(`[${SERVER_NAME}] Server listening on port ${PORT}`);
+await app.listen({ port: PORT });
 ```
 
 ### Docker Compose設定
@@ -621,7 +618,11 @@ services:
       - backend
 
   server1:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read haproxy-backend-app.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     environment:
       SERVER_NAME: server1
       PORT: 3001
@@ -636,7 +637,11 @@ services:
       - backend
 
   server2:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read haproxy-backend-app.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     environment:
       SERVER_NAME: server2
       PORT: 3002
@@ -652,7 +657,11 @@ services:
 
   # バックアップサーバー
   backup-server:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read haproxy-backend-app.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     environment:
       SERVER_NAME: backup
       PORT: 3003
@@ -702,7 +711,7 @@ echo "show stat" | socat unix-connect:/var/run/haproxy.sock stdio
 ### 3. 負荷テストとモニタリング
 ```bash
 # 負荷テスト実行
-npm run loadtest:haproxy
+deno task loadtest:haproxy
 
 # リアルタイムログ
 docker-compose logs -f haproxy

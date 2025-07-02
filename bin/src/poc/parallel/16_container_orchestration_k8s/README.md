@@ -74,25 +74,28 @@ Kubernetesを使用した本格的なコンテナオーケストレーション�
 ## TDDアプローチ
 
 ### Red Phase (Kubernetesオーケストレーションのテスト)
-```javascript
-// test/k8s-orchestration.test.js
-const k8s = require('@kubernetes/client-node');
-const { expect } = require('chai');
+```typescript
+// test/k8s-orchestration.test.ts
+import { assertEquals, assert, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { describe, it, beforeAll } from "https://deno.land/std@0.208.0/testing/bdd.ts";
+import { delay } from "https://deno.land/std@0.208.0/async/delay.ts";
 
 describe('Kubernetes Orchestration', () => {
-  let kc;
-  let k8sApi;
-  let appsApi;
-  let autoscalingApi;
+  let kc: any;
+  let k8sApi: any;
+  let appsApi: any;
+  let autoscalingApi: any;
   
   beforeAll(async () => {
     // Kubernetes クライアントの初期化
-    kc = new k8s.KubeConfig();
-    kc.loadFromDefault();
+    // Note: In Deno, we'll use the Kubernetes API directly via fetch
+    const kubeConfig = await Deno.readTextFile(`${Deno.env.get('HOME')}/.kube/config`);
+    const config = JSON.parse(kubeConfig);
     
-    k8sApi = kc.makeApiClient(k8s.CoreV1Api);
-    appsApi = kc.makeApiClient(k8s.AppsV1Api);
-    autoscalingApi = kc.makeApiClient(k8s.AutoscalingV2Api);
+    // Initialize API clients
+    k8sApi = new K8sApiClient(config, 'v1');
+    appsApi = new K8sApiClient(config, 'apps/v1');
+    autoscalingApi = new K8sApiClient(config, 'autoscaling/v2');
   });
 
   it('should deploy application with rolling update', async () => {
@@ -172,12 +175,12 @@ describe('Kubernetes Orchestration', () => {
       'app=web'
     );
     
-    expect(pods.body.items).to.have.lengthOf(3);
+    assertEquals(pods.body.items.length, 3);
     
     // すべてのPodがRunning状態
     pods.body.items.forEach(pod => {
-      expect(pod.status.phase).to.equal('Running');
-      expect(pod.status.conditions.find(c => c.type === 'Ready').status).to.equal('True');
+      assertEquals(pod.status.phase, 'Running');
+      assertEquals(pod.status.conditions.find((c: any) => c.type === 'Ready').status, 'True');
     });
     
     // ローリングアップデートのテスト
@@ -206,7 +209,7 @@ describe('Kubernetes Orchestration', () => {
       );
       
       // 最低2つのPodが常に利用可能
-      expect(readyPods.length).to.be.at.least(2);
+      assert(readyPods.length >= 2);
     }, 5000);
     
     // アップデート完了を待つ
@@ -226,7 +229,7 @@ describe('Kubernetes Orchestration', () => {
     
     updatedPods.body.items.forEach(pod => {
       const containerImage = pod.spec.containers[0].image;
-      expect(containerImage).to.equal('webapp:v2.0');
+      assertEquals(containerImage, 'webapp:v2.0');
     });
   });
 
@@ -346,7 +349,7 @@ describe('Kubernetes Orchestration', () => {
     }, 10000);
     
     // 5分間監視
-    await new Promise(resolve => setTimeout(resolve, 300000));
+    await delay(300000);
     
     clearInterval(monitorInterval);
     
@@ -355,11 +358,11 @@ describe('Kubernetes Orchestration', () => {
     
     // スケーリングが発生したことを確認
     const maxReplicas = Math.max(...scalingEvents.map(e => e.currentReplicas));
-    expect(maxReplicas).to.be.greaterThan(3); // 初期値3から増加
+    assert(maxReplicas > 3); // 初期値3から増加
     
     // CPU使用率が閾値を超えた時にスケールアップ
     const highCPUEvents = scalingEvents.filter(e => e.cpuUtilization > 50);
-    expect(highCPUEvents.length).to.be.greaterThan(0);
+    assert(highCPUEvents.length > 0);
   });
 
   it('should handle pod disruptions gracefully', async () => {
@@ -433,8 +436,8 @@ describe('Kubernetes Orchestration', () => {
     
     // PDBにより一部の退避が拒否されることを確認
     const blockedEvictions = evictionResults.filter(r => !r.success);
-    expect(blockedEvictions.length).to.be.greaterThan(0);
-    expect(blockedEvictions[0].reason).to.include('PodDisruptionBudget');
+    assert(blockedEvictions.length > 0);
+    assert(blockedEvictions[0].reason.includes('PodDisruptionBudget'));
     
     // サービスが引き続き利用可能
     const remainingPods = await k8sApi.listNamespacedPod(
@@ -450,7 +453,7 @@ describe('Kubernetes Orchestration', () => {
       pod.status.conditions?.find(c => c.type === 'Ready')?.status === 'True'
     );
     
-    expect(readyPods.length).to.be.at.least(2); // minAvailable
+    assert(readyPods.length >= 2); // minAvailable
   });
 
   it('should implement service mesh with Istio', async () => {
@@ -603,10 +606,10 @@ describe('Kubernetes Orchestration', () => {
     istioizedPods.body.items.forEach(pod => {
       // Envoyサイドカーコンテナの存在確認
       const containers = pod.spec.containers.map(c => c.name);
-      expect(containers).to.include('istio-proxy');
+      assert(containers.includes('istio-proxy'));
       
       // 2つのコンテナ（アプリ + サイドカー）
-      expect(containers).to.have.lengthOf(2);
+      assertEquals(containers.length, 2);
     });
   });
 
@@ -710,7 +713,7 @@ describe('Kubernetes Orchestration', () => {
     
     // Pod名の順序確認
     const podNames = pods.body.items.map(p => p.metadata.name).sort();
-    expect(podNames).to.deep.equal([
+    assertEquals(podNames, [
       'postgres-cluster-0',
       'postgres-cluster-1',
       'postgres-cluster-2'
@@ -721,8 +724,8 @@ describe('Kubernetes Orchestration', () => {
       const pvcName = `postgres-storage-postgres-cluster-${i}`;
       const pvc = await k8sApi.readNamespacedPersistentVolumeClaim(pvcName, 'default');
       
-      expect(pvc.body.status.phase).to.equal('Bound');
-      expect(pvc.body.spec.resources.requests.storage).to.equal('10Gi');
+      assertEquals(pvc.body.status.phase, 'Bound');
+      assertEquals(pvc.body.spec.resources.requests.storage, '10Gi');
     }
     
     // 安定したネットワークIDの確認
@@ -758,7 +761,7 @@ describe('Kubernetes Orchestration', () => {
         'default'
       );
       
-      expect(logs.body).to.include('Address');
+      assert(logs.body.includes('Address'));
       
       // クリーンアップ
       await k8sApi.deleteNamespacedPod(created.body.metadata.name, 'default');
@@ -884,7 +887,7 @@ describe('Kubernetes Orchestration', () => {
       false
     );
     
-    expect(allowedExec).to.include('succeeded');
+    assert(allowedExec.includes('succeeded'));
     
     // 拒否されたクライアントからの接続
     const deniedExec = await k8sApi.exec(
@@ -898,12 +901,12 @@ describe('Kubernetes Orchestration', () => {
       false
     );
     
-    expect(deniedExec).to.include('timeout');
+    assert(deniedExec.includes('timeout'));
   });
 });
 
 // ヘルパー関数
-async function waitForDeployment(namespace, name, timeout) {
+async function waitForDeployment(namespace: string, name: string, timeout: number) {
   const startTime = Date.now();
   
   while (Date.now() - startTime < timeout) {
@@ -915,13 +918,13 @@ async function waitForDeployment(namespace, name, timeout) {
       return;
     }
     
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await delay(5000);
   }
   
   throw new Error(`Deployment ${name} did not become ready in time`);
 }
 
-async function waitForStatefulSet(namespace, name, timeout) {
+async function waitForStatefulSet(namespace: string, name: string, timeout: number) {
   const startTime = Date.now();
   
   while (Date.now() - startTime < timeout) {
@@ -933,7 +936,7 @@ async function waitForStatefulSet(namespace, name, timeout) {
       return;
     }
     
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await delay(5000);
   }
   
   throw new Error(`StatefulSet ${name} did not become ready in time`);
@@ -1230,14 +1233,20 @@ spec:
       port: 53
 ```
 
-```javascript
-// app/k8s-aware-app.js
-const express = require('express');
-const prometheus = require('prom-client');
+```typescript
+// app/k8s-aware-app.ts
+import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 
 class K8sAwareApplication {
+  private app: Application;
+  private router: Router;
+  private metrics: any;
+  private server: any;
+  private activeConnections = 0;
+  
   constructor() {
-    this.app = express();
+    this.app = new Application();
+    this.router = new Router();
     this.metrics = this.setupMetrics();
     this.setupRoutes();
     this.setupK8sIntegration();
@@ -1282,89 +1291,96 @@ class K8sAwareApplication {
   
   setupRoutes() {
     // メトリクスミドルウェア
-    this.app.use((req, res, next) => {
+    this.app.use(async (ctx, next) => {
       const start = Date.now();
+      this.activeConnections++;
       
-      res.on('finish', () => {
+      try {
+        await next();
+      } finally {
         const duration = (Date.now() - start) / 1000;
+        const path = ctx.request.url.pathname;
+        const method = ctx.request.method;
+        const status = ctx.response.status;
         
         this.metrics.httpRequestDuration
-          .labels(req.method, req.route?.path || req.path, res.statusCode)
+          .labels(method, path, status.toString())
           .observe(duration);
         
         this.metrics.httpRequestsTotal
-          .labels(req.method, req.route?.path || req.path, res.statusCode)
+          .labels(method, path, status.toString())
           .inc();
-      });
-      
-      next();
+        
+        this.activeConnections--;
+      }
     });
     
     // ヘルスチェック
-    this.app.get('/health', (req, res) => {
+    this.router.get('/health', (ctx) => {
       const health = this.checkHealth();
       
       if (health.status === 'healthy') {
-        res.json(health);
+        ctx.response.body = health;
       } else {
-        res.status(503).json(health);
+        ctx.response.status = 503;
+        ctx.response.body = health;
       }
     });
     
     // レディネスチェック
-    this.app.get('/ready', (req, res) => {
+    this.router.get('/ready', (ctx) => {
       const readiness = this.checkReadiness();
       
       if (readiness.ready) {
-        res.json(readiness);
+        ctx.response.body = readiness;
       } else {
-        res.status(503).json(readiness);
+        ctx.response.status = 503;
+        ctx.response.body = readiness;
       }
     });
     
     // メトリクスエンドポイント
-    this.app.get('/metrics', async (req, res) => {
-      res.set('Content-Type', this.metrics.register.contentType);
-      res.end(await this.metrics.register.metrics());
+    this.router.get('/metrics', async (ctx) => {
+      ctx.response.headers.set('Content-Type', this.metrics.register.contentType);
+      ctx.response.body = await this.metrics.register.metrics();
     });
     
     // アプリケーションルート
-    this.app.get('/', (req, res) => {
-      res.json({
+    this.router.get('/', (ctx) => {
+      ctx.response.body = {
         message: 'Hello from Kubernetes!',
-        pod: process.env.POD_NAME,
-        namespace: process.env.POD_NAMESPACE,
-        node: process.env.NODE_NAME,
-        version: process.env.APP_VERSION || 'v1.0'
-      });
+        pod: Deno.env.get('POD_NAME'),
+        namespace: Deno.env.get('POD_NAMESPACE'),
+        node: Deno.env.get('NODE_NAME'),
+        version: Deno.env.get('APP_VERSION') || 'v1.0'
+      };
     });
     
     // CPU負荷エンドポイント（オートスケーリングテスト用）
-    this.app.get('/cpu-intensive', (req, res) => {
+    this.router.get('/cpu-intensive', (ctx) => {
       const start = Date.now();
-      const duration = parseInt(req.query.duration) || 1000;
+      const duration = parseInt(ctx.request.url.searchParams.get('duration') || '1000');
       
       // CPU集約的な処理
       while (Date.now() - start < duration) {
         Math.sqrt(Math.random());
       }
       
-      res.json({
+      ctx.response.body = {
         duration: Date.now() - start,
-        pod: process.env.POD_NAME
-      });
+        pod: Deno.env.get('POD_NAME')
+      };
     });
+    
+    // ルーターをアプリケーションに追加
+    this.app.use(this.router.routes());
+    this.app.use(this.router.allowedMethods());
   }
   
   setupK8sIntegration() {
     // Graceful shutdown
-    process.on('SIGTERM', async () => {
+    Deno.addSignalListener('SIGTERM', async () => {
       console.log('SIGTERM received, starting graceful shutdown');
-      
-      // 新規リクエストの受付を停止
-      this.server.close(() => {
-        console.log('HTTP server closed');
-      });
       
       // 既存の接続が完了するのを待つ
       await this.drainConnections();
@@ -1372,11 +1388,11 @@ class K8sAwareApplication {
       // クリーンアップ
       await this.cleanup();
       
-      process.exit(0);
+      Deno.exit(0);
     });
     
     // リーダー選出（StatefulSetの場合）
-    if (process.env.ENABLE_LEADER_ELECTION === 'true') {
+    if (Deno.env.get('ENABLE_LEADER_ELECTION') === 'true') {
       this.setupLeaderElection();
     }
   }
@@ -1416,14 +1432,15 @@ class K8sAwareApplication {
   }
   
   checkMemory() {
-    const used = process.memoryUsage();
-    const limit = parseInt(process.env.MEMORY_LIMIT) || 512 * 1024 * 1024;
-    const usage = used.heapUsed / limit;
+    // Note: Deno.systemMemoryInfo() is not available in all environments
+    // This is a simplified implementation
+    const limit = parseInt(Deno.env.get('MEMORY_LIMIT') || '536870912'); // 512MB default
+    const usage = 0.5; // Mock value for demonstration
     
     return {
       healthy: usage < 0.9,
       usage: usage,
-      used: used.heapUsed,
+      used: usage * limit,
       limit: limit
     };
   }
@@ -1435,18 +1452,16 @@ class K8sAwareApplication {
     
     while (this.activeConnections > 0 && Date.now() - start < timeout) {
       console.log(`Waiting for ${this.activeConnections} connections to complete`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await delay(1000);
     }
   }
   
-  start() {
-    const port = process.env.PORT || 8080;
+  async start() {
+    const port = parseInt(Deno.env.get('PORT') || '8080');
     
-    this.server = this.app.listen(port, () => {
-      console.log(`K8s-aware app listening on port ${port}`);
-      console.log(`Pod: ${process.env.POD_NAME}`);
-      console.log(`Namespace: ${process.env.POD_NAMESPACE}`);
-    });
+    console.log(`K8s-aware app listening on port ${port}`);
+    console.log(`Pod: ${Deno.env.get('POD_NAME')}`);
+    console.log(`Namespace: ${Deno.env.get('POD_NAMESPACE')}`);
     
     // RPS計算
     let requestCount = 0;
@@ -1455,20 +1470,52 @@ class K8sAwareApplication {
       requestCount = 0;
     }, 1000);
     
-    this.app.use((req, res, next) => {
+    // リクエストカウントミドルウェア
+    this.app.use(async (ctx, next) => {
       requestCount++;
-      next();
+      await next();
     });
+    
+    await this.app.listen({ port });
+  }
+  
+  private setupLeaderElection() {
+    // Leader election logic for StatefulSets
+    console.log('Leader election enabled');
+  }
+  
+  private async cleanup() {
+    console.log('Performing cleanup...');
+  }
+  
+  private checkDisk() {
+    return { healthy: true, usage: 0.5 };
+  }
+  
+  private checkDependencies() {
+    return { healthy: true };
+  }
+  
+  private isDatabaseReady() {
+    return true;
+  }
+  
+  private isCacheReady() {
+    return true;
+  }
+  
+  private isInitialized() {
+    return true;
   }
 }
 
 // 起動
-if (require.main === module) {
+if (import.meta.main) {
   const app = new K8sAwareApplication();
-  app.start();
+  await app.start();
 }
 
-module.exports = K8sAwareApplication;
+export { K8sAwareApplication };
 ```
 
 ### Kubernetes設定スクリプト

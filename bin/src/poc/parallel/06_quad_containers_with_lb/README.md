@@ -71,25 +71,27 @@
 ## TDDアプローチ
 
 ### Red Phase (4コンテナシステムのテスト)
-```javascript
-// test/quad-container-advanced.test.js
-describe('Quad Container Advanced Load Balancing', () => {
-  let system;
-  let chaos;
-  
-  beforeAll(async () => {
-    system = new QuadContainerSystem({
-      containers: ['app-1', 'app-2', 'app-3', 'app-4'],
-      loadBalancer: 'nginx-advanced',
-      monitoring: true
-    });
-    
-    chaos = new ChaosEngineering(system);
-    
-    await system.waitForReady();
-  });
+```typescript
+// test/quad-container-advanced.test.ts
+import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { QuadContainerSystem, ChaosEngineering } from "../src/test-utils.ts";
 
-  it('should achieve near-linear scaling with 4 containers', async () => {
+Deno.test("Quad Container Advanced Load Balancing", async (t) => {
+  let system: QuadContainerSystem;
+  let chaos: ChaosEngineering;
+  
+  // Setup
+  system = new QuadContainerSystem({
+    containers: ['app-1', 'app-2', 'app-3', 'app-4'],
+    loadBalancer: 'nginx-advanced',
+    monitoring: true
+  });
+  
+  chaos = new ChaosEngineering(system);
+  
+  await system.waitForReady();
+
+  await t.step("should achieve near-linear scaling with 4 containers", async () => {
     // ベースライン（前のPOCから）
     const baselines = {
       single: { throughput: 1000, latency: 50 },
@@ -111,17 +113,17 @@ describe('Quad Container Advanced Load Balancing', () => {
     };
     
     // 期待値
-    expect(scalingAnalysis.throughputEfficiency).toBeGreaterThan(0.7); // 70%以上の効率
-    expect(scalingAnalysis.latencyDegradation).toBeLessThan(1.5); // 50%以下の劣化
-    expect(scalingAnalysis.actualScalingFactor).toBeGreaterThan(3.0); // 3倍以上
+    assertEquals(scalingAnalysis.throughputEfficiency > 0.7, true); // 70%以上の効率
+    assertEquals(scalingAnalysis.latencyDegradation < 1.5, true); // 50%以下の劣化
+    assertEquals(scalingAnalysis.actualScalingFactor > 3.0, true); // 3倍以上
     
     // リソース使用効率
     const resourceMetrics = await system.getResourceMetrics();
-    expect(resourceMetrics.cpuEfficiency).toBeGreaterThan(0.8); // CPU使用率80%以上
-    expect(resourceMetrics.memoryWaste).toBeLessThan(0.2); // メモリ無駄20%以下
+    assertEquals(resourceMetrics.cpuEfficiency > 0.8, true); // CPU使用率80%以上
+    assertEquals(resourceMetrics.memoryWaste < 0.2, true); // メモリ無駄20%以下
   });
 
-  it('should handle complex failure scenarios', async () => {
+  await t.step("should handle complex failure scenarios", async () => {
     const scenarios = [
       {
         name: 'single_container_failure',
@@ -175,12 +177,12 @@ describe('Quad Container Advanced Load Balancing', () => {
       
       // 期待される挙動の検証
       Object.entries(scenario.expectedBehavior).forEach(([metric, expected]) => {
-        expect(analysis[metric]).toBeLessThanOrEqual(expected);
+        assertEquals(analysis[metric] <= expected, true);
       });
     }
   });
 
-  it('should optimize load distribution based on performance', async () => {
+  await t.step("should optimize load distribution based on performance", async () => {
     // 異なるパフォーマンス特性を持つコンテナを設定
     await system.configureContainers({
       'app-1': { cpuLimit: '1.0', memoryLimit: '1G' },
@@ -204,22 +206,24 @@ describe('Quad Container Advanced Load Balancing', () => {
     const weightEvolution = results.getWeightEvolution();
     
     // 低性能コンテナへの負荷が減少していることを確認
-    expect(weightEvolution['app-3'].final).toBeLessThan(
-      weightEvolution['app-3'].initial * 0.7
+    assertEquals(
+      weightEvolution['app-3'].final < weightEvolution['app-3'].initial * 0.7,
+      true
     );
     
     // 高性能コンテナへの負荷が増加していることを確認
-    expect(weightEvolution['app-4'].final).toBeGreaterThan(
-      weightEvolution['app-4'].initial * 1.2
+    assertEquals(
+      weightEvolution['app-4'].final > weightEvolution['app-4'].initial * 1.2,
+      true
     );
     
     // 全体的なパフォーマンス向上
     const performanceImprovement = 
       results.finalThroughput / results.initialThroughput;
-    expect(performanceImprovement).toBeGreaterThan(1.15); // 15%以上の改善
+    assertEquals(performanceImprovement > 1.15, true); // 15%以上の改善
   });
 
-  it('should handle resource contention gracefully', async () => {
+  await t.step("should handle resource contention gracefully", async () => {
     // リソース競合シナリオ
     const contentionTests = [
       {
@@ -258,18 +262,18 @@ describe('Quad Container Advanced Load Balancing', () => {
       const impact = calculateContentionImpact(baseline, duringContention);
       
       // 過度な劣化がないことを確認
-      expect(impact[test.metric]).toBeLessThan(2.0); // 2倍以下の劣化
+      assertEquals(impact[test.metric] < 2.0, true); // 2倍以下の劣化
       
       // 公平性の確認（特定のコンテナだけが影響を受けていない）
       const fairness = calculateFairnessIndex(impact.perContainer);
-      expect(fairness).toBeGreaterThan(0.8); // Jain's fairness index
+      assertEquals(fairness > 0.8, true); // Jain's fairness index
     }
   });
 });
 
 // 高度なロードバランシングアルゴリズムテスト
-describe('Advanced Load Balancing Algorithms', () => {
-  it('should compare different algorithms', async () => {
+Deno.test("Advanced Load Balancing Algorithms", async (t) => {
+  await t.step("should compare different algorithms", async () => {
     const algorithms = [
       'round_robin',
       'least_conn',
@@ -300,13 +304,13 @@ describe('Advanced Load Balancing Algorithms', () => {
     const comparison = compareAlgorithms(results);
     
     // least_response_timeが最も良いはず
-    expect(comparison.bestAlgorithm).toBe('least_response_time');
+    assertEquals(comparison.bestAlgorithm, 'least_response_time');
     
     // adaptiveが最も安定しているはず
-    expect(comparison.mostStable).toBe('adaptive');
+    assertEquals(comparison.mostStable, 'adaptive');
     
     // round_robinが最もシンプルで予測可能
-    expect(comparison.mostPredictable).toBe('round_robin');
+    assertEquals(comparison.mostPredictable, 'round_robin');
   });
 });
 
@@ -338,6 +342,8 @@ async function monitorDuring(duration) {
 ```
 
 ### Green Phase (4コンテナシステムの実装)
+
+#### Nginx設定
 ```nginx
 # nginx-advanced.conf
 # 高度な負荷分散設定
@@ -462,13 +468,14 @@ server {
 }
 ```
 
-```javascript
-// container-orchestrator.js
+#### コンテナオーケストレーター
+```typescript
+// container-orchestrator.ts
 // 4コンテナの協調制御
 
-const EventEmitter = require('events');
+import { EventEmitter } from "https://deno.land/x/event_emitter@1.0.0/mod.ts";
 
-class ContainerOrchestrator extends EventEmitter {
+export class ContainerOrchestrator extends EventEmitter {
   constructor(options = {}) {
     super();
     
@@ -750,7 +757,26 @@ class ContainerOrchestrator extends EventEmitter {
   }
 }
 
-module.exports = ContainerOrchestrator;
+```
+
+### Dockerfile
+```dockerfile
+# Dockerfile
+FROM denoland/deno:alpine
+
+WORKDIR /app
+
+# 依存関係のキャッシュ
+COPY deps.ts .
+RUN deno cache deps.ts
+
+# アプリケーションコード
+COPY . .
+RUN deno cache app.ts orchestrator.ts
+
+EXPOSE 3000
+
+CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-hrtime", "app.ts"]
 ```
 
 ### Docker Compose - 4コンテナ構成
@@ -898,25 +924,25 @@ docker-compose up -d
 ### 2. パフォーマンステスト
 ```bash
 # 基本的な負荷テスト
-npm run test:performance -- --containers=4
+deno run --allow-all scripts/test-performance.ts --containers=4
 
 # アルゴリズム比較
-npm run test:algorithms
+deno run --allow-all scripts/test-algorithms.ts
 
 # リソース競合テスト
-npm run test:resource-contention
+deno run --allow-all scripts/test-resource-contention.ts
 ```
 
 ### 3. カオスエンジニアリング
 ```bash
 # 単一コンテナ障害
-npm run chaos:kill-container app-2
+deno run --allow-all scripts/chaos-kill-container.ts app-2
 
 # 複数コンテナ障害
-npm run chaos:kill-multiple app-1,app-3
+deno run --allow-all scripts/chaos-kill-multiple.ts app-1,app-3
 
 # リソース枯渇
-npm run chaos:memory-pressure app-4
+deno run --allow-all scripts/chaos-memory-pressure.ts app-4
 ```
 
 ## 監視とデバッグ
@@ -950,7 +976,7 @@ docker-compose logs | grep -E "(ERROR|WARN|circuit)"
 ## トラブルシューティング
 
 ### 問題: 特定コンテナへの偏り
-```javascript
+```typescript
 // 重み付けのリセット
 orchestrator.resetWeights();
 

@@ -62,30 +62,33 @@
 ## TDDアプローチ
 
 ### Red Phase (失敗シナリオの定義)
-```javascript
-// test/failure-analysis.test.js
-describe('Container Failure Point Analysis', () => {
-  let failureAnalyzer;
-  let systemProbe;
+```typescript
+// test/failure-analysis.test.ts
+import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { FailureAnalyzer } from "../src/failure-analyzer.ts";
+import { SystemProbe } from "../src/system-probe.ts";
+
+Deno.test("Container Failure Point Analysis", async (t) => {
+  let failureAnalyzer: FailureAnalyzer;
+  let systemProbe: SystemProbe;
   
-  beforeAll(() => {
-    failureAnalyzer = new FailureAnalyzer({
-      metricsInterval: 100, // 100ms間隔で詳細記録
-      alertThresholds: {
-        cpu: 90,
-        memory: 85,
-        eventLoopLag: 100,
-        errorRate: 0.05
-      }
-    });
-    
-    systemProbe = new SystemProbe({
-      pid: process.pid,
-      detailed: true
-    });
+  // Setup
+  failureAnalyzer = new FailureAnalyzer({
+    metricsInterval: 100, // 100ms間隔で詳細記録
+    alertThresholds: {
+      cpu: 90,
+      memory: 85,
+      eventLoopLag: 100,
+      errorRate: 0.05
+    }
+  });
+  
+  systemProbe = new SystemProbe({
+    pid: Deno.pid,
+    detailed: true
   });
 
-  it('should identify exact failure progression', async () => {
+  await t.step("should identify exact failure progression", async () => {
     const timeline = [];
     let failureDetected = false;
     
@@ -133,18 +136,18 @@ describe('Container Failure Point Analysis', () => {
     }
     
     // タイムラインの分析
-    expect(timeline.length).toBeGreaterThan(3); // 複数の段階を経て失敗
-    expect(failureDetected).toBe(true); // 失敗が予測されたこと
+    assertEquals(timeline.length > 3, true); // 複数の段階を経て失敗
+    assertEquals(failureDetected, true); // 失敗が予測されたこと
     
     // 失敗の進行を検証
     const stages = timeline.map(t => t.stage);
-    expect(stages).toContain('DEGRADATION_START');
-    expect(stages).toContain('PARTIAL_FAILURE');
-    expect(stages).toContain('CASCADE_FAILURE');
-    expect(stages).toContain('COMPLETE_FAILURE');
+    assertExists(stages.find(s => s === 'DEGRADATION_START'));
+    assertExists(stages.find(s => s === 'PARTIAL_FAILURE'));
+    assertExists(stages.find(s => s === 'CASCADE_FAILURE'));
+    assertExists(stages.find(s => s === 'COMPLETE_FAILURE'));
   });
 
-  it('should identify resource exhaustion patterns', async () => {
+  await t.step("should identify resource exhaustion patterns", async () => {
     const resourceTimeline = [];
     
     // 詳細なリソース監視
@@ -167,21 +170,19 @@ describe('Container Failure Point Analysis', () => {
     // リソース枯渇の分析
     const analysis = analyzeResourceExhaustion(resourceTimeline);
     
-    expect(analysis.primaryBottleneck).toBeDefined();
-    expect(analysis.exhaustionSequence).toEqual(
-      expect.arrayContaining(['memory', 'cpu', 'network'])
-    );
+    assertExists(analysis.primaryBottleneck);
+    assertEquals(analysis.exhaustionSequence.includes('memory'), true);
+    assertEquals(analysis.exhaustionSequence.includes('cpu'), true);
+    assertEquals(analysis.exhaustionSequence.includes('network'), true);
     
     // 限界値の特定
-    expect(analysis.limits).toMatchObject({
-      maxConnections: expect.any(Number),
-      maxMemoryMB: expect.any(Number),
-      maxCpuPercent: expect.any(Number),
-      maxEventLoopLagMs: expect.any(Number)
-    });
+    assertExists(analysis.limits.maxConnections);
+    assertExists(analysis.limits.maxMemoryMB);
+    assertExists(analysis.limits.maxCpuPercent);
+    assertExists(analysis.limits.maxEventLoopLagMs);
   });
 
-  it('should test different failure modes', async () => {
+  await t.step("should test different failure modes", async () => {
     const failureModes = [
       {
         name: 'memory_exhaustion',
@@ -198,8 +199,24 @@ describe('Container Failure Point Analysis', () => {
         name: 'cpu_saturation',
         method: async () => {
           // CPU集約的な処理
+          const encoder = new TextEncoder();
           while (true) {
-            crypto.pbkdf2Sync('test', 'salt', 100000, 512, 'sha512');
+            await crypto.subtle.deriveBits(
+              {
+                name: "PBKDF2",
+                salt: encoder.encode("salt"),
+                iterations: 100000,
+                hash: "SHA-512"
+              },
+              await crypto.subtle.importKey(
+                "raw",
+                encoder.encode("test"),
+                "PBKDF2",
+                false,
+                ["deriveBits"]
+              ),
+              512
+            );
           }
         }
       },
@@ -209,10 +226,13 @@ describe('Container Failure Point Analysis', () => {
           // 大量の短命接続
           const connections = [];
           for (let i = 0; i < 10000; i++) {
-            connections.push(
-              net.createConnection(3000, 'localhost')
-                .on('connect', function() { this.destroy(); })
-            );
+            try {
+              const conn = await Deno.connect({ hostname: "localhost", port: 3000 });
+              conn.close();
+              connections.push(conn);
+            } catch (_) {
+              // 接続エラーは無視
+            }
           }
         }
       },
@@ -233,12 +253,11 @@ describe('Container Failure Point Analysis', () => {
       
       const result = await testFailureMode(mode);
       
-      expect(result).toMatchObject({
-        mode: mode.name,
-        timeToFailure: expect.any(Number),
-        recoveryTime: expect.any(Number),
-        impactRadius: expect.any(String) // 'isolated' | 'partial' | 'complete'
-      });
+      assertExists(result.mode);
+      assertEquals(result.mode, mode.name);
+      assertExists(result.timeToFailure);
+      assertExists(result.recoveryTime);
+      assertExists(result.impactRadius);
     }
   });
 });
@@ -324,11 +343,11 @@ class FailurePrediction {
 ```
 
 ### Green Phase (失敗検出と分析の実装)
-```javascript
-// failure-detector.js
-const EventEmitter = require('events');
+```typescript
+// failure-detector.ts
+import { EventEmitter } from "https://deno.land/x/event_emitter@1.0.0/mod.ts";
 
-class FailureDetector extends EventEmitter {
+export class FailureDetector extends EventEmitter {
   constructor(options = {}) {
     super();
     
@@ -471,10 +490,23 @@ class FailureDetector extends EventEmitter {
 }
 
 // システムプローブ実装
-class SystemProbe {
-  constructor(options = {}) {
-    this.pid = options.pid || process.pid;
+export class SystemProbe {
+  private pid: number;
+  private detailed: boolean;
+  
+  constructor(options: { pid?: number; detailed?: boolean } = {}) {
+    this.pid = options.pid || Deno.pid;
     this.detailed = options.detailed || false;
+  }
+  
+  async getMemoryUsage() {
+    const memoryUsage = Deno.memoryUsage();
+    return {
+      heapUsed: memoryUsage.heapUsed,
+      heapTotal: memoryUsage.heapTotal,
+      external: memoryUsage.external,
+      rss: memoryUsage.rss
+    };
   }
   
   async getDetailedMetrics() {
@@ -496,31 +528,31 @@ class SystemProbe {
   }
   
   async getCpuUsage() {
-    const startUsage = process.cpuUsage();
-    const startTime = process.hrtime.bigint();
+    // Denoでは直接的なCPU使用率取得がないため、代替実装
+    const startTime = performance.now();
+    const startMetrics = Deno.metrics();
     
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    const endUsage = process.cpuUsage(startUsage);
-    const endTime = process.hrtime.bigint();
+    const endTime = performance.now();
+    const endMetrics = Deno.metrics();
+    const elapsedTime = endTime - startTime;
     
-    const elapsedTime = Number(endTime - startTime);
-    const elapsedUserTime = endUsage.user;
-    const elapsedSystemTime = endUsage.system;
+    // 簡易的な計算
+    const opsCompleted = endMetrics.opsCompleted - startMetrics.opsCompleted;
+    const approximateCpuUsage = (opsCompleted / elapsedTime) * 100;
     
     return {
-      user: (elapsedUserTime / elapsedTime) * 100,
-      system: (elapsedSystemTime / elapsedTime) * 100,
-      total: ((elapsedUserTime + elapsedSystemTime) / elapsedTime) * 100
+      user: approximateCpuUsage * 0.8,
+      system: approximateCpuUsage * 0.2,
+      total: approximateCpuUsage
     };
   }
   
   async getTcpStats() {
     // /proc/net/tcp の解析（Linux環境）
-    const fs = require('fs').promises;
-    
     try {
-      const tcpData = await fs.readFile('/proc/net/tcp', 'utf8');
+      const tcpData = await Deno.readTextFile('/proc/net/tcp');
       const lines = tcpData.split('\n').slice(1); // ヘッダーをスキップ
       
       const states = {
@@ -562,7 +594,29 @@ class SystemProbe {
 
 ## 実装手順
 
-### 1. 監視インフラストラクチャ
+### 1. Dockerfile
+```dockerfile
+# Dockerfile
+FROM denoland/deno:alpine
+
+WORKDIR /app
+
+# 依存関係のキャッシュ
+ COPY deps.ts .
+RUN deno cache deps.ts
+
+# アプリケーションコードのコピー
+COPY . .
+
+# メインファイルのキャッシュ
+RUN deno cache server.ts
+
+EXPOSE 3000
+
+CMD ["deno", "run", "--allow-net", "--allow-read", "--allow-write", "--allow-env", "--allow-hrtime", "server.ts"]
+```
+
+### 2. 監視インフラストラクチャ
 ```yaml
 # docker-compose.yml
 version: '3.8'
@@ -601,9 +655,9 @@ services:
 ```
 
 ### 2. 失敗注入ツール
-```javascript
-// chaos-injection.js
-class ChaosInjector {
+```typescript
+// chaos-injection.ts
+export class ChaosInjector {
   constructor() {
     this.scenarios = {
       memoryLeak: this.injectMemoryLeak,
@@ -641,7 +695,7 @@ class ChaosInjector {
     const spike = () => {
       while (Date.now() < endTime) {
         // CPU intensive operation
-        crypto.randomBytes(1024);
+        crypto.getRandomValues(new Uint8Array(1024));
         
         // Allow some breathing room based on intensity
         if (Math.random() > intensity) {
@@ -709,18 +763,18 @@ function generateFailureTimeline(events) {
 
 ```bash
 # 1. 通常の失敗テスト
-npm run test:failure-point
+deno test --allow-all test/failure-point.test.ts
 
 # 2. カオステスト
-npm run chaos:memory-leak
-npm run chaos:cpu-spike
-npm run chaos:network-flood
+deno run --allow-all scripts/chaos-memory-leak.ts
+deno run --allow-all scripts/chaos-cpu-spike.ts
+deno run --allow-all scripts/chaos-network-flood.ts
 
 # 3. 分析レポート生成
-npm run analyze:generate-report
+deno run --allow-all scripts/analyze-generate-report.ts
 
 # 4. プロファイリング
-node --inspect --trace-warnings server.js
+deno run --inspect --allow-all server.ts
 ```
 
 ## 成功基準
@@ -760,4 +814,4 @@ node --inspect --trace-warnings server.js
 - [Site Reliability Engineering](https://sre.google/books/)
 - [Chaos Engineering](https://principlesofchaos.org/)
 - [Linux Performance Analysis](http://www.brendangregg.com/linuxperf.html)
-- [Node.js Diagnostics](https://nodejs.org/en/docs/guides/diagnostics/)
+- [Deno Runtime APIs](https://deno.land/api)

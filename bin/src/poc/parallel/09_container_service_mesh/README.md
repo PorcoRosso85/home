@@ -651,6 +651,26 @@ class ServiceMeshControlPlane {
 }
 ```
 
+### Dockerfile
+```dockerfile
+# Dockerfile
+FROM denoland/deno:alpine
+
+WORKDIR /app
+
+# 依存関係のキャッシュ
+COPY deps.ts .
+RUN deno cache deps.ts
+
+# アプリケーションコード
+COPY . .
+RUN deno cache sidecar-proxy.ts control-plane.ts
+
+EXPOSE 3000
+
+CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-hrtime", "sidecar-proxy.ts"]
+```
+
 ### Docker Compose設定
 ```yaml
 # docker-compose.yml

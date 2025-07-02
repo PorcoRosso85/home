@@ -60,17 +60,21 @@ Phase 3の開始として、2台の物理サーバー（またはVM）に手動�
 ## TDDアプローチ
 
 ### Red Phase (2サーバー構成のテスト)
-```javascript
-// test/dual-server-manual.test.js
+```typescript
+// test/dual-server-manual.test.ts
+import { assertEquals, assertExists, assert } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { describe, it, beforeAll } from "https://deno.land/std@0.208.0/testing/bdd.ts";
+import { ServerEnvironment, ClientManager } from "./test-helpers.ts";
+
 describe('Dual Server Manual Split Configuration', () => {
-  let server1, server2;
-  let clients;
+  let server1: ServerEnvironment, server2: ServerEnvironment;
+  let clients: ClientManager;
   
   beforeAll(async () => {
     // 2つのサーバー環境をセットアップ
     server1 = new ServerEnvironment({
       name: 'server-1',
-      host: process.env.SERVER1_HOST || 'localhost:4001',
+      host: Deno.env.get('SERVER1_HOST') || 'localhost:4001',
       dataPartition: 'A-M',
       db: {
         type: 'postgres',
@@ -80,7 +84,7 @@ describe('Dual Server Manual Split Configuration', () => {
     
     server2 = new ServerEnvironment({
       name: 'server-2', 
-      host: process.env.SERVER2_HOST || 'localhost:4002',
+      host: Deno.env.get('SERVER2_HOST') || 'localhost:4002',
       dataPartition: 'N-Z',
       db: {
         type: 'postgres',
@@ -113,12 +117,12 @@ describe('Dual Server Manual Split Configuration', () => {
         path: '/api/profile'
       });
       
-      expect(response.server).toBe(user.expected);
-      expect(response.status).toBe(200);
+      assertEquals(response.server, user.expected);
+      assertEquals(response.status, 200);
       
       // データが正しいサーバーに保存されているか
       const data = await response.json();
-      expect(data.userId).toBe(user.id);
+      assertEquals(data.userId, user.id);
     }
   });
 
@@ -129,7 +133,7 @@ describe('Dual Server Manual Split Configuration', () => {
       path: '/api/user/nancy789/profile'
     });
     
-    expect(crossServerRequest.status).toBe(200);
+    assertEquals(crossServerRequest.status, 200);
     
     // 内部でのサーバー間通信を確認
     const logs = await server1.getLogs({ filter: 'cross-server' });
@@ -137,8 +141,8 @@ describe('Dual Server Manual Split Configuration', () => {
       log.message.includes('Fetching from server-2')
     );
     
-    expect(crossServerCall).toBeDefined();
-    expect(crossServerCall.latency).toBeLessThan(100); // ms
+    assertExists(crossServerCall);
+    assert(crossServerCall.latency < 100); // ms
   });
 
   it('should maintain data consistency', async () => {
@@ -165,8 +169,8 @@ describe('Dual Server Manual Split Configuration', () => {
       server2.query('SELECT * FROM global_settings WHERE key = $1', ['maintenance_mode'])
     ]);
     
-    expect(check1.rows[0].value).toBe(true);
-    expect(check2.rows[0].value).toBe(true);
+    assertEquals(check1.rows[0].value, true);
+    assertEquals(check2.rows[0].value, true);
   });
 
   it('should handle server failure manually', async () => {
@@ -180,7 +184,7 @@ describe('Dual Server Manual Split Configuration', () => {
       timeout: 5000
     });
     
-    expect(failedRequest.status).toBe(503);
+    assertEquals(failedRequest.status, 503);
     
     // 手動フェイルオーバー手順を実行
     const failoverResult = await executeManualFailover({
@@ -189,7 +193,7 @@ describe('Dual Server Manual Split Configuration', () => {
       users: ['A-M']
     });
     
-    expect(failoverResult.success).toBe(true);
+    assertEquals(failoverResult.success, true);
     
     // 再試行（今度はServer2が処理）
     const retryRequest = await clients.request({
@@ -197,8 +201,8 @@ describe('Dual Server Manual Split Configuration', () => {
       path: '/api/profile'
     });
     
-    expect(retryRequest.status).toBe(200);
-    expect(retryRequest.server).toBe('server-2');
+    assertEquals(retryRequest.status, 200);
+    assertEquals(retryRequest.server, 'server-2');
   });
 
   it('should test deployment strategies', async () => {
@@ -215,15 +219,15 @@ describe('Dual Server Manual Split Configuration', () => {
     
     // Server1の新バージョンを確認
     const version1 = await server1.getVersion();
-    expect(version1).toBe(newVersion);
+    assertEquals(version1, newVersion);
     
     // Server2はまだ旧バージョン
     const version2 = await server2.getVersion();
-    expect(version2).not.toBe(newVersion);
+    assert(version2 !== newVersion);
     
     // この時点でのサービス可用性を確認
     const availability = await measureAvailability(60000); // 1分間
-    expect(availability).toBeGreaterThan(0.99); // 99%以上
+    assert(availability > 0.99); // 99%以上
     
     // ステップ2: Server2をデプロイ
     await deployment.deployToServer(server2, {
@@ -232,7 +236,7 @@ describe('Dual Server Manual Split Configuration', () => {
     });
     
     // 両方新バージョンに
-    expect(await server2.getVersion()).toBe(newVersion);
+    assertEquals(await server2.getVersion(), newVersion);
   });
 
   it('should aggregate metrics from both servers', async () => {
@@ -256,14 +260,14 @@ describe('Dual Server Manual Split Configuration', () => {
       totalErrors: metrics.server1.errors + metrics.server2.errors
     };
     
-    expect(aggregated.totalRequests).toBeGreaterThan(2500);
-    expect(aggregated.avgLatency).toBeLessThan(100);
-    expect(aggregated.totalErrors / aggregated.totalRequests).toBeLessThan(0.01);
+    assert(aggregated.totalRequests > 2500);
+    assert(aggregated.avgLatency < 100);
+    assert(aggregated.totalErrors / aggregated.totalRequests < 0.01);
     
     // 負荷分散の均等性
     const distribution = metrics.server1.requests / aggregated.totalRequests;
-    expect(distribution).toBeGreaterThan(0.45);
-    expect(distribution).toBeLessThan(0.55);
+    assert(distribution > 0.45);
+    assert(distribution < 0.55);
   });
 });
 
@@ -325,23 +329,31 @@ describe('Manual Failover Procedures', () => {
       }
     }
     
-    expect(results.every(r => r.success)).toBe(true);
+    assert(results.every(r => r.success));
   });
 });
 ```
 
 ### Green Phase (2サーバー構成の実装)
-```javascript
-// dual-server-app.js
-const express = require('express');
-const { Pool } = require('pg');
-const axios = require('axios');
+```typescript
+// dual-server-app.ts
+import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
+import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 
 class DualServerApplication {
-  constructor(config) {
+  private config: any;
+  private app: Application;
+  private router: Router;
+  private pool: Pool;
+  private partitionKey: string;
+  private peerServer: string;
+  private peerHealthy: boolean = true;
+  
+  constructor(config: any) {
     this.config = config;
-    this.app = express();
-    this.pool = new Pool(config.database);
+    this.app = new Application();
+    this.router = new Router();
+    this.pool = new Pool(config.database, 3);
     this.partitionKey = config.partitionKey;
     this.peerServer = config.peerServer;
     
@@ -350,43 +362,43 @@ class DualServerApplication {
   }
   
   setupRoutes() {
-    this.app.use(express.json());
-    
     // ルーティングミドルウェア
-    this.app.use((req, res, next) => {
-      const userId = req.headers['x-user-id'] || req.query.userId;
+    this.router.use(async (ctx, next) => {
+      const userId = ctx.request.headers.get('x-user-id') || ctx.request.url.searchParams.get('userId');
       
       if (userId && !this.isMyPartition(userId)) {
         // 間違ったサーバーへのリクエスト
-        res.status(421).json({
+        ctx.response.status = 421;
+        ctx.response.body = {
           error: 'Misdirected Request',
           correctServer: this.getCorrectServer(userId),
           hint: 'Client should redirect to correct server'
-        });
+        };
         return;
       }
       
-      req.userId = userId;
-      next();
+      ctx.state.userId = userId;
+      await next();
     });
     
     // ユーザープロファイル
-    this.app.get('/api/profile', async (req, res) => {
+    this.router.get('/api/profile', async (ctx) => {
       try {
-        const profile = await this.getUserProfile(req.userId);
-        res.json({
+        const profile = await this.getUserProfile(ctx.state.userId);
+        ctx.response.body = {
           ...profile,
           server: this.config.name,
           partition: this.config.partitionKey
-        });
+        };
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        ctx.response.status = 500;
+        ctx.response.body = { error: error.message };
       }
     });
     
     // クロスサーバークエリ
-    this.app.get('/api/user/:targetUserId/profile', async (req, res) => {
-      const { targetUserId } = req.params;
+    this.router.get('/api/user/:targetUserId/profile', async (ctx) => {
+      const { targetUserId } = ctx.params;
       
       if (!this.isMyPartition(targetUserId)) {
         // 他のサーバーから取得
@@ -396,27 +408,29 @@ class DualServerApplication {
             { userId: targetUserId }
           );
           
-          res.json({
-            ...response.data,
-            fetched_from: response.data.server,
-            requested_by: req.userId
-          });
+          ctx.response.body = {
+            ...response,
+            fetched_from: response.server,
+            requested_by: ctx.state.userId
+          };
         } catch (error) {
-          res.status(500).json({
+          ctx.response.status = 500;
+          ctx.response.body = {
             error: 'Cross-server query failed',
             details: error.message
-          });
+          };
         }
       } else {
         // ローカルで処理
         const profile = await this.getUserProfile(targetUserId);
-        res.json(profile);
+        ctx.response.body = profile;
       }
     });
     
     // グローバル設定（同期が必要）
-    this.app.put('/api/global-settings', async (req, res) => {
-      const { setting, value } = req.body;
+    this.router.put('/api/global-settings', async (ctx) => {
+      const body = await ctx.request.body({ type: 'json' }).value;
+      const { setting, value } = body;
       
       try {
         // ローカルDBに保存
@@ -429,15 +443,17 @@ class DualServerApplication {
         this.syncToPeer('/api/sync/global-settings', { setting, value })
           .catch(err => console.error('Sync failed:', err));
         
-        res.json({ success: true, server: this.config.name });
+        ctx.response.body = { success: true, server: this.config.name };
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        ctx.response.status = 500;
+        ctx.response.body = { error: error.message };
       }
     });
     
     // 同期エンドポイント
-    this.app.post('/api/sync/global-settings', async (req, res) => {
-      const { setting, value } = req.body;
+    this.router.post('/api/sync/global-settings', async (ctx) => {
+      const body = await ctx.request.body({ type: 'json' }).value;
+      const { setting, value } = body;
       
       try {
         await this.pool.query(
@@ -445,26 +461,30 @@ class DualServerApplication {
           [setting, value]
         );
         
-        res.json({ success: true });
+        ctx.response.body = { success: true };
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        ctx.response.status = 500;
+        ctx.response.body = { error: error.message };
       }
     });
     
     // メトリクスエンドポイント
-    this.app.get('/api/metrics', async (req, res) => {
+    this.router.get('/api/metrics', async (ctx) => {
       const metrics = await this.collectMetrics();
-      res.json({
+      ctx.response.body = {
         server: this.config.name,
         partition: this.config.partitionKey,
         ...metrics
-      });
+      };
     });
+    
+    this.app.use(this.router.routes());
+    this.app.use(this.router.allowedMethods());
   }
   
   setupHealthChecks() {
     // 自己ヘルスチェック
-    this.app.get('/health', async (req, res) => {
+    this.router.get('/health', async (ctx) => {
       try {
         // DB接続確認
         await this.pool.query('SELECT 1');
@@ -472,37 +492,40 @@ class DualServerApplication {
         // ピアサーバー接続確認
         let peerStatus = 'unknown';
         try {
-          const peerHealth = await axios.get(`${this.peerServer}/health`, {
-            timeout: 2000
+          const peerHealth = await fetch(`${this.peerServer}/health`, {
+            signal: AbortSignal.timeout(2000)
           });
-          peerStatus = peerHealth.data.status;
+          const data = await peerHealth.json();
+          peerStatus = data.status;
         } catch (e) {
           peerStatus = 'unreachable';
         }
         
-        res.json({
+        ctx.response.body = {
           status: 'healthy',
           server: this.config.name,
           database: 'connected',
           peer: peerStatus,
-          uptime: process.uptime()
-        });
+          uptime: performance.now() / 1000
+        };
       } catch (error) {
-        res.status(503).json({
+        ctx.response.status = 503;
+        ctx.response.body = {
           status: 'unhealthy',
           error: error.message
-        });
+        };
       }
     });
     
     // 相互ヘルスチェック
     setInterval(async () => {
       try {
-        const health = await axios.get(`${this.peerServer}/health`, {
-          timeout: 5000
+        const health = await fetch(`${this.peerServer}/health`, {
+          signal: AbortSignal.timeout(5000)
         });
+        const data = await health.json();
         
-        this.peerHealthy = health.data.status === 'healthy';
+        this.peerHealthy = data.status === 'healthy';
       } catch (error) {
         this.peerHealthy = false;
         console.error('Peer health check failed:', error.message);
@@ -510,7 +533,7 @@ class DualServerApplication {
     }, 10000); // 10秒ごと
   }
   
-  isMyPartition(userId) {
+  isMyPartition(userId: string): boolean {
     const firstChar = userId[0].toUpperCase();
     
     if (this.config.partitionKey === 'A-M') {
@@ -522,115 +545,135 @@ class DualServerApplication {
     return false;
   }
   
-  getCorrectServer(userId) {
+  getCorrectServer(userId: string): string {
     return this.isMyPartition(userId) ? this.config.name : this.peerServer;
   }
   
-  async getUserProfile(userId) {
-    const result = await this.pool.query(
-      'SELECT * FROM users WHERE user_id = $1',
-      [userId]
-    );
-    
-    if (result.rows.length === 0) {
-      // 新規ユーザーの作成
-      const insertResult = await this.pool.query(
-        'INSERT INTO users (user_id, created_at) VALUES ($1, NOW()) RETURNING *',
+  async getUserProfile(userId: string) {
+    const client = await this.pool.connect();
+    try {
+      const result = await client.queryObject(
+        'SELECT * FROM users WHERE user_id = $1',
         [userId]
       );
-      return insertResult.rows[0];
-    }
     
-    return result.rows[0];
+      if (result.rows.length === 0) {
+        // 新規ユーザーの作成
+        const insertResult = await client.queryObject(
+          'INSERT INTO users (user_id, created_at) VALUES ($1, NOW()) RETURNING *',
+          [userId]
+        );
+        return insertResult.rows[0];
+      }
+      
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
   }
   
-  async queryPeerServer(path, params) {
+  async queryPeerServer(path: string, params: any) {
     console.log(`Cross-server query to ${this.peerServer}${path}`);
     
-    const response = await axios.get(`${this.peerServer}${path}`, {
-      params,
+    const url = new URL(`${this.peerServer}${path}`);
+    Object.keys(params).forEach(key => url.searchParams.set(key, params[key]));
+    
+    const response = await fetch(url, {
       headers: {
         'X-User-Id': params.userId,
         'X-Requesting-Server': this.config.name
       },
-      timeout: 5000
+      signal: AbortSignal.timeout(5000)
     });
     
-    return response;
+    return await response.json();
   }
   
-  async syncToPeer(path, data) {
+  async syncToPeer(path: string, data: any) {
     if (!this.peerHealthy) {
       console.warn('Peer is unhealthy, queuing sync operation');
       await this.queueSyncOperation(path, data);
       return;
     }
     
-    await axios.post(`${this.peerServer}${path}`, data, {
+    await fetch(`${this.peerServer}${path}`, {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'X-Sync-From': this.config.name
       },
-      timeout: 5000
+      body: JSON.stringify(data),
+      signal: AbortSignal.timeout(5000)
     });
   }
   
-  async queueSyncOperation(path, data) {
+  async queueSyncOperation(path: string, data: any) {
     // 同期キューに保存（後でリトライ）
-    await this.pool.query(
-      'INSERT INTO sync_queue (path, data, created_at) VALUES ($1, $2, NOW())',
-      [path, JSON.stringify(data)]
-    );
+    const client = await this.pool.connect();
+    try {
+      await client.queryObject(
+        'INSERT INTO sync_queue (path, data, created_at) VALUES ($1, $2, NOW())',
+        [path, JSON.stringify(data)]
+      );
+    } finally {
+      client.release();
+    }
   }
   
   async collectMetrics() {
-    const result = await this.pool.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM users) as total_users,
-        (SELECT COUNT(*) FROM global_settings) as total_settings,
-        (SELECT COUNT(*) FROM sync_queue WHERE processed = false) as pending_syncs
-    `);
-    
-    return {
-      ...result.rows[0],
-      connections: {
-        active: this.pool.totalCount,
-        idle: this.pool.idleCount,
-        waiting: this.pool.waitingCount
-      }
-    };
+    const client = await this.pool.connect();
+    try {
+      const result = await client.queryObject(`
+        SELECT 
+          (SELECT COUNT(*) FROM users) as total_users,
+          (SELECT COUNT(*) FROM global_settings) as total_settings,
+          (SELECT COUNT(*) FROM sync_queue WHERE processed = false) as pending_syncs
+      `);
+      
+      return {
+        ...result.rows[0],
+        connections: {
+          active: this.pool.size,
+          idle: this.pool.available,
+          waiting: 0
+        }
+      };
+    } finally {
+      client.release();
+    }
   }
   
-  start() {
+  async start() {
     const port = this.config.port || 3000;
     
-    this.app.listen(port, () => {
-      console.log(`Server ${this.config.name} (${this.config.partitionKey}) listening on port ${port}`);
-      console.log(`Peer server: ${this.peerServer}`);
-    });
+    console.log(`Server ${this.config.name} (${this.config.partitionKey}) listening on port ${port}`);
+    console.log(`Peer server: ${this.peerServer}`);
+    
+    await this.app.listen({ port });
   }
 }
 
 // 起動スクリプト
-if (require.main === module) {
+if (import.meta.main) {
   const config = {
-    name: process.env.SERVER_NAME || 'server-1',
-    port: process.env.PORT || 3001,
-    partitionKey: process.env.PARTITION_KEY || 'A-M',
-    peerServer: process.env.PEER_SERVER || 'http://localhost:3002',
+    name: Deno.env.get('SERVER_NAME') || 'server-1',
+    port: parseInt(Deno.env.get('PORT') || '3001'),
+    partitionKey: Deno.env.get('PARTITION_KEY') || 'A-M',
+    peerServer: Deno.env.get('PEER_SERVER') || 'http://localhost:3002',
     database: {
-      host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 5432,
-      database: process.env.DB_NAME || 'server1_db',
-      user: process.env.DB_USER || 'dbuser',
-      password: process.env.DB_PASSWORD || 'dbpass'
+      hostname: Deno.env.get('DB_HOST') || 'localhost',
+      port: parseInt(Deno.env.get('DB_PORT') || '5432'),
+      database: Deno.env.get('DB_NAME') || 'server1_db',
+      user: Deno.env.get('DB_USER') || 'dbuser',
+      password: Deno.env.get('DB_PASSWORD') || 'dbpass'
     }
   };
   
   const server = new DualServerApplication(config);
-  server.start();
+  await server.start();
 }
 
-module.exports = DualServerApplication;
+export { DualServerApplication };
 ```
 
 ### デプロイメント設定
@@ -640,7 +683,11 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read dual-server-app.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     ports:
       - "4001:3000"
     environment:
@@ -672,7 +719,11 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read dual-server-app.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     ports:
       - "4002:3000"
     environment:

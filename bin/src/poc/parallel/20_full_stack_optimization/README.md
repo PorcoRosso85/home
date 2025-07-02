@@ -62,9 +62,9 @@
 ## 最適化レイヤー
 
 ### 1. フロントエンド最適化
-```javascript
-// cdn-config.js
-module.exports = {
+```typescript
+// cdn-config.ts
+export default {
   // 静的アセットのCDN配信
   cdn: {
     provider: 'cloudflare',
@@ -110,8 +110,8 @@ module.exports = {
 ```
 
 ### 2. アプリケーション層最適化
-```javascript
-// app-optimization.js
+```typescript
+// app-optimization.ts
 class OptimizedApp {
   constructor() {
     // コネクションプーリング
@@ -140,7 +140,7 @@ class OptimizedApp {
     });
   }
   
-  async handleRequest(req, res) {
+  async handleRequest(req: any, res: any) {
     // 1. レート制限チェック
     if (!await this.rateLimiter.check(req)) {
       return res.status(429).send('Too Many Requests');
@@ -165,7 +165,7 @@ class OptimizedApp {
     }
   }
   
-  async getFromCache(key) {
+  async getFromCache(key: string) {
     // L1キャッシュ確認
     let value = this.l1Cache.get(key);
     if (value) return value;
@@ -181,7 +181,7 @@ class OptimizedApp {
     return null;
   }
   
-  async cacheResponse(key, value) {
+  async cacheResponse(key: string, value: any) {
     // 両レベルにキャッシュ
     this.l1Cache.set(key, value);
     await this.l2Cache.setex(key, 3600, JSON.stringify(value));
@@ -190,8 +190,8 @@ class OptimizedApp {
 ```
 
 ### 3. データベース層最適化
-```javascript
-// db-optimization.js
+```typescript
+// db-optimization.ts
 class OptimizedDatabase {
   constructor() {
     // 読み書き分離
@@ -205,7 +205,7 @@ class OptimizedDatabase {
     this.preparedStatements = new Map();
   }
   
-  async query(sql, params, options = {}) {
+  async query(sql: string, params: any[], options: any = {}) {
     // 1. クエリ最適化
     const optimizedSql = this.optimizeQuery(sql);
     
@@ -236,7 +236,7 @@ class OptimizedDatabase {
     return result;
   }
   
-  optimizeQuery(sql) {
+  optimizeQuery(sql: string) {
     // インデックスヒントの追加
     if (sql.includes('WHERE user_id')) {
       sql = sql.replace('FROM users', 'FROM users USE INDEX (idx_user_id)');
@@ -250,7 +250,7 @@ class OptimizedDatabase {
     return sql;
   }
   
-  async getPreparedStatement(db, sql) {
+  async getPreparedStatement(db: any, sql: string) {
     const key = `${db.id}:${sql}`;
     
     if (!this.preparedStatements.has(key)) {
@@ -264,8 +264,8 @@ class OptimizedDatabase {
 ```
 
 ### 4. 自動スケーリング
-```javascript
-// auto-scaling.js
+```typescript
+// auto-scaling.ts
 class AutoScaler {
   constructor() {
     this.metrics = new MetricsCollector();
@@ -297,7 +297,7 @@ class AutoScaler {
     }
   }
   
-  makeScalingDecision(current, predicted) {
+  makeScalingDecision(current: any, predicted: any) {
     // CPUベース
     if (current.cpu > 80 || predicted.cpu > 80) {
       return { action: 'scale-up', replicas: 2 };
@@ -321,7 +321,7 @@ class AutoScaler {
     return { action: 'none' };
   }
   
-  async executeScaling(decision) {
+  async executeScaling(decision: any) {
     switch (decision.action) {
       case 'scale-up':
         await this.kubernetes.scale('app', {
@@ -349,8 +349,8 @@ class AutoScaler {
 ## パフォーマンステスト
 
 ### 統合負荷テスト
-```javascript
-// load-test.js
+```typescript
+// load-test.ts
 async function runComprehensiveLoadTest() {
   const scenarios = [
     {
@@ -413,8 +413,8 @@ async function runComprehensiveLoadTest() {
 ```
 
 ### ボトルネック分析
-```javascript
-// bottleneck-analysis.js
+```typescript
+// bottleneck-analysis.ts
 class BottleneckAnalyzer {
   async analyze() {
     const metrics = await this.collectMetrics();
@@ -489,8 +489,8 @@ class BottleneckAnalyzer {
 
 ## モニタリングダッシュボード
 
-```javascript
-// monitoring-dashboard.js
+```typescript
+// monitoring-dashboard.ts
 class Dashboard {
   constructor() {
     this.panels = [

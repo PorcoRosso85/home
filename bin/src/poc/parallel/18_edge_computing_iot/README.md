@@ -887,7 +887,7 @@ class MQTTDevice {
     // JWT token generation for device authentication
     return jwt.sign(
       { deviceId: this.id, type: this.type },
-      process.env.DEVICE_SECRET,
+      Deno.env.get('DEVICE_SECRET'),
       { expiresIn: '24h' }
     );
   }

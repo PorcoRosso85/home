@@ -66,21 +66,23 @@ Container B: READ counter (100) → INCREMENT → WRITE (101)
 ## TDDアプローチ
 
 ### Red Phase (問題を露呈するテスト)
-```javascript
-// test/sqlite-antipattern.test.js
-describe('SQLite Shared File DB Anti-Pattern', () => {
-  let containers;
-  let dbPath;
+```typescript
+// test/sqlite-antipattern.test.ts
+import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { setupContainers } from "../src/test-utils.ts";
+
+Deno.test("SQLite Shared File DB Anti-Pattern", async (t) => {
+  let containers: any;
+  let dbPath: string;
   
-  beforeAll(async () => {
-    dbPath = '/shared/test.db';
-    containers = await setupContainers(4, {
-      dbType: 'sqlite',
-      dbPath: dbPath
-    });
+  // Setup
+  dbPath = '/shared/test.db';
+  containers = await setupContainers(4, {
+    dbType: 'sqlite',
+    dbPath: dbPath
   });
 
-  it('should demonstrate SQLITE_BUSY errors', async () => {
+  await t.step("should demonstrate SQLITE_BUSY errors", async () => {
     const results = {
       success: 0,
       busy: 0,
@@ -117,13 +119,13 @@ describe('SQLite Shared File DB Anti-Pattern', () => {
     await Promise.all(promises);
     
     // 大量のBUSYエラーが発生することを確認
-    expect(results.busy).toBeGreaterThan(30);
-    expect(results.success).toBeLessThan(70);
+    assertEquals(results.busy > 30, true);
+    assertEquals(results.success < 70, true);
     
     console.log('Error distribution:', results);
   });
 
-  it('should demonstrate lost updates', async () => {
+  await t.step("should demonstrate lost updates", async () => {
     // カウンターをリセット
     await resetCounter(dbPath, 'test_counter', 0);
     
@@ -145,13 +147,13 @@ describe('SQLite Shared File DB Anti-Pattern', () => {
     const finalValue = await getCounterValue(dbPath, 'test_counter');
     
     // Lost updateにより100未満になることを確認
-    expect(finalValue).toBeLessThan(100);
-    expect(finalValue).toBeGreaterThan(50); // 完全な失敗ではない
+    assertEquals(finalValue < 100, true);
+    assertEquals(finalValue > 50, true); // 完全な失敗ではない
     
     console.log(`Expected: 100, Actual: ${finalValue}, Lost: ${100 - finalValue}`);
   });
 
-  it('should measure lock wait times', async () => {
+  await t.step("should measure lock wait times", async () => {
     const waitTimes = [];
     
     // 長時間のトランザクションを開始
@@ -182,11 +184,11 @@ describe('SQLite Shared File DB Anti-Pattern', () => {
     const avgWaitTime = waitTimes.reduce((a, b) => a + b) / waitTimes.length;
     const maxWaitTime = Math.max(...waitTimes);
     
-    expect(avgWaitTime).toBeGreaterThan(2000); // 平均2秒以上の待機
-    expect(maxWaitTime).toBeGreaterThan(5000); // 最大5秒以上
+    assertEquals(avgWaitTime > 2000, true); // 平均2秒以上の待機
+    assertEquals(maxWaitTime > 5000, true); // 最大5秒以上
   });
 
-  it('should compare WAL mode performance', async () => {
+  await t.step("should compare WAL mode performance", async () => {
     const modes = ['DELETE', 'WAL'];
     const results = {};
     
@@ -211,14 +213,14 @@ describe('SQLite Shared File DB Anti-Pattern', () => {
     }
     
     // WALモードの方が若干良いが、根本解決にはならない
-    expect(results.WAL.success).toBeGreaterThan(results.DELETE.success);
-    expect(results.WAL.duration).toBeLessThan(results.DELETE.duration * 0.8);
+    assertEquals(results.WAL.success > results.DELETE.success, true);
+    assertEquals(results.WAL.duration < results.DELETE.duration * 0.8, true);
     
     // それでも失敗は発生する
-    expect(results.WAL.failed).toBeGreaterThan(5);
+    assertEquals(results.WAL.failed > 5, true);
   });
 
-  it('should test database corruption risk', async () => {
+  await t.step("should test database corruption risk", async () => {
     // 警告: このテストは実際にDBを破損させる可能性がある
     
     // 複数の同時書き込みトランザクション
@@ -237,7 +239,7 @@ describe('SQLite Shared File DB Anti-Pattern', () => {
     
     // 整合性チェック
     const beforeIntegrity = await checkIntegrity(dbPath);
-    expect(beforeIntegrity).toBe('ok');
+    assertEquals(beforeIntegrity, 'ok');
     
     // 破損テスト実行
     await corruptionTest();
@@ -251,8 +253,8 @@ describe('SQLite Shared File DB Anti-Pattern', () => {
 });
 
 // エラー率の測定
-describe('Error Rate Analysis', () => {
-  it('should measure error rate vs load', async () => {
+Deno.test("Error Rate Analysis", async (t) => {
+  await t.step("should measure error rate vs load", async () => {
     const loadLevels = [10, 50, 100, 200, 500];
     const results = [];
     
@@ -267,7 +269,7 @@ describe('Error Rate Analysis', () => {
     
     // エラー率が負荷に比例して増加
     for (let i = 1; i < results.length; i++) {
-      expect(results[i].errorRate).toBeGreaterThan(results[i-1].errorRate);
+      assertEquals(results[i].errorRate > results[i-1].errorRate, true);
     }
     
     // グラフ用データ出力
@@ -277,39 +279,35 @@ describe('Error Rate Analysis', () => {
 ```
 
 ### Green Phase (問題を緩和する実装)
-```javascript
-// sqlite-app.js
-const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
+```typescript
+// sqlite-app.ts
+import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
+import { DB } from "https://deno.land/x/sqlite@v3.7.0/mod.ts";
 
-const app = express();
-app.use(express.json());
+const app = new Application();
+const router = new Router();
 
 // SQLite接続設定
-let db;
+let db: DB;
 
 async function initDB() {
-  db = await open({
-    filename: process.env.DB_PATH || '/shared/app.db',
-    driver: sqlite3.Database
-  });
+  db = new DB(Deno.env.get("DB_PATH") || '/shared/app.db');
   
   // WALモードを有効化（若干の改善）
-  await db.run('PRAGMA journal_mode = WAL');
+  db.execute('PRAGMA journal_mode = WAL');
   
   // ビジータイムアウトを設定
-  await db.run('PRAGMA busy_timeout = 5000');
+  db.execute('PRAGMA busy_timeout = 5000');
   
   // 初期テーブル作成
-  await db.run(`
+  db.execute(`
     CREATE TABLE IF NOT EXISTS counters (
       key TEXT PRIMARY KEY,
       value INTEGER DEFAULT 0
     )
   `);
   
-  await db.run(`
+  db.execute(`
     CREATE TABLE IF NOT EXISTS data (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       content TEXT,
@@ -319,16 +317,16 @@ async function initDB() {
 }
 
 // リトライ機能付きクエリ実行
-async function executeWithRetry(query, params = [], maxRetries = 3) {
-  let lastError;
+async function executeWithRetry<T>(operation: () => T, maxRetries = 3): Promise<T> {
+  let lastError: Error;
   
   for (let i = 0; i < maxRetries; i++) {
     try {
-      return await query(...params);
+      return operation();
     } catch (error) {
       lastError = error;
       
-      if (error.code === 'SQLITE_BUSY') {
+      if (error.message.includes('SQLITE_BUSY')) {
         // 指数バックオフ
         const delay = Math.min(1000 * Math.pow(2, i), 5000);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -339,150 +337,182 @@ async function executeWithRetry(query, params = [], maxRetries = 3) {
     }
   }
   
-  throw lastError;
+  throw lastError!;
 }
 
 // インクリメントAPI（Lost Update問題の実証）
-app.post('/api/increment', async (req, res) => {
-  const { key } = req.body;
+router.post('/api/increment', async (ctx) => {
+  const body = await ctx.request.body({ type: 'json' }).value;
+  const { key } = body;
   
   try {
     // トランザクション内で実行
     await executeWithRetry(async () => {
-      await db.run('BEGIN EXCLUSIVE');
+      db.execute('BEGIN EXCLUSIVE');
       
       try {
-        const row = await db.get('SELECT value FROM counters WHERE key = ?', key);
-        const currentValue = row ? row.value : 0;
+        const rows = db.query('SELECT value FROM counters WHERE key = ?', [key]);
+        const currentValue = rows.length > 0 ? rows[0][0] as number : 0;
         
         // 意図的な遅延（競合状態を発生させやすくする）
         await new Promise(resolve => setTimeout(resolve, 10));
         
-        await db.run(
+        db.execute(
           'INSERT OR REPLACE INTO counters (key, value) VALUES (?, ?)',
-          key, currentValue + 1
+          [key, currentValue + 1]
         );
         
-        await db.run('COMMIT');
+        db.execute('COMMIT');
         
-        res.json({ success: true, value: currentValue + 1 });
+        ctx.response.body = { success: true, value: currentValue + 1 };
       } catch (error) {
-        await db.run('ROLLBACK');
+        db.execute('ROLLBACK');
         throw error;
       }
     });
   } catch (error) {
     console.error('Increment error:', error);
     
-    if (error.code === 'SQLITE_BUSY') {
-      res.status(503).json({
+    if (error.message.includes('SQLITE_BUSY')) {
+      ctx.response.status = 503;
+      ctx.response.body = {
         error: 'Database is busy',
         code: 'SQLITE_BUSY',
-        container: process.env.CONTAINER_ID
-      });
+        container: Deno.env.get("CONTAINER_ID")
+      };
     } else {
-      res.status(500).json({
+      ctx.response.status = 500;
+      ctx.response.body = {
         error: error.message,
         code: error.code
-      });
+      };
     }
   }
 });
 
 // 書き込みAPI
-app.post('/api/write', async (req, res) => {
-  const { data } = req.body;
+router.post('/api/write', async (ctx) => {
+  const body = await ctx.request.body({ type: 'json' }).value;
+  const { data } = body;
   const startTime = Date.now();
   
   try {
     const result = await executeWithRetry(
-      () => db.run('INSERT INTO data (content) VALUES (?)', data)
+      () => db.execute('INSERT INTO data (content) VALUES (?)', [data])
     );
     
     const duration = Date.now() - startTime;
     
-    res.json({
+    ctx.response.body = {
       success: true,
-      id: result.lastID,
+      id: db.lastInsertRowId,
       duration,
-      container: process.env.CONTAINER_ID
-    });
+      container: Deno.env.get("CONTAINER_ID")
+    };
   } catch (error) {
     const duration = Date.now() - startTime;
     
-    res.status(503).json({
+    ctx.response.status = 503;
+    ctx.response.body = {
       error: error.message,
       code: error.code,
       duration,
-      container: process.env.CONTAINER_ID
-    });
+      container: Deno.env.get("CONTAINER_ID")
+    };
   }
 });
 
 // ヘルスチェック（DB接続確認を含む）
-app.get('/health', async (req, res) => {
+router.get('/health', (ctx) => {
   try {
     // 読み取りクエリでDB接続を確認
-    await db.get('SELECT 1');
+    db.query('SELECT 1');
     
-    res.json({
+    ctx.response.body = {
       status: 'healthy',
-      container: process.env.CONTAINER_ID,
-      dbPath: process.env.DB_PATH
-    });
+      container: Deno.env.get("CONTAINER_ID"),
+      dbPath: Deno.env.get("DB_PATH")
+    };
   } catch (error) {
-    res.status(503).json({
+    ctx.response.status = 503;
+    ctx.response.body = {
       status: 'unhealthy',
       error: error.message
-    });
+    };
   }
 });
 
 // メトリクス
-app.get('/metrics', async (req, res) => {
+router.get('/metrics', (ctx) => {
   try {
-    const stats = await db.get(`
+    const stats = db.query(`
       SELECT 
         (SELECT COUNT(*) FROM data) as total_records,
         (SELECT COUNT(*) FROM counters) as total_counters
     `);
     
-    res.json({
-      container: process.env.CONTAINER_ID,
-      database: stats,
-      uptime: process.uptime()
-    });
+    ctx.response.body = {
+      container: Deno.env.get("CONTAINER_ID"),
+      database: {
+        total_records: stats[0][0],
+        total_counters: stats[0][1]
+      },
+      uptime: performance.now() / 1000
+    };
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    ctx.response.status = 500;
+    ctx.response.body = { error: error.message };
   }
 });
 
 // サーバー起動
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(Deno.env.get("PORT") || "3000");
 
-initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Container ${process.env.CONTAINER_ID} listening on port ${PORT}`);
-    console.log(`Using SQLite database at: ${process.env.DB_PATH}`);
-  });
+app.use(router.routes());
+app.use(router.allowedMethods());
+
+initDB().then(async () => {
+  console.log(`Container ${Deno.env.get("CONTAINER_ID")} listening on port ${PORT}`);
+  console.log(`Using SQLite database at: ${Deno.env.get("DB_PATH")}`);
+  await app.listen({ port: PORT });
 }).catch(error => {
   console.error('Failed to initialize database:', error);
-  process.exit(1);
+  Deno.exit(1);
 });
 
 // グレースフルシャットダウン
-process.on('SIGTERM', async () => {
+Deno.addSignalListener("SIGTERM", () => {
   console.log('SIGTERM received, closing database...');
   
   try {
-    await db.close();
+    db.close();
     console.log('Database closed successfully');
   } catch (error) {
     console.error('Error closing database:', error);
   }
   
-  process.exit(0);
+  Deno.exit(0);
 });
+```
+
+### Dockerfile
+```dockerfile
+# Dockerfile
+FROM denoland/deno:alpine
+
+WORKDIR /app
+
+# 依存関係のキャッシュ
+COPY deps.ts .
+RUN deno cache deps.ts
+
+# アプリケーションコード
+COPY . .
+RUN deno cache sqlite-app.ts
+
+EXPOSE 3000
+
+CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "--allow-write", "--unstable", "sqlite-app.ts"]
 ```
 
 ### Docker Compose設定
@@ -577,13 +607,13 @@ docker run --rm -v sqlite-data:/data alpine ls -la /data/
 ### 2. 問題の再現
 ```bash
 # 同時書き込みテスト
-npm run test:concurrent-writes
+deno run --allow-all scripts/test-concurrent-writes.ts
 
 # エラー率の測定
-npm run test:error-rates
+deno run --allow-all scripts/test-error-rates.ts
 
 # パフォーマンス劣化の確認
-npm run test:performance-degradation
+deno run --allow-all scripts/test-performance-degradation.ts
 ```
 
 ### 3. ログ分析

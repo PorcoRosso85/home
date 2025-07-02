@@ -48,7 +48,7 @@
 
 ### 1. Write-Through (同期書き込み)
 ```javascript
-async function writeThrough(key, value) {
+async function writeThrough(key: string, value: any) {
   try {
     // 1. DBに書き込み
     await db.query('UPDATE data SET value = $1 WHERE key = $2', [value, key]);
@@ -67,7 +67,7 @@ async function writeThrough(key, value) {
 
 ### 2. Write-Behind (非同期書き込み)
 ```javascript
-async function writeBehind(key, value) {
+async function writeBehind(key: string, value: any) {
   // 1. キャッシュに即座に書き込み
   await redis.set(key, value, 'EX', 3600);
   
@@ -94,7 +94,7 @@ async function processQueue() {
 
 ### 3. Cache-Aside (遅延読み込み)
 ```javascript
-async function cacheAside(key) {
+async function cacheAside(key: string) {
   // 1. キャッシュから読み取り
   let value = await redis.get(key);
   
@@ -118,12 +118,15 @@ async function cacheAside(key) {
 
 ### Red Phase (問題を露呈するテスト)
 ```javascript
-// test/cache-consistency.test.js
+// test/cache-consistency.test.ts
+import { assertEquals, assert, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { describe, it, beforeAll } from "https://deno.land/std@0.208.0/testing/bdd.ts";
+
 describe('Cache and DB Consistency Issues', () => {
   it('should demonstrate write-through failure', async () => {
     // DB成功、キャッシュ失敗のシミュレーション
     const mockRedis = {
-      set: jest.fn().mockRejectedValue(new Error('Redis connection failed'))
+      set: () => Promise.reject(new Error('Redis connection failed'))
     };
     
     const result = await writeThrough('user:1', { balance: 1000 });
@@ -132,9 +135,9 @@ describe('Cache and DB Consistency Issues', () => {
     const dbValue = await db.query('SELECT * FROM users WHERE id = 1');
     const cacheValue = await redis.get('user:1');
     
-    expect(dbValue.rows[0].balance).toBe(1000);
-    expect(cacheValue).toBeNull(); // または古い値
-    expect(dbValue.rows[0].balance).not.toEqual(cacheValue);
+    assertEquals(dbValue.rows[0].balance, 1000);
+    assertEquals(cacheValue, null); // または古い値
+    assert(dbValue.rows[0].balance !== cacheValue);
   });
 
   it('should demonstrate write-behind data loss', async () => {
@@ -143,14 +146,14 @@ describe('Cache and DB Consistency Issues', () => {
     
     // キャッシュには存在
     const cacheValue = await redis.get('order:123');
-    expect(cacheValue.status).toBe('confirmed');
+    assertEquals(cacheValue.status, 'confirmed');
     
     // サーバークラッシュをシミュレート
     await simulateServerCrash();
     
     // DB確認 - データが失われている
     const dbValue = await db.query('SELECT * FROM orders WHERE id = 123');
-    expect(dbValue.rows.length).toBe(0);
+    assertEquals(dbValue.rows.length, 0);
   });
 
   it('should demonstrate cache invalidation race condition', async () => {
@@ -170,7 +173,7 @@ describe('Cache and DB Consistency Issues', () => {
     
     // DBとキャッシュで異なる値の可能性
     console.log('DB:', dbValue.rows[0].price, 'Cache:', cacheValue.price);
-    expect(dbValue.rows[0].price).not.toEqual(cacheValue.price);
+    assert(dbValue.rows[0].price !== cacheValue.price);
   });
 });
 ```
@@ -199,7 +202,7 @@ describe('Cache and DB Consistency Issues', () => {
 
 ### パターン1: 2フェーズコミット
 ```javascript
-async function twoPhaseCommit(key, value) {
+async function twoPhaseCommit(key: string, value: any) {
   const redisTransaction = redis.multi();
   const dbClient = await db.connect();
   
@@ -328,7 +331,11 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    image: denoland/deno:alpine
+    command: run --allow-net --allow-env --allow-read app.ts
+    volumes:
+      - ./:/app
+    working_dir: /app
     ports:
       - "3000:3000"
     environment:

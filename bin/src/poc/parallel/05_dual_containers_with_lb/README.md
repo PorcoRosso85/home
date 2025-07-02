@@ -68,28 +68,30 @@
 ## TDDアプローチ
 
 ### Red Phase (分散システムのテスト)
-```javascript
-// test/dual-container-lb.test.js
-describe('Dual Containers with Load Balancer', () => {
-  let loadBalancer;
-  let containers;
-  
-  beforeAll(async () => {
-    // コンテナとLBの起動を待つ
-    await waitForHealthy(['http://localhost:3001', 'http://localhost:3002']);
-    
-    loadBalancer = new LoadBalancerTester({
-      url: 'http://localhost',
-      expectedBackends: ['app-1:3001', 'app-2:3002']
-    });
-    
-    containers = {
-      app1: new ContainerController('app-1'),
-      app2: new ContainerController('app-2')
-    };
-  });
+```typescript
+// test/dual-container-lb.test.ts
+import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { LoadBalancerTester, ContainerController } from "../src/test-utils.ts";
 
-  it('should distribute load evenly between containers', async () => {
+Deno.test("Dual Containers with Load Balancer", async (t) => {
+  let loadBalancer: LoadBalancerTester;
+  let containers: { app1: ContainerController; app2: ContainerController };
+  
+  // Setup
+  // コンテナとLBの起動を待つ
+  await waitForHealthy(['http://localhost:3001', 'http://localhost:3002']);
+  
+  loadBalancer = new LoadBalancerTester({
+    url: 'http://localhost',
+    expectedBackends: ['app-1:3001', 'app-2:3002']
+  });
+  
+  containers = {
+    app1: new ContainerController('app-1'),
+    app2: new ContainerController('app-2')
+  };
+
+  await t.step("should distribute load evenly between containers", async () => {
     const requests = 1000;
     const results = {
       'app-1': 0,
@@ -112,15 +114,15 @@ describe('Dual Containers with Load Balancer', () => {
       app2: results['app-2'] / requests
     };
     
-    expect(distribution.app1).toBeCloseTo(0.5, 1);
-    expect(distribution.app2).toBeCloseTo(0.5, 1);
+    assertEquals(Math.abs(distribution.app1 - 0.5) < 0.1, true);
+    assertEquals(Math.abs(distribution.app2 - 0.5) < 0.1, true);
     
     // カイ二乗検定で分散の均等性を統計的に検証
     const chiSquare = calculateChiSquare(results, requests / 2);
-    expect(chiSquare).toBeLessThan(3.841); // 95%信頼度
+    assertEquals(chiSquare < 3.841, true); // 95%信頼度
   });
 
-  it('should handle container failure gracefully', async () => {
+  await t.step("should handle container failure gracefully", async () => {
     const testDuration = 30000; // 30秒
     const metricsCollector = new MetricsCollector();
     
@@ -149,18 +151,18 @@ describe('Dual Containers with Load Balancer', () => {
     const analysis = metricsCollector.analyze();
     
     // フェイルオーバー中もエラー率が低いこと
-    expect(analysis.errorRate).toBeLessThan(0.01); // 1%未満
+    assertEquals(analysis.errorRate < 0.01, true); // 1%未満
     
     // 停止期間中もスループットが維持されること
-    expect(analysis.minThroughput).toBeGreaterThan(80); // 80 rps以上
+    assertEquals(analysis.minThroughput > 80, true); // 80 rps以上
     
     // 復旧後に負荷が再分散されること
     const postRecoveryDistribution = analysis.getDistributionAfter(25000);
-    expect(postRecoveryDistribution['app-1']).toBeGreaterThan(0.3);
-    expect(postRecoveryDistribution['app-2']).toBeLessThan(0.7);
+    assertEquals(postRecoveryDistribution['app-1'] > 0.3, true);
+    assertEquals(postRecoveryDistribution['app-2'] < 0.7, true);
   });
 
-  it('should maintain session affinity', async () => {
+  await t.step("should maintain session affinity", async () => {
     const sessions = {};
     const numClients = 50;
     const requestsPerClient = 20;
@@ -193,10 +195,10 @@ describe('Dual Containers with Load Balancer', () => {
       session => session.servers.size === 1
     ).length;
     
-    expect(stickySuccess / numClients).toBeGreaterThan(0.95); // 95%以上が成功
+    assertEquals(stickySuccess / numClients > 0.95, true); // 95%以上が成功
   });
 
-  it('should scale performance linearly', async () => {
+  await t.step("should scale performance linearly", async () => {
     // 単一コンテナのベースライン（Phase 1の結果を使用）
     const singleContainerBaseline = {
       throughput: 1000, // req/s
@@ -219,9 +221,9 @@ describe('Dual Containers with Load Balancer', () => {
     };
     
     // 80%以上の効率を期待
-    expect(scalingEfficiency.throughput).toBeGreaterThan(0.8);
-    expect(scalingEfficiency.clients).toBeGreaterThan(0.8);
-    expect(scalingEfficiency.latency).toBeGreaterThan(0.8);
+    assertEquals(scalingEfficiency.throughput > 0.8, true);
+    assertEquals(scalingEfficiency.clients > 0.8, true);
+    assertEquals(scalingEfficiency.latency > 0.8, true);
   });
 });
 
@@ -280,7 +282,7 @@ class MetricsCollector {
 ```
 
 ### Green Phase (ロードバランサーと2コンテナの実装)
-```javascript
+```nginx
 // nginx.conf
 upstream backend {
     # IPハッシュによるセッション維持
@@ -343,15 +345,14 @@ server {
 }
 ```
 
-```javascript
-// app.js - 改良されたアプリケーション
-const express = require('express');
-const cluster = require('cluster');
-const os = require('os');
+```typescript
+// app.ts - 改良されたアプリケーション
+import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 
-const app = express();
-const CONTAINER_ID = process.env.CONTAINER_ID || 'unknown';
-const PORT = process.env.PORT || 3001;
+const app = new Application();
+const router = new Router();
+const CONTAINER_ID = Deno.env.get("CONTAINER_ID") || 'unknown';
+const PORT = parseInt(Deno.env.get("PORT") || '3001');
 
 // グレースフルシャットダウンのサポート
 let isShuttingDown = false;
@@ -360,45 +361,47 @@ let isShuttingDown = false;
 const sessions = new Map();
 
 // ミドルウェア
-app.use(express.json());
-app.use((req, res, next) => {
+app.use(async (ctx, next) => {
   if (isShuttingDown) {
-    res.set('Connection', 'close');
-    res.status(503).send('Server is shutting down');
+    ctx.response.headers.set('Connection', 'close');
+    ctx.response.status = 503;
+    ctx.response.body = 'Server is shutting down';
     return;
   }
-  next();
+  await next();
 });
 
 // ヘルスチェックエンドポイント
-app.get('/health', (req, res) => {
+router.get('/health', (ctx) => {
   if (isShuttingDown) {
-    res.status(503).json({ status: 'shutting_down' });
+    ctx.response.status = 503;
+    ctx.response.body = { status: 'shutting_down' };
     return;
   }
   
-  res.json({
+  ctx.response.body = {
     status: 'healthy',
     container: CONTAINER_ID,
-    uptime: process.uptime(),
-    memory: process.memoryUsage()
-  });
+    uptime: performance.now() / 1000,
+    memory: Deno.memoryUsage()
+  };
 });
 
 // コンテナ識別エンドポイント
-app.get('/api/whoami', (req, res) => {
-  res.json({
+router.get('/api/whoami', (ctx) => {
+  ctx.response.body = {
     container: CONTAINER_ID,
-    pid: process.pid,
-    hostname: os.hostname(),
+    pid: Deno.pid,
+    hostname: Deno.hostname(),
     timestamp: Date.now()
-  });
+  };
 });
 
 // セッション管理エンドポイント
-app.post('/api/session', (req, res) => {
-  const sessionId = req.headers['x-session-id'] || generateSessionId();
-  const { clientId, requestNum } = req.body;
+router.post('/api/session', async (ctx) => {
+  const sessionId = ctx.request.headers.get('x-session-id') || generateSessionId();
+  const body = await ctx.request.body({ type: 'json' }).value;
+  const { clientId, requestNum } = body;
   
   // セッションデータの保存/更新
   if (!sessions.has(sessionId)) {
@@ -416,59 +419,77 @@ app.post('/api/session', (req, res) => {
     timestamp: Date.now()
   });
   
-  res.set('X-Session-Id', sessionId);
-  res.json({
+  ctx.response.headers.set('X-Session-Id', sessionId);
+  ctx.response.body = {
     sessionId,
     container: CONTAINER_ID,
     requestCount: session.requests.length
-  });
+  };
 });
 
 // パフォーマンステスト用エンドポイント
-app.get('/api/load-test', async (req, res) => {
+router.get('/api/load-test', (ctx) => {
   // CPUバウンドな処理をシミュレート
-  const iterations = parseInt(req.query.iterations) || 1000;
+  const iterations = parseInt(ctx.request.url.searchParams.get('iterations') || '1000');
   let result = 0;
   
   for (let i = 0; i < iterations; i++) {
     result += Math.sqrt(i);
   }
   
-  res.json({
+  ctx.response.body = {
     container: CONTAINER_ID,
     result,
     processingTime: iterations
-  });
+  };
 });
 
 // グレースフルシャットダウン
-process.on('SIGTERM', () => {
+const abortController = new AbortController();
+
+Deno.addSignalListener("SIGTERM", () => {
   console.log('SIGTERM received, starting graceful shutdown...');
   isShuttingDown = true;
   
   // 新規接続の受付を停止
-  server.close(() => {
-    console.log('HTTP server closed');
-    
-    // アクティブな接続の完了を待つ
-    setTimeout(() => {
-      console.log('Forcing shutdown...');
-      process.exit(0);
-    }, 30000); // 最大30秒待つ
-  });
+  abortController.abort();
+  
+  // アクティブな接続の完了を待つ
+  setTimeout(() => {
+    console.log('Forcing shutdown...');
+    Deno.exit(0);
+  }, 30000); // 最大30秒待つ
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Container ${CONTAINER_ID} listening on port ${PORT}`);
-});
+app.use(router.routes());
+app.use(router.allowedMethods());
 
-// Keep-Aliveとタイムアウトの設定
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
+console.log(`Container ${CONTAINER_ID} listening on port ${PORT}`);
+await app.listen({ port: PORT, signal: abortController.signal });
 
 function generateSessionId() {
-  return `${CONTAINER_ID}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `${CONTAINER_ID}-${Date.now()}-${crypto.randomUUID().substring(0, 8)}`;
 }
+```
+
+### Dockerfile
+```dockerfile
+# Dockerfile
+FROM denoland/deno:alpine
+
+WORKDIR /app
+
+# 依存関係のキャッシュ
+COPY deps.ts .
+RUN deno cache deps.ts
+
+# アプリケーションコード
+COPY . .
+RUN deno cache app.ts
+
+EXPOSE 3000
+
+CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-hrtime", "app.ts"]
 ```
 
 ### Docker Compose設定
@@ -564,16 +585,16 @@ docker-compose up -d
 ### 2. テスト実行
 ```bash
 # 単体テスト
-npm test
+deno test --allow-all test/
 
 # 負荷分散テスト
-npm run test:load-distribution
+deno run --allow-all scripts/test-load-distribution.ts
 
 # フェイルオーバーテスト
-npm run test:failover
+deno run --allow-all scripts/test-failover.ts
 
 # 性能テスト
-npm run test:performance
+deno run --allow-all scripts/test-performance.ts
 ```
 
 ### 3. モニタリング
@@ -646,11 +667,14 @@ upstream backend {
 ```
 
 ### 問題: セッションが維持されない
-```javascript
+```typescript
 // Redisベースのセッション共有を実装
-const redis = require('redis');
-const session = require('express-session');
-const RedisStore = require('connect-redis')(session);
+import { connect } from "https://deno.land/x/redis@v0.29.0/mod.ts";
+
+const redis = await connect({
+  hostname: "redis",
+  port: 6379,
+});
 ```
 
 ### 問題: ヘルスチェックが頻繁に失敗
@@ -676,5 +700,5 @@ upstream backend {
 
 - [NGINX Load Balancing](https://docs.nginx.com/nginx/admin-guide/load-balancer/http-load-balancer/)
 - [Docker Compose Networking](https://docs.docker.com/compose/networking/)
-- [Node.js Cluster Module](https://nodejs.org/api/cluster.html)
+- [Deno Deploy](https://deno.com/deploy)
 - [High Availability Patterns](https://docs.microsoft.com/en-us/azure/architecture/patterns/)

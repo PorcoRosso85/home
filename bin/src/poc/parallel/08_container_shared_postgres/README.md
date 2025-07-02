@@ -62,34 +62,39 @@
 ## TDDアプローチ
 
 ### Red Phase (PostgreSQLでの成功を検証)
-```javascript
-// test/postgres-success.test.js
-describe('PostgreSQL Shared Database Success', () => {
-  let pool;
-  let containers;
+```typescript
+// test/postgres-success.test.ts
+import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
+
+Deno.test("PostgreSQL Shared Database Success", async (t) => {
+  let pool: Pool;
+  let containers: string[];
   
-  beforeAll(async () => {
-    // PostgreSQL接続プール
-    pool = new Pool({
-      host: 'localhost',
-      port: 5432,
-      database: 'testdb',
-      user: 'testuser',
-      password: 'testpass',
-      max: 20
-    });
+  // Setup
+  // PostgreSQL接続プール
+  pool = new Pool({
+    hostname: 'localhost',
+    port: 5432,
+    database: 'testdb',
+    user: 'testuser',
+    password: 'testpass',
+    max_size: 20
+  }, 20);
     
-    await pool.query(`
+    const client = await pool.connect();
+    await client.queryObject(`
       CREATE TABLE IF NOT EXISTS counters (
         key VARCHAR(255) PRIMARY KEY,
         value INTEGER DEFAULT 0
       )
     `);
+    client.release();
     
     containers = ['app-1', 'app-2', 'app-3', 'app-4'];
   });
 
-  it('should handle concurrent writes without BUSY errors', async () => {
+  await t.step("should handle concurrent writes without BUSY errors", async () => {
     const results = {
       success: 0,
       failed: 0,
@@ -120,18 +125,20 @@ describe('PostgreSQL Shared Database Success', () => {
     await Promise.all(promises);
     
     // PostgreSQLでは全て成功するはず
-    expect(results.success).toBe(1000);
-    expect(results.failed).toBe(0);
+    assertEquals(results.success, 1000);
+    assertEquals(results.failed, 0);
     
     // 最終値の確認
-    const { rows } = await pool.query(
+    const client = await pool.connect();
+    const { rows } = await client.queryObject<{ value: number }>(
       'SELECT value FROM counters WHERE key = $1',
       ['concurrent_test']
     );
-    expect(rows[0].value).toBe(1000); // Lost Updateなし
+    client.release();
+    assertEquals(rows[0].value, 1000); // Lost Updateなし
   });
 
-  it('should demonstrate transaction isolation levels', async () => {
+  await t.step("should demonstrate transaction isolation levels", async () => {
     const isolationLevels = [
       'READ UNCOMMITTED',
       'READ COMMITTED',
@@ -145,16 +152,15 @@ describe('PostgreSQL Shared Database Success', () => {
       // ダーティリード、ファントムリードなどのテスト
       const result = await testIsolationLevel(level);
       
-      expect(result).toMatchObject({
-        level,
-        dirtyRead: level === 'READ UNCOMMITTED' ? 'possible' : 'prevented',
-        nonRepeatableRead: ['READ UNCOMMITTED', 'READ COMMITTED'].includes(level) ? 'possible' : 'prevented',
-        phantomRead: level !== 'SERIALIZABLE' ? 'possible' : 'prevented'
-      });
+      assertExists(result);
+      assertEquals(result.level, level);
+      assertEquals(result.dirtyRead, level === 'READ UNCOMMITTED' ? 'possible' : 'prevented');
+      assertEquals(result.nonRepeatableRead, ['READ UNCOMMITTED', 'READ COMMITTED'].includes(level) ? 'possible' : 'prevented');
+      assertEquals(result.phantomRead, level !== 'SERIALIZABLE' ? 'possible' : 'prevented');
     }
   });
 
-  it('should handle long-running transactions efficiently', async () => {
+  await t.step("should handle long-running transactions efficiently", async () => {
     const transactions = [];
     
     // 長時間トランザクション（5秒）
@@ -175,28 +181,30 @@ describe('PostgreSQL Shared Database Success', () => {
     const quickTransactions = results.slice(1);
     const successfulQuick = quickTransactions.filter(r => r.status === 'fulfilled').length;
     
-    expect(successfulQuick).toBeGreaterThan(95); // 95%以上成功
+    assertEquals(successfulQuick > 95, true); // 95%以上成功
   });
 
-  it('should demonstrate connection pool efficiency', async () => {
+  await t.step("should demonstrate connection pool efficiency", async () => {
     const poolSizes = [1, 5, 10, 20, 50];
     const results = [];
     
     for (const poolSize of poolSizes) {
       // プールサイズを変更してテスト
       const testPool = new Pool({
-        host: 'localhost',
+        hostname: 'localhost',
         port: 5432,
         database: 'testdb',
         user: 'testuser',
         password: 'testpass',
-        max: poolSize
-      });
+        max_size: poolSize
+      }, poolSize);
       
       const start = Date.now();
-      const promises = Array(200).fill(0).map(() => 
-        testPool.query('SELECT pg_sleep(0.01)')
-      );
+      const promises = Array(200).fill(0).map(async () => {
+        const client = await testPool.connect();
+        await client.queryObject('SELECT pg_sleep(0.01)');
+        client.release();
+      });
       
       await Promise.all(promises);
       const duration = Date.now() - start;
@@ -211,11 +219,11 @@ describe('PostgreSQL Shared Database Success', () => {
     }
     
     // プールサイズが増えると性能向上（収穫逓減）
-    expect(results[1].duration).toBeLessThan(results[0].duration * 0.3);
-    expect(results[2].duration).toBeLessThan(results[1].duration * 0.6);
+    assertEquals(results[1].duration < results[0].duration * 0.3, true);
+    assertEquals(results[2].duration < results[1].duration * 0.6, true);
   });
 
-  it('should handle deadlocks gracefully', async () => {
+  await t.step("should handle deadlocks gracefully", async () => {
     // デッドロックを意図的に発生させる
     const deadlockTest = async () => {
       const conn1 = await pool.connect();
@@ -223,16 +231,16 @@ describe('PostgreSQL Shared Database Success', () => {
       
       try {
         // Transaction 1
-        await conn1.query('BEGIN');
-        await conn1.query('UPDATE counters SET value = value + 1 WHERE key = $1', ['key1']);
+        await conn1.queryObject('BEGIN');
+        await conn1.queryObject('UPDATE counters SET value = value + 1 WHERE key = $1', ['key1']);
         
         // Transaction 2
-        await conn2.query('BEGIN');
-        await conn2.query('UPDATE counters SET value = value + 1 WHERE key = $1', ['key2']);
+        await conn2.queryObject('BEGIN');
+        await conn2.queryObject('UPDATE counters SET value = value + 1 WHERE key = $1', ['key2']);
         
         // Cross updates (deadlock)
-        const promise1 = conn1.query('UPDATE counters SET value = value + 1 WHERE key = $1', ['key2']);
-        const promise2 = conn2.query('UPDATE counters SET value = value + 1 WHERE key = $1', ['key1']);
+        const promise1 = conn1.queryObject('UPDATE counters SET value = value + 1 WHERE key = $1', ['key2']);
+        const promise2 = conn2.queryObject('UPDATE counters SET value = value + 1 WHERE key = $1', ['key1']);
         
         const results = await Promise.allSettled([promise1, promise2]);
         
@@ -242,11 +250,11 @@ describe('PostgreSQL Shared Database Success', () => {
           r.reason.code === '40P01' // deadlock_detected
         );
         
-        expect(deadlockDetected).toBe(true);
+        assertEquals(deadlockDetected, true);
         
       } finally {
-        await conn1.query('ROLLBACK');
-        await conn2.query('ROLLBACK');
+        await conn1.queryObject('ROLLBACK');
+        await conn2.queryObject('ROLLBACK');
         conn1.release();
         conn2.release();
       }
@@ -257,8 +265,8 @@ describe('PostgreSQL Shared Database Success', () => {
 });
 
 // パフォーマンス比較
-describe('Performance Comparison: SQLite vs PostgreSQL', () => {
-  it('should show dramatic improvement', async () => {
+Deno.test("Performance Comparison: SQLite vs PostgreSQL", async (t) => {
+  await t.step("should show dramatic improvement", async () => {
     const comparison = {
       sqlite: {
         concurrentWrites: { success: 300, failed: 700 },
@@ -278,9 +286,9 @@ describe('Performance Comparison: SQLite vs PostgreSQL', () => {
       throughput: (comparison.postgres.throughput / comparison.sqlite.throughput - 1) * 100
     };
     
-    expect(improvement.successRate).toBeGreaterThan(200); // 200%以上改善
-    expect(improvement.responseTime).toBeGreaterThan(80);  // 80%以上高速化
-    expect(improvement.throughput).toBeGreaterThan(800);   // 800%以上向上
+    assertEquals(improvement.successRate > 200, true); // 200%以上改善
+    assertEquals(improvement.responseTime > 80, true);  // 80%以上高速化
+    assertEquals(improvement.throughput > 800, true);   // 800%以上向上
     
     console.table(comparison);
     console.table(improvement);
@@ -288,8 +296,8 @@ describe('Performance Comparison: SQLite vs PostgreSQL', () => {
 });
 
 // スケーラビリティテスト
-describe('Scalability with Container Count', () => {
-  it('should scale linearly with container count', async () => {
+Deno.test("Scalability with Container Count", async (t) => {
+  await t.step("should scale linearly with container count", async () => {
     const containerCounts = [1, 2, 4, 8];
     const results = [];
     
@@ -299,44 +307,46 @@ describe('Scalability with Container Count', () => {
     }
     
     // リニアスケーリングの確認
-    expect(results[1].throughput).toBeGreaterThan(results[0].throughput * 1.8);
-    expect(results[2].throughput).toBeGreaterThan(results[0].throughput * 3.5);
-    expect(results[3].throughput).toBeGreaterThan(results[0].throughput * 7.0);
+    assertEquals(results[1].throughput > results[0].throughput * 1.8, true);
+    assertEquals(results[2].throughput > results[0].throughput * 3.5, true);
+    assertEquals(results[3].throughput > results[0].throughput * 7.0, true);
   });
 });
 ```
 
 ### Green Phase (PostgreSQL統合の実装)
-```javascript
-// postgres-app.js
-const express = require('express');
-const { Pool } = require('pg');
+```typescript
+// postgres-app.ts
+import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
+import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 
-const app = express();
-app.use(express.json());
+const app = new Application();
+const router = new Router();
 
 // PostgreSQL接続プール
 const pool = new Pool({
-  host: process.env.POSTGRES_HOST || 'postgres',
-  port: process.env.POSTGRES_PORT || 5432,
-  database: process.env.POSTGRES_DB || 'appdb',
-  user: process.env.POSTGRES_USER || 'appuser',
-  password: process.env.POSTGRES_PASSWORD || 'apppass',
-  max: parseInt(process.env.POOL_SIZE || '5'),
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+  hostname: Deno.env.get("POSTGRES_HOST") || 'postgres',
+  port: parseInt(Deno.env.get("POSTGRES_PORT") || '5432'),
+  database: Deno.env.get("POSTGRES_DB") || 'appdb',
+  user: Deno.env.get("POSTGRES_USER") || 'appuser',
+  password: Deno.env.get("POSTGRES_PASSWORD") || 'apppass',
+  max_size: parseInt(Deno.env.get("POOL_SIZE") || '5'),
+  lazy: true,
+  connection: {
+    attempts: 1,
+  }
+}, parseInt(Deno.env.get("POOL_SIZE") || '5'));
 
 // エラーハンドリング
-pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client', err);
-});
+// Deno Postgresではイベントハンドラーが異なるため、各クエリでエラー処理
 
 // 初期化
 async function initialize() {
   try {
+    const client = await pool.connect();
+    
     // テーブル作成
-    await pool.query(`
+    await client.queryObject(`
       CREATE TABLE IF NOT EXISTS counters (
         key VARCHAR(255) PRIMARY KEY,
         value INTEGER DEFAULT 0,
@@ -344,7 +354,7 @@ async function initialize() {
       )
     `);
     
-    await pool.query(`
+    await client.queryObject(`
       CREATE TABLE IF NOT EXISTS data (
         id SERIAL PRIMARY KEY,
         content TEXT NOT NULL,
@@ -354,9 +364,11 @@ async function initialize() {
     `);
     
     // インデックス作成
-    await pool.query(`
+    await client.queryObject(`
       CREATE INDEX IF NOT EXISTS idx_data_created_at ON data(created_at)
     `);
+    
+    client.release();
     
     console.log('Database initialized successfully');
   } catch (error) {
@@ -366,16 +378,16 @@ async function initialize() {
 }
 
 // トランザクションヘルパー
-async function withTransaction(callback) {
+async function withTransaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   
   try {
-    await client.query('BEGIN');
+    await client.queryObject('BEGIN');
     const result = await callback(client);
-    await client.query('COMMIT');
+    await client.queryObject('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.queryObject('ROLLBACK');
     throw error;
   } finally {
     client.release();
@@ -383,14 +395,15 @@ async function withTransaction(callback) {
 }
 
 // インクリメントAPI（ACID保証）
-app.post('/api/increment', async (req, res) => {
-  const { key } = req.body;
+router.post('/api/increment', async (ctx) => {
+  const body = await ctx.request.body({ type: 'json' }).value;
+  const { key } = body;
   const startTime = Date.now();
   
   try {
     const result = await withTransaction(async (client) => {
       // SELECT FOR UPDATE で行ロック
-      const { rows } = await client.query(
+      const { rows } = await client.queryObject<{ value: number }>(
         'SELECT value FROM counters WHERE key = $1 FOR UPDATE',
         [key]
       );
@@ -398,14 +411,14 @@ app.post('/api/increment', async (req, res) => {
       let newValue;
       if (rows.length === 0) {
         // 新規作成
-        const insertResult = await client.query(
+        const insertResult = await client.queryObject<{ value: number }>(
           'INSERT INTO counters (key, value) VALUES ($1, 1) RETURNING value',
           [key]
         );
         newValue = insertResult.rows[0].value;
       } else {
         // 更新
-        const updateResult = await client.query(
+        const updateResult = await client.queryObject<{ value: number }>(
           'UPDATE counters SET value = value + 1, last_modified = CURRENT_TIMESTAMP WHERE key = $1 RETURNING value',
           [key]
         );
@@ -415,25 +428,27 @@ app.post('/api/increment', async (req, res) => {
       return newValue;
     });
     
-    res.json({
+    ctx.response.body = {
       success: true,
       value: result,
       duration: Date.now() - startTime,
-      container: process.env.CONTAINER_ID
-    });
+      container: Deno.env.get("CONTAINER_ID")
+    };
   } catch (error) {
     console.error('Increment error:', error);
-    res.status(500).json({
+    ctx.response.status = 500;
+    ctx.response.body = {
       error: error.message,
       code: error.code,
-      container: process.env.CONTAINER_ID
-    });
+      container: Deno.env.get("CONTAINER_ID")
+    };
   }
 });
 
 // バルク挿入API
-app.post('/api/bulk-insert', async (req, res) => {
-  const { data } = req.body; // Array of strings
+router.post('/api/bulk-insert', async (ctx) => {
+  const body = await ctx.request.body({ type: 'json' }).value;
+  const { data } = body; // Array of strings
   const startTime = Date.now();
   
   try {
@@ -443,8 +458,8 @@ app.post('/api/bulk-insert', async (req, res) => {
         `($${index * 2 + 1}, $${index * 2 + 2})`
       ).join(', ');
       
-      const params = data.flatMap(content => 
-        [content, process.env.CONTAINER_ID]
+      const params = data.flatMap((content: string) => 
+        [content, Deno.env.get("CONTAINER_ID")]
       );
       
       const query = `
@@ -453,129 +468,138 @@ app.post('/api/bulk-insert', async (req, res) => {
         RETURNING id
       `;
       
-      const { rows } = await client.query(query, params);
+      const { rows } = await client.queryObject<{ id: number }>(query, params);
       return rows.map(r => r.id);
     });
     
-    res.json({
+    ctx.response.body = {
       success: true,
       ids: result,
       count: result.length,
       duration: Date.now() - startTime,
-      container: process.env.CONTAINER_ID
-    });
+      container: Deno.env.get("CONTAINER_ID")
+    };
   } catch (error) {
-    res.status(500).json({
+    ctx.response.status = 500;
+    ctx.response.body = {
       error: error.message,
       code: error.code
-    });
+    };
   }
 });
 
 // 分離レベルのテストAPI
-app.post('/api/test-isolation', async (req, res) => {
-  const { level } = req.body;
+router.post('/api/test-isolation', async (ctx) => {
+  const body = await ctx.request.body({ type: 'json' }).value;
+  const { level } = body;
   const client = await pool.connect();
   
   try {
     // 分離レベルを設定
-    await client.query(`SET TRANSACTION ISOLATION LEVEL ${level}`);
-    await client.query('BEGIN');
+    await client.queryObject(`SET TRANSACTION ISOLATION LEVEL ${level}`);
+    await client.queryObject('BEGIN');
     
     // テスト用のクエリ実行
-    const result = await client.query('SELECT * FROM counters LIMIT 10');
+    const result = await client.queryObject('SELECT * FROM counters LIMIT 10');
     
-    await client.query('COMMIT');
+    await client.queryObject('COMMIT');
     
-    res.json({
+    ctx.response.body = {
       success: true,
       isolationLevel: level,
       rows: result.rows
-    });
+    };
   } catch (error) {
-    await client.query('ROLLBACK');
-    res.status(500).json({
+    await client.queryObject('ROLLBACK');
+    ctx.response.status = 500;
+    ctx.response.body = {
       error: error.message,
       code: error.code
-    });
+    };
   } finally {
     client.release();
   }
 });
 
 // 接続プール情報
-app.get('/api/pool-stats', (req, res) => {
-  res.json({
-    totalCount: pool.totalCount,
-    idleCount: pool.idleCount,
-    waitingCount: pool.waitingCount,
-    container: process.env.CONTAINER_ID
-  });
+router.get('/api/pool-stats', (ctx) => {
+  ctx.response.body = {
+    size: pool.size,
+    available: pool.available,
+    container: Deno.env.get("CONTAINER_ID")
+  };
 });
 
 // ヘルスチェック
-app.get('/health', async (req, res) => {
+router.get('/health', async (ctx) => {
   try {
-    const { rows } = await pool.query('SELECT NOW() as time');
-    res.json({
+    const client = await pool.connect();
+    const { rows } = await client.queryObject<{ time: Date }>('SELECT NOW() as time');
+    client.release();
+    
+    ctx.response.body = {
       status: 'healthy',
-      container: process.env.CONTAINER_ID,
+      container: Deno.env.get("CONTAINER_ID"),
       dbTime: rows[0].time,
       poolStats: {
-        total: pool.totalCount,
-        idle: pool.idleCount,
-        waiting: pool.waitingCount
+        size: pool.size,
+        available: pool.available
       }
-    });
+    };
   } catch (error) {
-    res.status(503).json({
+    ctx.response.status = 503;
+    ctx.response.body = {
       status: 'unhealthy',
       error: error.message
-    });
+    };
   }
 });
 
 // メトリクス
-app.get('/metrics', async (req, res) => {
+router.get('/metrics', async (ctx) => {
   try {
-    const stats = await pool.query(`
+    const client = await pool.connect();
+    const stats = await client.queryObject(`
       SELECT 
         (SELECT COUNT(*) FROM data) as total_records,
         (SELECT COUNT(*) FROM counters) as total_counters,
         (SELECT MAX(value) FROM counters) as max_counter_value,
         (SELECT COUNT(*) FROM data WHERE container_id = $1) as container_records
-    `, [process.env.CONTAINER_ID]);
+    `, [Deno.env.get("CONTAINER_ID")]);
+    client.release();
     
-    res.json({
-      container: process.env.CONTAINER_ID,
+    ctx.response.body = {
+      container: Deno.env.get("CONTAINER_ID"),
       database: stats.rows[0],
       pool: {
-        total: pool.totalCount,
-        idle: pool.idleCount,
-        waiting: pool.waitingCount
+        size: pool.size,
+        available: pool.available
       },
-      uptime: process.uptime()
-    });
+      uptime: performance.now() / 1000
+    };
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    ctx.response.status = 500;
+    ctx.response.body = { error: error.message };
   }
 });
 
 // アプリケーション起動
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(Deno.env.get("PORT") || "3000");
 
-initialize().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Container ${process.env.CONTAINER_ID} listening on port ${PORT}`);
-    console.log(`Connected to PostgreSQL at ${process.env.POSTGRES_HOST}`);
-  });
+app.use(router.routes());
+app.use(router.allowedMethods());
+
+initialize().then(async () => {
+  console.log(`Container ${Deno.env.get("CONTAINER_ID")} listening on port ${PORT}`);
+  console.log(`Connected to PostgreSQL at ${Deno.env.get("POSTGRES_HOST")}`);
+  await app.listen({ port: PORT });
 }).catch(error => {
   console.error('Startup failed:', error);
-  process.exit(1);
+  Deno.exit(1);
 });
 
 // グレースフルシャットダウン
-process.on('SIGTERM', async () => {
+Deno.addSignalListener("SIGTERM", async () => {
   console.log('SIGTERM received, closing pool...');
   
   try {
@@ -585,8 +609,28 @@ process.on('SIGTERM', async () => {
     console.error('Error closing pool:', error);
   }
   
-  process.exit(0);
+  Deno.exit(0);
 });
+```
+
+### Dockerfile
+```dockerfile
+# Dockerfile
+FROM denoland/deno:alpine
+
+WORKDIR /app
+
+# 依存関係のキャッシュ
+COPY deps.ts .
+RUN deno cache deps.ts
+
+# アプリケーションコード
+COPY . .
+RUN deno cache postgres-app.ts
+
+EXPOSE 3000
+
+CMD ["deno", "run", "--allow-net", "--allow-env", "postgres-app.ts"]
 ```
 
 ### Docker Compose設定
@@ -744,13 +788,13 @@ docker-compose exec postgres psql -U appuser -d appdb -c "\dt"
 ### 2. パフォーマンステスト
 ```bash
 # 並行書き込みテスト（全て成功するはず）
-npm run test:concurrent-writes -- --containers=4 --requests=1000
+deno run --allow-all scripts/test-concurrent-writes.ts --containers=4 --requests=1000
 
 # スループット測定
-npm run test:throughput
+deno run --allow-all scripts/test-throughput.ts
 
 # 接続プール効率
-npm run test:connection-pool
+deno run --allow-all scripts/test-connection-pool.ts
 ```
 
 ### 3. 監視
@@ -787,18 +831,20 @@ SELECT * FROM pg_locks WHERE NOT granted;"
 ## ベストプラクティス
 
 ### 1. 接続プール設定
-```javascript
+```typescript
 // 推奨設定
 const pool = new Pool({
-  max: 20,                    // 最大接続数
-  idleTimeoutMillis: 30000,  // アイドルタイムアウト
-  connectionTimeoutMillis: 2000, // 接続タイムアウト
-  statement_timeout: 60000    // クエリタイムアウト
-});
+  max_size: 20,              // 最大接続数
+  lazy: true,                // 遅延接続
+  connection: {
+    attempts: 1,
+    interval: 0
+  }
+}, 20);
 ```
 
 ### 2. トランザクション管理
-```javascript
+```typescript
 // 常にトランザクションを使用
 await withTransaction(async (client) => {
   // 複数の操作をアトミックに実行
@@ -806,7 +852,7 @@ await withTransaction(async (client) => {
 ```
 
 ### 3. エラーハンドリング
-```javascript
+```typescript
 // PostgreSQL特有のエラーコードを処理
 if (error.code === '23505') { // unique_violation
   // 重複エラーの処理
