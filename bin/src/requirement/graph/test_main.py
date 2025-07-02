@@ -109,18 +109,33 @@ class TestMain:
             env['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib'
             
             # 1. スキーマ初期化
-            schema_cmd = [
-                sys.executable, '-m', 
-                'requirement.graph.infrastructure.apply_ddl_schema'
-            ]
+            schema_input = json.dumps({
+                "type": "schema",
+                "action": "apply",
+                "create_test_data": False
+            })
+            
+            # run.pyを直接実行
+            run_py_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'run.py')
+            main_cmd = [sys.executable, run_py_path]
             result = subprocess.run(
-                schema_cmd, 
-                env=env, 
-                capture_output=True, 
-                text=True,
-                cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                main_cmd,
+                input=schema_input,
+                env=env,
+                capture_output=True,
+                text=True
             )
+            if result.returncode != 0:
+                print(f"stderr: {result.stderr}")
+                print(f"stdout: {result.stdout}")
             assert result.returncode == 0, f"Schema init failed: {result.stderr}"
+            
+            if not result.stdout:
+                print(f"Empty stdout from schema command")
+                print(f"stderr: {result.stderr}")
+            
+            schema_response = json.loads(result.stdout)
+            assert schema_response["status"] == "success", f"Schema init failed: {schema_response}"
             
             # 2. 要件を作成
             create_input = json.dumps({
@@ -137,14 +152,14 @@ class TestMain:
                 """
             })
             
-            main_cmd = [sys.executable, '-m', 'requirement.graph.main']
+            # run.pyを直接実行
+            main_cmd = [sys.executable, run_py_path]
             result = subprocess.run(
                 main_cmd,
                 input=create_input,
                 env=env,
                 capture_output=True,
-                text=True,
-                cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                text=True
             )
             assert result.returncode == 0, f"Create failed: {result.stderr}"
             
@@ -162,8 +177,7 @@ class TestMain:
                 input=query_input,
                 env=env,
                 capture_output=True,
-                text=True,
-                cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                text=True
             )
             assert result.returncode == 0, f"Query failed: {result.stderr}"
             

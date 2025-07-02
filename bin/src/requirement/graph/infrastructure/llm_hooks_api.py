@@ -1,5 +1,5 @@
 """
-LLM Hooks API - LLMが直接クエリできる統一インターフェース（関数ベース版）
+クエリエントリポイント - Cypherクエリを実行する統一インターフェース
 依存: domain, application
 外部依存: なし
 """
@@ -15,7 +15,7 @@ from .logger import debug, info, warn, error
 
 def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
     """
-    LLMが要件グラフと対話するための統一APIを作成
+    要件グラフへのクエリエントリポイントを作成
     Cypherクエリとカスタムプロシージャの両方をサポート
     
     Args:

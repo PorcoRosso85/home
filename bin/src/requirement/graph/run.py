@@ -1,8 +1,9 @@
 """
-LLM専用エントリーポイント - これ以外使わないでください
+Cypherクエリエントリーポイント
 
 使い方:
-    echo '{"type": "cypher", "query": "..."}' | LD_LIBRARY_PATH=/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/ RGL_DB_PATH=./rgl_db python run.py
+    echo '{"type": "cypher", "query": "..."}' | python run.py
+    echo '{"type": "schema", "action": "apply"}' | python run.py
 """
 import sys
 import os

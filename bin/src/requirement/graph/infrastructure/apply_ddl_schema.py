@@ -42,7 +42,7 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
     
     if not os.path.exists(schema_path):
         error("rgl.schema", "Schema file not found", path=schema_path)
-        print(f"Error: Schema file not found: {schema_path}")
+        # print文を削除（JSON出力を汚染しないため）
         return False
     
     # 接続を確立
@@ -58,47 +58,40 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
         debug("rgl.schema", "Database connection established")
     except Exception as e:
         error("rgl.schema", "Failed to connect to database", error=str(e))
-        print(f"Error: Failed to connect to database: {e}")
+        # print文を削除（JSON出力を汚染しないため）
         return False
     
     manager = DDLSchemaManager(conn)
     
     # スキーマを適用
     info("rgl.schema", "Applying schema", schema_path=schema_path)
-    print(f"Applying schema from: {schema_path}")
+    info("rgl.schema", "Applying schema", path=schema_path)
     success, results = manager.apply_schema(schema_path)
     debug("rgl.schema", "Schema application completed", success=success, result_count=len(results))
     
+    # 結果をログに記録
     for result in results:
-        print(result)
+        debug("rgl.schema", "Schema statement result", result=result)
     
     if not success:
-        print("\nSchema application failed. Rolling back...")
+        warn("rgl.schema", "Schema application failed, rolling back")
         _, rollback_results = manager.rollback()
         for result in rollback_results:
-            print(result)
+            debug("rgl.schema", "Rollback result", result=result)
         conn.close()
         return False
     
     # テストデータ作成
     if create_test_data:
-        print("\nCreating test data...")
+        info("rgl.schema", "Creating test data")
         success, results = manager.create_test_data()
         for result in results:
-            print(result)
+            debug("rgl.schema", "Test data result", result=result)
     
-    print("\nSchema application completed successfully!")
+    info("rgl.schema", "Schema application completed successfully")
     conn.close()
     return True
 
 
-if __name__ == "__main__":
-    """スクリプトとして実行された場合"""
-    import argparse
-    parser = argparse.ArgumentParser(description="Apply DDL schema to KuzuDB")
-    parser.add_argument("--db-path", help="Database path", default=None)
-    parser.add_argument("--test-data", action="store_true", help="Create test data")
-    args = parser.parse_args()
-    
-    success = apply_ddl_schema(db_path=args.db_path, create_test_data=args.test_data)
-    sys.exit(0 if success else 1)
+# CLIエントリポイントは削除されました
+# apply_ddl_schema()関数を直接呼び出してください

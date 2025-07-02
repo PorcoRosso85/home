@@ -1,8 +1,9 @@
 """
-Requirement Graph - LLM専用エントリーポイント
+Requirement Graph - Cypherクエリエントリーポイント
 
 使い方:
-    echo '{"type": "cypher", "query": "CREATE ..."}' | LD_LIBRARY_PATH=/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/ python -m requirement.graph.main
+    echo '{"type": "cypher", "query": "CREATE ..."}' | python -m requirement.graph.main
+    echo '{"type": "schema", "action": "apply"}' | python -m requirement.graph.main
     
 戻り値:
     {"status": "success|error", "score": -1.0~1.0, "message": "..."}
@@ -30,6 +31,34 @@ def safe_main():
         debug("rgl.main", f"Received input", length=len(stdin_data))
         input_data = json.loads(stdin_data)
         debug("rgl.main", f"Parsed JSON", type=input_data.get("type"))
+        
+        # スキーマ適用リクエストの処理
+        if input_data.get("type") == "schema":
+            debug("rgl.main", "Processing schema request")
+            from .infrastructure.apply_ddl_schema import apply_ddl_schema
+            
+            action = input_data.get("action", "apply")
+            if action == "apply":
+                db_path = input_data.get("db_path")
+                create_test_data = input_data.get("create_test_data", False)
+                
+                success = apply_ddl_schema(db_path=db_path, create_test_data=create_test_data)
+                
+                result = {
+                    "status": "success" if success else "error",
+                    "message": "Schema applied successfully" if success else "Failed to apply schema",
+                    "score": 1.0 if success else -1.0
+                }
+                print(json.dumps(result, ensure_ascii=False))
+                return
+            else:
+                result = {
+                    "status": "error",
+                    "message": f"Unknown schema action: {action}",
+                    "score": -1.0
+                }
+                print(json.dumps(result, ensure_ascii=False))
+                return
         
         # 階層検証は最初に実行（DBアクセス前）
         hierarchy_validator = HierarchyValidator()
@@ -82,14 +111,14 @@ def safe_main():
         repository = create_kuzu_repository()
         debug("rgl.main", "Repository created successfully")
         
-        # 階層検証機能を統合したAPIを作成
+        # クエリエントリポイントを作成
         api = create_llm_hooks_api(repository)
-        debug("rgl.main", "API created successfully")
+        debug("rgl.main", "Query endpoint created successfully")
         
-        # APIを実行
-        info("rgl.main", "Executing API query")
+        # クエリを実行
+        info("rgl.main", "Executing query")
         result = api["query"](input_data)
-        debug("rgl.main", "API query completed", status=result.get("status"))
+        debug("rgl.main", "Query completed", status=result.get("status"))
         
         # 階層警告を結果に含める
         if "_hierarchy_warning" in input_data:

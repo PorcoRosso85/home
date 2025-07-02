@@ -60,6 +60,16 @@
               exec ${pkgs.uv}/bin/uv run pytest "$@"
             ''}";
           };
+          
+          # スキーマ適用
+          schema = {
+            type = "app";
+            program = "${pkgs.writeShellScript "schema" ''
+              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}"
+              export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
+              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pkgs.uv}/bin/uv run python run.py
+            ''}";
+          };
         };
       });
 }
