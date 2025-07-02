@@ -149,6 +149,17 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
                     }
                 }
                 
+            elif query_type == "batch":
+                # バッチクエリ
+                queries = request.get("queries", [])
+                results = []
+                for q in queries:
+                    results.append(query(q))
+                return {
+                    "status": "success",
+                    "results": results
+                }
+                
             elif query_type == "template":
                 # テンプレートクエリ
                 template_name = request.get("template", "")
@@ -219,7 +230,7 @@ def create_llm_hooks_api(repository: Dict) -> Dict[str, Any]:
                 return {
                     "status": "error",
                     "error": f"Unknown query type: {query_type}",
-                    "supported_types": ["cypher", "template", "procedure"]
+                    "supported_types": ["cypher", "template", "procedure", "batch"]
                 }
                 
         except Exception as e:

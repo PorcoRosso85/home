@@ -1,6 +1,7 @@
 """階層処理用UDFのテスト"""
 
 import os
+import json
 import pytest
 from .hierarchy_udfs import (
     HierarchyConfig, 
@@ -77,10 +78,18 @@ class TestHierarchyUDFs:
         for key in ["RGL_HIERARCHY_MODE", "RGL_MAX_HIERARCHY", "RGL_TEAM", "RGL_HIERARCHY_KEYWORDS"]:
             os.environ.pop(key, None)
     
-    @pytest.mark.skip(reason="UDF機能は未実装")
     def test_hierarchy_udfs_登録_正常に動作(self):
         """階層UDF登録_全関数が利用可能"""
         import kuzu
+        
+        # デフォルトキーワードを環境変数として設定
+        os.environ["RGL_HIERARCHY_KEYWORDS"] = json.dumps({
+            "0": ["ビジョン", "vision", "戦略", "目標"],
+            "1": ["エピック", "epic", "大規模", "イニシアチブ"],
+            "2": ["フィーチャー", "feature", "機能", "capability"],
+            "3": ["ストーリー", "story", "ユーザーストーリー"],
+            "4": ["タスク", "task", "実装", "バグ"]
+        })
         
         # In-memoryデータベース
         db = kuzu.Database(":memory:")
@@ -119,10 +128,18 @@ class TestHierarchyUDFs:
         # 元に戻す
         os.environ["RGL_HIERARCHY_MODE"] = "legacy"
     
-    @pytest.mark.skip(reason="UDF機能は未実装")
     def test_infer_hierarchy_level_各レベル判定(self):
         """infer_hierarchy_level_各キーワード_正しいレベルを返す"""
         import kuzu
+        
+        # デフォルトキーワードを環境変数として設定
+        os.environ["RGL_HIERARCHY_KEYWORDS"] = json.dumps({
+            "0": ["ビジョン", "vision", "戦略", "目標"],
+            "1": ["エピック", "epic", "大規模", "イニシアチブ"],
+            "2": ["フィーチャー", "feature", "機能", "capability"],
+            "3": ["ストーリー", "story", "ユーザーストーリー"],
+            "4": ["タスク", "task", "実装", "バグ"]
+        })
         
         db = kuzu.Database(":memory:")
         conn = kuzu.Connection(db)
