@@ -26,6 +26,7 @@
               pkgs.python3
               pkgs.ruff
               pkgs.uv # For managing python dependencies
+              pkgs.python3Packages.pytest # Add pytest here
             ];
           };
         });
