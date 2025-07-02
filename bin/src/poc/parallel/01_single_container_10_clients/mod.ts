@@ -31,6 +31,21 @@
  * });
  * ```
  * 
+ * ### ロードテスト実行
+ * ```typescript
+ * import { createLoadTestRunner, displayResults } from "./mod.ts";
+ * 
+ * const runner = createLoadTestRunner({
+ *   clients: 10,
+ *   durationMs: 60000,
+ *   requestIntervalMs: 100,
+ *   targetUrl: "http://localhost:3000/api/health"
+ * });
+ * 
+ * const { summary, metrics } = await runner();
+ * displayResults(summary, metrics);
+ * ```
+ * 
  * ### APIエンドポイント
  * - GET /api/health - ヘルスチェック
  * - GET /api/metrics - メトリクス取得
@@ -61,6 +76,26 @@ export {
   setupGracefulShutdown,
   getMemoryUsage,
 } from "./adapters.ts";
+
+// 負荷テスト機能
+export {
+  createLoadTestRunner,
+  createRequestFunction,
+  createClientWorker,
+  aggregateResults,
+  calculateSummary,
+  fetchMetrics,
+  displayResults,
+  LOAD_TEST_CONFIG,
+} from "./load-test.ts";
+
+export type {
+  LoadTestConfig,
+  RequestResult,
+  LoadTestResults,
+  LoadTestSummary,
+  MetricsResult,
+} from "./load-test.ts";
 
 // デフォルト設定
 export const DEFAULT_CONFIG = {
