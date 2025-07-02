@@ -10,7 +10,6 @@ from .application.friction_detector import create_friction_detector
 from .application.scoring_service import create_scoring_service
 
 
-@pytest.mark.skip(reason="TDD Red: 摩擦検出機能の実装待ち")
 def test_friction_detection_on_ambiguous_requirement():
     """曖昧な要件での摩擦検出"""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -57,7 +56,6 @@ def test_friction_detection_on_ambiguous_requirement():
         assert total_score < 0
 
 
-@pytest.mark.skip(reason="TDD Red: 摩擦検出機能の実装待ち")
 def test_priority_friction_with_multiple_critical():
     """複数のcritical要件による優先度摩擦"""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -104,7 +102,6 @@ def test_priority_friction_with_multiple_critical():
         assert frictions["total"]["health"] in ["needs_attention", "at_risk", "critical"]
 
 
-@pytest.mark.skip(reason="TDD Red: 摩擦検出機能の実装待ち")
 def test_contradiction_friction():
     """矛盾する要件による摩擦"""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -160,7 +157,6 @@ def test_contradiction_friction():
         assert contradiction["score"] <= 0  # 矛盾が検出される可能性
 
 
-@pytest.mark.skip(reason="TDD Red: 摩擦検出機能の実装待ち")
 def test_healthy_project_without_friction():
     """摩擦のない健全なプロジェクト"""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -203,7 +199,6 @@ def test_healthy_project_without_friction():
         assert frictions["total"]["health"] in ["healthy", "needs_attention"]
 
 
-@pytest.mark.skip(reason="TDD Red: 摩擦検出機能の実装待ち")
 def test_scoring_service_integration():
     """スコアリングサービスとの統合"""
     service = create_scoring_service()
