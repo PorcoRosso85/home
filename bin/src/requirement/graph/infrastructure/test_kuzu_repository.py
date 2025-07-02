@@ -3,8 +3,8 @@
 import tempfile
 from datetime import datetime
 import pytest
-import kuzu
 from .kuzu_repository import create_kuzu_repository
+from .database_factory import create_database, create_connection
 
 
 @pytest.fixture
@@ -14,8 +14,8 @@ def db_path():
 
 @pytest.fixture
 def connection(db_path):
-    db = kuzu.Database(db_path)
-    conn = kuzu.Connection(db)
+    db = create_database(path=db_path)
+    conn = create_connection(db)
     
     # スキーマのセットアップ（イミュータブル設計に準拠）
     conn.execute("""

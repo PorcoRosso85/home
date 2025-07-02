@@ -80,8 +80,6 @@ class TestHierarchyUDFs:
     
     def test_hierarchy_udfs_登録_正常に動作(self):
         """階層UDF登録_全関数が利用可能"""
-        import kuzu
-        
         # デフォルトキーワードを環境変数として設定
         os.environ["RGL_HIERARCHY_KEYWORDS"] = json.dumps({
             "0": ["ビジョン", "vision", "戦略", "目標"],
@@ -92,8 +90,9 @@ class TestHierarchyUDFs:
         })
         
         # In-memoryデータベース
-        db = kuzu.Database(":memory:")
-        conn = kuzu.Connection(db)
+        from .database_factory import create_database, create_connection
+        db = create_database(in_memory=True)
+        conn = create_connection(db)
         
         # UDF登録
         register_hierarchy_udfs(conn)
@@ -113,13 +112,13 @@ class TestHierarchyUDFs:
     
     def test_環境変数_動的モード_URI形式変更(self):
         """環境変数設定_dynamic mode_レベル情報なし"""
-        import kuzu
+        from .database_factory import create_database, create_connection
         
         # 環境変数設定
         os.environ["RGL_HIERARCHY_MODE"] = "dynamic"
         
-        db = kuzu.Database(":memory:")
-        conn = kuzu.Connection(db)
+        db = create_database(in_memory=True)
+        conn = create_connection(db)
         register_hierarchy_udfs(conn)
         
         result = conn.execute("RETURN generate_hierarchy_uri('req_001', 2)")
@@ -130,7 +129,7 @@ class TestHierarchyUDFs:
     
     def test_infer_hierarchy_level_各レベル判定(self):
         """infer_hierarchy_level_各キーワード_正しいレベルを返す"""
-        import kuzu
+        from .database_factory import create_database, create_connection
         
         # デフォルトキーワードを環境変数として設定
         os.environ["RGL_HIERARCHY_KEYWORDS"] = json.dumps({
@@ -141,8 +140,8 @@ class TestHierarchyUDFs:
             "4": ["タスク", "task", "実装", "バグ"]
         })
         
-        db = kuzu.Database(":memory:")
-        conn = kuzu.Connection(db)
+        db = create_database(in_memory=True)
+        conn = create_connection(db)
         register_hierarchy_udfs(conn)
         
         # レベル0: ビジョン
@@ -167,10 +166,10 @@ class TestHierarchyUDFs:
     
     def test_is_valid_hierarchy_境界値(self):
         """is_valid_hierarchy_境界値_正しく判定"""
-        import kuzu
+        from .database_factory import create_database, create_connection
         
-        db = kuzu.Database(":memory:")
-        conn = kuzu.Connection(db)
+        db = create_database(in_memory=True)
+        conn = create_connection(db)
         register_hierarchy_udfs(conn)
         
         # 正常な階層関係
@@ -191,10 +190,10 @@ class TestHierarchyUDFs:
     
     def test_generate_hierarchy_uri_エラーケース(self):
         """generate_hierarchy_uri_空のreq_id_エラー"""
-        import kuzu
+        from .database_factory import create_database, create_connection
         
-        db = kuzu.Database(":memory:")
-        conn = kuzu.Connection(db)
+        db = create_database(in_memory=True)
+        conn = create_connection(db)
         register_hierarchy_udfs(conn)
         
         # 空のreq_idでエラーが発生することを確認
@@ -203,13 +202,13 @@ class TestHierarchyUDFs:
     
     def test_max_hierarchy_depth_環境変数(self):
         """get_max_hierarchy_depth_環境変数設定_値が反映される"""
-        import kuzu
+        from .database_factory import create_database, create_connection
         
         # 環境変数設定
         os.environ["RGL_MAX_HIERARCHY"] = "8"
         
-        db = kuzu.Database(":memory:")
-        conn = kuzu.Connection(db)
+        db = create_database(in_memory=True)
+        conn = create_connection(db)
         register_hierarchy_udfs(conn)
         
         result = conn.execute("RETURN get_max_hierarchy_depth()")

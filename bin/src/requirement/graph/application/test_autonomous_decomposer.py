@@ -3,12 +3,12 @@ Tests for Autonomous Decomposer
 """
 import tempfile
 import pytest
-import kuzu
 from datetime import datetime
 from ..domain.types import Decision
 from .autonomous_decomposer import create_autonomous_decomposer
 from ..infrastructure.kuzu_repository import create_kuzu_repository
 from ..infrastructure.llm_hooks_api import create_llm_hooks_api
+from ..infrastructure.database_factory import create_database, create_connection
 
 
 @pytest.fixture
@@ -23,8 +23,8 @@ def connection(db_path):
     from ..infrastructure.variables import enable_test_mode
     enable_test_mode()
     
-    db = kuzu.Database(db_path)
-    conn = kuzu.Connection(db)
+    db = create_database(path=db_path)
+    conn = create_connection(db)
     
     # スキーマのセットアップ
     conn.execute("""
@@ -151,8 +151,7 @@ def test_decompose_requirement_hierarchical_creates_children(connection, db_path
         raise Exception(f"Failed to save parent requirement: {save_result}")
     
     # 実際のLLM Hooks APIを使用
-    repository["db"] = kuzu.Database(db_path)
-    repository["connection"] = connection
+    # repositoryには既にdbとconnectionが含まれているので、そのまま使用
     llm_hooks = create_llm_hooks_api(repository)
     
     # サービス作成
@@ -206,8 +205,7 @@ def test_analyze_decomposition_quality_calculates_metrics(connection, db_path):
         repository["save"](child, parent_id="req_001")
     
     # 実際のLLM Hooks APIを使用
-    repository["db"] = kuzu.Database(db_path)
-    repository["connection"] = connection
+    # repositoryには既にdbとconnectionが含まれているので、そのまま使用
     llm_hooks = create_llm_hooks_api(repository)
     
     decomposer = create_autonomous_decomposer(repository, llm_hooks)
@@ -261,8 +259,7 @@ def test_suggest_refinements_detects_issues(connection, db_path):
     repository["save"](child, parent_id="req_001")
     
     # 実際のLLM Hooks APIを使用
-    repository["db"] = kuzu.Database(db_path)
-    repository["connection"] = connection
+    # repositoryには既にdbとconnectionが含まれているので、そのまま使用
     llm_hooks = create_llm_hooks_api(repository)
     
     decomposer = create_autonomous_decomposer(repository, llm_hooks)

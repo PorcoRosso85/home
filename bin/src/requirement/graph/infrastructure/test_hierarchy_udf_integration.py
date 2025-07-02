@@ -27,9 +27,9 @@ class TestHierarchyUDFIntegration:
             "4": ["タスク", "task", "実装", "バグ"]
         })
         
-        import kuzu
-        db = kuzu.Database(str(tmp_path / "test.db"))
-        conn = kuzu.Connection(db)
+        # create_kuzu_repositoryを使用してリポジトリを作成
+        repo = create_kuzu_repository(str(tmp_path / "test.db"))
+        conn = repo["connection"]
         
         # 必要最小限のスキーマを作成
         conn.execute("""
@@ -45,11 +45,9 @@ class TestHierarchyUDFIntegration:
             )
         """)
         
-        # 階層処理用UDFを登録
-        from .hierarchy_udfs import register_hierarchy_udfs
-        register_hierarchy_udfs(conn)
+        # 階層処理用UDFは既にcreate_kuzu_repositoryで登録済み
         
-        return {"connection": conn}
+        return repo
     
     def test_階層レベル推論UDF_タイトルから自動判定(self, repo):
         """REDテスト: タイトルから階層レベルを推論するUDF"""

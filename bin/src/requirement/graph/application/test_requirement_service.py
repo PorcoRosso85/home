@@ -3,7 +3,7 @@ Tests for Requirement Service
 """
 import tempfile
 import pytest
-import kuzu
+from ..infrastructure.database_factory import create_database, create_connection
 from ..infrastructure.kuzu_repository import create_kuzu_repository
 from .requirement_service import create_requirement_service
 
@@ -20,8 +20,8 @@ def connection(db_path):
     from ..infrastructure.variables import enable_test_mode
     enable_test_mode()
     
-    db = kuzu.Database(db_path)
-    conn = kuzu.Connection(db)
+    db = create_database(path=db_path)
+    conn = create_connection(db)
     
     # スキーマのセットアップ
     conn.execute("""

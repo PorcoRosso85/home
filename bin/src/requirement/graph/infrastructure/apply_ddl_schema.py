@@ -14,11 +14,9 @@ sys.path.insert(0, project_root)
 
 from .variables import LD_LIBRARY_PATH, RGL_DB_PATH
 
-# KuzuDBのインポート - シンプルに
-import kuzu
-
 from .ddl_schema_manager import DDLSchemaManager
 from .logger import debug, info, warn, error
+from .database_factory import create_database, create_connection
 
 
 def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = False) -> bool:
@@ -55,8 +53,8 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
         os.makedirs(db_path, exist_ok=True)
         
         info("rgl.schema", "Connecting to database")
-        db = kuzu.Database(db_path)
-        conn = kuzu.Connection(db)
+        db = create_database(path=db_path)
+        conn = create_connection(db)
         debug("rgl.schema", "Database connection established")
     except Exception as e:
         error("rgl.schema", "Failed to connect to database", error=str(e))

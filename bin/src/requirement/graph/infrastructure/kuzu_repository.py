@@ -27,37 +27,24 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         Repository関数の辞書
     """
     info("rgl.repo", "Creating KuzuDB repository", db_path=db_path)
-    # KuzuDBのインポート - シンプルに
-    try:
-        import kuzu
-        debug("rgl.repo", "KuzuDB module loaded successfully")
-    except ImportError as e:
-        error("rgl.repo", "KuzuDB import failed", 
-              error=str(e), 
-              ld_path=LD_LIBRARY_PATH)
-        raise ImportError(
-            f"KuzuDB import failed: {e}\n"
-            f"LD_LIBRARY_PATH is set to: {LD_LIBRARY_PATH}"
-        )
     
-    # コネクション作成関数
-    def get_connection(db_path):
-        debug("rgl.repo", "Creating database connection", path=str(db_path))
-        db = kuzu.Database(str(db_path))
-        conn = kuzu.Connection(db)
-        debug("rgl.repo", "Database connection created")
-        return conn
+    # データベースファクトリーを使用
+    from .database_factory import create_database, create_connection
     
     if db_path is None:
         db_path = get_db_path()
     debug("rgl.repo", "Using database path", path=str(db_path))
     
-    # ディレクトリ作成
-    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    # インメモリデータベースの判定
+    in_memory = db_path == ":memory:" or db_path.startswith("/tmp/test_")
     
-    # データベース作成
-    db = kuzu.Database(str(db_path))
-    conn = kuzu.Connection(db)
+    # データベースとコネクションの作成
+    if in_memory:
+        db = create_database(in_memory=True)
+    else:
+        db = create_database(path=str(db_path))
+    
+    conn = create_connection(db)
     
     def init_schema():
         """スキーマ初期化 - graph/ddl/schema.cypherは事前適用済みと仮定"""

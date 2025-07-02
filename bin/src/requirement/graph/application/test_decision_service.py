@@ -3,11 +3,11 @@ Tests for Decision Service
 """
 import tempfile
 import pytest
-import kuzu
 from datetime import datetime
 from ..domain.embedder import create_embedding
 from .decision_service import create_decision_service
 from ..infrastructure.kuzu_repository import create_kuzu_repository
+from ..infrastructure.database_factory import create_database, create_connection
 
 
 @pytest.fixture
@@ -22,8 +22,8 @@ def connection(db_path):
     from ..infrastructure.variables import enable_test_mode
     enable_test_mode()
     
-    db = kuzu.Database(db_path)
-    conn = kuzu.Connection(db)
+    db = create_database(path=db_path)
+    conn = create_connection(db)
     
     # スキーマのセットアップ
     conn.execute("""

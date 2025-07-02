@@ -11,10 +11,8 @@ import sys
 from .variables import setup_test_environment
 setup_test_environment()
 
-# Import kuzu directly
-import kuzu
-
 from .apply_ddl_schema import apply_ddl_schema
+from .database_factory import create_database, create_connection
 
 
 def test_apply_ddl_schema_テスト環境_正常適用():
@@ -30,8 +28,8 @@ def test_apply_ddl_schema_テスト環境_正常適用():
         assert success
         
         # スキーマが適用されたか確認
-        test_db = kuzu.Database(temp_dir)
-        conn = kuzu.Connection(test_db)
+        test_db = create_database(path=temp_dir)
+        conn = create_connection(test_db)
         
         # LocationURIノードの確認
         result = conn.execute("MATCH (l:LocationURI) RETURN count(l) as cnt")
