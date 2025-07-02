@@ -66,10 +66,15 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
             debug("rgl.db_factory", "Using cached database instance", key=cache_key)
             return _database_cache[cache_key]
     
-    # KuzuDBのインポート
+    # KuzuDBのインポート（関数内で毎回インポート）
     try:
         import kuzu
-        debug("rgl.db_factory", "KuzuDB module loaded successfully")
+        # テストモードではモジュールをリロード
+        if is_test_mode:
+            import importlib
+            importlib.reload(kuzu)
+        debug("rgl.db_factory", "KuzuDB module loaded successfully", 
+              has_database=hasattr(kuzu, 'Database'))
     except ImportError as e:
         ld_path = os.environ.get("LD_LIBRARY_PATH", "not set")
         error("rgl.db_factory", "KuzuDB import failed", 

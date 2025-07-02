@@ -74,6 +74,25 @@ def clean_env():
     os.environ.update(original_env)
 
 
+@pytest.fixture(autouse=True)
+def cleanup_kuzu_state():
+    """各テスト後にKuzuDB状態をクリーンアップ"""
+    yield
+    # テスト後のクリーンアップ
+    if 'kuzu' in sys.modules:
+        try:
+            import importlib
+            importlib.reload(sys.modules['kuzu'])
+        except:
+            pass
+    # データベースキャッシュもクリア
+    try:
+        from infrastructure.database_factory import clear_database_cache
+        clear_database_cache()
+    except ImportError:
+        pass
+
+
 # テスト実行時のオプション設定
 def pytest_addoption(parser):
     """カスタムオプションの追加"""
