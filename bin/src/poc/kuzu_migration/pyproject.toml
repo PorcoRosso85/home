@@ -4,7 +4,10 @@
 name = "kuzu-migration-tool"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    # Add project-specific dependencies here
+    # e.g., "kuzu", "pyarrow"
+]
 
 [project.optional-dependencies]
 dev = [
@@ -12,19 +15,64 @@ dev = [
 ]
 
 # -----------------
-#  RUFF CONFIGURATION
+#  RUFF (Linter & Formatter)
+#  https://docs.astral.sh/ruff/
 # -----------------
 [tool.ruff]
-# Extend the central ruff.toml configuration
-# This makes our project portable as long as the base file is available
-# at the specified path during development.
-# For Nix Flakes, ensure the base ruff.toml is included in the build inputs.
-extend = "/home/nixos/bin/src/ruff.toml"
+# Target the same Python version as the project
+target-version = "py311"
 
-# You can override or extend rules for this specific project below
-# For example:
-# [tool.ruff.lint]
-# ignore = [
-#     "ANN101", # Inherited from base
-#     "D103",   # Ignore missing docstrings in public methods for this project
-# ]
+# Exclude common directories from linting and formatting
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+[tool.ruff.lint]
+# A comprehensive set of rules based on our conventions.
+# E, F: Standard flake8
+# B: flake8-bugbear (potential bugs)
+# C4: flake8-comprehensions (idiomatic comprehensions)
+# I: isort (import sorting)
+# D: pydocstyle (docstring enforcement)
+# N: pep8-naming (naming conventions)
+# ANN: flake8-annotations (type hint enforcement)
+# T20: flake8-print (ban `print`)
+# FIX: flake8-fixme (ban `TODO`, `FIXME`)
+select = ["E", "F", "B", "C4", "I", "N", "ANN", "D", "T20", "FIX"]
+
+# Ignore certain rules if necessary. For example:
+# ANN101: Missing type annotation for `self` in method
+# D100, D104, D105, D107: Missing docstrings in public modules/packages/methods
+ignore = ["ANN101"]
+
+# Rules from pydocstyle (D)
+[tool.ruff.lint.pydocstyle]
+convention = "google" # or "numpy", "pep257"
+
+# Rules from isort (I)
+[tool.ruff.lint.isort]
+known-first-party = ["src"] # Adjust based on project structure
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+# Use black-compatible indentation
+indent-style = "space"
