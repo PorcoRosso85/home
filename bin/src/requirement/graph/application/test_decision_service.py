@@ -19,7 +19,8 @@ def db_path():
 def connection(db_path):
     # スキーマチェックをスキップ
     import os
-    os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
+    from ..infrastructure.variables import enable_test_mode
+    enable_test_mode()
     
     db = kuzu.Database(db_path)
     conn = kuzu.Connection(db)

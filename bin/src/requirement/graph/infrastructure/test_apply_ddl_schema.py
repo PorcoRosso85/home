@@ -7,7 +7,9 @@ import os
 import sys
 
 # Environment variables setup for tests
-os.environ['RGL_DB_PATH'] = os.environ.get('RGL_DB_PATH', '/tmp/test_rgl_db')
+# テスト用環境設定
+from .variables import setup_test_environment
+setup_test_environment()
 
 # Import kuzu directly
 import kuzu

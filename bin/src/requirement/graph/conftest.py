@@ -6,8 +6,11 @@ import sys
 import pytest
 
 # 環境変数の設定（テスト実行前）
-os.environ.setdefault('LD_LIBRARY_PATH', '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib')
-os.environ.setdefault('RGL_DB_PATH', os.path.join(os.path.dirname(__file__), 'rgl_db'))
+# NOTE: テスト環境では必要な環境変数を事前に設定する
+if 'LD_LIBRARY_PATH' not in os.environ:
+    os.environ['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib'
+if 'RGL_DB_PATH' not in os.environ:
+    os.environ['RGL_DB_PATH'] = os.path.join(os.path.dirname(__file__), 'rgl_db')
 
 # プロジェクトルートをPythonパスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

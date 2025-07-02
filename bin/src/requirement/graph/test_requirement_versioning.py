@@ -42,7 +42,8 @@ class RepoWrapper:
 def repo(tmp_path):
     """テスト用リポジトリフィクスチャ"""
     # スキーマチェックをスキップ
-    os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
+    from .infrastructure.variables import enable_test_mode
+    enable_test_mode()
     
     db = kuzu.Database(str(tmp_path / "test.db"))
     conn = kuzu.Connection(db)

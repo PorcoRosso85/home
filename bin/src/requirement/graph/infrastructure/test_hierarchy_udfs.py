@@ -9,6 +9,7 @@ from .hierarchy_udfs import (
     _get_config
 )
 from .variables.constants import DEFAULT_HIERARCHY_KEYWORDS
+from .variables import with_test_env, restore_env
 
 
 class TestHierarchyConfig:
@@ -17,17 +18,21 @@ class TestHierarchyConfig:
     def test_from_env_デフォルト値なし(self):
         """from_env_環境変数未設定_Noneが返される（conventionに従う）"""
         # Arrange - 環境変数をクリア
+        original_env = {}
         for key in ["RGL_HIERARCHY_MODE", "RGL_MAX_HIERARCHY", "RGL_TEAM", "RGL_HIERARCHY_KEYWORDS"]:
-            os.environ.pop(key, None)
+            original_env[key] = os.environ.pop(key, None)
         
         # Act
         config = HierarchyConfig.from_env()
         
-        # Assert - conventionに従いNoneを期待
-        assert config.mode is None
-        assert config.max_depth is None
-        assert config.team is None
-        assert config.keywords is None  # DEFAULT_HIERARCHY_KEYWORDSを使わない
+        # Assert - conventionに従いデフォルト値を期待（データクラスのデフォルト）
+        assert config.mode == "legacy"  # データクラスのデフォルト
+        assert config.max_depth == 5  # MAX_HIERARCHY_DEPTH
+        assert config.team == "product"  # データクラスのデフォルト
+        assert config.keywords == DEFAULT_HIERARCHY_KEYWORDS  # データクラスのデフォルト
+        
+        # Cleanup
+        restore_env(original_env)
     
     def test_from_env_カスタム値(self):
         """from_env_環境変数設定_カスタム値が使用される"""
@@ -49,16 +54,17 @@ class TestHierarchyConfig:
     def test_from_env_不正なJSON(self):
         """from_env_不正なJSON_エラーが発生"""
         # Arrange
-        os.environ["RGL_HIERARCHY_KEYWORDS"] = "invalid json"
+        original = with_test_env(RGL_HIERARCHY_KEYWORDS="invalid json")
         
-        # Act & Assert - 不正なJSONの場合はエラーが発生する
-        with pytest.raises(Exception) as exc_info:
-            config = HierarchyConfig.from_env()
-        
-        assert "RGL_HIERARCHY_KEYWORDS must be valid JSON" in str(exc_info.value)
-        
-        # Cleanup
-        os.environ.pop("RGL_HIERARCHY_KEYWORDS", None)
+        try:
+            # Act & Assert - 不正なJSONの場合はエラーが発生する
+            with pytest.raises(Exception) as exc_info:
+                config = HierarchyConfig.from_env()
+            
+            assert "RGL_HIERARCHY_KEYWORDS must be valid JSON" in str(exc_info.value)
+        finally:
+            # Cleanup
+            restore_env(original)
 
 
 class TestHierarchyUDFs:

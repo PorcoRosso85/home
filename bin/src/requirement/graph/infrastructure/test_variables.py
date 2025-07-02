@@ -2,7 +2,10 @@
 
 import os
 import pytest
-from .variables import get_db_path, get_log_level, EMBEDDING_DIM, MAX_HIERARCHY_DEPTH, EnvironmentError
+from .variables import (
+    get_db_path, get_log_level, EMBEDDING_DIM, MAX_HIERARCHY_DEPTH, EnvironmentError,
+    with_test_env, restore_env
+)
 # 内部関数のテストなので、直接インポート
 from .variables.env import _require_env as _check_env
 
@@ -32,26 +35,28 @@ class TestVariables:
         # テスト環境で必須環境変数を設定
         test_db_path = "/test/db/path"
         
-        os.environ['RGL_DB_PATH'] = test_db_path
-        
-        # 環境変数が設定されていれば正常に取得できる
-        assert _check_env('RGL_DB_PATH') == test_db_path
+        original = with_test_env(RGL_DB_PATH=test_db_path)
+        try:
+            # 環境変数が設定されていれば正常に取得できる
+            assert _check_env('RGL_DB_PATH') == test_db_path
+        finally:
+            restore_env(original)
 
-    def test_オプション環境変数_未設定時_デフォルト値(self):
-        """オプション環境変数_未設定の場合_適切なデフォルト値"""
+    def test_オプション環境変数_未設定時_Noneを返す(self):
+        """オプション環境変数_未設定の場合_Noneを返す（規約に従う）"""
         # 一時的に環境変数を削除
-        original_value = os.environ.pop('RGL_LOG_LEVEL', None)
+        original = with_test_env()
+        if 'RGL_LOG_LEVEL' in os.environ:
+            del os.environ['RGL_LOG_LEVEL']
         
         try:
-            # variablesモジュールを再インポートすることはできないため、
-            # 環境変数から直接読み取る
-            log_level = os.environ.get('RGL_LOG_LEVEL', 'WARNING')
-            assert log_level == 'WARNING'
+            # 環境変数が設定されていない場合はNoneを返す
+            log_level = get_log_level()
+            assert log_level is None
             
         finally:
             # 環境変数を復元
-            if original_value:
-                os.environ['RGL_LOG_LEVEL'] = original_value
+            restore_env(original)
 
     def test_定数_変更不可(self):
         """定数_値の不変性_変更できないことを確認"""
@@ -64,23 +69,20 @@ class TestVariables:
     def test_get_db_path_環境変数を返す(self):
         """get_db_path_環境変数の値_そのまま返す"""
         test_path = "/test/database.db"
-        os.environ['RGL_DB_PATH'] = test_path
-        
-        # 関数が環境変数を参照していることを確認
-        # （実際にはモジュールロード時の値を返すため、直接的なテストは困難）
-        assert get_db_path() is not None
+        original = with_test_env(RGL_DB_PATH=test_path)
+        try:
+            # 関数が環境変数を参照していることを確認
+            assert get_db_path() == test_path
+        finally:
+            restore_env(original)
 
     def test_get_log_level_環境変数を返す(self):
         """get_log_level_環境変数の値_そのまま返す"""
         # 環境変数が未設定の場合はNoneを返すのが正しい動作
-        original = os.environ.get('RGL_LOG_LEVEL')
-        
-        # テスト用に設定
-        os.environ['RGL_LOG_LEVEL'] = 'DEBUG'
-        assert get_log_level() == 'DEBUG'
-        
-        # クリーンアップ
-        if original:
-            os.environ['RGL_LOG_LEVEL'] = original
-        else:
-            del os.environ['RGL_LOG_LEVEL']
+        original = with_test_env(RGL_LOG_LEVEL='DEBUG')
+        try:
+            # テスト用に設定
+            assert get_log_level() == 'DEBUG'
+        finally:
+            # クリーンアップ
+            restore_env(original)

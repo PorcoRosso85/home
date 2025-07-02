@@ -5,6 +5,7 @@
 import os
 import pytest
 from ..infrastructure.kuzu_repository import create_kuzu_repository
+from .variables import enable_test_mode, with_test_env, restore_env
 
 
 class TestHierarchyUDFIntegration:
@@ -14,7 +15,7 @@ class TestHierarchyUDFIntegration:
     def repo(self, tmp_path):
         """テスト用リポジトリ"""
         # テスト用にスキーマ初期化をスキップ
-        os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
+        enable_test_mode()
         
         import kuzu
         db = kuzu.Database(str(tmp_path / "test.db"))
@@ -105,8 +106,7 @@ class TestHierarchyUDFIntegration:
         """
         
         # Legacy modeに設定
-        original_mode = os.environ.get("RGL_HIERARCHY_MODE", "legacy")
-        os.environ["RGL_HIERARCHY_MODE"] = "legacy"
+        original = with_test_env(RGL_HIERARCHY_MODE="legacy")
         
         # 実行（エラーなし）
         conn.execute(query)
@@ -121,7 +121,7 @@ class TestHierarchyUDFIntegration:
         assert "L1" in uri  # エピックレベル
         
         # 環境変数を元に戻す
-        os.environ["RGL_HIERARCHY_MODE"] = original_mode
+        restore_env(original)
     
     def test_環境変数による階層数制御(self, repo):
         """チームごとの階層数に対応"""
@@ -129,9 +129,7 @@ class TestHierarchyUDFIntegration:
         # このテストでは環境変数の読み込みが正しく動作することを確認する
         
         # MLチームは6階層
-        original_max = os.environ.get("RGL_MAX_HIERARCHY", "5")
-        os.environ["RGL_MAX_HIERARCHY"] = "6"
-        os.environ["RGL_TEAM"] = "ml"
+        original = with_test_env(RGL_MAX_HIERARCHY="6", RGL_TEAM="ml")
         
         # 設定をリセットして新しい環境変数を読み込む
         from .hierarchy_udfs import reset_config, HierarchyConfig
@@ -143,7 +141,7 @@ class TestHierarchyUDFIntegration:
         assert config.team == "ml"
         
         # デフォルトに戻す
-        os.environ["RGL_MAX_HIERARCHY"] = original_max
+        restore_env(original)
         reset_config()
 
 
@@ -183,11 +181,10 @@ class TestHierarchyUDFIntegration:
         # このテストでは環境変数の設定が正しく読み込まれることを確認する
         
         # MLチーム用の環境変数設定
-        original_max = os.environ.get("RGL_MAX_HIERARCHY", "5")
-        original_keywords = os.environ.get("RGL_HIERARCHY_KEYWORDS", "")
-        
-        os.environ["RGL_MAX_HIERARCHY"] = "6"
-        os.environ["RGL_HIERARCHY_KEYWORDS"] = '{"5": ["parameter", "パラメータ", "設定"]}'
+        original = with_test_env(
+            RGL_MAX_HIERARCHY="6",
+            RGL_HIERARCHY_KEYWORDS='{"5": ["parameter", "パラメータ", "設定"]}'
+        )
         
         try:
             # 設定リセット（新しい環境変数を反映）
@@ -205,11 +202,7 @@ class TestHierarchyUDFIntegration:
             
         finally:
             # 環境変数を元に戻す
-            os.environ["RGL_MAX_HIERARCHY"] = original_max
-            if original_keywords:
-                os.environ["RGL_HIERARCHY_KEYWORDS"] = original_keywords
-            elif "RGL_HIERARCHY_KEYWORDS" in os.environ:
-                del os.environ["RGL_HIERARCHY_KEYWORDS"]
+            restore_env(original)
             reset_config()
 
 

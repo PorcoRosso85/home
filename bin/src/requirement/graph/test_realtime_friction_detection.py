@@ -11,7 +11,9 @@ import pytest
 def run_rgl_command(query: str) -> dict:
     """RGLコマンドを実行してレスポンスを取得"""
     env = os.environ.copy()
-    env['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/'
+    # LD_LIBRARY_PATHが設定されていない場合のみ設定
+    if 'LD_LIBRARY_PATH' not in env:
+        env['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/'
     
     input_data = json.dumps({
         "type": "cypher",

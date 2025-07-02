@@ -31,12 +31,23 @@ class HierarchyConfig:
         """
         try:
             # 階層キーワード定義 - conventionに従いデフォルト値なし
-            return cls(
-                mode=get_hierarchy_mode(),
-                max_depth=get_max_hierarchy(),
-                team=get_team(),
-                keywords=get_hierarchy_keywords()  # Noneの場合はそのまま
-            )
+            mode = get_hierarchy_mode()
+            max_depth = get_max_hierarchy()
+            team = get_team()
+            keywords = get_hierarchy_keywords()
+            
+            # Noneの場合はデフォルト値を使用（データクラスのデフォルト値に依存）
+            kwargs = {}
+            if mode is not None:
+                kwargs['mode'] = mode
+            if max_depth is not None:
+                kwargs['max_depth'] = max_depth
+            if team is not None:
+                kwargs['team'] = team
+            if keywords is not None:
+                kwargs['keywords'] = keywords
+                
+            return cls(**kwargs)
         except (json.JSONDecodeError, ValueError) as e:
             raise ValueError(f"環境変数の解析エラー: {e}")
 

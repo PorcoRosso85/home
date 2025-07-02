@@ -35,9 +35,9 @@ def _optional_env(name: str) -> Optional[str]:
 
 # 環境変数アクセス関数
 
-def get_ld_library_path() -> str:
+def get_ld_library_path() -> Optional[str]:
     """LD_LIBRARY_PATH（オプション - Nixが管理）"""
-    return _optional_env('LD_LIBRARY_PATH') or ""
+    return _optional_env('LD_LIBRARY_PATH')
 
 def get_rgl_db_path() -> str:
     """RGL_DB_PATH（必須）"""
@@ -66,33 +66,7 @@ def should_skip_schema_check() -> bool:
     value = _optional_env('RGL_SKIP_SCHEMA_CHECK')
     return value and value.lower() in ('true', '1', 'yes')
 
-def get_hierarchy_mode() -> Optional[str]:
-    """階層モード（オプション）"""
-    return _optional_env('RGL_HIERARCHY_MODE')
-
-def get_max_hierarchy() -> Optional[int]:
-    """最大階層深度（オプション）"""
-    value = _optional_env('RGL_MAX_HIERARCHY')
-    if value:
-        try:
-            return int(value)
-        except ValueError:
-            raise EnvironmentError(f"RGL_MAX_HIERARCHY must be an integer, got: {value}")
-    return None
-
-def get_team() -> Optional[str]:
-    """チーム名（オプション）"""
-    return _optional_env('RGL_TEAM')
-
-def get_hierarchy_keywords() -> Optional[Dict[int, List[str]]]:
-    """階層キーワード（オプション）"""
-    value = _optional_env('RGL_HIERARCHY_KEYWORDS')
-    if value:
-        try:
-            return json.loads(value)
-        except json.JSONDecodeError as e:
-            raise EnvironmentError(f"RGL_HIERARCHY_KEYWORDS must be valid JSON: {e}")
-    return None
+# 階層関連の環境変数は hierarchy_env.py に移動
 
 # /org モード関連
 

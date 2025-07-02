@@ -7,7 +7,7 @@ Variables モジュール - 外部変数定義の集約
 
 import warnings
 
-# 新システム（env.py）からインポート
+# 新システムからインポート
 from .env import (
     EnvironmentError,
     get_ld_library_path,
@@ -16,17 +16,30 @@ from .env import (
     get_log_level,
     get_log_format,
     should_skip_schema_check,
-    get_hierarchy_mode,
-    get_max_hierarchy,
-    get_team,
-    get_hierarchy_keywords,
     is_org_mode,
     get_shared_db_path,
     validate_environment,
 )
 
+from .hierarchy_env import (
+    get_hierarchy_mode,
+    get_max_hierarchy,
+    get_team,
+    get_hierarchy_keywords,
+    validate_hierarchy_env,
+)
+
+from .test_env import (
+    setup_test_environment,
+    get_test_db_path,
+    enable_test_mode,
+    disable_test_mode,
+    with_test_env,
+    restore_env,
+)
+
 # 互換性のための変数（直接アクセスは非推奨）
-# LD_LIBRARY_PATHはNixが管理するため、常に空文字列を返す
+# LD_LIBRARY_PATHはNixが管理するため、Noneの可能性がある
 LD_LIBRARY_PATH = get_ld_library_path()
 
 try:
@@ -83,6 +96,14 @@ __all__ = [
     'is_org_mode',
     'get_shared_db_path',
     'validate_environment',
+    'validate_hierarchy_env',
+    # テスト関連
+    'setup_test_environment',
+    'get_test_db_path',
+    'enable_test_mode',
+    'disable_test_mode',
+    'with_test_env',
+    'restore_env',
     # 定数
     'EMBEDDING_DIM',
     'MAX_HIERARCHY_DEPTH',

@@ -6,6 +6,7 @@ import json
 import subprocess
 import tempfile
 import pytest
+from .variables import with_test_env, restore_env
 
 
 class TestMainUDFIntegration:
@@ -15,14 +16,13 @@ class TestMainUDFIntegration:
     def test_db_path(self, tmp_path):
         """テスト用DBパス"""
         db_path = tmp_path / "test.db"
-        os.environ["RGL_DB_PATH"] = str(db_path)
-        os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
+        original = with_test_env(
+            RGL_DB_PATH=str(db_path),
+            RGL_SKIP_SCHEMA_CHECK="true"
+        )
         yield str(db_path)
         # クリーンアップ
-        if "RGL_DB_PATH" in os.environ:
-            del os.environ["RGL_DB_PATH"]
-        if "RGL_SKIP_SCHEMA_CHECK" in os.environ:
-            del os.environ["RGL_SKIP_SCHEMA_CHECK"]
+        restore_env(original)
     
     def test_main_階層自動推論_ビジョンレベル検出(self, test_db_path):
         """main経由_UDFで階層レベル推論_ビジョンを正しく検出"""

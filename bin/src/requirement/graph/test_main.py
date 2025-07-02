@@ -8,9 +8,9 @@ import subprocess
 import tempfile
 import pytest
 
-# 環境変数をテスト用に設定
-os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
-os.environ["RGL_DB_PATH"] = "/tmp/test_main.db"
+# テスト用環境設定
+from .infrastructure.variables import setup_test_environment
+setup_test_environment()
 
 from .main import main
 
