@@ -347,10 +347,6 @@ server {
 
 ```typescript
 // app.ts - 改良されたアプリケーション
-import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
-
-const app = new Application();
-const router = new Router();
 const CONTAINER_ID = Deno.env.get("CONTAINER_ID") || 'unknown';
 const PORT = parseInt(Deno.env.get("PORT") || '3001');
 
@@ -360,99 +356,125 @@ let isShuttingDown = false;
 // セッション管理（簡易実装）
 const sessions = new Map();
 
-// ミドルウェア
-app.use(async (ctx, next) => {
-  if (isShuttingDown) {
-    ctx.response.headers.set('Connection', 'close');
-    ctx.response.status = 503;
-    ctx.response.body = 'Server is shutting down';
-    return;
-  }
-  await next();
-});
+function generateSessionId() {
+  return `${CONTAINER_ID}-${Date.now()}-${crypto.randomUUID().substring(0, 8)}`;
+}
 
-// ヘルスチェックエンドポイント
-router.get('/health', (ctx) => {
-  if (isShuttingDown) {
-    ctx.response.status = 503;
-    ctx.response.body = { status: 'shutting_down' };
-    return;
-  }
+// リクエストハンドラー
+async function handler(request: Request): Promise<Response> {
+  const url = new URL(request.url);
   
-  ctx.response.body = {
-    status: 'healthy',
-    container: CONTAINER_ID,
-    uptime: performance.now() / 1000,
-    memory: Deno.memoryUsage()
-  };
-});
-
-// コンテナ識別エンドポイント
-router.get('/api/whoami', (ctx) => {
-  ctx.response.body = {
-    container: CONTAINER_ID,
-    pid: Deno.pid,
-    hostname: Deno.hostname(),
-    timestamp: Date.now()
-  };
-});
-
-// セッション管理エンドポイント
-router.post('/api/session', async (ctx) => {
-  const sessionId = ctx.request.headers.get('x-session-id') || generateSessionId();
-  const body = await ctx.request.body({ type: 'json' }).value;
-  const { clientId, requestNum } = body;
-  
-  // セッションデータの保存/更新
-  if (!sessions.has(sessionId)) {
-    sessions.set(sessionId, {
-      clientId,
-      container: CONTAINER_ID,
-      created: Date.now(),
-      requests: []
+  // シャットダウン中チェック
+  if (isShuttingDown) {
+    return new Response('Server is shutting down', {
+      status: 503,
+      headers: { 'Connection': 'close' }
     });
   }
   
-  const session = sessions.get(sessionId);
-  session.requests.push({
-    requestNum,
-    timestamp: Date.now()
-  });
-  
-  ctx.response.headers.set('X-Session-Id', sessionId);
-  ctx.response.body = {
-    sessionId,
-    container: CONTAINER_ID,
-    requestCount: session.requests.length
-  };
-});
-
-// パフォーマンステスト用エンドポイント
-router.get('/api/load-test', (ctx) => {
-  // CPUバウンドな処理をシミュレート
-  const iterations = parseInt(ctx.request.url.searchParams.get('iterations') || '1000');
-  let result = 0;
-  
-  for (let i = 0; i < iterations; i++) {
-    result += Math.sqrt(i);
+  // ヘルスチェックエンドポイント
+  if (url.pathname === '/health' && request.method === 'GET') {
+    if (isShuttingDown) {
+      return new Response(JSON.stringify({ status: 'shutting_down' }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+    
+    return new Response(JSON.stringify({
+      status: 'healthy',
+      container: CONTAINER_ID,
+      uptime: performance.now() / 1000,
+      memory: Deno.memoryUsage()
+    }), {
+      headers: { 'content-type': 'application/json' }
+    });
   }
   
-  ctx.response.body = {
-    container: CONTAINER_ID,
-    result,
-    processingTime: iterations
-  };
-});
+  // コンテナ識別エンドポイント
+  if (url.pathname === '/api/whoami' && request.method === 'GET') {
+    return new Response(JSON.stringify({
+      container: CONTAINER_ID,
+      pid: Deno.pid,
+      hostname: Deno.hostname(),
+      timestamp: Date.now()
+    }), {
+      headers: { 'content-type': 'application/json' }
+    });
+  }
+  
+  // セッション管理エンドポイント
+  if (url.pathname === '/api/session' && request.method === 'POST') {
+    const sessionId = request.headers.get('x-session-id') || generateSessionId();
+    const body = await request.json();
+    const { clientId, requestNum } = body;
+    
+    // セッションデータの保存/更新
+    if (!sessions.has(sessionId)) {
+      sessions.set(sessionId, {
+        clientId,
+        container: CONTAINER_ID,
+        created: Date.now(),
+        requests: []
+      });
+    }
+    
+    const session = sessions.get(sessionId);
+    session.requests.push({
+      requestNum,
+      timestamp: Date.now()
+    });
+    
+    return new Response(JSON.stringify({
+      sessionId,
+      container: CONTAINER_ID,
+      requestCount: session.requests.length
+    }), {
+      headers: {
+        'content-type': 'application/json',
+        'X-Session-Id': sessionId
+      }
+    });
+  }
+  
+  // パフォーマンステスト用エンドポイント
+  if (url.pathname === '/api/load-test' && request.method === 'GET') {
+    // CPUバウンドな処理をシミュレート
+    const iterations = parseInt(url.searchParams.get('iterations') || '1000');
+    let result = 0;
+    
+    for (let i = 0; i < iterations; i++) {
+      result += Math.sqrt(i);
+    }
+    
+    return new Response(JSON.stringify({
+      container: CONTAINER_ID,
+      result,
+      processingTime: iterations
+    }), {
+      headers: { 'content-type': 'application/json' }
+    });
+  }
+  
+  // 404 Not Found
+  return new Response('Not Found', { status: 404 });
+}
+
+// サーバー起動
+const server = Deno.serve(
+  { port: PORT },
+  handler
+);
+
+console.log(`Container ${CONTAINER_ID} listening on port ${PORT}`);
 
 // グレースフルシャットダウン
-const abortController = new AbortController();
-
 Deno.addSignalListener("SIGTERM", () => {
   console.log('SIGTERM received, starting graceful shutdown...');
   isShuttingDown = true;
   
-  // 新規接続の受付を停止
-  abortController.abort();
+  // サーバーのシャットダウン
+  server.shutdown();
   
   // アクティブな接続の完了を待つ
   setTimeout(() => {
@@ -461,15 +483,7 @@ Deno.addSignalListener("SIGTERM", () => {
   }, 30000); // 最大30秒待つ
 });
 
-app.use(router.routes());
-app.use(router.allowedMethods());
-
-console.log(`Container ${CONTAINER_ID} listening on port ${PORT}`);
-await app.listen({ port: PORT, signal: abortController.signal });
-
-function generateSessionId() {
-  return `${CONTAINER_ID}-${Date.now()}-${crypto.randomUUID().substring(0, 8)}`;
-}
+await server.finished;
 ```
 
 ### Dockerfile

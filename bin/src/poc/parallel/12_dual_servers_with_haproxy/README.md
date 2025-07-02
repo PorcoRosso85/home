@@ -479,118 +479,141 @@ listen stats
 
 ```typescript
 // haproxy-backend-app.ts
-import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
-import { Session } from "https://deno.land/x/oak_sessions@v4.1.9/mod.ts";
+import { delay } from "https://deno.land/std@0.208.0/async/delay.ts";
 
 const SERVER_NAME = Deno.env.get('SERVER_NAME') || 'server1';
 const PORT = parseInt(Deno.env.get('PORT') || '3001');
 
-const app = new Application();
-const router = new Router();
+// セッションストレージ（簡易実装）
+const sessions = new Map<string, any>();
 
-// セッション設定
-const session = new Session();
-app.use(session.initMiddleware());
-
-// ロギングミドルウェア
-app.use(async (ctx, next) => {
-  console.log(`[${SERVER_NAME}] ${ctx.request.method} ${ctx.request.url.pathname} - Session: ${await ctx.state.session.id}`);
-  await next();
-});
-
-// ヘルスチェックエンドポイント
-router.get('/health', (ctx) => {
-  // HAProxyのヘルスチェックに応答
-  ctx.response.status = 200;
-  ctx.response.body = 'OK';
-});
-
-// サーバー識別エンドポイント
-router.get('/api/whoami', (ctx) => {
-  ctx.response.body = {
-    server: SERVER_NAME,
-    timestamp: new Date().toISOString(),
-    headers: Object.fromEntries(ctx.request.headers)
-  };
-});
-
-// セッションテスト
-router.get('/api/session', async (ctx) => {
-  const sessionData = await ctx.state.session.get('data') || { visits: 0 };
-  sessionData.visits++;
-  await ctx.state.session.set('data', sessionData);
-  
-  ctx.response.body = {
-    server: SERVER_NAME,
-    sessionId: await ctx.state.session.id,
-    visits: sessionData.visits,
-    created: new Date().toISOString()
-  };
-});
-
-// 長時間実行オペレーション
-router.post('/api/long-operation', async (ctx) => {
-  const body = await ctx.request.body({ type: 'json' }).value;
-  const duration = body.duration || 5000;
-  
-  console.log(`[${SERVER_NAME}] Starting long operation (${duration}ms)`);
-  
-  // グレースフルシャットダウンのテスト用
-  await delay(duration);
-  
-  ctx.response.body = {
-    server: SERVER_NAME,
-    duration,
-    completed: true
-  };
-});
-
-// パフォーマンステスト用エンドポイント
-router.get('/api/fast', (ctx) => {
-  ctx.response.body = { server: SERVER_NAME, type: 'fast' };
-});
-
-router.get('/api/slow', async (ctx) => {
-  await delay(400 + Math.random() * 200);
-  ctx.response.body = { server: SERVER_NAME, type: 'slow' };
-});
-
-router.get('/api/error', (ctx) => {
-  ctx.response.status = 500;
-  ctx.response.body = { error: 'Simulated error', server: SERVER_NAME };
-});
-
-// グレースフルシャットダウン
+// グレースフルシャットダウン用フラグ
 let isShuttingDown = false;
 
+// セッションID生成
+function generateSessionId(): string {
+  return crypto.randomUUID();
+}
+
+// リクエストハンドラー
+async function handler(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  
+  // シャットダウン中チェック
+  if (isShuttingDown) {
+    return new Response('Server is shutting down', { status: 503 });
+  }
+  
+  // セッションIDの取得または作成
+  const cookies = request.headers.get('cookie');
+  let sessionId = cookies?.match(/sessionId=([^;]+)/)?.[1];
+  if (!sessionId) {
+    sessionId = generateSessionId();
+  }
+  
+  console.log(`[${SERVER_NAME}] ${request.method} ${url.pathname} - Session: ${sessionId}`);
+  
+  // ヘルスチェックエンドポイント
+  if (url.pathname === '/health' && request.method === 'GET') {
+    // HAProxyのヘルスチェックに応答
+    return new Response('OK', { status: 200 });
+  }
+  
+  // サーバー識別エンドポイント
+  if (url.pathname === '/api/whoami' && request.method === 'GET') {
+    return new Response(JSON.stringify({
+      server: SERVER_NAME,
+      timestamp: new Date().toISOString(),
+      headers: Object.fromEntries(request.headers)
+    }), {
+      headers: { 'content-type': 'application/json' }
+    });
+  }
+  
+  // セッションテスト
+  if (url.pathname === '/api/session' && request.method === 'GET') {
+    const sessionData = sessions.get(sessionId) || { visits: 0 };
+    sessionData.visits++;
+    sessions.set(sessionId, sessionData);
+    
+    return new Response(JSON.stringify({
+      server: SERVER_NAME,
+      sessionId: sessionId,
+      visits: sessionData.visits,
+      created: new Date().toISOString()
+    }), {
+      headers: {
+        'content-type': 'application/json',
+        'set-cookie': `sessionId=${sessionId}; Path=/; HttpOnly`
+      }
+    });
+  }
+  
+  // 長時間実行オペレーション
+  if (url.pathname === '/api/long-operation' && request.method === 'POST') {
+    const body = await request.json();
+    const duration = body.duration || 5000;
+    
+    console.log(`[${SERVER_NAME}] Starting long operation (${duration}ms)`);
+    
+    // グレースフルシャットダウンのテスト用
+    await delay(duration);
+    
+    return new Response(JSON.stringify({
+      server: SERVER_NAME,
+      duration,
+      completed: true
+    }), {
+      headers: { 'content-type': 'application/json' }
+    });
+  }
+  
+  // パフォーマンステスト用エンドポイント
+  if (url.pathname === '/api/fast' && request.method === 'GET') {
+    return new Response(JSON.stringify({ server: SERVER_NAME, type: 'fast' }), {
+      headers: { 'content-type': 'application/json' }
+    });
+  }
+  
+  if (url.pathname === '/api/slow' && request.method === 'GET') {
+    await delay(400 + Math.random() * 200);
+    return new Response(JSON.stringify({ server: SERVER_NAME, type: 'slow' }), {
+      headers: { 'content-type': 'application/json' }
+    });
+  }
+  
+  if (url.pathname === '/api/error' && request.method === 'GET') {
+    return new Response(JSON.stringify({ error: 'Simulated error', server: SERVER_NAME }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' }
+    });
+  }
+  
+  // 404 Not Found
+  return new Response('Not Found', { status: 404 });
+}
+
+// サーバー起動
+console.log(`[${SERVER_NAME}] Server listening on port ${PORT}`);
+
+const server = Deno.serve(
+  { port: PORT },
+  handler
+);
+
+// グレースフルシャットダウン
 Deno.addSignalListener('SIGTERM', () => {
   console.log(`[${SERVER_NAME}] SIGTERM received, starting graceful shutdown`);
   isShuttingDown = true;
   
-  // 新規リクエストを拒否
-  app.use(async (ctx, next) => {
-    if (isShuttingDown) {
-      ctx.response.status = 503;
-      ctx.response.body = 'Server is shutting down';
-      return;
-    }
-    await next();
-  });
-  
   // 30秒後に強制終了
   setTimeout(() => {
     console.log(`[${SERVER_NAME}] Forcing shutdown`);
-    Deno.exit(0);
+    server.shutdown();
   }, 30000);
 });
 
-// ルーターの設定
-app.use(router.routes());
-app.use(router.allowedMethods());
-
-// サーバー起動
-console.log(`[${SERVER_NAME}] Server listening on port ${PORT}`);
-await app.listen({ port: PORT });
+await server.finished;
 ```
 
 ### Docker Compose設定

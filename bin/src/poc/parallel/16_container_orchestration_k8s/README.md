@@ -1235,146 +1235,169 @@ spec:
 
 ```typescript
 // app/k8s-aware-app.ts
-import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
+import { delay } from "https://deno.land/std@0.208.0/async/delay.ts";
 
 class K8sAwareApplication {
-  private app: Application;
-  private router: Router;
   private metrics: any;
-  private server: any;
+  private server: Deno.HttpServer | null = null;
   private activeConnections = 0;
+  private requestCount = 0;
   
   constructor() {
-    this.app = new Application();
-    this.router = new Router();
     this.metrics = this.setupMetrics();
-    this.setupRoutes();
     this.setupK8sIntegration();
   }
   
   setupMetrics() {
-    const register = new prometheus.Registry();
-    
-    // デフォルトメトリクス
-    prometheus.collectDefaultMetrics({ register });
-    
-    // カスタムメトリクス
-    const httpRequestDuration = new prometheus.Histogram({
-      name: 'http_request_duration_seconds',
-      help: 'Duration of HTTP requests in seconds',
-      labelNames: ['method', 'route', 'status'],
-      buckets: [0.1, 0.5, 1, 2, 5]
-    });
-    
-    const httpRequestsTotal = new prometheus.Counter({
-      name: 'http_requests_total',
-      help: 'Total number of HTTP requests',
-      labelNames: ['method', 'route', 'status']
-    });
-    
-    const httpRequestsPerSecond = new prometheus.Gauge({
-      name: 'http_requests_per_second',
-      help: 'HTTP requests per second'
-    });
-    
-    register.registerMetric(httpRequestDuration);
-    register.registerMetric(httpRequestsTotal);
-    register.registerMetric(httpRequestsPerSecond);
+    // 簡易的なメトリクス実装
+    const metrics = {
+      httpRequestDurations: new Map<string, number[]>(),
+      httpRequestCounts: new Map<string, number>(),
+      httpRequestsPerSecond: 0,
+      startTime: Date.now()
+    };
     
     return {
-      register,
-      httpRequestDuration,
-      httpRequestsTotal,
-      httpRequestsPerSecond
+      recordRequest: (method: string, path: string, status: number, duration: number) => {
+        const key = `${method}_${path}_${status}`;
+        
+        // Duration tracking
+        if (!metrics.httpRequestDurations.has(key)) {
+          metrics.httpRequestDurations.set(key, []);
+        }
+        metrics.httpRequestDurations.get(key)!.push(duration);
+        
+        // Count tracking
+        const currentCount = metrics.httpRequestCounts.get(key) || 0;
+        metrics.httpRequestCounts.set(key, currentCount + 1);
+      },
+      
+      getMetrics: () => {
+        const lines: string[] = [
+          '# HELP http_request_duration_seconds Duration of HTTP requests in seconds',
+          '# TYPE http_request_duration_seconds histogram'
+        ];
+        
+        // Convert metrics to Prometheus format
+        metrics.httpRequestDurations.forEach((durations, key) => {
+          const [method, path, status] = key.split('_');
+          const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
+          lines.push(`http_request_duration_seconds{method="${method}",route="${path}",status="${status}"} ${avg}`);
+        });
+        
+        lines.push('', '# HELP http_requests_total Total number of HTTP requests');
+        lines.push('# TYPE http_requests_total counter');
+        
+        metrics.httpRequestCounts.forEach((count, key) => {
+          const [method, path, status] = key.split('_');
+          lines.push(`http_requests_total{method="${method}",route="${path}",status="${status}"} ${count}`);
+        });
+        
+        lines.push('', '# HELP http_requests_per_second HTTP requests per second');
+        lines.push('# TYPE http_requests_per_second gauge');
+        lines.push(`http_requests_per_second ${metrics.httpRequestsPerSecond}`);
+        
+        return lines.join('\n');
+      },
+      
+      updateRequestsPerSecond: (rps: number) => {
+        metrics.httpRequestsPerSecond = rps;
+      }
     };
   }
   
-  setupRoutes() {
-    // メトリクスミドルウェア
-    this.app.use(async (ctx, next) => {
-      const start = Date.now();
-      this.activeConnections++;
-      
-      try {
-        await next();
-      } finally {
-        const duration = (Date.now() - start) / 1000;
-        const path = ctx.request.url.pathname;
-        const method = ctx.request.method;
-        const status = ctx.response.status;
+  async handleRequest(request: Request): Promise<Response> {
+    const start = Date.now();
+    const url = new URL(request.url);
+    const method = request.method;
+    const path = url.pathname;
+    let status = 200;
+    
+    this.activeConnections++;
+    this.requestCount++;
+    
+    try {
+      // ヘルスチェック
+      if (path === '/health' && method === 'GET') {
+        const health = this.checkHealth();
         
-        this.metrics.httpRequestDuration
-          .labels(method, path, status.toString())
-          .observe(duration);
+        if (health.status === 'healthy') {
+          return new Response(JSON.stringify(health), {
+            headers: { 'content-type': 'application/json' }
+          });
+        } else {
+          status = 503;
+          return new Response(JSON.stringify(health), {
+            status: 503,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+      }
+      
+      // レディネスチェック
+      if (path === '/ready' && method === 'GET') {
+        const readiness = this.checkReadiness();
         
-        this.metrics.httpRequestsTotal
-          .labels(method, path, status.toString())
-          .inc();
+        if (readiness.ready) {
+          return new Response(JSON.stringify(readiness), {
+            headers: { 'content-type': 'application/json' }
+          });
+        } else {
+          status = 503;
+          return new Response(JSON.stringify(readiness), {
+            status: 503,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+      }
+      
+      // メトリクスエンドポイント
+      if (path === '/metrics' && method === 'GET') {
+        return new Response(this.metrics.getMetrics(), {
+          headers: { 'content-type': 'text/plain; version=0.0.4' }
+        });
+      }
+      
+      // アプリケーションルート
+      if (path === '/' && method === 'GET') {
+        return new Response(JSON.stringify({
+          message: 'Hello from Kubernetes!',
+          pod: Deno.env.get('POD_NAME'),
+          namespace: Deno.env.get('POD_NAMESPACE'),
+          node: Deno.env.get('NODE_NAME'),
+          version: Deno.env.get('APP_VERSION') || 'v1.0'
+        }), {
+          headers: { 'content-type': 'application/json' }
+        });
+      }
+      
+      // CPU負荷エンドポイント（オートスケーリングテスト用）
+      if (path === '/cpu-intensive' && method === 'GET') {
+        const cpuStart = Date.now();
+        const duration = parseInt(url.searchParams.get('duration') || '1000');
         
-        this.activeConnections--;
-      }
-    });
-    
-    // ヘルスチェック
-    this.router.get('/health', (ctx) => {
-      const health = this.checkHealth();
-      
-      if (health.status === 'healthy') {
-        ctx.response.body = health;
-      } else {
-        ctx.response.status = 503;
-        ctx.response.body = health;
-      }
-    });
-    
-    // レディネスチェック
-    this.router.get('/ready', (ctx) => {
-      const readiness = this.checkReadiness();
-      
-      if (readiness.ready) {
-        ctx.response.body = readiness;
-      } else {
-        ctx.response.status = 503;
-        ctx.response.body = readiness;
-      }
-    });
-    
-    // メトリクスエンドポイント
-    this.router.get('/metrics', async (ctx) => {
-      ctx.response.headers.set('Content-Type', this.metrics.register.contentType);
-      ctx.response.body = await this.metrics.register.metrics();
-    });
-    
-    // アプリケーションルート
-    this.router.get('/', (ctx) => {
-      ctx.response.body = {
-        message: 'Hello from Kubernetes!',
-        pod: Deno.env.get('POD_NAME'),
-        namespace: Deno.env.get('POD_NAMESPACE'),
-        node: Deno.env.get('NODE_NAME'),
-        version: Deno.env.get('APP_VERSION') || 'v1.0'
-      };
-    });
-    
-    // CPU負荷エンドポイント（オートスケーリングテスト用）
-    this.router.get('/cpu-intensive', (ctx) => {
-      const start = Date.now();
-      const duration = parseInt(ctx.request.url.searchParams.get('duration') || '1000');
-      
-      // CPU集約的な処理
-      while (Date.now() - start < duration) {
-        Math.sqrt(Math.random());
+        // CPU集約的な処理
+        while (Date.now() - cpuStart < duration) {
+          Math.sqrt(Math.random());
+        }
+        
+        return new Response(JSON.stringify({
+          duration: Date.now() - cpuStart,
+          pod: Deno.env.get('POD_NAME')
+        }), {
+          headers: { 'content-type': 'application/json' }
+        });
       }
       
-      ctx.response.body = {
-        duration: Date.now() - start,
-        pod: Deno.env.get('POD_NAME')
-      };
-    });
-    
-    // ルーターをアプリケーションに追加
-    this.app.use(this.router.routes());
-    this.app.use(this.router.allowedMethods());
+      // 404 Not Found
+      status = 404;
+      return new Response('Not Found', { status: 404 });
+      
+    } finally {
+      const duration = (Date.now() - start) / 1000;
+      this.metrics.recordRequest(method, path, status, duration);
+      this.activeConnections--;
+    }
   }
   
   setupK8sIntegration() {
@@ -1464,19 +1487,20 @@ class K8sAwareApplication {
     console.log(`Namespace: ${Deno.env.get('POD_NAMESPACE')}`);
     
     // RPS計算
-    let requestCount = 0;
+    let lastRequestCount = 0;
     setInterval(() => {
-      this.metrics.httpRequestsPerSecond.set(requestCount);
-      requestCount = 0;
+      const rps = this.requestCount - lastRequestCount;
+      this.metrics.updateRequestsPerSecond(rps);
+      lastRequestCount = this.requestCount;
     }, 1000);
     
-    // リクエストカウントミドルウェア
-    this.app.use(async (ctx, next) => {
-      requestCount++;
-      await next();
-    });
+    // サーバー起動
+    this.server = Deno.serve(
+      { port },
+      (request) => this.handleRequest(request)
+    );
     
-    await this.app.listen({ port });
+    await this.server.finished;
   }
   
   private setupLeaderElection() {

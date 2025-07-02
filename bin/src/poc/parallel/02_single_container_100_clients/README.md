@@ -206,8 +206,7 @@ Deno.test({
 ### Green Phase (最適化された実装)
 ```typescript
 // server.ts
-import { createServer, setupGracefulShutdown } from "../01_single_container_10_clients/mod.ts";
-import { Application, Router } from "@oak/oak";
+import { createMetricsManager, createHealthResponse, createMetricsResponse } from "../01_single_container_10_clients/mod.ts";
 import { Pool } from "./worker-pool.ts";
 
 // ワーカープールの設定
@@ -258,12 +257,28 @@ class LRUCache<T> {
 
 const cache = new LRUCache<any>(1000, 60000); // 1000エントリ、TTL 1分
 
-// カスタムハンドラー
+// メトリクス管理
+const metricsManager = createMetricsManager({ maxMetricsSize: 10000 });
+const startTime = performance.now();
+
+// メモリ使用量を取得
+function getMemoryUsage() {
+  const usage = Deno.memoryUsage();
+  return {
+    rss: usage.rss,
+    heapTotal: usage.heapTotal,
+    heapUsed: usage.heapUsed,
+  };
+}
+
+// リクエストハンドラー
 const requestHandler = async (request: Request): Promise<Response> => {
   const url = new URL(request.url);
+  const start = Date.now();
   
   // リクエスト制限
   if (activeRequests >= MAX_CONCURRENT_REQUESTS) {
+    metricsManager.recordError();
     return new Response(
       JSON.stringify({
         error: "Server too busy",
@@ -279,9 +294,31 @@ const requestHandler = async (request: Request): Promise<Response> => {
   activeRequests++;
   
   try {
+    // ヘルスチェックエンドポイント
+    if (url.pathname === "/api/health" && request.method === "GET") {
+      const health = createHealthResponse(startTime);
+      const duration = Date.now() - start;
+      metricsManager.recordSuccess(duration);
+      return new Response(JSON.stringify(health), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    
+    // メトリクスエンドポイント
+    if (url.pathname === "/api/metrics" && request.method === "GET") {
+      const metrics = metricsManager.getMetrics();
+      const memoryUsage = getMemoryUsage();
+      const metricsResponse = createMetricsResponse(metrics, memoryUsage);
+      const duration = Date.now() - start;
+      metricsManager.recordSuccess(duration);
+      return new Response(JSON.stringify(metricsResponse), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    
     // データエンドポイント
     const dataMatch = url.pathname.match(/^\/api\/data\/(.+)$/);
-    if (dataMatch) {
+    if (dataMatch && request.method === "GET") {
       const clientId = dataMatch[1];
       const cacheKey = `data:${clientId}`;
       
@@ -293,36 +330,54 @@ const requestHandler = async (request: Request): Promise<Response> => {
         cache.set(cacheKey, data);
       }
       
+      const duration = Date.now() - start;
+      metricsManager.recordSuccess(duration);
       return new Response(JSON.stringify(data), {
         headers: { "Content-Type": "application/json" },
       });
     }
     
-    // 既存のエンドポイントにフォールバック
-    return await originalHandler(request);
+    // 404 Not Found
+    return new Response("Not Found", { status: 404 });
+  } catch (error) {
+    metricsManager.recordError();
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
+      {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      },
+    );
   } finally {
     activeRequests--;
   }
 };
 
-// サーバー作成（拡張版）
-const server = createServer({
-  port: parseInt(Deno.env.get("PORT") || "3000"),
-  maxMetricsSize: 10000,
-  customHandler: requestHandler,
-});
+// サーバー起動
+const port = parseInt(Deno.env.get("PORT") || "3000");
+const server = Deno.serve(
+  { port },
+  requestHandler
+);
 
-const instance = server.start();
+console.log(`Server running on port ${port}`);
+console.log(`Process ID: ${Deno.pid}`);
+console.log(`Deno version: ${Deno.version.deno}`);
 
 // グレースフルシャットダウン
-const abortController = new AbortController();
-setupGracefulShutdown(abortController);
-
 Deno.addSignalListener("SIGTERM", () => {
+  console.log("\nReceived SIGTERM, shutting down gracefully...");
   workerPool.terminate();
+  server.shutdown();
 });
 
-await instance.finished;
+Deno.addSignalListener("SIGINT", () => {
+  console.log("\nReceived SIGINT, shutting down gracefully...");
+  workerPool.terminate();
+  server.shutdown();
+});
+
+await server.finished;
 
 // worker.ts - ワーカープロセスでの処理
 self.onmessage = (e: MessageEvent) => {

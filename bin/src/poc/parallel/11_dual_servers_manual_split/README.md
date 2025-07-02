@@ -337,68 +337,65 @@ describe('Manual Failover Procedures', () => {
 ### Green Phase (2サーバー構成の実装)
 ```typescript
 // dual-server-app.ts
-import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 
 class DualServerApplication {
   private config: any;
-  private app: Application;
-  private router: Router;
   private pool: Pool;
   private partitionKey: string;
   private peerServer: string;
   private peerHealthy: boolean = true;
+  private server: Deno.HttpServer | null = null;
   
   constructor(config: any) {
     this.config = config;
-    this.app = new Application();
-    this.router = new Router();
     this.pool = new Pool(config.database, 3);
     this.partitionKey = config.partitionKey;
     this.peerServer = config.peerServer;
     
-    this.setupRoutes();
     this.setupHealthChecks();
   }
   
-  setupRoutes() {
-    // ルーティングミドルウェア
-    this.router.use(async (ctx, next) => {
-      const userId = ctx.request.headers.get('x-user-id') || ctx.request.url.searchParams.get('userId');
-      
-      if (userId && !this.isMyPartition(userId)) {
-        // 間違ったサーバーへのリクエスト
-        ctx.response.status = 421;
-        ctx.response.body = {
-          error: 'Misdirected Request',
-          correctServer: this.getCorrectServer(userId),
-          hint: 'Client should redirect to correct server'
-        };
-        return;
-      }
-      
-      ctx.state.userId = userId;
-      await next();
-    });
+  async handleRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const userId = request.headers.get('x-user-id') || url.searchParams.get('userId');
+    
+    // ルーティングチェック
+    if (userId && !this.isMyPartition(userId)) {
+      // 間違ったサーバーへのリクエスト
+      return new Response(JSON.stringify({
+        error: 'Misdirected Request',
+        correctServer: this.getCorrectServer(userId),
+        hint: 'Client should redirect to correct server'
+      }), {
+        status: 421,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
     
     // ユーザープロファイル
-    this.router.get('/api/profile', async (ctx) => {
+    if (url.pathname === '/api/profile' && request.method === 'GET') {
       try {
-        const profile = await this.getUserProfile(ctx.state.userId);
-        ctx.response.body = {
+        const profile = await this.getUserProfile(userId);
+        return new Response(JSON.stringify({
           ...profile,
           server: this.config.name,
           partition: this.config.partitionKey
-        };
+        }), {
+          headers: { 'content-type': 'application/json' }
+        });
       } catch (error) {
-        ctx.response.status = 500;
-        ctx.response.body = { error: error.message };
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' }
+        });
       }
-    });
+    }
     
     // クロスサーバークエリ
-    this.router.get('/api/user/:targetUserId/profile', async (ctx) => {
-      const { targetUserId } = ctx.params;
+    const userMatch = url.pathname.match(/^\/api\/user\/([^\/]+)\/profile$/);
+    if (userMatch && request.method === 'GET') {
+      const targetUserId = userMatch[1];
       
       if (!this.isMyPartition(targetUserId)) {
         // 他のサーバーから取得
@@ -408,28 +405,34 @@ class DualServerApplication {
             { userId: targetUserId }
           );
           
-          ctx.response.body = {
+          return new Response(JSON.stringify({
             ...response,
             fetched_from: response.server,
-            requested_by: ctx.state.userId
-          };
+            requested_by: userId
+          }), {
+            headers: { 'content-type': 'application/json' }
+          });
         } catch (error) {
-          ctx.response.status = 500;
-          ctx.response.body = {
+          return new Response(JSON.stringify({
             error: 'Cross-server query failed',
             details: error.message
-          };
+          }), {
+            status: 500,
+            headers: { 'content-type': 'application/json' }
+          });
         }
       } else {
         // ローカルで処理
         const profile = await this.getUserProfile(targetUserId);
-        ctx.response.body = profile;
+        return new Response(JSON.stringify(profile), {
+          headers: { 'content-type': 'application/json' }
+        });
       }
-    });
+    }
     
     // グローバル設定（同期が必要）
-    this.router.put('/api/global-settings', async (ctx) => {
-      const body = await ctx.request.body({ type: 'json' }).value;
+    if (url.pathname === '/api/global-settings' && request.method === 'PUT') {
+      const body = await request.json();
       const { setting, value } = body;
       
       try {
@@ -443,16 +446,20 @@ class DualServerApplication {
         this.syncToPeer('/api/sync/global-settings', { setting, value })
           .catch(err => console.error('Sync failed:', err));
         
-        ctx.response.body = { success: true, server: this.config.name };
+        return new Response(JSON.stringify({ success: true, server: this.config.name }), {
+          headers: { 'content-type': 'application/json' }
+        });
       } catch (error) {
-        ctx.response.status = 500;
-        ctx.response.body = { error: error.message };
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' }
+        });
       }
-    });
+    }
     
     // 同期エンドポイント
-    this.router.post('/api/sync/global-settings', async (ctx) => {
-      const body = await ctx.request.body({ type: 'json' }).value;
+    if (url.pathname === '/api/sync/global-settings' && request.method === 'POST') {
+      const body = await request.json();
       const { setting, value } = body;
       
       try {
@@ -461,25 +468,31 @@ class DualServerApplication {
           [setting, value]
         );
         
-        ctx.response.body = { success: true };
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'content-type': 'application/json' }
+        });
       } catch (error) {
-        ctx.response.status = 500;
-        ctx.response.body = { error: error.message };
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' }
+        });
       }
-    });
+    }
     
     // メトリクスエンドポイント
-    this.router.get('/api/metrics', async (ctx) => {
+    if (url.pathname === '/api/metrics' && request.method === 'GET') {
       const metrics = await this.collectMetrics();
-      ctx.response.body = {
+      return new Response(JSON.stringify({
         server: this.config.name,
         partition: this.config.partitionKey,
         ...metrics
-      };
-    });
+      }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    }
     
-    this.app.use(this.router.routes());
-    this.app.use(this.router.allowedMethods());
+    // 404 Not Found
+    return new Response('Not Found', { status: 404 });
   }
   
   setupHealthChecks() {
@@ -649,7 +662,21 @@ class DualServerApplication {
     console.log(`Server ${this.config.name} (${this.config.partitionKey}) listening on port ${port}`);
     console.log(`Peer server: ${this.peerServer}`);
     
-    await this.app.listen({ port });
+    this.server = Deno.serve(
+      { port },
+      (request) => this.handleRequest(request)
+    );
+    
+    // グレースフルシャットダウン
+    Deno.addSignalListener("SIGTERM", () => {
+      console.log('SIGTERM received, shutting down...');
+      this.pool.end();
+      if (this.server) {
+        this.server.shutdown();
+      }
+    });
+    
+    await this.server.finished;
   }
 }
 

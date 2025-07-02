@@ -281,11 +281,7 @@ Deno.test("Error Rate Analysis", async (t) => {
 ### Green Phase (問題を緩和する実装)
 ```typescript
 // sqlite-app.ts
-import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 import { DB } from "https://deno.land/x/sqlite@v3.7.0/mod.ts";
-
-const app = new Application();
-const router = new Router();
 
 // SQLite接続設定
 let db: DB;
@@ -340,141 +336,186 @@ async function executeWithRetry<T>(operation: () => T, maxRetries = 3): Promise<
   throw lastError!;
 }
 
-// インクリメントAPI（Lost Update問題の実証）
-router.post('/api/increment', async (ctx) => {
-  const body = await ctx.request.body({ type: 'json' }).value;
-  const { key } = body;
+// リクエストハンドラー
+async function handler(request: Request): Promise<Response> {
+  const url = new URL(request.url);
   
-  try {
-    // トランザクション内で実行
-    await executeWithRetry(async () => {
-      db.execute('BEGIN EXCLUSIVE');
-      
-      try {
-        const rows = db.query('SELECT value FROM counters WHERE key = ?', [key]);
-        const currentValue = rows.length > 0 ? rows[0][0] as number : 0;
-        
-        // 意図的な遅延（競合状態を発生させやすくする）
-        await new Promise(resolve => setTimeout(resolve, 10));
-        
-        db.execute(
-          'INSERT OR REPLACE INTO counters (key, value) VALUES (?, ?)',
-          [key, currentValue + 1]
-        );
-        
-        db.execute('COMMIT');
-        
-        ctx.response.body = { success: true, value: currentValue + 1 };
-      } catch (error) {
-        db.execute('ROLLBACK');
-        throw error;
-      }
-    });
-  } catch (error) {
-    console.error('Increment error:', error);
+  // インクリメントAPI（Lost Update問題の実証）
+  if (url.pathname === '/api/increment' && request.method === 'POST') {
+    const body = await request.json();
+    const { key } = body;
     
-    if (error.message.includes('SQLITE_BUSY')) {
-      ctx.response.status = 503;
-      ctx.response.body = {
-        error: 'Database is busy',
-        code: 'SQLITE_BUSY',
-        container: Deno.env.get("CONTAINER_ID")
-      };
-    } else {
-      ctx.response.status = 500;
-      ctx.response.body = {
-        error: error.message,
-        code: error.code
-      };
+    try {
+      // トランザクション内で実行
+      const value = await executeWithRetry(async () => {
+        db.execute('BEGIN EXCLUSIVE');
+        
+        try {
+          const rows = db.query('SELECT value FROM counters WHERE key = ?', [key]);
+          const currentValue = rows.length > 0 ? rows[0][0] as number : 0;
+          
+          // 意図的な遅延（競合状態を発生させやすくする）
+          await new Promise(resolve => setTimeout(resolve, 10));
+          
+          db.execute(
+            'INSERT OR REPLACE INTO counters (key, value) VALUES (?, ?)',
+            [key, currentValue + 1]
+          );
+          
+          db.execute('COMMIT');
+          
+          return currentValue + 1;
+        } catch (error) {
+          db.execute('ROLLBACK');
+          throw error;
+        }
+      });
+      
+      return new Response(JSON.stringify({ success: true, value }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Increment error:', error);
+      
+      if (error.message.includes('SQLITE_BUSY')) {
+        return new Response(JSON.stringify({
+          error: 'Database is busy',
+          code: 'SQLITE_BUSY',
+          container: Deno.env.get("CONTAINER_ID")
+        }), {
+          status: 503,
+          headers: { 'content-type': 'application/json' }
+        });
+      } else {
+        return new Response(JSON.stringify({
+          error: error.message,
+          code: error.code
+        }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' }
+        });
+      }
     }
   }
-});
-
-// 書き込みAPI
-router.post('/api/write', async (ctx) => {
-  const body = await ctx.request.body({ type: 'json' }).value;
-  const { data } = body;
-  const startTime = Date.now();
   
-  try {
-    const result = await executeWithRetry(
-      () => db.execute('INSERT INTO data (content) VALUES (?)', [data])
-    );
+  // 書き込みAPI
+  if (url.pathname === '/api/write' && request.method === 'POST') {
+    const body = await request.json();
+    const { data } = body;
+    const startTime = Date.now();
     
-    const duration = Date.now() - startTime;
-    
-    ctx.response.body = {
-      success: true,
-      id: db.lastInsertRowId,
-      duration,
-      container: Deno.env.get("CONTAINER_ID")
-    };
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    ctx.response.status = 503;
-    ctx.response.body = {
-      error: error.message,
-      code: error.code,
-      duration,
-      container: Deno.env.get("CONTAINER_ID")
-    };
+    try {
+      await executeWithRetry(
+        () => db.execute('INSERT INTO data (content) VALUES (?)', [data])
+      );
+      
+      const duration = Date.now() - startTime;
+      
+      return new Response(JSON.stringify({
+        success: true,
+        id: db.lastInsertRowId,
+        duration,
+        container: Deno.env.get("CONTAINER_ID")
+      }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      return new Response(JSON.stringify({
+        error: error.message,
+        code: error.code,
+        duration,
+        container: Deno.env.get("CONTAINER_ID")
+      }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
   }
-});
-
-// ヘルスチェック（DB接続確認を含む）
-router.get('/health', (ctx) => {
-  try {
-    // 読み取りクエリでDB接続を確認
-    db.query('SELECT 1');
-    
-    ctx.response.body = {
-      status: 'healthy',
-      container: Deno.env.get("CONTAINER_ID"),
-      dbPath: Deno.env.get("DB_PATH")
-    };
-  } catch (error) {
-    ctx.response.status = 503;
-    ctx.response.body = {
-      status: 'unhealthy',
-      error: error.message
-    };
+  
+  // ヘルスチェック（DB接続確認を含む）
+  if (url.pathname === '/health' && request.method === 'GET') {
+    try {
+      // 読み取りクエリでDB接続を確認
+      db.query('SELECT 1');
+      
+      return new Response(JSON.stringify({
+        status: 'healthy',
+        container: Deno.env.get("CONTAINER_ID"),
+        dbPath: Deno.env.get("DB_PATH")
+      }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        status: 'unhealthy',
+        error: error.message
+      }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
   }
-});
-
-// メトリクス
-router.get('/metrics', (ctx) => {
-  try {
-    const stats = db.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM data) as total_records,
-        (SELECT COUNT(*) FROM counters) as total_counters
-    `);
-    
-    ctx.response.body = {
-      container: Deno.env.get("CONTAINER_ID"),
-      database: {
-        total_records: stats[0][0],
-        total_counters: stats[0][1]
-      },
-      uptime: performance.now() / 1000
-    };
-  } catch (error) {
-    ctx.response.status = 500;
-    ctx.response.body = { error: error.message };
+  
+  // メトリクス
+  if (url.pathname === '/metrics' && request.method === 'GET') {
+    try {
+      const stats = db.query(`
+        SELECT 
+          (SELECT COUNT(*) FROM data) as total_records,
+          (SELECT COUNT(*) FROM counters) as total_counters
+      `);
+      
+      return new Response(JSON.stringify({
+        container: Deno.env.get("CONTAINER_ID"),
+        database: {
+          total_records: stats[0][0],
+          total_counters: stats[0][1]
+        },
+        uptime: performance.now() / 1000
+      }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
   }
-});
+  
+  // 404 Not Found
+  return new Response('Not Found', { status: 404 });
+}
 
 // サーバー起動
 const PORT = parseInt(Deno.env.get("PORT") || "3000");
 
-app.use(router.routes());
-app.use(router.allowedMethods());
-
 initDB().then(async () => {
   console.log(`Container ${Deno.env.get("CONTAINER_ID")} listening on port ${PORT}`);
   console.log(`Using SQLite database at: ${Deno.env.get("DB_PATH")}`);
-  await app.listen({ port: PORT });
+  
+  const server = Deno.serve(
+    { port: PORT },
+    handler
+  );
+  
+  // グレースフルシャットダウン
+  Deno.addSignalListener("SIGTERM", () => {
+    console.log('SIGTERM received, closing database...');
+    
+    try {
+      db.close();
+      console.log('Database closed.');
+    } catch (error) {
+      console.error('Error closing database:', error);
+    }
+    
+    server.shutdown();
+  });
+  
+  await server.finished;
 }).catch(error => {
   console.error('Failed to initialize database:', error);
   Deno.exit(1);

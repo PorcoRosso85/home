@@ -317,11 +317,7 @@ Deno.test("Scalability with Container Count", async (t) => {
 ### Green Phase (PostgreSQL統合の実装)
 ```typescript
 // postgres-app.ts
-import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
-
-const app = new Application();
-const router = new Router();
 
 // PostgreSQL接続プール
 const pool = new Pool({
@@ -394,205 +390,245 @@ async function withTransaction<T>(callback: (client: any) => Promise<T>): Promis
   }
 }
 
-// インクリメントAPI（ACID保証）
-router.post('/api/increment', async (ctx) => {
-  const body = await ctx.request.body({ type: 'json' }).value;
-  const { key } = body;
-  const startTime = Date.now();
+// リクエストハンドラー
+async function handler(request: Request): Promise<Response> {
+  const url = new URL(request.url);
   
-  try {
-    const result = await withTransaction(async (client) => {
-      // SELECT FOR UPDATE で行ロック
-      const { rows } = await client.queryObject<{ value: number }>(
-        'SELECT value FROM counters WHERE key = $1 FOR UPDATE',
-        [key]
-      );
-      
-      let newValue;
-      if (rows.length === 0) {
-        // 新規作成
-        const insertResult = await client.queryObject<{ value: number }>(
-          'INSERT INTO counters (key, value) VALUES ($1, 1) RETURNING value',
+  // インクリメントAPI（ACID保証）
+  if (url.pathname === '/api/increment' && request.method === 'POST') {
+    const body = await request.json();
+    const { key } = body;
+    const startTime = Date.now();
+    
+    try {
+      const result = await withTransaction(async (client) => {
+        // SELECT FOR UPDATE で行ロック
+        const { rows } = await client.queryObject<{ value: number }>(
+          'SELECT value FROM counters WHERE key = $1 FOR UPDATE',
           [key]
         );
-        newValue = insertResult.rows[0].value;
-      } else {
-        // 更新
-        const updateResult = await client.queryObject<{ value: number }>(
-          'UPDATE counters SET value = value + 1, last_modified = CURRENT_TIMESTAMP WHERE key = $1 RETURNING value',
-          [key]
+        
+        let newValue;
+        if (rows.length === 0) {
+          // 新規作成
+          const insertResult = await client.queryObject<{ value: number }>(
+            'INSERT INTO counters (key, value) VALUES ($1, 1) RETURNING value',
+            [key]
+          );
+          newValue = insertResult.rows[0].value;
+        } else {
+          // 更新
+          const updateResult = await client.queryObject<{ value: number }>(
+            'UPDATE counters SET value = value + 1, last_modified = CURRENT_TIMESTAMP WHERE key = $1 RETURNING value',
+            [key]
+          );
+          newValue = updateResult.rows[0].value;
+        }
+        
+        return newValue;
+      });
+      
+      return new Response(JSON.stringify({
+        success: true,
+        value: result,
+        duration: Date.now() - startTime,
+        container: Deno.env.get("CONTAINER_ID")
+      }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Increment error:', error);
+      return new Response(JSON.stringify({
+        error: error.message,
+        code: error.code,
+        container: Deno.env.get("CONTAINER_ID")
+      }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+  }
+  
+  // バルク挿入API
+  if (url.pathname === '/api/bulk-insert' && request.method === 'POST') {
+    const body = await request.json();
+    const { data } = body; // Array of strings
+    const startTime = Date.now();
+    
+    try {
+      const result = await withTransaction(async (client) => {
+        // COPY コマンドの代わりに効率的なバルクINSERT
+        const values = data.map((content, index) => 
+          `($${index * 2 + 1}, $${index * 2 + 2})`
+        ).join(', ');
+        
+        const params = data.flatMap((content: string) => 
+          [content, Deno.env.get("CONTAINER_ID")]
         );
-        newValue = updateResult.rows[0].value;
-      }
+        
+        const query = `
+          INSERT INTO data (content, container_id) 
+          VALUES ${values}
+          RETURNING id
+        `;
+        
+        const { rows } = await client.queryObject<{ id: number }>(query, params);
+        return rows.map(r => r.id);
+      });
       
-      return newValue;
-    });
-    
-    ctx.response.body = {
-      success: true,
-      value: result,
-      duration: Date.now() - startTime,
-      container: Deno.env.get("CONTAINER_ID")
-    };
-  } catch (error) {
-    console.error('Increment error:', error);
-    ctx.response.status = 500;
-    ctx.response.body = {
-      error: error.message,
-      code: error.code,
-      container: Deno.env.get("CONTAINER_ID")
-    };
+      return new Response(JSON.stringify({
+        success: true,
+        ids: result,
+        count: result.length,
+        duration: Date.now() - startTime,
+        container: Deno.env.get("CONTAINER_ID")
+      }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        error: error.message,
+        code: error.code
+      }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
   }
-});
-
-// バルク挿入API
-router.post('/api/bulk-insert', async (ctx) => {
-  const body = await ctx.request.body({ type: 'json' }).value;
-  const { data } = body; // Array of strings
-  const startTime = Date.now();
   
-  try {
-    const result = await withTransaction(async (client) => {
-      // COPY コマンドの代わりに効率的なバルクINSERT
-      const values = data.map((content, index) => 
-        `($${index * 2 + 1}, $${index * 2 + 2})`
-      ).join(', ');
-      
-      const params = data.flatMap((content: string) => 
-        [content, Deno.env.get("CONTAINER_ID")]
-      );
-      
-      const query = `
-        INSERT INTO data (content, container_id) 
-        VALUES ${values}
-        RETURNING id
-      `;
-      
-      const { rows } = await client.queryObject<{ id: number }>(query, params);
-      return rows.map(r => r.id);
-    });
+  // 分離レベルのテストAPI
+  if (url.pathname === '/api/test-isolation' && request.method === 'POST') {
+    const body = await request.json();
+    const { level } = body;
+    const client = await pool.connect();
     
-    ctx.response.body = {
-      success: true,
-      ids: result,
-      count: result.length,
-      duration: Date.now() - startTime,
-      container: Deno.env.get("CONTAINER_ID")
-    };
-  } catch (error) {
-    ctx.response.status = 500;
-    ctx.response.body = {
-      error: error.message,
-      code: error.code
-    };
+    try {
+      // 分離レベルを設定
+      await client.queryObject(`SET TRANSACTION ISOLATION LEVEL ${level}`);
+      await client.queryObject('BEGIN');
+      
+      // テスト用のクエリ実行
+      const result = await client.queryObject('SELECT * FROM counters LIMIT 10');
+      
+      await client.queryObject('COMMIT');
+      
+      return new Response(JSON.stringify({
+        success: true,
+        isolationLevel: level,
+        rows: result.rows
+      }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch (error) {
+      await client.queryObject('ROLLBACK');
+      return new Response(JSON.stringify({
+        error: error.message,
+        code: error.code
+      }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' }
+      });
+    } finally {
+      client.release();
+    }
   }
-});
-
-// 分離レベルのテストAPI
-router.post('/api/test-isolation', async (ctx) => {
-  const body = await ctx.request.body({ type: 'json' }).value;
-  const { level } = body;
-  const client = await pool.connect();
   
-  try {
-    // 分離レベルを設定
-    await client.queryObject(`SET TRANSACTION ISOLATION LEVEL ${level}`);
-    await client.queryObject('BEGIN');
-    
-    // テスト用のクエリ実行
-    const result = await client.queryObject('SELECT * FROM counters LIMIT 10');
-    
-    await client.queryObject('COMMIT');
-    
-    ctx.response.body = {
-      success: true,
-      isolationLevel: level,
-      rows: result.rows
-    };
-  } catch (error) {
-    await client.queryObject('ROLLBACK');
-    ctx.response.status = 500;
-    ctx.response.body = {
-      error: error.message,
-      code: error.code
-    };
-  } finally {
-    client.release();
+  // 接続プール情報
+  if (url.pathname === '/api/pool-stats' && request.method === 'GET') {
+    return new Response(JSON.stringify({
+      size: pool.size,
+      available: pool.available,
+      container: Deno.env.get("CONTAINER_ID")
+    }), {
+      headers: { 'content-type': 'application/json' }
+    });
   }
-});
-
-// 接続プール情報
-router.get('/api/pool-stats', (ctx) => {
-  ctx.response.body = {
-    size: pool.size,
-    available: pool.available,
-    container: Deno.env.get("CONTAINER_ID")
-  };
-});
-
-// ヘルスチェック
-router.get('/health', async (ctx) => {
-  try {
-    const client = await pool.connect();
-    const { rows } = await client.queryObject<{ time: Date }>('SELECT NOW() as time');
-    client.release();
-    
-    ctx.response.body = {
-      status: 'healthy',
-      container: Deno.env.get("CONTAINER_ID"),
-      dbTime: rows[0].time,
-      poolStats: {
-        size: pool.size,
-        available: pool.available
-      }
-    };
-  } catch (error) {
-    ctx.response.status = 503;
-    ctx.response.body = {
-      status: 'unhealthy',
-      error: error.message
-    };
+  
+  // ヘルスチェック
+  if (url.pathname === '/health' && request.method === 'GET') {
+    try {
+      const client = await pool.connect();
+      const { rows } = await client.queryObject<{ time: Date }>('SELECT NOW() as time');
+      client.release();
+      
+      return new Response(JSON.stringify({
+        status: 'healthy',
+        container: Deno.env.get("CONTAINER_ID"),
+        dbTime: rows[0].time,
+        poolStats: {
+          size: pool.size,
+          available: pool.available
+        }
+      }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        status: 'unhealthy',
+        error: error.message
+      }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
   }
-});
-
-// メトリクス
-router.get('/metrics', async (ctx) => {
-  try {
-    const client = await pool.connect();
-    const stats = await client.queryObject(`
-      SELECT 
-        (SELECT COUNT(*) FROM data) as total_records,
-        (SELECT COUNT(*) FROM counters) as total_counters,
-        (SELECT MAX(value) FROM counters) as max_counter_value,
-        (SELECT COUNT(*) FROM data WHERE container_id = $1) as container_records
-    `, [Deno.env.get("CONTAINER_ID")]);
-    client.release();
-    
-    ctx.response.body = {
-      container: Deno.env.get("CONTAINER_ID"),
-      database: stats.rows[0],
-      pool: {
-        size: pool.size,
-        available: pool.available
-      },
-      uptime: performance.now() / 1000
-    };
-  } catch (error) {
-    ctx.response.status = 500;
-    ctx.response.body = { error: error.message };
+  
+  // メトリクス
+  if (url.pathname === '/metrics' && request.method === 'GET') {
+    try {
+      const client = await pool.connect();
+      const stats = await client.queryObject(`
+        SELECT 
+          (SELECT COUNT(*) FROM data) as total_records,
+          (SELECT COUNT(*) FROM counters) as total_counters,
+          (SELECT MAX(value) FROM counters) as max_counter_value,
+          (SELECT COUNT(*) FROM data WHERE container_id = $1) as container_records
+      `, [Deno.env.get("CONTAINER_ID")]);
+      client.release();
+      
+      return new Response(JSON.stringify({
+        container: Deno.env.get("CONTAINER_ID"),
+        database: stats.rows[0],
+        pool: {
+          size: pool.size,
+          available: pool.available
+        },
+        uptime: performance.now() / 1000
+      }), {
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
   }
-});
+  
+  // 404 Not Found
+  return new Response('Not Found', { status: 404 });
+}
 
 // アプリケーション起動
 const PORT = parseInt(Deno.env.get("PORT") || "3000");
 
-app.use(router.routes());
-app.use(router.allowedMethods());
-
 initialize().then(async () => {
   console.log(`Container ${Deno.env.get("CONTAINER_ID")} listening on port ${PORT}`);
   console.log(`Connected to PostgreSQL at ${Deno.env.get("POSTGRES_HOST")}`);
-  await app.listen({ port: PORT });
+  
+  const server = Deno.serve(
+    { port: PORT },
+    handler
+  );
+  
+  // グレースフルシャットダウン
+  Deno.addSignalListener("SIGTERM", () => {
+    console.log('SIGTERM received, closing pool...');
+    pool.end();
+    server.shutdown();
+  });
+  
+  await server.finished;
 }).catch(error => {
   console.error('Startup failed:', error);
   Deno.exit(1);
