@@ -24,3 +24,4 @@
 - **「TDD Red」「失敗するテスト」「t-wada」**: `/tdd_red` コマンドを実行
 - **「POC」「記事を保存」「ドキュメント保存」「readability」**: `/poc` コマンドを実行
 - **「ASCII」「シーケンス図」「処理の流れ」「sequential diagram」**: `/ascii` コマンドを実行
+- **「仕様」「spec」「テスト一覧」「責務確認」**: `/spec` コマンドを実行
