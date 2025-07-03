@@ -132,7 +132,22 @@ class TestMainUDFIntegration:
                 return {"status": "error", "message": "No output"}
         
         try:
-            return json.loads(proc.stdout)
+            # JSONL形式のレスポンスを解析
+            lines = proc.stdout.strip().split('\n')
+            parsed_lines = [json.loads(line) for line in lines if line]
+            
+            # エラー行を探す
+            error_lines = [l for l in parsed_lines if l.get("type") == "error"]
+            if error_lines:
+                return {"status": "error", "message": error_lines[0].get("message", "Unknown error")}
+            
+            # 結果行を探す
+            result_lines = [l for l in parsed_lines if l.get("type") == "result"]
+            if result_lines:
+                return {"status": "success", "data": result_lines[0].get("data", [])}
+            
+            # どちらもない場合
+            return {"status": "error", "message": "No result or error in output"}
         except json.JSONDecodeError:
             return {"status": "error", "message": proc.stdout}
 
