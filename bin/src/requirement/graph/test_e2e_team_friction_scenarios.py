@@ -37,11 +37,15 @@ import os
 import tempfile
 from datetime import datetime, timedelta
 import pytest
+
+# テスト用環境設定
+from .infrastructure.variables import setup_test_environment
+setup_test_environment()
+
 from .infrastructure.kuzu_repository import create_kuzu_repository
 from .infrastructure.llm_hooks_api import create_llm_hooks_api
 
 
-@pytest.mark.skip(reason="TDD Red: チーム摩擦シナリオの実装待ち")
 def test_team_friction_曖昧な要件表現による解釈のズレ():
     """
     プロダクトオーナー、開発者、デザイナーが同じ要件を異なって解釈する
@@ -166,10 +170,6 @@ def test_team_friction_曖昧な要件表現による解釈のズレ():
                     WHEN interpretation_count >= 2 THEN -0.6
                     WHEN interpretation_count = 1 THEN -0.3
                     ELSE 0.0
-                END,
-                recommendation: CASE
-                    WHEN interpretation_count >= 2 THEN '要件の具体化と合意形成が必要'
-                    ELSE '解釈が一致しています'
                 END
             } as analysis
             """,
@@ -184,7 +184,6 @@ def test_team_friction_曖昧な要件表現による解釈のズレ():
             assert analysis["ambiguity_friction_score"] < 0
 
 
-@pytest.mark.skip(reason="TDD Red: チーム摩擦シナリオの実装待ち")
 def test_team_friction_優先度認識のズレによる競合():
     """
     異なるステークホルダーが同じ要件に異なる優先度を設定
@@ -295,11 +294,6 @@ def test_team_friction_優先度認識のズレによる競合():
                     WHEN critical_count > 2 AND size(conflicts) > 0 THEN -0.7
                     WHEN critical_count > 1 THEN -0.4
                     ELSE 0.0
-                END,
-                recommendation: CASE
-                    WHEN critical_count > 2 THEN '優先度の再調整と合意形成が必要'
-                    WHEN size(conflicts) > 0 THEN 'ステークホルダー間の調整が必要'
-                    ELSE '優先度は適切に管理されています'
                 END
             } as analysis
             """,
@@ -314,7 +308,6 @@ def test_team_friction_優先度認識のズレによる競合():
             assert analysis["priority_friction_score"] < 0
 
 
-@pytest.mark.skip(reason="TDD Red: チーム摩擦シナリオの実装待ち")
 def test_team_friction_時間経過による要件の変質():
     """
     時間経過とともに要件の理解や重要度が変化し、
@@ -437,12 +430,7 @@ def test_team_friction_時間経過による要件の変質():
                     WHEN evolution_steps = 1 THEN -0.3
                     ELSE 0.0
                 END,
-                scope_creep_detected: true,
-                recommendation: CASE
-                    WHEN evolution_steps >= 2 THEN '要件の根本的な見直しが必要'
-                    WHEN latest.implementation_details CONTAINS 'ai_features' THEN '元の要件から大きく逸脱しています'
-                    ELSE '要件の進化を監視してください'
-                END
+                scope_creep_detected: true
             } as analysis
             """,
             "parameters": {}
@@ -458,7 +446,6 @@ def test_team_friction_時間経過による要件の変質():
             assert analysis["temporal_friction_score"] < -0.4
 
 
-@pytest.mark.skip(reason="TDD Red: チーム摩擦シナリオの実装待ち")
 def test_team_friction_矛盾する要求の統合():
     """
     異なるステークホルダーからの矛盾する要求を統合しようとして
@@ -605,8 +592,7 @@ WHERE r.priority >= 200
                     WHEN conflicting_requirements_count >= 3 THEN 'extremely_high'
                     WHEN conflicting_requirements_count >= 2 THEN 'high'
                     ELSE 'manageable'
-                END,
-                recommendation: '統合的な解決策の検討と優先順位の明確化が必要'
+                END
             } as analysis
             """,
             "parameters": {}
@@ -622,7 +608,6 @@ WHERE r.priority >= 200
             assert analysis["contradiction_friction_score"] < -0.5
 
 
-@pytest.mark.skip(reason="TDD Red: チーム摩擦シナリオの実装待ち")
 def test_team_friction_総合的な摩擦スコア計算():
     """
     すべての摩擦要因を組み合わせた総合的なスコアを計算し、
@@ -775,8 +760,7 @@ WHERE critical.priority >= 200
                     WHEN total_friction_score > -0.2 THEN 'healthy'
                     ELSE 'needs_attention'
                 END,
-                primary_concerns: ['要件の明確化', '優先度の再評価'],
-                recommendations: '定期的な要件レビュー会議の実施'
+                primary_concerns: ['要件の明確化', '優先度の再評価']
             } as analysis
             """,
             "parameters": {}

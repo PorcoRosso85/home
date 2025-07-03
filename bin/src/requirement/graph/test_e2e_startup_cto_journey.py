@@ -28,11 +28,15 @@ import os
 import tempfile
 from datetime import datetime
 import pytest
+
+# テスト用環境設定
+from .infrastructure.variables import setup_test_environment
+setup_test_environment()
+
 from .infrastructure.kuzu_repository import create_kuzu_repository
 from .infrastructure.llm_hooks_api import create_llm_hooks_api
 
 
-@pytest.mark.skip(reason="TDD Red: スタートアップCTOジャーニーの実装待ち")
 def test_startup_cto_journey_新サービス立ち上げから実装まで():
     """
     スタートアップCTOが健康管理アプリを企画から実装可能な状態まで要件を整理する
@@ -372,7 +376,6 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
             assert dependent_count >= 2  # 少なくとも2つの依存関係を作成したはず
 
 
-@pytest.mark.skip(reason="TDD Red: スタートアップCTOジャーニーの実装待ち")
 def test_startup_cto_journey_階層違反からの修正フロー():
     """
     CTOが階層ルールを理解していない状態から、システムのガイドで正しい構造に修正する
@@ -469,7 +472,6 @@ def test_startup_cto_journey_階層違反からの修正フロー():
         assert correct_structure["status"] == "success"
 
 
-@pytest.mark.skip(reason="TDD Red: スタートアップCTOジャーニーの実装待ち")
 def test_startup_cto_journey_実装見積もりとリソース計画():
     """
     要件から実装工数を見積もり、リソース配分を計画する

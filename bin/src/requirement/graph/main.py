@@ -86,8 +86,7 @@ def safe_main():
                     "status": "error",
                     "score": score,
                     "message": hierarchy_result["error"],
-                    "details": hierarchy_result["details"],
-                    "suggestion": "階層ルールに従ってください。親は子より上位の階層である必要があります。"
+                    "details": hierarchy_result["details"]
                 }
                 print(json.dumps(response, ensure_ascii=False))
                 return
@@ -145,7 +144,6 @@ def safe_main():
                     result["alert"] = {
                         "level": "warning" if total_score > -0.7 else "critical",
                         "message": f"プロジェクトの健全性: {friction_result['total']['health']}",
-                        "recommendation": friction_result["total"]["recommendation"],
                         "score": total_score
                     }
                     
@@ -169,8 +167,7 @@ def safe_main():
         error_response = {
             "status": "error",
             "message": "Invalid JSON input",
-            "details": str(e),
-            "suggestion": "正しいJSON形式で入力してください"
+            "details": str(e)
         }
         print(json.dumps(error_response, ensure_ascii=False))
     except ImportError as e:
@@ -178,8 +175,7 @@ def safe_main():
         error_response = {
             "status": "error",
             "message": "Module import failed",
-            "details": str(e),
-            "suggestion": "実行環境を確認してください。python -m requirement.graph.main として実行してください"
+            "details": str(e)
         }
         print(json.dumps(error_response, ensure_ascii=False))
     except Exception as e:
@@ -187,8 +183,7 @@ def safe_main():
         error_response = {
             "status": "error",
             "message": str(e),
-            "error_type": type(e).__name__,
-            "suggestion": "エラーが発生しました。クエリを確認してください"
+            "error_type": type(e).__name__
         }
         print(json.dumps(error_response, ensure_ascii=False))
 

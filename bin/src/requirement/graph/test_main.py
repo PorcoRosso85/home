@@ -55,7 +55,7 @@ class TestMain:
         assert response["status"] == "error"
         assert response["score"] == -1.0
         assert "階層違反" in response["message"]
-        assert "階層ルールに従ってください" in response["suggestion"]
+        # suggestionフィールドは削除したのでテストから除外
 
     def test_main_正常クエリ_KuzuDB実行へ進む(self):
         """main_正常なCypherクエリ_階層検証を通過してDB実行へ"""
@@ -205,7 +205,7 @@ class TestMain:
         assert response["status"] == "error"
         assert "score" not in response  # システムエラーにはスコアがない
         assert "Invalid JSON" in response["message"]
-        assert "正しいJSON形式" in response["suggestion"]
+        # suggestionフィールドは削除したのでテストから除外
 
     def test_main_空の入力_エラーレスポンス(self):
         """main_空の入力_適切なエラーレスポンス"""

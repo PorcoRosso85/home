@@ -310,21 +310,16 @@ def create_scoring_service() -> Dict[str, Any]:
         # プロジェクト健全性の判定
         if total_score > -0.2:
             health = "healthy"
-            recommendation = "継続的なモニタリングを推奨"
         elif total_score > -0.5:
             health = "needs_attention"
-            recommendation = "週次レビューでの確認を推奨"
         elif total_score > -0.7:
             health = "at_risk"
-            recommendation = "即座の介入が必要"
         else:
             health = "critical"
-            recommendation = "プロジェクトの根本的見直しが必要"
         
         return {
             "total_score": total_score,
-            "health": health,
-            "recommendation": recommendation
+            "health": health
         }
 
     return {

@@ -4,6 +4,11 @@
 import os
 import tempfile
 import pytest
+
+# テスト用環境設定
+from .infrastructure.variables import setup_test_environment
+setup_test_environment()
+
 from .infrastructure.kuzu_repository import create_kuzu_repository
 from .infrastructure.llm_hooks_api import create_llm_hooks_api
 from .application.friction_detector import create_friction_detector
@@ -221,4 +226,4 @@ def test_scoring_service_integration():
     # 重み付け計算: (-0.6*0.2) + (-0.7*0.3) + (0*0.2) + (-0.4*0.3) = -0.45
     # -0.45 は -0.5 より大きいので "needs_attention"
     assert total["health"] == "needs_attention"
-    assert "確認を推奨" in total["recommendation"]
+    # recommendationフィールドは削除したのでテストから除外
