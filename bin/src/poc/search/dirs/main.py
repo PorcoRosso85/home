@@ -27,41 +27,9 @@ from scanner_types import (
     DirectoryInfo, DBStatus, SearchHit
 )
 
-# Mock search implementations for now
-def create_text_search(conn):
-    """Mock FTS implementation"""
-    def create_index(fields):
-        return {'ok': True, 'message': f"FTS index created on {fields}"}
-    
-    def search(query, conjunctive):
-        if not query:
-            return {'ok': False, 'error': 'empty query not allowed'}
-        return {'ok': True, 'results': []}
-    
-    return {
-        'create_index': create_index,
-        'search': search
-    }
-
-def create_embedder(model_name):
-    """Mock embedder"""
-    def generate_embedding(text):
-        if not text:
-            return {'ok': False, 'error': 'Empty text'}
-        # Generate fake embedding
-        return {'ok': True, 'embedding': [0.1] * 384}
-    return generate_embedding
-
-def create_vector_search(conn, embedder):
-    """Mock VSS implementation"""
-    def search(query, k):
-        if not query:
-            return {'ok': False, 'error': 'empty query not allowed'}
-        return {'ok': True, 'results': []}
-    
-    return {
-        'search': search
-    }
+# TODO: Real FTS/VSS implementations needed
+# These functions should be implemented using KuzuDB FTS extension
+# and sentence-transformers for vector embeddings
 
 
 def _is_hidden(path: str) -> bool:
@@ -260,18 +228,38 @@ def create_directory_scanner(root_path: str, db_path: str) -> Dict[str, Callable
     
     Returns dictionary of operations following convention.
     """
-    # Initialize database connection
-    try:
-        import kuzu
-        if db_path == ':memory:':
-            conn = kuzu.Connection(kuzu.Database(":memory:"))
-        else:
-            db = kuzu.Database(db_path)
-            conn = kuzu.Connection(db)
-    except (ImportError, AttributeError):
-        # Use mock for testing
-        from mock_db import get_mock_connection
-        conn = get_mock_connection(db_path)
+    # Initialize database connection using factory
+    from infrastructure.db.database_factory import create_database_and_connection
+    
+    conn_result = create_database_and_connection(
+        db_path if db_path != ':memory:' else None,
+        db_path == ':memory:'
+    )
+    
+    if not conn_result['ok']:
+        # Return scanner with error operations
+        def error_operation(*args, **kwargs):
+            return {'ok': False, 'error': conn_result['error']}
+        
+        return {
+            'full_scan': error_operation,
+            'detect_changes': error_operation,
+            'incremental_update': error_operation,
+            'build_fts_index': error_operation,
+            'search_fts': error_operation,
+            'search_vss': error_operation,
+            'search_hybrid': error_operation,
+            'extract_metadata': error_operation,
+            'get_status': lambda: DBStatus(
+                total_directories=0,
+                indexed_directories=0,
+                last_scan=None,
+                db_size_mb=0.0
+            ),
+            'check_embeddings': lambda: False,
+        }
+    
+    conn = conn_result['connection']
     
     # Create schema
     try:
@@ -281,7 +269,7 @@ def create_directory_scanner(root_path: str, db_path: str) -> Dict[str, Callable
                 has_readme BOOLEAN,
                 file_count INT64,
                 metadata STRING,
-                last_modified TIMESTAMP,
+                last_modified INT64,
                 embedding DOUBLE[384]
             )
         """)
@@ -289,7 +277,7 @@ def create_directory_scanner(root_path: str, db_path: str) -> Dict[str, Callable
             CREATE NODE TABLE IF NOT EXISTS README(
                 path STRING PRIMARY KEY,
                 content STRING,
-                last_modified TIMESTAMP
+                last_modified INT64
             )
         """)
     except Exception:
@@ -330,13 +318,14 @@ def create_directory_scanner(root_path: str, db_path: str) -> Dict[str, Callable
                             has_readme: $has_readme,
                             file_count: $file_count,
                             metadata: $metadata,
-                            last_modified: timestamp()
+                            last_modified: $last_modified
                         })
-                    """, {
+                    """, parameters={
                         'path': dir_info['path'],
                         'has_readme': dir_info['has_readme'],
                         'file_count': dir_info['file_count'],
-                        'metadata': json.dumps(dir_info['metadata'])
+                        'metadata': json.dumps(dir_info['metadata']),
+                        'last_modified': int(time.time())
                     })
                     
                     # Insert README if exists
@@ -347,19 +336,20 @@ def create_directory_scanner(root_path: str, db_path: str) -> Dict[str, Callable
                                 CREATE (r:README {
                                     path: $path,
                                     content: $content,
-                                    last_modified: timestamp()
+                                    last_modified: $last_modified
                                 })
-                            """, {
+                            """, parameters={
                                 'path': dir_info['path'],
-                                'content': readme_content
+                                'content': readme_content,
+                                'last_modified': int(time.time())
                             })
                     
                     new_count += 1
                     # Update state
                     state['last_scan'][dir_info['path']] = time.time()
                     
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Error inserting directory {dir_info['path']}: {e}")
             
             # Add root directory itself
             if not skip_empty or not _is_empty_dir(root_path):
@@ -370,13 +360,14 @@ def create_directory_scanner(root_path: str, db_path: str) -> Dict[str, Callable
                             has_readme: $has_readme,
                             file_count: $file_count,
                             metadata: $metadata,
-                            last_modified: timestamp()
+                            last_modified: $last_modified
                         })
-                    """, {
+                    """, parameters={
                         'path': root_path,
                         'has_readme': _get_readme_content(root_path) is not None,
                         'file_count': _get_file_count(root_path),
-                        'metadata': '{}'
+                        'metadata': '{}',
+                        'last_modified': int(time.time())
                     })
                     new_count += 1
                 except Exception:
@@ -497,7 +488,7 @@ def create_directory_scanner(root_path: str, db_path: str) -> Dict[str, Callable
                         has_readme: $has_readme,
                         file_count: $file_count,
                         metadata: $metadata,
-                        last_modified: timestamp()
+                        last_modified: $last_modified
                     })
                 """, {
                     'path': dir_info['path'],
@@ -535,114 +526,24 @@ def create_directory_scanner(root_path: str, db_path: str) -> Dict[str, Callable
     
     def build_fts_index() -> IndexResult:
         """Build FTS index for directory search"""
-        try:
-            # Initialize FTS if not already done
-            if state['fts_ops'] is None:
-                state['fts_ops'] = create_text_search(conn)
-            
-            # Create index on README content
-            result = state['fts_ops']['create_index'](['content'])
-            
-            if result['ok']:
-                return IndexSuccess(ok=True, message="FTS index created")
-            else:
-                return IndexError(ok=False, error=result['error'])
-                
-        except Exception as e:
-            return IndexError(ok=False, error=str(e))
+        # TODO: Implement using KuzuDB FTS extension
+        return IndexError(ok=False, error="FTS not implemented yet")
     
     def search_fts(query: str) -> SearchResult:
         """Search using Full Text Search"""
-        start_time = time.time()
+        if not query:
+            return SearchError(ok=False, error="Empty query not allowed")
         
-        try:
-            if not query:
-                return SearchError(ok=False, error="Empty query not allowed")
-            
-            if state['fts_ops'] is None:
-                state['fts_ops'] = create_text_search(conn)
-            
-            # Search READMEs
-            fts_result = state['fts_ops']['search'](query, False)
-            
-            if not fts_result['ok']:
-                return SearchError(ok=False, error=fts_result['error'])
-            
-            # Convert to SearchHit format
-            hits = []
-            for result in fts_result['results']:
-                # Get directory info
-                dir_result = conn.execute(
-                    "MATCH (d:Directory {path: $path}) RETURN d",
-                    {'path': result.get('path', '')}
-                )
-                
-                if dir_result.has_next():
-                    row = dir_result.get_next()
-                    dir_node = row[0]
-                    
-                    hit = SearchHit(
-                        path=result.get('path', ''),
-                        score=result.get('score', 0.0),
-                        snippet=result.get('content', '')[:200],
-                        has_readme=dir_node.get('has_readme', False)
-                    )
-                    hits.append(hit)
-            
-            duration_ms = (time.time() - start_time) * 1000
-            
-            return SearchSuccess(
-                ok=True,
-                hits=hits,
-                total=len(hits),
-                duration_ms=duration_ms
-            )
-            
-        except Exception as e:
-            return SearchError(ok=False, error=str(e))
+        # TODO: Implement using KuzuDB FTS extension
+        return SearchError(ok=False, error="FTS not implemented yet")
     
     def search_vss(query: str, k: int) -> SearchResult:
         """Search using Vector Similarity Search"""
-        start_time = time.time()
+        if not query:
+            return SearchError(ok=False, error="Empty query not allowed")
         
-        try:
-            if not query:
-                return SearchError(ok=False, error="Empty query not allowed")
-            
-            # Initialize VSS if needed
-            if state['embedder'] is None:
-                state['embedder'] = create_embedder('all-MiniLM-L6-v2')
-            if state['vss_ops'] is None:
-                state['vss_ops'] = create_vector_search(conn, state['embedder'])
-            
-            # Search
-            vss_result = state['vss_ops']['search'](query, k)
-            
-            if not vss_result['ok']:
-                return SearchError(ok=False, error=vss_result['error'])
-            
-            # Convert to SearchHit format
-            hits = []
-            for result in vss_result['results']:
-                hit = SearchHit(
-                    path=result.get('id', ''),
-                    score=result.get('score', 0.0),
-                    snippet=result.get('content', '')[:200],
-                    has_readme=True  # VSS only indexes READMEs
-                )
-                hits.append(hit)
-            
-            duration_ms = (time.time() - start_time) * 1000
-            
-            return SearchSuccess(
-                ok=True,
-                hits=hits,
-                total=len(hits),
-                duration_ms=duration_ms
-            )
-            
-        except Exception as e:
-            return SearchError(ok=False, error=str(e))
+        # TODO: Implement using sentence-transformers
+        return SearchError(ok=False, error="VSS not implemented yet")
     
     def search_hybrid(query: str, alpha: float) -> SearchResult:
         """Hybrid search combining FTS and VSS"""

@@ -13,7 +13,7 @@ from typing import Dict, Any
 
 from infrastructure.variables.env import (
     get_scan_root_path, get_db_path, validate_environment,
-    should_use_inmemory, should_skip_hidden
+    should_use_inmemory, should_skip_hidden, _optional_env
 )
 from main import create_directory_scanner
 
@@ -88,7 +88,7 @@ def handle_scan(args: argparse.Namespace, scanner: Dict[str, Any]) -> int:
     """
     print("Starting directory scan...")
     
-    skip_hidden = not args.include_hidden
+    skip_hidden = not args.include_hidden if hasattr(args, 'include_hidden') else should_skip_hidden(_optional_env('DIRSCAN_SKIP_HIDDEN'), True)
     result = scanner['full_scan'](
         args.skip_empty,
         skip_hidden,

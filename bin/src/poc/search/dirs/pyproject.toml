@@ -18,6 +18,9 @@ test = [
 [project.scripts]
 dirscan = "cli:main"
 
+[tool.uv]
+package = true
+
 [tool.pytest.ini_options]
 # pytest設定
 testpaths = ["."]
@@ -29,6 +32,7 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--disable-warnings",
+    "--import-mode=importlib",
 ]
 markers = [
     "timeout: テストのタイムアウト時間を設定",

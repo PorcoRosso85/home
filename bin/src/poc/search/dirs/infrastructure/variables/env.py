@@ -62,34 +62,24 @@ def _optional_env(name: str) -> Optional[str]:
 
 # 環境変数アクセス関数
 
-def get_scan_root_path() -> str:
+def get_scan_root_path() -> EnvResult:
     """スキャン対象のルートパス（必須）
     
     Returns:
-        環境変数DIRSCAN_ROOT_PATHの値
-        
-    Raises:
-        RuntimeError: 環境変数が未設定の場合
+        成功時: EnvSuccess with value
+        失敗時: EnvError with error message
     """
-    result = _require_env('DIRSCAN_ROOT_PATH')
-    if not result['ok']:
-        raise RuntimeError(result['error'])
-    return result['value']
+    return _require_env('DIRSCAN_ROOT_PATH')
 
 
-def get_db_path() -> str:
+def get_db_path() -> EnvResult:
     """永続化DBパス（必須）
     
     Returns:
-        環境変数DIRSCAN_DB_PATHの値
-        
-    Raises:
-        RuntimeError: 環境変数が未設定の場合
+        成功時: EnvSuccess with value
+        失敗時: EnvError with error message
     """
-    result = _require_env('DIRSCAN_DB_PATH')
-    if not result['ok']:
-        raise RuntimeError(result['error'])
-    return result['value']
+    return _require_env('DIRSCAN_DB_PATH')
 
 
 def get_exclude_patterns() -> Optional[str]:
@@ -140,47 +130,51 @@ def should_use_inmemory() -> bool:
         False: 通常モード
     """
     value = _optional_env('DIRSCAN_INMEMORY')
-    return value and value.lower() in ('true', '1', 'yes')
+    if value is None:
+        return False
+    return value.lower() in ('true', '1', 'yes')
 
 
-def get_fts_index_name(default_name: str) -> str:
+def get_fts_index_name(env_value: Optional[str], fallback_value: str) -> str:
     """FTSインデックス名を取得
     
     Args:
-        default_name: デフォルトのインデックス名
+        env_value: 環境変数の値（None可）
+        fallback_value: 環境変数が未設定時の値
         
     Returns:
-        環境変数またはデフォルト値
+        環境変数またはフォールバック値
     """
-    return _optional_env('DIRSCAN_FTS_INDEX') or default_name
+    return env_value or fallback_value
 
 
-def get_vss_model(default_model: str) -> str:
+def get_vss_model(env_value: Optional[str], fallback_value: str) -> str:
     """VSS埋め込みモデル名を取得
     
     Args:
-        default_model: デフォルトのモデル名
+        env_value: 環境変数の値（None可）
+        fallback_value: 環境変数が未設定時の値
         
     Returns:
-        環境変数またはデフォルト値
+        環境変数またはフォールバック値
     """
-    return _optional_env('DIRSCAN_VSS_MODEL') or default_model
+    return env_value or fallback_value
 
 
-def should_skip_hidden(default_skip: bool) -> bool:
+def should_skip_hidden(env_value: Optional[str], fallback_value: bool) -> bool:
     """隠しディレクトリ（.で始まる）をスキップするか
     
     Args:
-        default_skip: デフォルトの動作
+        env_value: 環境変数の値（None可）
+        fallback_value: 環境変数が未設定時の値
         
     Returns:
         True: スキップする
         False: スキップしない
     """
-    value = _optional_env('DIRSCAN_SKIP_HIDDEN')
-    if value is None:
-        return default_skip
-    return value.lower() in ('true', '1', 'yes')
+    if env_value is None:
+        return fallback_value
+    return env_value.lower() in ('true', '1', 'yes')
 
 
 # 設定検証
