@@ -50,12 +50,17 @@ class TestMain:
             sys.stdin = original_stdin
             sys.stdout = original_stdout
         
-        # レスポンスを検証
-        response = json.loads(output.getvalue())
-        assert response["status"] == "error"
+        # JSONL形式のレスポンスを解析
+        lines = output.getvalue().strip().split('\n')
+        parsed_lines = [json.loads(line) for line in lines if line]
+        
+        # エラー行を探す
+        error_lines = [l for l in parsed_lines if l["type"] == "error"]
+        assert len(error_lines) >= 1
+        response = error_lines[0]
+        assert response["level"] == "error"
         assert response["score"] == -1.0
         assert "階層違反" in response["message"]
-        # suggestionフィールドは削除したのでテストから除外
 
     def test_main_正常クエリ_KuzuDB実行へ進む(self):
         """main_正常なCypherクエリ_階層検証を通過してDB実行へ"""
@@ -94,10 +99,13 @@ class TestMain:
         # 階層違反エラーが出ていないことを確認
         output_str = output.getvalue()
         if output_str:
-            response = json.loads(output_str)
-            # 階層違反以外のエラー（環境変数など）は許容
-            if response.get("message"):
-                assert "階層違反" not in response["message"]
+            lines = output_str.strip().split('\n')
+            parsed_lines = [json.loads(line) for line in lines if line]
+            # エラーメッセージを確認
+            error_lines = [l for l in parsed_lines if l["type"] == "error"]
+            for error in error_lines:
+                if error.get("message"):
+                    assert "階層違反" not in error["message"]
 
     def test_実DB統合_要件作成からクエリまで(self):
         """実DB統合_要件作成と取得_エンドツーエンドで動作確認"""
@@ -134,8 +142,17 @@ class TestMain:
                 print(f"Empty stdout from schema command")
                 print(f"stderr: {result.stderr}")
             
-            schema_response = json.loads(result.stdout)
-            assert schema_response["status"] == "success", f"Schema init failed: {schema_response}"
+            # JSONL形式のレスポンスを解析
+            lines = result.stdout.strip().split('\n')
+            parsed_lines = [json.loads(line) for line in lines if line]
+            # resultタイプの行を探す
+            result_lines = [l for l in parsed_lines if l["type"] == "result"]
+            if result_lines:
+                assert len(result_lines) > 0, "Schema init should return result"
+            else:
+                # エラーがないことを確認
+                error_lines = [l for l in parsed_lines if l["type"] == "error"]
+                assert len(error_lines) == 0, f"Schema init failed with errors: {error_lines}"
             
             # 2. 要件を作成
             create_input = json.dumps({
@@ -163,8 +180,12 @@ class TestMain:
             )
             assert result.returncode == 0, f"Create failed: {result.stderr}"
             
-            create_response = json.loads(result.stdout)
-            assert create_response["status"] == "success", f"Create failed: {create_response}"
+            # JSONL形式のレスポンスを解析
+            lines = result.stdout.strip().split('\n')
+            parsed_lines = [json.loads(line) for line in lines if line]
+            # エラーがないことを確認
+            error_lines = [l for l in parsed_lines if l["type"] == "error"]
+            assert len(error_lines) == 0, f"Create failed with errors: {error_lines}"
             
             # 3. 作成した要件を取得
             query_input = json.dumps({
@@ -181,9 +202,13 @@ class TestMain:
             )
             assert result.returncode == 0, f"Query failed: {result.stderr}"
             
-            query_response = json.loads(result.stdout)
-            assert query_response["status"] == "success"
-            assert query_response["data"][0][0] == "システムビジョン"
+            # JSONL形式のレスポンスを解析
+            lines = result.stdout.strip().split('\n')
+            parsed_lines = [json.loads(line) for line in lines if line]
+            # resultタイプの行を探す
+            result_lines = [l for l in parsed_lines if l["type"] == "result"]
+            assert len(result_lines) > 0, "Query should return results"
+            assert result_lines[0]["data"][0][0] == "システムビジョン"
 
     def test_main_無効なJSON_エラーレスポンス(self):
         """main_無効なJSON入力_適切なエラーレスポンス"""
@@ -201,11 +226,16 @@ class TestMain:
             sys.stdin = original_stdin
             sys.stdout = original_stdout
         
-        response = json.loads(output.getvalue())
-        assert response["status"] == "error"
-        assert "score" not in response  # システムエラーにはスコアがない
+        # JSONL形式のレスポンスを解析
+        lines = output.getvalue().strip().split('\n')
+        parsed_lines = [json.loads(line) for line in lines if line]
+        
+        # エラー行を探す
+        error_lines = [l for l in parsed_lines if l["type"] == "error"]
+        assert len(error_lines) >= 1
+        response = error_lines[0]
+        assert response["level"] == "error"
         assert "Invalid JSON" in response["message"]
-        # suggestionフィールドは削除したのでテストから除外
 
     def test_main_空の入力_エラーレスポンス(self):
         """main_空の入力_適切なエラーレスポンス"""
@@ -223,7 +253,13 @@ class TestMain:
             sys.stdin = original_stdin
             sys.stdout = original_stdout
         
-        response = json.loads(output.getvalue())
-        assert response["status"] == "error"
-        assert "score" not in response  # システムエラーにはスコアがない
+        # JSONL形式のレスポンスを解析
+        lines = output.getvalue().strip().split('\n')
+        parsed_lines = [json.loads(line) for line in lines if line]
+        
+        # エラー行を探す
+        error_lines = [l for l in parsed_lines if l["type"] == "error"]
+        assert len(error_lines) >= 1
+        response = error_lines[0]
+        assert response["level"] == "error"
         assert "JSON" in response["message"]

@@ -21,7 +21,7 @@ def safe_main():
         from .infrastructure.kuzu_repository import create_kuzu_repository
         from .infrastructure.hierarchy_validator import HierarchyValidator
         from .infrastructure.variables import get_db_path
-        from .infrastructure.logger import debug, info, warn, error
+        from .infrastructure.logger import debug, info, warn, error, result, score
         from .application.scoring_service import create_scoring_service
         
         info("rgl.main", "Starting main function")
@@ -44,20 +44,13 @@ def safe_main():
                 
                 success = apply_ddl_schema(db_path=db_path, create_test_data=create_test_data)
                 
-                result = {
-                    "status": "success" if success else "error",
-                    "message": "Schema applied successfully" if success else "Failed to apply schema",
-                    "score": 1.0 if success else -1.0
-                }
-                print(json.dumps(result, ensure_ascii=False))
+                if success:
+                    result({"message": "Schema applied successfully"}, metadata={"status": "success"})
+                else:
+                    error("Failed to apply schema", score=-1.0)
                 return
             else:
-                result = {
-                    "status": "error",
-                    "message": f"Unknown schema action: {action}",
-                    "score": -1.0
-                }
-                print(json.dumps(result, ensure_ascii=False))
+                error(f"Unknown schema action: {action}", score=-1.0)
                 return
         
         # 階層検証は最初に実行（DBアクセス前）
@@ -82,13 +75,11 @@ def safe_main():
                 score = scoring_service["calculate_score"](violation)
                 
                 # 階層違反 - 負のフィードバック
-                response = {
-                    "status": "error",
-                    "score": score,
-                    "message": hierarchy_result["error"],
-                    "details": hierarchy_result["details"]
-                }
-                print(json.dumps(response, ensure_ascii=False))
+                error(
+                    hierarchy_result["error"],
+                    details=hierarchy_result["details"],
+                    score=score
+                )
                 return
             
             # 警告がある場合
@@ -116,16 +107,16 @@ def safe_main():
         
         # クエリを実行
         info("rgl.main", "Executing query")
-        result = api["query"](input_data)
-        debug("rgl.main", "Query completed", status=result.get("status"))
+        query_result = api["query"](input_data)
+        debug("rgl.main", "Query completed", status=query_result.get("status"))
         
         # 階層警告を結果に含める
         if "_hierarchy_warning" in input_data:
-            result["warning"] = input_data["_hierarchy_warning"]
-            result["score"] = max(result.get("score", 0.0), input_data["_hierarchy_score"])
+            query_result["warning"] = input_data["_hierarchy_warning"]
+            query_result["score"] = max(query_result.get("score", 0.0), input_data["_hierarchy_score"])
         
         # CREATE操作の場合、摩擦検出を実行
-        if input_data.get("type") == "cypher" and result.get("status") == "success":
+        if input_data.get("type") == "cypher" and query_result.get("status") == "success":
             query = input_data.get("query", "").upper()
             if "CREATE" in query and "REQUIREMENTENTITY" in query:
                 debug("rgl.main", "Detected CREATE operation, analyzing friction")
@@ -136,12 +127,12 @@ def safe_main():
                 friction_result = detector["detect_all"](repository["connection"])
                 
                 # 結果に摩擦分析を追加
-                result["friction_analysis"] = friction_result
+                query_result["friction_analysis"] = friction_result
                 
                 # 総合スコアが悪い場合は警告
                 total_score = friction_result["total"]["total_score"]
                 if total_score < -0.5:
-                    result["alert"] = {
+                    query_result["alert"] = {
                         "level": "warning" if total_score > -0.7 else "critical",
                         "message": f"プロジェクトの健全性: {friction_result['total']['health']}",
                         "score": total_score
@@ -150,42 +141,49 @@ def safe_main():
                 # 個別の摩擦で深刻なものがあれば詳細を提供
                 for friction_type, friction_data in friction_result["frictions"].items():
                     if friction_data["score"] < -0.5:
-                        if "friction_details" not in result:
-                            result["friction_details"] = []
-                        result["friction_details"].append({
+                        if "friction_details" not in query_result:
+                            query_result["friction_details"] = []
+                        query_result["friction_details"].append({
                             "type": friction_type,
                             "score": friction_data["score"],
                             "message": friction_data["message"]
                         })
         
-        output = json.dumps(result, ensure_ascii=False)
-        debug("rgl.main", "Sending response", response_length=len(output))
-        print(output)
+        # 結果の出力
+        if query_result.get("status") == "success":
+            # 成功時の出力
+            result_data = query_result.get("data", [])
+            metadata = query_result.get("metadata", {})
+            
+            # 結果を出力
+            result(result_data, metadata=metadata)
+            
+            # 摩擦分析がある場合はスコアとして出力
+            if "friction_analysis" in query_result:
+                score(query_result["friction_analysis"])
+            
+            # アラートがある場合
+            if "alert" in query_result:
+                warn("rgl.main", query_result["alert"]["message"], 
+                     level=query_result["alert"]["level"],
+                     score=query_result["alert"]["score"])
+        else:
+            # エラー時の出力
+            error(
+                query_result.get("message", "Unknown error"),
+                details=query_result.get("details"),
+                score=query_result.get("score", -1.0)
+            )
         
     except json.JSONDecodeError as e:
         # JSONパースエラー
-        error_response = {
-            "status": "error",
-            "message": "Invalid JSON input",
-            "details": str(e)
-        }
-        print(json.dumps(error_response, ensure_ascii=False))
+        error("Invalid JSON input", details={"error": str(e)})
     except ImportError as e:
         # インポートエラー
-        error_response = {
-            "status": "error",
-            "message": "Module import failed",
-            "details": str(e)
-        }
-        print(json.dumps(error_response, ensure_ascii=False))
+        error("Module import failed", details={"error": str(e)})
     except Exception as e:
         # その他のエラー
-        error_response = {
-            "status": "error",
-            "message": str(e),
-            "error_type": type(e).__name__
-        }
-        print(json.dumps(error_response, ensure_ascii=False))
+        error(str(e), details={"error_type": type(e).__name__})
 
 
 def main():
@@ -194,14 +192,11 @@ def main():
         safe_main()
     except BaseException as e:
         # 最終的なセーフティネット（KeyboardInterruptなども含む）
-        error_response = {
-            "status": "error",
-            "score": -1.0,
-            "message": "Critical error occurred",
-            "error_type": type(e).__name__,
-            "details": str(e)
-        }
-        print(json.dumps(error_response, ensure_ascii=False))
+        error(
+            "Critical error occurred",
+            details={"error_type": type(e).__name__, "error": str(e)},
+            score=-1.0
+        )
         # BaseExceptionはsys.exitなども含むため、再raiseはしない
 
 
