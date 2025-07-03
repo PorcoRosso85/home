@@ -83,7 +83,7 @@ class TestDDLSchemaManager:
     def test_apply_schema_正常系_スキーマ適用(self):
         """apply_schema_有効なスキーマ_正常に適用される"""
         # Arrange
-        from db.kuzu.connection_fixed import get_connection
+        from .database_factory import create_database, create_connection
         
         # テスト用の簡易スキーマ
         schema_content = """
@@ -103,7 +103,8 @@ class TestDDLSchemaManager:
         
         with tempfile.TemporaryDirectory() as temp_dir:
             # KuzuDB接続（LD_LIBRARY_PATHは外部で設定済みと仮定）
-            conn = get_connection(temp_dir)
+            db = create_database(path=temp_dir)
+            conn = create_connection(db)
             manager = DDLSchemaManager(conn)
             
             try:
@@ -128,10 +129,11 @@ class TestDDLSchemaManager:
     def test_rollback_適用済みスキーマ_ロールバック成功(self):
         """rollback_適用済みスキーマ_正常にロールバック"""
         # Arrange
-        from db.kuzu.connection_fixed import get_connection
+        from .database_factory import create_database, create_connection
         
         with tempfile.TemporaryDirectory() as temp_dir:
-            conn = get_connection(temp_dir)
+            db = create_database(path=temp_dir)
+            conn = create_connection(db)
             manager = DDLSchemaManager(conn)
             
             # スキーマを適用
