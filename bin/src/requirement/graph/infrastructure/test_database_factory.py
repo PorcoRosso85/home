@@ -59,12 +59,21 @@ class TestDatabaseFactory:
         if os.environ.get("RGL_SKIP_SCHEMA_CHECK") == "true":
             pytest.skip("Singleton pattern is disabled in test mode")
         
-        db_path = tmp_path / "test.db"
-        db1 = create_database(path=str(db_path))
-        db2 = create_database(path=str(db_path))
-        
-        # 同じインスタンスを返すべき
-        assert db1 is db2
+        # 環境変数を一時的にクリアしてテスト
+        original_env = os.environ.get("RGL_SKIP_SCHEMA_CHECK")
+        try:
+            if "RGL_SKIP_SCHEMA_CHECK" in os.environ:
+                del os.environ["RGL_SKIP_SCHEMA_CHECK"]
+            
+            db_path = tmp_path / "test.db"
+            db1 = create_database(path=str(db_path))
+            db2 = create_database(path=str(db_path))
+            
+            # 同じインスタンスを返すべき
+            assert db1 is db2
+        finally:
+            if original_env is not None:
+                os.environ["RGL_SKIP_SCHEMA_CHECK"] = original_env
     
     @pytest.mark.skip(reason="monkeypatchでの__import__モックは再帰エラーを引き起こす")
     def test_import_error_handling(self, monkeypatch):
