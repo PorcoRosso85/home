@@ -1,5 +1,5 @@
 {
-  description = "Network Sync POC - Deno Implementation";
+  description = "Browser Sync POC";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -18,17 +18,13 @@
           ];
 
           shellHook = ''
-            echo "Network Sync POC - Deno Implementation"
+            echo "Browser Sync POC - Development Environment"
             echo ""
             echo "Commands:"
-            echo "  deno task test       - Run network sync tests"
-            echo "  deno task test:watch - Run tests in watch mode"
+            echo "  deno task dev   - Start server with auto-reload"
+            echo "  deno task start - Start server"
             echo ""
-            echo "Tests simulate:"
-            echo "  - Network disconnection and reconnection"
-            echo "  - Packet loss (30%)"
-            echo "  - Message ordering"
-            echo "  - Conflict resolution"
+            echo "Open http://localhost:8080 in multiple browsers to test"
           '';
         };
       });
