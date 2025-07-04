@@ -95,7 +95,8 @@ CREATE NODE TABLE EntityAggregationView (
 // LOCATES関係（統一形式）
 CREATE REL TABLE LOCATES (
     FROM LocationURI TO RequirementEntity,
-    entity_type STRING DEFAULT 'requirement'
+    entity_type STRING DEFAULT 'requirement',
+    current BOOLEAN DEFAULT false
 );
 
 CREATE REL TABLE LOCATES_CODE (

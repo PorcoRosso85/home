@@ -2,8 +2,9 @@
 // パラメータ: $req_id, $timestamp
 // 戻り値: requirement, version
 
-// 指定時点以前のすべてのバージョンを取得
-MATCH (r:RequirementEntity {requirement_id: $req_id})
+// LocationURI経由で要件にアクセス
+MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
+MATCH (l)-[:LOCATES]->(r:RequirementEntity)
 MATCH (r)-[:HAS_VERSION]->(v:VersionState)
 WHERE v.timestamp <= $timestamp
 

@@ -10,7 +10,6 @@ from .infrastructure.variables import setup_test_environment
 setup_test_environment()
 
 from .infrastructure.kuzu_repository import create_kuzu_repository
-from .infrastructure.llm_hooks_api import create_llm_hooks_api
 from .application.friction_detector import create_friction_detector
 from .application.scoring_service import create_scoring_service
 
@@ -28,23 +27,18 @@ def test_friction_detection_on_ambiguous_requirement():
         success, results = schema_manager.apply_schema(schema_path)
         assert success
         
-        api = create_llm_hooks_api(repo)
-        
         # 曖昧な要件を作成
-        result = api["query"]({
-            "type": "cypher",
-            "query": """
-            CREATE (r:RequirementEntity {
-                id: 'req_ambiguous_001',
-                title: 'ユーザーフレンドリーなインターフェース',
-                description: '使いやすいUIを提供する',
-                priority: 2
-            })
-            CREATE (loc:LocationURI {id: 'loc://vision/ui/001'})
-            CREATE (loc)-[:LOCATES]->(r)
-            """,
-            "parameters": {}
+        query = """
+        CREATE (r:RequirementEntity {
+            id: 'req_ambiguous_001',
+            title: 'ユーザーフレンドリーなインターフェース',
+            description: '使いやすいUIを提供する',
+            priority: 2
         })
+        CREATE (loc:LocationURI {id: 'loc://vision/ui/001'})
+        CREATE (loc)-[:LOCATES]->(r)
+        """
+        result = repo["execute"](query, {})
         
         assert result["status"] == "success"
         

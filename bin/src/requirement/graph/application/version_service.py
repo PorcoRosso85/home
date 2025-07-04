@@ -4,19 +4,22 @@ Version Service - バージョン管理ユースケース
 外部依存: なし
 """
 import json
-from typing import Dict, List, Optional, Callable, Tuple
+from typing import Dict, List, Optional, Callable, Tuple, Any
 from datetime import datetime
-from ..domain.types import Decision, DecisionResult
-from ..domain.version_tracking import (
-    create_version_id,
-    create_location_uri,
-    parse_location_uri,
-    calculate_requirement_diff
-)
+from pathlib import Path
 
 
 # Repository型定義（依存性注入用）
 VersionRepository = Dict[str, Callable]
+
+
+def load_template(category: str, name: str) -> str:
+    """Cypherテンプレートを読み込む"""
+    template_path = Path(__file__).parent.parent / "query" / category / f"{name}.cypher"
+    if template_path.exists():
+        return template_path.read_text()
+    else:
+        raise FileNotFoundError(f"Template not found: {template_path}")
 
 
 def create_version_service(repository: VersionRepository):
@@ -30,229 +33,235 @@ def create_version_service(repository: VersionRepository):
         VersionService関数の辞書
     """
     
-    def track_requirement_change(
-        requirement_id: str,
-        operation: str = "UPDATE",
-        author: str = "system",
-        reason: Optional[str] = None
-    ) -> Dict:
+    def create_versioned_requirement(data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        要件の変更を追跡
+        バージョン付きで新規要件を作成
         
         Args:
-            requirement_id: 要件ID
-            operation: "CREATE", "UPDATE", "DELETE"
-            author: 変更者
-            reason: 変更理由
+            data: 要件データ（id, title, description必須）
             
         Returns:
-            {"version_id": str, "snapshot_id": str, "status": "tracked"}
+            作成結果（entity_id, version_id, location_uri, version）
         """
-        # 現在の要件を取得
-        req_result = repository["find_requirement"](requirement_id)
-        if "type" in req_result and "Error" in req_result["type"]:
-            return {"error": f"Requirement {requirement_id} not found"}
+        template = load_template("dml", "create_versioned_requirement")
         
-        requirement = req_result
-        
-        # バージョンIDを生成
-        version_id = create_version_id(requirement_id)
-        
-        # LocationURIを生成または取得
-        location_uri = create_location_uri(requirement_id)
-        
-        # LocationURIノードを作成
-        repository["execute"]("""
-            MERGE (l:LocationURI {id: $uri})
-            RETURN l
-        """, {"uri": location_uri})
-        
-        # 要件とLocationURIを関連付け
-        repository["execute"]("""
-            MATCH (l:LocationURI {id: $uri}), (r:RequirementEntity {id: $req_id})
-            MERGE (l)-[:LOCATES {entity_type: 'requirement'}]->(r)
-        """, {"uri": location_uri, "req_id": requirement_id})
-        
-        # 変更フィールドを検出
-        changed_fields = []
-        if operation == "UPDATE":
-            # 以前のバージョンと比較して変更フィールドを検出
-            # 簡易実装：ここでは空リストとする
-            # 実際には以前の状態を取得して比較する必要がある
-            pass
-        
-        # VersionStateを作成
-        repository["execute"]("""
-            CREATE (v:VersionState {
-                id: $version_id,
-                timestamp: $timestamp,
-                description: $description,
-                change_reason: $reason,
-                operation: $operation,
-                author: $author,
-                changed_fields: $changed_fields,
-                progress_percentage: 0.0
-            })
-            RETURN v
-        """, {
-            "version_id": version_id,
-            "timestamp": datetime.now().isoformat(),
-            "description": f"{operation} requirement {requirement_id}",
-            "reason": reason or operation,
-            "operation": operation,
-            "author": author,
-            "changed_fields": json.dumps(changed_fields) if changed_fields else None
-        })
-        
-        # 要件とバージョンの関係を作成
-        repository["execute"]("""
-            MATCH (r:RequirementEntity {id: $req_id}), (v:VersionState {id: $ver_id})
-            CREATE (r)-[:HAS_VERSION]->(v)
-        """, {"req_id": requirement_id, "ver_id": version_id})
-        
-        # 前のバージョンとの関係を作成
-        repository["execute"]("""
-            MATCH (v_new:VersionState {id: $new_version}),
-                  (v_old:VersionState)<-[:HAS_VERSION]-(r:RequirementEntity {id: $req_id})
-            WHERE v_old.id <> $new_version
-            WITH v_new, v_old
-            ORDER BY v_old.timestamp DESC
-            LIMIT 1
-            CREATE (v_new)-[:FOLLOWS]->(v_old)
-        """, {"new_version": version_id, "req_id": requirement_id})
-        
-        # バージョンと位置の関係を作成
-        repository["execute"]("""
-            MATCH (v:VersionState {id: $version_id}), (l:LocationURI {id: $uri})
-            CREATE (v)-[:TRACKS_STATE_OF {entity_type: 'requirement'}]->(l)
-        """, {"version_id": version_id, "uri": location_uri})
-        
-        return {
-            "version_id": version_id,
-            "location_uri": location_uri,
-            "status": "tracked"
+        params = {
+            "req_id": data["id"],
+            "title": data["title"],
+            "description": data.get("description", ""),
+            "status": data.get("status", "draft"),
+            "priority": data.get("priority", 1),
+            "author": data.get("author", "system"),
+            "reason": data.get("reason", "Initial creation"),
+            "timestamp": datetime.now().isoformat()
         }
+        
+        result = repository["execute"](template, params)
+        if result.has_next():
+            row = result.get_next()
+            return {
+                "entity_id": row[0],
+                "version_id": row[1],
+                "location_uri": row[2],
+                "version": 1,
+                "created_at": datetime.now().isoformat(),
+                "author": params["author"]
+            }
+        else:
+            raise RuntimeError("Failed to create versioned requirement")
     
-    def get_requirement_history(requirement_id: str, limit: int = 10) -> List[Dict]:
+    def update_versioned_requirement(data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        既存要件を更新（新バージョン作成）
+        
+        Args:
+            data: 更新データ（id必須、変更したいフィールドのみ）
+            
+        Returns:
+            更新結果（entity_id, version_id, version, previous_version）
+        """
+        template = load_template("dml", "update_versioned_requirement")
+        
+        params = {
+            "req_id": data["id"],
+            "title": data.get("title"),
+            "description": data.get("description"),
+            "status": data.get("status"),
+            "priority": data.get("priority"),
+            "author": data.get("author", "system"),
+            "reason": data.get("reason", "Update"),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        result = repository["execute"](template, params)
+        if result.has_next():
+            row = result.get_next()
+            
+            # 現在のバージョンを取得
+            version_query = """
+            MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
+            MATCH (l)-[:LOCATES]->(r:RequirementEntity)
+            MATCH (r)-[:HAS_VERSION]->(v:VersionState)
+            RETURN count(v) as version_count
+            """
+            version_result = repository["execute"](version_query, {"req_id": data["id"]})
+            version_count = version_result.get_next()[0] if version_result.has_next() else 2
+            
+            return {
+                "entity_id": row[0],
+                "version_id": row[1],
+                "version": version_count,
+                "previous_version": version_count - 1,
+                "updated_at": datetime.now().isoformat(),
+                "author": params["author"],
+                "change_reason": params["reason"]
+            }
+        else:
+            raise RuntimeError("Failed to update versioned requirement")
+    
+    def get_requirement_history(req_id: str) -> List[Dict[str, Any]]:
         """
         要件の変更履歴を取得
         
         Args:
-            requirement_id: 要件ID
-            limit: 取得する履歴の最大数
+            req_id: 要件ID
             
         Returns:
-            変更履歴のリスト
+            バージョン履歴のリスト
         """
-        result = repository["execute"]("""
-            MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)
-            RETURN r, v
-            ORDER BY v.timestamp DESC
-            LIMIT $limit
-        """, {"req_id": requirement_id, "limit": limit})
+        query = """
+        MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
+        MATCH (l)-[:LOCATES]->(r:RequirementEntity)
+        MATCH (r)-[:HAS_VERSION]->(v:VersionState)
+        RETURN r.id as entity_id,
+               r.title as title,
+               r.description as description,
+               r.status as status,
+               r.priority as priority,
+               v.id as version_id,
+               v.operation as operation,
+               v.author as author,
+               v.change_reason as change_reason,
+               v.timestamp as timestamp
+        ORDER BY v.timestamp
+        """
         
+        result = repository["execute"](query, {"req_id": req_id})
         history = []
+        version_num = 1
+        
         while result.has_next():
-            requirement, version = result.get_next()
+            row = result.get_next()
             history.append({
-                "version_id": version["id"],
-                "timestamp": version["timestamp"],
-                "author": version.get("author", "system"),
-                "change_reason": version.get("change_reason", ""),
-                "operation": version.get("operation", "UPDATE"),
-                "changed_fields": json.loads(version.get("changed_fields", "[]")) if version.get("changed_fields") else [],
-                "requirement_state": {
-                    "id": requirement["id"],
-                    "title": requirement["title"],
-                    "description": requirement["description"],
-                    "status": requirement.get("status", "proposed"),
-                    "priority": requirement.get("priority", "medium")
-                }
+                "version": version_num,
+                "entity_id": row[0],
+                "version_id": row[5],
+                "title": row[1],
+                "description": row[2],
+                "status": row[3],
+                "priority": row[4],
+                "operation": row[6],
+                "author": row[7],
+                "change_reason": row[8],
+                "timestamp": row[9]
             })
+            version_num += 1
         
         return history
     
-    def get_requirement_at_version(requirement_id: str, timestamp: str) -> Optional[Dict]:
+    def get_requirement_at_timestamp(req_id: str, timestamp: str) -> Optional[Dict[str, Any]]:
         """
-        特定時点での要件状態を取得
+        特定時点の要件状態を取得
         
         Args:
-            requirement_id: 要件ID
-            timestamp: 対象時刻（ISO形式）
+            req_id: 要件ID
+            timestamp: ISO形式のタイムスタンプ
             
         Returns:
-            その時点での要件状態、見つからない場合はNone
+            その時点の要件状態
         """
-        # 指定時刻以前の最新バージョンを取得
-        result = repository["execute"]("""
-            MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)
-            WHERE v.timestamp <= $target_time
-            RETURN r, v
-            ORDER BY v.timestamp DESC
-            LIMIT 1
-        """, {"req_id": requirement_id, "target_time": timestamp})
+        template = load_template("dql", "get_requirement_at_timestamp")
+        
+        result = repository["execute"](template, {"req_id": req_id, "timestamp": timestamp})
         
         if result.has_next():
-            requirement, version = result.get_next()
+            row = result.get_next()
+            requirement = row[0]
+            version = row[1]
+            
+            # バージョン番号を計算
+            version_query = """
+            MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
+            MATCH (l)-[:LOCATES]->(r:RequirementEntity)
+            MATCH (r)-[:HAS_VERSION]->(v:VersionState)
+            WHERE v.timestamp <= $timestamp
+            RETURN count(v) as version_count
+            """
+            version_result = repository["execute"](version_query, {"req_id": req_id, "timestamp": timestamp})
+            version_count = version_result.get_next()[0] if version_result.has_next() else 1
+            
             return {
-                "id": requirement["id"],
-                "title": requirement["title"],
-                "description": requirement["description"],
-                "status": requirement.get("status", "proposed"),
-                "priority": requirement.get("priority", "medium"),
-                "requirement_type": requirement.get("requirement_type", "functional"),
-                "version_info": {
-                    "version_id": version["id"],
-                    "timestamp": version["timestamp"],
-                    "operation": version.get("operation", "UPDATE")
-                }
+                "id": req_id,
+                "title": requirement.get("title"),
+                "description": requirement.get("description"),
+                "status": requirement.get("status"),
+                "priority": requirement.get("priority"),
+                "version": version_count,
+                "timestamp": version.get("timestamp")
             }
-        
-        return None
+        else:
+            return None
     
-    def calculate_version_diff(requirement_id: str, version1_id: str, version2_id: str) -> Dict:
+    def get_version_diff(req_id: str, from_version: int, to_version: int) -> Dict[str, Any]:
         """
-        2つのバージョン間の差分を計算
+        バージョン間の差分を取得
         
         Args:
-            requirement_id: 要件ID
-            version1_id: 比較元バージョンID
-            version2_id: 比較先バージョンID
+            req_id: 要件ID
+            from_version: 比較元バージョン番号
+            to_version: 比較先バージョン番号
             
         Returns:
             差分情報
         """
-        # 両方のバージョン時点の要件を取得
-        result1 = repository["execute"]("""
-            MATCH (v:VersionState {id: $ver_id})
-            RETURN v.timestamp as timestamp
-        """, {"ver_id": version1_id})
+        # 履歴を取得
+        history = get_requirement_history(req_id)
         
-        result2 = repository["execute"]("""
-            MATCH (v:VersionState {id: $ver_id})
-            RETURN v.timestamp as timestamp
-        """, {"ver_id": version2_id})
+        if from_version > len(history) or to_version > len(history):
+            raise ValueError("Invalid version number")
         
-        if not result1.has_next() or not result2.has_next():
-            return {"error": "Versions not found"}
+        from_state = history[from_version - 1]
+        to_state = history[to_version - 1]
         
-        timestamp1 = result1.get_next()[0]
-        timestamp2 = result2.get_next()[0]
+        # 変更されたフィールドを検出
+        changed_fields = []
+        old_values = {}
+        new_values = {}
         
-        # 各タイムスタンプ時点の要件状態を取得
-        req1 = get_requirement_at_version(requirement_id, timestamp1)
-        req2 = get_requirement_at_version(requirement_id, timestamp2)
+        for field in ["title", "description", "status", "priority"]:
+            if from_state.get(field) != to_state.get(field):
+                changed_fields.append(field)
+                old_values[field] = from_state.get(field)
+                new_values[field] = to_state.get(field)
         
-        if not req1 or not req2:
-            return {"error": "Requirement states not found"}
-        
-        return calculate_requirement_diff(req1, req2)
+        return {
+            "req_id": req_id,
+            "from_version": from_version,
+            "to_version": to_version,
+            "changed_fields": changed_fields,
+            "old_values": old_values,
+            "new_values": new_values,
+            "change_reason": to_state.get("change_reason"),
+            "author": to_state.get("author"),
+            "timestamp": to_state.get("timestamp")
+        }
     
     return {
-        "track_requirement_change": track_requirement_change,
+        "create_versioned_requirement": create_versioned_requirement,
+        "update_versioned_requirement": update_versioned_requirement,
         "get_requirement_history": get_requirement_history,
-        "get_requirement_at_version": get_requirement_at_version,
-        "calculate_version_diff": calculate_version_diff
+        "get_requirement_at_timestamp": get_requirement_at_timestamp,
+        "get_version_diff": get_version_diff
     }
 
 

@@ -17,11 +17,12 @@ def safe_main():
     """すべての例外をキャッチしてJSONで返すメイン関数ラッパー"""
     try:
         # インポート（相対インポートのみ使用）
-        from .infrastructure.llm_hooks_api import create_llm_hooks_api
         from .infrastructure.kuzu_repository import create_kuzu_repository
         from .infrastructure.hierarchy_validator import HierarchyValidator
         from .infrastructure.variables import get_db_path
         from .infrastructure.logger import debug, info, warn, error, result, score
+        from .infrastructure.query_validator import QueryValidator
+        from .infrastructure.versioned_cypher_executor import create_versioned_cypher_executor
         from .application.scoring_service import create_scoring_service
         
         info("rgl.main", "Starting main function")
@@ -101,13 +102,41 @@ def safe_main():
         repository = create_kuzu_repository()
         debug("rgl.main", "Repository created successfully")
         
-        # クエリエントリポイントを作成
-        api = create_llm_hooks_api(repository)
-        debug("rgl.main", "Query endpoint created successfully")
+        # バージョニングとクエリバリデーション
+        enable_versioning = input_data.get("enable_versioning", True)
+        validator = QueryValidator()
         
-        # クエリを実行
-        info("rgl.main", "Executing query")
-        query_result = api["query"](input_data)
+        # クエリタイプのチェック（現在はcypherのみサポート）
+        query_type = input_data.get("type", "cypher")
+        if query_type != "cypher":
+            query_result = {
+                "status": "error",
+                "error": f"Unsupported query type: {query_type}",
+                "supported_types": ["cypher"]
+            }
+        else:
+            # Cypherクエリの処理
+            query_str = input_data.get("query", "")
+            params = input_data.get("parameters", {})
+            
+            # クエリ検証
+            is_valid, validation_error = validator.validate(query_str)
+            if not is_valid:
+                query_result = {
+                    "status": "error",
+                    "error": "Query validation failed",
+                    "details": validation_error
+                }
+            else:
+                # バージョニングの有無で実行を切り替え
+                if enable_versioning:
+                    versioned_executor = create_versioned_cypher_executor(repository)
+                    query_result = versioned_executor["execute"](input_data)
+                else:
+                    # 通常のクエリ実行
+                    query_result = repository["execute"](query_str, params)
+        
+        info("rgl.main", "Query completed", status=query_result.get("status"))
         debug("rgl.main", "Query completed", status=query_result.get("status"))
         
         # 階層警告を結果に含める
@@ -183,7 +212,8 @@ def safe_main():
         error("Module import failed", details={"error": str(e)})
     except Exception as e:
         # その他のエラー
-        error(str(e), details={"error_type": type(e).__name__})
+        import traceback
+        error(str(e), details={"error_type": type(e).__name__, "traceback": traceback.format_exc()})
 
 
 def main():

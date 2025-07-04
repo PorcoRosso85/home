@@ -10,7 +10,6 @@ import pytest
 import os
 import tempfile
 from .infrastructure.kuzu_repository import create_kuzu_repository
-from .infrastructure.llm_hooks_api import create_llm_hooks_api
 from .infrastructure.ddl_schema_manager import DDLSchemaManager
 
 
