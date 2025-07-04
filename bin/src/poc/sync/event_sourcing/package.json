@@ -1,0 +1,12 @@
+{
+  "name": "event-sourcing-kuzu-wasm",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test *.test.cjs",
+    "test:watch": "node --test --watch *.test.cjs"
+  },
+  "dependencies": {
+    "kuzu-wasm": "latest"
+  }
+}

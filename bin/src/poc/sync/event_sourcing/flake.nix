@@ -1,5 +1,5 @@
 {
-  description = "Template-based Event Sourcing POC with Deno";
+  description = "Event Sourcing POC with KuzuDB WASM";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -10,27 +10,44 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        
+        # Node modules with KuzuDB WASM
+        nodeModules = pkgs.stdenv.mkDerivation {
+          name = "node-modules";
+          src = ./.;
+          buildInputs = with pkgs; [ nodejs_20 ];
+          buildPhase = ''
+            export HOME=$TMP
+            npm install --package-lock-only
+            npm ci
+          '';
+          installPhase = ''
+            mkdir -p $out
+            cp -r node_modules $out/
+          '';
+        };
       in
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             deno
-            jq  # JSON処理用
+            nodejs_20
+            nodePackages.npm
           ];
 
           shellHook = ''
-            echo "🚀 Template-based Event Sourcing POC"
+            echo "🚀 Event Sourcing POC with KuzuDB WASM"
             echo "===================================="
+            echo "Deno ${pkgs.deno.version} | Node.js ${pkgs.nodejs_20.version}"
             echo ""
-            echo "📋 Available commands:"
-            echo "  deno task test       - Run TDD Red phase tests"
-            echo "  deno task test:watch - Run tests in watch mode"
-            echo "  deno task coverage   - Run tests with coverage"
-            echo ""
-            echo "📁 Template files:"
-            ls -la templates/*.cypher 2>/dev/null | wc -l | xargs -I {} echo "  {} Cypher templates found"
-            echo ""
-            echo "🔴 TDD Red Phase: All tests should fail initially"
+            
+            # Setup node_modules if not exists
+            if [ ! -d "node_modules" ]; then
+              echo "Installing KuzuDB WASM..."
+              npm install
+            fi
+            
+            echo "Tests: npm test"
           '';
         };
       });

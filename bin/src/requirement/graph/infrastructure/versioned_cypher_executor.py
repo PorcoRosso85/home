@@ -39,8 +39,17 @@ def create_versioned_cypher_executor(repository: Dict) -> Dict:
             if ':' in prop:
                 key, value = prop.split(':', 1)
                 key = key.strip().strip("'\"")
-                value = value.strip().strip("'\"")
-                props[key] = value
+                value = value.strip()
+                
+                # 数値の場合は数値として解析
+                if value.isdigit():
+                    props[key] = int(value)
+                elif value.lower() in ['true', 'false']:
+                    props[key] = value.lower() == 'true'
+                else:
+                    # 文字列の場合は引用符を削除
+                    props[key] = value.strip("'\"")
+        
         
         return props
     
