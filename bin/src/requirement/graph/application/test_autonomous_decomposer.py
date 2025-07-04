@@ -7,7 +7,7 @@ from datetime import datetime
 from ..domain.types import Decision
 from .autonomous_decomposer import create_autonomous_decomposer
 from ..infrastructure.kuzu_repository import create_kuzu_repository
-from ..infrastructure.llm_hooks_api import create_llm_hooks_api
+# llm_hooks_api has been removed, use query validation directly
 from ..infrastructure.database_factory import create_database, create_connection
 
 
@@ -150,12 +150,8 @@ def test_decompose_requirement_hierarchical_creates_children(connection, db_path
         print(f"Save error: {save_result}")
         raise Exception(f"Failed to save parent requirement: {save_result}")
     
-    # 実際のLLM Hooks APIを使用
-    # repositoryには既にdbとconnectionが含まれているので、そのまま使用
-    llm_hooks = create_llm_hooks_api(repository)
-    
     # サービス作成
-    decomposer = create_autonomous_decomposer(repository, llm_hooks)
+    decomposer = create_autonomous_decomposer(repository)
     
     # 階層的分解を実行
     result = decomposer["decompose_requirement"]("req_001", "hierarchical", max_depth=3, target_size=5)
@@ -204,11 +200,8 @@ def test_analyze_decomposition_quality_calculates_metrics(connection, db_path):
         }
         repository["save"](child, parent_id="req_001")
     
-    # 実際のLLM Hooks APIを使用
-    # repositoryには既にdbとconnectionが含まれているので、そのまま使用
-    llm_hooks = create_llm_hooks_api(repository)
-    
-    decomposer = create_autonomous_decomposer(repository, llm_hooks)
+    # サービス作成
+    decomposer = create_autonomous_decomposer(repository)
     
     # 品質分析
     quality = decomposer["analyze_decomposition_quality"]("req_001")
@@ -258,11 +251,8 @@ def test_suggest_refinements_detects_issues(connection, db_path):
     }
     repository["save"](child, parent_id="req_001")
     
-    # 実際のLLM Hooks APIを使用
-    # repositoryには既にdbとconnectionが含まれているので、そのまま使用
-    llm_hooks = create_llm_hooks_api(repository)
-    
-    decomposer = create_autonomous_decomposer(repository, llm_hooks)
+    # サービス作成
+    decomposer = create_autonomous_decomposer(repository)
     
     # 改善提案を取得
     refinements = decomposer["suggest_refinements"]("req_001")

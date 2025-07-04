@@ -34,7 +34,27 @@ from .infrastructure.variables import setup_test_environment
 setup_test_environment()
 
 from .infrastructure.kuzu_repository import create_kuzu_repository
-from .infrastructure.llm_hooks_api import create_llm_hooks_api
+# llm_hooks_api has been removed, use repository directly
+
+def create_api_wrapper(repo):
+    """Simple wrapper to mimic old llm_hooks_api interface"""
+    def query(input_data):
+        if input_data["type"] == "cypher":
+            query_str = input_data["query"]
+            params = input_data.get("parameters", {})
+            try:
+                result = repo["execute"](query_str, params)
+                # Convert QueryResult to expected format
+                data = []
+                while result.has_next():
+                    data.append(result.get_next())
+                return {"status": "success", "data": data}
+            except Exception as e:
+                return {"status": "error", "error": str(e)}
+        else:
+            return {"status": "error", "error": f"Unsupported query type: {input_data['type']}"}
+    
+    return {"query": query}
 
 
 def test_startup_cto_journey_新サービス立ち上げから実装まで():
@@ -57,7 +77,7 @@ def test_startup_cto_journey_新サービス立ち上げから実装まで():
         success, results = schema_manager.apply_schema(schema_path)
         assert success
         
-        api = create_llm_hooks_api(repo)
+        api = create_api_wrapper(repo)
         
         # ========================================
         # Step 1: ビジョンの作成（Cypherクエリで実現）
@@ -392,7 +412,7 @@ def test_startup_cto_journey_階層違反からの修正フロー():
         success, results = schema_manager.apply_schema(schema_path)
         assert success
         
-        api = create_llm_hooks_api(repo)
+        api = create_api_wrapper(repo)
         
         # 間違った階層構造を作ろうとする（タスクがビジョンに依存）
         # 現在のシステムでは、llm_hooks_apiを直接使うと階層検証がバイパスされる
@@ -488,7 +508,7 @@ def test_startup_cto_journey_実装見積もりとリソース計画():
         success, results = schema_manager.apply_schema(schema_path)
         assert success
         
-        api = create_llm_hooks_api(repo)
+        api = create_api_wrapper(repo)
         
         # サンプルプロジェクトのセットアップ（簡略版）
         setup = api["query"]({

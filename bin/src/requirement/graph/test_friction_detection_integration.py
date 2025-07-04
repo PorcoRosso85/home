@@ -13,6 +13,26 @@ from .infrastructure.kuzu_repository import create_kuzu_repository
 from .application.friction_detector import create_friction_detector
 from .application.scoring_service import create_scoring_service
 
+def create_api_wrapper(repo):
+    """Simple wrapper to mimic old llm_hooks_api interface"""
+    def query(input_data):
+        if input_data["type"] == "cypher":
+            query_str = input_data["query"]
+            params = input_data.get("parameters", {})
+            try:
+                result = repo["execute"](query_str, params)
+                # Convert QueryResult to expected format
+                data = []
+                while result.has_next():
+                    data.append(result.get_next())
+                return {"status": "success", "data": data}
+            except Exception as e:
+                return {"status": "error", "error": str(e)}
+        else:
+            return {"status": "error", "error": f"Unsupported query type: {input_data['type']}"}
+    
+    return {"query": query}
+
 
 def test_friction_detection_on_ambiguous_requirement():
     """曖昧な要件での摩擦検出"""
@@ -39,8 +59,7 @@ def test_friction_detection_on_ambiguous_requirement():
         CREATE (loc)-[:LOCATES]->(r)
         """
         result = repo["execute"](query, {})
-        
-        assert result["status"] == "success"
+        # QueryResult object doesn't have status, just check it executed
         
         # 摩擦検出を実行
         detector = create_friction_detector()
@@ -67,7 +86,7 @@ def test_priority_friction_with_multiple_critical():
         success, results = schema_manager.apply_schema(schema_path)
         assert success
         
-        api = create_llm_hooks_api(repo)
+        api = create_api_wrapper(repo)
         
         # 3つのcritical要件を作成
         critical_reqs = [
@@ -113,7 +132,7 @@ def test_contradiction_friction():
         success, results = schema_manager.apply_schema(schema_path)
         assert success
         
-        api = create_llm_hooks_api(repo)
+        api = create_api_wrapper(repo)
         
         # コスト削減要件
         api["query"]({
@@ -168,7 +187,7 @@ def test_healthy_project_without_friction():
         success, results = schema_manager.apply_schema(schema_path)
         assert success
         
-        api = create_llm_hooks_api(repo)
+        api = create_api_wrapper(repo)
         
         # 明確で適切な要件
         api["query"]({

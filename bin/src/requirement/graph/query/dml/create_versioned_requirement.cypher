@@ -18,5 +18,5 @@ CREATE (v:VersionState {
 })
 CREATE (r)-[:HAS_VERSION]->(v)
 MERGE (l:LocationURI {id: CONCAT('req://', $req_id)})
-CREATE (l)-[:LOCATES {current: true}]->(r)
+CREATE (l)-[:LOCATES]->(r)
 RETURN r.id as entity_id, v.id as version_id, l.id as location_uri

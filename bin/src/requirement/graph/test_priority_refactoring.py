@@ -14,8 +14,28 @@ import os
 import tempfile
 
 from .infrastructure.kuzu_repository import create_kuzu_repository
-from .infrastructure.llm_hooks_api import create_llm_hooks_api
+# llm_hooks_api has been removed
 from .infrastructure.ddl_schema_manager import DDLSchemaManager
+
+def create_api_wrapper(repo):
+    """Simple wrapper to mimic old llm_hooks_api interface"""
+    def query(input_data):
+        if input_data["type"] == "cypher":
+            query_str = input_data["query"]
+            params = input_data.get("parameters", {})
+            try:
+                result = repo["execute"](query_str, params)
+                # Convert QueryResult to expected format
+                data = []
+                while result.has_next():
+                    data.append(result.get_next())
+                return {"status": "success", "data": data}
+            except Exception as e:
+                return {"status": "error", "error": str(e)}
+        else:
+            return {"status": "error", "error": f"Unsupported query type: {input_data['type']}"}
+    
+    return {"query": query}
 
 
 class TestPriorityUINT8Refactoring:
@@ -33,7 +53,7 @@ class TestPriorityUINT8Refactoring:
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             
-            api = create_llm_hooks_api(repo)
+            api = create_api_wrapper(repo)
             
             # UINT8 値で要件を作成
             result = api["query"]({
@@ -65,7 +85,7 @@ class TestPriorityUINT8Refactoring:
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             
-            api = create_llm_hooks_api(repo)
+            api = create_api_wrapper(repo)
             
             # priority を指定せずに作成
             result = api["query"]({
@@ -96,7 +116,7 @@ class TestPriorityUINT8Refactoring:
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             
-            api = create_llm_hooks_api(repo)
+            api = create_api_wrapper(repo)
             
             # 異なる優先度の要件を作成
             priorities = [(10, "very_low"), (50, "low"), (150, "medium"), (250, "high")]
@@ -157,7 +177,7 @@ class TestPriorityUINT8Refactoring:
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             
-            api = create_llm_hooks_api(repo)
+            api = create_api_wrapper(repo)
             
             # 高優先度 (200以上) の要件を複数作成
             for i in range(3):
@@ -194,7 +214,7 @@ class TestPriorityUINT8Refactoring:
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             
-            api = create_llm_hooks_api(repo)
+            api = create_api_wrapper(repo)
             
             # 数値 priority で作成
             result = api["query"]({
