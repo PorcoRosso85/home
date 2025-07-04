@@ -18,9 +18,9 @@
             curl
             jq
             httpie
-            # For service discovery simulation
-            etcd
-            consul
+            # For service discovery simulation (future)
+            # etcd
+            # consul
           ];
 
           shellHook = ''
@@ -141,7 +141,7 @@
               SERVICE_ID=app-1 PORT=4001 ${pkgs.deno}/bin/deno eval '
                 const port = parseInt(Deno.env.get("PORT") || "4001");
                 const id = Deno.env.get("SERVICE_ID") || "app-1";
-                console.log(`Starting ${id} on port ${port}`);
+                console.log("Starting " + id + " on port " + port);
                 Deno.serve({ port }, (req) => {
                   const url = new URL(req.url);
                   if (url.pathname === "/health") {
@@ -153,7 +153,7 @@
                     });
                   }
                   return new Response(JSON.stringify({
-                    message: `Hello from ${id}`,
+                    message: "Hello from " + id,
                     timestamp: Date.now()
                   }), {
                     headers: { "content-type": "application/json" }
@@ -166,7 +166,7 @@
               SERVICE_ID=app-2 PORT=4002 ${pkgs.deno}/bin/deno eval '
                 const port = parseInt(Deno.env.get("PORT") || "4002");
                 const id = Deno.env.get("SERVICE_ID") || "app-2";
-                console.log(`Starting ${id} on port ${port}`);
+                console.log("Starting " + id + " on port " + port);
                 Deno.serve({ port }, (req) => {
                   const url = new URL(req.url);
                   if (url.pathname === "/health") {
@@ -178,7 +178,7 @@
                     });
                   }
                   return new Response(JSON.stringify({
-                    message: `Hello from ${id}`,
+                    message: "Hello from " + id,
                     timestamp: Date.now()
                   }), {
                     headers: { "content-type": "application/json" }
