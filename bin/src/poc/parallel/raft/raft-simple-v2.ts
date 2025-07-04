@@ -1,5 +1,4 @@
-// Simplified Raft implementation for POC 13.3
-
+// Simplified Raft implementation without timers for testing
 export enum NodeState {
   Follower = "follower",
   Candidate = "candidate",
@@ -44,14 +43,10 @@ export class RaftNode {
   async start(): Promise<void> {
     this.stopped = false;
     
-    // Simple leader election: first node becomes leader after timeout
-    if (this.id === "node-1") {
-      setTimeout(() => {
-        if (!this.stopped && this.state === NodeState.Follower) {
-          this.state = NodeState.Leader;
-          console.log(`${this.id} became leader`);
-        }
-      }, 500);
+    // Simple deterministic leader election: first node becomes leader
+    if (this.id === "node-1" && this.state === NodeState.Follower) {
+      this.state = NodeState.Leader;
+      console.log(`${this.id} became leader`);
     }
   }
   
@@ -60,22 +55,15 @@ export class RaftNode {
     this.stopped = true;
     this.state = NodeState.Follower;
     
-    // If this was the leader, trigger new election
+    // If this was the leader, immediately elect next leader
     if (wasLeader) {
-      // Find next available node to become leader
       const candidates = Array.from(this.peers)
-        .filter(peer => peer.getId() !== this.id)
+        .filter(peer => !peer.isStopped())
         .sort((a, b) => a.getId().localeCompare(b.getId()));
       
-      for (const candidate of candidates) {
-        if (!candidate.isStopped()) {
-          // Use immediate execution instead of setTimeout to avoid leaks
-          if (!candidate.isStopped()) {
-            candidate.state = NodeState.Leader;
-            console.log(`${candidate.getId()} became new leader after ${this.id} failure`);
-          }
-          break;
-        }
+      if (candidates.length > 0) {
+        candidates[0].state = NodeState.Leader;
+        console.log(`${candidates[0].getId()} became new leader after ${this.id} failure`);
       }
     }
   }
@@ -92,7 +80,7 @@ export class RaftNode {
       
       // Replicate to followers
       this.peers.forEach(peer => {
-        if (peer.getState() === NodeState.Follower) {
+        if (peer.getState() === NodeState.Follower && !peer.isStopped()) {
           peer.services.set(command.service.id, command.service);
         }
       });

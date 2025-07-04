@@ -2,7 +2,7 @@ import { assertEquals, assert, assertExists } from "https://deno.land/std@0.208.
 import { describe, it, beforeEach, afterEach } from "https://deno.land/std@0.208.0/testing/bdd.ts";
 
 // Raftの基本実装をインポート
-import { RaftCluster, ServiceRegistryRaft } from "../raft/mod.ts";
+import { RaftCluster, ServiceRegistryRaft, ServiceInfo, NodeState } from "../raft/mod.ts";
 
 // 13.2の動的オーケストレーションをインポート
 import {
@@ -11,10 +11,11 @@ import {
   HealthChecker,
   DynamicRouter,
   DeploymentController,
-  ServiceInfo,
   ServiceEvent,
   RoutingStrategy
 } from "../13.2_dynamic_service_orchestration_SELECTED/service-orchestrator.ts";
+
+// Raftからも ServiceInfo をインポート済み
 
 describe("POC 13.3: Raft + Dynamic Service Orchestration Integration", () => {
   describe("High Availability Service Orchestration", () => {
@@ -28,7 +29,8 @@ describe("POC 13.3: Raft + Dynamic Service Orchestration Integration", () => {
       await raftCluster.addNode("orchestrator-3", "localhost:7003");
       
       await raftCluster.start();
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // リーダー選出は即座に行われる
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Raftベースのサービスレジストリ
       const registry = new ServiceRegistryRaft(raftCluster);
@@ -65,7 +67,8 @@ describe("POC 13.3: Raft + Dynamic Service Orchestration Integration", () => {
       await raftCluster.addNode("orchestrator-3", "localhost:7003");
       
       await raftCluster.start();
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // リーダー選出は即座に行われる
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // 複数のサービスを登録
       const services = [
@@ -126,7 +129,8 @@ describe("POC 13.3: Raft + Dynamic Service Orchestration Integration", () => {
       }
       
       await raftCluster.start();
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // リーダー選出は即座に行われる
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // 各オーケストレーターから異なるサービスを登録
       const registrations = [
@@ -139,7 +143,7 @@ describe("POC 13.3: Raft + Dynamic Service Orchestration Integration", () => {
       for (const reg of registrations) {
         const result = await registry.registerViaNode(reg.nodeId, reg.service);
         // フォロワーからの場合はリダイレクト
-        if (raftCluster.getNode(reg.nodeId)?.getState() !== "leader") {
+        if (raftCluster.getNode(reg.nodeId)?.getState() !== NodeState.Leader) {
           assert(result.redirected);
         }
       }
@@ -170,7 +174,8 @@ describe("POC 13.3: Raft + Dynamic Service Orchestration Integration", () => {
       await raftCluster.addNode("orchestrator-3", "localhost:7003");
       
       await raftCluster.start();
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // リーダー選出は即座に行われる
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // 複数のバックエンドサービスを登録
       const backends = [
@@ -189,7 +194,8 @@ describe("POC 13.3: Raft + Dynamic Service Orchestration Integration", () => {
       
       for (let i = 0; i < routingRequests; i++) {
         // ランダムなオーケストレーターを選択
-        const randomNode = orchestrators[Math.floor(Math.random() * 3)];
+        const nodes = raftCluster.getNodes();
+        const randomNode = nodes[Math.floor(Math.random() * nodes.length)];
         const services = await registry.discoverFrom(randomNode.getId(), "api");
         
         // 重み付けルーティング
@@ -239,7 +245,8 @@ describe("POC 13.3: Raft + Dynamic Service Orchestration Integration", () => {
       await raftCluster.addNode("orchestrator-3", "localhost:7003");
       
       await raftCluster.start();
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // リーダー選出は即座に行われる
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // 現在のバージョン（安定版）
       const stableServices = [
