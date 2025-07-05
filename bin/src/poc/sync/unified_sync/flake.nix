@@ -69,12 +69,6 @@
           
           cd $WORK_DIR
           
-          # node_modulesをキャッシュから復元またはリンク
-          if [ -d "$CACHE_DIR/node_modules" ]; then
-            echo "♻️  Using cached node_modules"
-            ln -s "$CACHE_DIR/node_modules" node_modules
-          fi
-          
           # デバッグ: ファイル確認
           echo "📂 Files in work directory:"
           ls -la | head -20
@@ -101,17 +95,19 @@
           # package.jsonが変更されているかチェック
           if [ ! -f "$CACHE_DIR/package.json" ] || ! diff -q package.json "$CACHE_DIR/package.json" > /dev/null 2>&1; then
             echo "📦 Installing dependencies (package.json changed or first run)..."
-            # 既存のnode_modulesリンクを削除
-            rm -rf node_modules
             # キャッシュディレクトリでインストール
             cp package.json "$CACHE_DIR/"
             cd "$CACHE_DIR"
             npm install --silent
             cd "$WORK_DIR"
-            # リンクを作成
-            ln -s "$CACHE_DIR/node_modules" node_modules
+            # node_modulesをコピー
+            cp -r "$CACHE_DIR/node_modules" node_modules
           else
             echo "✅ Dependencies up to date"
+            # キャッシュからnode_modulesをコピー
+            if [ -d "$CACHE_DIR/node_modules" ]; then
+              cp -r "$CACHE_DIR/node_modules" node_modules
+            fi
           fi
           
           # playwright.configを作成
@@ -181,10 +177,16 @@
             pkgs.gcc.cc.lib
           ]}:$LD_LIBRARY_PATH
           
+          # node_modulesが正しくリンクされているか確認
+          if [ ! -d node_modules ]; then
+            echo "❌ node_modules not found!"
+            exit 1
+          fi
+          
           # Xvfbを使ってヘッドレス環境でテスト実行
           echo ""
           echo "🚀 Running integrated E2E test..."
-          ${pkgs.xvfb-run}/bin/xvfb-run -a npx playwright test
+          ${pkgs.xvfb-run}/bin/xvfb-run -a ${pkgs.nodejs_20}/bin/npx playwright test
           
           TEST_RESULT=$?
           
