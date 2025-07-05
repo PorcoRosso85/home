@@ -109,6 +109,38 @@ nix run ~/bin/src/poc/readability -- -o article.md https://example.com
 
 ## コマンド規約
 
+### 実行方法の選択
+
+#### nix run（推奨）
+完成したツールやCLIアプリケーションに最適。
+
+```nix
+apps = {
+  default = {
+    type = "app";
+    program = "${package}/bin/command";
+  };
+};
+```
+
+使用例：
+```bash
+nix run . -- arg1 arg2
+nix run .#app-name -- arg1
+```
+
+#### nix develop
+開発環境構築やデバッグ用途に最適。
+
+```nix
+devShells.default = pkgs.mkShell {
+  buildInputs = [ package dependencies ];
+  shellHook = ''
+    echo "開発環境へようこそ"
+  '';
+};
+```
+
 ### 必須コマンド
 - `nix run .` - デフォルトアプリケーション実行
 - `nix run .#test` - テスト実行
@@ -124,6 +156,10 @@ nix run ~/bin/src/poc/readability -- -o article.md https://example.com
 - `nix run .#format` - deno fmt
 - `nix run .#lint` - deno lint
 - `nix run .#typecheck` - deno check
+
+#### Nushell
+- CLIエントリポイントは`def main`を使用
+- 出力は`to json | print`でJSON形式に
 
 ## Node.js/npm CLIツールのFlake化
 
@@ -187,3 +223,38 @@ nix run ~/bin/src/poc/readability -- -o article.md https://example.com
 - ✅ スタンドアロンスクリプトで相対インポート回避
 - ✅ 一時ディレクトリでテスト実行
 - ✅ 明確なエラーメッセージ
+- ✅ `nix run`をメインの実行方法として設計
+- ✅ 複数実装がある場合は`apps.default`で主要実装を指定
+
+## Nushellスクリプトの統合
+
+### スクリプトファイルの埋め込み
+```nix
+nuScript = pkgs.writeTextFile {
+  name = "script.nu";
+  text = builtins.readFile ./script.nu;
+  executable = false;
+};
+
+app = pkgs.writeShellScriptBin "app-name" ''
+  export PATH="${pkgs.lib.makeBinPath [pkgs.universal-ctags]}:$PATH"
+  exec ${pkgs.nushell}/bin/nu ${nuScript} "$@"
+'';
+```
+
+### 複数言語実装の共存
+```nix
+apps = {
+  # デフォルト（推奨実装）
+  default = {
+    type = "app";
+    program = "${nushell-app}/bin/app";
+  };
+  
+  # 代替実装
+  python = {
+    type = "app";
+    program = "${python-app}/bin/app";
+  };
+};
+```
