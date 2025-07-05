@@ -83,7 +83,10 @@ function storeEvent(event: any): StoredEvent {
   return stored;
 }
 
-function getEventHistory(fromPosition: number = 0): StoredEvent[] {
+function getEventHistory(fromPosition: number = 0, limit?: number): StoredEvent[] {
+  if (limit !== undefined && limit > 0) {
+    return eventHistory.slice(fromPosition, fromPosition + limit);
+  }
   return eventHistory.slice(fromPosition);
 }
 
@@ -173,7 +176,8 @@ Deno.serve({ port }, (req) => {
           
         case "requestHistory":
           const fromPosition = message.fromPosition || 0;
-          const history = getEventHistory(fromPosition);
+          const limit = message.limit;
+          const history = getEventHistory(fromPosition, limit);
           
           socket.send(JSON.stringify({
             type: "history",

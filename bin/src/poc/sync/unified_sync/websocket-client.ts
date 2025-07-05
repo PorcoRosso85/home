@@ -16,9 +16,11 @@ export class SyncClient {
   ws: WebSocket | null = null;
   private eventHandlers: ((event: any) => void)[] = [];
   private errorHandlers: ((error: any) => void)[] = [];
+  private historyHandlers: ((events: any[]) => void)[] = [];
   private subscriptionHandlers: Map<string, (event: any) => void> = new Map();
   private connected = false;
   private connectionPromise: Promise<void> | null = null;
+  private historyRequested = false;
   
   constructor(public readonly id: string) {}
   
@@ -33,6 +35,12 @@ export class SyncClient {
       
       this.ws.onopen = () => {
         this.connected = true;
+        
+        // 接続時に自動的に履歴を要求
+        if (!this.historyRequested) {
+          this.requestInitialHistory();
+        }
+        
         resolve();
       };
       
@@ -54,6 +62,11 @@ export class SyncClient {
               
             case "error":
               this.errorHandlers.forEach(handler => handler(message));
+              break;
+              
+            case "history":
+              // 履歴イベントを処理
+              this.historyHandlers.forEach(handler => handler(message.events || []));
               break;
           }
         } catch (error) {
@@ -119,6 +132,87 @@ export class SyncClient {
   
   onError(handler: (error: any) => void): void {
     this.errorHandlers.push(handler);
+  }
+  
+  onHistoryReceived(handler: (events: any[]) => void): void {
+    this.historyHandlers.push(handler);
+  }
+  
+  private async requestInitialHistory(): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    
+    this.historyRequested = true;
+    this.ws.send(JSON.stringify({
+      type: "requestHistory",
+      fromPosition: 0
+    }));
+  }
+  
+  async requestHistoryFrom(position: number): Promise<{ events: any[] }> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("Not connected");
+    }
+    
+    return new Promise((resolve) => {
+      const handler = (event: MessageEvent) => {
+        const message = JSON.parse(event.data);
+        if (message.type === "history") {
+          this.ws!.removeEventListener("message", handler);
+          resolve({ events: message.events || [] });
+        }
+      };
+      
+      this.ws.addEventListener("message", handler);
+      
+      this.ws.send(JSON.stringify({
+        type: "requestHistory",
+        fromPosition: position
+      }));
+    });
+  }
+  
+  async requestHistoryPage(options: { fromPosition: number; limit: number }): Promise<{ events: any[] }> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("Not connected");
+    }
+    
+    return new Promise((resolve) => {
+      const handler = (event: MessageEvent) => {
+        const message = JSON.parse(event.data);
+        if (message.type === "history") {
+          this.ws!.removeEventListener("message", handler);
+          resolve({ events: message.events || [] });
+        }
+      };
+      
+      this.ws.addEventListener("message", handler);
+      
+      this.ws.send(JSON.stringify({
+        type: "requestHistory",
+        fromPosition: options.fromPosition,
+        limit: options.limit
+      }));
+    });
+  }
+  
+  async requestHistoryWithVerification(): Promise<{ events: any[]; verified: boolean }> {
+    // 簡易実装：通常の履歴取得に検証フラグを追加
+    const history = await this.requestHistoryFrom(0);
+    return {
+      events: history.events,
+      verified: true // TODO: 実際のチェックサム検証
+    };
+  }
+  
+  async requestCompressedHistory(): Promise<{ events: any[]; compressionRatio: number }> {
+    // 簡易実装：通常の履歴取得
+    const history = await this.requestHistoryFrom(0);
+    return {
+      events: history.events,
+      compressionRatio: 1 // TODO: 実際の圧縮実装
+    };
   }
   
   subscribe(template: string, handler: (event: any) => void): void {

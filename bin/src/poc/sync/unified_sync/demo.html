@@ -90,6 +90,8 @@
                     
                     this.ws.onopen = () => {
                         log('WebSocket connected');
+                        // 接続時に履歴を要求
+                        this.requestHistory();
                     };
                     
                     this.ws.onmessage = async (event) => {
@@ -98,6 +100,9 @@
                         
                         if (data.type === 'event' && data.payload) {
                             await this.applyRemoteEvent(data.payload);
+                        } else if (data.type === 'history' && data.events) {
+                            log(`Received history: ${data.events.length} events`);
+                            await this.applyHistoryEvents(data.events);
                         }
                     };
                     
@@ -132,7 +137,9 @@
                         payload: {
                             template: 'CREATE_USER',
                             params: { id: userId, name: name, createdBy: this.clientId },
-                            clientId: this.clientId
+                            clientId: this.clientId,
+                            id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                            timestamp: Date.now()
                         }
                     }));
                 }
@@ -178,6 +185,41 @@
                 log(`Total users: ${users.length}`);
             }
             
+            requestHistory() {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'requestHistory',
+                        fromPosition: 0
+                    }));
+                    log('Requested history from server');
+                }
+            }
+            
+            async applyHistoryEvents(events) {
+                log(`Applying ${events.length} historical events...`);
+                let appliedCount = 0;
+                
+                for (const event of events) {
+                    // 自分のイベントも含めて履歴を適用
+                    if (event.template === 'CREATE_USER' && event.params) {
+                        try {
+                            await this.conn.query(`
+                                CREATE (u:User {id: $id, name: $name, createdBy: $createdBy})
+                            `, event.params);
+                            appliedCount++;
+                        } catch (error) {
+                            // 既に存在する場合は無視
+                            if (!error.message.includes('already exists')) {
+                                log(`History sync error: ${error.message}`);
+                            }
+                        }
+                    }
+                }
+                
+                log(`Applied ${appliedCount} historical events`);
+                await this.refreshUsers();
+            }
+            
             async clearAll() {
                 await this.conn.query(`MATCH (u:User) DELETE u`);
                 log('Cleared all users');
@@ -187,6 +229,7 @@
         
         // クライアント初期化
         const client = new SyncClient();
+        window.client = client; // E2Eテスト用
         await client.initialize();
         
         // イベントハンドラー
