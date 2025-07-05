@@ -60,6 +60,17 @@
           # Run demo
           ${pkgs.uv}/bin/uv run python -m kuzu_json_poc "$@"
         '';
+        
+        # README display script (規約必須)
+        readmeScript = pkgs.writeShellScriptBin "show-readme" ''
+          #!${pkgs.bash}/bin/bash
+          if [ -f "${self}/README.md" ]; then
+            cat "${self}/README.md"
+          else
+            echo "README.md not found"
+            exit 1
+          fi
+        '';
       in
       {
         devShells.default = pkgs.mkShell {
@@ -87,6 +98,12 @@
         
         # Applications
         apps = {
+          # Default - show README (規約必須)
+          default = {
+            type = "app";
+            program = "${readmeScript}/bin/show-readme";
+          };
+          
           # Test runner
           test = {
             type = "app";

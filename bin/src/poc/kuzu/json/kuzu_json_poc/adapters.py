@@ -1,7 +1,6 @@
 from typing import Union, Callable, Any, Dict
 import tempfile
 import shutil
-import os
 from .types import ErrorDict, QueryResult
 from .core import validate_json_string
 
@@ -35,8 +34,10 @@ def with_temp_database(operation: Callable[[Any], Union[Any, ErrorDict]]) -> Uni
     try:
         db = kuzu.Database(temp_dir)
         conn = kuzu.Connection(db)
-        if os.environ.get('KUZU_SKIP_JSON_EXT', '').lower() != 'true':
-            setup_json_extension(conn)
+        # Always setup JSON extension - no fallback allowed
+        setup_result = setup_json_extension(conn)
+        if isinstance(setup_result, dict) and "error" in setup_result:
+            return setup_result
         return operation(conn)
     except Exception as e:
         return {"error": "Database operation failed", "details": str(e), "traceback": None}
