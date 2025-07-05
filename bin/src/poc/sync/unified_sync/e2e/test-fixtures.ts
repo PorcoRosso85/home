@@ -36,8 +36,74 @@ export { expect } from '@playwright/test';
 
 // ========== サーバー起動とヘルスチェック ==========
 
+// ポートが使用可能かチェック
+async function isPortAvailable(port: number): Promise<boolean> {
+  try {
+    const response = await fetch(`http://localhost:${port}`, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(100)
+    });
+    return false; // レスポンスがあれば使用中
+  } catch {
+    return true; // エラーなら利用可能
+  }
+}
+
 async function startServersWithHealthCheck() {
   console.log('🚀 Starting servers...');
+  
+  // ポートが使用可能かチェック
+  const wsPortAvailable = await isPortAvailable(8080);
+  const httpPortAvailable = await isPortAvailable(3000);
+  
+  if (!wsPortAvailable || !httpPortAvailable) {
+    console.log('⚠️  Ports already in use, attempting to use existing servers...');
+    // 既存のサーバーが動作しているか確認
+    try {
+      await waitForHealthy('ws://localhost:8080', {
+        timeout: 5000,
+        interval: 100,
+        name: 'WebSocket Server',
+        healthCheck: async (url) => {
+          try {
+            const ws = new WebSocket(url);
+            return new Promise<boolean>((resolve) => {
+              ws.onopen = () => {
+                ws.close();
+                resolve(true);
+              };
+              ws.onerror = () => resolve(false);
+              setTimeout(() => resolve(false), 1000);
+            });
+          } catch {
+            return false;
+          }
+        }
+      });
+      
+      await waitForHealthy('http://localhost:3000', {
+        timeout: 5000,
+        interval: 100,
+        name: 'HTTP Server',
+        healthCheck: async (url) => {
+          try {
+            const res = await fetch(url);
+            return res.ok || res.status === 200;
+          } catch {
+            return false;
+          }
+        }
+      });
+      console.log('✅ Using existing servers');
+      return {
+        wsServer: null,
+        httpServer: null,
+        cleanup: () => {} // 既存サーバーはクリーンアップしない
+      };
+    } catch (e) {
+      throw new Error('Ports are in use but servers are not responding');
+    }
+  }
   
   // WebSocketサーバー起動
   const wsServer = spawn('deno', [
@@ -121,8 +187,8 @@ async function startServersWithHealthCheck() {
     httpServer,
     cleanup: () => {
       console.log('🧹 Cleaning up servers...');
-      wsServer.kill('SIGTERM');
-      httpServer.kill('SIGTERM');
+      if (wsServer) wsServer.kill('SIGTERM');
+      if (httpServer) httpServer.kill('SIGTERM');
     }
   };
 }
