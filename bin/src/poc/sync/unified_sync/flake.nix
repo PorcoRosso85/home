@@ -11,37 +11,17 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # node_modules含むプロジェクトファイル（ビルド時に依存関係解決）
-        projectWithDeps = pkgs.stdenv.mkDerivation {
-          name = "unified-sync-with-deps";
+        # プロジェクトファイル
+        # 注意: Nixのビルド環境ではネットワークアクセスが禁止されているため、
+        # npm installは実行時に行う必要がある。
+        # 理想的にはnpmPackage/yarn2nixなどを使うべきだが、
+        # POCとしては実行時インストールで妥協する。
+        projectFiles = pkgs.stdenv.mkDerivation {
+          name = "unified-sync-files";
           src = ./.;
-          buildInputs = [ pkgs.nodejs_20 ];
-          
-          buildPhase = ''
-            # package.jsonを作成
-            cat > package.json << 'EOF'
-            {
-              "name": "unified-sync",
-              "type": "module",
-              "devDependencies": {
-                "@playwright/test": "^1.40.0",
-                "@types/node": "^20.0.0"
-              },
-              "dependencies": {
-                "kuzu-wasm": "^0.0.10"
-              }
-            }
-            EOF
-            
-            # 依存関係をインストール（ビルド時に1回だけ）
-            npm install --no-audit --no-fund
-          '';
-          
           installPhase = ''
             mkdir -p $out
             cp -r * $out/
-            # node_modulesもコピー
-            cp -r node_modules $out/
           '';
         };
         
@@ -68,8 +48,8 @@
           
           echo "📁 Preparing test environment..."
           
-          # ビルド済みプロジェクトをコピー（node_modules含む）
-          cp -r ${projectWithDeps}/* $WORK_DIR/
+          # プロジェクトファイルをコピー
+          cp -r ${projectFiles}/* $WORK_DIR/
           
           # 書き込み権限を付与（コピー後すぐに）
           chmod -R u+w $WORK_DIR
@@ -83,7 +63,26 @@
           echo "📂 Files in e2e directory:"
           ls -la e2e/ || echo "No e2e directory found"
           echo ""
-          echo "📦 Using pre-built dependencies from Nix store"
+          
+          # package.jsonを作成
+          cat > package.json << 'EOF'
+          {
+            "name": "unified-sync",
+            "type": "module",
+            "devDependencies": {
+              "@playwright/test": "^1.40.0",
+              "@types/node": "^20.0.0"
+            },
+            "dependencies": {
+              "kuzu-wasm": "^0.0.10"
+            }
+          }
+          EOF
+          
+          # 注意: Nixビルド環境の制約により、実行時にnpm installが必要
+          # npmはキャッシュを使うため、2回目以降は高速
+          echo "📦 Installing dependencies..."
+          npm install --silent
           
           # playwright.configを作成
           cat > playwright.config.ts << 'EOF'
