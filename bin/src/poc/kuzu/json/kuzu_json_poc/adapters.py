@@ -75,8 +75,14 @@ def with_temp_database(operation: Callable[[Any], Union[Any, ErrorDict]]) -> Uni
 def setup_json_extension(connection: Any) -> Union[Dict[str, str], ErrorDict]:
     """Install and load JSON extension"""
     try:
+        # For KuzuDB 0.10.1, we need to INSTALL and then LOAD EXTENSION
         connection.execute("INSTALL json;")
-        connection.execute("LOAD json;")
+        connection.execute("LOAD EXTENSION json;")
+        
+        # Verify it's working
+        result = connection.execute("RETURN to_json('test') AS test;")
+        result.get_as_df()
+        
         return {"status": "JSON extension loaded successfully"}
     except Exception as e:
         return {
@@ -89,7 +95,8 @@ def setup_json_extension(connection: Any) -> Union[Dict[str, str], ErrorDict]:
 def create_table_with_json(connection: Any, table_name: str) -> Union[Dict[str, str], ErrorDict]:
     """Create a table with JSON column"""
     try:
-        query = f"CREATE NODE TABLE {table_name} (id INT64, description JSON, primary key(id));"
+        # KuzuDB 0.10.1 supports JSON column type after loading the extension
+        query = f"CREATE NODE TABLE {table_name} (id INT64, description JSON, PRIMARY KEY(id));"
         connection.execute(query)
         return {"status": f"Table {table_name} created successfully"}
     except Exception as e:
@@ -108,8 +115,13 @@ def insert_json_data(connection: Any, table_name: str, id: int, json_data: str) 
         if isinstance(validation, dict) and "error" in validation:
             return validation
         
-        query = f"CREATE (p:{table_name} {{id: {id}, description: to_json('{json_data}')}});"
+        # Escape single quotes in JSON data
+        escaped_json = json_data.replace("'", "''")
+        
+        # Use to_json function to insert JSON data
+        query = f"CREATE (p:{table_name} {{id: {id}, description: to_json('{escaped_json}')}});"
         connection.execute(query)
+            
         return {"status": f"Data inserted successfully with id {id}"}
     except Exception as e:
         return {
