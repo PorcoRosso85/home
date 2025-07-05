@@ -186,28 +186,8 @@
           echo ""
           echo "🚀 Running integrated E2E test..."
           
-          # サーバーを起動（バックグラウンド）
-          echo "🔧 Starting WebSocket server..."
-          ${pkgs.deno}/bin/deno run --allow-net websocket-server.ts &
-          WS_PID=$!
-          
-          echo "🔧 Starting HTTP server..."
-          ${pkgs.deno}/bin/deno run --allow-net --allow-read serve.ts &
-          HTTP_PID=$!
-          
-          # サーバー起動を待つ
-          sleep 2
-          
-          # テスト実行
-          export PATH=${pkgs.playwright-test}/bin:$PATH
-          ${pkgs.xvfb-run}/bin/xvfb-run -a playwright test
-          
-          TEST_EXIT_CODE=$?
-          
-          # サーバーをクリーンアップ
-          kill $WS_PID $HTTP_PID 2>/dev/null || true
-          
-          exit $TEST_EXIT_CODE
+          # Playwrightテスト実行（test-fixturesがサーバーを管理）
+          ${pkgs.xvfb-run}/bin/xvfb-run -a npx playwright test
         '';
         
       in
