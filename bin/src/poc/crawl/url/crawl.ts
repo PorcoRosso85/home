@@ -34,7 +34,7 @@ export class URLCrawler {
 
   constructor(
     private baseUrl: string,
-    options: CrawlOptions = {}
+    options: CrawlOptions = {},
   ) {
     const url = new URL(baseUrl);
     this.baseHost = url.host;
@@ -48,10 +48,10 @@ export class URLCrawler {
 
   async crawl(): Promise<CrawlResult[]> {
     this.queue.push(this.baseUrl);
-    
+
     while (this.queue.length > 0 && this.shouldContinue()) {
       const batch = this.queue.splice(0, this.options.concurrency!);
-      const promises = batch.map(url => this.processUrl(url));
+      const promises = batch.map((url) => this.processUrl(url));
       await Promise.all(promises);
     }
 
@@ -73,13 +73,16 @@ export class URLCrawler {
 
     try {
       const response = await fetch(url);
-      if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) {
+      if (
+        !response.ok ||
+        !response.headers.get("content-type")?.includes("text/html")
+      ) {
         return;
       }
 
       const html = await response.text();
       const links = this.extractLinks(html, url);
-      
+
       this.results.push({ url, links });
 
       // Add new links to queue
@@ -89,10 +92,10 @@ export class URLCrawler {
         }
       }
     } catch (error) {
-      this.results.push({ 
-        url, 
-        links: [], 
-        error: error instanceof Error ? error.message : String(error) 
+      this.results.push({
+        url,
+        links: [],
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -118,7 +121,7 @@ export class URLCrawler {
   private shouldCrawlLink(url: string): boolean {
     try {
       const linkUrl = new URL(url);
-      
+
       // Check same host restriction
       if (this.options.sameHost && linkUrl.host !== this.baseHost) {
         return false;
@@ -141,17 +144,17 @@ export class URLCrawler {
     }
 
     const urlPath = new URL(url).pathname;
-    return this.options.match.some(pattern => {
+    return this.options.match.some((pattern) => {
       const regex = this.globToRegex(pattern);
       return regex.test(urlPath);
     });
   }
 
   private globToRegex(glob: string): RegExp {
-    const escaped = glob.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
     const pattern = escaped
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
+      .replace(/\*/g, ".*")
+      .replace(/\?/g, ".");
     return new RegExp(`^${pattern}$`);
   }
 }
@@ -168,11 +171,11 @@ export function parseArgs(args: string[]): {
     return { error: "URL is required" };
   }
 
-  if (args.includes('--help') || args.includes('-h')) {
+  if (args.includes("--help") || args.includes("-h")) {
     return { showHelp: true };
   }
 
-  const url = args.find(arg => !arg.startsWith('-'));
+  const url = args.find((arg) => !arg.startsWith("-"));
   if (!url) {
     return { error: "URL is required" };
   }
@@ -182,27 +185,27 @@ export function parseArgs(args: string[]): {
     match: [],
   };
 
-  let format = 'text';
+  let format = "text";
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    
+
     switch (arg) {
-      case '-c':
-      case '--concurrency':
+      case "-c":
+      case "--concurrency":
         options.concurrency = parseInt(args[++i]);
         break;
-      case '-m':
-      case '--match':
+      case "-m":
+      case "--match":
         if (!options.match) options.match = [];
         options.match.push(args[++i]);
         break;
-      case '-l':
-      case '--limit':
+      case "-l":
+      case "--limit":
         options.limit = parseInt(args[++i]);
         break;
-      case '--json':
-        format = 'json';
+      case "--json":
+        format = "json";
         break;
     }
   }
@@ -213,8 +216,8 @@ export function parseArgs(args: string[]): {
 // CLI Interface
 async function main() {
   const args = Deno.args;
-  
-  if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
+
+  if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
     console.log(`
 URL Crawler - Extract links from websites
 
@@ -237,28 +240,28 @@ Examples:
     Deno.exit(0);
   }
 
-  const url = args.find(arg => !arg.startsWith('-'))!;
+  const url = args.find((arg) => !arg.startsWith("-"))!;
   const options: CrawlOptions = {
     concurrency: 3,
     match: [],
-    sameHost: !args.includes('--no-same-host'),
+    sameHost: !args.includes("--no-same-host"),
   };
 
   // Parse options
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    
+
     switch (arg) {
-      case '-c':
-      case '--concurrency':
+      case "-c":
+      case "--concurrency":
         options.concurrency = parseInt(args[++i]);
         break;
-      case '-m':
-      case '--match':
+      case "-m":
+      case "--match":
         options.match!.push(args[++i]);
         break;
-      case '-l':
-      case '--limit':
+      case "-l":
+      case "--limit":
         options.limit = parseInt(args[++i]);
         break;
     }
@@ -269,7 +272,7 @@ Examples:
   const results = await crawler.crawl();
 
   // Output
-  if (args.includes('--json')) {
+  if (args.includes("--json")) {
     console.log(JSON.stringify(results, null, 2));
   } else {
     for (const result of results) {
@@ -279,11 +282,11 @@ Examples:
         console.log(`\n📄 ${result.url}`);
         console.log(`   Found ${result.links.length} links`);
         if (result.links.length > 0 && result.links.length <= 10) {
-          result.links.forEach(link => console.log(`   → ${link}`));
+          result.links.forEach((link) => console.log(`   → ${link}`));
         }
       }
     }
-    
+
     console.log(`\n✅ Crawled ${results.length} pages total`);
   }
 }

@@ -19,9 +19,39 @@
       {
         packages.default = crawlScript;
         
-        apps.default = {
-          type = "app";
-          program = "${crawlScript}/bin/url-crawl";
+        apps = {
+          default = {
+            type = "app";
+            program = "${crawlScript}/bin/url-crawl";
+          };
+          
+          format = {
+            type = "app";
+            program = toString (pkgs.writeShellScript "format" ''
+              ${pkgs.deno}/bin/deno fmt *.ts
+            '');
+          };
+          
+          lint = {
+            type = "app";
+            program = toString (pkgs.writeShellScript "lint" ''
+              ${pkgs.deno}/bin/deno lint *.ts
+            '');
+          };
+          
+          typecheck = {
+            type = "app";
+            program = toString (pkgs.writeShellScript "typecheck" ''
+              ${pkgs.deno}/bin/deno check *.ts
+            '');
+          };
+          
+          test = {
+            type = "app";
+            program = toString (pkgs.writeShellScript "test" ''
+              ${pkgs.deno}/bin/deno test --allow-net *.test.ts
+            '');
+          };
         };
         
         devShells.default = pkgs.mkShell {
@@ -36,12 +66,12 @@
             echo "Usage:"
             echo "  url-crawl https://example.com"
             echo "  url-crawl https://docs.example.com -m '/api/**' --json"
-            echo "  deno run --allow-net crawl.ts --help"
             echo ""
-            echo "Development:"
-            echo "  deno fmt crawl.ts     # Format code"
-            echo "  deno lint crawl.ts    # Lint code"
-            echo "  deno check crawl.ts   # Type check"
+            echo "Development commands:"
+            echo "  nix run .#format     # Format all TypeScript files"
+            echo "  nix run .#lint       # Lint all TypeScript files"
+            echo "  nix run .#typecheck  # Type check all TypeScript files"
+            echo "  nix run .#test       # Run all tests"
           '';
         };
       });
