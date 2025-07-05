@@ -1,7 +1,7 @@
 // Adapter for measuring Raft performance - handles side effects
 // Following bin/docs conventions: side effects isolated to adapters
 
-import { RaftCluster, ServiceRegistryRaft, ServiceInfo } from "../../raft/mod.ts";
+import { RaftCluster, ServiceRegistryRaft, ServiceInfo } from "../../../raft/mod.ts";
 import type {
   LeaderElectionResult,
   FailoverResult,
@@ -166,7 +166,7 @@ export async function measureAvailability(
     while (Date.now() - startTime < durationMs) {
       // Random node failures
       if (Math.random() < failureRate) {
-        const nodes = cluster.getNodes().filter(n => !n.isStopped());
+        const nodes = cluster.getNodes().filter((n: any) => !n.isStopped());
         if (nodes.length > 1) {
           const randomNode = nodes[Math.floor(Math.random() * nodes.length)];
           await randomNode.stop();
