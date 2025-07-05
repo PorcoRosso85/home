@@ -130,16 +130,16 @@ def test_executive_vs_engineer_budget_conflict_e2e():
         
         timestamp = str(int(time.time() * 1000))
         
-        # 1. 経営者: インフラ予算5万円制限をCypherで登録
+        # 1. 経営者: インフラ予算5万円制限をCypherで登録（priorityを金額として使用）
+        # priority = 金額 / 1000（50000円 → priority 50）
         executive_query = f"""
     CREATE (exec:RequirementEntity {{
         id: 'EXEC_BUDGET_{timestamp}',
         title: 'インフラ予算制限',
         description: '年間インフラ予算を5万円以内に抑える',
-        priority: 250,
+        priority: 50,  // 50 * 1000 = 50000円として扱う
         status: 'approved',
-        requirement_type: 'constraint',
-        technical_specifications: '{{"constraint_type": "budget_limit", "resource": "infrastructure", "max_amount": 50000, "currency": "JPY"}}'
+        requirement_type: 'constraint'  // 制約タイプ
     }})
     CREATE (loc:LocationURI {{id: 'req://EXEC_BUDGET_{timestamp}'}})
     CREATE (loc)-[:LOCATES]->(exec)
@@ -154,16 +154,16 @@ def test_executive_vs_engineer_budget_conflict_e2e():
         assert exec_result["status"] == "success"
         print("経営者の要件登録完了")
         
-        # 2. エンジニア: 高可用性インフラ（12万円）をCypherで要求
+        # 2. エンジニア: 高可用性インフラ（12万円）をCypherで要求（priorityを金額として使用）
+        # priority = 金額 / 1000（120000円 → priority 120）
         engineer_query = f"""
     CREATE (eng:RequirementEntity {{
         id: 'ENG_INFRA_{timestamp}',
         title: '高可用性インフラ構築',
-        description: '99.99%の可用性を実現するインフラ',
-        priority: 200,
+        description: '99.99%の可用性を実現するインフラ（冗長構成）',
+        priority: 120,  // 120 * 1000 = 120000円として扱う
         status: 'proposed',
-        requirement_type: 'infrastructure',
-        technical_specifications: '{{"resource_type": "infrastructure", "required_amount": 120000, "currency": "JPY", "availability_target": "99.99%", "justification": "冗長構成のため"}}'
+        requirement_type: 'infrastructure'  // インフラタイプ
     }})
     CREATE (loc:LocationURI {{id: 'req://ENG_INFRA_{timestamp}'}})
     CREATE (loc)-[:LOCATES]->(eng)
@@ -173,26 +173,28 @@ def test_executive_vs_engineer_budget_conflict_e2e():
         assert eng_result["status"] == "success"
         print("エンジニアの要件登録完了")
         
-        # 3. システムによる矛盾検出クエリ
-        # 注: KuzuDBの制限により、シンプルなクエリで実装
+        # 3. システムによる矛盾検出クエリ（priorityから動的に金額を計算）
         conflict_detection_query = f"""
-    // 予算制約要件を検索
-    MATCH (exec:RequirementEntity)
-    WHERE exec.id = 'EXEC_BUDGET_{timestamp}'
+    // 特定のIDで要件を取得
+    MATCH (budget_req:RequirementEntity)
+    WHERE budget_req.id = 'EXEC_BUDGET_{timestamp}'
     
-    // インフラ要件を検索  
-    MATCH (eng:RequirementEntity)
-    WHERE eng.id = 'ENG_INFRA_{timestamp}'
+    MATCH (infra_req:RequirementEntity)  
+    WHERE infra_req.id = 'ENG_INFRA_{timestamp}'
     
-    // 単純な矛盾検出
+    // priorityから金額を計算して返す
     RETURN {{
-        budget_limit: 50000,
-        total_required: 120000,
-        shortage: 70000,
-        conflict_detected: true,
-        health_score: 0.42,
-        constraint_id: exec.id,
-        requirement_id: eng.id
+        budget_limit: budget_req.priority * 1000,
+        total_required: infra_req.priority * 1000,
+        shortage: (infra_req.priority - budget_req.priority) * 1000,
+        conflict_detected: infra_req.priority > budget_req.priority,
+        health_score: CASE 
+            WHEN infra_req.priority <= budget_req.priority THEN 1.0
+            WHEN infra_req.priority > budget_req.priority * 2 THEN 0.0
+            ELSE 1.0 - CAST(infra_req.priority - budget_req.priority AS DOUBLE) / CAST(budget_req.priority AS DOUBLE)
+        END,
+        constraint_type: budget_req.requirement_type,
+        infra_type: infra_req.requirement_type
     }} as analysis
     """
         
@@ -216,7 +218,8 @@ def test_executive_vs_engineer_budget_conflict_e2e():
         # アサーション
         assert analysis['conflict_detected'] == True
         assert analysis['shortage'] == 70000
-        assert analysis['health_score'] < 0.5  # 予算の2倍以上要求しているので低スコア
+        # 健全性スコアは動的計算: 1.0 - (70000 / 50000) = 1.0 - 1.4 = -0.4 → 0.0
+        assert analysis['health_score'] == 0.0  # 予算の2倍以上要求しているので0
         
     finally:
         # クリーンアップ
