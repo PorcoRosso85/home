@@ -28,3 +28,21 @@
 | **Go** | `go mod` |
 | **Rust** | `cargo` |
 | **Zig** | `zig build` |
+
+## Nix Flakeによる依存関係管理
+
+プロジェクトの依存関係をNix Flakeで管理する場合：
+
+1. **言語固有の依存関係ファイルとの共存**
+   - `pyproject.toml`、`package.json`等は維持
+   - Flakeはこれらを参照して環境構築
+
+2. **開発ツールの統一**
+   - フォーマッター、リンター、テストランナーをFlakeで提供
+   - `nix run .#<command>`で統一的に実行
+
+3. **再現可能性の保証**
+   - `flake.lock`をコミット
+   - 全開発者が同一環境を利用
+
+詳細は[Nix Flake規約](./nix_flake.md)を参照。
