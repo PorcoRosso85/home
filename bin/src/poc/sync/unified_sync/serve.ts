@@ -36,7 +36,14 @@ Deno.serve({ port: PORT }, async (req) => {
   // demo.htmlを配信
   if (url.pathname === "/demo.html") {
     try {
-      const content = await Deno.readTextFile("./demo.html");
+      // demo.htmlは親ディレクトリまたは同じディレクトリにある可能性がある
+      let content;
+      try {
+        content = await Deno.readTextFile("./demo.html");
+      } catch {
+        // 親ディレクトリを試す
+        content = await Deno.readTextFile("../demo.html");
+      }
       return new Response(content, { headers });
     } catch {
       return new Response("Demo not found", { status: 404 });
