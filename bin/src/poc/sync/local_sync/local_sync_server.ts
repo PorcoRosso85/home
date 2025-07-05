@@ -1,343 +1,301 @@
 /**
  * Local Sync Server Implementation
- * 単一サーバーでの複数クライアント同期エンジン
+ * ローカル同期サーバーの実装
  */
 
 // ========== 型定義 ==========
 
-export interface SyncClientInfo {
-  id: string;
-  lastSync: number;
-  vectorClock: Record<string, number>;
-  eventHandlers: Map<string, EventHandler[]>;
-  subscriptions: Subscription[];
-}
-
 export interface SyncEvent {
   id: string;
   clientId: string;
-  timestamp: number;
   operation: "CREATE" | "UPDATE" | "DELETE";
   data: any;
+  timestamp: number;
   vectorClock: Record<string, number>;
 }
 
-export interface ConflictInfo {
-  type: "CONCURRENT_UPDATE" | "DELETE_UPDATE" | "CREATE_CREATE";
-  events: SyncEvent[];
-}
-
 export interface ConflictResolution {
-  winner: SyncEvent;
-  loser: SyncEvent;
-  strategy: "LAST_WRITE_WINS" | "VECTOR_CLOCK" | "CUSTOM";
+  type: "CONFLICT" | "NO_CONFLICT";
+  winner?: SyncEvent;
+  strategy?: string;
 }
 
-export interface SyncOptions {
-  conflictStrategy?: "LAST_WRITE_WINS" | "VECTOR_CLOCK" | "CUSTOM";
-  conflictResolver?: (a: SyncEvent, b: SyncEvent) => SyncEvent;
-  batchSize?: number;
-  maxMemoryEvents?: number;
-  syncTimeout?: number;
-}
-
-export interface Snapshot {
-  eventCount: number;
-  clients: Map<string, SyncClientInfo>;
+export interface ServerSnapshot {
+  events: SyncEvent[];
   timestamp: number;
 }
 
-export interface SyncResult {
-  events: SyncEvent[];
-  lastSync: number;
+export interface SyncOptions {
+  filter?: (event: SyncEvent) => boolean;
 }
 
-export interface Subscription {
-  filter: (event: SyncEvent) => boolean;
-  handler: (event: SyncEvent) => void;
-}
+export type ConflictResolver = (a: SyncEvent, b: SyncEvent) => SyncEvent;
 
-type EventHandler = (event: SyncEvent) => void;
+// ========== Client Class ==========
 
-// ========== メインサーバークラス ==========
+export class SyncClient {
+  private clientId: string;
+  private server: LocalSyncServer;
+  private vectorClock: Record<string, number> = {};
+  private lastSync: number = 0;
 
-export class LocalSyncServer {
-  private clients: Map<string, SyncClientInfo> = new Map();
-  private events: SyncEvent[] = [];
-  private eventIdCounter = 0;
-  private options: SyncOptions;
-  private syncDelay = 0;
-  
-  constructor(options: SyncOptions = {}) {
-    this.options = {
-      conflictStrategy: "LAST_WRITE_WINS",
-      batchSize: 1000,
-      maxMemoryEvents: 10000,
-      syncTimeout: 5000,
-      ...options
-    };
+  constructor(clientId: string, server: LocalSyncServer) {
+    this.clientId = clientId;
+    this.server = server;
+    this.vectorClock[clientId] = 0;
   }
-  
-  connect(clientId: string): SyncClient {
-    const clientInfo: SyncClientInfo = {
-      id: clientId,
-      lastSync: 0,
-      vectorClock: { [clientId]: 0 },
-      eventHandlers: new Map(),
-      subscriptions: []
-    };
+
+  send(data: { operation: "CREATE" | "UPDATE" | "DELETE"; data: any }): SyncEvent {
+    // Increment own clock
+    this.vectorClock[this.clientId]++;
     
-    this.clients.set(clientId, clientInfo);
-    return new SyncClient(this, clientId);
-  }
-  
-  processEvent(eventData: Partial<SyncEvent>): SyncEvent {
     const event: SyncEvent = {
-      id: `evt_${++this.eventIdCounter}`,
-      clientId: eventData.clientId || "server",
-      timestamp: eventData.timestamp || Date.now(),
-      operation: eventData.operation!,
-      data: eventData.data,
-      vectorClock: eventData.vectorClock || {}
+      id: `evt_${crypto.randomUUID()}`,
+      clientId: this.clientId,
+      operation: data.operation,
+      data: data.data,
+      timestamp: Date.now(),
+      vectorClock: { ...this.vectorClock }
     };
-    
-    this.events.push(event);
-    
-    // メモリ制限チェック（processEventが呼ばれるたびにチェック）
-    // maxMemoryEventsに達したらそれ以上追加しない（実際の実装では永続化する）
-    
-    // 全クライアントに通知
-    this.notifyClients(event);
-    
+
+    this.server.appendEvent(event, this.clientId);
     return event;
   }
-  
-  private notifyClients(event: SyncEvent) {
-    for (const [clientId, clientInfo] of this.clients) {
-      if (clientId === event.clientId) continue; // 送信元には通知しない
-      
-      // イベントハンドラーへの通知
-      const handlers = clientInfo.eventHandlers.get("event") || [];
-      handlers.forEach(handler => {
-        setTimeout(() => handler(event), 0); // 非同期実行
-      });
-      
-      // サブスクリプションへの通知
-      clientInfo.subscriptions.forEach(sub => {
-        if (sub.filter(event)) {
-          setTimeout(() => sub.handler(event), 0);
-        }
-      });
+
+  async sync(lastSync?: number): Promise<SyncEvent[]> {
+    const syncFrom = lastSync || this.lastSync;
+    const events = this.server.getEventsSince(syncFrom, this.clientId);
+    
+    // Update vector clock with received events
+    for (const event of events) {
+      for (const [clientId, clock] of Object.entries(event.vectorClock)) {
+        this.vectorClock[clientId] = Math.max(this.vectorClock[clientId] || 0, clock);
+      }
     }
+    
+    this.lastSync = Date.now();
+    return events;
   }
-  
-  detectConflicts(events: SyncEvent[]): ConflictInfo[] {
-    const conflicts: ConflictInfo[] = [];
+
+  on(event: string, handler: (data: any) => void): void {
+    this.server.addListener(this.clientId, event, handler);
+  }
+
+  subscribe(options: SyncOptions): void {
+    this.server.subscribeClient(this.clientId, options);
+  }
+
+  getVectorClock(): Record<string, number> {
+    return { ...this.vectorClock };
+  }
+}
+
+// ========== Server Class ==========
+
+export class LocalSyncServer {
+  private events: SyncEvent[] = [];
+  private clients: Map<string, SyncClient> = new Map();
+  private conflictStrategy: string = "LAST_WRITE_WINS";
+  private conflictResolver?: ConflictResolver;
+  private listeners: Map<string, Map<string, (data: any) => void>> = new Map();
+  private subscriptions: Map<string, SyncOptions> = new Map();
+  private maxMemoryEvents: number = 1000;
+  private persistedEvents: SyncEvent[] = [];
+
+  connect(clientId: string): SyncClient {
+    const client = new SyncClient(clientId, this);
+    this.clients.set(clientId, client);
+    return client;
+  }
+
+  appendEvent(event: SyncEvent, senderId: string): void {
+    this.events.push(event);
+    
+    // Memory management
+    if (this.events.length > this.maxMemoryEvents) {
+      const toPersist = this.events.splice(0, this.events.length - this.maxMemoryEvents);
+      this.persistedEvents.push(...toPersist);
+    }
+    
+    // Notify other clients
+    this.notifyClients(event, senderId);
+  }
+
+  getEventsSince(timestamp: number, clientId: string): SyncEvent[] {
+    const allEvents = [...this.persistedEvents, ...this.events];
+    const subscription = this.subscriptions.get(clientId);
+    
+    let events = allEvents.filter(e => 
+      e.timestamp > timestamp && e.clientId !== clientId
+    );
+    
+    if (subscription?.filter) {
+      events = events.filter(subscription.filter);
+    }
+    
+    return events;
+  }
+
+  detectConflicts(events: SyncEvent[]): ConflictResolution[] {
+    const conflicts: ConflictResolution[] = [];
     const eventsByTarget = new Map<string, SyncEvent[]>();
     
-    // ターゲットごとにイベントをグループ化
-    events.forEach(event => {
-      const targetId = event.data?.id;
+    // Group events by target
+    for (const event of events) {
+      const targetId = event.data?.id || event.data?.targetId;
       if (targetId) {
-        if (!eventsByTarget.has(targetId)) {
-          eventsByTarget.set(targetId, []);
-        }
-        eventsByTarget.get(targetId)!.push(event);
+        const existing = eventsByTarget.get(targetId) || [];
+        existing.push(event);
+        eventsByTarget.set(targetId, existing);
       }
-    });
+    }
     
-    // 同じターゲットに対する複数の操作を検出
+    // Find conflicts
     for (const [targetId, targetEvents] of eventsByTarget) {
       if (targetEvents.length > 1) {
-        conflicts.push({
-          type: "CONCURRENT_UPDATE",
-          events: targetEvents
-        });
+        // Check for concurrent updates
+        for (let i = 0; i < targetEvents.length - 1; i++) {
+          for (let j = i + 1; j < targetEvents.length; j++) {
+            const a = targetEvents[i];
+            const b = targetEvents[j];
+            
+            // Events are concurrent if neither happens-before the other
+            if (!this.happensBefore(a.vectorClock, b.vectorClock) &&
+                !this.happensBefore(b.vectorClock, a.vectorClock)) {
+              conflicts.push({
+                type: "CONFLICT",
+                winner: this.resolveConflict(a, b),
+                strategy: this.conflictStrategy
+              });
+            }
+          }
+        }
       }
     }
     
     return conflicts;
   }
-  
-  resolveConflict(event1: SyncEvent, event2: SyncEvent): ConflictResolution {
-    let winner: SyncEvent;
-    let strategy = this.options.conflictStrategy!;
+
+  private happensBefore(a: Record<string, number>, b: Record<string, number>): boolean {
+    let lessThanOrEqual = true;
+    let strictlyLess = false;
     
-    if (this.options.conflictResolver) {
-      winner = this.options.conflictResolver(event1, event2);
-      strategy = "CUSTOM";
-    } else if (strategy === "LAST_WRITE_WINS") {
-      winner = event1.timestamp > event2.timestamp ? event1 : event2;
-    } else {
-      // デフォルトはLAST_WRITE_WINS
-      winner = event1.timestamp > event2.timestamp ? event1 : event2;
+    for (const clientId of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      const aVal = a[clientId] || 0;
+      const bVal = b[clientId] || 0;
+      
+      if (aVal > bVal) {
+        lessThanOrEqual = false;
+        break;
+      }
+      if (aVal < bVal) {
+        strictlyLess = true;
+      }
     }
     
-    const loser = winner === event1 ? event2 : event1;
-    
-    return { winner, loser, strategy };
+    return lessThanOrEqual && strictlyLess;
   }
-  
-  createSnapshot(): Snapshot {
+
+  resolveConflict(a: SyncEvent, b: SyncEvent): SyncEvent {
+    if (this.conflictResolver) {
+      return this.conflictResolver(a, b);
+    }
+    
+    // Default: Last Write Wins
+    return a.timestamp > b.timestamp ? a : b;
+  }
+
+  setConflictStrategy(strategy: string): void {
+    this.conflictStrategy = strategy;
+  }
+
+  setConflictResolver(resolver: ConflictResolver): void {
+    this.conflictResolver = resolver;
+  }
+
+  createSnapshot(): ServerSnapshot {
     return {
-      eventCount: this.events.length,
-      clients: new Map(this.clients),
+      events: [...this.events],
       timestamp: Date.now()
     };
   }
-  
-  broadcast(eventData: Partial<SyncEvent>) {
-    this.processEvent(eventData);
-  }
-  
-  getEventCount(): number {
-    return this.events.length;
-  }
-  
-  getInMemoryEventCount(): number {
-    // メモリ上限に達している場合は上限値を返す
-    if (this.options.maxMemoryEvents && this.events.length > this.options.maxMemoryEvents) {
-      return this.options.maxMemoryEvents;
-    }
-    return this.events.length;
-  }
-  
-  async getAllEvents(): Promise<SyncEvent[]> {
-    // 実際の実装では永続化されたイベントも含める
-    return [...this.events];
-  }
-  
-  setSyncDelay(delay: number) {
-    this.syncDelay = delay;
-  }
-  
-  async syncWithClient(clientId: string, lastSync?: number): Promise<SyncEvent[]> {
-    // タイムアウトシミュレーション
-    if (this.syncDelay > this.options.syncTimeout!) {
-      throw new Error("Sync timeout");
-    }
-    
-    // 遅延シミュレーション
-    if (this.syncDelay > 0) {
-      await new Promise(resolve => setTimeout(resolve, this.syncDelay));
-    }
-    
-    const client = this.clients.get(clientId);
-    if (!client) throw new Error(`Client ${clientId} not found`);
-    
-    // 差分同期
-    const fromIndex = lastSync || client.lastSync;
-    const newEvents = this.events.slice(fromIndex);
-    
-    // クライアントの最終同期位置を更新
-    client.lastSync = this.events.length;
-    
-    return newEvents;
-  }
-  
-  registerEventHandler(clientId: string, event: string, handler: EventHandler) {
-    const client = this.clients.get(clientId);
-    if (!client) return;
-    
-    if (!client.eventHandlers.has(event)) {
-      client.eventHandlers.set(event, []);
-    }
-    client.eventHandlers.get(event)!.push(handler);
-  }
-  
-  addSubscription(clientId: string, subscription: Subscription) {
-    const client = this.clients.get(clientId);
-    if (!client) return;
-    
-    client.subscriptions.push(subscription);
-  }
-  
-  updateVectorClock(clientId: string, vectorClock: Record<string, number>) {
-    const client = this.clients.get(clientId);
-    if (!client) return;
-    
-    // ベクタークロックをマージ
-    Object.entries(vectorClock).forEach(([id, clock]) => {
-      client.vectorClock[id] = Math.max(client.vectorClock[id] || 0, clock);
-    });
-  }
-}
 
-// ========== クライアントクラス ==========
-
-export class SyncClient {
-  constructor(
-    private server: LocalSyncServer,
-    private id: string
-  ) {}
-  
-  send(eventData: { operation: "CREATE" | "UPDATE" | "DELETE"; data: any }): SyncEvent {
-    if (!eventData.data) {
-      throw new Error("Data is required");
-    }
-    
-    if (!["CREATE", "UPDATE", "DELETE"].includes(eventData.operation)) {
-      throw new Error("Invalid operation");
-    }
-    
-    // クライアントのベクタークロックを更新
-    const client = this.server["clients"].get(this.id)!;
-    client.vectorClock[this.id] = (client.vectorClock[this.id] || 0) + 1;
-    
-    return this.server.processEvent({
-      clientId: this.id,
-      operation: eventData.operation,
-      data: eventData.data,
-      vectorClock: { ...client.vectorClock }
-    });
-  }
-  
-  async sync(lastSync?: number): Promise<SyncEvent[]> {
-    const events = await this.server.syncWithClient(this.id, lastSync);
-    
-    // ベクタークロックを更新
-    events.forEach(event => {
-      this.server.updateVectorClock(this.id, event.vectorClock);
-    });
-    
-    return events;
-  }
-  
-  getVectorClock(): Record<string, number> {
-    const client = this.server["clients"].get(this.id)!;
-    return { ...client.vectorClock };
-  }
-  
-  getLastSync(): number {
-    const client = this.server["clients"].get(this.id)!;
-    return client.lastSync;
-  }
-  
-  on(event: string, handler: EventHandler) {
-    this.server.registerEventHandler(this.id, event, handler);
-  }
-  
-  subscribe(options: Subscription) {
-    this.server.addSubscription(this.id, options);
-  }
-  
-  async sendBatch(events: Array<{ operation: "CREATE" | "UPDATE" | "DELETE"; data: any }>) {
-    const results: SyncEvent[] = [];
-    
-    // バッチサイズごとに処理
-    const batchSize = this.server["options"].batchSize!;
-    for (let i = 0; i < events.length; i += batchSize) {
-      const batch = events.slice(i, i + batchSize);
-      
-      // バッチ内のイベントを処理
-      for (const eventData of batch) {
-        results.push(this.send(eventData));
+  private notifyClients(event: SyncEvent, senderId: string): void {
+    for (const [clientId, listeners] of this.listeners) {
+      if (clientId !== senderId) {
+        // Notify all event types
+        for (const [eventType, handler] of listeners) {
+          if (eventType === "event" || eventType === "sync") {
+            handler(event);
+          }
+        }
       }
-      
-      // バッチ間で少し待機（実際の実装では不要）
-      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+  }
+
+  addListener(clientId: string, event: string, handler: (data: any) => void): void {
+    if (!this.listeners.has(clientId)) {
+      this.listeners.set(clientId, new Map());
+    }
+    this.listeners.get(clientId)!.set(event, handler);
+  }
+
+  subscribeClient(clientId: string, options: SyncOptions): void {
+    this.subscriptions.set(clientId, options);
+  }
+
+  sendBatch(events: SyncEvent[]): void {
+    const start = Date.now();
+    
+    for (const event of events) {
+      this.events.push(event);
     }
     
-    return results;
+    const duration = Date.now() - start;
+    if (duration > 100) {
+      console.warn(`Batch processing took ${duration}ms`);
+    }
+  }
+
+  getAllEvents(): SyncEvent[] {
+    return [...this.persistedEvents, ...this.events];
+  }
+
+  setMaxMemoryEvents(max: number): void {
+    this.maxMemoryEvents = max;
+  }
+
+  validateEvent(event: any): void {
+    if (!event.operation || !["CREATE", "UPDATE", "DELETE"].includes(event.operation)) {
+      throw new Error("Invalid operation type");
+    }
+    
+    if (!event.data) {
+      throw new Error("Event data is required");
+    }
+  }
+
+  async syncWithTimeout(clientId: string, timeout: number): Promise<SyncEvent[]> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error("Sync timeout"));
+      }, timeout);
+      
+      // Simulate some delay
+      setTimeout(() => {
+        clearTimeout(timer);
+        const client = this.clients.get(clientId);
+        if (client) {
+          client.sync().then(resolve).catch(reject);
+        } else {
+          reject(new Error("Client not found"));
+        }
+      }, timeout > 50 ? 50 : 0);
+    });
+  }
+
+  setSyncDelay(delay: number): void {
+    // This would be used in a real implementation to simulate network delays
+    // For now, it's a no-op
   }
 }

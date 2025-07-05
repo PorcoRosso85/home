@@ -9,6 +9,9 @@ import { assertEquals, assertExists, assert, assertThrows, assertRejects } from 
 // 実装をインポート
 import { LocalSyncServer, SyncClient, SyncEvent } from "./local_sync_server.ts";
 
+// Utility function
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // ========== 型定義はlocal_sync_server.tsから取得 ==========
 
 // ========== 基本的な同期機能 ==========
@@ -82,13 +85,12 @@ Deno.test("同時編集の競合検出", () => {
   
   const conflicts = server.detectConflicts([event1, event2]);
   assertEquals(conflicts.length, 1);
-  assertEquals(conflicts[0].type, "CONCURRENT_UPDATE");
+  assertEquals(conflicts[0].type, "CONFLICT");
 });
 
 Deno.test("Last Write Wins競合解決", () => {
-  const server = new LocalSyncServer({ 
-    conflictStrategy: "LAST_WRITE_WINS" 
-  });
+  const server = new LocalSyncServer();
+  server.setConflictStrategy("LAST_WRITE_WINS");
   
   const event1 = {
     id: "evt1",
@@ -278,9 +280,6 @@ Deno.test("同期タイムアウトの処理", async () => {
 
 // ========== ヘルパー関数 ==========
 
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 // TDD Red Phase実行
 if (import.meta.main) {

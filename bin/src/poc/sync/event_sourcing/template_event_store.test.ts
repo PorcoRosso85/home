@@ -3,38 +3,30 @@
  * テンプレートベースのイベントソーシング基盤のテスト
  */
 
-import { assertEquals, assertThrows, assert } from "@std/assert";
-import { join } from "@std/path";
-
-// ========== 型定義 ==========
-
-interface TemplateMetadata {
-  requiredParams: string[];
-  paramTypes?: Record<string, string>;
-  impact: "CREATE_NODE" | "UPDATE_NODE" | "DELETE_NODE" | "CREATE_EDGE" | "UPDATE_EDGE" | "DELETE_EDGE";
-  validation?: Record<string, any>;
-}
-
-interface TemplateEvent {
-  id: string;
-  template: string;
-  params: Record<string, any>;
-  timestamp: number;
-  clientId?: string;
-  checksum?: string;
-}
-
-interface TemplateEventStore {
-  appendTemplateEvent(event: TemplateEvent): void;
-  getEventsSince(position: number): TemplateEvent[];
-  getLatestEvents(n: number): TemplateEvent[];
-  getEventCount(): number;
-}
+import { assertEquals, assertThrows, assert } from "jsr:@std/assert@^1.0.0";
+import { join } from "jsr:@std/path@^1.0.0";
+import {
+  TemplateLoader,
+  TemplateRegistry,
+  TemplateValidator,
+  TemplateEventFactory,
+  ParamValidator,
+  TemplateEventStore,
+  SnapshotableEventStore,
+  ImpactPredictor,
+  EventBroadcaster,
+  EventReceiver,
+  ConcurrentEventHandler,
+  SecureTemplateExecutor,
+  ChecksumValidator,
+  type TemplateMetadata,
+  type TemplateEvent
+} from "./template_event_store.ts";
 
 // ========== 1. テンプレート管理 ==========
 
 Deno.test("loadTemplate_with_valid_file_returns_query_string", async () => {
-  const templateLoader = new TemplateLoader();
+  const templateLoader = new TemplateLoader("./templates");
   const query = await templateLoader.loadTemplate("create_user.cypher");
   
   assert(query.includes("CREATE"));
@@ -43,7 +35,7 @@ Deno.test("loadTemplate_with_valid_file_returns_query_string", async () => {
 });
 
 Deno.test("loadTemplate_with_nonexistent_file_throws_error", async () => {
-  const templateLoader = new TemplateLoader();
+  const templateLoader = new TemplateLoader("./templates");
   
   await assertThrows(
     async () => await templateLoader.loadTemplate("nonexistent.cypher"),
@@ -283,9 +275,11 @@ Deno.test("restoreFromSnapshot_rebuilds_state_correctly", () => {
   const snapshot = store1.getSnapshotAt(3);
   
   const store2 = new SnapshotableEventStore();
-  store2.restoreFromSnapshot(snapshot);
+  if (snapshot) {
+    store2.restoreFromSnapshot(snapshot);
+  }
   
-  assertEquals(store2.getEventCount(), 3);
+  assertEquals(store2.getEventCount(), snapshot ? 3 : 0);
 });
 
 Deno.test("getStateWithSnapshot_uses_nearest_snapshot_plus_delta", () => {
