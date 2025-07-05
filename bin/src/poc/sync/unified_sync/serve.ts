@@ -27,9 +27,20 @@ Deno.serve({ port: PORT }, async (req) => {
       <body>
         <h1>KuzuDB WASM Test Server</h1>
         <p>Ready for Playwright tests</p>
+        <p><a href="/demo.html">Multi-Browser Sync Demo</a></p>
       </body>
       </html>
     `, { headers });
+  }
+  
+  // demo.htmlを配信
+  if (url.pathname === "/demo.html") {
+    try {
+      const content = await Deno.readTextFile("./demo.html");
+      return new Response(content, { headers });
+    } catch {
+      return new Response("Demo not found", { status: 404 });
+    }
   }
   
   // node_modules内のファイルを配信
