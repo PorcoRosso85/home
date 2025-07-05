@@ -7,7 +7,12 @@ def main [
     path: string  # Directory to compare against
 ] {
     # Read JSON input from stdin
-    let db_entries = $in | from json
+    let stdin_input = $in
+    let db_entries = if ($stdin_input | is-empty) {
+        []
+    } else {
+        $stdin_input | from json
+    }
     
     # Extract and normalize URIs
     let db_uris = $db_entries | 

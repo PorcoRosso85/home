@@ -30,9 +30,20 @@
           exec ${pkgs.nushell}/bin/nu ${./diff.nu} "$@"
         '';
         
+        # Create a derivation with README
+        pipelineDir = pkgs.stdenv.mkDerivation {
+          name = "pipeline-dir";
+          src = ./.;
+          installPhase = ''
+            mkdir -p $out
+            cp *.nu *.py *.md $out/
+          '';
+        };
+        
         pipeline = pkgs.writeScriptBin "req-coverage" ''
           #!${pkgs.bash}/bin/bash
-          exec ${pkgs.nushell}/bin/nu ${./pipeline.nu} "$@"
+          cd ${pipelineDir}
+          exec ${pkgs.nushell}/bin/nu ${pipelineDir}/pipeline.nu "$@"
         '';
       in
       {
@@ -56,31 +67,29 @@
             echo "  req-coverage       - Full pipeline analysis"
             echo ""
             echo "📖 Usage examples:"
-            echo "  req-coverage /path/to/project"
-            echo "  req-coverage /path/to/project --show-symbols"
-            echo "  req-coverage missing /path/to/project"
-            echo "  req-coverage unspecified /path/to/project"
+            echo "  req-coverage                                # Show README"
+            echo "  req-coverage analyze /path/to/project"
+            echo "  req-coverage analyze /path/to/project --show-symbols"
+            echo "  req-coverage analyze req_only /path/to/project"
+            echo "  req-coverage analyze impl_only /path/to/project"
             echo ""
           '';
         };
         
         # Applications
         apps = {
-          # Main pipeline
+          # Default: show README
           default = {
             type = "app";
             program = "${pipeline}/bin/req-coverage";
           };
           
-          # Individual tools
-          kuzu-query = {
+          # Main: analyze command
+          main = {
             type = "app";
-            program = "${kuzu-query}/bin/kuzu-query";
-          };
-          
-          diff = {
-            type = "app";
-            program = "${diff-tool}/bin/diff-tool";
+            program = "${pkgs.writeShellScript "main" ''
+              exec ${pipeline}/bin/req-coverage analyze "$@"
+            ''}";
           };
           
           # Test the pipeline

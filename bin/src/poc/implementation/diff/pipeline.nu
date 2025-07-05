@@ -3,19 +3,38 @@
 # Integration pipeline for requirement coverage analysis
 # Combines kuzu_query, diff, and search tools
 
-def main [
+def main [] {
+    # Always show README.md for default command
+    let readme_path = $"($env.FILE_PWD)/README.md"
+    if ($readme_path | path exists) {
+        open $readme_path | print
+    } else {
+        # Try compressed version
+        let compressed_path = $"($env.FILE_PWD)/README_COMPRESSED.md"
+        if ($compressed_path | path exists) {
+            open $compressed_path | print
+        } else {
+            print -e "Error: README.md not found"
+            exit 1
+        }
+    }
+}
+
+# Actual pipeline implementation
+def "main analyze" [
     path: string                    # Project directory to analyze
     --db-path: string = ""         # KuzuDB path (optional)
-    --show-symbols: bool = false   # Include symbol information for unspecified files
+    --show-symbols                 # Include symbol information for unspecified files
 ] {
     let search_path = ([$env.HOME, "bin/src/poc/implementation/search"] | path join)
     
     # Step 1: Query LocationURIs from KuzuDB
     print "📊 Querying KuzuDB for requirements..."
+    let kuzu_script = $"($env.FILE_PWD)/kuzu_query.py"
     let uris = if $db_path == "" {
-        ^python kuzu_query.py | complete
+        ^python $kuzu_script | complete
     } else {
-        ^python kuzu_query.py $db_path | complete
+        ^python $kuzu_script $db_path | complete
     }
     
     if $uris.exit_code != 0 {
@@ -26,7 +45,8 @@ def main [
     
     # Step 2: Compare with filesystem
     print "🔍 Comparing requirements with implementation..."
-    let diff_result = $uris.stdout | nu diff.nu $path | from json
+    let diff_script = $"($env.FILE_PWD)/diff.nu"
+    let diff_result = $uris.stdout | nu $diff_script $path | from json
     
     # Step 3: Optionally enrich with symbol information
     let enriched_result = if $show_symbols {
@@ -36,8 +56,7 @@ def main [
             if $item.implementation_exists and not $item.requirement_exists {
                 # Get symbols for unspecified files
                 let symbol_result = (
-                    cd $search_path
-                    nix run . -- $item.path | from json
+                    cd $search_path; nix run . -- $item.path | from json
                 )
                 
                 # Add symbol summary
@@ -82,23 +101,23 @@ def main [
     $enriched_result | to json
 }
 
-# Helper command to show only missing files
-export def "main missing" [
+# Helper command to show only requirement-only files (missing implementation)
+export def "main analyze req_only" [
     path: string
     --db-path: string = ""
 ] {
-    main $path --db-path $db_path | 
+    main analyze $path --db-path $db_path | 
     from json | 
     where { |item| $item.requirement_exists and not $item.implementation_exists } | 
     get path
 }
 
-# Helper command to show only unspecified files
-export def "main unspecified" [
+# Helper command to show only implementation-only files (unspecified in requirements)
+export def "main analyze impl_only" [
     path: string
     --db-path: string = ""
 ] {
-    main $path --db-path $db_path | 
+    main analyze $path --db-path $db_path | 
     from json | 
     where { |item| $item.implementation_exists and not $item.requirement_exists } | 
     get path

@@ -12,17 +12,20 @@
 
 ### 基本的な使用
 ```bash
+# READMEを表示（デフォルト）
+nix run .
+
 # 要件カバレッジ分析
-nix run . -- /path/to/project
+nix run . -- analyze /path/to/project
 
 # シンボル情報付き分析
-nix run . -- /path/to/project --show-symbols
+nix run . -- analyze /path/to/project --show-symbols
 
 # 実装されていない要件のみ表示
-nix run . -- missing /path/to/project
+nix run . -- analyze req_only /path/to/project
 
 # 要件にない実装のみ表示
-nix run . -- unspecified /path/to/project
+nix run . -- analyze impl_only /path/to/project
 ```
 
 ### 個別ツールの使用
@@ -56,13 +59,13 @@ nix develop
 ```
 
 ### フィールドの意味：
-- `requirement_exists: true, implementation_exists: false` → 要件はあるが未実装
-- `requirement_exists: false, implementation_exists: true` → 実装はあるが要件未定義
+- `requirement_exists: true, implementation_exists: false` → 要件のみ（req_only）
+- `requirement_exists: false, implementation_exists: true` → 実装のみ（impl_only）
 
 ## パイプライン詳細
 
 ```
-KuzuDB → LocationURI[] → diff → missing/unspecified files
+KuzuDB → LocationURI[] → diff → req_only/impl_only files
                               ↓ (--show-symbols)
                          search → symbols
                               ↓

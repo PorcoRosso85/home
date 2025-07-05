@@ -20,10 +20,17 @@ class TestQueryLocationUris:
     
     def test_query_location_uris_with_valid_db_returns_json_array(self):
         """正常なDBパスの場合、LocationURIのJSON配列を返すこと"""
-        result = kuzu_query.query_location_uris()
-        assert isinstance(result, list)
-        assert len(result) > 0
-        assert all('uri' in item for item in result)
+        # Use temporary database for testing
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = str(Path(tmpdir) / "test.db")
+            # Insert test data
+            kuzu_query.insert_location_uri(db_path, "file:///test.py")
+            
+            result = kuzu_query.query_location_uris(db_path)
+            assert isinstance(result, list)
+            assert len(result) > 0
+            assert all('uri' in item for item in result)
     
     def test_query_location_uris_with_nonexistent_db_raises_systemexit(self):
         """存在しないDBパスの場合、FileNotFoundErrorを発生させること"""
@@ -38,9 +45,17 @@ class TestQueryLocationUris:
     
     def test_query_location_uris_with_multiple_uris_returns_all(self):
         """複数のLocationURIがある場合、すべてを返すこと"""
-        result = kuzu_query.query_location_uris()
-        assert len(result) == 3  # Mock returns 3 items
-        assert result[0]["uri"].startswith("file://")
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = str(Path(tmpdir) / "test.db")
+            # Insert multiple URIs
+            kuzu_query.insert_location_uri(db_path, "file:///test1.py")
+            kuzu_query.insert_location_uri(db_path, "file:///test2.py")
+            kuzu_query.insert_location_uri(db_path, "file:///test3.py")
+            
+            result = kuzu_query.query_location_uris(db_path)
+            assert len(result) == 3
+            assert result[0]["uri"].startswith("file://")
 
 
 class TestMain:
