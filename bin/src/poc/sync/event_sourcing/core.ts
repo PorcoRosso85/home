@@ -36,7 +36,7 @@ export const calculateChecksum = (template: string, params: Record<string, any>)
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash;
   }
-  return Math.abs(hash).toString(16).padEnd(64, '0');
+  return Math.abs(hash).toString(16);
 };
 
 // ========== Validation ==========
@@ -67,24 +67,16 @@ export const validateParams = (
     }
   }
 
-  // Sanitize values
-  const sanitized: Record<string, any> = {};
+  // Check for injection attempts
   for (const [key, value] of Object.entries(params)) {
     if (typeof value === "string") {
-      // Remove SQL injection attempts
-      sanitized[key] = value
-        .replace(/;/g, "")
-        .replace(/--/g, "")
-        .replace(/DROP/gi, "")
-        .replace(/DELETE/gi, "")
-        .replace(/UPDATE/gi, "")
-        .replace(/INSERT/gi, "");
-    } else {
-      sanitized[key] = value;
+      if (value.includes("DROP") || value.includes("DELETE") || value.includes("--")) {
+        throw new Error(`Invalid parameter: potential injection attempt in ${key}`);
+      }
     }
   }
 
-  return sanitized;
+  return params;
 };
 
 // ========== Impact Prediction ==========

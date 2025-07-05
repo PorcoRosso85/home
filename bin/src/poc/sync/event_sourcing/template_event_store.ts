@@ -61,13 +61,12 @@ export class TemplateLoader {
 export class TemplateRegistry {
   private metadata: Record<string, TemplateMetadata> = {
     CREATE_USER: {
-      requiredParams: ["id", "name", "email", "createdAt"],
+      requiredParams: ["id", "name"],
       impact: "CREATE_NODE",
       paramTypes: {
         id: "string",
         name: "string",
-        email: "string",
-        createdAt: "string"
+        email: "string"
       }
     },
     UPDATE_USER: {
@@ -79,7 +78,7 @@ export class TemplateRegistry {
       impact: "CREATE_EDGE"
     },
     CREATE_POST: {
-      requiredParams: ["id", "content", "authorId", "createdAt"],
+      requiredParams: ["id", "content"],
       impact: "CREATE_NODE"
     },
     DELETE_OLD_POSTS: {
@@ -136,7 +135,14 @@ export class TemplateEventFactory {
     };
 
     // Calculate checksum
-    event.checksum = this.calculateChecksum(event);
+    const content = JSON.stringify({ template: event.template, params: event.params });
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    event.checksum = Math.abs(hash).toString(16);
 
     return event;
   }
@@ -194,7 +200,7 @@ export class ParamValidator {
 // ========== 4. イベントストア基本操作 ==========
 
 export class TemplateEventStore {
-  private events: TemplateEvent[] = [];
+  protected events: TemplateEvent[] = [];
 
   appendTemplateEvent(event: TemplateEvent): void {
     this.events.push(event);
@@ -419,18 +425,15 @@ export class ChecksumValidator {
       return false;
     }
     
-    // Recalculate checksum
-    const content = JSON.stringify({
-      template: event.template,
-      params: event.params,
-      timestamp: event.timestamp
-    });
-    
-    const encoder = new TextEncoder();
-    const data = encoder.encode(content);
-    const hashBuffer = crypto.subtle.digestSync("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const calculated = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    // Recalculate checksum using same algorithm
+    const content = JSON.stringify({ template: event.template, params: event.params });
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    const calculated = Math.abs(hash).toString(16);
     
     return calculated === event.checksum;
   }

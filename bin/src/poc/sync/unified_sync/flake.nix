@@ -41,9 +41,28 @@
             echo "  - Chromium (for Playwright)"
             echo "  - websocat (WebSocket testing)"
             echo ""
+            
+            # E2Eテストコマンド
+            e2e() {
+              echo "🧪 Running E2E tests..."
+              npx playwright test "$@"
+            }
+            
+            e2e-ui() {
+              echo "🎭 Running E2E tests with UI..."
+              npx playwright test --ui "$@"
+            }
+            
+            e2e-debug() {
+              echo "🐛 Debugging E2E tests..."
+              npx playwright test --debug "$@"
+            }
+            
             echo "🧪 Test commands:"
-            echo "  deno test                    - Run all tests"
-            echo "  deno test --watch           - Watch mode"
+            echo "  deno test                    - Run unit tests"
+            echo "  e2e                         - Run E2E tests (headless)"
+            echo "  e2e-ui                      - Run E2E tests with UI"
+            echo "  e2e-debug                   - Debug E2E tests"
             echo "  deno run --allow-all server.ts - Start server"
             echo ""
             
