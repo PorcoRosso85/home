@@ -1,56 +1,44 @@
-# Symbol Search Implementation
+# Symbol Search Tool (Nushell + ctags)
 
-## 仕様
+## 概要
+ctagsを使用してコードベース内のシンボル（関数、クラス、メソッド等）を検索するツール。
 
-統一された出力形式でシンボル探索を行うツール
+## 使用方法
 
-**bin/docs/conventions 準拠**
+```bash
+# ファイルまたはディレクトリを検索
+nix run . -- path/to/search
 
-### 入力
-- ディレクトリパス: `./path/to/dir`
-- URLスキーマ: `file://path/to/file`, `http://example.com/file` (将来拡張)
+# 特定の拡張子でフィルタ
+nix run . -- path/to/search --ext py
 
-### 出力形式
-
-types.py でTypedDictとして定義：
-
-```python
-# 成功時
-SearchSuccessDict = {
-    "symbols": List[SymbolDict],
-    "metadata": MetadataDict
-}
-
-# エラー時
-SearchErrorDict = {
-    "error": str,
-    "metadata": MetadataDict
-}
-
-SearchResult = SearchSuccessDict | SearchErrorDict
+# 開発環境
+nix develop
 ```
 
-**convention準拠ポイント:**
-- ジェネリックResult型ではなく、具体的な成功/失敗型
-- success/failureフラグを持たない
-- エラーを値として返す（raise禁止）
+## 出力形式
+JSON形式で出力：
+```json
+{
+  "symbols": [
+    {
+      "name": "シンボル名",
+      "type": "class|function|method|variable|constant|unknown",
+      "path": "ファイルパス",
+      "line": 行番号,
+      "column": null,
+      "context": null
+    }
+  ],
+  "metadata": {
+    "searched_files": 検索ファイル数,
+    "search_time_ms": 実行時間
+  }
+}
+```
 
-### 設計原則
-- エラーを値として返す（raise禁止）
-- データと処理を分離（TypedDictでデータ定義）
-- 1ファイル1公開機能（search_symbols関数）
-- クラスベースOOP禁止
-
-### 対象シンボル
-- 関数定義
-- クラス定義
-- メソッド定義
-- 変数定義
-- 定数定義
-- インポート文
-- 型エイリアス
-
-## TDD進行状況
-- [x] Red: 失敗するテスト作成
-- [ ] Green: 最小限の実装
-- [ ] Refactor: リファクタリング
+## パイプライン統合
+```bash
+# 他のツールと組み合わせ
+nix run . -- . | jq '.symbols | map(select(.type == "function"))'
+```
