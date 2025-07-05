@@ -23,31 +23,29 @@ def main [
     # Get all files from filesystem (excluding hidden files)
     let fs_files = glob $"($path)/**/*" | 
         where { |f| 
-            ($f | path type) == "file" and 
+            ($f | path type) == "file"
+        } |
+        where { |f|
             not ($f | path basename | str starts-with ".")
         } |
         each { |f| $f | path expand } |
         sort
     
-    # Calculate differences
-    let missing = $db_uris | 
-        where { |uri| 
-            not ($uri in $fs_files)
-        } |
-        each { |path| 
-            {path: $path, status: "missing"}
-        }
+    # Create normalized results
+    # All unique paths from both sources
+    let all_paths = ($db_uris | append $fs_files) | uniq | sort
     
-    let unspecified = $fs_files | 
-        where { |file| 
-            not ($file in $db_uris)
-        } |
-        each { |path| 
-            {path: $path, status: "unspecified"}
+    # Create result with boolean flags
+    let result = $all_paths | each { |path|
+        {
+            path: $path
+            requirement_exists: ($path in $db_uris)
+            implementation_exists: ($path in $fs_files)
         }
-    
-    # Combine and output as JSON
-    let result = $missing | append $unspecified
+    } | where { |item|
+        # Only include paths where there's a mismatch
+        $item.requirement_exists != $item.implementation_exists
+    }
     
     $result | to json
 }

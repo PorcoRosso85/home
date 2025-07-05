@@ -33,7 +33,7 @@ def main [
         print "🔎 Analyzing symbols in unspecified files..."
         
         $diff_result | each { |item|
-            if $item.status == "unspecified" {
+            if $item.implementation_exists and not $item.requirement_exists {
                 # Get symbols for unspecified files
                 let symbol_result = (
                     cd $search_path
@@ -59,8 +59,8 @@ def main [
     }
     
     # Step 4: Generate summary
-    let missing_count = ($enriched_result | where status == "missing" | length)
-    let unspecified_count = ($enriched_result | where status == "unspecified" | length)
+    let missing_count = ($enriched_result | where { |item| $item.requirement_exists and not $item.implementation_exists } | length)
+    let unspecified_count = ($enriched_result | where { |item| $item.implementation_exists and not $item.requirement_exists } | length)
     
     print ""
     print "📈 Summary:"
@@ -69,7 +69,7 @@ def main [
     
     if $show_symbols {
         let total_symbols = ($enriched_result | 
-            where status == "unspecified" | 
+            where { |item| $item.implementation_exists and not $item.requirement_exists } | 
             get symbols_count | 
             math sum
         )
@@ -89,7 +89,7 @@ export def "main missing" [
 ] {
     main $path --db-path $db_path | 
     from json | 
-    where status == "missing" | 
+    where { |item| $item.requirement_exists and not $item.implementation_exists } | 
     get path
 }
 
@@ -100,6 +100,6 @@ export def "main unspecified" [
 ] {
     main $path --db-path $db_path | 
     from json | 
-    where status == "unspecified" | 
+    where { |item| $item.implementation_exists and not $item.requirement_exists } | 
     get path
 }

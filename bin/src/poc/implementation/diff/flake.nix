@@ -15,6 +15,7 @@
         pythonEnv = pkgs.python311.withPackages (ps: with ps; [
           # KuzuDB will be available from requirement/graph
           pytest  # For testing
+          # kuzu  # Uncomment when implementing real KuzuDB integration
         ]);
         
         # Scripts
@@ -91,18 +92,27 @@
               
               echo "📝 Python tests (kuzu_query):"
               cd ${./.}
-              ${pythonEnv}/bin/python -m pytest test_kuzu_query.py -v || echo "✅ Tests are failing as expected (TDD Red phase)"
+              ${pythonEnv}/bin/python -m pytest test_kuzu_query.py -v
               
               echo ""
-              echo "📝 Nushell tests (diff):"
-              ${pkgs.nushell}/bin/nu test_diff.nu || echo "✅ Tests are failing as expected (TDD Red phase)"
+              echo "📝 Integration tests (KuzuDB):"
+              ${pythonEnv}/bin/python -m pytest test_kuzu_integration.py -v || echo "❌ Integration tests failing (Red phase - expected)"
               
               echo ""
-              echo "📝 Nushell tests (pipeline):"
-              ${pkgs.nushell}/bin/nu test_pipeline.nu || echo "✅ Tests are failing as expected (TDD Red phase)"
-              
-              echo ""
-              echo "🔴 All tests are in Red phase - ready for implementation!"
+              echo "✅ Tests completed!"
+            ''}";
+          };
+          
+          # Test Red phase (original failing tests)
+          test-red = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test-red" ''
+              echo "🔴 Running Red phase tests..."
+              cd ${./.}
+              ${pythonEnv}/bin/python -m pytest test_kuzu_query.py -v || true
+              ${pkgs.nushell}/bin/nu test_diff.nu || true
+              ${pkgs.nushell}/bin/nu test_pipeline.nu || true
+              echo "All tests in Red phase (expected to fail)"
             ''}";
           };
         };

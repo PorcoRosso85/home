@@ -43,7 +43,8 @@ nix develop
 [
   {
     "path": "/path/to/file",
-    "status": "missing",  // または "unspecified"
+    "requirement_exists": true,
+    "implementation_exists": false,
     "symbols_count": 10,  // --show-symbolsの場合
     "symbol_types": {     // --show-symbolsの場合
       "function": 5,
@@ -53,6 +54,10 @@ nix develop
   }
 ]
 ```
+
+### フィールドの意味：
+- `requirement_exists: true, implementation_exists: false` → 要件はあるが未実装
+- `requirement_exists: false, implementation_exists: true` → 実装はあるが要件未定義
 
 ## パイプライン詳細
 
