@@ -19,16 +19,16 @@ def test_create_database_valid_path_returns_database():
     import shutil
     temp_dir = tempfile.mkdtemp()
     try:
-        config: DatabaseConfig = {"path": temp_dir}
-        result = create_database(config)
+        # create_database expects path as string, not config dict
+        result = create_database(path=temp_dir)
         assert not (isinstance(result, dict) and "error" in result)
     finally:
         shutil.rmtree(temp_dir)
 
 
 def test_create_database_invalid_path_returns_error():
-    config: DatabaseConfig = {"path": "/invalid/path/that/does/not/exist"}
-    result = create_database(config)
+    # create_database expects path as string, not config dict
+    result = create_database(path="/invalid/path/that/does/not/exist")
     # This might not fail on all systems, so we just check it doesn't crash
     assert result is not None
 
@@ -47,33 +47,74 @@ def test_with_temp_database_executes_operation():
 
 
 def test_setup_json_extension_loads_extension():
-    # Skip this test due to segfault issues in test environment
-    import pytest
-    pytest.skip("JSON extension causes segfault in test environment")
+    def operation(conn):
+        result = setup_json_extension(conn)
+        assert isinstance(result, dict)
+        assert "error" not in result or "JSON extension" in result.get("status", "")
+        return result
+    
+    with_temp_database(operation)
 
 
 def test_create_table_with_json_creates_table():
-    # Skip this test due to segfault issues in test environment
-    import pytest
-    pytest.skip("JSON extension causes segfault in test environment")
+    def operation(conn):
+        result = create_table_with_json(conn, "TestTable")
+        assert isinstance(result, dict)
+        assert "error" not in result
+        assert "TestTable" in result.get("status", "")
+        return result
+    
+    with_temp_database(operation)
 
 
 def test_insert_json_data_valid_json_inserts_data():
-    # Skip this test due to segfault issues in test environment
-    import pytest
-    pytest.skip("JSON extension causes segfault in test environment")
+    def operation(conn):
+        table_result = create_table_with_json(conn, "TestTable")
+        if isinstance(table_result, dict) and "error" in table_result:
+            return table_result
+        
+        result = insert_json_data(conn, "TestTable", 1, '{"name": "Test"}')
+        assert isinstance(result, dict)
+        assert "error" not in result
+        assert "id 1" in result.get("status", "")
+        return result
+    
+    with_temp_database(operation)
 
 
 def test_insert_json_data_invalid_json_returns_error():
-    # Skip this test due to segfault issues in test environment
-    import pytest
-    pytest.skip("JSON extension causes segfault in test environment")
+    def operation(conn):
+        table_result = create_table_with_json(conn, "TestTable")
+        if isinstance(table_result, dict) and "error" in table_result:
+            return table_result
+        
+        result = insert_json_data(conn, "TestTable", 1, '{"name": invalid}')
+        assert isinstance(result, dict)
+        assert "error" in result
+        return result
+    
+    with_temp_database(operation)
 
 
 def test_execute_query_valid_query_returns_result():
-    # Skip this test due to segfault issues in test environment
-    import pytest
-    pytest.skip("JSON extension causes segfault in test environment")
+    def operation(conn):
+        table_result = create_table_with_json(conn, "TestTable")
+        if isinstance(table_result, dict) and "error" in table_result:
+            return table_result
+        
+        insert_result = insert_json_data(conn, "TestTable", 1, '{"name": "Test"}')
+        if isinstance(insert_result, dict) and "error" in insert_result:
+            return insert_result
+        
+        result = execute_query(conn, "MATCH (t:TestTable) RETURN t.id, t.description;")
+        assert isinstance(result, dict)
+        assert "error" not in result
+        assert "columns" in result
+        assert "rows" in result
+        assert len(result["rows"]) == 1
+        return result
+    
+    with_temp_database(operation)
 
 
 def test_execute_query_invalid_query_returns_error():
