@@ -182,12 +182,29 @@
             exit 1
           fi
           
-          # PlaywrightをNixpkgsから使用
+          # サーバーを起動
           echo ""
+          echo "🔧 Starting servers..."
+          ${pkgs.deno}/bin/deno run --allow-net websocket-server.ts &
+          WS_PID=$!
+          ${pkgs.deno}/bin/deno run --allow-net --allow-read serve.ts &
+          HTTP_PID=$!
+          
+          # サーバー起動を待つ
+          sleep 3
+          
           echo "🚀 Running integrated E2E test..."
           
-          # Playwrightテスト実行（test-fixturesがサーバーを管理）
-          ${pkgs.xvfb-run}/bin/xvfb-run -a npx playwright test
+          # Playwrightテスト実行
+          ${pkgs.xvfb-run}/bin/xvfb-run -a npx playwright test e2e/test-all.spec.ts --reporter=list
+          
+          TEST_EXIT_CODE=$?
+          
+          # クリーンアップ
+          echo "🧹 Cleaning up..."
+          kill $WS_PID $HTTP_PID 2>/dev/null || true
+          
+          exit $TEST_EXIT_CODE
         '';
         
       in

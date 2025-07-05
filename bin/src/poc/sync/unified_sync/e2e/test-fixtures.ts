@@ -26,9 +26,13 @@ type TestFixtures = {
 
 export const test = base.extend<TestFixtures>({
   servers: async ({}, use) => {
-    const servers = await startServersWithHealthCheck();
-    await use(servers);
-    await servers.cleanup();
+    // flake.nixでサーバーが既に起動されているため、ここでは何もしない
+    console.log('📌 Using externally managed servers');
+    await use({
+      wsServer: null,
+      httpServer: null,
+      cleanup: () => {}
+    });
   },
 });
 
