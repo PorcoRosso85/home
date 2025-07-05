@@ -142,9 +142,13 @@ devShells.default = pkgs.mkShell {
 ```
 
 ### 必須コマンド
-- `nix run .` - デフォルトアプリケーション実行
+- `nix run .` - デフォルトアプリケーション実行（必ずREADME.mdを表示）
 - `nix run .#test` - テスト実行
 - `nix develop` - 開発シェル
+
+### エラーハンドリング規約
+- 存在しないアプリケーション指定時：エラーメッセージとともにREADME.mdを表示
+- デフォルトアプリにオプション引数指定時：エラーメッセージとともにREADME.mdを表示
 
 ### 推奨コマンド（言語別）
 #### Python
@@ -225,6 +229,7 @@ devShells.default = pkgs.mkShell {
 - ✅ 明確なエラーメッセージ
 - ✅ `nix run`をメインの実行方法として設計
 - ✅ 複数実装がある場合は`apps.default`で主要実装を指定
+- ✅ デフォルトコマンドは必ずREADME.mdを表示（エラー時も含む）
 
 ## Nushellスクリプトの統合
 

@@ -75,3 +75,53 @@ ErrorDict = TypedDict({
 # すべてのテストを実行
 nix run .#test
 ```
+
+## JSON型の使用について
+
+現在の実装は**JSON型を使用**するよう更新されています：
+- `CREATE NODE TABLE` で `JSON` 型カラムを定義
+- `to_json()` 関数でJSON型データを挿入
+- `json_extract()`, `json_merge_patch()` などのJSON関数を使用
+
+## Segfault回避の工夫
+
+`bin/src/requirement/graph`の調査から、以下のsegfault回避策を実装しています：
+
+### 1. データベースファクトリーパターン
+- インスタンスの一元管理
+- テスト用ユニークインスタンス生成
+- モジュールの自動リロード
+
+### 2. 自動クリーンアップ（conftest.py）
+- 各テスト前後でキャッシュクリア
+- kuzu モジュールのリロード
+- JSON拡張機能の状態リセット
+
+### 3. テンポラリディレクトリの使用
+- インメモリではなく実ファイルシステムを使用
+- テスト間の状態汚染を防止
+
+### 4. JSON Extension Manager
+- 拡張機能の読み込み状態を管理
+- 重複読み込みを防止
+- スレッドローカルストレージで状態管理
+
+## STRING型フォールバック
+
+もしJSON拡張機能でsegfaultが発生する場合は、環境変数でスキップ可能：
+
+```bash
+KUZU_SKIP_JSON_EXT=true nix run .#test
+```
+
+または、`bin/src/requirement/graph`のようにSTRING型を使用：
+
+```python
+# JSON型の代わりにSTRING型を使用
+CREATE NODE TABLE data (id INT64, json_data STRING, PRIMARY KEY(id));
+
+# Python側でJSON処理
+import json
+json_str = json.dumps({"key": "value"})
+conn.execute("CREATE (n:data {id: 1, json_data: $json})", {"json": json_str})
+```

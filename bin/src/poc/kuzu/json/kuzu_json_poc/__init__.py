@@ -16,7 +16,9 @@ from .adapters import (
     setup_json_extension,
     create_table_with_json,
     insert_json_data,
-    execute_query
+    execute_query,
+    query_json_field,
+    update_json_field
 )
 
 
