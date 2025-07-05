@@ -41,6 +41,8 @@ tmux set -g window-style 'fg=colour245'
 tmux set -g window-active-style 'fg=colour255'
 tmux set -g mode-keys vi
 tmux set -g status-keys vi
+tmux setw -g monitor-activity on
+tmux set-option -g window-status-activity-style "bg=yellow,fg=black"
 
 # window作成関数
 create_window() {

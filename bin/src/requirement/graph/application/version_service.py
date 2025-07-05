@@ -129,24 +129,10 @@ def create_version_service(repository: VersionRepository):
         Returns:
             バージョン履歴のリスト
         """
-        query = """
-        MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
-        MATCH (l)-[:LOCATES]->(r:RequirementEntity)
-        MATCH (r)-[:HAS_VERSION]->(v:VersionState)
-        RETURN r.id as entity_id,
-               r.title as title,
-               r.description as description,
-               r.status as status,
-               r.priority as priority,
-               v.id as version_id,
-               v.operation as operation,
-               v.author as author,
-               v.change_reason as change_reason,
-               v.timestamp as timestamp
-        ORDER BY v.timestamp
-        """
+        # テンプレートを使用
+        template = load_template("dql", "get_requirement_history")
         
-        result = repository["execute"](query, {"req_id": req_id})
+        result = repository["execute"](template, {"req_id": req_id})
         history = []
         version_num = 1
         

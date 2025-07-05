@@ -4,38 +4,42 @@
 
 統一された出力形式でシンボル探索を行うツール
 
+**bin/docs/conventions 準拠**
+
 ### 入力
 - ディレクトリパス: `./path/to/dir`
 - URLスキーマ: `file://path/to/file`, `http://example.com/file` (将来拡張)
 
 ### 出力形式
 
+types.py でTypedDictとして定義：
+
 ```python
-SearchResult = {
-    "success": bool,
-    "data": Optional[List[Symbol]],
-    "error": Optional[str],
-    "metadata": {
-        "searched_files": int,
-        "search_time_ms": float,
-        # その他のメタ情報
-    }
+# 成功時
+SearchSuccessDict = {
+    "symbols": List[SymbolDict],
+    "metadata": MetadataDict
 }
 
-Symbol = {
-    "name": str,              # シンボル名
-    "type": str,              # function, class, method, variable, constant, import, type_alias
-    "path": str,              # ファイルパスまたはURL
-    "line": int,              # 行番号
-    "column": Optional[int],  # 列番号（オプション）
-    "context": Optional[str], # コードコンテキスト（オプション）
+# エラー時
+SearchErrorDict = {
+    "error": str,
+    "metadata": MetadataDict
 }
+
+SearchResult = SearchSuccessDict | SearchErrorDict
 ```
 
-### 特徴
-- エラーも成功も統一した`SearchResult`形式で返却
-- 複数言語対応（拡張可能な設計）
-- URLスキーマ対応で将来的な拡張性
+**convention準拠ポイント:**
+- ジェネリックResult型ではなく、具体的な成功/失敗型
+- success/failureフラグを持たない
+- エラーを値として返す（raise禁止）
+
+### 設計原則
+- エラーを値として返す（raise禁止）
+- データと処理を分離（TypedDictでデータ定義）
+- 1ファイル1公開機能（search_symbols関数）
+- クラスベースOOP禁止
 
 ### 対象シンボル
 - 関数定義

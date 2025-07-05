@@ -15,7 +15,7 @@
 
 | 言語 | 禁止事項 |
 | :--- | :--- |
-| **TypeScript** | `any` 型の使用, `@ts-ignore` コメント, `interface` の使用 (`type` を使用) |
+| **TypeScript** | `any` 型の使用, `@ts-ignore` コメント, `interface` の使用 (`type` を使用), CommonJS (`require`/`module.exports`) |
 | **Python** | `"type: ignore"` コメント, `import *` |
 | **Go** | `main` パッケージ以外での `panic` の使用, 複雑な `init` 関数 |
 | **Rust** | 本番コードでの `.unwrap()` や `.expect()` の使用, 過剰な `unsafe` ブロック |
