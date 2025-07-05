@@ -12,10 +12,19 @@
         pkgs = nixpkgs.legacyPackages.${system};
         
         # プロジェクトファイル
-        # 注意: Nixのビルド環境ではネットワークアクセスが禁止されているため、
-        # npm installは実行時に行う必要がある。
-        # 理想的にはnpmPackage/yarn2nixなどを使うべきだが、
-        # POCとしては実行時インストールで妥協する。
+        # 
+        # Nixビルド環境の制約:
+        # - ビルド時はネットワークアクセス禁止
+        # - npm installがビルド時に実行できない
+        # 
+        # 改善策（実装済み）:
+        # - ~/.cache/unified-sync-test にnode_modulesをキャッシュ
+        # - package.jsonが変更された時のみnpm install実行
+        # - 2回目以降は既存のnode_modulesを再利用（高速）
+        #
+        # 理想的な解決策（将来）:
+        # - npmPackage, yarn2nix, node2nixなどを使用
+        # - 事前にパッケージをダウンロードしてNixビルド
         projectFiles = pkgs.stdenv.mkDerivation {
           name = "unified-sync-files";
           src = ./.;
@@ -42,7 +51,11 @@
           export FONTCONFIG_PATH=${pkgs.fontconfig}/etc/fonts
           export FONTCONFIG_FILE=${pkgs.fontconfig}/etc/fonts/fonts.conf
           
-          # 作業ディレクトリ作成
+          # キャッシュディレクトリを使用（毎回削除しない）
+          CACHE_DIR="$HOME/.cache/unified-sync-test"
+          mkdir -p "$CACHE_DIR"
+          
+          # 作業ディレクトリ作成（node_modulesは共有）
           WORK_DIR=$(mktemp -d)
           trap "rm -rf $WORK_DIR" EXIT
           
@@ -51,10 +64,16 @@
           # プロジェクトファイルをコピー
           cp -r ${projectFiles}/* $WORK_DIR/
           
-          # 書き込み権限を付与（コピー後すぐに）
+          # 書き込み権限を付与
           chmod -R u+w $WORK_DIR
           
           cd $WORK_DIR
+          
+          # node_modulesをキャッシュから復元またはリンク
+          if [ -d "$CACHE_DIR/node_modules" ]; then
+            echo "♻️  Using cached node_modules"
+            ln -s "$CACHE_DIR/node_modules" node_modules
+          fi
           
           # デバッグ: ファイル確認
           echo "📂 Files in work directory:"
@@ -79,10 +98,21 @@
           }
           EOF
           
-          # 注意: Nixビルド環境の制約により、実行時にnpm installが必要
-          # npmはキャッシュを使うため、2回目以降は高速
-          echo "📦 Installing dependencies..."
-          npm install --silent
+          # package.jsonが変更されているかチェック
+          if [ ! -f "$CACHE_DIR/package.json" ] || ! diff -q package.json "$CACHE_DIR/package.json" > /dev/null 2>&1; then
+            echo "📦 Installing dependencies (package.json changed or first run)..."
+            # 既存のnode_modulesリンクを削除
+            rm -rf node_modules
+            # キャッシュディレクトリでインストール
+            cp package.json "$CACHE_DIR/"
+            cd "$CACHE_DIR"
+            npm install --silent
+            cd "$WORK_DIR"
+            # リンクを作成
+            ln -s "$CACHE_DIR/node_modules" node_modules
+          else
+            echo "✅ Dependencies up to date"
+          fi
           
           # playwright.configを作成
           cat > playwright.config.ts << 'EOF'
