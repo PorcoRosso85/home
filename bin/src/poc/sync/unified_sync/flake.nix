@@ -83,11 +83,10 @@
             "name": "unified-sync",
             "type": "module",
             "devDependencies": {
-              "@playwright/test": "^1.40.0",
-              "@types/node": "^20.0.0"
+              "@playwright/test": "^1.40.0"
             },
             "dependencies": {
-              "kuzu-wasm": "^0.0.10"
+              "kuzu-wasm": "0.10.0"
             }
           }
           EOF
@@ -183,23 +182,32 @@
             exit 1
           fi
           
-          # Xvfbを使ってヘッドレス環境でテスト実行
+          # PlaywrightをNixpkgsから使用
           echo ""
           echo "🚀 Running integrated E2E test..."
-          ${pkgs.xvfb-run}/bin/xvfb-run -a ${pkgs.nodejs_20}/bin/npx playwright test
           
-          TEST_RESULT=$?
+          # サーバーを起動（バックグラウンド）
+          echo "🔧 Starting WebSocket server..."
+          ${pkgs.deno}/bin/deno run --allow-net websocket-server.ts &
+          WS_PID=$!
           
-          if [ $TEST_RESULT -eq 0 ]; then
-            echo ""
-            echo "✅ All tests passed!"
-            echo ""
-            echo "🎆 KuzuDB Multi-Browser Sync is working perfectly!"
-          else
-            echo ""
-            echo "❌ Tests failed"
-            exit 1
-          fi
+          echo "🔧 Starting HTTP server..."
+          ${pkgs.deno}/bin/deno run --allow-net --allow-read serve.ts &
+          HTTP_PID=$!
+          
+          # サーバー起動を待つ
+          sleep 2
+          
+          # テスト実行
+          export PATH=${pkgs.playwright-test}/bin:$PATH
+          ${pkgs.xvfb-run}/bin/xvfb-run -a playwright test
+          
+          TEST_EXIT_CODE=$?
+          
+          # サーバーをクリーンアップ
+          kill $WS_PID $HTTP_PID 2>/dev/null || true
+          
+          exit $TEST_EXIT_CODE
         '';
         
       in
@@ -220,6 +228,7 @@
             nodePackages.pnpm
             
             # Playwright for E2E browser tests
+            playwright-test  # Nixpkgsから提供
             chromium
             xvfb-run
             
