@@ -11,13 +11,37 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # プロジェクトファイル
-        projectFiles = pkgs.stdenv.mkDerivation {
-          name = "unified-sync-files";
+        # node_modules含むプロジェクトファイル（ビルド時に依存関係解決）
+        projectWithDeps = pkgs.stdenv.mkDerivation {
+          name = "unified-sync-with-deps";
           src = ./.;
+          buildInputs = [ pkgs.nodejs_20 ];
+          
+          buildPhase = ''
+            # package.jsonを作成
+            cat > package.json << 'EOF'
+            {
+              "name": "unified-sync",
+              "type": "module",
+              "devDependencies": {
+                "@playwright/test": "^1.40.0",
+                "@types/node": "^20.0.0"
+              },
+              "dependencies": {
+                "kuzu-wasm": "^0.0.10"
+              }
+            }
+            EOF
+            
+            # 依存関係をインストール（ビルド時に1回だけ）
+            npm install --no-audit --no-fund
+          '';
+          
           installPhase = ''
             mkdir -p $out
             cp -r * $out/
+            # node_modulesもコピー
+            cp -r node_modules $out/
           '';
         };
         
@@ -44,14 +68,8 @@
           
           echo "📁 Preparing test environment..."
           
-          # プロジェクトファイルをコピー
-          cp ${projectFiles}/*.ts ${projectFiles}/*.html ${projectFiles}/*.json $WORK_DIR/ 2>/dev/null || true
-          cp ${projectFiles}/*.cts $WORK_DIR/ 2>/dev/null || true
-          
-          # e2eディレクトリをコピー
-          if [ -d ${projectFiles}/e2e ]; then
-            cp -r ${projectFiles}/e2e $WORK_DIR/
-          fi
+          # ビルド済みプロジェクトをコピー（node_modules含む）
+          cp -r ${projectWithDeps}/* $WORK_DIR/
           
           # 書き込み権限を付与（コピー後すぐに）
           chmod -R u+w $WORK_DIR
@@ -60,28 +78,12 @@
           
           # デバッグ: ファイル確認
           echo "📂 Files in work directory:"
-          ls -la
+          ls -la | head -20
+          echo ""
           echo "📂 Files in e2e directory:"
           ls -la e2e/ || echo "No e2e directory found"
-          
-          # package.jsonを作成（既存のものを上書き）
-          cat > package.json << 'EOF'
-          {
-            "name": "unified-sync",
-            "type": "module",
-            "devDependencies": {
-              "@playwright/test": "^1.40.0",
-              "@types/node": "^20.0.0"
-            },
-            "dependencies": {
-              "kuzu-wasm": "^0.0.10"
-            }
-          }
-          EOF
-          
-          # 依存関係インストール
-          echo "📦 Installing Playwright..."
-          npm install --silent
+          echo ""
+          echo "📦 Using pre-built dependencies from Nix store"
           
           # playwright.configを作成
           cat > playwright.config.ts << 'EOF'
