@@ -124,10 +124,10 @@ async function applyEventToStore(client: KuzuSyncClient, event: SyncEvent): Prom
     // 簡易的なCypherクエリパーサー
     const query = event.params.cypherQuery;
     
-    // CREATE (n:Type {props}) パターン
-    const createMatch = query.match(/CREATE\s+\((\w+)?:(\w+)\s+\{([^}]+)\}\)/);
-    if (createMatch) {
-      const [, varName, nodeType, propsStr] = createMatch;
+    // 複数のCREATE文を処理
+    const createMatches = query.matchAll(/CREATE\s+\((\w+)?:(\w+)\s+\{([^}]+)\}\)/g);
+    for (const match of createMatches) {
+      const [, varName, nodeType, propsStr] = match;
       const props = parseProperties(propsStr);
       
       // ノードを作成
@@ -170,6 +170,32 @@ async function applyEventToStore(client: KuzuSyncClient, event: SyncEvent): Prom
       
       // リレーションシップも記録（簡略化のため、今回は両ノードの存在を確認するのみ）
       // 実際の実装では、エッジの情報も保存する必要がある
+    }
+    
+    // 複数MATCH文とCREATEリレーションシップパターン
+    // MATCH (a:Person {id: 'alice'}) MATCH (b:Person {id: 'bob'}) CREATE (a)-[:KNOWS]->(b)
+    const multiMatchRelPattern = /MATCH\s+\((\w+):(\w+)\s+\{([^}]+)\}\)\s+MATCH\s+\((\w+):(\w+)\s+\{([^}]+)\}\)\s+CREATE\s+\(\1\)-\[:(\w+)\]->\(\4\)/;
+    const multiMatchRelMatch = query.match(multiMatchRelPattern);
+    if (multiMatchRelMatch) {
+      const [, fromVar, fromType, fromPropsStr, toVar, toType, toPropsStr, relType] = multiMatchRelMatch;
+      const fromProps = parseProperties(fromPropsStr);
+      const toProps = parseProperties(toPropsStr);
+      
+      // 両方のノードが存在することを確認
+      let fromExists = false;
+      let toExists = false;
+      
+      for (const [id, node] of client.nodes) {
+        if (node.type === fromType && node.properties.id === fromProps.id) {
+          fromExists = true;
+        }
+        if (node.type === toType && node.properties.id === toProps.id) {
+          toExists = true;
+        }
+      }
+      
+      // 簡略化: リレーションシップの存在を仮定
+      // 実際の実装では、エッジ情報を保存する必要がある
     }
     
     // CREATE relationship パターン
@@ -226,6 +252,12 @@ export async function query(client: KuzuSyncClient, cypherQuery: string): Promis
     // COUNT集計
     if (cypherQuery.includes('count(')) {
       const nodes = Array.from(client.nodes.values()).filter(n => n.type === nodeType);
+      // RETURN句から別名を取得
+      const aliasMatch = cypherQuery.match(/count\(\w+\)\s+as\s+(\w+)/);
+      if (aliasMatch) {
+        const [, alias] = aliasMatch;
+        return [{ [alias]: nodes.length }];
+      }
       return [{ nodeCount: nodes.length }];
     }
     
