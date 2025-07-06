@@ -370,7 +370,8 @@
             
             # テスト11: confinedプロファイルで作業ディレクトリ内は書き込み可能
             echo -n "11. Write allowed in workdir: "
-            if ${self.apps.${system}.run.program} -p confined -w "$test_dir" ${pkgs.bash}/bin/bash -c "pwd && echo test > test.txt && cat test.txt" 2>&1 | grep -q "test"; then
+            # 書き込みテストを単純化
+            if ${self.apps.${system}.run.program} -p confined -w "$test_dir" ${pkgs.coreutils}/bin/touch test.txt 2>/dev/null; then
               echo "✓ (can write in workdir)"
             else
               echo "✗ (should be able to write!)"
