@@ -256,5 +256,92 @@
             ${pkgs.bat}/bin/bat -p ${./README.md} || cat ${./README.md}
           '');
         };
+        
+        # 自動テストアプリ
+        apps.test = {
+          type = "app";
+          program = toString (pkgs.writeShellScript "test-apparmor" ''
+            set -e
+            
+            echo "=== AppArmor Automatic Test Suite ==="
+            echo ""
+            
+            # テストプログラム作成
+            TEST_SCRIPT=$(mktemp)
+            cat > "$TEST_SCRIPT" << 'EOF'
+            #!/usr/bin/env bash
+            echo "Test PID: $$"
+            
+            # 1. AppArmorプロファイル確認
+            profile=$(cat /proc/$$/attr/current 2>/dev/null || echo "unconfined")
+            echo "AppArmor profile: $profile"
+            
+            # 2. アクセステスト
+            echo ""
+            echo "Access tests:"
+            
+            # /tmp書き込み
+            if echo "test" > /tmp/aa-test-$$ 2>/dev/null; then
+              echo "  /tmp write: ✓ allowed"
+              rm -f /tmp/aa-test-$$
+            else
+              echo "  /tmp write: ✗ blocked"
+            fi
+            
+            # SSH鍵アクセス
+            if [[ -f ~/.ssh/id_rsa ]] && cat ~/.ssh/id_rsa >/dev/null 2>&1; then
+              echo "  SSH keys: ⚠️  ACCESSIBLE"
+            else
+              echo "  SSH keys: ✓ protected"
+            fi
+            
+            # /etc書き込み
+            if touch /etc/test-$$ 2>/dev/null; then
+              echo "  /etc write: ⚠️  ALLOWED"
+              rm -f /etc/test-$$
+            else
+              echo "  /etc write: ✓ blocked"
+            fi
+            
+            # ネットワーク
+            if ${pkgs.curl}/bin/curl -s --max-time 2 https://example.com >/dev/null 2>&1; then
+              echo "  Network: ✓ allowed"
+            else
+              echo "  Network: ✗ blocked"
+            fi
+            EOF
+            chmod +x "$TEST_SCRIPT"
+            
+            echo "1. Testing WITHOUT AppArmor:"
+            echo "----------------------------"
+            "$TEST_SCRIPT"
+            
+            echo ""
+            echo ""
+            echo "2. Testing WITH AppArmor (restricted profile):"
+            echo "----------------------------------------------"
+            ${self.apps.${system}.aa.program} "$TEST_SCRIPT"
+            
+            echo ""
+            echo ""
+            echo "3. Testing WITH AppArmor (strict profile):"
+            echo "------------------------------------------"
+            ${self.apps.${system}.aa.program} -p strict "$TEST_SCRIPT"
+            
+            # クリーンアップ
+            rm -f "$TEST_SCRIPT"
+            
+            echo ""
+            echo "=== Test Summary ==="
+            echo ""
+            echo "✓ If you see different results between tests, AppArmor is working!"
+            echo "✓ Look for 'SSH keys: protected' in AppArmor tests"
+            echo "✓ Strict profile should block network access"
+            echo ""
+            echo "To verify manually:"
+            echo "  - Check audit logs: sudo journalctl -g apparmor"
+            echo "  - Check process: cat /proc/\$\$/attr/current"
+          '');
+        };
       });
 }
