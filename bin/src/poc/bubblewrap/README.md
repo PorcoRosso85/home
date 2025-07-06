@@ -11,9 +11,22 @@ nix run .#run -- cat ~/.ssh/id_rsa
 # ネットワークを遮断（strictモード）
 nix run .#run -- -p strict curl https://example.com
 
+# 特定ディレクトリに制限（confinedモード）
+nix run .#run -- -p confined -w /tmp/myproject make build
+
+# 危険コマンドをブロック（safeモード）
+nix run .#run -- -p safe ./untrusted-script.sh
+
 # テスト実行
 nix run .#test
 ```
+
+## プロファイル
+
+- **restricted** (デフォルト): ネットワークOK、ホーム読み取り専用、SSH/GPG鍵アクセス不可
+- **strict**: ネットワークなし、ホームアクセスなし、最小権限
+- **confined**: 指定ディレクトリ限定、親ディレクトリアクセス不可
+- **safe**: 危険コマンド（rm -rf、dd等）ブロック
 
 ## Bubblewrap (bwrap) 解説
 
