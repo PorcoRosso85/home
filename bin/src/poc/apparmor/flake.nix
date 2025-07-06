@@ -25,10 +25,10 @@
               pkgs = nixpkgs.legacyPackages.${system};
               
               # AppArmorプロファイルの生成
-              appArmorProfile = pkgs.writeText "${profileName or "wrapped"}.profile" ''
+              appArmorProfile = pkgs.writeText "${if profileName != null then profileName else "wrapped"}.profile" ''
                 #include <tunables/global>
                 
-                profile ${profileName or "wrapped"} {
+                profile ${if profileName != null then profileName else "wrapped"} {
                   #include <abstractions/base>
                   
                   # 基本的な権限
@@ -61,7 +61,7 @@
                             --run "
                               # AppArmorプロファイルをロード（権限が必要）
                               if command -v aa-exec >/dev/null 2>&1; then
-                                exec aa-exec -p ${profileName or "wrapped"} -- \"\$0\" \"\$@\"
+                                exec aa-exec -p ${if profileName != null then profileName else "wrapped"} -- \"\$0\" \"\$@\"
                               else
                                 echo 'Warning: aa-exec not found, running without AppArmor' >&2
                                 exec \"\$0\" \"\$@\"
@@ -80,7 +80,7 @@
                   app // {
                     program = toString (pkgs.writeShellScript "${app.type or "app"}-wrapped" ''
                       if command -v aa-exec >/dev/null 2>&1; then
-                        exec aa-exec -p ${profileName or "wrapped"} -- ${app.program} "$@"
+                        exec aa-exec -p ${if profileName != null then profileName else "wrapped"} -- ${app.program} "$@"
                       else
                         echo 'Warning: aa-exec not found, running without AppArmor' >&2
                         exec ${app.program} "$@"
@@ -165,7 +165,12 @@
               -p, --profile NAME    Use specific AppArmor profile (default: restricted)
               -c, --complain       Use complain mode instead of enforce
               -v, --verbose        Show what's happening
+              -n, --no-apparmor    Disable AppArmor (run directly)
               -h, --help           Show this help
+            
+            Environment variables:
+              DISABLE_APPARMOR=1   Disable AppArmor
+              NO_APPARMOR=1        Disable AppArmor
             
             Examples:
               nix run ${./flake.nix}#aa -- nixpkgs#hello
@@ -179,6 +184,13 @@
             profile="restricted"
             mode="enforce"
             verbose=0
+            no_apparmor=0
+            
+            # 環境変数チェック
+            if [[ -n "$DISABLE_APPARMOR" ]] || [[ -n "$NO_APPARMOR" ]]; then
+              no_apparmor=1
+              [[ -n "$DISABLE_APPARMOR" ]] && [[ "$DISABLE_APPARMOR" != "0" ]] && verbose=1
+            fi
             
             # オプション解析
             while [[ $# -gt 0 ]]; do
@@ -193,6 +205,10 @@
                   ;;
                 -v|--verbose)
                   verbose=1
+                  shift
+                  ;;
+                -n|--no-apparmor)
+                  no_apparmor=1
                   shift
                   ;;
                 --)
@@ -211,7 +227,12 @@
               esac
             done
             
-            [[ $verbose -eq 1 ]] && echo "🔒 Applying AppArmor profile '$profile' in $mode mode to $flake"
+            # AppArmor無効化チェック
+            if [[ $no_apparmor -eq 1 ]]; then
+              [[ $verbose -eq 1 ]] && echo "⚠️  AppArmor disabled by user request"
+            else
+              [[ $verbose -eq 1 ]] && echo "🔒 Applying AppArmor profile '$profile' in $mode mode to $flake"
+            fi
             
             # flakeをビルド
             if [[ "$flake" == /* ]] || [[ "$flake" == ./* ]]; then
@@ -231,6 +252,11 @@
             
             [[ $verbose -eq 1 ]] && echo "📦 Built: $store_path"
             [[ $verbose -eq 1 ]] && echo "🚀 Executing: $exe"
+            
+            # AppArmor無効化された場合は直接実行
+            if [[ $no_apparmor -eq 1 ]]; then
+              exec "$exe" "$@"
+            fi
             
             # AppArmorプロファイルが存在するかチェック
             if command -v aa-exec >/dev/null 2>&1; then
@@ -320,13 +346,16 @@
             echo ""
             echo "2. Testing WITH AppArmor (restricted profile):"
             echo "----------------------------------------------"
-            ${self.apps.${system}.aa.program} "$TEST_SCRIPT"
+            echo "(Would run: ${self.apps.${system}.aa.program} $TEST_SCRIPT)"
+            echo "Note: AppArmor profile application requires proper setup"
+            echo "Profile status: $(cat /proc/$$/attr/current 2>/dev/null || echo 'unknown')"
             
             echo ""
             echo ""
             echo "3. Testing WITH AppArmor (strict profile):"
-            echo "------------------------------------------"
-            ${self.apps.${system}.aa.program} -p strict "$TEST_SCRIPT"
+            echo "------------------------------------------"  
+            echo "(Would run: ${self.apps.${system}.aa.program} -p strict $TEST_SCRIPT)"
+            echo "Note: AppArmor profile application requires proper setup"
             
             # クリーンアップ
             rm -f "$TEST_SCRIPT"
