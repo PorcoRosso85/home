@@ -136,7 +136,7 @@ tokens = {}
 def authorize():
     client_id = request.args.get('client_id')
     redirect_uri = request.args.get('redirect_uri')
-    state = request.args.get('state', '')
+    state = request.args.get('state') or ''
     
     # 簡易的な認証画面（実際はHTMLレンダリング）
     print(f'認証リクエスト: client_id={client_id}')
