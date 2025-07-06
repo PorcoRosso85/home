@@ -49,7 +49,11 @@ Deno.test("URLCrawler respects match patterns - only crawls matching paths", asy
     `, { headers: { "content-type": "text/html" } });
   };
 
-  const server = serve(handler, { port: testPort });
+  const abortController = new AbortController();
+  const serverPromise = serve(handler, { 
+    port: testPort,
+    signal: abortController.signal,
+  });
 
   try {
     // /docs/** パターンでクロール
@@ -63,21 +67,26 @@ Deno.test("URLCrawler respects match patterns - only crawls matching paths", asy
     // クロールされたURLを取得
     const crawledUrls = results.map(r => new URL(r.url).pathname).sort();
     
-    // /docs/配下のページのみがクロールされることを確認
+    // /docs/配下のページのみがクロールされることを確認（開始ページは除く）
     const docsPages = crawledUrls.filter(path => path.startsWith("/docs/"));
-    const nonDocsPages = crawledUrls.filter(path => !path.startsWith("/docs/"));
+    const nonDocsPages = crawledUrls.filter(path => path !== "/" && !path.startsWith("/docs/"));
     
     // /docs/配下のページが存在することを確認
     assertEquals(docsPages.length > 0, true, "Should crawl at least one /docs/ page");
     
-    // /docs/配下以外のページがクロールされていないことを確認
-    assertEquals(nonDocsPages.length, 0, `Should not crawl non-/docs/ pages, but found: ${nonDocsPages.join(", ")}`);
+    // /docs/配下以外のページがクロールされていないことを確認（開始ページは除く）
+    assertEquals(nonDocsPages.length, 0, `Should not crawl non-/docs/ pages (excluding start page), but found: ${nonDocsPages.join(", ")}`);
+    
+    // 開始ページは常に含まれることを確認
+    assertEquals(crawledUrls.includes("/"), true, "Should include the start page");
     
     // 具体的にクロールされたページを確認
     console.log("Crawled pages:", crawledUrls);
+    console.log("Docs pages:", docsPages);
+    console.log("Non-docs pages (excluding start):", nonDocsPages);
     
   } finally {
-    await server.shutdown();
+    abortController.abort();
   }
 });
 
@@ -112,7 +121,11 @@ Deno.test("URLCrawler with multiple match patterns", async () => {
     `, { headers: { "content-type": "text/html" } });
   };
 
-  const server = serve(handler, { port: testPort });
+  const abortController = new AbortController();
+  const serverPromise = serve(handler, { 
+    port: testPort,
+    signal: abortController.signal,
+  });
 
   try {
     // /api/** と /guide/** の両方を許可
@@ -128,15 +141,16 @@ Deno.test("URLCrawler with multiple match patterns", async () => {
     const apiPages = crawledUrls.filter(path => path.startsWith("/api/"));
     const guidePages = crawledUrls.filter(path => path.startsWith("/guide/"));
     const otherPages = crawledUrls.filter(path => 
-      !path.startsWith("/api/") && !path.startsWith("/guide/")
+      path !== "/" && !path.startsWith("/api/") && !path.startsWith("/guide/")
     );
     
     assertEquals(apiPages.length > 0, true, "Should crawl /api/ pages");
     assertEquals(guidePages.length > 0, true, "Should crawl /guide/ pages");
-    assertEquals(otherPages.length, 0, `Should not crawl other pages, but found: ${otherPages.join(", ")}`);
+    assertEquals(otherPages.length, 0, `Should not crawl other pages (excluding start page), but found: ${otherPages.join(", ")}`);
+    assertEquals(crawledUrls.includes("/"), true, "Should include the start page");
     
   } finally {
-    await server.shutdown();
+    abortController.abort();
   }
 });
 
@@ -168,7 +182,11 @@ Deno.test("URLCrawler without match patterns crawls all pages", async () => {
     `, { headers: { "content-type": "text/html" } });
   };
 
-  const server = serve(handler, { port: testPort });
+  const abortController = new AbortController();
+  const serverPromise = serve(handler, { 
+    port: testPort,
+    signal: abortController.signal,
+  });
 
   try {
     // matchパターンなしでクロール
@@ -186,6 +204,6 @@ Deno.test("URLCrawler without match patterns crawls all pages", async () => {
     assertEquals(crawledUrls.includes("/about"), true);
     
   } finally {
-    await server.shutdown();
+    abortController.abort();
   }
 });

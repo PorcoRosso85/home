@@ -5,6 +5,15 @@
  * Inspired by sitefetch's crawling logic
  */
 
+import {
+  CONTENT_TYPE_HTML,
+  DEFAULT_CONCURRENCY,
+  DEFAULT_DEPTH,
+  DEFAULT_SAME_HOST,
+  FORMAT_JSON,
+  FORMAT_TEXT,
+} from "./variables/constants.ts";
+
 export interface CrawlOptions {
   concurrency?: number;
   match?: string[];
@@ -16,6 +25,7 @@ export interface CrawlOptions {
   retries?: number;
   retryDelay?: number;
   onProgress?: (completed: number, total: number) => void;
+  withRoot?: boolean;
 }
 
 export interface CrawlResult {
@@ -30,6 +40,7 @@ export class URLCrawler {
   private queue: string[] = [];
   private results: CrawlResult[] = [];
   private baseHost: string;
+  private basePath: string;
   public options: CrawlOptions;
 
   constructor(
@@ -38,10 +49,26 @@ export class URLCrawler {
   ) {
     const url = new URL(baseUrl);
     this.baseHost = url.host;
+    
+    // ベースパスの決定
+    if (url.pathname.endsWith('/')) {
+      // 既に末尾スラッシュがある
+      this.basePath = url.pathname;
+    } else if (url.pathname.match(/\.[^/]+$/)) {
+      // ファイルっぽいURL（拡張子がある）
+      // ディレクトリ部分を抽出
+      const lastSlash = url.pathname.lastIndexOf('/');
+      this.basePath = url.pathname.substring(0, lastSlash + 1);
+    } else {
+      // ディレクトリとして扱う（末尾スラッシュを追加）
+      this.basePath = url.pathname + '/';
+    }
+    
     this.options = {
-      concurrency: 3,
-      sameHost: true,
-      depth: -1, // unlimited
+      concurrency: DEFAULT_CONCURRENCY,
+      sameHost: DEFAULT_SAME_HOST,
+      depth: DEFAULT_DEPTH,
+      match: [],
       ...options,
     };
   }
@@ -69,14 +96,34 @@ export class URLCrawler {
     if (this.visited.has(url)) return;
     this.visited.add(url);
 
-    if (!this.matchesPattern(url)) return;
+    // 最初のURL（baseUrl）は常に処理する、それ以外はパターンマッチングを適用
+    if (url !== this.baseUrl && !this.matchesPattern(url)) return;
 
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        redirect: "manual"  // リダイレクトを手動で処理
+      });
+      
+      // リダイレクトの処理
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (location) {
+          const redirectUrl = new URL(location, url);
+          // リダイレクト先をキューに追加
+          if (!this.visited.has(redirectUrl.href) && this.shouldCrawlLink(redirectUrl.href)) {
+            this.queue.push(redirectUrl.href);
+          }
+        }
+        await response.body?.cancel();
+        return;
+      }
+      
       if (
         !response.ok ||
-        !response.headers.get("content-type")?.includes("text/html")
+        !response.headers.get("content-type")?.includes(CONTENT_TYPE_HTML)
       ) {
+        // レスポンスボディを消費してリークを防ぐ
+        await response.body?.cancel();
         return;
       }
 
@@ -108,8 +155,16 @@ export class URLCrawler {
     while ((match = linkRegex.exec(html)) !== null) {
       try {
         const href = match[1];
-        const absoluteUrl = new URL(href, baseUrl).href;
-        links.push(absoluteUrl);
+        const absoluteUrl = new URL(href, baseUrl);
+
+        // httpまたはhttpsのURLのみを受け入れる
+        if (
+          absoluteUrl.protocol === "http:" || absoluteUrl.protocol === "https:"
+        ) {
+          // ハッシュフラグメントを除去して正規化（sitefetch互換）
+          absoluteUrl.hash = '';
+          links.push(absoluteUrl.href);
+        }
       } catch {
         // Ignore invalid URLs
       }
@@ -125,6 +180,20 @@ export class URLCrawler {
       // Check same host restriction
       if (this.options.sameHost && linkUrl.host !== this.baseHost) {
         return false;
+      }
+
+      // デフォルトでベースパス配下のみクロール（withRootが無効の場合）
+      if (!this.options.withRoot) {
+        if (!this.options.match || this.options.match.length === 0) {
+          // ルートパス（"/"）の場合は全体をクロール可能
+          if (this.basePath === '/') {
+            return true;
+          }
+          // ベースパス配下のみ許可
+          if (!linkUrl.pathname.startsWith(this.basePath)) {
+            return false;
+          }
+        }
       }
 
       // Check match patterns
@@ -144,17 +213,58 @@ export class URLCrawler {
     }
 
     const urlPath = new URL(url).pathname;
-    return this.options.match.some((pattern) => {
-      const regex = this.globToRegex(pattern);
-      return regex.test(urlPath);
-    });
+    
+    let included = false;
+    let excluded = false;
+    
+    for (const pattern of this.options.match) {
+      // 否定パターンの処理
+      if (pattern.startsWith('!')) {
+        const negPattern = pattern.slice(1);
+        const regex = this.globToRegex(negPattern);
+        if (regex.test(urlPath)) {
+          excluded = true;
+        }
+      } else {
+        // 通常のパターン（相対パスの処理を含む）
+        let effectivePattern = pattern;
+        
+        // 相対パスの場合、ベースパスを前に付ける
+        if (!pattern.startsWith('/')) {
+          effectivePattern = this.basePath + pattern;
+        }
+        
+        const regex = this.globToRegex(effectivePattern);
+        if (regex.test(urlPath)) {
+          included = true;
+        }
+      }
+    }
+    
+    // 否定パターンが最優先
+    if (excluded) return false;
+    
+    // 通常のパターンが1つでもあれば、それにマッチする必要がある
+    const hasIncludePatterns = this.options.match.some(p => !p.startsWith('!'));
+    if (hasIncludePatterns) {
+      return included;
+    }
+    
+    // 否定パターンのみの場合、除外されていなければOK
+    return true;
   }
 
   private globToRegex(glob: string): RegExp {
-    const escaped = glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+    // まず特殊文字をエスケープ（ただし * と ? は除く）
+    const escaped = glob.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    
+    // globパターンを正規表現に変換
     const pattern = escaped
-      .replace(/\*/g, ".*")
-      .replace(/\?/g, ".");
+      .replace(/\*\*/g, "@@DOUBLESTAR@@")  // ** を一時的に置換
+      .replace(/\*/g, "[^/]*")              // * は / 以外の任意の文字
+      .replace(/\?/g, "[^/]")               // ? は / 以外の1文字
+      .replace(/@@DOUBLESTAR@@/g, ".*");   // ** は任意の文字（/ を含む）
+      
     return new RegExp(`^${pattern}$`);
   }
 }
@@ -175,17 +285,12 @@ export function parseArgs(args: string[]): {
     return { showHelp: true };
   }
 
-  const url = args.find((arg) => !arg.startsWith("-"));
-  if (!url) {
-    return { error: "URL is required" };
-  }
-
+  let url: string | undefined;
   const options: CrawlOptions = {
-    concurrency: 3,
+    concurrency: DEFAULT_CONCURRENCY,
     match: [],
   };
-
-  let format = "text";
+  let format = FORMAT_TEXT;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -205,9 +310,22 @@ export function parseArgs(args: string[]): {
         options.limit = parseInt(args[++i]);
         break;
       case "--json":
-        format = "json";
+        format = FORMAT_JSON;
+        break;
+      case "--with-root":
+        options.withRoot = true;
+        break;
+      default:
+        // ダッシュで始まらない引数で、まだURLが設定されていない場合
+        if (!arg.startsWith("-") && !url) {
+          url = arg;
+        }
         break;
     }
+  }
+
+  if (!url) {
+    return { error: "URL is required" };
   }
 
   return { url, options, format };
@@ -229,12 +347,14 @@ Options:
   -m, --match <pattern>    Only crawl URLs matching pattern (can be repeated)
   -l, --limit <n>          Maximum number of pages to crawl
   --no-same-host           Allow crawling external hosts
+  --with-root              Include root and all paths (remove base path restriction)
   --json                   Output as JSON
   -h, --help               Show this help
 
 Examples:
   crawl.ts https://example.com
   crawl.ts https://docs.example.com -m "/api/**" -m "/guide/**"
+  crawl.ts https://example.com/docs/ --with-root -m "/api/**"
   crawl.ts https://example.com --limit 10 --json
     `.trim());
     Deno.exit(0);
@@ -245,6 +365,7 @@ Examples:
     concurrency: 3,
     match: [],
     sameHost: !args.includes("--no-same-host"),
+    withRoot: args.includes("--with-root"),
   };
 
   // Parse options
