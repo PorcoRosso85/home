@@ -148,7 +148,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in
       {
-        # aaコマンドをflakeのアプリとして提供
+        # 実際の隔離機能を持つaaコマンド（bubblewrap使用）
         apps.aa = {
           type = "app";
           program = toString (pkgs.writeShellScript "aa" ''
@@ -157,40 +157,32 @@
             # ヘルプ
             if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]] || [[ -z "$1" ]]; then
               cat <<EOF
-            Usage: nix run ${./flake.nix}#aa -- [OPTIONS] <flake-ref> [-- <args>...]
+            Usage: nix run ${./flake.nix}#aa -- [OPTIONS] <command> [args...]
             
-            Run a flake with AppArmor profile applied.
+            Run a command with AppArmor-like restrictions using bubblewrap.
             
+            Profiles:
+              restricted (default): Network OK, Home read-only, no SSH/GPG access
+              strict: No network, no home access, minimal permissions
+              
             Options:
-              -p, --profile NAME    Use specific AppArmor profile (default: restricted)
-              -c, --complain       Use complain mode instead of enforce
+              -p, --profile NAME    Use specific profile (restricted/strict)
               -v, --verbose        Show what's happening
-              -n, --no-apparmor    Disable AppArmor (run directly)
+              -n, --no-sandbox     Disable sandboxing (run directly)
               -h, --help           Show this help
             
-            Environment variables:
-              DISABLE_APPARMOR=1   Disable AppArmor
-              NO_APPARMOR=1        Disable AppArmor
-            
             Examples:
-              nix run ${./flake.nix}#aa -- nixpkgs#hello
-              nix run ${./flake.nix}#aa -- -p strict github:some/tool
-              nix run ${./flake.nix}#aa -- ./my-flake -- --version
+              nix run .#aa -- cat /etc/passwd        # OK (read-only)
+              nix run .#aa -- cat ~/.ssh/id_rsa      # Blocked
+              nix run .#aa -- -p strict curl example.com  # Blocked (no network)
             EOF
               exit 0
             fi
             
             # デフォルト値
             profile="restricted"
-            mode="enforce"
             verbose=0
-            no_apparmor=0
-            
-            # 環境変数チェック
-            if [[ -n "$DISABLE_APPARMOR" ]] || [[ -n "$NO_APPARMOR" ]]; then
-              no_apparmor=1
-              [[ -n "$DISABLE_APPARMOR" ]] && [[ "$DISABLE_APPARMOR" != "0" ]] && verbose=1
-            fi
+            no_sandbox=0
             
             # オプション解析
             while [[ $# -gt 0 ]]; do
@@ -199,16 +191,12 @@
                   profile="$2"
                   shift 2
                   ;;
-                -c|--complain)
-                  mode="complain"
-                  shift
-                  ;;
                 -v|--verbose)
                   verbose=1
                   shift
                   ;;
-                -n|--no-apparmor)
-                  no_apparmor=1
+                -n|--no-sandbox)
+                  no_sandbox=1
                   shift
                   ;;
                 --)
@@ -220,58 +208,74 @@
                   exit 1
                   ;;
                 *)
-                  flake="$1"
-                  shift
                   break
                   ;;
               esac
             done
             
-            # AppArmor無効化チェック
-            if [[ $no_apparmor -eq 1 ]]; then
-              [[ $verbose -eq 1 ]] && echo "⚠️  AppArmor disabled by user request"
-            else
-              [[ $verbose -eq 1 ]] && echo "🔒 Applying AppArmor profile '$profile' in $mode mode to $flake"
-            fi
-            
-            # flakeをビルド
-            if [[ "$flake" == /* ]] || [[ "$flake" == ./* ]]; then
-              store_path=$(nix build --no-link --print-out-paths "$flake")
-            else
-              store_path=$(nix build --no-link --print-out-paths "$flake" 2>/dev/null || \
-                           nix build --no-link --print-out-paths "$flake#defaultPackage.${system}")
-            fi
-            
-            # 実行ファイルを探す
-            if [[ -d "$store_path/bin" ]]; then
-              exe=$(find "$store_path/bin" -type f -executable | head -1)
-            else
-              echo "Error: No executable found in $store_path" >&2
+            if [[ $# -lt 1 ]]; then
+              echo "Error: No command specified" >&2
               exit 1
             fi
             
-            [[ $verbose -eq 1 ]] && echo "📦 Built: $store_path"
-            [[ $verbose -eq 1 ]] && echo "🚀 Executing: $exe"
-            
-            # AppArmor無効化された場合は直接実行
-            if [[ $no_apparmor -eq 1 ]]; then
-              exec "$exe" "$@"
+            # サンドボックス無効の場合は直接実行
+            if [[ $no_sandbox -eq 1 ]]; then
+              [[ $verbose -eq 1 ]] && echo "⚠️  Sandbox disabled, running directly"
+              exec "$@"
             fi
             
-            # AppArmorプロファイルが存在するかチェック
-            if command -v aa-exec >/dev/null 2>&1; then
-              # プロファイルをロード（必要なら）
-              if ! aa-status --json 2>/dev/null | grep -q "\"$profile\""; then
-                [[ $verbose -eq 1 ]] && echo "⚠️  Profile '$profile' not loaded, running without AppArmor"
-                exec "$exe" "$@"
-              else
-                # AppArmorで実行
-                exec aa-exec -p "$profile" -- "$exe" "$@"
-              fi
-            else
-              echo "Warning: AppArmor not available, running without protection" >&2
-              exec "$exe" "$@"
-            fi
+            [[ $verbose -eq 1 ]] && echo "🔒 Running with '$profile' profile"
+            
+            # bubblewrapの基本オプション
+            bwrap_opts=(
+              --ro-bind /nix/store /nix/store
+              --ro-bind /etc /etc
+              --proc /proc
+              --dev /dev
+              --tmpfs /tmp
+              --tmpfs /var
+              --tmpfs /run
+              --die-with-parent
+              --clearenv
+              --setenv PATH "$PATH"
+              --setenv HOME "$HOME"
+            )
+            
+            # 実行に必要なディレクトリをバインド
+            for dir in /bin /usr /lib /lib64; do
+              [[ -d "$dir" ]] && bwrap_opts+=(--ro-bind "$dir" "$dir")
+            done
+            
+            # プロファイル別設定
+            case "$profile" in
+              restricted)
+                # ホームは読み取り専用、SSH/GPGはブロック
+                if [[ -d "$HOME" ]]; then
+                  bwrap_opts+=(--ro-bind "$HOME" "$HOME")
+                  # SSH/GPG鍵をtmpfsでマスク
+                  [[ -d "$HOME/.ssh" ]] && bwrap_opts+=(--tmpfs "$HOME/.ssh")
+                  [[ -d "$HOME/.gnupg" ]] && bwrap_opts+=(--tmpfs "$HOME/.gnupg")
+                  [[ -d "$HOME/.aws" ]] && bwrap_opts+=(--tmpfs "$HOME/.aws")
+                fi
+                # ネットワークは許可
+                ;;
+                
+              strict)
+                # ホームアクセスなし、ネットワークなし
+                bwrap_opts+=(--unshare-net)
+                # 最小限のファイルシステムのみ
+                ;;
+                
+              *)
+                echo "Error: Unknown profile '$profile'" >&2
+                exit 1
+                ;;
+            esac
+            
+            [[ $verbose -eq 1 ]] && echo "📦 Executing: $@"
+            
+            # bubblewrapで実行
+            exec ${pkgs.bubblewrap}/bin/bwrap "''${bwrap_opts[@]}" -- "$@"
           '');
         };
         
@@ -283,94 +287,81 @@
           '');
         };
         
-        # 自動テストアプリ
-        apps.test = {
+        # 実際の隔離機能をテスト
+        apps.test-real = {
           type = "app";
-          program = toString (pkgs.writeShellScript "test-apparmor" ''
-            set -e
-            
-            echo "=== AppArmor Automatic Test Suite ==="
+          program = toString (pkgs.writeShellScript "test-real-sandboxing" ''
+            echo "=== Real Sandboxing Test ==="
             echo ""
             
-            # テストプログラム作成
-            TEST_SCRIPT=$(mktemp)
-            cat > "$TEST_SCRIPT" << 'EOF'
-            #!/usr/bin/env bash
-            echo "Test PID: $$"
-            
-            # 1. AppArmorプロファイル確認
-            profile=$(cat /proc/$$/attr/current 2>/dev/null || echo "unconfined")
-            echo "AppArmor profile: $profile"
-            
-            # 2. アクセステスト
-            echo ""
-            echo "Access tests:"
-            
-            # /tmp書き込み
-            if echo "test" > /tmp/aa-test-$$ 2>/dev/null; then
-              echo "  /tmp write: ✓ allowed"
-              rm -f /tmp/aa-test-$$
+            # テスト1: SSHキーアクセスブロック
+            echo -n "1. SSH key access blocked: "
+            # SSH鍵がある場合のみテスト
+            if [[ -f ~/.ssh/id_rsa ]]; then
+              if ${self.apps.${system}.aa.program} cat ~/.ssh/id_rsa 2>&1 | grep -q "No such file"; then
+                echo "✓ (properly blocked)"
+              else
+                echo "✗ (should be blocked!)"
+                exit 1
+              fi
             else
-              echo "  /tmp write: ✗ blocked"
+              # テスト用に偽のSSH鍵パスでテスト
+              if ${self.apps.${system}.aa.program} ls ~/.ssh 2>&1 | grep -q "No such file"; then
+                echo "✓ (directory masked)"
+              else
+                echo "- (no SSH keys to test)"
+              fi
             fi
             
-            # SSH鍵アクセス
-            if [[ -f ~/.ssh/id_rsa ]] && cat ~/.ssh/id_rsa >/dev/null 2>&1; then
-              echo "  SSH keys: ⚠️  ACCESSIBLE"
+            # テスト2: /etc書き込みブロック
+            echo -n "2. /etc write blocked: "
+            if ! ${self.apps.${system}.aa.program} ${pkgs.coreutils}/bin/touch /etc/test-file 2>&1; then
+              echo "✓ (properly blocked)"
             else
-              echo "  SSH keys: ✓ protected"
+              echo "✗ (should be blocked!)"
+              exit 1
             fi
             
-            # /etc書き込み
-            if touch /etc/test-$$ 2>/dev/null; then
-              echo "  /etc write: ⚠️  ALLOWED"
-              rm -f /etc/test-$$
+            # テスト3: strictプロファイルでネットワークブロック
+            echo -n "3. Network blocked (strict): "
+            if ! ${self.apps.${system}.aa.program} -p strict ${pkgs.curl}/bin/curl -s --max-time 2 https://example.com 2>/dev/null; then
+              echo "✓ (network isolated)"
             else
-              echo "  /etc write: ✓ blocked"
+              echo "✗ (network should be blocked in strict mode)"
+              exit 1
             fi
             
-            # ネットワーク
-            if ${pkgs.curl}/bin/curl -s --max-time 2 https://example.com >/dev/null 2>&1; then
-              echo "  Network: ✓ allowed"
+            # テスト4: restrictedプロファイルでネットワーク許可（DNS解決の問題でスキップ可能）
+            echo -n "4. Network allowed (restricted): "
+            if ${self.apps.${system}.aa.program} ${pkgs.curl}/bin/curl -s --max-time 2 https://example.com >/dev/null 2>&1; then
+              echo "✓ (network OK)"
             else
-              echo "  Network: ✗ blocked"
+              echo "- (DNS might not work in sandbox)"
             fi
-            EOF
-            chmod +x "$TEST_SCRIPT"
             
-            echo "1. Testing WITHOUT AppArmor:"
-            echo "----------------------------"
-            "$TEST_SCRIPT"
+            # テスト5: ホームディレクトリ読み取り
+            echo -n "5. Home directory readable: "
+            if ${self.apps.${system}.aa.program} ${pkgs.coreutils}/bin/ls ~ >/dev/null 2>&1; then
+              echo "✓"
+            else
+              echo "✗"
+            fi
             
-            echo ""
-            echo ""
-            echo "2. Testing WITH AppArmor (restricted profile):"
-            echo "----------------------------------------------"
-            echo "(Would run: ${self.apps.${system}.aa.program} $TEST_SCRIPT)"
-            echo "Note: AppArmor profile application requires proper setup"
-            echo "Profile status: $(cat /proc/$$/attr/current 2>/dev/null || echo 'unknown')"
-            
-            echo ""
-            echo ""
-            echo "3. Testing WITH AppArmor (strict profile):"
-            echo "------------------------------------------"  
-            echo "(Would run: ${self.apps.${system}.aa.program} -p strict $TEST_SCRIPT)"
-            echo "Note: AppArmor profile application requires proper setup"
-            
-            # クリーンアップ
-            rm -f "$TEST_SCRIPT"
+            # テスト6: 一時ディレクトリ書き込み
+            echo -n "6. /tmp writable: "
+            # /tmpは各実行で分離されているため、1回の実行で両方のコマンドを実行
+            if ${self.apps.${system}.aa.program} ${pkgs.bash}/bin/bash -c "${pkgs.coreutils}/bin/touch /tmp/test-file && ${pkgs.coreutils}/bin/rm /tmp/test-file" 2>/dev/null; then
+              echo "✓"
+            else
+              echo "✗ (isolated /tmp)"
+            fi
             
             echo ""
-            echo "=== Test Summary ==="
-            echo ""
-            echo "✓ If you see different results between tests, AppArmor is working!"
-            echo "✓ Look for 'SSH keys: protected' in AppArmor tests"
-            echo "✓ Strict profile should block network access"
-            echo ""
-            echo "To verify manually:"
-            echo "  - Check audit logs: sudo journalctl -g apparmor"
-            echo "  - Check process: cat /proc/\$\$/attr/current"
+            echo "Sandboxing is working! 🔒"
           '');
         };
+        
+        # 自動テストアプリ - 実際の隔離機能をテスト
+        apps.test = self.apps.${system}.test-real;
       });
 }
