@@ -1,4 +1,6 @@
 // Causal sync client - Green phase implementation
+import { ConflictResolver, LastWriteWinsResolver, ConflictResolutionContext } from './conflict-resolution.ts';
+
 export interface CausalOperation {
   id: string;
   dependsOn: string[];
@@ -19,6 +21,7 @@ export interface CreateClientOptions {
   clientId: string;
   dbPath: string;
   wsUrl: string;
+  conflictResolver?: ConflictResolver;
 }
 
 interface InternalClient {
@@ -31,6 +34,7 @@ interface InternalClient {
   nodes: Map<string, any>;
   nodeUpdateTimestamps: Map<string, number>; // ノードごとの最終更新タイムスタンプ
   queryResolvers: Map<string, (result: any) => void>;
+  conflictResolver: ConflictResolver;
 }
 
 // WebSocket接続とクライアント作成
@@ -44,7 +48,8 @@ export async function createCausalSyncClient(options: CreateClientOptions): Prom
     operationHistory: [],
     nodes: new Map(),
     nodeUpdateTimestamps: new Map(),
-    queryResolvers: new Map()
+    queryResolvers: new Map(),
+    conflictResolver: options.conflictResolver || new LastWriteWinsResolver()
   };
 
   // WebSocket接続
@@ -185,19 +190,33 @@ function applyOperationToStore(client: InternalClient, op: CausalOperation) {
       if (fullUpdateMatch) {
         const [, varName, nodeType, nodeId, setVar, prop, value] = fullUpdateMatch;
         
-        // タイムスタンプチェック（Last-Write-Wins）- ただし、依存関係がある場合は常に適用
+        // 競合解決コンテキストを準備
         const updateKey = `${nodeId}.${prop}`;
-        const lastTimestamp = client.nodeUpdateTimestamps.get(updateKey) || 0;
+        const lastTimestamp = client.nodeUpdateTimestamps.get(updateKey);
+        const node = client.nodes.get(nodeId);
         
-        // 依存関係がない場合のみタイムスタンプチェック
-        if (op.dependsOn.length === 0 || !op.dependsOn.some(depId => depId.startsWith('op-'))) {
-          if (op.timestamp < lastTimestamp) {
-            // より新しい更新が既に適用されている
-            return;
-          }
+        const context: ConflictResolutionContext = {
+          nodeId,
+          property: prop,
+          nodeType,
+          existingValue: node?.properties[prop],
+          existingTimestamp: lastTimestamp
+        };
+        
+        // 競合解決アルゴリズムに判定を委譲
+        const shouldApply = client.conflictResolver.shouldApplyUpdate(
+          {
+            timestamp: op.timestamp,
+            value: value,
+            dependsOn: op.dependsOn
+          },
+          context
+        );
+        
+        if (!shouldApply) {
+          return;
         }
         
-        const node = client.nodes.get(nodeId);
         if (node && node.type === nodeType) {
           // 値の処理（文字列の場合はクォートを除去、数値の場合は変換）
           let finalValue = value.trim();

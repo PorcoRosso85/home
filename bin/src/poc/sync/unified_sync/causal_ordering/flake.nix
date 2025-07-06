@@ -41,8 +41,10 @@
 
             # Copy test files
             cp ${./causal-sync-client.test.ts} causal-sync-client.test.ts || true
+            cp ${./complex-scenarios.test.ts} complex-scenarios.test.ts || true
             cp ${./causal-sync-client.ts} causal-sync-client.ts || true
             cp ${./causal-operation-store.ts} causal-operation-store.ts || true
+            cp ${./conflict-resolution.ts} conflict-resolution.ts || true
             cp ${./websocket-server.ts} websocket-server.ts || true
 
             # List files
@@ -62,15 +64,15 @@
             
             # Run tests
             echo "[CAUSAL-ORDERING] Running causal ordering tests..."
-            echo "[CAUSAL-ORDERING] ✅ Implementation complete - tests should pass"
+            echo "[CAUSAL-ORDERING] 🔴 Red phase - expecting failures for new tests"
             
-            ${pkgs.deno}/bin/deno test --no-check --allow-net causal-sync-client.test.ts
+            ${pkgs.deno}/bin/deno test --no-check --allow-net causal-sync-client.test.ts complex-scenarios.test.ts || true
             
             # Cleanup
             kill $SERVER_PID 2>/dev/null || true
             
             echo ""
-            echo "[CAUSAL-ORDERING] ✅ Green phase complete - all tests pass!"
+            echo "[CAUSAL-ORDERING] 🔴 Red phase complete - tests should fail"
           ''}";
         };
 
