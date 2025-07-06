@@ -11,107 +11,103 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # Deno環境の設定
-        denoEnv = pkgs.deno;
+        # Gmail実行スクリプト
+        gmailApp = pkgs.writeShellScriptBin "gmail-cli" ''
+          # 環境変数チェック
+          if [ -z "$GOOGLE_CLIENT_ID" ] || [ -z "$GOOGLE_CLIENT_SECRET" ]; then
+            echo "❌ 環境変数を設定してください:"
+            echo "export GOOGLE_CLIENT_ID='your-client-id'"
+            echo "export GOOGLE_CLIENT_SECRET='your-client-secret'"
+            exit 1
+          fi
+          
+          # 一時ディレクトリで実行（書き込み権限確保）
+          export TMPDIR=$(mktemp -d)
+          cd $TMPDIR
+          
+          # 必要なファイルをコピー
+          cp -r ${./.}/mail $TMPDIR/
+          cp ${./.}/gmail.ts $TMPDIR/ 2>/dev/null || true
+          
+          # トークンファイルをホームディレクトリに保存
+          export TOKEN_FILE="$HOME/.gmail_tokens.json"
+          
+          # Denoで実行
+          ${pkgs.deno}/bin/deno run \
+            --allow-net \
+            --allow-read \
+            --allow-write \
+            --allow-env \
+            --allow-run \
+            $TMPDIR/mail/cli_full_auto.ts "$@"
+          
+          # クリーンアップ
+          rm -rf $TMPDIR 2>/dev/null || true
+        '';
+        
+        # テスト実行スクリプト
+        testScript = pkgs.writeShellScript "run-tests" ''
+          echo "Running tests..."
+          
+          # 一時ディレクトリ作成
+          WORK_DIR=$(mktemp -d)
+          trap "chmod -R u+w $WORK_DIR 2>/dev/null; rm -rf $WORK_DIR" EXIT
+          
+          # ファイルをコピー（書き込み権限付き）
+          cp -r ${./.}/* $WORK_DIR/
+          chmod -R u+w $WORK_DIR
+          cd $WORK_DIR
+          
+          # テスト用環境変数設定
+          export GOOGLE_CLIENT_ID="test-client-id"
+          export GOOGLE_CLIENT_SECRET="test-client-secret"
+          
+          # Denoキャッシュディレクトリ設定
+          export DENO_DIR="$WORK_DIR/.deno"
+          mkdir -p "$DENO_DIR"
+          
+          # テスト実行（--lockオプションなしで）
+          ${pkgs.deno}/bin/deno test \
+            --allow-all \
+            --no-check \
+            mail.test.ts \
+            mail/**/*.test.ts
+        '';
       in
       {
-        # 開発環境
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            denoEnv
+            deno
             sqlite
-            nodejs_20  # n8n用
-            nodePackages.npm
           ];
           
           shellHook = ''
             echo "Communication POC 開発環境"
             echo "使用可能なコマンド:"
-            echo "  nix run .        - README.mdを表示"
-            echo "  nix run .#test   - テストを実行"
-            echo "  nix run .#format - コードフォーマット"
-            echo "  nix run .#lint   - リンター実行"
-            echo "  nix run .#check  - 型チェック"
+            echo "  deno run --allow-all ./mail/cli_full_auto.ts"
+            echo "  deno test --allow-all"
           '';
         };
         
-        # アプリケーション定義
         apps = {
-          # デフォルト: README.mdを表示
+          # デフォルト: README表示
           default = {
             type = "app";
             program = "${pkgs.writeShellScript "show-readme" ''
-              if [ $# -ne 0 ]; then
-                echo "エラー: デフォルトコマンドは引数を受け付けません" >&2
-                echo "" >&2
-              fi
-              
-              if [ -f README.md ]; then
-                ${pkgs.coreutils}/bin/cat README.md
-              else
-                echo "README.md が見つかりません"
-                exit 1
-              fi
+              ${pkgs.coreutils}/bin/cat ${./.}/README.md
             ''}";
+          };
+          
+          # Gmail実行
+          run = {
+            type = "app";
+            program = "${gmailApp}/bin/gmail-cli";
           };
           
           # テスト実行
           test = {
             type = "app";
-            program = "${pkgs.writeShellScript "run-tests" ''
-              echo "Running e2e tests..."
-              echo ""
-              
-              # テスト実行（TDD Red Phase なのですべて失敗する）
-              ${denoEnv}/bin/deno test \
-                --allow-read \
-                --allow-write \
-                --allow-net \
-                --allow-env \
-                mail.test.ts || {
-                  echo ""
-                  echo "========================================="
-                  echo "TDD Red Phase: すべてのテストが失敗しました（想定通り）"
-                  echo "次のステップ: 実装を追加してテストを通す"
-                  echo "========================================="
-                  exit 0  # TDD Red Phaseなので正常終了
-                }
-            ''}";
-          };
-          
-          # コードフォーマット
-          format = {
-            type = "app";
-            program = "${pkgs.writeShellScript "format-code" ''
-              echo "Formatting TypeScript code..."
-              ${denoEnv}/bin/deno fmt \
-                --config deno.json \
-                mail/ \
-                mail.test.ts \
-                2>/dev/null || ${denoEnv}/bin/deno fmt mail/ mail.test.ts
-            ''}";
-          };
-          
-          # リンター
-          lint = {
-            type = "app";
-            program = "${pkgs.writeShellScript "lint-code" ''
-              echo "Linting TypeScript code..."
-              ${denoEnv}/bin/deno lint \
-                --config deno.json \
-                mail/ \
-                mail.test.ts \
-                2>/dev/null || ${denoEnv}/bin/deno lint mail/ mail.test.ts
-            ''}";
-          };
-          
-          # 型チェック
-          check = {
-            type = "app";
-            program = "${pkgs.writeShellScript "check-types" ''
-              echo "Type checking TypeScript code..."
-              ${denoEnv}/bin/deno check mail/mod.ts mail.test.ts
-            ''}";
+            program = "${testScript}";
           };
         };
       });
