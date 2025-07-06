@@ -143,5 +143,118 @@
           enforceMode = false;
         };
       };
-    };
+    } // flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in
+      {
+        # aaコマンドをflakeのアプリとして提供
+        apps.aa = {
+          type = "app";
+          program = toString (pkgs.writeShellScript "aa" ''
+            set -e
+            
+            # ヘルプ
+            if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]] || [[ -z "$1" ]]; then
+              cat <<EOF
+            Usage: nix run ${./flake.nix}#aa -- [OPTIONS] <flake-ref> [-- <args>...]
+            
+            Run a flake with AppArmor profile applied.
+            
+            Options:
+              -p, --profile NAME    Use specific AppArmor profile (default: restricted)
+              -c, --complain       Use complain mode instead of enforce
+              -v, --verbose        Show what's happening
+              -h, --help           Show this help
+            
+            Examples:
+              nix run ${./flake.nix}#aa -- nixpkgs#hello
+              nix run ${./flake.nix}#aa -- -p strict github:some/tool
+              nix run ${./flake.nix}#aa -- ./my-flake -- --version
+            EOF
+              exit 0
+            fi
+            
+            # デフォルト値
+            profile="restricted"
+            mode="enforce"
+            verbose=0
+            
+            # オプション解析
+            while [[ $# -gt 0 ]]; do
+              case "$1" in
+                -p|--profile)
+                  profile="$2"
+                  shift 2
+                  ;;
+                -c|--complain)
+                  mode="complain"
+                  shift
+                  ;;
+                -v|--verbose)
+                  verbose=1
+                  shift
+                  ;;
+                --)
+                  shift
+                  break
+                  ;;
+                -*)
+                  echo "Unknown option: $1" >&2
+                  exit 1
+                  ;;
+                *)
+                  flake="$1"
+                  shift
+                  break
+                  ;;
+              esac
+            done
+            
+            [[ $verbose -eq 1 ]] && echo "🔒 Applying AppArmor profile '$profile' in $mode mode to $flake"
+            
+            # flakeをビルド
+            if [[ "$flake" == /* ]] || [[ "$flake" == ./* ]]; then
+              store_path=$(nix build --no-link --print-out-paths "$flake")
+            else
+              store_path=$(nix build --no-link --print-out-paths "$flake" 2>/dev/null || \
+                           nix build --no-link --print-out-paths "$flake#defaultPackage.${system}")
+            fi
+            
+            # 実行ファイルを探す
+            if [[ -d "$store_path/bin" ]]; then
+              exe=$(find "$store_path/bin" -type f -executable | head -1)
+            else
+              echo "Error: No executable found in $store_path" >&2
+              exit 1
+            fi
+            
+            [[ $verbose -eq 1 ]] && echo "📦 Built: $store_path"
+            [[ $verbose -eq 1 ]] && echo "🚀 Executing: $exe"
+            
+            # AppArmorプロファイルが存在するかチェック
+            if command -v aa-exec >/dev/null 2>&1; then
+              # プロファイルをロード（必要なら）
+              if ! aa-status --json 2>/dev/null | grep -q "\"$profile\""; then
+                [[ $verbose -eq 1 ]] && echo "⚠️  Profile '$profile' not loaded, running without AppArmor"
+                exec "$exe" "$@"
+              else
+                # AppArmorで実行
+                exec aa-exec -p "$profile" -- "$exe" "$@"
+              fi
+            else
+              echo "Warning: AppArmor not available, running without protection" >&2
+              exec "$exe" "$@"
+            fi
+          '');
+        };
+        
+        # デフォルトアプリはREADME表示
+        apps.default = {
+          type = "app";
+          program = toString (pkgs.writeShellScript "show-readme" ''
+            ${pkgs.bat}/bin/bat -p ${./README.md} || cat ${./README.md}
+          '');
+        };
+      });
 }
