@@ -41,3 +41,9 @@ testpaths = ["."]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v"
+
+[dependency-groups]
+dev = [
+    # pytest-forked does NOT prevent segfaults with KuzuDB JSON extension
+    # Use subprocess wrapper (adapters_safe.py) instead
+]

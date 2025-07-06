@@ -1,6 +1,6 @@
 # KuzuDB JSON POC
 
-KuzuDBのJSON拡張機能を使用したPOC実装。
+KuzuDBのJSON拡張機能を使用したPOC実装。pytest環境でのセグメンテーションフォルト問題を解決済み。
 
 ## 概要
 
@@ -14,12 +14,14 @@ KuzuDBのJSON機能を実装：
 
 ```
 kuzu_json_poc/
-├── __init__.py    # パブリックAPI
-├── types.py       # 型定義
-├── core.py        # 純粋関数（JSONデータ操作）
-└── adapters.py    # KuzuDB統合（副作用）
+├── __init__.py         # パブリックAPI
+├── types.py            # 型定義
+├── core.py             # 純粋関数（JSONデータ操作）
+├── adapters.py         # KuzuDB統合（副作用）
+├── adapters_safe.py    # pytest環境用の安全なアダプター
+└── subprocess_wrapper.py # サブプロセス実行ラッパー
 
-test_*.py          # pytestテストファイル
+test_*.py              # pytestテストファイル
 ```
 
 ## 実行方法
@@ -67,42 +69,68 @@ ErrorDict = TypedDict({
 
 ## テスト
 
-- `test_core.py` - 純粋関数のテスト（22個）
-- `test_adapters.py` - KuzuDB統合テスト（9個）
-- `test_integration.py` - 統合テスト（4個）
+- `test_core.py` - 純粋関数のテスト
+- `test_adapters.py` - KuzuDB統合テスト（サブプロセスラッパー使用）
+- `test_integration_safe.py` - 安全な統合テスト（サブプロセスラッパー使用）
 
 ```bash
 # すべてのテストを実行
 nix run .#test
 ```
 
-## JSON型の使用について
+## pytest環境でのJSON拡張機能使用
 
-現在の実装は**JSON型を使用**するよう更新されています：
-- `CREATE NODE TABLE` で `JSON` 型カラムを定義
-- `to_json()` 関数でJSON型データを挿入
-- `json_extract()`, `json_merge_patch()` などのJSON関数を使用
+### 問題
+- `LOAD EXTENSION json;` でセグメンテーションフォルト発生
+- pytest環境でのみ発生（直接Python実行では動作）
+- 根本原因: KuzuDBのC++拡張とpytestのモジュール管理の衝突
 
-## Segfault回避の工夫
+### 解決策: サブプロセスラッパー
 
-`bin/src/requirement/graph`の調査から、以下のsegfault回避策を実装しています：
+このPOCでは、pytest環境でJSON拡張機能を安全に使用するため、サブプロセスラッパーを実装しています。
 
-### 1. データベースファクトリーパターン
-- インスタンスの一元管理
-- テスト用ユニークインスタンス生成
-- モジュールの自動リロード
+```python
+from kuzu_json_poc.adapters_safe import with_temp_database_safe
 
-### 2. 自動クリーンアップ（conftest.py）
-- 各テスト前後でキャッシュクリア
-- kuzu モジュールのリロード
-- JSON拡張機能の状態リセット
+def test_json_operations():
+    def operation(conn):
+        # connは自動的にpytest環境ではサブプロセスラッパーを使用
+        result = conn.execute("CREATE NODE TABLE Test(data JSON)")
+        return {"success": True}
+    
+    result = with_temp_database_safe(operation)
+    assert "error" not in result
+```
 
-### 3. テンポラリディレクトリの使用
-- インメモリではなく実ファイルシステムを使用
-- テスト間の状態汚染を防止
+詳細は `ACTUAL_SOLUTION.md` を参照してください。
 
-### 4. JSON Extension Manager
-- 拡張機能の読み込み状態を管理
-- 重複読み込みを防止
-- スレッドローカルストレージで状態管理
+## 使用方法
+
+### 通常のPython環境
+```python
+from kuzu_json_poc.adapters import with_temp_database, setup_json_extension
+
+def operation(conn):
+    setup_json_extension(conn)
+    conn.execute("CREATE NODE TABLE Doc(id STRING PRIMARY KEY, data JSON)")
+    conn.execute("CREATE (:Doc {id: 'doc1', data: to_json({'key': 'value'})})")
+    return conn.execute("MATCH (d:Doc) RETURN json_extract(d.data, '$.key')").get_next()[0]
+
+result = with_temp_database(operation)
+```
+
+### pytest環境
+```python
+from kuzu_json_poc.adapters_safe import with_temp_database_safe, create_document_node_safe
+
+def test_json_document():
+    def operation(conn):
+        # 自動的にサブプロセスラッパーを使用
+        result = create_document_node_safe(conn, "doc1", "article", {"title": "Test"})
+        assert result["status"] == "created"
+        return result
+    
+    result = with_temp_database_safe(operation)
+    assert "error" not in result
+```
 
