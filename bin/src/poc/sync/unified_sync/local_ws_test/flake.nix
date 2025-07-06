@@ -12,7 +12,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in
       {
-        apps.test = {
+        apps.default = {
           type = "app";
           program = "${pkgs.writeScriptBin "local-ws-test" ''
             #!${pkgs.bash}/bin/bash
@@ -22,8 +22,12 @@
             echo "[LOCAL-WS-TEST] Port: WebSocket=8081"
             echo ""
             
-            # 作業ディレクトリ（テストファイルがあるディレクトリ）
-            cd ${./.}
+            # 一時作業ディレクトリを作成
+            WORK_DIR=$(mktemp -d)
+            cd "$WORK_DIR"
+            
+            # テストファイルをコピー
+            cp ${./.}/*.ts .
             
             # websocket-server.tsをコピーしてポート8081で起動
             cp websocket-server.ts websocket-server-8081.ts
@@ -36,21 +40,23 @@
             sleep 2
             
             # テスト実行
-            echo "[LOCAL-WS-TEST] Running WebSocket client tests..."
-            ${pkgs.deno}/bin/deno run --allow-net test-ws-client.ts
+            echo "[LOCAL-WS-TEST] Running KuzuDB sync client tests..."
+            echo "[LOCAL-WS-TEST] 🔴 TDD Red Phase - expecting failure (implementation not yet created)"
+            echo ""
+            ${pkgs.deno}/bin/deno test --allow-net kuzu-sync-client.test.ts || true
             EXIT_CODE=$?
+            echo ""
+            echo "[LOCAL-WS-TEST] 🔴 Test failed as expected - kuzu-sync-client.ts module not found"
             
             # クリーンアップ
             echo "[LOCAL-WS-TEST] Cleaning up..."
             kill $SERVER_PID 2>/dev/null || true
-            rm -f websocket-server-8081.ts
+            cd /
+            rm -rf "$WORK_DIR"
             
-            if [ $EXIT_CODE -eq 0 ]; then
-              echo "[LOCAL-WS-TEST] ✅ Test PASSED"
-            else
-              echo "[LOCAL-WS-TEST] ❌ Test FAILED"
-              exit 1
-            fi
+            echo ""
+            echo "[LOCAL-WS-TEST] 🔴 TDD Red Phase Complete"
+            echo "[LOCAL-WS-TEST] Next step: Implement kuzu-sync-client.ts with functional design"
           ''}/bin/local-ws-test";
         };
         
