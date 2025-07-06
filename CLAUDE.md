@@ -25,6 +25,7 @@
 - **「POC」「記事を保存」「ドキュメント保存」「readability」**: `/poc` コマンドを実行
 - **「ASCII」「シーケンス図」「処理の流れ」「sequential diagram」**: `/ascii` コマンドを実行
 - **「仕様」「spec」「テスト一覧」「責務確認」**: `/spec` コマンドを実行
+- **「コミット」「git commit」**: `/commit` コマンドを実行（Claudeが編集したファイルのみのコミットを保証）
 
 ## Git Commit Rules
 自らが編集したファイル以外のstagingがないことを確認後、初めてコミット可能
