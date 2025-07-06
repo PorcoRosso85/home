@@ -11,9 +11,20 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
+        # Create a derivation that includes all source files
+        src = pkgs.stdenv.mkDerivation {
+          name = "url-crawler-src";
+          src = ./.;
+          phases = [ "unpackPhase" "installPhase" ];
+          installPhase = ''
+            mkdir -p $out
+            cp -r * $out/
+          '';
+        };
+        
         crawlScript = pkgs.writeScriptBin "url-crawl" ''
           #!${pkgs.bash}/bin/bash
-          exec ${pkgs.deno}/bin/deno run --allow-net ${./crawl.ts} "$@"
+          exec ${pkgs.deno}/bin/deno run --allow-net ${src}/crawl.ts "$@"
         '';
       in
       {
@@ -28,20 +39,21 @@
           format = {
             type = "app";
             program = toString (pkgs.writeShellScript "format" ''
-              ${pkgs.deno}/bin/deno fmt *.ts
+              ${pkgs.deno}/bin/deno fmt /home/nixos/bin/src/poc/crawl/url/*.ts
             '');
           };
           
           lint = {
             type = "app";
             program = toString (pkgs.writeShellScript "lint" ''
-              ${pkgs.deno}/bin/deno lint *.ts
+              ${pkgs.deno}/bin/deno lint /home/nixos/bin/src/poc/crawl/url/*.ts
             '');
           };
           
           typecheck = {
             type = "app";
             program = toString (pkgs.writeShellScript "typecheck" ''
+              cd /home/nixos/bin/src/poc/crawl/url
               ${pkgs.deno}/bin/deno check *.ts
             '');
           };
@@ -49,6 +61,7 @@
           test = {
             type = "app";
             program = toString (pkgs.writeShellScript "test" ''
+              cd /home/nixos/bin/src/poc/crawl/url
               ${pkgs.deno}/bin/deno test --allow-net *.test.ts
             '');
           };
