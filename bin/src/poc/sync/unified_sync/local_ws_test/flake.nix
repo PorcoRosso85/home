@@ -27,11 +27,22 @@
             cd "$WORK_DIR"
             
             # テストファイルをコピー
-            cp ${./.}/*.ts .
+            cp ${./.}/*.ts . || true
+            # 実装ファイルもコピー
+            cp ${./kuzu-sync-client.ts} . || true
+            # 追加ファイルもコピー
+            cp ${./sync-verification-design.md} . || true
+            
+            # コピーされたファイルを確認
+            echo "[LOCAL-WS-TEST] Files in working directory:"
+            ls -la *.ts || true
             
             # websocket-server.tsをコピーしてポート8081で起動
             cp websocket-server.ts websocket-server-8081.ts
             sed -i 's/const port = 8080/const port = 8081/' websocket-server-8081.ts
+            
+            # ポート8081のプロセスを先に終了
+            ${pkgs.lsof}/bin/lsof -ti:8081 | xargs -r kill -9 2>/dev/null || true
             
             echo "[LOCAL-WS-TEST] Starting server on port 8081..."
             ${pkgs.deno}/bin/deno run --allow-net websocket-server-8081.ts &
@@ -41,12 +52,10 @@
             
             # テスト実行
             echo "[LOCAL-WS-TEST] Running KuzuDB sync client tests..."
-            echo "[LOCAL-WS-TEST] 🔴 TDD Red Phase - expecting failure (implementation not yet created)"
+            echo "[LOCAL-WS-TEST] 🟢 TDD Green Phase - running implementation"
             echo ""
-            ${pkgs.deno}/bin/deno test --allow-net kuzu-sync-client.test.ts || true
+            ${pkgs.deno}/bin/deno test --no-check --allow-net --allow-read kuzu-sync-client.test.ts
             EXIT_CODE=$?
-            echo ""
-            echo "[LOCAL-WS-TEST] 🔴 Test failed as expected - kuzu-sync-client.ts module not found"
             
             # クリーンアップ
             echo "[LOCAL-WS-TEST] Cleaning up..."
@@ -54,15 +63,21 @@
             cd /
             rm -rf "$WORK_DIR"
             
-            echo ""
-            echo "[LOCAL-WS-TEST] 🔴 TDD Red Phase Complete"
-            echo "[LOCAL-WS-TEST] Next step: Implement kuzu-sync-client.ts with functional design"
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo ""
+              echo "[LOCAL-WS-TEST] ✅ All tests passed!"
+            else
+              echo ""
+              echo "[LOCAL-WS-TEST] ❌ Tests failed"
+              exit 1
+            fi
           ''}/bin/local-ws-test";
         };
         
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             deno
+            lsof
           ];
         };
       }

@@ -10,7 +10,7 @@
 
 // ========== サーバー設定 ==========
 
-const port = 8080;
+const port = 8081;
 const clients = new Map<string, ClientConnection>();
 const eventHistory: StoredEvent[] = [];
 let eventSequence = 0;
@@ -114,6 +114,29 @@ function broadcastEvent(event: StoredEvent, sourceClientId: string): void {
   }
 }
 
+// 新しいフォーマットでのブロードキャスト
+function broadcastEventNew(event: StoredEvent, sourceClientId: string): void {
+  const message = JSON.stringify({
+    type: "event",
+    event: event  // 新しいフォーマット
+  });
+  
+  for (const [clientId, connection] of clients) {
+    // 送信元クライアントには送らない
+    if (clientId === sourceClientId) continue;
+    
+    // サブスクリプションチェック
+    if (connection.subscriptions.size > 0 && 
+        !connection.subscriptions.has(event.template)) {
+      continue;
+    }
+    
+    if (connection.socket.readyState === WebSocket.OPEN) {
+      connection.socket.send(message);
+    }
+  }
+}
+
 // ========== WebSocketサーバー ==========
 
 console.log(`WebSocket server starting on ws://localhost:${port}`);
@@ -127,7 +150,7 @@ Deno.serve({ port }, (req) => {
   
   // URLパラメータからクライアントIDを取得（テスト用）
   const url = new URL(req.url);
-  const clientId = url.searchParams.get("clientId") || 
+  let clientId = url.searchParams.get("clientId") || 
     `client_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
   
   // テストサーバー状態エンドポイント
@@ -164,14 +187,33 @@ Deno.serve({ port }, (req) => {
       
       switch (message.type) {
         case "event":
+          // 新しいフォーマット: message.event または 古いフォーマット: message.payload
+          const eventData = message.event || message.payload;
+          
           // イベント検証
-          validateEvent(message.payload);
+          validateEvent(eventData);
           
           // イベント保存
-          const storedEvent = storeEvent(message.payload);
+          const storedEvent = storeEvent(eventData);
           
-          // 他のクライアントにブロードキャスト
-          broadcastEvent(storedEvent, clientId);
+          // 他のクライアントにブロードキャスト（新しいフォーマットで送信）
+          broadcastEventNew(storedEvent, clientId);
+          break;
+          
+        case "identify":
+          // クライアントID更新（新しいフォーマット用）
+          if (message.clientId) {
+            const oldConnection = clients.get(clientId);
+            if (oldConnection) {
+              clients.delete(clientId);
+              const newClientId = message.clientId;
+              oldConnection.id = newClientId;
+              clients.set(newClientId, oldConnection);
+              // Update clientId for this connection
+              clientId = newClientId;
+              console.log(`Client ${clientId} identified`);
+            }
+          }
           break;
           
         case "requestHistory":
