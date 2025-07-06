@@ -5,10 +5,13 @@ from .types import ErrorDict, QueryResult
 from .core import validate_json_string
 
 
-def create_database(path: str = None, in_memory: bool = False) -> Any:
+def create_database(path: str = None, in_memory: bool = False) -> Union[Any, ErrorDict]:
     """Create KuzuDB database"""
-    import kuzu
-    return kuzu.Database(":memory:" if in_memory else path)
+    try:
+        import kuzu
+        return kuzu.Database(":memory:" if in_memory else path)
+    except Exception as e:
+        return {"error": "Failed to create database", "details": str(e), "traceback": None}
 
 
 def create_connection(database: Any) -> Any:
