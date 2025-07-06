@@ -11,11 +11,16 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
+        pythonEnv = pkgs.python311.withPackages (ps: with ps; [
+          pytest
+          kuzu
+        ]);
+        
       in {
         # 開発シェル
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            python311
+            pythonEnv
             uv
             gcc
           ];
@@ -46,7 +51,8 @@
             program = "${pkgs.writeShellScript "rgl" ''
               export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}"
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              exec ${pkgs.uv}/bin/uv run python run.py "$@"
+              cd ${self}
+              exec ${pythonEnv}/bin/python run.py "$@"
             ''}";
           };
           
@@ -57,7 +63,16 @@
               export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}"
               export RGL_DB_PATH="/tmp/test_rgl_db"
               export RGL_SKIP_SCHEMA_CHECK="true"
-              exec ${pkgs.uv}/bin/uv run pytest "$@"
+              
+              # 実際のプロジェクトディレクトリを使用
+              PROJECT_DIR="/home/nixos/bin/src/requirement/graph"
+              if [ -f "$PROJECT_DIR/.venv/bin/pytest" ]; then
+                cd "$PROJECT_DIR"
+                exec "$PROJECT_DIR/.venv/bin/pytest" "$@"
+              else
+                echo "Error: $PROJECT_DIR/.venv/bin/pytest not found. Run 'uv sync' first."
+                exit 1
+              fi
             ''}";
           };
           
@@ -67,7 +82,8 @@
             program = "${pkgs.writeShellScript "schema" ''
               export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}"
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pkgs.uv}/bin/uv run python run.py
+              cd ${self}
+              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python run.py
             ''}";
           };
         };

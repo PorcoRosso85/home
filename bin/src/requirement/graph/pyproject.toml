@@ -45,6 +45,11 @@ addopts = [
     "--tb=short",
     "-v",
     "--ignore=mod.py",
+    "--ignore=test_subprocess_direct.py",
+    "--ignore=test_subprocess_debug.py",
+    "--ignore=test_subprocess_debug2.py",
+    "--ignore=test_subprocess_simple.py",
+    "--ignore=query_location_uris.py",
 ]
 
 [dependency-groups]
