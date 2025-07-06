@@ -10,80 +10,62 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        projectDir = "/home/nixos/bin/src/requirement/graph";
         
-        pythonEnv = pkgs.python311.withPackages (ps: with ps; [
-          pytest
-          kuzu
-        ]);
+        # 共通のpatchelf処理
+        patchKuzu = ''
+          for lib in .venv/lib/python*/site-packages/kuzu/*.so; do
+            [ -f "$lib" ] && ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" "$lib"
+          done
+        '';
+        
+        # 共通の実行ラッパー
+        mkRunner = name: script: pkgs.writeShellScript name ''
+          cd ${projectDir}
+          ${patchKuzu}
+          ${script}
+        '';
         
       in {
-        # 開発シェル
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            pythonEnv
+            python311
             uv
-            gcc
+            patchelf
+            stdenv.cc.cc.lib
           ];
-          
-          # C++ライブラリへのパスを提供
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-            pkgs.stdenv.cc.cc.lib
-          ];
-          
-          shellHook = ''
-            echo "RGL Development Environment"
-            export RGL_DB_PATH="./rgl_db"
-            echo "RGL_DB_PATH: $RGL_DB_PATH"
-            echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
-            
-            # uvの仮想環境をアクティベート（存在する場合）
-            if [ -f .venv/bin/activate ]; then
-              source .venv/bin/activate
-            fi
-          '';
         };
         
-        # アプリケーション
         apps = {
-          # 実装（メインアプリケーション）
           default = {
             type = "app";
-            program = "${pkgs.writeShellScript "rgl" ''
-              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}"
-              export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              cd ${self}
-              exec ${pythonEnv}/bin/python run.py "$@"
+            program = "${pkgs.writeShellScript "show-readme" ''
+              cat ${self}/README.md || echo "README.md not found"
             ''}";
           };
           
-          # テスト
           test = {
             type = "app";
-            program = "${pkgs.writeShellScript "test" ''
-              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}"
+            program = "${mkRunner "test" ''
               export RGL_DB_PATH="/tmp/test_rgl_db"
               export RGL_SKIP_SCHEMA_CHECK="true"
-              
-              # 実際のプロジェクトディレクトリを使用
-              PROJECT_DIR="/home/nixos/bin/src/requirement/graph"
-              if [ -f "$PROJECT_DIR/.venv/bin/pytest" ]; then
-                cd "$PROJECT_DIR"
-                exec "$PROJECT_DIR/.venv/bin/pytest" "$@"
-              else
-                echo "Error: $PROJECT_DIR/.venv/bin/pytest not found. Run 'uv sync' first."
-                exit 1
-              fi
+              exec .venv/bin/pytest "$@"
             ''}";
           };
           
-          # スキーマ適用
+          run = {
+            type = "app";
+            program = "${mkRunner "run" ''
+              export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
+              exec .venv/bin/python run.py "$@"
+            ''}";
+          };
+          
           schema = {
             type = "app";
-            program = "${pkgs.writeShellScript "schema" ''
-              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}"
+            program = "${mkRunner "schema" ''
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              cd ${self}
-              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python run.py
+              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | .venv/bin/python run.py
             ''}";
           };
         };
