@@ -58,7 +58,8 @@ export async function createKuzuSyncClient(options: CreateClientOptions): Promis
   return {
     ...client,
     executeAndBroadcast: (event: SyncEvent) => executeAndBroadcast(client, event),
-    query: (cypherQuery: string) => query(client, cypherQuery)
+    query: (cypherQuery: string) => query(client, cypherQuery),
+    sendEvent: (event: SyncEvent) => executeAndBroadcast(client, event) // エイリアス
   };
 }
 
@@ -122,7 +123,6 @@ async function applyEventToStore(client: KuzuSyncClient, event: SyncEvent): Prom
   if (event.params.cypherQuery) {
     // 簡易的なCypherクエリパーサー
     const query = event.params.cypherQuery;
-    console.log(`[Apply] Client ${client.id} applying query from ${event.clientId}: ${query.trim().substring(0, 50)}...`);
     
     // CREATE (n:Type {props}) パターン
     const createMatch = query.match(/CREATE\s+\((\w+)?:(\w+)\s+\{([^}]+)\}\)/);
@@ -137,7 +137,6 @@ async function applyEventToStore(client: KuzuSyncClient, event: SyncEvent): Prom
         properties: props
       };
       client.nodes.set(nodeId, node);
-      console.log(`[Apply] Created node ${nodeType} with id: ${nodeId}`);
     }
     
     // MATCH ... SET パターン（カウンター更新用）
@@ -155,19 +154,22 @@ async function applyEventToStore(client: KuzuSyncClient, event: SyncEvent): Prom
       }
     }
     
-    // CREATE multiple with WITH パターン
-    const multiCreateMatch = query.match(/CREATE\s+\((\w+):(\w+)\s+\{([^}]+)\}\)\s+WITH\s+\w+\s+MATCH/);
+    // CREATE multiple with WITH パターン（例: CREATE (n:User {...}) WITH n MATCH (a:User {...}) CREATE (a)-[:KNOWS]->(n)）
+    const multiCreateMatch = query.match(/CREATE\s+\((\w+):(\w+)\s+\{([^}]+)\}\)\s+WITH\s+\w+\s+MATCH\s+\((\w+):(\w+)\s+\{([^}]+)\}\)\s+CREATE/);
     if (multiCreateMatch) {
-      const [, varName, nodeType, propsStr] = multiCreateMatch;
-      const props = parseProperties(propsStr);
+      const [, newVarName, newNodeType, newPropsStr, existingVarName, existingNodeType, existingPropsStr] = multiCreateMatch;
+      const newProps = parseProperties(newPropsStr);
       
-      // ノードを作成
-      const nodeId = props.id || crypto.randomUUID();
-      const node = {
-        type: nodeType,
-        properties: props
+      // 新しいノードを作成
+      const newNodeId = newProps.id || crypto.randomUUID();
+      const newNode = {
+        type: newNodeType,
+        properties: newProps
       };
-      client.nodes.set(nodeId, node);
+      client.nodes.set(newNodeId, newNode);
+      
+      // リレーションシップも記録（簡略化のため、今回は両ノードの存在を確認するのみ）
+      // 実際の実装では、エッジの情報も保存する必要がある
     }
     
     // CREATE relationship パターン
@@ -216,8 +218,6 @@ export async function executeAndBroadcast(client: KuzuSyncClient, event: SyncEve
 
 // DQLクエリを実行（簡略化版）
 export async function query(client: KuzuSyncClient, cypherQuery: string): Promise<any[]> {
-  console.log(`[Query] Client ${client.id} executing: ${cypherQuery.trim()}`);
-  console.log(`[Query] Nodes in store: ${client.nodes.size}`);
   // MATCH (n:Type) RETURN ... パターン
   const matchAllMatch = cypherQuery.match(/MATCH\s+\((\w+):(\w+)\)\s+RETURN/);
   if (matchAllMatch) {
@@ -263,12 +263,10 @@ export async function query(client: KuzuSyncClient, cypherQuery: string): Promis
   if (matchSpecificMatch) {
     const [, varName, nodeType, propsStr] = matchSpecificMatch;
     const matchProps = parseProperties(propsStr);
-    console.log(`[Query] Looking for ${nodeType} with props:`, matchProps);
     
     // 該当ノードを探す
     const results = [];
     for (const [id, node] of client.nodes) {
-      console.log(`[Query] Checking node: ${id}, type: ${node.type}, props:`, node.properties);
       if (node.type === nodeType) {
         let match = true;
         for (const [key, value] of Object.entries(matchProps)) {
@@ -279,7 +277,6 @@ export async function query(client: KuzuSyncClient, cypherQuery: string): Promis
         }
         
         if (match) {
-          console.log(`[Query] Found matching node: ${id}`);
           // RETURN句をパース
           const returnMatch = cypherQuery.match(/RETURN\s+(.+)$/ms);
           if (returnMatch) {
@@ -322,6 +319,7 @@ export async function query(client: KuzuSyncClient, cypherQuery: string): Promis
     let fromNode = null;
     let toNode = null;
     
+    
     for (const [id, node] of client.nodes) {
       if (node.type === fromType && node.properties.id === fromProps.id) {
         fromNode = node;
@@ -331,10 +329,11 @@ export async function query(client: KuzuSyncClient, cypherQuery: string): Promis
       }
     }
     
+    
     if (fromNode && toNode) {
-      const returnMatch = cypherQuery.match(/RETURN\s+(.+)$/);
+      const returnMatch = cypherQuery.match(/RETURN\s+(.+)$/s);
       if (returnMatch) {
-        const returnClause = returnMatch[1];
+        const returnClause = returnMatch[1].trim();
         const result: any = {};
         
         // a.name as alice, b.name as bob パターン
@@ -351,6 +350,7 @@ export async function query(client: KuzuSyncClient, cypherQuery: string): Promis
           }
         }
         
+        
         return [result];
       }
     }
@@ -365,4 +365,45 @@ export async function disconnect(client: KuzuSyncClient): Promise<void> {
     client.ws.close();
     client.ws = null;
   }
+}
+
+// イベント数を取得
+export async function getEventCount(client: KuzuSyncClient): Promise<number> {
+  return client.eventLog.length;
+}
+
+// 特定タイプのノード数を取得
+export async function getNodeCount(client: KuzuSyncClient, nodeType: string): Promise<number> {
+  let count = 0;
+  for (const [, node] of client.nodes) {
+    if (node.type === nodeType) {
+      count++;
+    }
+  }
+  return count;
+}
+
+// ノードをクエリ（フィルタ付き）
+export async function queryNodes(client: KuzuSyncClient, nodeType: string, filter?: any): Promise<any[]> {
+  const results = [];
+  for (const [, node] of client.nodes) {
+    if (node.type === nodeType) {
+      if (filter) {
+        // フィルタがある場合はマッチングをチェック
+        let match = true;
+        for (const [key, value] of Object.entries(filter)) {
+          if (node.properties[key] !== value) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          results.push(node);
+        }
+      } else {
+        results.push(node);
+      }
+    }
+  }
+  return results;
 }

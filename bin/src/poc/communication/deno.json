@@ -1,0 +1,22 @@
+{
+  "tasks": {
+    "test": "deno test --allow-read --allow-write --allow-net --allow-env",
+    "format": "deno fmt",
+    "lint": "deno lint",
+    "check": "deno check mail/mod.ts mail.test.ts"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "test": {
+    "include": ["**/*.test.ts"]
+  }
+}
