@@ -6,10 +6,10 @@
 
 ```bash
 # SSHキーへのアクセスをブロック
-nix run .#aa -- cat ~/.ssh/id_rsa
+nix run .#run -- cat ~/.ssh/id_rsa
 
 # ネットワークを遮断（strictモード）
-nix run .#aa -- -p strict curl https://example.com
+nix run .#run -- -p strict curl https://example.com
 
 # テスト実行
 nix run .#test
