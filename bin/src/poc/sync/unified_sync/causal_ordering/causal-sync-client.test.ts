@@ -1,9 +1,25 @@
 import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
-import { describe, it } from "https://deno.land/std@0.208.0/testing/bdd.ts";
+import { describe, it, afterEach } from "https://deno.land/std@0.208.0/testing/bdd.ts";
 import { createCausalSyncClient, disconnect } from './causal-sync-client.ts';
 import type { CausalSyncClient, CausalOperation } from './causal-sync-client.ts';
 
 describe("Causal Ordering Sync Tests", () => {
+  let allClients: CausalSyncClient[] = [];
+  
+  afterEach(async () => {
+    // すべてのクライアントを確実に切断
+    for (const client of allClients) {
+      try {
+        await disconnect(client);
+      } catch (e) {
+        // エラーを無視
+      }
+    }
+    allClients = [];
+    
+    // WebSocketが完全にクローズされるのを待つ
+    await new Promise(resolve => setTimeout(resolve, 200));
+  });
   it("should handle concurrent increments with causal ordering", async () => {
     console.log('🔴 TDD Red: Testing concurrent increments with causal ordering');
     
@@ -18,6 +34,7 @@ describe("Causal Ordering Sync Tests", () => {
         wsUrl: 'ws://localhost:8083'
       });
       clients.push(client);
+      allClients.push(client);
     }
     
     console.log('✅ All clients connected');
@@ -72,10 +89,7 @@ describe("Causal Ordering Sync Tests", () => {
       console.log(`✅ Client ${i}: counter = ${result[0].value}`);
     }
     
-    // クリーンアップ
-    for (const client of clients) {
-      await disconnect(client);
-    }
+    // クリーンアップはafterEachで実行
   });
 
   it("should resolve conflicting updates based on causal dependencies", async () => {
@@ -86,12 +100,14 @@ describe("Causal Ordering Sync Tests", () => {
       dbPath: ':memory:',
       wsUrl: 'ws://localhost:8083'
     });
+    allClients.push(client1);
     
     const client2 = await createCausalSyncClient({
       clientId: 'conflict-client-2',
       dbPath: ':memory:',
       wsUrl: 'ws://localhost:8083'
     });
+    allClients.push(client2);
     
     // 初期ノードを作成
     await client1.executeOperation({
@@ -140,8 +156,7 @@ describe("Causal Ordering Sync Tests", () => {
     assertEquals(result1[0].status, result2[0].status, "Both clients should see the same status");
     console.log(`✅ Consistent state: ${result1[0].status}`);
     
-    await disconnect(client1);
-    await disconnect(client2);
+    // クリーンアップはafterEachで実行
   });
 
   it("should wait for dependencies before applying operations", async () => {
@@ -152,6 +167,7 @@ describe("Causal Ordering Sync Tests", () => {
       dbPath: ':memory:',
       wsUrl: 'ws://localhost:8083'
     });
+    allClients.push(client);
     
     // 依存関係のある操作を逆順で送信
     const op3Promise = client.executeOperation({
@@ -207,6 +223,6 @@ describe("Causal Ordering Sync Tests", () => {
     assertEquals(history[2].id, 'op-3', "Third operation should be op-3");
     console.log('✅ Operation history:', history.map(op => op.id));
     
-    await disconnect(client);
+    // クリーンアップはafterEachで実行
   });
 });

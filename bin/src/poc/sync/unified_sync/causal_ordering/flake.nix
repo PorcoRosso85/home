@@ -66,7 +66,11 @@
             echo "[CAUSAL-ORDERING] Running causal ordering tests..."
             echo "[CAUSAL-ORDERING] 🔴 Red phase - expecting failures for new tests"
             
-            ${pkgs.deno}/bin/deno test --no-check --allow-net causal-sync-client.test.ts complex-scenarios.test.ts || true
+            ${pkgs.deno}/bin/deno test --no-check --allow-net --v8-flags=--max-old-space-size=512 causal-sync-client.test.ts || echo "Basic tests completed"
+            
+            echo ""
+            echo "[CAUSAL-ORDERING] Running complex scenarios..."
+            ${pkgs.deno}/bin/deno test --no-check --allow-net --v8-flags=--max-old-space-size=512 complex-scenarios.test.ts || echo "Complex tests completed"
             
             # Cleanup
             kill $SERVER_PID 2>/dev/null || true
