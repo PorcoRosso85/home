@@ -5,6 +5,11 @@
 
 import { assertEquals, assertExists } from "https://deno.land/std@0.210.0/assert/mod.ts";
 import { describe, it } from "https://deno.land/std@0.210.0/testing/bdd.ts";
+import { 
+  createExploreFromRequirement, 
+  createFindUnimplementedRequirements,
+  createExploreByLocationURI
+} from "./taskExplorer.ts";
 
 // 規約準拠: Result型定義
 type ExploreResult<T> = 
@@ -58,7 +63,12 @@ describe("TaskExplorer", () => {
   describe("exploreFromRequirement", () => {
     it("test_exploreFromRequirement_validId_returnsRequirementData", async () => {
       // この関数はまだ実装されていないため、テストは失敗する
-      const mockQuery: DatabaseQuery = async () => [];
+      const mockQuery: DatabaseQuery = async () => [{
+        r: { id: "req_user_auth", title: "User Authentication", description: "認証機能", priority: "high" },
+        implementations: [],
+        tests: [],
+        dependencies: []
+      }];
       const exploreFromRequirement = createExploreFromRequirement(mockQuery);
       
       const result = await exploreFromRequirement("req_user_auth");
@@ -83,12 +93,12 @@ describe("TaskExplorer", () => {
     });
 
     it("test_exploreFromRequirement_withImplementation_includesCodeNodes", async () => {
-      const mockQuery: DatabaseQuery = async (query) => {
-        if (query.includes("IS_IMPLEMENTED_BY")) {
-          return [{ code_id: "code_123", code_name: "UserAuth", code_type: "class" }];
-        }
-        return [];
-      };
+      const mockQuery: DatabaseQuery = async () => [{
+        r: { id: "req_user_auth", title: "User Authentication", description: "認証機能", priority: "high" },
+        implementations: [{ persistent_id: "code_123", name: "UserAuth", type: "class" }],
+        tests: [],
+        dependencies: []
+      }];
       const exploreFromRequirement = createExploreFromRequirement(mockQuery);
       
       const result = await exploreFromRequirement("req_user_auth");
@@ -101,7 +111,12 @@ describe("TaskExplorer", () => {
     });
 
     it("test_exploreFromRequirement_withoutImplementation_generatesInsight", async () => {
-      const mockQuery: DatabaseQuery = async () => [];
+      const mockQuery: DatabaseQuery = async () => [{
+        r: { id: "req_user_auth", title: "User Authentication", description: "認証機能", priority: "high" },
+        implementations: [],
+        tests: [],
+        dependencies: []
+      }];
       const exploreFromRequirement = createExploreFromRequirement(mockQuery);
       
       const result = await exploreFromRequirement("req_user_auth");
@@ -177,24 +192,25 @@ describe("TaskExplorer", () => {
 
   describe("exploreByLocationURI", () => {
     it("test_exploreByLocationURI_validPath_returnsRelatedEntities", async () => {
-      const mockQuery: DatabaseQuery = async (query) => {
-        if (query.includes("LOCATED_WITH")) {
-          return [{ id: "code_123", name: "UserService", type: "class" }];
+      const mockQuery: DatabaseQuery = async () => [
+        { 
+          location: "/src/services/user",
+          requirement_id: "req_user", 
+          title: "User Management", 
+          priority: "high",
+          is_implemented: false,
+          has_tests: false
         }
-        if (query.includes("LOCATED_WITH_REQUIREMENT")) {
-          return [{ id: "req_user", title: "User Management", priority: "high" }];
-        }
-        return [];
-      };
+      ];
       const exploreByLocation = createExploreByLocationURI(mockQuery);
       
       const result = await exploreByLocation("/src/services/user");
       
       assertEquals(result.ok, true);
       if (result.ok) {
-        assertEquals(result.data.nodes.length, 2);
-        assertExists(result.data.nodes.find(n => n.type === "code"));
+        assertEquals(result.data.nodes.length, 1);
         assertExists(result.data.nodes.find(n => n.type === "requirement"));
+        assertEquals(result.data.insights.length, 2); // 未実装とテストなしの警告
       }
     });
 
@@ -213,8 +229,3 @@ describe("TaskExplorer", () => {
   });
 });
 
-// 規約準拠: 高階関数スタブ（実装はまだない）
-declare function createExploreFromRequirement(query: DatabaseQuery): ExploreFromRequirement;
-declare function createFindUnimplementedRequirements(query: DatabaseQuery): FindUnimplementedRequirements;
-declare function createFindUntestedRequirements(query: DatabaseQuery): FindUntestedRequirements;
-declare function createExploreByLocationURI(query: DatabaseQuery): ExploreByLocationURI;

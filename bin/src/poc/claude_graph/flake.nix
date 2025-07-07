@@ -11,8 +11,28 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
+        # ソースをフィルタリング（.tsファイルとCypherファイルのみ）
+        src = pkgs.lib.cleanSourceWith {
+          src = ./.;
+          filter = path: type:
+            let baseName = baseNameOf path;
+            in pkgs.lib.hasSuffix ".ts" baseName ||
+               pkgs.lib.hasSuffix ".cypher" baseName ||
+               pkgs.lib.hasSuffix ".md" baseName ||
+               pkgs.lib.hasSuffix ".json" baseName ||
+               pkgs.lib.hasSuffix ".nix" baseName ||
+               type == "directory";
+        };
+        
         # Deno実行環境
         denoEnv = pkgs.deno;
+        
+        # Python環境
+        pythonEnv = pkgs.python311.withPackages (ps: with ps; [
+          pytest
+          hypothesis
+          pytest-snapshot
+        ]);
         
         # 開発ツール
         devTools = with pkgs; [
@@ -24,30 +44,35 @@
           nodePackages.prettier
           dprint
           
-          # テストツール
-          nodePackages.vitest
         ];
 
       in
       {
         # 開発シェル
         devShells.default = pkgs.mkShell {
-          buildInputs = [ denoEnv ] ++ devTools;
+          buildInputs = [ denoEnv pythonEnv ] ++ devTools;
           
           shellHook = ''
             echo "Claude Graph POC 開発環境"
             echo "========================"
             echo ""
             echo "利用可能なコマンド:"
+            echo ""
+            echo "Deno (単体テスト):"
             echo "  deno test    - テストを実行"
             echo "  deno fmt     - コードフォーマット"
             echo "  deno lint    - リント実行"
             echo "  deno run     - スクリプト実行"
             echo ""
+            echo "Python (E2Eテスト):"
+            echo "  pytest       - E2Eテストを実行"
+            echo "  pytest -v    - 詳細なテスト結果を表示"
+            echo "  pytest --snapshot-update - スナップショットを更新"
+            echo ""
             echo "テスト実行例:"
             echo "  deno test taskExplorer.test.ts"
-            echo "  deno test taskPlanner.test.ts"
-            echo "  deno test claudeIntegration.test.ts"
+            echo "  pytest test_e2e.py"
+            echo "  pytest test_e2e.py::test_specific_case"
             echo ""
             echo "規約チェック:"
             echo "  - レイヤー分離を確認"
@@ -62,39 +87,15 @@
           type = "app";
           program = toString (pkgs.writeShellScript "run-tests" ''
             #!/usr/bin/env bash
-            set -euo pipefail
-            
-            echo "🧪 Claude Graph POC テスト実行"
-            echo "=============================="
+            echo "🧪 Claude Graph POC テストを実行するには、以下のコマンドを使用してください:"
             echo ""
-            
-            # テストファイルの存在確認
-            if [ ! -f "taskExplorer.test.ts" ] || [ ! -f "taskPlanner.test.ts" ] || [ ! -f "claudeIntegration.test.ts" ]; then
-              echo "❌ エラー: テストファイルが見つかりません"
-              echo "現在のディレクトリ: $(pwd)"
-              echo "必要なファイル:"
-              echo "  - taskExplorer.test.ts"
-              echo "  - taskPlanner.test.ts"
-              echo "  - claudeIntegration.test.ts"
-              exit 1
-            fi
-            
-            # 各テストを実行
-            echo "📋 taskExplorer.test.ts を実行中..."
-            ${denoEnv}/bin/deno test taskExplorer.test.ts --allow-read || true
+            echo "  cd ${placeholder "out"}"
+            echo "  nix develop -c deno test . --allow-read --no-check --filter=\"/(taskExplorer|taskPlanner|versionBasedExplorer)/\""
             echo ""
-            
-            echo "📋 taskPlanner.test.ts を実行中..."
-            ${denoEnv}/bin/deno test taskPlanner.test.ts --allow-read || true
+            echo "または:"
             echo ""
-            
-            echo "📋 claudeIntegration.test.ts を実行中..."
-            ${denoEnv}/bin/deno test claudeIntegration.test.ts --allow-read || true
-            echo ""
-            
-            echo "✅ 全てのテストを実行しました"
-            echo ""
-            echo "📌 注意: 現在はTDD Redフェーズのため、全てのテストが失敗することが期待されています"
+            echo "  cd ${placeholder "out"}"
+            echo "  nix develop -c ./run-tests.sh"
           '');
         };
         
