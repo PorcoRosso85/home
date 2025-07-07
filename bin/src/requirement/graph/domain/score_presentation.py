@@ -24,24 +24,52 @@ def convert_to_display_score(internal_score: int) -> int:
         return 100 + internal_score
 
 
-def make_decision(scores: Dict[str, int], thresholds: Dict[str, int]) -> str:
+def make_decision(baseline: int = None, current: int = None, predicted: int = None, 
+                 scores: Dict[str, int] = None, thresholds: Dict[str, int] = None) -> Dict[str, str]:
     """
     複数のスコアから判定を行う
     
     Args:
-        scores: スコアの辞書
-        thresholds: 閾値の辞書
+        baseline: ベースラインスコア
+        current: 現在のスコア
+        predicted: 予測スコア
+        scores: スコアの辞書（レガシー用）
+        thresholds: 閾値の辞書（レガシー用）
         
     Returns:
         判定結果
     """
-    # 総合スコアを計算
-    total_score = sum(scores.values())
+    # 新しいAPI（baseline, current, predicted）
+    if baseline is not None and current is not None:
+        threshold = 70
+        
+        result = {
+            "status": "PASS",
+            "warning": None,
+            "action": None
+        }
+        
+        # 現在値チェック
+        if current < threshold:
+            result["status"] = "PASS_WITH_WARNING"
+            result["action"] = "メンテナンス推奨"
+        
+        # 予測値チェック
+        if predicted is not None and predicted < threshold:
+            if result["warning"] is None:
+                result["warning"] = "予測値が閾値を下回ります"
+        
+        return result
     
-    # 判定
-    if total_score < thresholds.get("reject", -200):
-        return "reject"
-    elif total_score < thresholds.get("review", -100):
-        return "review"
-    else:
-        return "approve"
+    # レガシーAPI（scores, thresholds）
+    if scores and thresholds:
+        total_score = sum(scores.values())
+        
+        if total_score < thresholds.get("reject", -200):
+            return "reject"
+        elif total_score < thresholds.get("review", -100):
+            return "review"
+        else:
+            return "approve"
+    
+    return {"status": "ERROR", "message": "Invalid arguments"}

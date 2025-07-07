@@ -33,7 +33,7 @@ class AmbiguityFriction:
             term_penalty = -0.1 * len(self.ambiguous_terms)
             base_score += term_penalty
         
-        return base_score
+        return round(base_score, 10)  # 浮動小数点精度の問題を回避
     
     def get_level(self) -> str:
         """曖昧性レベルを取得"""

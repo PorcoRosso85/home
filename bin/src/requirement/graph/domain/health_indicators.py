@@ -25,6 +25,14 @@ class HealthIndicator:
     def get_category_score(self, category: str) -> int:
         """カテゴリ別スコアを取得"""
         return self.scores.get(category, 0)
+    
+    def set_category_score(self, category: str, score: int):
+        """カテゴリ別スコアを設定"""
+        self.add_category_score(category, score)
+    
+    def get_all_scores(self) -> Dict[str, int]:
+        """すべてのスコアを取得"""
+        return self.scores.copy()
 
 
 def calculate_weighted_average(scores: Dict[str, int], weights: Dict[str, float]) -> int:

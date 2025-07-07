@@ -4,10 +4,10 @@ Requirement Service - 要件管理とグラフ探索
 外部依存: なし
 """
 from typing import List, Dict, Callable, Optional, Union
-from ..domain.types import Decision, DecisionResult, DecisionError
-from ..domain.decision import create_decision
-from ..domain.embedder import create_embedding
-from ..domain.constraints import (
+from domain.types import Decision, DecisionResult, DecisionError
+from domain.decision import create_decision
+from domain.embedder import create_embedding
+from domain.constraints import (
     validate_no_circular_dependency,
     validate_max_depth,
     validate_implementation_completeness

@@ -6,6 +6,10 @@ from typing import Dict, Any
 
 # コンテキスト係数の定義
 _CONTEXT_COEFFICIENTS = {
+    "C01": 0.5,  # hotfix
+    "C02": 0.3,  # security
+    "C03": 1.5,  # tech_debt
+    "C04": 1.0,  # normal
     "early_stage": 0.5,      # 初期段階
     "growth_stage": 1.0,     # 成長段階  
     "mature_stage": 1.5,     # 成熟段階
@@ -27,29 +31,30 @@ def get_context_coefficient(context_id: str) -> float:
     return _CONTEXT_COEFFICIENTS.get(context_id, 1.0)
 
 
-def identify_context(metadata: Dict[str, Any]) -> str:
+def identify_context(requirement_title: str, tags: list = None) -> str:
     """
-    メタデータからコンテキストを自動識別
+    要件名やタグからコンテキストを自動識別
     
     Args:
-        metadata: プロジェクトメタデータ
+        requirement_title: 要件のタイトル
+        tags: タグのリスト
         
     Returns:
         コンテキストID
     """
-    # 緊急フラグチェック
-    if metadata.get("is_emergency", False):
-        return "emergency"
+    if tags is None:
+        tags = []
     
-    # 実験フラグチェック
-    if metadata.get("is_experimental", False):
-        return "experimental"
+    # タイトルのプレフィックスチェック
+    if requirement_title.startswith("hotfix_"):
+        return "C01"
     
-    # プロジェクト期間から判定
-    days_since_start = metadata.get("days_since_start", 0)
-    if days_since_start < 30:
-        return "early_stage"
-    elif days_since_start < 180:
-        return "growth_stage"
-    else:
-        return "mature_stage"
+    # タグチェック
+    if "security_critical" in tags:
+        return "C02"
+    
+    if "technical_debt" in tags:
+        return "C03"
+    
+    # デフォルト
+    return "C04"
