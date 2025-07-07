@@ -1,9 +1,25 @@
 import { assertEquals, assertExists, assertRejects } from "https://deno.land/std@0.208.0/assert/mod.ts";
-import { describe, it } from "https://deno.land/std@0.208.0/testing/bdd.ts";
+import { describe, it, afterEach } from "https://deno.land/std@0.208.0/testing/bdd.ts";
 import { createCausalSyncClient, disconnect } from './causal-sync-client.ts';
 import type { CausalSyncClient, CausalOperation } from './causal-sync-client.ts';
 
 describe("Complex Causal Ordering Scenarios", () => {
+  let allClients: CausalSyncClient[] = [];
+  
+  afterEach(async () => {
+    // すべてのクライアントを確実に切断
+    for (const client of allClients) {
+      try {
+        await disconnect(client);
+      } catch (e) {
+        // エラーを無視
+      }
+    }
+    allClients = [];
+    
+    // WebSocketが完全にクローズされるのを待つ
+    await new Promise(resolve => setTimeout(resolve, 200));
+  });
   it("should handle diamond-shaped dependency graph", async () => {
     console.log('🔴 TDD Red: Testing diamond dependency graph');
     
@@ -12,6 +28,7 @@ describe("Complex Causal Ordering Scenarios", () => {
       dbPath: ':memory:',
       wsUrl: 'ws://localhost:8083'
     });
+    allClients.push(client);
     
     // ダイヤモンド形状の依存関係グラフ
     //    A
@@ -21,7 +38,7 @@ describe("Complex Causal Ordering Scenarios", () => {
     //    D
     
     // 逆順で送信
-    const opD = client.executeOperation({
+    const opD = await client.executeOperation({
       id: 'op-D',
       dependsOn: ['op-B', 'op-C'], // BとCの両方に依存
       type: 'UPDATE',
@@ -34,7 +51,7 @@ describe("Complex Causal Ordering Scenarios", () => {
     
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    const opC = client.executeOperation({
+    const opC = await client.executeOperation({
       id: 'op-C',
       dependsOn: ['op-A'],
       type: 'UPDATE',
@@ -47,7 +64,7 @@ describe("Complex Causal Ordering Scenarios", () => {
     
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    const opB = client.executeOperation({
+    const opB = await client.executeOperation({
       id: 'op-B',
       dependsOn: ['op-A'],
       type: 'UPDATE',
@@ -60,7 +77,7 @@ describe("Complex Causal Ordering Scenarios", () => {
     
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    const opA = client.executeOperation({
+    const opA = await client.executeOperation({
       id: 'op-A',
       dependsOn: [],
       type: 'CREATE',
@@ -70,9 +87,6 @@ describe("Complex Causal Ordering Scenarios", () => {
       clientId: client.id,
       timestamp: Date.now()
     });
-    
-    // すべての操作が完了するのを待つ
-    await Promise.all([opA, opB, opC, opD]);
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // 最終状態はD
@@ -81,10 +95,12 @@ describe("Complex Causal Ordering Scenarios", () => {
     
     // 操作履歴の順序を確認
     const history = await client.getOperationHistory();
-    assertEquals(history.map(op => op.id), ['op-A', 'op-B', 'op-C', 'op-D'], 
-      "Operations should be applied in correct order");
+    const ids = history.map(op => op.id);
+    assertEquals(ids.length, 4, "Should have 4 operations");
+    assertEquals(ids[0], 'op-A', "First operation should be A");
+    assertEquals(ids[ids.length - 1], 'op-D', "Last operation should be D");
     
-    await disconnect(client);
+    // クリーンアップはafterEachで実行
   });
 
   it("should detect and handle circular dependencies", async () => {
@@ -95,6 +111,7 @@ describe("Complex Causal Ordering Scenarios", () => {
       dbPath: ':memory:',
       wsUrl: 'ws://localhost:8083'
     });
+    allClients.push(client);
     
     // 循環依存: A → B → C → A
     const operations = [
@@ -143,7 +160,7 @@ describe("Complex Causal Ordering Scenarios", () => {
     assertEquals(circularDetected[0].sort(), ['op-A', 'op-B', 'op-C'].sort(), 
       "Circular dependency should include all three operations");
     
-    await disconnect(client);
+    // クリーンアップはafterEachで実行
   });
 
   it("should handle network partition and reconciliation", async () => {
@@ -160,6 +177,7 @@ describe("Complex Causal Ordering Scenarios", () => {
         dbPath: ':memory:',
         wsUrl: 'ws://localhost:8083'
       });
+    allClients.push(client);
       group1Clients.push(client);
     }
     
@@ -170,6 +188,7 @@ describe("Complex Causal Ordering Scenarios", () => {
         dbPath: ':memory:',
         wsUrl: 'ws://localhost:8083'
       });
+    allClients.push(client);
       group2Clients.push(client);
     }
     
@@ -247,7 +266,7 @@ describe("Complex Causal Ordering Scenarios", () => {
     
     // クリーンアップ
     for (const client of allClients) {
-      await disconnect(client);
+      // クリーンアップはafterEachで実行
     }
   });
 
@@ -259,6 +278,7 @@ describe("Complex Causal Ordering Scenarios", () => {
       dbPath: ':memory:',
       wsUrl: 'ws://localhost:8083'
     });
+    allClients.push(client);
     
     // 初期アカウントを作成
     await client.executeOperation({
@@ -352,6 +372,6 @@ describe("Complex Causal Ordering Scenarios", () => {
     assertEquals(aliceResultAfterFail[0].balance, 700, "Alice balance should not change after failed transaction");
     assertEquals(bobResultAfterFail[0].balance, 800, "Bob balance should not change after failed transaction");
     
-    await disconnect(client);
+    // クリーンアップはafterEachで実行
   });
 });

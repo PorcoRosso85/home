@@ -13,6 +13,8 @@ interface CausalOperation {
 interface ConnectionState {
   id: string;
   ws: WebSocket;
+  isPartitioned: boolean;
+  partitionAllowedClients: Set<string>;
 }
 
 const clients = new Map<string, ConnectionState>();
@@ -32,7 +34,12 @@ Deno.serve({ port }, (req) => {
   
   socket.onopen = () => {
     console.log(`Client connected: ${clientId}`);
-    const connection: ConnectionState = { id: clientId, ws: socket };
+    const connection: ConnectionState = { 
+      id: clientId, 
+      ws: socket,
+      isPartitioned: false,
+      partitionAllowedClients: new Set()
+    };
     clients.set(clientId, connection);
   };
 
@@ -60,7 +67,11 @@ Deno.serve({ port }, (req) => {
           const op = message.operation as CausalOperation;
           operations.set(op.id, op);
           
-          // Broadcast operation to all clients
+          // Get sender client
+          const senderClientId = message.clientId || op.clientId;
+          const senderClient = Array.from(clients.values()).find(c => c.id === senderClientId);
+          
+          // Broadcast operation to all clients (respecting partitions)
           const broadcastMsg = JSON.stringify({
             type: "operation",
             operation: op
@@ -68,8 +79,43 @@ Deno.serve({ port }, (req) => {
           
           for (const [id, client] of clients) {
             if (client.ws.readyState === WebSocket.OPEN) {
-              client.ws.send(broadcastMsg);
+              // Check partition rules
+              let canSend = true;
+              
+              // If sender is partitioned, only send to allowed clients
+              if (senderClient && senderClient.isPartitioned) {
+                canSend = senderClient.partitionAllowedClients.has(client.id);
+              }
+              
+              // If receiver is partitioned, only receive from allowed clients
+              if (client.isPartitioned && senderClientId) {
+                canSend = canSend && client.partitionAllowedClients.has(senderClientId);
+              }
+              
+              if (canSend) {
+                client.ws.send(broadcastMsg);
+              }
             }
+          }
+          break;
+
+        case "partition":
+          // Set partition for the client
+          const partitionClient = Array.from(clients.values()).find(c => c.id === message.clientId);
+          if (partitionClient) {
+            partitionClient.isPartitioned = true;
+            partitionClient.partitionAllowedClients = new Set(message.allowedClients);
+            console.log(`Client ${message.clientId} partitioned with allowed clients:`, message.allowedClients);
+          }
+          break;
+          
+        case "heal_partition":
+          // Heal partition for the client
+          const healClient = Array.from(clients.values()).find(c => c.id === message.clientId);
+          if (healClient) {
+            healClient.isPartitioned = false;
+            healClient.partitionAllowedClients.clear();
+            console.log(`Client ${message.clientId} partition healed`);
           }
           break;
 
@@ -93,7 +139,13 @@ Deno.serve({ port }, (req) => {
 
   socket.onclose = () => {
     console.log(`Client disconnected: ${clientId}`);
-    clients.delete(clientId);
+    // Find the actual client ID (might have been updated via identify)
+    for (const [id, client] of clients) {
+      if (client.ws === socket) {
+        clients.delete(id);
+        break;
+      }
+    }
   };
 
   return response;
