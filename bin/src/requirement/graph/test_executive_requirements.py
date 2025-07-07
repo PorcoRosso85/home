@@ -6,7 +6,8 @@
 """
 import pytest
 import json
-from .infrastructure.hierarchy_validator import HierarchyValidator
+from .infrastructure.graph_depth_validator import GraphDepthValidator
+from .infrastructure.circular_reference_detector import CircularReferenceDetector
 
 
 class TestExecutiveRequirements:

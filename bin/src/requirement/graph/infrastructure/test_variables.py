@@ -3,7 +3,7 @@
 import os
 import pytest
 from .variables import (
-    get_db_path, get_log_level, EMBEDDING_DIM, MAX_HIERARCHY_DEPTH, EnvironmentError,
+    get_db_path, get_log_level, EMBEDDING_DIM, MAX_GRAPH_DEPTH, EnvironmentError,
     with_test_env, restore_env
 )
 # 内部関数のテストなので、直接インポート

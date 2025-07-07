@@ -16,12 +16,12 @@ class TestViolationScoresSpecification:
         scores = ViolationScores()
         
         # 重大違反（即座にエラー）: -1.0
-        assert scores.HIERARCHY_VIOLATION == -1.0
+        assert scores.GRAPH_DEPTH_EXCEEDED == -1.0
         assert scores.SELF_REFERENCE == -1.0
         assert scores.CIRCULAR_REFERENCE == -1.0
         
         # 中程度違反: -0.3 ~ -0.5
-        assert scores.TITLE_LEVEL_MISMATCH == -0.3
+        assert scores.INVALID_DEPENDENCY == -0.5
         assert scores.MISSING_REQUIRED_FIELD == -0.5
         
         # 軽微違反: -0.1 ~ -0.2
@@ -37,8 +37,8 @@ class TestViolationScoresSpecification:
         
         scores = ViolationScores()
         
-        assert scores.get_severity("hierarchy_violation") == "critical"
-        assert scores.get_severity("title_level_mismatch") == "minor"
+        assert scores.get_severity("graph_depth_exceeded") == "critical"
+        assert scores.get_severity("invalid_dependency") == "moderate"
         assert scores.get_severity("missing_required_field") == "moderate"
         assert scores.get_severity("no_violation") == "none"
     
@@ -136,7 +136,7 @@ class TestHealthAssessmentSpecification:
         assessment = HealthAssessment()
         
         # カテゴリごとのスコアを設定
-        assessment.add_category_score("hierarchy_consistency", 0.8, weight=0.3)
+        assessment.add_category_score("graph_consistency", 0.8, weight=0.3)
         assessment.add_category_score("friction_level", 0.5, weight=0.4)
         assessment.add_category_score("completeness", 0.9, weight=0.2)
         assessment.add_category_score("technical_debt", 0.6, weight=0.1)
@@ -159,50 +159,54 @@ class TestHealthAssessmentSpecification:
         from domain.health_assessment import HealthAssessment
         
         assessment = HealthAssessment()
-        assessment.add_category_score("hierarchy_consistency", 0.3, weight=0.3)
+        assessment.add_category_score("graph_consistency", 0.3, weight=0.3)
         
         report = assessment.generate_report()
         
-        assert "hierarchy_consistency" in report["problem_areas"]
+        assert "graph_consistency" in report["problem_areas"]
         assert "recommendations" in report
         assert len(report["recommendations"]) > 0
 
 
-class TestHierarchyRulesSpecification:
-    """階層ルールの仕様"""
+class TestGraphRulesSpecification:
+    """グラフ制約ルールの仕様"""
     
-    def test_階層間の依存可能性が明確に定義されている(self):
-        """どの階層がどの階層に依存できるか"""
-        from domain.requirement_hierarchy import HierarchyRules
+    def test_グラフ深さ制限が検証できる(self):
+        """プロジェクトで設定された深さ制限を超えないか"""
+        from infrastructure.graph_depth_validator import GraphDepthValidator
         
-        rules = HierarchyRules()
+        validator = GraphDepthValidator(max_depth=3)
         
-        # タスク（L4）の依存
-        assert rules.can_depend_on(from_level=4, to_level=3) == True
-        assert rules.can_depend_on(from_level=4, to_level=2) == True
-        assert rules.can_depend_on(from_level=4, to_level=1) == True
-        assert rules.can_depend_on(from_level=4, to_level=0) == False  # ビジョンへの直接依存は不可
+        # 正常な依存関係（深さ3以内）
+        dependencies = [("A", "B"), ("B", "C"), ("C", "D")]
+        result = validator.validate_graph_depth(dependencies)
+        assert result["is_valid"] == True
+        assert result["max_depth_found"] == 3
         
-        # エピック（L2）の依存
-        assert rules.can_depend_on(from_level=2, to_level=1) == True
-        assert rules.can_depend_on(from_level=2, to_level=3) == False  # 下位への依存は不可
+        # 深さ制限違反（深さ4）
+        dependencies = [("A", "B"), ("B", "C"), ("C", "D"), ("D", "E")]
+        result = validator.validate_graph_depth(dependencies)
+        assert result["is_valid"] == False
+        assert result["max_depth_found"] == 4
+        assert len(result["violations"]) > 0
     
-    def test_階層違反の詳細情報が取得できる(self):
-        """違反時の説明とスコアが含まれる"""
-        from domain.requirement_hierarchy import HierarchyViolation
+    def test_循環参照が検出できる(self):
+        """依存関係のループを検出"""
+        from infrastructure.circular_reference_detector import CircularReferenceDetector
         
-        violation = HierarchyViolation(
-            from_level=4,
-            from_title="ログイン機能実装",
-            to_level=0,
-            to_title="グローバル展開ビジョン"
-        )
+        detector = CircularReferenceDetector()
         
-        assert violation.score == -1.0
-        assert violation.severity == "critical"
-        assert "タスク" in violation.get_description()
-        assert "ビジョン" in violation.get_description()
-        assert violation.get_recommendation() == "中間階層（ゴール、エピック、ストーリー）を経由してください"
+        # 自己参照
+        dependencies = [("A", "A")]
+        result = detector.detect_cycles(dependencies)
+        assert result["has_cycles"] == True
+        assert "A" in result["self_references"]
+        
+        # 循環参照
+        dependencies = [("A", "B"), ("B", "C"), ("C", "A")]
+        result = detector.detect_cycles(dependencies)
+        assert result["has_cycles"] == True
+        assert len(result["cycles"]) > 0
 
 
 class TestScoreMessagesSpecification:
@@ -226,13 +230,13 @@ class TestScoreMessagesSpecification:
         generator = ScoreMessageGenerator()
         
         violations = [
-            {"type": "hierarchy_violation", "score": -1.0},
+            {"type": "graph_depth_exceeded", "score": -1.0},
             {"type": "priority_friction", "score": -0.7}
         ]
         
         message = generator.generate_combined_message(violations)
         
-        assert "構造的な問題" in message
+        assert "依存関係グラフに問題" in message
         assert "リソース配分" in message
         assert "早急な対応が必要" in message
 
@@ -246,17 +250,17 @@ class TestBusinessRulesSpecification:
         
         rules = EmergencyRules()
         
-        # 通常の階層違反
+        # 通常のグラフ深さ制限違反
         normal_score = rules.adjust_score(
-            violation_type="hierarchy_violation",
+            violation_type="graph_depth_exceeded",
             original_score=-1.0,
             context={}
         )
         assert normal_score == -1.0
         
-        # hotfix時の階層違反
+        # hotfix時のグラフ深さ制限違反
         hotfix_score = rules.adjust_score(
-            violation_type="hierarchy_violation", 
+            violation_type="graph_depth_exceeded", 
             original_score=-1.0,
             context={"is_hotfix": True}
         )

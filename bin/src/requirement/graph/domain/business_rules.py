@@ -11,7 +11,7 @@ class EmergencyRules:
         """コンテキストに基づいてスコアを調整"""
         # hotfixコンテキストでは違反を軽減
         if context.get("is_hotfix", False):
-            if violation_type == "hierarchy_violation" and original_score == -1.0:
+            if violation_type == "graph_depth_exceeded" and original_score == -1.0:
                 return -0.5
             # その他の違反も50%軽減
             return original_score * 0.5 if original_score < 0 else original_score

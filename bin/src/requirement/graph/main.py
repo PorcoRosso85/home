@@ -18,7 +18,8 @@ def safe_main():
     try:
         # インポート（相対インポートのみ使用）
         from .infrastructure.kuzu_repository import create_kuzu_repository
-        from .infrastructure.hierarchy_validator import HierarchyValidator
+        from .infrastructure.graph_depth_validator import GraphDepthValidator
+        from .infrastructure.circular_reference_detector import CircularReferenceDetector
         from .infrastructure.variables import get_db_path
         from .infrastructure.logger import debug, info, warn, error, result, score
         from .infrastructure.query_validator import QueryValidator
@@ -54,49 +55,21 @@ def safe_main():
                 error(f"Unknown schema action: {action}", score=-1.0)
                 return
         
-        # 階層検証は最初に実行（DBアクセス前）
-        hierarchy_validator = HierarchyValidator()
+        # グラフ検証の初期化
         scoring_service = create_scoring_service()
         
-        # Cypherクエリの場合は階層検証を実行
+        # Cypherクエリの場合はグラフ検証を準備
+        # 注意：実際の検証はクエリ実行後に行う（依存関係を確認するため）
         if input_data.get("type") == "cypher":
             query = input_data.get("query", "")
             debug("rgl.main", "Processing Cypher query", query_length=len(query))
             
-            # 階層検証
-            hierarchy_result = hierarchy_validator.validate_hierarchy_constraints(query)
-            debug("rgl.main", "Hierarchy validation result", is_valid=hierarchy_result["is_valid"], violation_type=hierarchy_result["violation_type"])
-            
-            if not hierarchy_result["is_valid"]:
-                # 違反情報をスコアリングサービスに渡してスコアを計算
-                violation = {
-                    "type": hierarchy_result["violation_type"],
-                    **hierarchy_result.get("violation_info", {})
-                }
-                score = scoring_service["calculate_score"](violation)
-                
-                # 階層違反 - 負のフィードバック
-                error(
-                    hierarchy_result["error"],
-                    details=hierarchy_result["details"],
-                    score=score
-                )
-                return
-            
-            # 警告がある場合
-            if hierarchy_result["warning"]:
-                # 違反情報をスコアリングサービスに渡してスコアを計算
-                violation = {
-                    "type": hierarchy_result["violation_type"],
-                    **hierarchy_result.get("violation_info", {})
-                }
-                score = scoring_service["calculate_score"](violation)
-                
-                # クエリは実行するが、警告を含める
-                input_data["_hierarchy_warning"] = hierarchy_result["warning"]
-                input_data["_hierarchy_score"] = score
+            # CREATE操作の場合は実行後に検証フラグを立てる
+            if "CREATE" in query.upper() and "DEPENDS_ON" in query.upper():
+                input_data["_needs_graph_validation"] = True
+                debug("rgl.main", "Graph validation will be performed after query execution")
         
-        # 階層検証を通過した場合のみDBアクセス
+        # DBアクセス開始
         # KuzuDBリポジトリを作成
         info("rgl.main", "Creating KuzuDB repository")
         repository = create_kuzu_repository()
@@ -139,10 +112,63 @@ def safe_main():
         info("rgl.main", "Query completed", status=query_result.get("status"))
         debug("rgl.main", "Query completed", status=query_result.get("status"))
         
-        # 階層警告を結果に含める
-        if "_hierarchy_warning" in input_data:
-            query_result["warning"] = input_data["_hierarchy_warning"]
-            query_result["score"] = max(query_result.get("score", 0.0), input_data["_hierarchy_score"])
+        # グラフ検証が必要な場合（CREATE操作後）
+        if input_data.get("_needs_graph_validation") and query_result.get("status") == "success":
+            debug("rgl.main", "Performing graph validation")
+            
+            # 循環参照検出
+            circular_detector = CircularReferenceDetector()
+            from .infrastructure.circular_reference_detector import validate_with_kuzu as validate_circular
+            circular_result = validate_circular(repository["connection"])
+            
+            if circular_result["has_cycles"]:
+                # 循環参照が検出された場合
+                for self_ref in circular_result["self_references"]:
+                    violation = {"type": "self_reference", "node_id": self_ref}
+                    violation_score = scoring_service["calculate_score"](violation)
+                    
+                    if "warnings" not in query_result:
+                        query_result["warnings"] = []
+                    query_result["warnings"].append({
+                        "type": "self_reference",
+                        "message": f"自己参照が検出されました: {self_ref}",
+                        "score": violation_score
+                    })
+                
+                for cycle in circular_result["cycles"]:
+                    violation = {"type": "circular_reference", "cycle": cycle}
+                    violation_score = scoring_service["calculate_score"](violation)
+                    
+                    if "warnings" not in query_result:
+                        query_result["warnings"] = []
+                    query_result["warnings"].append({
+                        "type": "circular_reference",
+                        "message": f"循環参照が検出されました: {' -> '.join(cycle)}",
+                        "score": violation_score
+                    })
+            
+            # グラフ深さ検証（プロジェクト設定がある場合）
+            max_depth = input_data.get("max_graph_depth")
+            if max_depth is not None:
+                from .infrastructure.graph_depth_validator import validate_with_kuzu as validate_depth
+                depth_result = validate_depth(repository["connection"], max_depth)
+                
+                if not depth_result["is_valid"]:
+                    for violation in depth_result["violations"]:
+                        violation_dict = {
+                            "type": "graph_depth_exceeded",
+                            "depth": violation["depth"],
+                            "max_allowed": max_depth
+                        }
+                        violation_score = scoring_service["calculate_score"](violation_dict)
+                        
+                        if "warnings" not in query_result:
+                            query_result["warnings"] = []
+                        query_result["warnings"].append({
+                            "type": "graph_depth_exceeded",
+                            "message": f"グラフ深さ制限超過: {violation['root_id']} から {violation['leaf_id']} (深さ: {violation['depth']}, 制限: {max_depth})",
+                            "score": violation_score
+                        })
         
         # CREATE操作の場合、摩擦検出を実行
         if input_data.get("type") == "cypher" and query_result.get("status") == "success":

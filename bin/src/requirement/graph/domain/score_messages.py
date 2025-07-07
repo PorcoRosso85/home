@@ -17,19 +17,23 @@ class ScoreMessageGenerator:
     
     # 違反タイプごとのメッセージ
     VIOLATION_MESSAGES = {
-        "hierarchy_skip": "階層構造に違反があります",
+        "graph_depth_exceeded": "グラフ深さ制限を超えています",
         "self_reference": "自己参照が検出されました",
         "circular_reference": "循環参照が検出されました",
-        "title_mismatch": "タイトルと階層が一致しません",
+        "invalid_dependency": "無効な依存関係が検出されました",
         "missing_dependency": "必要な依存関係が不足しています"
     }
     
     def generate_message(self, score: float) -> str:
         """スコアから基本メッセージを生成"""
-        for threshold, message in sorted(self.SCORE_MESSAGES, key=lambda x: x[0]):
-            if score >= threshold:
-                return message
-        return self.SCORE_MESSAGES[0][1]
+        if score == 0:
+            return "問題ありません"
+        elif score >= -0.2:
+            return "改善してください"
+        elif score >= -0.5:
+            return "問題があります"
+        else:  # score < -0.5, including -1.0
+            return "承認できません"
     
     @classmethod
     def generate_from_score(cls, score: int) -> str:
@@ -67,11 +71,11 @@ class ScoreMessageGenerator:
         messages = []
         
         # 違反タイプごとに分類
-        has_hierarchy = any(v.get("type") == "hierarchy_violation" for v in violations)
+        has_graph_issue = any(v.get("type") in ["graph_depth_exceeded", "circular_reference"] for v in violations)
         has_priority = any(v.get("type") == "priority_friction" for v in violations)
         
-        if has_hierarchy:
-            messages.append("構造的な問題が検出されました")
+        if has_graph_issue:
+            messages.append("依存関係グラフに問題が検出されました")
         
         if has_priority:
             messages.append("リソース配分に問題があります")

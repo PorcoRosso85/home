@@ -7,12 +7,13 @@
 class ViolationCode:
     """違反コード定数"""
     # 構造違反 (1xxx)
-    HIERARCHY_SKIP = 1001
+    GRAPH_DEPTH_EXCEEDED = 1001
     SELF_REFERENCE = 1002
     CIRCULAR_REFERENCE = 1003
+    INVALID_DEPENDENCY = 1004
     
     # 整合性違反 (2xxx)
-    TITLE_MISMATCH = 2001
+    MISSING_DEPENDENCY = 2001
     
     # 規約違反 (3xxx)
     NAMING_CONVENTION = 3001
@@ -23,10 +24,11 @@ class ViolationCode:
 
 # 違反コードと基本スコアのマッピング
 _VIOLATION_SCORES = {
-    1001: -100,  # 階層スキップ
+    1001: -100,  # グラフ深さ制限超過
     1002: -100,  # 自己参照
     1003: -100,  # 循環参照
-    2001: -30,   # タイトル不整合
+    1004: -50,   # 無効な依存関係
+    2001: -40,   # 依存関係不足
     3001: -10,   # 命名規約違反
     9000: 0      # 違反なし
 }

@@ -9,17 +9,8 @@ from typing import Dict, List
 # 埋め込み関連
 EMBEDDING_DIM = 50
 
-# 階層関連
-MAX_HIERARCHY_DEPTH = 5
-
-# デフォルト階層キーワード定義
-DEFAULT_HIERARCHY_KEYWORDS: Dict[int, List[str]] = {
-    0: ["ビジョン", "vision", "戦略", "目標"],
-    1: ["エピック", "epic", "大規模", "イニシアチブ"],
-    2: ["フィーチャー", "feature", "機能", "capability"],
-    3: ["ストーリー", "story", "ユーザーストーリー"],
-    4: ["タスク", "task", "実装", "バグ"]
-}
+# グラフ制約関連
+MAX_GRAPH_DEPTH = 10  # プロジェクトで設定可能な最大グラフ深さ
 
 # ログレベル定義
 LOG_LEVELS = {

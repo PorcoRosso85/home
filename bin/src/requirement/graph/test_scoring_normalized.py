@@ -13,10 +13,10 @@ class TestViolationCodeSystem:
         """1xxx=構造、2xxx=整合性、3xxx=規約、9xxx=正常"""
         from domain.violation_codes import ViolationCode
         
-        assert ViolationCode.HIERARCHY_SKIP == 1001
+        assert ViolationCode.GRAPH_DEPTH_EXCEEDED == 1001
         assert ViolationCode.SELF_REFERENCE == 1002
         assert ViolationCode.CIRCULAR_REFERENCE == 1003
-        assert ViolationCode.TITLE_MISMATCH == 2001
+        assert ViolationCode.MISSING_DEPENDENCY == 2001
         assert ViolationCode.NO_VIOLATION == 9000
     
     def test_違反コードから基本スコアを取得できる(self):

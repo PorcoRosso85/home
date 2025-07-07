@@ -17,9 +17,9 @@ def create_scoring_service() -> Dict[str, Any]:
     # スコアリング定義
     SCORE_DEFINITIONS = {
         # 重大な違反（-1.0）
-        "hierarchy_violation": {
+        "graph_depth_exceeded": {
             "score": -1.0,
-            "message": "階層違反: 下位階層が上位階層に依存しています"
+            "message": "グラフ深さ制限超過: 許可された深さを超える依存関係が検出されました"
         },
         "self_reference": {
             "score": -1.0,
@@ -30,10 +30,10 @@ def create_scoring_service() -> Dict[str, Any]:
             "message": "循環参照: 依存関係に循環が検出されました"
         },
         
-        # 軽微な違反（-0.3）
-        "title_level_mismatch": {
-            "score": -0.3,
-            "message": "タイトル不整合: タイトルと階層レベルが一致しません"
+        # 中程度の違反（-0.5）
+        "invalid_dependency": {
+            "score": -0.5,
+            "message": "無効な依存関係: 許可されていない依存関係が検出されました"
         },
         
         # 制約違反（違反数に応じて）
@@ -196,10 +196,12 @@ def create_scoring_service() -> Dict[str, Any]:
         }
         
         # タイプ固有の詳細を追加
-        if violation_type == "hierarchy_violation":
+        if violation_type == "graph_depth_exceeded":
             result["details"] = {
-                "from": f"{violation.get('from_title', 'N/A')} (Level {violation.get('from_level', 'N/A')})",
-                "to": f"{violation.get('to_title', 'N/A')} (Level {violation.get('to_level', 'N/A')})"
+                "from": violation.get('root_id', 'N/A'),
+                "to": violation.get('leaf_id', 'N/A'),
+                "depth": violation.get('depth', 'N/A'),
+                "max_allowed": violation.get('max_allowed', 'N/A')
             }
         elif violation_type == "self_reference":
             result["details"] = {
@@ -207,13 +209,13 @@ def create_scoring_service() -> Dict[str, Any]:
             }
         elif violation_type == "circular_reference":
             result["details"] = {
-                "cycle": " → ".join(violation.get('cycle_path', []))
+                "cycle": " → ".join(violation.get('cycle_path', violation.get('cycle', [])))
             }
-        elif violation_type == "title_level_mismatch":
+        elif violation_type == "invalid_dependency":
             result["details"] = {
-                "title": violation.get('title', 'N/A'),
-                "actual_level": violation.get('actual_level', 'N/A'),
-                "expected_level": violation.get('expected_level', 'N/A')
+                "from": violation.get('from_id', 'N/A'),
+                "to": violation.get('to_id', 'N/A'),
+                "reason": violation.get('reason', 'N/A')
             }
         elif violation_type == "constraint_violations":
             result["details"] = {

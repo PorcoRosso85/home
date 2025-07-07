@@ -55,9 +55,8 @@ RGL_SKIP_SCHEMA_CHECK = str(should_skip_schema_check()).lower()
 from .constants import (
     # 埋め込み関連
     EMBEDDING_DIM,
-    # 階層関連
-    MAX_HIERARCHY_DEPTH,
-    DEFAULT_HIERARCHY_KEYWORDS,
+    # グラフ制約関連
+    MAX_GRAPH_DEPTH,
     # ログ関連
     LOG_LEVELS,
     # レイヤー優先度
@@ -88,15 +87,10 @@ __all__ = [
     'get_db_path',
     'get_log_level',
     'get_log_format',
-    'get_hierarchy_mode',
-    'get_max_hierarchy',
-    'get_team',
-    'get_hierarchy_keywords',
     'should_skip_schema_check',
     'is_org_mode',
     'get_shared_db_path',
     'validate_environment',
-    'validate_hierarchy_env',
     # テスト関連
     'setup_test_environment',
     'get_test_db_path',
@@ -106,8 +100,7 @@ __all__ = [
     'restore_env',
     # 定数
     'EMBEDDING_DIM',
-    'MAX_HIERARCHY_DEPTH',
-    'DEFAULT_HIERARCHY_KEYWORDS',
+    'MAX_GRAPH_DEPTH',
     'LOG_LEVELS',
     'LAYER_PRIORITY',
     'AUTONOMOUS_MAX_DEPTH',

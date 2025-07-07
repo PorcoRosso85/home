@@ -3,11 +3,10 @@
 """
 from typing import Dict, Any, List
 from datetime import datetime
-from ..domain.violation_calculator import calculate_violation_score
-from ..domain.friction_calculator import calculate_friction_score
-from ..domain.health_assessment import HealthAssessment
-from ..domain.hierarchy_rules import is_valid_dependency
-from ..domain.health_criteria import evaluate_health
+from domain.violation_calculator import calculate_violation_score
+from domain.friction_calculator import calculate_friction_score
+from domain.health_assessment import HealthAssessment
+from domain.health_criteria import evaluate_health
 
 
 def generate_score_report(requirement: Dict[str, Any]) -> Dict[str, Any]:
@@ -73,18 +72,34 @@ def _evaluate_constraints(requirement: Dict[str, Any]) -> Dict[str, Any]:
     """制約ドメインの評価"""
     violations = []
     
-    # 階層制約チェック
-    level = requirement.get("level", 0)
+    # グラフ制約チェック
+    req_id = requirement.get("id", "unknown")
     dependencies = requirement.get("dependencies", [])
     
+    # 自己参照チェック
     for dep in dependencies:
-        dep_level = dep.get("level", 0)
-        if not is_valid_dependency(level, dep_level):
+        dep_id = dep.get("id", "")
+        if dep_id == req_id:
             violations.append({
-                "type": "hierarchy_violation",
-                "from_level": level,
-                "to_level": dep_level
+                "type": "self_reference",
+                "node_id": req_id
             })
+    
+    # 循環参照チェック（簡易版 - 実際のグラフトラバーサルは別途実行）
+    cycles = requirement.get("detected_cycles", [])
+    for cycle in cycles:
+        violations.append({
+            "type": "circular_reference",
+            "cycle": cycle
+        })
+    
+    # グラフ深さ制限チェック
+    depth_violations = requirement.get("depth_violations", [])
+    for violation in depth_violations:
+        violations.append({
+            "type": "graph_depth_exceeded",
+            **violation
+        })
     
     # スコア計算
     score = sum(calculate_violation_score(v["type"], v) for v in violations)
@@ -249,7 +264,7 @@ def _generate_recommendations(domains: Dict[str, Any]) -> List[str]:
     recommendations = []
     
     if domains["constraints"]["score"] < -50:
-        recommendations.append("階層構造の見直しを推奨します")
+        recommendations.append("依存関係グラフの構造を見直してください")
     
     if domains["decision"]["score"] < 0:
         recommendations.append("要件の目的を明確にしてください")

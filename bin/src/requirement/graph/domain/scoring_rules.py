@@ -8,10 +8,10 @@ class ViolationScores:
     """違反スコアの定義と計算"""
     
     # 違反タイプごとの固定スコア（属性として定義）
-    HIERARCHY_VIOLATION = -1.0
+    GRAPH_DEPTH_EXCEEDED = -1.0
     SELF_REFERENCE = -1.0
     CIRCULAR_REFERENCE = -1.0
-    TITLE_LEVEL_MISMATCH = -0.3
+    INVALID_DEPENDENCY = -0.5
     MISSING_REQUIRED_FIELD = -0.5
     NAMING_CONVENTION = -0.1
     DESCRIPTION_TOO_SHORT = -0.2
@@ -19,17 +19,14 @@ class ViolationScores:
     
     # 内部用辞書
     SCORES = {
-        "hierarchy_violation": -1.0,
+        "graph_depth_exceeded": -1.0,
         "self_reference": -1.0,
         "circular_reference": -1.0,
-        "title_level_mismatch": -0.3,
+        "invalid_dependency": -0.5,
         "missing_required_field": -0.5,
         "naming_convention": -0.1,
         "description_too_short": -0.2,
         "no_violation": 0.0,
-        "hierarchy_skip": -100,
-        "invalid_level": -50,
-        "title_mismatch": -30,
         "missing_dependency": -40,
         "ambiguous_title": -25,
         "duplicate_title": -35,
@@ -39,9 +36,9 @@ class ViolationScores:
     
     # 違反の重要度レベル
     SEVERITY_LEVELS = {
-        "critical": ["hierarchy_violation", "self_reference", "circular_reference", "hierarchy_skip"],
-        "moderate": ["missing_required_field", "invalid_level", "orphaned_requirement"],
-        "minor": ["title_level_mismatch", "title_mismatch", "duplicate_title", "missing_dependency"],
+        "critical": ["graph_depth_exceeded", "self_reference", "circular_reference"],
+        "moderate": ["missing_required_field", "invalid_dependency", "orphaned_requirement"],
+        "minor": ["duplicate_title", "missing_dependency"],
         "low": ["naming_convention", "description_too_short", "ambiguous_title", "excessive_dependencies"],
         "none": ["no_violation"]
     }

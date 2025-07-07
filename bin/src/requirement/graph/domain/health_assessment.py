@@ -102,8 +102,8 @@ class HealthAssessment:
             if score < 0.5:
                 problem_areas.append(category)
                 
-                if category == "hierarchy_consistency":
-                    recommendations.append("要件の階層構造を見直してください")
+                if category == "graph_consistency":
+                    recommendations.append("要件の依存関係グラフを見直してください")
                 elif category == "friction_level":
                     recommendations.append("チーム間の認識を統一してください")
                 elif category == "completeness":
@@ -120,7 +120,7 @@ class HealthAssessment:
         }
     
     @classmethod
-    def generate_report(cls, scores: Dict[str, int]) -> HealthReport:
+    def generate_report_from_scores(cls, scores: Dict[str, int]) -> HealthReport:
         """健全性レポートを生成"""
         overall_score = cls.calculate_weighted_score(scores)
         level = cls.classify_health_level(overall_score)
@@ -134,7 +134,7 @@ class HealthAssessment:
                 issues.append(f"{category}に深刻な問題があります（スコア: {score}）")
                 
                 if category == "structure":
-                    recommendations.append("要件の階層構造を見直してください")
+                    recommendations.append("要件の依存関係構造を見直してください")
                 elif category == "friction":
                     recommendations.append("チーム間の認識を統一してください")
                 elif category == "completeness":

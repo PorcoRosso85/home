@@ -5,9 +5,9 @@
 
 # 違反タイプごとの定義
 VIOLATION_DEFINITIONS = {
-    "hierarchy_violation": {
+    "graph_depth_exceeded": {
         "score": -100,
-        "message": "階層違反: 下位階層が上位階層に依存しています"
+        "message": "グラフ深さ制限超過: 許可された深さを超える依存関係が検出されました"
     },
     "self_reference": {
         "score": -100,
@@ -17,9 +17,9 @@ VIOLATION_DEFINITIONS = {
         "score": -100,
         "message": "循環参照: 依存関係に循環が検出されました"
     },
-    "title_level_mismatch": {
-        "score": -30,
-        "message": "タイトル不整合: タイトルと階層レベルが一致しません"
+    "invalid_dependency": {
+        "score": -50,
+        "message": "無効な依存関係: 許可されていない依存関係が検出されました"
     },
     "constraint_violations": {
         "score_per_violation": -20,
