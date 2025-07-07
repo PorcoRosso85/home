@@ -179,7 +179,7 @@ describe("Complex Causal Ordering Scenarios", () => {
         dbPath: ':memory:',
         wsUrl: 'ws://localhost:8083'
       });
-    allClients.push(client);
+      allClients.push(client);
       group1Clients.push(client);
     }
     
@@ -190,7 +190,7 @@ describe("Complex Causal Ordering Scenarios", () => {
         dbPath: ':memory:',
         wsUrl: 'ws://localhost:8083'
       });
-    allClients.push(client);
+      allClients.push(client);
       group2Clients.push(client);
     }
     
