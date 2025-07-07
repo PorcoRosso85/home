@@ -78,7 +78,7 @@ from .infrastructure.kuzu_repository import create_kuzu_repository
 from .infrastructure.jsonl_repository import create_jsonl_repository
 from .infrastructure.apply_ddl_schema import apply_ddl_schema
 from .infrastructure.ddl_schema_manager import DDLSchemaManager
-from .infrastructure.hierarchy_validator import HierarchyValidator
+# from .infrastructure.hierarchy_validator import HierarchyValidator  # 削除済み
 
 __all__ = [
     # Domain
@@ -109,6 +109,5 @@ __all__ = [
     "create_kuzu_repository",
     "create_jsonl_repository",
     "apply_ddl_schema",
-    "DDLSchemaManager",
-    "HierarchyValidator"
+    "DDLSchemaManager"
 ]

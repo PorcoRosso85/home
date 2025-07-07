@@ -59,9 +59,9 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     if not should_skip_schema_check():
         init_schema()
     
-    # 階層処理用UDFを登録
-    from .hierarchy_udfs import register_hierarchy_udfs
-    register_hierarchy_udfs(conn)
+    # 階層処理用UDFを登録（削除済み）
+    # from .hierarchy_udfs import register_hierarchy_udfs
+    # register_hierarchy_udfs(conn)
     
     def save(decision: Decision, parent_id: Optional[str] = None, track_version: bool = True) -> DecisionResult:
         """要件を保存（バージョン追跡付き）"""

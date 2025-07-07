@@ -77,7 +77,7 @@ class TestApplicationLayerSimplification:
         assert callable(service["calculate_score"])
         
         # 実行してみて正しく動作することを確認
-        score = service["calculate_score"]({"type": "hierarchy_violation"})
+        score = service["calculate_score"]({"type": "graph_depth_exceeded"})
         assert score == -1.0  # 期待されるスコア
     
     def test_スコアレポート生成はアプリケーション層に残る(self):
@@ -88,15 +88,15 @@ class TestApplicationLayerSimplification:
         
         # 違反詳細の表示フォーマット
         details = service["get_violation_details"]({
-            "type": "hierarchy_violation",
-            "from_title": "タスク",
-            "from_level": 4,
-            "to_title": "ビジョン", 
-            "to_level": 0
+            "type": "graph_depth_exceeded",
+            "root_id": "req_001",
+            "leaf_id": "req_007",
+            "depth": 6,
+            "max_allowed": 5
         })
         
         assert details["score"] == -1.0  # スコア値
-        assert "Level 4" in details["details"]["from"]  # 表示形式の生成
+        assert details["details"]["depth"] == 6  # 深さ情報の生成
 
 
 class TestDomainPurity:

@@ -8,19 +8,19 @@ from typing import Dict, List
 class TestScoringService:
     """ScoringServiceのテスト"""
     
-    def test_階層違反スコア(self):
-        """下位が上位に依存する場合は-1.0"""
+    def test_グラフ深さ制限超過スコア(self):
+        """グラフ深さ制限を超過した場合は-1.0"""
         from .scoring_service import create_scoring_service
         
         scoring_service = create_scoring_service()
         
-        # タスクがビジョンに依存
+        # 深さ制限を超過した依存関係
         violation = {
-            "type": "hierarchy_violation",
-            "from_level": 4,  # タスク
-            "to_level": 0,    # ビジョン
-            "from_title": "タスク実装",
-            "to_title": "システムビジョン"
+            "type": "graph_depth_exceeded",
+            "root_id": "req_001",
+            "leaf_id": "req_010",
+            "depth": 6,
+            "max_allowed": 5
         }
         
         score = scoring_service["calculate_score"](violation)
@@ -55,21 +55,21 @@ class TestScoringService:
         score = scoring_service["calculate_score"](violation)
         assert score == -1.0
     
-    def test_タイトル不整合スコア(self):
-        """タイトルと階層レベルが不一致の場合は-0.3"""
+    def test_無効な依存関係スコア(self):
+        """無効な依存関係の場合は-0.5"""
         from .scoring_service import create_scoring_service
         
         scoring_service = create_scoring_service()
         
         violation = {
-            "type": "title_level_mismatch",
-            "title": "ビジョン設定",
-            "actual_level": 2,
-            "expected_level": 0
+            "type": "invalid_dependency",
+            "from_id": "req_001",
+            "to_id": "req_002",
+            "reason": "許可されていない依存関係パターン"
         }
         
         score = scoring_service["calculate_score"](violation)
-        assert score == -0.3
+        assert score == -0.5
     
     def test_違反なしスコア(self):
         """違反がない場合は0.0"""
@@ -91,8 +91,8 @@ class TestScoringService:
         scoring_service = create_scoring_service()
         
         violations = [
-            {"type": "title_level_mismatch", "score": -0.3},
-            {"type": "hierarchy_violation", "score": -1.0},
+            {"type": "invalid_dependency", "score": -0.5},
+            {"type": "graph_depth_exceeded", "score": -1.0},
             {"type": "no_violation", "score": 0.0}
         ]
         
@@ -126,7 +126,7 @@ class TestScoringService:
         # 1つの違反で0.2減点
         constraints = {
             "type": "constraint_violations",
-            "violations": ["deep_hierarchy"]
+            "violations": ["deep_graph"]
         }
         score = scoring_service["calculate_score"](constraints)
         assert score == -0.2
@@ -134,7 +134,7 @@ class TestScoringService:
         # 3つの違反で0.6減点
         constraints = {
             "type": "constraint_violations",
-            "violations": ["deep_hierarchy", "missing_parent", "invalid_status"]
+            "violations": ["deep_graph", "missing_parent", "invalid_status"]
         }
         score = scoring_service["calculate_score"](constraints)
         assert abs(score - (-0.6)) < 0.0001
