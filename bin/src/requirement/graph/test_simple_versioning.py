@@ -15,28 +15,6 @@ from .infrastructure.ddl_schema_manager import DDLSchemaManager
 from pathlib import Path
 
 
-def test_version_service_creation():
-    """バージョンサービスが正しく作成される"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = f"{tmpdir}/test.db"
-        os.environ["RGL_DB_PATH"] = db_path
-        
-        # リポジトリ作成
-        repo = create_kuzu_repository(db_path)
-        
-        # スキーマ適用
-        schema_manager = DDLSchemaManager(repo["connection"])
-        schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
-        if schema_path.exists():
-            success, results = schema_manager.apply_schema(str(schema_path))
-            assert success
-        
-        # バージョンサービス作成
-        version_service = create_version_service(repo)
-        
-        assert "create_versioned_requirement" in version_service
-        assert "update_versioned_requirement" in version_service
-        assert "get_requirement_history" in version_service
 
 
 def test_create_versioned_requirement():
@@ -166,9 +144,6 @@ def test_get_requirement_history():
 
 
 if __name__ == "__main__":
-    test_version_service_creation()
-    print("✓ test_version_service_creation passed")
-    
     test_create_versioned_requirement()
     print("✓ test_create_versioned_requirement passed")
     

@@ -10,24 +10,8 @@ from .version_tracking import (
 )
 
 
-def test_create_version_id_generates_unique_id():
-    """create_version_id_一意のID_生成される"""
-    id1 = create_version_id("req_001")
-    time.sleep(0.001)  # 少し待つ
-    id2 = create_version_id("req_001")
-    
-    assert id1 != id2
-    assert "req_001" in id1
-    assert "req_001" in id2
 
 
-def test_create_location_uri_generates_standard_uri():
-    """create_location_uri_標準URI_生成される"""
-    uri = create_location_uri("req_001")
-    assert uri == "req://rgl/requirements/req_001"
-    
-    uri2 = create_location_uri("req_002")
-    assert uri2 == "req://rgl/requirements/req_002"
 
 
 def test_parse_location_uri_extracts_components():

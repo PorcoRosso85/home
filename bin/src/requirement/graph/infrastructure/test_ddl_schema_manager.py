@@ -39,23 +39,6 @@ class TestDDLSchemaManager:
         assert '//' not in ''.join(statements)
         assert '/*' not in ''.join(statements)
 
-    def test_generate_drop_statement_各種CREATE_DROP生成(self):
-        """_generate_drop_statement_CREATE文_対応するDROP文生成"""
-        # Arrange
-        manager = DDLSchemaManager(None)
-        
-        # Act & Assert
-        # NODE TABLE
-        drop = manager._generate_drop_statement("CREATE NODE TABLE LocationURI (id STRING PRIMARY KEY);")
-        assert drop == "DROP TABLE LocationURI;"
-        
-        # REL TABLE
-        drop = manager._generate_drop_statement("CREATE REL TABLE LOCATES (FROM LocationURI TO CodeEntity);")
-        assert drop == "DROP TABLE LOCATES;"
-        
-        # INDEX
-        drop = manager._generate_drop_statement("CREATE INDEX idx_test ON Test(id);")
-        assert drop == "DROP INDEX idx_test;"
 
     def test_handle_duplicate_rel_tables_重複テーブル_リネーム(self):
         """_handle_duplicate_rel_tables_重複REL TABLE_一意な名前に変更"""

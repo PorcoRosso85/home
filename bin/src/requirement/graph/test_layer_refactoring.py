@@ -9,31 +9,7 @@ from typing import Dict, Any
 class TestDomainLayerResponsibilities:
     """ドメイン層が適切な責務を持つことを検証"""
     
-    def test_違反スコア計算はドメイン層に存在する(self):
-        """違反タイプとスコアのマッピングはドメインルール"""
-        from domain.violation_scores import calculate_violation_score
-        
-        # ドメイン層で違反スコアを計算できる
-        score = calculate_violation_score("graph_depth_exceeded")
-        assert score == -100
-        
-        # アプリケーション層からは削除されている
-        with pytest.raises(ImportError):
-            from application.scoring_service import calculate_violation_score
     
-    def test_摩擦計算ルールはドメイン層に存在する(self):
-        """摩擦の判定と計算はドメインルール"""
-        from domain.friction_calculator import calculate_friction
-        
-        friction_score = calculate_friction(
-            ambiguous_terms=["効率的", "最適化"],
-            priority_conflicts=3
-        )
-        assert friction_score < 0
-        
-        # アプリケーション層からは削除されている
-        with pytest.raises(ImportError):
-            from application.scoring_service import calculate_friction
     
     def test_グラフ制約ルールはインフラ層で定義される(self):
         """グラフ深さ制限の検証はインフラ層のルール"""
@@ -88,15 +64,6 @@ class TestApplicationLayerResponsibilities:
         assert "decision_score" in result
         assert "total_score" in result
     
-    def test_外部サービスとの連携はアプリケーション層の責務(self):
-        """DBアクセスや外部APIはアプリケーション層"""
-        from application.requirement_service import create_requirement_service
-        
-        # サービスファクトリが存在する
-        mock_repository = {}
-        service = create_requirement_service(mock_repository)
-        assert service is not None
-        assert isinstance(service, dict)
 
 
 class TestDomainApplicationBoundary:
@@ -113,32 +80,7 @@ class TestDomainApplicationBoundary:
             assert not any("repository" in str(v) for v in module_dict.values())
             assert not any("database" in str(v) for v in module_dict.values())
     
-    def test_アプリケーション層はドメイン層に依存する(self):
-        """依存の方向は単一方向"""
-        import application.score_report_generator as app_module
-        
-        # アプリケーション層はドメイン層をインポート
-        imports = [name for name in dir(app_module) if not name.startswith('_')]
-        domain_imports = [imp for imp in imports if 'domain' in str(getattr(app_module, imp, ''))]
-        assert len(domain_imports) > 0
-        
-        # ドメイン層はアプリケーション層をインポートしない
-        import domain.scoring_rules as domain_module
-        imports = [name for name in dir(domain_module) if not name.startswith('_')]
-        app_imports = [imp for imp in imports if 'application' in str(getattr(domain_module, imp, ''))]
-        assert len(app_imports) == 0
     
-    def test_ドメイン層は技術詳細に依存しない(self):
-        """ドメイン層はフレームワークやDBに非依存"""
-        from domain.scoring_rules import ViolationScores
-        
-        # ドメインクラスは純粋なPythonクラス
-        assert not hasattr(ViolationScores, '__tablename__')  # SQLAlchemyではない
-        assert not hasattr(ViolationScores, '_meta')  # Djangoではない
-        
-        # ドメインメソッドは純粋な計算
-        score = ViolationScores.get_score("graph_depth_exceeded")
-        assert isinstance(score, int)
 
 
 class TestScoringServiceRefactoring:

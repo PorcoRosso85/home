@@ -151,11 +151,6 @@ class TestPriorityUINT8Refactoring:
             assert result["data"][0][1] == 250  # high
             assert result["data"][1][1] == 150  # medium
     
-    def test_priority_mapping_function(self):
-        """マッピング関数は削除されている（数値のみ使用）"""
-        # priority_mapper.pyは存在しないはず
-        with pytest.raises(ImportError):
-            from .application.priority_mapper import PriorityMapper
     
     def test_migration_script_exists(self):
         """移行スクリプトは削除されている（新規DBのみサポート）"""

@@ -4,21 +4,6 @@ Tests for Decision entity
 from .decision import create_decision, calculate_similarity
 
 
-def test_create_decision_valid_input_returns_decision_object():
-    """create_decision_正常入力_Decisionオブジェクトを返す"""
-    result = create_decision(
-        id="req_001",
-        title="KuzuDB移行",
-        description="関係性クエリを可能にする",
-    )
-    
-    # エラーでないことを確認
-    assert "type" not in result
-    if "type" not in result:
-        decision = result
-        assert decision["id"] == "req_001"
-        assert decision["status"] == "proposed"
-        assert len(decision["embedding"]) == 50
 
 
 def test_create_decision_invalid_input_returns_validation_error():

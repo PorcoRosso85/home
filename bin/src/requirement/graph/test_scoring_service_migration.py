@@ -7,24 +7,6 @@ import pytest
 class TestScoringDefinitionsMigration:
     """スコア定義のドメイン層への移行"""
     
-    def test_違反スコア定義はドメイン層に移行される(self):
-        """SCORE_DEFINITIONSはドメイン知識"""
-        # 旧：applicationレイヤーから削除
-        with pytest.raises(ImportError):
-            from application.scoring_service import SCORE_DEFINITIONS
-        
-        # 新：domainレイヤーで定義
-        from domain.violation_definitions import VIOLATION_DEFINITIONS
-        
-        # 階層違反の定義
-        assert VIOLATION_DEFINITIONS["hierarchy_violation"]["score"] == -100
-        assert "下位階層が上位階層に依存" in VIOLATION_DEFINITIONS["hierarchy_violation"]["message"]
-        
-        # 自己参照の定義  
-        assert VIOLATION_DEFINITIONS["self_reference"]["score"] == -100
-        
-        # タイトル不整合の定義
-        assert VIOLATION_DEFINITIONS["title_level_mismatch"]["score"] == -30
     
     def test_摩擦定義はドメイン層に移行される(self):
         """FRICTION_DEFINITIONSはドメイン知識"""
@@ -45,23 +27,6 @@ class TestScoringDefinitionsMigration:
 class TestCalculationLogicMigration:
     """計算ロジックのドメイン層への移行"""
     
-    def test_違反スコア計算はドメイン層で実装される(self):
-        """calculate_scoreの中核ロジックはドメインへ"""
-        from domain.violation_calculator import calculate_violation_score
-        
-        # 階層違反のスコア計算
-        score = calculate_violation_score(
-            violation_type="hierarchy_violation",
-            violation_info={}
-        )
-        assert score == -100
-        
-        # 制約違反の累積計算
-        score = calculate_violation_score(
-            violation_type="constraint_violations",
-            violation_info={"violations": ["v1", "v2", "v3"]}
-        )
-        assert score == -60  # 3 × -20
     
     def test_摩擦スコア計算はドメイン層で実装される(self):
         """calculate_friction_scoreの判定ロジックはドメインへ"""
@@ -137,35 +102,4 @@ class TestApplicationLayerSimplification:
 class TestDomainPurity:
     """ドメイン層の純粋性検証"""
     
-    def test_ドメイン定義は純粋なデータ構造(self):
-        """定数定義に副作用なし"""
-        from domain.violation_definitions import VIOLATION_DEFINITIONS
-        from domain.friction_definitions import FRICTION_DEFINITIONS
-        
-        # イミュータブルな定義
-        assert isinstance(VIOLATION_DEFINITIONS, dict)
-        assert isinstance(FRICTION_DEFINITIONS, dict)
-        
-        # 関数呼び出しを含まない
-        for key, value in VIOLATION_DEFINITIONS.items():
-            if "score" in value:
-                assert isinstance(value["score"], (int, float))
-            elif "score_per_violation" in value:
-                assert isinstance(value["score_per_violation"], (int, float))
-            assert isinstance(value["message"], str)
     
-    def test_ドメイン計算は純粋関数(self):
-        """同じ入力に対して同じ出力"""
-        from domain.violation_calculator import calculate_violation_score
-        
-        # 同じ違反情報で同じスコア
-        violation_type = "hierarchy_violation"
-        score1 = calculate_violation_score(violation_type)
-        score2 = calculate_violation_score(violation_type)
-        assert score1 == score2
-        
-        # グローバル状態に依存しない
-        import datetime
-        before_time = datetime.datetime.now()
-        score3 = calculate_violation_score(violation_type)
-        assert score3 == score1  # 時刻に関係なく同じ

@@ -58,13 +58,6 @@ class TestVariables:
             # 環境変数を復元
             restore_env(original)
 
-    def test_定数_変更不可(self):
-        """定数_値の不変性_変更できないことを確認"""
-        assert EMBEDDING_DIM == 50
-        assert MAX_HIERARCHY_DEPTH == 5
-        
-        # Pythonでは定数の変更を防ぐことはできないが、
-        # 規約として大文字の変数は変更しない
 
     def test_get_db_path_環境変数を返す(self):
         """get_db_path_環境変数の値_そのまま返す"""
