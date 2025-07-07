@@ -170,7 +170,11 @@ function handleIncomingOperation(client: InternalClient, op: CausalOperation) {
   
   if (!client.operations.has(op.id)) {
     client.operations.set(op.id, op);
-    tryApplyOperation(client, op);
+    
+    // 非同期で処理（メッセージハンドラーのブロッキングを防ぐ）
+    setTimeout(() => {
+      tryApplyOperation(client, op);
+    }, 0);
   }
 }
 
@@ -180,6 +184,11 @@ async function tryApplyOperation(client: InternalClient, op: CausalOperation) {
   // すでに適用済みの場合はスキップ
   if (client.appliedOperations.has(op.id)) {
     return;
+  }
+  
+  // メモリ使用状況のログ（デバッグ用）
+  if (client.pendingOperations.size > 10) {
+    console.log(`Warning: ${client.id} has ${client.pendingOperations.size} pending operations`);
   }
   
   // 依存関係をチェック
@@ -206,12 +215,22 @@ async function tryApplyOperation(client: InternalClient, op: CausalOperation) {
     client.operationHistory = client.operationHistory.slice(-MAX_OPERATION_HISTORY);
   }
   
-  // この操作に依存している操作を再チェック
+  // この操作に依存している操作を再チェック（非同期でキューイング）
+  const toRetry: CausalOperation[] = [];
   for (const [pendingId, pendingOp] of client.pendingOperations) {
     if (pendingOp.dependsOn.includes(op.id)) {
       client.pendingOperations.delete(pendingId);
-      await tryApplyOperation(client, pendingOp);
+      toRetry.push(pendingOp);
     }
+  }
+  
+  // 非同期で再試行（スタックオーバーフローを防ぐ）
+  if (toRetry.length > 0) {
+    setTimeout(() => {
+      for (const pendingOp of toRetry) {
+        tryApplyOperation(client, pendingOp);
+      }
+    }, 0);
   }
 }
 

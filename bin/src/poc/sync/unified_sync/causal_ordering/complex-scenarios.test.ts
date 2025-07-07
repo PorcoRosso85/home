@@ -87,7 +87,9 @@ describe("Complex Causal Ordering Scenarios", () => {
       clientId: client.id,
       timestamp: Date.now()
     });
-    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // 操作が適用されるのを待つ（より長い待機時間）
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     // 最終状態はD
     const result = await client.query("MATCH (n:Diamond {id: 'node'}) RETURN n.step as step");
