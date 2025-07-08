@@ -55,4 +55,66 @@ addopts = [
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
+    "ruff>=0.1.0",
 ]
+
+[tool.ruff]
+# 基本設定
+line-length = 120
+target-version = "py311"
+
+# 除外するディレクトリ
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+# 有効にするルール
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "C90",   # mccabe complexity
+    "N",     # pep8-naming
+    "B",     # flake8-bugbear
+    "S",     # flake8-bandit (security)
+]
+
+# 除外するルール
+ignore = [
+    "S101",  # assert文の使用を許可（テストで必要）
+    "B008",  # 関数呼び出しのデフォルト引数を許可
+    "N802",  # 関数名の日本語を許可（テストで使用）
+]
+
+# Per-file ignoresで特定ファイルのみルールを緩和
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["N802"]  # テストファイルでは日本語関数名を許可
+"*_test.py" = ["N802"]  # テストファイルでは日本語関数名を許可
+
+# 自動修正を許可するルール（デフォルトで修正可能なものに加えて）
+extend-safe-fixes = [
+    "W293",  # 空白行の空白文字を削除
+    "W291",  # 行末の空白を削除
+    "W292",  # ファイル末尾に改行を追加
+]
+
+# 複雑度の設定
+[tool.ruff.lint.mccabe]
+# 循環的複雑度の最大値（推奨: 10）
+max-complexity = 10
+
+# ネストレベルの設定
+[tool.ruff.lint.pylint]
+# 最大ネスト深さ（推奨: 4-5）
+max-nested-blocks = 4
+
+# フォーマッター設定（オプション）
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

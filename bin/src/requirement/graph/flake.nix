@@ -33,6 +33,7 @@
             uv
             patchelf
             stdenv.cc.cc.lib
+            ruff
           ];
         };
         
@@ -148,6 +149,86 @@
             program = "${mkRunner "schema" ''
               echo "⚠️  'nix run .#schema' は非推奨です。'nix run .#init' を使用してください"
               exec nix run .#init -- "$@"
+            ''}";
+          };
+          
+          lint = {
+            type = "app";
+            program = "${mkRunner "lint" ''
+              echo "🔍 Running linter (ruff)..."
+              
+              # ruffがvenv内にある場合は使用、なければシステムのruffを使用
+              if [ -f ".venv/bin/ruff" ]; then
+                exec .venv/bin/ruff check . "$@"
+              else
+                exec ${pkgs.ruff}/bin/ruff check . "$@"
+              fi
+            ''}";
+          };
+          
+          "lint.fix" = {
+            type = "app";
+            program = "${mkRunner "lint-fix" ''
+              echo "🔧 Running linter with auto-fix..."
+              
+              if [ -f ".venv/bin/ruff" ]; then
+                exec .venv/bin/ruff check --fix . "$@"
+              else
+                exec ${pkgs.ruff}/bin/ruff check --fix . "$@"
+              fi
+            ''}";
+          };
+          
+          "lint.fix-unsafe" = {
+            type = "app";
+            program = "${mkRunner "lint-fix-unsafe" ''
+              echo "⚠️  Running linter with unsafe fixes..."
+              echo "This may change code behavior. Review changes carefully!"
+              
+              if [ -f ".venv/bin/ruff" ]; then
+                exec .venv/bin/ruff check --fix --unsafe-fixes . "$@"
+              else
+                exec ${pkgs.ruff}/bin/ruff check --fix --unsafe-fixes . "$@"
+              fi
+            ''}";
+          };
+          
+          "lint.preview" = {
+            type = "app";
+            program = "${mkRunner "lint-preview" ''
+              echo "👀 Previewing fixes (no changes will be made)..."
+              
+              if [ -f ".venv/bin/ruff" ]; then
+                exec .venv/bin/ruff check --fix --diff . "$@"
+              else
+                exec ${pkgs.ruff}/bin/ruff check --fix --diff . "$@"
+              fi
+            ''}";
+          };
+          
+          "lint.stats" = {
+            type = "app";
+            program = "${mkRunner "lint-stats" ''
+              echo "📊 Lint statistics..."
+              
+              if [ -f ".venv/bin/ruff" ]; then
+                .venv/bin/ruff check --statistics . "$@" | sort -k1 -n -r
+              else
+                ${pkgs.ruff}/bin/ruff check --statistics . "$@" | sort -k1 -n -r
+              fi
+            ''}";
+          };
+          
+          format = {
+            type = "app";
+            program = "${mkRunner "format" ''
+              echo "✨ Formatting code..."
+              
+              if [ -f ".venv/bin/ruff" ]; then
+                exec .venv/bin/ruff format . "$@"
+              else
+                exec ${pkgs.ruff}/bin/ruff format . "$@"
+              fi
             ''}";
           };
         };
