@@ -51,46 +51,38 @@ RGLの利用は、一方的な命令ではなく、システムとの対話に�
 ## クイックスタート
 
 ```bash
-# 開発環境の起動
+# 開発環境
 nix develop
 
-# テストの実行
+# テスト
 nix run .#test
 
-# アプリケーションの実行
-nix run
+# 実行
+nix run .#run
 ```
 
 ## 使い方
 
-### nix runを使った実行（推奨）
-
 ```bash
-# スキーマの初期化
+# スキーマ初期化（初回のみ）
 nix run .#schema
 
-# Cypherクエリの実行
-echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_001\", title: \"要件タイトル\"})"}' | nix run
+# 要件作成
+echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_001\", title: \"要件タイトル\"})"}' | nix run .#run
 
-# 注意: nix run は内部的に必要な環境変数とライブラリパスを設定します
-```
+# 親子関係
+echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_002\", title: \"子要件\", parent_id: \"req_001\"})"}' | nix run .#run
 
-### 直接実行（上級者向け）
+# 依存関係
+echo '{"type": "cypher", "query": "MATCH (a:RequirementEntity {id: \"req_001\"}), (b:RequirementEntity {id: \"req_002\"}) CREATE (a)-[:DEPENDS_ON]->(b)"}' | nix run .#run
 
-```bash
-echo '{"type": "cypher", "query": "CREATE ..."}' | \
-  LD_LIBRARY_PATH=/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib/ \
-  RGL_DB_PATH=./rgl_db \
-  python run.py
+# 要件確認
+echo '{"type": "cypher", "query": "MATCH (r:RequirementEntity) RETURN r"}' | nix run .#run
 ```
 
 ## 出力フォーマット
 
-すべての出力は JSONL (JSON Lines) 形式で標準出力に返されます。
-
-```jsonl
-{"type": "log", "level": "info", "timestamp": "2025-01-03T12:34:56Z", "module": "main", "message": "Processing query"}
-{"type": "result", "level": "info", "timestamp": "2025-01-03T12:34:57Z", "data": [...]}
-{"type": "score", "level": "warn", "timestamp": "2025-01-03T12:34:58Z", "data": {"frictions": {...}, "total": {"total_score": -0.5, "health": "needs_attention"}}}
-{"type": "error", "level": "error", "timestamp": "2025-01-03T12:34:59Z", "message": "Hierarchy violation detected", "score": -1.0}
-```
+JSONL形式。主要な型：
+- `result`: クエリ結果
+- `score`: 摩擦スコア（-1.0〜0.0）
+- `error`: エラーと改善案

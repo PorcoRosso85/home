@@ -44,6 +44,12 @@ class DDLSchemaManager:
                 self.applied_statements.append(stmt)
                 results.append(f"✓ Applied: {stmt[:50]}...")
             except Exception as e:
+                error_msg = str(e).lower()
+                # テーブルが既に存在するエラーは無視（冪等性）
+                if "already exists" in error_msg or "table already exists" in error_msg:
+                    results.append(f"ℹ️  Already exists: {stmt[:50]}...")
+                    continue
+                # その他のエラーは致命的
                 results.append(f"✗ Failed: {stmt[:50]}... - {str(e)}")
                 return False, results
                 

@@ -41,6 +41,10 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
         ValueError: パラメータが不正な場合
     """
     import time
+    
+    # テストモードの判定を先に行う
+    is_test_mode = os.environ.get("RGL_SKIP_SCHEMA_CHECK") == "true"
+    
     # インメモリの場合のキー設定
     if in_memory:
         if test_unique:
@@ -49,10 +53,11 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
         else:
             cache_key = ":memory:"
     else:
-        cache_key = str(path)
-    
-    # テストモードではインメモリデータベースのキャッシュを無効化
-    is_test_mode = os.environ.get("RGL_SKIP_SCHEMA_CHECK") == "true"
+        # ファイルベースDBの場合は常にユニーク（テストモードでキャッシュの競合を避ける）
+        if is_test_mode:
+            cache_key = f"{path}:{time.time_ns()}"
+        else:
+            cache_key = str(path)
     if is_test_mode and in_memory:
         use_cache = False
         test_unique = True  # テストモードでは常にユニークなインスタンスを作成
@@ -101,7 +106,8 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
             db_path.parent.mkdir(parents=True, exist_ok=True)
             
             info("rgl.db_factory", "Creating persistent database", path=str(db_path))
-            db = kuzu.Database(str(db_path))
+            # max_db_sizeを1GBに制限して8TBメモリ割り当てエラーを回避
+            db = kuzu.Database(str(db_path), max_db_size=1 << 30)  # 1GB
         
         # キャッシュに保存（テストモードではキャッシュしない）
         if use_cache and not is_test_mode:

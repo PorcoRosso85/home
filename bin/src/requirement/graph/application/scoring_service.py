@@ -243,6 +243,21 @@ def create_scoring_service() -> Dict[str, Any]:
         
         # 曖昧性摩擦
         if friction_type == "ambiguity_friction":
+            # 要件固有の曖昧性を検出
+            if "requirement" in metrics:
+                req = metrics["requirement"]
+                desc = req.get("description", "").lower()
+                
+                # 曖昧な表現のチェック
+                ambiguous_terms = ["自然に", "適切に", "効率的に", "使いやすい", "速い", "良い"]
+                for term in ambiguous_terms:
+                    if term in desc:
+                        return {
+                            "score": -0.6,
+                            "message": f"「{term}」という表現が曖昧です",
+                            "affected_requirement": req.get("id", "")
+                        }
+            
             interpretation_count = metrics.get("interpretation_count", 0)
             if interpretation_count >= 2:
                 return friction_def["levels"]["high"]
@@ -309,19 +324,8 @@ def create_scoring_service() -> Dict[str, Any]:
             for key, weight in weights.items()
         )
         
-        # プロジェクト健全性の判定
-        if total_score > -0.2:
-            health = "healthy"
-        elif total_score > -0.5:
-            health = "needs_attention"
-        elif total_score > -0.7:
-            health = "at_risk"
-        else:
-            health = "critical"
-        
         return {
-            "total_score": total_score,
-            "health": health
+            "total_score": total_score
         }
 
     return {

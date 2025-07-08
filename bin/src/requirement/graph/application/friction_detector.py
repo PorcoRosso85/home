@@ -15,34 +15,62 @@ def create_friction_detector() -> Dict[str, Any]:
         検出関数の辞書
     """
     
-    def detect_ambiguity_friction(connection) -> List[Dict[str, Any]]:
+    def detect_ambiguity_friction(connection, target_requirement_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         曖昧性摩擦を検出
-        同じタイトルや説明に対して複数の詳細化が存在する場合
+        target_requirement_idが指定された場合は、その要件のみをチェック
         """
-        # 簡略版: 曖昧な単語を含む要件をカウント
-        query = """
-        MATCH (r:RequirementEntity)
-        WHERE r.title CONTAINS 'フレンドリー' 
-           OR r.title CONTAINS '使いやすい'
-           OR r.title CONTAINS '効率的'
-           OR r.title CONTAINS '適切な'
-           OR r.title CONTAINS '最適な'
-        RETURN r.id as parent_id,
-               r.title as parent_title,
-               2 as interpretation_count
-        LIMIT 5
-        """
+        # 曖昧な単語のリスト
+        ambiguous_terms = [
+            'フレンドリー', '使いやすい', '効率的', '適切な', '最適な',
+            '自然に', '速い', '良い', '便利な', 'シンプルな'
+        ]
+        
+        if target_requirement_id:
+            # 特定の要件のみチェック
+            query = f"""
+            MATCH (r:RequirementEntity)
+            WHERE r.id = '{target_requirement_id}'
+            RETURN r.id as parent_id,
+                   r.title as parent_title,
+                   r.description as description
+            """
+        else:
+            # 全要件をチェック（従来の動作）
+            where_conditions = " OR ".join([f"r.title CONTAINS '{term}' OR r.description CONTAINS '{term}'" for term in ambiguous_terms])
+            query = f"""
+            MATCH (r:RequirementEntity)
+            WHERE {where_conditions}
+            RETURN r.id as parent_id,
+                   r.title as parent_title,
+                   r.description as description
+            LIMIT 5
+            """
         
         result = connection.execute(query)
         ambiguities = []
         while result.has_next():
             row = result.get_next()
-            ambiguities.append({
-                "parent_id": row[0],
-                "parent_title": row[1], 
-                "interpretation_count": row[2]
-            })
+            parent_id = row[0]
+            parent_title = row[1]
+            description = row[2] if len(row) > 2 else ""
+            
+            # どの曖昧な単語が含まれているかチェック
+            found_terms = []
+            combined_text = f"{parent_title} {description}".lower()
+            for term in ambiguous_terms:
+                if term in combined_text:
+                    found_terms.append(term)
+            
+            if found_terms:
+                ambiguities.append({
+                    "parent_id": parent_id,
+                    "parent_title": parent_title,
+                    "interpretation_count": 2,  # 互換性のため
+                    "ambiguous_terms": found_terms,
+                    "suggestion": f"「{'」「'.join(found_terms)}」を具体的な指標で定義してください"
+                })
+        
         return ambiguities
     
     def detect_priority_friction(connection) -> Dict[str, Any]:

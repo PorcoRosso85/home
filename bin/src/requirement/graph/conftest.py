@@ -50,47 +50,6 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "integration: marks tests as integration tests"
     )
-    
-    # データベースキャッシュをクリア（テスト開始時）
-    try:
-        from infrastructure.database_factory import clear_database_cache
-        clear_database_cache()
-    except ImportError:
-        pass
-
-
-@pytest.fixture(scope="session")
-def test_db_path(tmp_path_factory):
-    """テスト用の一時DBパスを提供"""
-    return str(tmp_path_factory.mktemp("test_db"))
-
-
-@pytest.fixture
-def clean_env():
-    """環境変数をクリーンアップするフィクスチャ"""
-    original_env = os.environ.copy()
-    yield
-    os.environ.clear()
-    os.environ.update(original_env)
-
-
-@pytest.fixture(autouse=True)
-def cleanup_kuzu_state():
-    """各テスト後にKuzuDB状態をクリーンアップ"""
-    yield
-    # テスト後のクリーンアップ
-    if 'kuzu' in sys.modules:
-        try:
-            import importlib
-            importlib.reload(sys.modules['kuzu'])
-        except:
-            pass
-    # データベースキャッシュもクリア
-    try:
-        from infrastructure.database_factory import clear_database_cache
-        clear_database_cache()
-    except ImportError:
-        pass
 
 
 # テスト実行時のオプション設定

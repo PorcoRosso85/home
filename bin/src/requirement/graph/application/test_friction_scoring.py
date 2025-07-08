@@ -125,7 +125,6 @@ class TestFrictionScoring:
         }
         result = calc_total(scores)
         assert result["total_score"] == 0.0
-        assert result["health"] == "healthy"
         
         # 要注意プロジェクト
         scores = {
@@ -137,7 +136,6 @@ class TestFrictionScoring:
         result = calc_total(scores)
         # 重み付け: (-0.3*0.2) + (-0.4*0.3) + (-0.3*0.2) + (0*0.3) = -0.24
         assert -0.25 < result["total_score"] < -0.23
-        assert result["health"] == "needs_attention"
         
         # リスクありプロジェクト
         scores = {
@@ -149,7 +147,6 @@ class TestFrictionScoring:
         result = calc_total(scores)
         # 重み付け: (-0.6*0.2) + (-0.7*0.3) + (-0.5*0.2) + (-0.6*0.3) = -0.61
         assert -0.62 < result["total_score"] < -0.60
-        assert result["health"] == "at_risk"
         
         # 危機的プロジェクト
         scores = {
@@ -160,7 +157,6 @@ class TestFrictionScoring:
         }
         result = calc_total(scores)
         assert result["total_score"] < -0.7
-        assert result["health"] == "critical"
     
     def test_unknown_friction_type(self):
         """未知の摩擦タイプの処理"""

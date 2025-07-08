@@ -9,9 +9,27 @@ from domain.health_assessment import HealthAssessment
 from domain.health_criteria import evaluate_health
 
 
-def generate_score_report(requirement: Dict[str, Any]) -> Dict[str, Any]:
+def generate_score_report(requirement_or_project: Dict[str, Any]) -> Dict[str, Any]:
     """
-    要件のスコアレポートを生成
+    要件またはプロジェクト全体のスコアレポートを生成
+    
+    Args:
+        requirement_or_project: 要件データまたはプロジェクト状態
+        
+    Returns:
+        スコアレポート
+    """
+    # プロジェクト全体の分析
+    if "requirements" in requirement_or_project:
+        return _generate_project_report(requirement_or_project)
+    
+    # 個別要件の分析
+    return _generate_requirement_report(requirement_or_project)
+
+
+def _generate_requirement_report(requirement: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    個別要件のスコアレポートを生成
     
     Args:
         requirement: 要件データ
@@ -324,3 +342,69 @@ def _get_status_from_score(score: int) -> str:
         return "critical"
     else:
         return "emergency"
+
+
+def _generate_project_report(project_state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    プロジェクト全体のスコアレポートを生成
+    
+    Args:
+        project_state: プロジェクト状態（requirements リストを含む）
+        
+    Returns:
+        プロジェクトレベルのスコアレポート
+    """
+    requirements = project_state.get("requirements", [])
+    
+    # 優先度の分析
+    priority_counts = {}
+    for req in requirements:
+        priority = req.get("priority", 0)
+        priority_counts[priority] = priority_counts.get(priority, 0) + 1
+    
+    # 問題の検出と推奨事項の生成
+    recommendations = []
+    
+    # 全要件が最高優先度の場合
+    high_priority_count = priority_counts.get(5, 0)
+    total_count = len(requirements)
+    
+    if total_count > 0 and high_priority_count == total_count:
+        recommendations.append({
+            "type": "priority_differentiation",
+            "action": "優先度を差別化してください。全ての要件が最高優先度では意味がありません",
+            "severity": "high",
+            "affected_requirements": [req["id"] for req in requirements]
+        })
+    
+    # 高優先度が多すぎる場合
+    elif total_count > 0 and high_priority_count / total_count > 0.7:
+        recommendations.append({
+            "type": "priority_imbalance",
+            "action": "高優先度の要件が多すぎます。本当に重要な要件を絞り込んでください",
+            "severity": "medium"
+        })
+    
+    # 要件タイプの分析
+    type_counts = {}
+    for req in requirements:
+        req_type = req.get("requirement_type", "unknown")
+        type_counts[req_type] = type_counts.get(req_type, 0) + 1
+    
+    # パフォーマンスとコストの矛盾チェック
+    if "performance" in type_counts and "cost" in type_counts:
+        recommendations.append({
+            "type": "potential_conflict",
+            "action": "パフォーマンス要件とコスト要件が混在しています。トレードオフを明確にしてください",
+            "severity": "medium"
+        })
+    
+    return {
+        "recommendations": recommendations,
+        "analysis": {
+            "total_requirements": total_count,
+            "priority_distribution": priority_counts,
+            "type_distribution": type_counts
+        },
+        "timestamp": datetime.now().isoformat()
+    }

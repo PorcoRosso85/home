@@ -21,26 +21,36 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     KuzuDBベースのリポジトリを作成
     
     Args:
-        db_path: データベースパス（デフォルト: ~/.rgl/graph.db）
+        db_path: データベースパス（デフォルト: 環境依存）
+                 - テスト環境: ":memory:" (インメモリ)
+                 - 本番環境: RGL_DB_PATH または ~/.rgl/graph.db
         
     Returns:
         Repository関数の辞書
     """
-    info("rgl.repo", "Creating KuzuDB repository", db_path=db_path)
-    
     # データベースファクトリーを使用
     from .database_factory import create_database, create_connection
     
+    # db_pathが明示的に指定されていない場合、環境に応じて決定
     if db_path is None:
-        db_path = get_db_path()
+        # テストモードかどうか判定
+        is_test_mode = should_skip_schema_check()  # RGL_SKIP_SCHEMA_CHECK=true
+        if is_test_mode:
+            db_path = ":memory:"
+            info("rgl.repo", "Test mode detected, using in-memory database")
+        else:
+            db_path = get_db_path()
+            info("rgl.repo", "Production mode, using persistent database", db_path=db_path)
+    
     debug("rgl.repo", "Using database path", path=str(db_path))
     
     # インメモリデータベースの判定
-    in_memory = db_path == ":memory:" or db_path.startswith("/tmp/test_")
+    in_memory = db_path == ":memory:"
     
     # データベースとコネクションの作成
     if in_memory:
-        db = create_database(in_memory=True)
+        # テスト用: キャッシュなし、ユニークインスタンス
+        db = create_database(in_memory=True, use_cache=False, test_unique=True)
     else:
         db = create_database(path=str(db_path))
     

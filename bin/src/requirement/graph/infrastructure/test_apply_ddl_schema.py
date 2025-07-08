@@ -55,16 +55,12 @@ def test_apply_ddl_schema_テスト環境_正常適用():
 def test_apply_ddl_schema_スキーマなし_エラー処理():
     """apply_ddl_schema_存在しないスキーマ_エラーが適切に処理される"""
     # Arrange
-    # 一時的に間違ったパスを設定
-    original_path = sys.path[0]
-    sys.path[0] = "/tmp/nonexistent"
+    # os.path.existsをモックして、スキーマファイルが存在しない状況をシミュレート
+    import unittest.mock
     
-    try:
+    with unittest.mock.patch('os.path.exists', return_value=False):
         # Act
         success = apply_ddl_schema()
         
         # Assert
         assert not success
-        
-    finally:
-        sys.path[0] = original_path

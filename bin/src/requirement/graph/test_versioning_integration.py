@@ -12,13 +12,9 @@ from datetime import datetime, timezone, timedelta
 import json
 import sys
 import io
-import os
-import tempfile
 from pathlib import Path
 
-# テスト用環境設定
-from .infrastructure.variables import setup_test_environment
-setup_test_environment()
+# テスト用環境設定は不要（kuzu_repositoryが自動判定）
 
 
 class TestVersioningIntegration:
@@ -30,12 +26,9 @@ class TestVersioningIntegration:
         from .infrastructure.kuzu_repository import create_kuzu_repository
         from .infrastructure.ddl_schema_manager import DDLSchemaManager
         
-        # 一時ディレクトリを作成
-        self.temp_dir = tempfile.mkdtemp()
-        self.test_db = os.path.join(self.temp_dir, "test.db")
-        
-        repo = create_kuzu_repository(str(self.test_db))
-        schema_manager = DDLSchemaManager(repo["connection"])
+        # テスト環境では自動的にインメモリDBを使用
+        self.repo = create_kuzu_repository()
+        schema_manager = DDLSchemaManager(self.repo["connection"])
         schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
         
         success, results = schema_manager.apply_schema(str(schema_path))
@@ -47,19 +40,16 @@ class TestVersioningIntegration:
     
     def teardown_method(self):
         """各テストの後にクリーンアップ"""
-        import shutil
-        if hasattr(self, 'temp_dir') and os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
+        # インメモリDBなのでクリーンアップ不要
+        pass
     
     #@pytest.mark.skip(reason="TDD Red: バージョニング統合待ち")
     def test_要件作成時_自動的にバージョン1が作成される(self):
         """新規要件作成時にバージョン履歴が開始される"""
-        from .infrastructure.kuzu_repository import create_kuzu_repository
         from .infrastructure.versioned_cypher_executor import create_versioned_cypher_executor
         
-        # リポジトリとバージョニングサービスを作成
-        repo = create_kuzu_repository(str(self.test_db))
-        versioned_executor = create_versioned_cypher_executor(repo)
+        # setup_methodで作成済みのリポジトリを使用
+        versioned_executor = create_versioned_cypher_executor(self.repo)
         
         # 新規要件を作成
         input_data = {

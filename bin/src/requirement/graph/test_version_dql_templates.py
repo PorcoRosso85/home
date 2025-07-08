@@ -7,9 +7,6 @@
 import pytest
 from pathlib import Path
 import json
-import tempfile
-import os
-import shutil
 
 
 class TestVersionDQLTemplates:
@@ -107,167 +104,148 @@ class TestVersionDQLTemplates:
         """履歴取得テンプレートが実際に動作することを確認"""
         from .infrastructure.kuzu_repository import create_kuzu_repository
         from .application.version_service import create_version_service
+        from .infrastructure.ddl_schema_manager import DDLSchemaManager
         
-        # テスト用DBを作成
-        temp_dir = tempfile.mkdtemp()
-        test_db = os.path.join(temp_dir, "test.db")
+        # テスト環境では自動的にインメモリDBを使用
+        repo = create_kuzu_repository()
         
-        try:
-            # スキーマ適用
-            from .infrastructure.ddl_schema_manager import DDLSchemaManager
-            repo = create_kuzu_repository(test_db)
-            schema_manager = DDLSchemaManager(repo["connection"])
-            schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
-            success, _ = schema_manager.apply_schema(str(schema_path))
-            assert success
-            
-            # バージョンサービスを作成
-            version_service = create_version_service(repo)
-            
-            # 要件を作成して更新
-            version_service["create_versioned_requirement"]({
-                "id": "REQ-HIST-001",
-                "title": "テスト要件",
-                "description": "初期バージョン"
-            })
-            
-            version_service["update_versioned_requirement"]({
-                "id": "REQ-HIST-001",
-                "title": "テスト要件（更新）",
-                "description": "更新バージョン",
-                "author": "tester",
-                "reason": "機能追加"
-            })
-            
-            # 履歴取得（テンプレート使用）
-            history = version_service["get_requirement_history"]("REQ-HIST-001")
-            
-            # 結果確認
-            assert len(history) == 2
-            assert history[0]["operation"] == "CREATE"
-            assert history[1]["operation"] == "UPDATE"
-            assert history[1]["change_reason"] == "機能追加"
-            
-            # テンプレートからのクエリであることを確認
-            # （load_templateが呼ばれていることを間接的に確認）
-            template_path = Path(__file__).parent / "query" / "dql" / "get_requirement_history.cypher"
-            assert template_path.exists()
-            
-        finally:
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
+        # スキーマ適用
+        schema_manager = DDLSchemaManager(repo["connection"])
+        schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+        success, _ = schema_manager.apply_schema(str(schema_path))
+        assert success
+        
+        # バージョンサービスを作成
+        version_service = create_version_service(repo)
+        
+        # 要件を作成して更新
+        version_service["create_versioned_requirement"]({
+            "id": "REQ-HIST-001",
+            "title": "テスト要件",
+            "description": "初期バージョン"
+        })
+        
+        version_service["update_versioned_requirement"]({
+            "id": "REQ-HIST-001",
+            "title": "テスト要件（更新）",
+            "description": "更新バージョン",
+            "author": "tester",
+            "reason": "機能追加"
+        })
+        
+        # 履歴取得（テンプレート使用）
+        history = version_service["get_requirement_history"]("REQ-HIST-001")
+        
+        # 結果確認
+        assert len(history) == 2
+        assert history[0]["operation"] == "CREATE"
+        assert history[1]["operation"] == "UPDATE"
+        assert history[1]["change_reason"] == "機能追加"
+        
+        # テンプレートからのクエリであることを確認
+        # （load_templateが呼ばれていることを間接的に確認）
+        template_path = Path(__file__).parent / "query" / "dql" / "get_requirement_history.cypher"
+        assert template_path.exists()
     
     def test_特定バージョン取得クエリの実行(self):
         """特定バージョン取得テンプレートが実際に動作することを確認"""
         from .infrastructure.kuzu_repository import create_kuzu_repository
         from .application.version_service import create_version_service
+        from .infrastructure.ddl_schema_manager import DDLSchemaManager
         from datetime import datetime, timedelta
         
-        temp_dir = tempfile.mkdtemp()
-        test_db = os.path.join(temp_dir, "test.db")
+        # テスト環境では自動的にインメモリDBを使用
+        repo = create_kuzu_repository()
         
-        try:
-            # DB初期化
-            from .infrastructure.ddl_schema_manager import DDLSchemaManager
-            repo = create_kuzu_repository(test_db)
-            schema_manager = DDLSchemaManager(repo["connection"])
-            schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
-            success, _ = schema_manager.apply_schema(str(schema_path))
-            assert success
-            
-            version_service = create_version_service(repo)
-            
-            # 要件作成
-            version_service["create_versioned_requirement"]({
-                "id": "REQ-TIME-001",
-                "title": "時点取得テスト",
-                "description": "バージョン1"
-            })
-            
-            # 少し待つ
-            import time
-            time.sleep(0.1)
-            mid_timestamp = datetime.now().isoformat()
-            time.sleep(0.1)
-            
-            # 要件更新
-            version_service["update_versioned_requirement"]({
-                "id": "REQ-TIME-001",
-                "description": "バージョン2"
-            })
-            
-            # 中間時点の要件を取得（テンプレート使用）
-            requirement = version_service["get_requirement_at_timestamp"](
-                "REQ-TIME-001", 
-                mid_timestamp
-            )
-            
-            # バージョン1が取得される
-            assert requirement is not None
-            assert requirement["version"] == 1
-            # 注: 現在の実装では、エンティティ自体が更新されるため、
-            # 過去のバージョンの内容は取得できない（設計上の制限）
-            
-        finally:
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
+        # スキーマ適用
+        schema_manager = DDLSchemaManager(repo["connection"])
+        schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+        success, _ = schema_manager.apply_schema(str(schema_path))
+        assert success
+        
+        version_service = create_version_service(repo)
+        
+        # 要件作成
+        version_service["create_versioned_requirement"]({
+            "id": "REQ-TIME-001",
+            "title": "時点取得テスト",
+            "description": "バージョン1"
+        })
+        
+        # 少し待つ
+        import time
+        time.sleep(0.1)
+        mid_timestamp = datetime.now().isoformat()
+        time.sleep(0.1)
+        
+        # 要件更新
+        version_service["update_versioned_requirement"]({
+            "id": "REQ-TIME-001",
+            "description": "バージョン2"
+        })
+        
+        # 中間時点の要件を取得（テンプレート使用）
+        requirement = version_service["get_requirement_at_timestamp"](
+            "REQ-TIME-001", 
+            mid_timestamp
+        )
+        
+        # バージョン1が取得される
+        assert requirement is not None
+        assert requirement["version"] == 1
+        # 注: 現在の実装では、エンティティ自体が更新されるため、
+        # 過去のバージョンの内容は取得できない（設計上の制限）
     
     def test_複雑な履歴クエリのパフォーマンス(self):
         """大量のバージョンがある場合でも効率的に動作することを確認"""
         from .infrastructure.kuzu_repository import create_kuzu_repository
         from .application.version_service import create_version_service
+        from .infrastructure.ddl_schema_manager import DDLSchemaManager
         import time
         
-        temp_dir = tempfile.mkdtemp()
-        test_db = os.path.join(temp_dir, "test.db")
+        # テスト環境では自動的にインメモリDBを使用
+        repo = create_kuzu_repository()
         
-        try:
-            # DB初期化
-            from .infrastructure.ddl_schema_manager import DDLSchemaManager
-            repo = create_kuzu_repository(test_db)
-            schema_manager = DDLSchemaManager(repo["connection"])
-            schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
-            success, _ = schema_manager.apply_schema(str(schema_path))
-            assert success
-            
-            version_service = create_version_service(repo)
-            
-            # 要件作成
-            version_service["create_versioned_requirement"]({
+        # スキーマ適用
+        schema_manager = DDLSchemaManager(repo["connection"])
+        schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+        success, _ = schema_manager.apply_schema(str(schema_path))
+        assert success
+        
+        version_service = create_version_service(repo)
+        
+        # 要件作成
+        version_service["create_versioned_requirement"]({
+            "id": "REQ-PERF-001",
+            "title": "パフォーマンステスト",
+            "description": "初期"
+        })
+        
+        # 50回更新
+        for i in range(50):
+            version_service["update_versioned_requirement"]({
                 "id": "REQ-PERF-001",
-                "title": "パフォーマンステスト",
-                "description": "初期"
+                "description": f"更新 {i+1}",
+                "author": f"tester_{i}",
+                "reason": f"理由 {i+1}"
             })
-            
-            # 50回更新
-            for i in range(50):
-                version_service["update_versioned_requirement"]({
-                    "id": "REQ-PERF-001",
-                    "description": f"更新 {i+1}",
-                    "author": f"tester_{i}",
-                    "reason": f"理由 {i+1}"
-                })
-            
-            # 履歴取得の時間を計測
-            start_time = time.time()
-            history = version_service["get_requirement_history"]("REQ-PERF-001")
-            end_time = time.time()
-            
-            # 結果確認
-            assert len(history) == 51  # 初期 + 50更新
-            assert end_time - start_time < 1.0  # 1秒以内に完了
-            
-            # テンプレートが存在し、効率的なクエリパターンを使用していることを確認
-            template_path = Path(__file__).parent / "query" / "dql" / "get_requirement_history.cypher"
-            assert template_path.exists()
-            content = template_path.read_text()
-            # 基本的なクエリ構造を確認
-            assert "MATCH" in content
-            assert "ORDER BY" in content  # 時系列ソートが含まれている
-            
-        finally:
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
+        
+        # 履歴取得の時間を計測
+        start_time = time.time()
+        history = version_service["get_requirement_history"]("REQ-PERF-001")
+        end_time = time.time()
+        
+        # 結果確認
+        assert len(history) == 51  # 初期 + 50更新
+        assert end_time - start_time < 1.0  # 1秒以内に完了
+        
+        # テンプレートが存在し、効率的なクエリパターンを使用していることを確認
+        template_path = Path(__file__).parent / "query" / "dql" / "get_requirement_history.cypher"
+        assert template_path.exists()
+        content = template_path.read_text()
+        # 基本的なクエリ構造を確認
+        assert "MATCH" in content
+        assert "ORDER BY" in content  # 時系列ソートが含まれている
 
 
 if __name__ == "__main__":

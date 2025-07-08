@@ -53,6 +53,70 @@
             ''}";
           };
           
+          "test.up" = {
+            type = "app";
+            program = "${mkRunner "test-up" ''
+              echo "🚀 Setting up test environment..."
+              
+              # テスト用DBディレクトリの作成
+              export RGL_DB_PATH="/tmp/test_rgl_db"
+              mkdir -p "$RGL_DB_PATH"
+              
+              # 既存のテストDBをバックアップ（存在する場合）
+              if [ -d "$RGL_DB_PATH" ] && [ "$(ls -A $RGL_DB_PATH 2>/dev/null)" ]; then
+                echo "📦 Backing up existing test database..."
+                rm -rf "$RGL_DB_PATH.bak"
+                mv "$RGL_DB_PATH" "$RGL_DB_PATH.bak"
+                mkdir -p "$RGL_DB_PATH"
+              fi
+              
+              # テスト用スキーマの適用
+              echo "📊 Applying test schema..."
+              export RGL_SKIP_SCHEMA_CHECK="true"
+              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | .venv/bin/python run.py
+              
+              echo "✅ Test environment is ready!"
+              echo "   DB Path: $RGL_DB_PATH"
+            ''}";
+          };
+          
+          "test.down" = {
+            type = "app";
+            program = "${mkRunner "test-down" ''
+              echo "🧹 Cleaning up test environment..."
+              
+              export RGL_DB_PATH="/tmp/test_rgl_db"
+              
+              # テストDBの削除
+              if [ -d "$RGL_DB_PATH" ]; then
+                echo "🗑️  Removing test database at $RGL_DB_PATH..."
+                rm -rf "$RGL_DB_PATH"
+              fi
+              
+              # バックアップの復元（オプション）
+              if [ -d "$RGL_DB_PATH.bak" ]; then
+                echo "♻️  Found backup database"
+                read -p "Restore backup? (y/N) " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                  mv "$RGL_DB_PATH.bak" "$RGL_DB_PATH"
+                  echo "✅ Backup restored"
+                else
+                  rm -rf "$RGL_DB_PATH.bak"
+                  echo "🗑️  Backup removed"
+                fi
+              fi
+              
+              # その他のテスト成果物のクリーンアップ
+              echo "🧹 Cleaning up test artifacts..."
+              find . -name "*.pyc" -delete
+              find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+              find . -name ".pytest_cache" -type d -exec rm -rf {} + 2>/dev/null || true
+              
+              echo "✅ Test environment cleaned up!"
+            ''}";
+          };
+          
           run = {
             type = "app";
             program = "${mkRunner "run" ''
@@ -61,11 +125,30 @@
             ''}";
           };
           
+          init = {
+            type = "app";
+            program = "${mkRunner "init" ''
+              export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
+              
+              # スキーマ状態確認
+              if [ -d "$RGL_DB_PATH" ] && [ -f "$RGL_DB_PATH/catalog.kz" ]; then
+                echo "ℹ️  データベースは既に存在します: $RGL_DB_PATH"
+                echo "再初期化する場合は、データベースディレクトリを削除してから実行してください"
+                echo "  rm -rf $RGL_DB_PATH"
+                exit 0
+              fi
+              
+              # 初期化実行
+              echo '{"type": "init", "action": "apply", "create_test_data": true}' | .venv/bin/python run.py
+            ''}";
+          };
+          
+          # 互換性のため旧名称も維持
           schema = {
             type = "app";
             program = "${mkRunner "schema" ''
-              export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | .venv/bin/python run.py
+              echo "⚠️  'nix run .#schema' は非推奨です。'nix run .#init' を使用してください"
+              exec nix run .#init -- "$@"
             ''}";
           };
         };

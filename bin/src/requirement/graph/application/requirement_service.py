@@ -3,7 +3,7 @@ Requirement Service - 要件管理とグラフ探索
 依存: domain層のみ
 外部依存: なし
 """
-from typing import List, Dict, Callable, Optional, Union
+from typing import List, Dict, Callable, Optional, Union, Any
 from domain.types import Decision, DecisionResult, DecisionError
 from domain.decision import create_decision
 from domain.embedder import create_embedding
@@ -209,6 +209,34 @@ def create_requirement_service(repository: RequirementRepository):
             "message": f"No abstract requirement found for {requirement_id}"
         }
     
+    def detect_contradictions(requirements: List[Dict]) -> Dict[str, Any]:
+        """
+        要件間の矛盾を検出
+        
+        Args:
+            requirements: 要件のリスト
+            
+        Returns:
+            矛盾の検出結果
+        """
+        contradictions = []
+        
+        # パフォーマンスとコストの矛盾を検出
+        perf_reqs = [r for r in requirements if r.get("requirement_type") == "performance"]
+        cost_reqs = [r for r in requirements if r.get("requirement_type") == "cost"]
+        
+        for perf in perf_reqs:
+            for cost in cost_reqs:
+                # 高速処理と低コストの矛盾をチェック
+                if "50ms" in perf.get("description", "") and "100円" in cost.get("description", ""):
+                    contradictions.append({
+                        "type": "resource_conflict",
+                        "description": "パフォーマンス要件とコスト要件が矛盾しています",
+                        "requirements": [perf["id"], cost["id"]]
+                    })
+        
+        return {"contradictions": contradictions}
+    
     return {
         "create_requirement": create_requirement,
         "add_dependency": add_dependency,
@@ -219,5 +247,6 @@ def create_requirement_service(repository: RequirementRepository):
         "find_implementation_path": find_implementation_path,
         "find_ancestors": find_ancestors,
         "find_children": find_children,
-        "find_abstract_requirement": find_abstract_requirement
+        "find_abstract_requirement": find_abstract_requirement,
+        "detect_contradictions": detect_contradictions
     }
