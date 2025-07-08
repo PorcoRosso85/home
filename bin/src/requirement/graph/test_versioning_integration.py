@@ -51,15 +51,17 @@ class TestVersioningIntegration:
         # setup_methodで作成済みのリポジトリを使用
         versioned_executor = create_versioned_cypher_executor(self.repo)
         
-        # 新規要件を作成
+        # 新規要件を作成（ユニークIDを使用）
+        import time
+        unique_id = f"REQ-VI-001-{int(time.time() * 1000)}"
         input_data = {
             "type": "cypher",
-            "query": """
-            CREATE (r:RequirementEntity {
-                id: 'REQ-VI-001',
+            "query": f"""
+            CREATE (r:RequirementEntity {{
+                id: '{unique_id}',
                 title: 'ユーザー認証機能',
                 description: '安全なログイン機能を提供'
-            })
+            }})
             """
         }
         
@@ -101,15 +103,17 @@ class TestVersioningIntegration:
         repo = self.repo
         versioned_executor = create_versioned_cypher_executor(repo)
         
-        # まず要件を作成
+        # まず要件を作成（ユニークIDを使用）
+        import time
+        unique_id = f"REQ-VI-002-{int(time.time() * 1000)}"
         create_input = {
             "type": "cypher",
-            "query": """
-            CREATE (r:RequirementEntity {
-                id: 'REQ-VI-001',
+            "query": f"""
+            CREATE (r:RequirementEntity {{
+                id: '{unique_id}',
                 title: 'ユーザー認証機能',
                 description: '安全なログイン機能を提供'
-            })
+            }})
             """
         }
         create_result = versioned_executor["execute"](create_input)
@@ -118,8 +122,8 @@ class TestVersioningIntegration:
         # 要件を更新
         input_data = {
             "type": "cypher",
-            "query": """
-            MATCH (r:RequirementEntity {id: 'REQ-VI-001'})
+            "query": f"""
+            MATCH (r:RequirementEntity {{id: '{unique_id}'}})
             SET r.description = '二要素認証を含む安全なログイン機能'
             RETURN r
             """,
@@ -149,22 +153,24 @@ class TestVersioningIntegration:
         repo = self.repo
         version_service = create_version_service(repo)
         
-        # 要件を作成して更新
+        # 要件を作成して更新（ユニークIDを使用）
+        import time
+        unique_id = f"REQ-002-{int(time.time() * 1000)}"
         version_service["create_versioned_requirement"]({
-            "id": "REQ-002",
+            "id": unique_id,
             "title": "テスト要件",
             "description": "初期バージョン"
         })
         
         version_service["update_versioned_requirement"]({
-            "id": "REQ-002",
+            "id": unique_id,
             "description": "更新バージョン",
             "author": "tester",
             "reason": "テスト更新"
         })
         
         # 履歴を取得
-        history = version_service["get_requirement_history"]("REQ-002")
+        history = version_service["get_requirement_history"](unique_id)
         
         # 履歴を確認
         assert len(history) == 2
@@ -183,9 +189,11 @@ class TestVersioningIntegration:
         repo = self.repo
         version_service = create_version_service(repo)
         
-        # 要件を作成
+        # 要件を作成（ユニークIDを使用）
+        import time
+        unique_id = f"REQ-003-{int(time.time() * 1000)}"
         create_result = version_service["create_versioned_requirement"]({
-            "id": "REQ-003",
+            "id": unique_id,
             "title": "時間テスト",
             "description": "初期状態"
         })
@@ -201,18 +209,18 @@ class TestVersioningIntegration:
         
         # 要件を更新
         version_service["update_versioned_requirement"]({
-            "id": "REQ-003",
+            "id": unique_id,
             "description": "更新状態"
         })
         
         # 更新前の時点の状態を取得
-        restored = version_service["get_requirement_at_timestamp"]("REQ-003", before_update_time)
+        restored = version_service["get_requirement_at_timestamp"](unique_id, before_update_time)
         
         # デバッグ情報
         print(f"Restored: {restored}")
         
         # 履歴も確認
-        history = version_service["get_requirement_history"]("REQ-003")
+        history = version_service["get_requirement_history"](unique_id)
         print(f"History: {history}")
         
         assert restored is not None
@@ -230,21 +238,23 @@ class TestVersioningIntegration:
         repo = self.repo
         version_service = create_version_service(repo)
         
-        # 要件を作成して更新
+        # 要件を作成して更新（ユニークIDを使用）
+        import time
+        unique_id = f"REQ-004-{int(time.time() * 1000)}"
         version_service["create_versioned_requirement"]({
-            "id": "REQ-004",
+            "id": unique_id,
             "title": "URI テスト",
             "description": "バージョン1"
         })
         
         version_service["update_versioned_requirement"]({
-            "id": "REQ-004",
+            "id": unique_id,
             "description": "バージョン2"
         })
         
         # LocationURI経由でアクセス
-        query = """
-        MATCH (l:LocationURI {id: 'req://REQ-004'})
+        query = f"""
+        MATCH (l:LocationURI {{id: 'req://{unique_id}'}})
         MATCH (l)-[:LOCATES]->(r:RequirementEntity)
         RETURN r.id as id, r.description as description
         """
@@ -252,7 +262,7 @@ class TestVersioningIntegration:
         
         # 最新バージョンが返されることを確認
         row = result.get_next()
-        assert row[0] == "REQ-004"
+        assert row[0] == unique_id
         assert row[1] == "バージョン2"  # 最新の内容
     
     def test_バージョン間差分分析_変更内容を明確化(self):
@@ -264,9 +274,11 @@ class TestVersioningIntegration:
         repo = self.repo
         version_service = create_version_service(repo)
         
-        # 要件を作成して複数回更新
+        # 要件を作成して複数回更新（ユニークIDを使用）
+        import time
+        unique_id = f"REQ-005-{int(time.time() * 1000)}"
         version_service["create_versioned_requirement"]({
-            "id": "REQ-005",
+            "id": unique_id,
             "title": "差分テスト",
             "description": "初期版",
             "status": "draft",
@@ -274,21 +286,21 @@ class TestVersioningIntegration:
         })
         
         version_service["update_versioned_requirement"]({
-            "id": "REQ-005",
+            "id": unique_id,
             "description": "更新版",
             "status": "approved"
         })
         
         # バージョン間の差分を取得
-        diff = version_service["get_version_diff"]("REQ-005", 1, 2)
+        diff = version_service["get_version_diff"](unique_id, 1, 2)
         
         # デバッグ情報
-        history = version_service["get_requirement_history"]("REQ-005")
+        history = version_service["get_requirement_history"](unique_id)
         print(f"History for diff analysis: {history}")
         print(f"Diff result: {diff}")
         
         # 差分を確認
-        assert diff["req_id"] == "REQ-005"
+        assert diff["req_id"] == unique_id
         assert diff["from_version"] == 1
         assert diff["to_version"] == 2
         # 現在の実装では、エンティティが更新されるため履歴から差分を検出できない

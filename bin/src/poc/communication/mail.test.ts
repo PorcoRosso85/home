@@ -1,20 +1,14 @@
 /**
- * メールCLI機能のE2Eテスト（TDD Red Phase）
- * 規約準拠：1つのテストに1つのアサーション
- * 段階的に正規化・具体化を進めることを前提
+ * メールCLI機能のE2Eテスト（TDD Red Phase - 改訂版）
+ * 認証はライブラリに委譲し、メール取得機能との統合テストに焦点
+ * 取得成功 = 認証済みとみなす
  */
 
-import { assertEquals, assertExists, assertRejects } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { describe, it } from "https://deno.land/std@0.208.0/testing/bdd.ts";
 
-// テスト対象のCLIコマンドを実行する関数（未実装）
-async function runMailCommand(args: string[]): Promise<{
-  success: boolean;
-  output: string;
-  error?: string;
-}> {
-  throw new Error("runMailCommand not implemented");
-}
+// テスト対象のCLIコマンドを実行する関数
+import { runMailCommand } from "./mail_test_helper.ts";
 
 // テスト用のデータベース接続（未実装）
 async function getTestDatabase(): Promise<{
@@ -24,75 +18,19 @@ async function getTestDatabase(): Promise<{
   throw new Error("getTestDatabase not implemented");
 }
 
-describe("メール認証機能", () => {
-  describe("test_add_gmail_account_with_oauth2_returns_success", () => {
-    it("GmailアカウントをOAuth2で追加すると成功メッセージが表示される", async () => {
+describe("認証済みアカウントでのメール取得統合テスト", () => {
+  describe("test_fetch_emails_with_valid_token_returns_emails", () => {
+    it("有効なトークンでメールを取得できる", async () => {
+      // 前提: 既に認証済みのアカウントがDBに存在
       const result = await runMailCommand([
-        "auth", "add", "--provider", "gmail", 
-        "--email", "test@gmail.com", "--auth-type", "oauth2"
+        "fetch", "--account", "test@gmail.com"
       ]);
       
       assertEquals(result.success, true);
     });
   });
   
-  describe("test_invalid_credentials_shows_clear_error_message", () => {
-    it("無効な認証情報で明確なエラーメッセージが表示される", async () => {
-      await assertRejects(
-        async () => {
-          await runMailCommand([
-            "auth", "add", "--provider", "gmail",
-            "--email", "invalid@gmail.com", "--auth-type", "password",
-            "--password", "wrong"
-          ]);
-        },
-        Error,
-        "認証に失敗しました"
-      );
-    });
-  });
-  
-  describe("test_credentials_are_encrypted_in_database", () => {
-    it("認証情報がデータベースに暗号化されて保存される", async () => {
-      await runMailCommand([
-        "auth", "add", "--provider", "gmail",
-        "--email", "secure@gmail.com", "--auth-type", "password",
-        "--password", "secret123"
-      ]);
-      
-      const db = await getTestDatabase();
-      const rows = await db.query(
-        "SELECT encrypted_credentials FROM accounts WHERE email = ?",
-        ["secure@gmail.com"]
-      );
-      
-      assertExists(rows[0]);
-    });
-  });
-});
-
-describe("メール取得機能", () => {
-  describe("test_fetch_unread_emails_returns_unread_only", () => {
-    it("未読メールのみを取得できる", async () => {
-      const result = await runMailCommand([
-        "fetch", "--account", "test@gmail.com", "--unread"
-      ]);
-      
-      assertEquals(result.success, true);
-    });
-  });
-  
-  describe("test_fetch_with_date_filter_returns_filtered_emails", () => {
-    it("日付フィルターで絞り込んだメールが取得できる", async () => {
-      const result = await runMailCommand([
-        "fetch", "--account", "test@gmail.com", "--since", "2024-01-01"
-      ]);
-      
-      assertEquals(result.success, true);
-    });
-  });
-  
-  describe("test_emails_are_cached_in_local_database", () => {
+  describe("test_fetch_emails_saves_to_local_cache", () => {
     it("取得したメールがローカルDBにキャッシュされる", async () => {
       await runMailCommand([
         "fetch", "--account", "test@gmail.com", "--limit", "10"
@@ -107,43 +45,77 @@ describe("メール取得機能", () => {
       assertExists(rows[0]);
     });
   });
+  
+  describe("test_token_refresh_on_expiry", () => {
+    it("トークン期限切れ時に自動的にリフレッシュされる", async () => {
+      // トークンを期限切れに設定（テスト用）
+      await expireToken("test@gmail.com");
+      
+      const result = await runMailCommand([
+        "fetch", "--account", "test@gmail.com"
+      ]);
+      
+      // リフレッシュが成功し、メール取得も成功する
+      assertEquals(result.success, true);
+    });
+  });
 });
 
-describe("下書き管理機能", () => {
-  describe("test_create_draft_with_basic_fields_saves_to_db", () => {
-    it("基本的なフィールドで下書きを作成できる", async () => {
+describe("メールフィルタリング統合テスト", () => {
+  describe("test_fetch_unread_emails_filters_correctly", () => {
+    it("未読フィルターで正しくメールが絞り込まれる", async () => {
       const result = await runMailCommand([
-        "draft", "create",
-        "--to", "recipient@example.com",
-        "--subject", "Test Draft",
-        "--body", "This is a test"
+        "fetch", "--account", "test@gmail.com", "--unread"
+      ]);
+      
+      assertEquals(result.output.includes("未読"), true);
+    });
+  });
+  
+  describe("test_fetch_emails_with_date_range", () => {
+    it("日付範囲でメールを絞り込める", async () => {
+      const result = await runMailCommand([
+        "fetch", "--account", "test@gmail.com", 
+        "--since", "2024-01-01",
+        "--until", "2024-12-31"
       ]);
       
       assertEquals(result.success, true);
     });
   });
   
-  describe("test_draft_auto_save_updates_timestamp", () => {
-    it("下書きの自動保存で更新日時が変わる", async () => {
-      const createResult = await runMailCommand([
-        "draft", "create", "--to", "test@example.com"
+  describe("test_fetch_emails_with_label_filter", () => {
+    it("ラベルでメールを絞り込める", async () => {
+      const result = await runMailCommand([
+        "fetch", "--account", "test@gmail.com", 
+        "--label", "IMPORTANT"
       ]);
       
-      // 31秒待機（自動保存は30秒ごと）
-      await new Promise(resolve => setTimeout(resolve, 31000));
+      assertEquals(result.success, true);
+    });
+  });
+});
+
+describe("メール操作統合テスト", () => {
+  describe("test_mark_email_as_read_syncs_with_server", () => {
+    it("メールを既読にするとサーバーと同期される", async () => {
+      // メールを取得
+      await runMailCommand([
+        "fetch", "--account", "test@gmail.com", "--limit", "1"
+      ]);
       
-      const db = await getTestDatabase();
-      const rows = await db.query(
-        "SELECT created_at, updated_at FROM drafts ORDER BY id DESC LIMIT 1"
-      );
+      // 既読にマーク
+      const result = await runMailCommand([
+        "mark-read", "--email-id", "1"
+      ]);
       
-      assertExists(rows[0]);
+      assertEquals(result.success, true);
     });
   });
   
-  describe("test_reply_draft_links_to_original_email", () => {
-    it("返信の下書きが元のメールにリンクされる", async () => {
-      // まずメールを取得
+  describe("test_create_reply_draft_with_original_context", () => {
+    it("返信下書きに元メールのコンテキストが含まれる", async () => {
+      // メールを取得
       await runMailCommand([
         "fetch", "--account", "test@gmail.com", "--limit", "1"
       ]);
@@ -153,71 +125,62 @@ describe("下書き管理機能", () => {
         "draft", "reply", "--email-id", "1", "--body", "This is my reply"
       ]);
       
+      const db = await getTestDatabase();
+      const drafts = await db.query(
+        "SELECT body FROM drafts WHERE reply_to_email_id = ?",
+        ["1"]
+      );
+      
+      assertExists(drafts[0]);
+    });
+  });
+});
+
+describe("オフライン動作とキャッシュ統合テスト", () => {
+  describe("test_fetch_emails_offline_returns_cached_data", () => {
+    it("オフライン時はキャッシュからメールを返す", async () => {
+      // まずオンラインでメールを取得
+      await runMailCommand([
+        "fetch", "--account", "test@gmail.com", "--limit", "10"
+      ]);
+      
+      // オフラインモードに切り替え
+      await simulateOfflineMode();
+      
+      // キャッシュからメールを取得
+      const result = await runMailCommand([
+        "fetch", "--account", "test@gmail.com", "--cached"
+      ]);
+      
       assertEquals(result.success, true);
     });
   });
-});
-
-describe("CLI インターフェース", () => {
-  describe("test_mail_auth_add_shows_success_message", () => {
-    it("mail auth addコマンドで成功メッセージが表示される", async () => {
-      const result = await runMailCommand([
-        "auth", "add", "--provider", "gmail", "--email", "test@gmail.com"
-      ]);
-      
-      assertEquals(result.output.includes("認証に成功しました"), true);
-    });
-  });
   
-  describe("test_mail_fetch_with_filters_shows_count", () => {
-    it("mail fetchコマンドでフィルタ結果の件数が表示される", async () => {
-      const result = await runMailCommand([
-        "fetch", "--account", "test@gmail.com", "--unread"
-      ]);
-      
-      assertEquals(result.output.includes("未読メール"), true);
-    });
-  });
-  
-  describe("test_mail_draft_create_shows_saved_message", () => {
-    it("mail draft createコマンドで保存メッセージが表示される", async () => {
-      const result = await runMailCommand([
-        "draft", "create",
-        "--to", "test@example.com",
-        "--subject", "Test",
-        "--body", "Test Body"
-      ]);
-      
-      assertEquals(result.output.includes("下書きを保存しました"), true);
-    });
-  });
-});
-
-describe("オフライン機能", () => {
-  describe("test_draft_operations_work_without_network", () => {
-    it("ネットワークなしでも下書き操作が可能", async () => {
-      // ネットワークを無効化（実装必要）
+  describe("test_draft_operations_work_offline", () => {
+    it("下書き操作はオフラインでも動作する", async () => {
       await simulateOfflineMode();
       
       const result = await runMailCommand([
-        "draft", "create", "--to", "offline@test.com"
+        "draft", "create",
+        "--to", "offline@test.com",
+        "--subject", "Offline Draft",
+        "--body", "Created while offline"
       ]);
       
       assertEquals(result.success, true);
     });
   });
   
-  describe("test_queued_operations_sync_when_online", () => {
-    it("オンライン復帰時にキューイングされた操作が同期される", async () => {
+  describe("test_sync_on_reconnect", () => {
+    it("再接続時に保留中の操作が同期される", async () => {
       await simulateOfflineMode();
       
       // オフライン中の操作
       await runMailCommand(["mark-read", "--email-id", "1"]);
-      await runMailCommand(["delete", "--email-id", "2"]);
+      await runMailCommand(["archive", "--email-id", "2"]);
       
       // オンラインに復帰
       await simulateOnlineMode();
-      await waitForSync();
       
       const syncStatus = await getSyncStatus();
       assertEquals(syncStatus.pendingOperations, 0);
@@ -225,17 +188,43 @@ describe("オフライン機能", () => {
   });
 });
 
+describe("Service Account認証統合テスト", () => {
+  describe("test_service_account_authentication", () => {
+    it("Service Accountで認証してメールを取得できる", async () => {
+      const result = await runMailCommand([
+        "fetch",
+        "--service-account", "./service-account-key.json",
+        "--delegate", "user@example.com"
+      ]);
+      
+      assertEquals(result.success, true);
+    });
+  });
+  
+  describe("test_service_account_impersonation", () => {
+    it("Service Accountで別ユーザーとしてメールを取得できる", async () => {
+      const result = await runMailCommand([
+        "fetch",
+        "--service-account", "./service-account-key.json",
+        "--impersonate", "another-user@example.com"
+      ]);
+      
+      assertEquals(result.success, true);
+    });
+  });
+});
+
 // ヘルパー関数（未実装）
+async function expireToken(email: string): Promise<void> {
+  throw new Error("expireToken not implemented");
+}
+
 async function simulateOfflineMode(): Promise<void> {
   throw new Error("simulateOfflineMode not implemented");
 }
 
 async function simulateOnlineMode(): Promise<void> {
   throw new Error("simulateOnlineMode not implemented");
-}
-
-async function waitForSync(): Promise<void> {
-  throw new Error("waitForSync not implemented");
 }
 
 async function getSyncStatus(): Promise<{ pendingOperations: number }> {

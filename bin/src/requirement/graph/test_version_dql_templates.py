@@ -118,15 +118,17 @@ class TestVersionDQLTemplates:
         # バージョンサービスを作成
         version_service = create_version_service(repo)
         
-        # 要件を作成して更新
+        # 要件を作成して更新（ユニークIDを使用）
+        import time
+        unique_id = f"REQ-HIST-001-{int(time.time() * 1000)}"
         version_service["create_versioned_requirement"]({
-            "id": "REQ-HIST-001",
+            "id": unique_id,
             "title": "テスト要件",
             "description": "初期バージョン"
         })
         
         version_service["update_versioned_requirement"]({
-            "id": "REQ-HIST-001",
+            "id": unique_id,
             "title": "テスト要件（更新）",
             "description": "更新バージョン",
             "author": "tester",
@@ -134,7 +136,7 @@ class TestVersionDQLTemplates:
         })
         
         # 履歴取得（テンプレート使用）
-        history = version_service["get_requirement_history"]("REQ-HIST-001")
+        history = version_service["get_requirement_history"](unique_id)
         
         # 結果確認
         assert len(history) == 2
@@ -165,9 +167,11 @@ class TestVersionDQLTemplates:
         
         version_service = create_version_service(repo)
         
-        # 要件作成
+        # 要件作成（ユニークIDを使用）
+        import time
+        unique_id = f"REQ-TIME-001-{int(time.time() * 1000)}"
         version_service["create_versioned_requirement"]({
-            "id": "REQ-TIME-001",
+            "id": unique_id,
             "title": "時点取得テスト",
             "description": "バージョン1"
         })
@@ -180,13 +184,13 @@ class TestVersionDQLTemplates:
         
         # 要件更新
         version_service["update_versioned_requirement"]({
-            "id": "REQ-TIME-001",
+            "id": unique_id,
             "description": "バージョン2"
         })
         
         # 中間時点の要件を取得（テンプレート使用）
         requirement = version_service["get_requirement_at_timestamp"](
-            "REQ-TIME-001", 
+            unique_id, 
             mid_timestamp
         )
         
@@ -214,9 +218,10 @@ class TestVersionDQLTemplates:
         
         version_service = create_version_service(repo)
         
-        # 要件作成
+        # 要件作成（ユニークIDを使用）
+        unique_id = f"REQ-PERF-001-{int(time.time() * 1000)}"
         version_service["create_versioned_requirement"]({
-            "id": "REQ-PERF-001",
+            "id": unique_id,
             "title": "パフォーマンステスト",
             "description": "初期"
         })
@@ -224,7 +229,7 @@ class TestVersionDQLTemplates:
         # 50回更新
         for i in range(50):
             version_service["update_versioned_requirement"]({
-                "id": "REQ-PERF-001",
+                "id": unique_id,
                 "description": f"更新 {i+1}",
                 "author": f"tester_{i}",
                 "reason": f"理由 {i+1}"
@@ -232,7 +237,7 @@ class TestVersionDQLTemplates:
         
         # 履歴取得の時間を計測
         start_time = time.time()
-        history = version_service["get_requirement_history"]("REQ-PERF-001")
+        history = version_service["get_requirement_history"](unique_id)
         end_time = time.time()
         
         # 結果確認

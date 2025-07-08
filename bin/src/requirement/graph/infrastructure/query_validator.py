@@ -14,7 +14,7 @@ class QueryValidator:
     
     # 許可するCypherキーワード
     ALLOWED_KEYWORDS = {
-        "MATCH", "CREATE", "MERGE", "SET", "DELETE", "RETURN", "WHERE", 
+        "MATCH", "CREATE", "SET", "DELETE", "RETURN", "WHERE", 
         "WITH", "ORDER", "BY", "LIMIT", "SKIP", "UNION", "CALL", "YIELD",
         "AND", "OR", "NOT", "EXISTS", "AS", "DISTINCT", "COUNT", "SUM",
         "AVG", "MIN", "MAX", "COLLECT", "CONTAINS", "STARTS", "ENDS"

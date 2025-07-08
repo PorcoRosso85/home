@@ -33,3 +33,10 @@ export type {
   NetworkAdapter,
   SyncQueueAdapter
 } from "./adapters.ts";
+
+// アプリケーション層のエクスポート
+export { MailService } from "./application/mail_service.ts";
+
+// インフラストラクチャ層のエクスポート
+export { GmailClient } from "./infrastructure/gmail_client.ts";
+export { InMemoryDatabaseAdapter, MockMailServerAdapter } from "./infrastructure/mock_adapters.ts";

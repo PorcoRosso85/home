@@ -85,111 +85,106 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             is_new = not existing_check.has_next()
             operation = "CREATE" if is_new else "UPDATE"
             
-            # MERGE（存在しなければ作成、存在すれば更新）
+            # イミュータブルバージョニング: 常に新しいエンティティを作成
+            from ..domain.version_tracking import create_version_id
+            
+            # 新しいバージョンIDを生成
+            if is_new:
+                version_id = create_version_id(decision["id"], 1)
+            else:
+                # 既存要件の最新バージョンを取得
+                latest_version_result = conn.execute("""
+                    MATCH (l:LocationURI)-[:LOCATES]->(r:RequirementEntity)
+                    WHERE l.id = $uri
+                    RETURN r.version_id ORDER BY r.created_at DESC LIMIT 1
+                """, {"uri": f"req://{decision['id']}"})
+                
+                if latest_version_result.has_next():
+                    latest_version_id = latest_version_result.get_next()[0]
+                    # バージョン番号を抽出して増分
+                    version_num = int(latest_version_id.split('_v')[1]) + 1
+                    version_id = create_version_id(decision["id"], version_num)
+                else:
+                    version_id = create_version_id(decision["id"], 1)
+            
+            # 新しいエンティティを作成（常にCREATE）
             conn.execute("""
-                MERGE (r:RequirementEntity {id: $id})
-                SET r.title = $title,
-                    r.description = $description,
-                    r.priority = $priority,
-                    r.requirement_type = $requirement_type,
-                    r.status = $status,
-                    r.embedding = $embedding,
-                    r.created_at = $created_at
+                CREATE (r:RequirementEntity {
+                    id: $id,
+                    version_id: $version_id,
+                    title: $title,
+                    description: $description,
+                    priority: $priority,
+                    requirement_type: $requirement_type,
+                    status: $status,
+                    embedding: $embedding,
+                    created_at: $created_at,
+                    operation: $operation
+                })
                 RETURN r
             """, {
                 "id": decision["id"],
+                "version_id": version_id,
                 "title": decision["title"],
                 "description": decision["description"],
                 "priority": "medium",  # デフォルト値
                 "requirement_type": "functional",  # デフォルト値
                 "status": decision["status"],
                 "embedding": decision["embedding"],
-                "created_at": decision["created_at"].isoformat()
+                "created_at": decision["created_at"].isoformat(),
+                "operation": operation
             })
             
-            # バージョン追跡を有効にしている場合
-            if track_version:
-                # LocationURIを生成
-                from ..domain.version_tracking import create_location_uri, create_version_id
-                
-                location_uri = create_location_uri(decision["id"])
-                version_id = create_version_id(decision["id"])
-                
-                # LocationURIノードを作成
+            # LocationURIの処理
+            from ..domain.version_tracking import create_location_uri
+            location_uri = create_location_uri(decision["id"])
+            
+            # LocationURIノードが存在しない場合は作成
+            uri_check = conn.execute("""
+                MATCH (l:LocationURI {id: $uri})
+                RETURN l
+            """, {"uri": location_uri})
+            
+            if not uri_check.has_next():
                 conn.execute("""
-                    MERGE (l:LocationURI {id: $uri})
+                    CREATE (l:LocationURI {id: $uri})
                     RETURN l
                 """, {"uri": location_uri})
-                
-                # 要件とLocationURIを関連付け（新スキーマ対応）
+            else:
+                # 既存のLOCATES関係を削除
                 conn.execute("""
-                    MATCH (l:LocationURI {id: $uri}), (r:RequirementEntity {id: $req_id})
-                    MERGE (l)-[:LOCATES {entity_type: 'requirement'}]->(r)
-                """, {"uri": location_uri, "req_id": decision["id"]})
-                
-                # 変更フィールドを検出（既存要件の場合）
-                changed_fields = []
-                if not is_new:
-                    # 既存の要件を取得して差分を計算
-                    old_req = existing_check.get_next()[0] if existing_check.has_next() else None
-                    if old_req:
-                        for field in ["title", "description", "status", "priority"]:
-                            if field in decision and old_req.get(field) != decision.get(field):
-                                changed_fields.append({
-                                    "field": field,
-                                    "old_value": old_req.get(field),
-                                    "new_value": decision.get(field)
-                                })
-                
-                # VersionStateを作成
-                conn.execute("""
-                    CREATE (v:VersionState {
-                        id: $version_id,
-                        timestamp: $timestamp,
-                        description: $description,
-                        change_reason: $reason,
-                        operation: $operation,
-                        author: $author,
-                        changed_fields: $changed_fields,
-                        progress_percentage: 0.0
-                    })
-                    RETURN v
-                """, {
-                    "version_id": version_id,
-                    "timestamp": datetime.now().isoformat(),
-                    "description": f"{operation} requirement {decision['id']}",
-                    "reason": operation,
-                    "operation": operation,
-                    "author": "system",
-                    "changed_fields": json.dumps(changed_fields) if changed_fields else None
-                })
-                
-                # 要件とバージョンの関係を作成
-                conn.execute("""
-                    MATCH (r:RequirementEntity {id: $req_id}), (v:VersionState {id: $ver_id})
-                    CREATE (r)-[:HAS_VERSION]->(v)
-                """, {"req_id": decision["id"], "ver_id": version_id})
-                
-                # 前のバージョンとの関係を作成（既存要件の場合）
-                if not is_new:
-                    conn.execute("""
-                        MATCH (v_new:VersionState {id: $new_version}),
-                              (v_old:VersionState)<-[:HAS_VERSION]-(r:RequirementEntity {id: $req_id})
-                        WHERE v_old.id <> $new_version
-                        WITH v_new, v_old
-                        ORDER BY v_old.timestamp DESC
-                        LIMIT 1
-                        CREATE (v_new)-[:FOLLOWS]->(v_old)
-                    """, {"new_version": version_id, "req_id": decision["id"]})
-                
-                # バージョンと位置の関係を作成
-                conn.execute("""
-                    MATCH (v:VersionState {id: $version_id}), (l:LocationURI {id: $uri})
-                    CREATE (v)-[:TRACKS_STATE_OF {entity_type: 'requirement'}]->(l)
-                """, {"version_id": version_id, "uri": location_uri})
+                    MATCH (l:LocationURI {id: $uri})-[loc:LOCATES]->()
+                    DELETE loc
+                """, {"uri": location_uri})
+            
+            # 新しいバージョンへのLOCATES関係を作成
+            conn.execute("""
+                MATCH (l:LocationURI {id: $uri})
+                MATCH (r:RequirementEntity {version_id: $version_id})
+                CREATE (l)-[:LOCATES {entity_type: 'requirement', is_latest: true}]->(r)
+            """, {"uri": location_uri, "version_id": version_id})
+            
+            # 変更フィールドを検出（既存要件の場合）
+            # 変更フィールドを検出（既存要件の場合）
+            changed_fields = []
+            if not is_new:
+                # 既存の要件を取得して差分を計算
+                old_req = existing_check.get_next()[0] if existing_check.has_next() else None
+                if old_req:
+                    for field in ["title", "description", "status", "priority"]:
+                        if field in decision and old_req.get(field) != decision.get(field):
+                            changed_fields.append({
+                                "field": field,
+                                "old_value": old_req.get(field),
+                                "new_value": decision.get(field)
+                            })
+            
+            # バージョン情報をdecisionに追加
+            decision["version_id"] = version_id
+            decision["version"] = int(version_id.split('_v')[1]) if '_v' in version_id else 1
             
             # 親子関係を設定（LocationURI階層として）
-            if parent_id and track_version:
+            if parent_id:
                 # 親の存在確認
                 parent_check = conn.execute("""
                     MATCH (parent:RequirementEntity {id: $parent_id})
@@ -205,14 +200,25 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 
                 # 親のLocationURIを取得して階層関係を作成
                 parent_uri = location_uri.rsplit('/', 1)[0]  # 親パスを推定
-                conn.execute("""
-                    MATCH (parent:LocationURI {id: $parent_uri})
-                    MATCH (child:LocationURI {id: $child_uri})
-                    MERGE (parent)-[:CONTAINS_LOCATION {relation_type: 'hierarchy'}]->(child)
+                
+                # 既存の関係を確認
+                existing_rel = conn.execute("""
+                    MATCH (parent:LocationURI {id: $parent_uri})-[rel:CONTAINS_LOCATION]->(child:LocationURI {id: $child_uri})
+                    RETURN rel
                 """, {
                     "parent_uri": parent_uri, 
                     "child_uri": location_uri
                 })
+                
+                if not existing_rel.has_next():
+                    conn.execute("""
+                        MATCH (parent:LocationURI {id: $parent_uri})
+                        MATCH (child:LocationURI {id: $child_uri})
+                        CREATE (parent)-[:CONTAINS_LOCATION {relation_type: 'hierarchy'}]->(child)
+                    """, {
+                        "parent_uri": parent_uri, 
+                        "child_uri": location_uri
+                    })
             
             return decision
             
@@ -224,12 +230,25 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             }
     
     def find(requirement_id: str) -> DecisionResult:
-        """IDで要件を検索"""
+        """IDで要件を検索（最新バージョンを返す）"""
         try:
+            # LocationURI経由で最新バージョンを取得
             result = conn.execute("""
-                MATCH (r:RequirementEntity {id: $id})
+                MATCH (l:LocationURI)-[:LOCATES]->(r:RequirementEntity)
+                WHERE l.id = $uri
                 RETURN r
-            """, {"id": requirement_id})
+                ORDER BY r.created_at DESC
+                LIMIT 1
+            """, {"uri": f"req://{requirement_id}"})
+            
+            # LocationURIがない場合は直接検索（後方互換性）
+            if not result.has_next():
+                result = conn.execute("""
+                    MATCH (r:RequirementEntity {id: $id})
+                    RETURN r
+                    ORDER BY r.created_at DESC
+                    LIMIT 1
+                """, {"id": requirement_id})
             
             if result.has_next():
                 row = result.get_next()
@@ -313,18 +332,28 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "constraint": "no_circular_dependency"
                 }
             
-            # 依存関係作成
-            conn.execute("""
-                MATCH (from:RequirementEntity {id: $from_id})
-                MATCH (to:RequirementEntity {id: $to_id})
-                MERGE (from)-[:DEPENDS_ON {dependency_type: $type, reason: $reason}]->(to)
-                RETURN from, to
+            # 既存の依存関係を確認
+            existing_dep = conn.execute("""
+                MATCH (from:RequirementEntity {id: $from_id})-[dep:DEPENDS_ON]->(to:RequirementEntity {id: $to_id})
+                RETURN dep
             """, {
                 "from_id": from_id,
-                "to_id": to_id,
-                "type": dependency_type,
-                "reason": reason
+                "to_id": to_id
             })
+            
+            if not existing_dep.has_next():
+                # 依存関係を作成
+                conn.execute("""
+                    MATCH (from:RequirementEntity {id: $from_id})
+                    MATCH (to:RequirementEntity {id: $to_id})
+                    CREATE (from)-[:DEPENDS_ON {dependency_type: $type, reason: $reason}]->(to)
+                    RETURN from, to
+                """, {
+                    "from_id": from_id,
+                    "to_id": to_id,
+                    "type": dependency_type,
+                    "reason": reason
+                })
             
             return {"success": True, "from": from_id, "to": to_id}
             

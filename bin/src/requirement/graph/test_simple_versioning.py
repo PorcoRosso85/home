@@ -25,9 +25,11 @@ def test_create_versioned_requirement():
     # バージョンサービス作成
     version_service = create_version_service(repo)
     
-    # 要件作成
+    # 要件作成（ユニークIDを使用）
+    import time
+    unique_id = f"REQ-SV-001-{int(time.time() * 1000)}"
     result = version_service["create_versioned_requirement"]({
-        "id": "REQ-SV-001",
+        "id": unique_id,
         "title": "ユーザー認証機能",
         "description": "安全なログイン機能を提供",
         "author": "test_user",
@@ -40,7 +42,7 @@ def test_create_versioned_requirement():
     assert "version_id" in result
     assert "location_uri" in result
     assert result["version"] == 1
-    assert result["location_uri"] == "req://REQ-SV-001"
+    assert result["location_uri"] == f"req://{unique_id}"
 
 
 def test_update_versioned_requirement():
@@ -58,16 +60,18 @@ def test_update_versioned_requirement():
     # バージョンサービス作成
     version_service = create_version_service(repo)
     
-    # 要件作成
+    # 要件作成（ユニークIDを使用）
+    import time
+    unique_id = f"REQ-SV-002-{int(time.time() * 1000)}"
     create_result = version_service["create_versioned_requirement"]({
-        "id": "REQ-SV-001",
+        "id": unique_id,
         "title": "ユーザー認証機能",
         "description": "安全なログイン機能を提供"
     })
     
     # 要件更新
     update_result = version_service["update_versioned_requirement"]({
-        "id": "REQ-SV-001",
+        "id": unique_id,
         "description": "二要素認証を含む安全なログイン機能",
         "author": "security_team",
         "reason": "セキュリティ要件の強化"
@@ -96,23 +100,25 @@ def test_get_requirement_history():
     # バージョンサービス作成
     version_service = create_version_service(repo)
     
-    # 要件作成
+    # 要件作成（ユニークIDを使用）
+    import time
+    unique_id = f"REQ-SV-003-{int(time.time() * 1000)}"
     version_service["create_versioned_requirement"]({
-        "id": "REQ-SV-001",
+        "id": unique_id,
         "title": "ユーザー認証機能",
         "description": "安全なログイン機能を提供"
     })
     
     # 要件更新
     version_service["update_versioned_requirement"]({
-        "id": "REQ-SV-001",
+        "id": unique_id,
         "description": "二要素認証を含む安全なログイン機能",
         "author": "security_team",
         "reason": "セキュリティ要件の強化"
     })
     
     # 履歴取得
-    history = version_service["get_requirement_history"]("REQ-SV-001")
+    history = version_service["get_requirement_history"](unique_id)
     
     print(f"History: {history}")
     

@@ -30,8 +30,8 @@ def create_error_handler() -> Dict[str, Any]:
                         query='MATCH (a:RequirementEntity) WHERE a.id = "req_tm_003" MATCH (b:RequirementEntity) WHERE b.id = "req_tm_002" CREATE (a)-[:DEPENDS_ON]->(b)'
                     ),
                     ErrorExample(
-                        description="代替：MERGE構文を使用",
-                        query='MERGE (a:RequirementEntity {id: "req_tm_003"}) MERGE (b:RequirementEntity {id: "req_tm_002"}) MERGE (a)-[:DEPENDS_ON]->(b)'
+                        description="代替：CREATE構文を使用（事前チェック付き）",
+                        query='MATCH (a:RequirementEntity {id: "req_tm_003"}) MATCH (b:RequirementEntity {id: "req_tm_002"}) WHERE NOT EXISTS { (a)-[:DEPENDS_ON]->(b) } CREATE (a)-[:DEPENDS_ON]->(b)'
                     )
                 ],
                 technical_details={

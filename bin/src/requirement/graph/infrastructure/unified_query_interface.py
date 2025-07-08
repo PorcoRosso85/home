@@ -62,7 +62,7 @@ class UnifiedQueryInterface:
         """クエリタイプを検出"""
         has_call = bool(self.patterns["procedure_call"].search(query))
         has_match = "MATCH" in query.upper()
-        has_create = "CREATE" in query.upper() or "MERGE" in query.upper()
+        has_create = "CREATE" in query.upper()
         
         if has_call and not (has_match or has_create):
             return "procedure_only"

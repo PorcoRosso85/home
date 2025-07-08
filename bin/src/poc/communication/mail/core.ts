@@ -88,7 +88,7 @@ export function filterEmails(
   }
   
   if (options.since) {
-    filtered = filtered.filter(email => email.receivedAt >= options.since);
+    filtered = filtered.filter(email => email.receivedAt >= options.since!);
   }
   
   return filtered;
