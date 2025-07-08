@@ -47,7 +47,6 @@
           test = {
             type = "app";
             program = "${mkRunner "test" ''
-              export RGL_DB_PATH="/tmp/test_rgl_db"
               export RGL_SKIP_SCHEMA_CHECK="true"
               exec .venv/bin/pytest "$@"
             ''}";

@@ -56,7 +56,7 @@ class TestVersioningIntegration:
             "type": "cypher",
             "query": """
             CREATE (r:RequirementEntity {
-                id: 'REQ-001',
+                id: 'REQ-VI-001',
                 title: 'ユーザー認証機能',
                 description: '安全なログイン機能を提供'
             })
@@ -98,7 +98,7 @@ class TestVersioningIntegration:
         from .infrastructure.versioned_cypher_executor import create_versioned_cypher_executor
         
         # リポジトリとバージョニングサービスを作成
-        repo = create_kuzu_repository(str(self.test_db))
+        repo = self.repo
         versioned_executor = create_versioned_cypher_executor(repo)
         
         # まず要件を作成
@@ -106,7 +106,7 @@ class TestVersioningIntegration:
             "type": "cypher",
             "query": """
             CREATE (r:RequirementEntity {
-                id: 'REQ-001',
+                id: 'REQ-VI-001',
                 title: 'ユーザー認証機能',
                 description: '安全なログイン機能を提供'
             })
@@ -119,7 +119,7 @@ class TestVersioningIntegration:
         input_data = {
             "type": "cypher",
             "query": """
-            MATCH (r:RequirementEntity {id: 'REQ-001'})
+            MATCH (r:RequirementEntity {id: 'REQ-VI-001'})
             SET r.description = '二要素認証を含む安全なログイン機能'
             RETURN r
             """,
@@ -146,7 +146,7 @@ class TestVersioningIntegration:
         from .application.version_service import create_version_service
         
         # リポジトリとバージョンサービスを作成
-        repo = create_kuzu_repository(str(self.test_db))
+        repo = self.repo
         version_service = create_version_service(repo)
         
         # 要件を作成して更新
@@ -180,7 +180,7 @@ class TestVersioningIntegration:
         from .application.version_service import create_version_service
         
         # リポジトリとバージョンサービスを作成
-        repo = create_kuzu_repository(str(self.test_db))
+        repo = self.repo
         version_service = create_version_service(repo)
         
         # 要件を作成
@@ -227,7 +227,7 @@ class TestVersioningIntegration:
         from .application.version_service import create_version_service
         
         # リポジトリを作成
-        repo = create_kuzu_repository(str(self.test_db))
+        repo = self.repo
         version_service = create_version_service(repo)
         
         # 要件を作成して更新
@@ -261,7 +261,7 @@ class TestVersioningIntegration:
         from .application.version_service import create_version_service
         
         # リポジトリとバージョンサービスを作成
-        repo = create_kuzu_repository(str(self.test_db))
+        repo = self.repo
         version_service = create_version_service(repo)
         
         # 要件を作成して複数回更新

@@ -16,10 +16,6 @@ import os
 from datetime import datetime
 import pytest
 
-# テスト用環境設定
-from .infrastructure.variables import setup_test_environment
-setup_test_environment()
-
 from .main import main
 
 

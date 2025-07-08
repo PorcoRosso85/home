@@ -6,9 +6,7 @@ import tempfile
 import os
 from datetime import datetime
 
-# テスト用環境設定
-from .infrastructure.variables import setup_test_environment
-setup_test_environment()
+# テスト用環境設定は不要（kuzu_repositoryが自動判定）
 
 
 class TestVersioningUnit:

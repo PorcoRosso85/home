@@ -65,24 +65,126 @@ nix run .#run
 
 ```bash
 # スキーマ初期化（初回のみ）
-nix run .#schema
+nix run .#init
 
-# 要件作成
-echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_001\", title: \"要件タイトル\"})"}' | nix run .#run
+# 基本的な要件作成
+echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_001\", title: \"ユーザー認証機能\", description: \"安全なログイン機能を提供\", priority: 80})"}' | nix run .#run
 
-# 親子関係
-echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_002\", title: \"子要件\", parent_id: \"req_001\"})"}' | nix run .#run
+# 詳細な要件作成（より多くのプロパティを使用）
+echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_002\", title: \"二要素認証\", description: \"セキュリティ強化のための2FA実装\", priority: 90, status: \"proposed\", requirement_type: \"security\"})"}' | nix run .#run
 
-# 依存関係
-echo '{"type": "cypher", "query": "MATCH (a:RequirementEntity {id: \"req_001\"}), (b:RequirementEntity {id: \"req_002\"}) CREATE (a)-[:DEPENDS_ON]->(b)"}' | nix run .#run
+# 依存関係の作成（req_002はreq_001に依存）
+echo '{"type": "cypher", "query": "MATCH (a:RequirementEntity {id: \"req_002\"}), (b:RequirementEntity {id: \"req_001\"}) CREATE (a)-[:DEPENDS_ON]->(b)"}' | nix run .#run
 
-# 要件確認
-echo '{"type": "cypher", "query": "MATCH (r:RequirementEntity) RETURN r"}' | nix run .#run
+# 要件の確認
+echo '{"type": "cypher", "query": "MATCH (r:RequirementEntity) RETURN r.id, r.title, r.priority ORDER BY r.priority DESC"}' | nix run .#run
+
+# 依存関係の確認
+echo '{"type": "cypher", "query": "MATCH (a:RequirementEntity)-[:DEPENDS_ON]->(b:RequirementEntity) RETURN a.id, a.title, b.id, b.title"}' | nix run .#run
 ```
+
+### デバッグ/トレース
+
+システムの動作を詳しく追跡したい場合は、環境変数 `RGL_LOG_LEVEL` を使用します：
+
+```bash
+# すべてのモジュールのトレースログを有効化
+RGL_LOG_LEVEL="*:TRACE" echo '{"type": "cypher", "query": "MATCH (r:RequirementEntity) RETURN r"}' | nix run .#run
+
+# 特定モジュールのデバッグログ
+RGL_LOG_LEVEL="rgl.main:DEBUG" echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_debug\"})"}' | nix run .#run
+
+# 複数モジュールの設定
+RGL_LOG_LEVEL="*:WARN,rgl.validator:DEBUG,rgl.scorer:TRACE" echo '{"type": "cypher", "query": "MATCH (r) RETURN r"}' | nix run .#run
+
+# DBパスも指定する場合
+RGL_DB_PATH="/tmp/my_rgl_db" RGL_LOG_LEVEL="*:DEBUG" echo '{"type": "cypher", "query": "MATCH (r) RETURN r"}' | nix run .#run
+```
+
+ログレベル（詳細度順）：
+- `TRACE`: 最も詳細な実行トレース
+- `DEBUG`: デバッグ情報
+- `INFO`: 一般的な情報
+- `WARN`: 警告（デフォルト）
+- `ERROR`: エラーのみ
+
+## RequirementEntityプロパティ
+
+| プロパティ | 型 | 説明 | デフォルト値 |
+|:----------|:---|:-----|:------------|
+| id | STRING | 要件の一意識別子（必須） | - |
+| title | STRING | 要件のタイトル | - |
+| description | STRING | 要件の詳細説明 | - |
+| priority | UINT8 | 優先度（0-255、高いほど優先） | 1 |
+| requirement_type | STRING | 要件の種類 | 'functional' |
+| status | STRING | 要件の状態（proposed/approved/implemented） | 'proposed' |
+| verification_required | BOOLEAN | 検証が必要か | true |
+| implementation_details | STRING | 実装詳細（JSON形式） | null |
+| acceptance_criteria | STRING | 受け入れ条件 | null |
+| technical_specifications | STRING | 技術仕様（JSON形式） | null |
+
+## 要件間の関係
+
+RGLはグラフ構造を採用しており、要件間の関係は以下のリレーションで表現します：
+
+- **DEPENDS_ON**: ある要件が別の要件に依存することを表現
+- **IS_IMPLEMENTED_BY**: 要件がコードによって実装されていることを表現
+- **IS_VERIFIED_BY**: 要件がテストによって検証されていることを表現
+
+注意：親子関係や階層構造という概念は存在しません。すべての関係は明示的なリレーションで表現されます。
 
 ## 出力フォーマット
 
-JSONL形式。主要な型：
-- `result`: クエリ結果
-- `score`: 摩擦スコア（-1.0〜0.0）
-- `error`: エラーと改善案
+すべての出力はJSONL（JSON Lines）形式で返されます：
+
+```jsonl
+{"type": "result", "level": "info", "data": [...], "timestamp": "2025-01-01T00:00:00Z"}
+{"type": "score", "level": "info", "data": {"frictions": {...}, "total": {...}}, "timestamp": "2025-01-01T00:00:01Z"}
+{"type": "error", "level": "error", "message": "...", "details": {...}, "timestamp": "2025-01-01T00:00:02Z"}
+```
+
+### 摩擦スコアの解釈
+
+- **0.0**: 問題なし（健全）
+- **-0.1 〜 -0.3**: 軽微な問題（要注意）
+- **-0.4 〜 -0.7**: 中程度の問題（要改善）
+- **-0.8 〜 -1.0**: 深刻な問題（要対応）
+
+## よくあるエラーと対処法
+
+### "Cannot find property parent_id"
+```bash
+# ❌ 間違い
+CREATE (r:RequirementEntity {id: "req_002", parent_id: "req_001"})
+
+# ✅ 正しい方法（依存関係を使用）
+MATCH (a:RequirementEntity {id: "req_002"}), (b:RequirementEntity {id: "req_001"})
+CREATE (a)-[:DEPENDS_ON]->(b)
+```
+
+### "Binder exception: Table PARENT_OF does not exist"
+```bash
+# ❌ 間違い（存在しないリレーション）
+CREATE (a)-[:PARENT_OF]->(b)
+
+# ✅ 正しいリレーション
+CREATE (a)-[:DEPENDS_ON]->(b)
+```
+
+### 優先度の設定ミス
+```bash
+# ❌ 間違い（文字列で指定）
+CREATE (r:RequirementEntity {priority: "high"})
+
+# ✅ 正しい方法（0-255の数値）
+CREATE (r:RequirementEntity {priority: 100})
+```
+
+### グラフ深さ制限違反
+```bash
+# 深い依存関係チェーンを避ける
+# A→B→C→D→E→F（深さ6）は制限違反の可能性
+
+# 解決策：中間要件でグループ化
+# A→G、B→G、G→D、E→D、F→D
+```

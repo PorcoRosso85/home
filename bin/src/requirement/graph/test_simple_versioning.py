@@ -27,7 +27,7 @@ def test_create_versioned_requirement():
     
     # 要件作成
     result = version_service["create_versioned_requirement"]({
-        "id": "REQ-001",
+        "id": "REQ-SV-001",
         "title": "ユーザー認証機能",
         "description": "安全なログイン機能を提供",
         "author": "test_user",
@@ -40,7 +40,7 @@ def test_create_versioned_requirement():
     assert "version_id" in result
     assert "location_uri" in result
     assert result["version"] == 1
-    assert result["location_uri"] == "req://REQ-001"
+    assert result["location_uri"] == "req://REQ-SV-001"
 
 
 def test_update_versioned_requirement():
@@ -60,14 +60,14 @@ def test_update_versioned_requirement():
     
     # 要件作成
     create_result = version_service["create_versioned_requirement"]({
-        "id": "REQ-001",
+        "id": "REQ-SV-001",
         "title": "ユーザー認証機能",
         "description": "安全なログイン機能を提供"
     })
     
     # 要件更新
     update_result = version_service["update_versioned_requirement"]({
-        "id": "REQ-001",
+        "id": "REQ-SV-001",
         "description": "二要素認証を含む安全なログイン機能",
         "author": "security_team",
         "reason": "セキュリティ要件の強化"
@@ -98,21 +98,21 @@ def test_get_requirement_history():
     
     # 要件作成
     version_service["create_versioned_requirement"]({
-        "id": "REQ-001",
+        "id": "REQ-SV-001",
         "title": "ユーザー認証機能",
         "description": "安全なログイン機能を提供"
     })
     
     # 要件更新
     version_service["update_versioned_requirement"]({
-        "id": "REQ-001",
+        "id": "REQ-SV-001",
         "description": "二要素認証を含む安全なログイン機能",
         "author": "security_team",
         "reason": "セキュリティ要件の強化"
     })
     
     # 履歴取得
-    history = version_service["get_requirement_history"]("REQ-001")
+    history = version_service["get_requirement_history"]("REQ-SV-001")
     
     print(f"History: {history}")
     
