@@ -99,8 +99,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                         id: $id,
                         title: $title,
                         description: $description,
-                        priority: $priority,
-                        requirement_type: $requirement_type,
                         status: $status
                     })
                     RETURN r
@@ -108,8 +106,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "id": decision["id"],
                     "title": decision["title"],
                     "description": decision["description"],
-                    "priority": 100,  # UINT8デフォルト値
-                    "requirement_type": "functional",  # デフォルト値
                     "status": decision["status"]
                 })
             else:
@@ -152,7 +148,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 # 既存の要件を取得して差分を計算
                 old_req = existing_check.get_next()[0] if existing_check.has_next() else None
                 if old_req:
-                    for field in ["title", "description", "status", "priority"]:
+                    for field in ["title", "description", "status"]:
                         if field in decision and old_req.get(field) != decision.get(field):
                             changed_fields.append({
                                 "field": field,
@@ -257,9 +253,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "id": node["id"],
                     "title": node["title"],
                     "description": node["description"],
-                    "status": node["status"],
-                    "priority": node.get("priority", 1),
-                    "requirement_type": node.get("requirement_type", "functional")
+                    "status": node["status"]
                 }
             
             return {
@@ -293,9 +287,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "id": node["id"],
                     "title": node["title"],
                     "description": node["description"],
-                    "status": node["status"],
-                    "priority": node.get("priority", 1),
-                    "requirement_type": node.get("requirement_type", "functional")
+                    "status": node["status"]
                 })
             
             return requirements
@@ -415,9 +407,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "id": node["id"],
                     "title": node["title"],
                     "description": node["description"],
-                    "status": node["status"],
-                    "priority": node.get("priority", 1),
-                    "requirement_type": node.get("requirement_type", "functional")
+                    "status": node["status"]
                 })
             
             return requirements
@@ -524,7 +514,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                        r.title as title,
                        r.description as description,
                        r.status as status,
-                       r.priority as priority,
                        v.id as version_id,
                        v.timestamp as timestamp,
                        v.change_reason as change_reason,
@@ -539,16 +528,16 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             while result.has_next():
                 row = result.get_next()
                 history.append({
-                    "version_id": row[5],
-                    "timestamp": row[6],
-                    "author": row[8],
-                    "change_reason": row[7],
+                    "version_id": row[4],
+                    "timestamp": row[5],
+                    "author": row[7],
+                    "change_reason": row[6],
                     "snapshot": {
                         "snapshot_id": row[0],
                         "title": row[1],
                         "description": row[2],
                         "status": row[3],
-                        "snapshot_at": row[4]
+                        "snapshot_at": row[5]
                     }
                 })
             
@@ -586,7 +575,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "title": requirement["title"],
                     "description": requirement["description"],
                     "status": requirement.get("status", "proposed"),
-                    "priority": requirement.get("priority", "medium"),
                     "created_at": requirement.get("created_at"),
                     "embedding": requirement.get("embedding"),
                     "version_id": version["id"],

@@ -281,8 +281,7 @@ class TestVersioningIntegration:
             "id": unique_id,
             "title": "差分テスト",
             "description": "初期版",
-            "status": "draft",
-            "priority": 1
+            "status": "draft"
         })
         
         version_service["update_versioned_requirement"]({

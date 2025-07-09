@@ -50,7 +50,6 @@ def create_version_service(repository: VersionRepository):
             "title": data["title"],
             "description": data.get("description", ""),
             "status": data.get("status", "draft"),
-            "priority": data.get("priority", 1),
             "author": data.get("author", "system"),
             "reason": data.get("reason", "Initial creation"),
             "timestamp": datetime.now().isoformat()
@@ -87,7 +86,6 @@ def create_version_service(repository: VersionRepository):
             "title": data.get("title"),
             "description": data.get("description"),
             "status": data.get("status"),
-            "priority": data.get("priority"),
             "author": data.get("author", "system"),
             "reason": data.get("reason", "Update"),
             "timestamp": datetime.now().isoformat()
@@ -148,32 +146,28 @@ def create_version_service(repository: VersionRepository):
                     title = state.get('title', row[1])
                     description = state.get('description', row[2])
                     status = state.get('status', row[3])
-                    priority = state.get('priority', row[4])
                 except:
                     # JSONパースに失敗した場合は現在の値を使用
                     title = row[1]
                     description = row[2]
                     status = row[3]
-                    priority = row[4]
             else:
                 # UPDATE時は現在の状態を使用
                 title = row[1]
                 description = row[2]
                 status = row[3]
-                priority = row[4]
             
             history.append({
                 "version": version_num,
                 "entity_id": row[0],
-                "version_id": row[5],
+                "version_id": row[4],
                 "title": title,
                 "description": description,
                 "status": status,
-                "priority": priority,
-                "operation": row[6],
-                "author": row[7],
-                "change_reason": row[8],
-                "timestamp": row[9]
+                "operation": row[5],
+                "author": row[6],
+                "change_reason": row[7],
+                "timestamp": row[8]
             })
             version_num += 1
         
@@ -214,7 +208,6 @@ def create_version_service(repository: VersionRepository):
                 "title": requirement.get("title"),
                 "description": requirement.get("description"),
                 "status": requirement.get("status"),
-                "priority": requirement.get("priority"),
                 "version": version_count,
                 "timestamp": version.get("timestamp")
             }
@@ -247,7 +240,7 @@ def create_version_service(repository: VersionRepository):
         old_values = {}
         new_values = {}
         
-        for field in ["title", "description", "status", "priority"]:
+        for field in ["title", "description", "status"]:
             if from_state.get(field) != to_state.get(field):
                 changed_fields.append(field)
                 old_values[field] = from_state.get(field)

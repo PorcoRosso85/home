@@ -1,5 +1,5 @@
 // 既存要件を更新（新バージョン作成）
-// パラメータ: $req_id, $title, $description, $status, $priority, $author, $reason, $timestamp
+// パラメータ: $req_id, $title, $description, $status, $author, $reason, $timestamp
 // 戻り値: entity_id, version_id
 
 // 既存要件を取得
@@ -13,8 +13,7 @@ WITH l, r, count(v) as version_count
 // 要件を更新
 SET r.title = COALESCE($title, r.title),
     r.description = COALESCE($description, r.description),
-    r.status = COALESCE($status, r.status),
-    r.priority = COALESCE($priority, r.priority)
+    r.status = COALESCE($status, r.status)
 
 // 新しいバージョンを作成
 CREATE (new_v:VersionState {

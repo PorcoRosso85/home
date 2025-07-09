@@ -102,7 +102,6 @@ class TestVersionTemplates:
             "title": "テスト要件",
             "description": "説明",
             "status": "draft",
-            "priority": 1,
             "author": "test_user",
             "reason": "初回作成",
             "timestamp": "2024-01-01T00:00:00Z"

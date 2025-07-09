@@ -68,16 +68,16 @@ nix run .#run
 nix run .#init
 
 # 基本的な要件作成
-echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_001\", title: \"ユーザー認証機能\", description: \"安全なログイン機能を提供\", priority: 80})"}' | nix run .#run
+echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_001\", title: \"ユーザー認証機能\", description: \"安全なログイン機能を提供\"})"}' | nix run .#run
 
 # 詳細な要件作成（より多くのプロパティを使用）
-echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_002\", title: \"二要素認証\", description: \"セキュリティ強化のための2FA実装\", priority: 90, status: \"proposed\", requirement_type: \"security\"})"}' | nix run .#run
+echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_002\", title: \"二要素認証\", description: \"セキュリティ強化のための2FA実装\", status: \"proposed\"})"}' | nix run .#run
 
 # 依存関係の作成（req_002はreq_001に依存）
 echo '{"type": "cypher", "query": "MATCH (a:RequirementEntity {id: \"req_002\"}), (b:RequirementEntity {id: \"req_001\"}) CREATE (a)-[:DEPENDS_ON]->(b)"}' | nix run .#run
 
 # 要件の確認
-echo '{"type": "cypher", "query": "MATCH (r:RequirementEntity) RETURN r.id, r.title, r.priority ORDER BY r.priority DESC"}' | nix run .#run
+echo '{"type": "cypher", "query": "MATCH (r:RequirementEntity) RETURN r.id, r.title, r.status ORDER BY r.id"}' | nix run .#run
 
 # 依存関係の確認
 echo '{"type": "cypher", "query": "MATCH (a:RequirementEntity)-[:DEPENDS_ON]->(b:RequirementEntity) RETURN a.id, a.title, b.id, b.title"}' | nix run .#run
@@ -108,30 +108,22 @@ RGL_DB_PATH="/tmp/my_rgl_db" RGL_LOG_LEVEL="*:DEBUG" echo '{"type": "cypher", "q
 - `WARN`: 警告（デフォルト）
 - `ERROR`: エラーのみ
 
-## RequirementEntityプロパティ
+## スキーマ定義
 
-| プロパティ | 型 | 説明 | デフォルト値 |
-|:----------|:---|:-----|:------------|
-| id | STRING | 要件の一意識別子（必須） | - |
-| title | STRING | 要件のタイトル | - |
-| description | STRING | 要件の詳細説明 | - |
-| priority | UINT8 | 優先度（0-255、高いほど優先） | 1 |
-| requirement_type | STRING | 要件の種類 | 'functional' |
-| status | STRING | 要件の状態（proposed/approved/implemented） | 'proposed' |
-| verification_required | BOOLEAN | 検証が必要か | true |
-| implementation_details | STRING | 実装詳細（JSON形式） | null |
-| acceptance_criteria | STRING | 受け入れ条件 | null |
-| technical_specifications | STRING | 技術仕様（JSON形式） | null |
+RGLのスキーマ（ノード、プロパティ、リレーション）の詳細については以下を参照してください：
 
-## 要件間の関係
+- **現在のスキーマ**: `ddl/migrations/3.3.0_simplified.cypher`
+- **マイグレーション履歴**: `ddl/migrations/`
 
-RGLはグラフ構造を採用しており、要件間の関係は以下のリレーションで表現します：
+主要なノードタイプ：
+- **RequirementEntity**: 要件を表現
+- **LocationURI**: 要件の識別子を管理
+- **VersionState**: バージョン履歴を追跡
 
-- **DEPENDS_ON**: ある要件が別の要件に依存することを表現
-- **IS_IMPLEMENTED_BY**: 要件がコードによって実装されていることを表現
-- **IS_VERIFIED_BY**: 要件がテストによって検証されていることを表現
-
-注意：親子関係や階層構造という概念は存在しません。すべての関係は明示的なリレーションで表現されます。
+主要なリレーション：
+- **DEPENDS_ON**: 要件間の依存関係を表現
+- **LOCATES**: LocationURIと要件の関連付け
+- **TRACKS_STATE_OF**: バージョン状態の追跡
 
 ## 出力フォーマット
 
@@ -169,15 +161,6 @@ CREATE (a)-[:PARENT_OF]->(b)
 
 # ✅ 正しいリレーション
 CREATE (a)-[:DEPENDS_ON]->(b)
-```
-
-### 優先度の設定ミス
-```bash
-# ❌ 間違い（文字列で指定）
-CREATE (r:RequirementEntity {priority: "high"})
-
-# ✅ 正しい方法（0-255の数値）
-CREATE (r:RequirementEntity {priority: 100})
 ```
 
 ### グラフ深さ制限違反

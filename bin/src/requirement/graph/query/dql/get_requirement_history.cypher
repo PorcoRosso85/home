@@ -13,11 +13,9 @@ RETURN
     r.title as current_title,
     r.description as current_description,
     r.status as current_status,
-    r.priority as current_priority,
     v.id as version_id,
     v.operation as operation,
     v.author as author,
     v.change_reason as change_reason,
-    v.timestamp as timestamp,
-    v.previous_state as previous_state
+    v.timestamp as timestamp
 ORDER BY v.timestamp

@@ -13,16 +13,14 @@ CREATE (r:RequirementEntity {
     requirement_id: $req_id,
     title: current.title,
     description: current.description,
-    status: 'deleted',  // ステータスを削除に変更
-    priority: current.priority
+    status: 'deleted'  // ステータスを削除に変更
 })
 CREATE (v:VersionState {
     id: 'ver_' + $req_id + '_' + toString(ts),
     timestamp: datetime(),
     operation: 'DELETE',
     author: $author,
-    change_reason: $reason,
-    previous_version: current.id
+    change_reason: $reason
 })
 CREATE (v)-[:TRACKS_STATE_OF {entity_type: 'requirement'}]->(l)
 

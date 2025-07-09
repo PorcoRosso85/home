@@ -1,13 +1,12 @@
 // 新規要件をバージョン付きで作成
-// パラメータ: $req_id, $title, $description, $status, $priority, $author, $reason, $timestamp
+// パラメータ: $req_id, $title, $description, $status, $author, $reason, $timestamp
 // 戻り値: entity_id, version_id, location_uri
 
 CREATE (r:RequirementEntity {
     id: $req_id,
     title: $title,
     description: $description,
-    status: COALESCE($status, 'draft'),
-    priority: COALESCE($priority, 1)
+    status: COALESCE($status, 'proposed')
 })
 CREATE (v:VersionState {
     id: CONCAT('ver_', $req_id, '_v1'),
