@@ -2532,3 +2532,8 @@ RETURN l.id as file, v1.version_id as deleted_in, v2.version_id as recreated_in
 ORDER BY l.id;
 MATCH ()-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->() RETURN r.change_type, count(r) ORDER BY count(r) DESC;
 MATCH (v:VersionState {version_id: 'v0.1.1'}) WITH v.timestamp as target_timestamp MATCH (version:VersionState)-[r:TRACKS_STATE_OF_LOCATED_ENTITY]->(l:LocationURI) WHERE version.timestamp <= target_timestamp RETURN l.id, version.timestamp, r.change_type ORDER BY l.id, version.timestamp DESC;
+MATCH (r:RequirementEntity) RETURN count(r) as total_requirements;
+MATCH (r:RequirementEntity) WHERE r.verification_required = true OPTIONAL MATCH (r)-[:IS_VERIFIED_BY]->(t) WITH r WHERE t IS NULL RETURN r.id, r.title;
+MATCH (r:RequirementEntity) WHERE r.verification_required = true AND NOT EXISTS((r)-[:IS_VERIFIED_BY]->()) RETURN r.id, r.title;
+MATCH (r:RequirementEntity) WHERE r.verification_required = true RETURN r.id, r.title;
+MATCH (r:RequirementEntity)-[:IS_VERIFIED_BY]->(t:CodeEntity) RETURN r.id, t.name;
