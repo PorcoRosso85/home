@@ -1,0 +1,16 @@
+[project]
+name = "poc-search"
+version = "0.1.0"
+dependencies = ["pytest>=7.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_hybrid_search.py"]
+python_classes = []
+python_functions = ["test_*"]
+addopts = "-v"
+norecursedirs = ["dirs", "vss", "fts", "hybrid", "cypher", ".venv"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
