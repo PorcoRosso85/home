@@ -440,15 +440,41 @@ except Exception as e:
 EOF
         '';
 
-        # Pyright直接テスト
-        pyrightTest = pkgs.writeShellScriptBin "pyright-test" ''
+        # Pyright機能テスト
+        pyrightFeatures = pkgs.writeShellScriptBin "pyright-features" ''
           #!${pkgs.bash}/bin/bash
-          echo "Testing pyright from nixpkgs..."
-          echo "Version:"
-          ${pkgs.pyright}/bin/pyright --version
+          echo "=== Pyright Features Test ==="
           echo ""
-          echo "Running on test_good.py:"
-          ${pkgs.pyright}/bin/pyright test_good.py
+          
+          echo "1. Basic diagnostics:"
+          ${pkgs.pyright}/bin/pyright test_errors.py
+          echo ""
+          
+          echo "2. Dead code detection (with pyproject.toml):"
+          cat > pyproject.toml << 'EOF'
+[tool.pyright]
+include = ["test_dead_code.py"]
+reportUnusedImport = true
+reportUnusedVariable = true
+reportUnusedFunction = true
+reportUnusedClass = true
+reportUnreachableCode = true
+reportUnusedParameter = true
+EOF
+          ${pkgs.pyright}/bin/pyright test_dead_code.py
+          rm pyproject.toml
+          echo ""
+          
+          echo "3. Available pyright options:"
+          ${pkgs.pyright}/bin/pyright --help | grep -E "(--|-)" | head -20
+          echo ""
+          
+          echo "4. Dependencies analysis:"
+          ${pkgs.pyright}/bin/pyright --dependencies test_good.py
+          echo ""
+          
+          echo "5. Statistics:"
+          ${pkgs.pyright}/bin/pyright --stats test_good.py
         '';
 
       in
@@ -458,7 +484,7 @@ EOF
           python-diagnostics = pythonDiagnostics;
           python-references = pythonReferences;
           python-rename = pythonRename;
-          pyright-test = pyrightTest;
+          pyright-features = pyrightFeatures;
           lsmcp-cli = lsmcpCli;
         };
 
@@ -524,8 +550,8 @@ EOF
             drv = pythonRename;
           };
           
-          pyright-test = flake-utils.lib.mkApp {
-            drv = pyrightTest;
+          pyright-features = flake-utils.lib.mkApp {
+            drv = pyrightFeatures;
           };
         };
       }
