@@ -166,10 +166,7 @@ class TestMain:
                     CREATE (vision:RequirementEntity {
                         id: 'test_vision_db',
                         title: 'システムビジョン',
-                        description: 'テスト用ビジョン',
-                        priority: 2,
-                        requirement_type: 'functional',
-                        verification_required: true
+                        description: 'テスト用ビジョン'
                     })
                 """
             })

@@ -45,7 +45,6 @@ class TestRequirementObsolescence:
                 id: 'REQ-OLD-001',
                 title: '古い要件',
                 description: '長期間更新されていない要件',
-                priority: 50,
                 status: 'approved'
             }})
             CREATE (loc:LocationURI {{id: 'req://REQ-OLD-001'}})
@@ -63,8 +62,7 @@ class TestRequirementObsolescence:
             version_service["create_versioned_requirement"]({
                 "id": "REQ-NEW-001",
                 "title": "新しい要件",
-                "description": "最近作成された要件",
-                "priority": 100
+                "description": "最近作成された要件"
             })
             
             # 陳腐化候補を特定
@@ -88,7 +86,7 @@ class TestRequirementObsolescence:
         """新要件が陳腐化候補と関連する場合にtemporal_frictionが検出される"""
         from infrastructure.kuzu_repository import create_kuzu_repository
         from application.version_service import create_version_service
-        from application.scoring_service import calculate_friction_score
+        # from application.scoring_service import calculate_friction_score  # Removed: scoring system deleted
         
         temp_dir = tempfile.mkdtemp()
         test_db = os.path.join(temp_dir, "test.db")
@@ -104,9 +102,7 @@ class TestRequirementObsolescence:
                 id: 'REQ-OBSOLETE-001',
                 title: '陳腐化した認証方式',
                 description: '古いセッション管理方式',
-                priority: 100,
-                status: 'approved',
-                last_referenced: '{old_timestamp}'
+                status: 'approved'
             }})
             CREATE (loc:LocationURI {{id: 'req://REQ-OBSOLETE-001'}})
             CREATE (loc)-[:LOCATES]->(req)
@@ -124,7 +120,6 @@ class TestRequirementObsolescence:
                 "id": "REQ-NEW-AUTH-001",
                 "title": "新認証機能",
                 "description": "既存の認証方式を拡張",
-                "priority": 150,
                 "depends_on": ["REQ-OBSOLETE-001"]
             })
             
@@ -154,7 +149,7 @@ class TestRequirementObsolescence:
         from infrastructure.kuzu_repository import create_kuzu_repository
         from application.version_service import create_version_service
         from application.requirement_service import get_active_requirements
-        from application.scoring_service import calculate_project_health_score
+        # from application.scoring_service import calculate_project_health_score  # Removed: scoring system deleted
         
         temp_dir = tempfile.mkdtemp()
         test_db = os.path.join(temp_dir, "test.db")
@@ -168,7 +163,6 @@ class TestRequirementObsolescence:
                 version_service["create_versioned_requirement"]({
                     "id": f"REQ-ACTIVE-{i:03d}",
                     "title": f"アクティブ要件{i}",
-                    "priority": 100,
                     "status": "approved"
                 })
             
@@ -182,13 +176,9 @@ class TestRequirementObsolescence:
             # 1つをアーカイブ
             archive_query = """
             MATCH (req:RequirementEntity {id: 'REQ-ACTIVE-001'})
-            SET req.status = 'archived',
-                req.archived_at = $timestamp,
-                req.archive_reason = '陳腐化のため'
+            SET req.status = 'archived'
             """
-            repo["execute"](archive_query, {
-                "timestamp": datetime.now().isoformat()
-            })
+            repo["execute"](archive_query, {})
             
             # アーカイブ後の状態確認
             active_reqs_after = get_active_requirements(repo)

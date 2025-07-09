@@ -38,7 +38,7 @@ def safe_main():
         from .infrastructure.logger import debug, info, warn, error, result, score
         from .infrastructure.query_validator import QueryValidator
         from .infrastructure.versioned_cypher_executor import create_versioned_cypher_executor
-        from .application.scoring_service import create_scoring_service
+        # from .application.scoring_service import create_scoring_service  # Removed: scoring system deletion
         
         info("rgl.main", "Starting main function")
         
@@ -70,7 +70,7 @@ def safe_main():
                 return
         
         # グラフ検証の初期化
-        scoring_service = create_scoring_service()
+        # scoring_service = create_scoring_service()  # Removed: scoring system deletion
         
         # Cypherクエリの場合はグラフ検証を準備
         # 注意：実際の検証はクエリ実行後に行う（依存関係を確認するため）
@@ -162,27 +162,21 @@ def safe_main():
             if circular_result["has_cycles"]:
                 # 循環参照が検出された場合
                 for self_ref in circular_result["self_references"]:
-                    violation = {"type": "self_reference", "node_id": self_ref}
-                    violation_score = scoring_service["calculate_score"](violation)
-                    
                     if "warnings" not in query_result:
                         query_result["warnings"] = []
                     query_result["warnings"].append({
                         "type": "self_reference",
-                        "message": f"自己参照が検出されました: {self_ref}",
-                        "score": violation_score
+                        "message": f"自己参照が検出されました: {self_ref}"
+                        # "score": violation_score  # Removed: scoring system deletion
                     })
                 
                 for cycle in circular_result["cycles"]:
-                    violation = {"type": "circular_reference", "cycle": cycle}
-                    violation_score = scoring_service["calculate_score"](violation)
-                    
                     if "warnings" not in query_result:
                         query_result["warnings"] = []
                     query_result["warnings"].append({
                         "type": "circular_reference",
-                        "message": f"循環参照が検出されました: {' -> '.join(cycle)}",
-                        "score": violation_score
+                        "message": f"循環参照が検出されました: {' -> '.join(cycle)}"
+                        # "score": violation_score  # Removed: scoring system deletion
                     })
             
             # グラフ深さ検証（プロジェクト設定がある場合）
@@ -193,23 +187,17 @@ def safe_main():
                 
                 if not depth_result["is_valid"]:
                     for violation in depth_result["violations"]:
-                        violation_dict = {
-                            "type": "graph_depth_exceeded",
-                            "depth": violation["depth"],
-                            "max_allowed": max_depth
-                        }
-                        violation_score = scoring_service["calculate_score"](violation_dict)
-                        
                         if "warnings" not in query_result:
                             query_result["warnings"] = []
                         query_result["warnings"].append({
                             "type": "graph_depth_exceeded",
-                            "message": f"グラフ深さ制限超過: {violation['root_id']} から {violation['leaf_id']} (深さ: {violation['depth']}, 制限: {max_depth})",
-                            "score": violation_score
+                            "message": f"グラフ深さ制限超過: {violation['root_id']} から {violation['leaf_id']} (深さ: {violation['depth']}, 制限: {max_depth})"
+                            # "score": violation_score  # Removed: scoring system deletion
                         })
         
         # CREATE操作の場合、摩擦検出を実行
-        if input_data.get("type") == "cypher" and query_result.get("status") == "success":
+        # Removed: scoring system deletion - entire friction detection block removed
+        if False:  # Disabled: friction detection removed
             query = input_data.get("query", "").upper()
             if "CREATE" in query and "REQUIREMENTENTITY" in query:
                 debug("rgl.main", "Detected CREATE operation, analyzing friction")
@@ -325,8 +313,9 @@ def safe_main():
             result(result_data, metadata=metadata)
             
             # 摩擦分析がある場合はスコアとして出力
-            if "friction_analysis" in query_result:
-                score(query_result["friction_analysis"])
+            # Removed: scoring system deletion
+            # if "friction_analysis" in query_result:
+            #     score(query_result["friction_analysis"])
             
             # アラートがある場合
             if "alert" in query_result:

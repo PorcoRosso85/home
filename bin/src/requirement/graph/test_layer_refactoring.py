@@ -41,72 +41,19 @@ class TestDomainLayerResponsibilities:
 class TestApplicationLayerResponsibilities:
     """アプリケーション層が適切な責務を持つことを検証"""
     
-    def test_スコアレポート生成はアプリケーション層の責務(self):
-        """レポートの組み立てとフォーマットはアプリケーション層"""
-        from application.score_report_generator import generate_score_report
-        
-        # ドメイン層のルールを使ってレポートを生成
-        report = generate_score_report({"id": "req_123"})
-        
-        # レポート構造はアプリケーション層が決定
-        assert report["type"] == "score_report"
-        assert "domains" in report
-        assert "breakdown" in report
-    
-    def test_ドメインサービスの統合はアプリケーション層の責務(self):
-        """複数ドメインの結果を統合するのはアプリケーション層"""
-        from application.score_orchestrator import orchestrate_scoring
-        
-        result = orchestrate_scoring({"id": "req_123"})
-        
-        # 各ドメインの結果を集約
-        assert "constraints_score" in result
-        assert "decision_score" in result
-        assert "total_score" in result
+    # Removed: test_スコアレポート生成はアプリケーション層の責務 - scoring system deleted
+    # Removed: test_ドメインサービスの統合はアプリケーション層の責務 - scoring system deleted
+    pass
     
 
 
 class TestDomainApplicationBoundary:
     """ドメイン層とアプリケーション層の境界を検証"""
     
-    def test_ドメイン層は純粋な関数で構成される(self):
-        """ドメイン層は副作用を持たない"""
-        from domain import scoring_rules, friction_rules
-        
-        # ドメインモジュールはDBアクセスを含まない
-        for module in [scoring_rules, friction_rules]:
-            module_dict = vars(module)
-            # infrastructure系のインポートがないことを確認
-            assert not any("repository" in str(v) for v in module_dict.values())
-            assert not any("database" in str(v) for v in module_dict.values())
+    # Removed: test_ドメイン層は純粋な関数で構成される - scoring system deleted
+    pass
     
     
 
 
-class TestScoringServiceRefactoring:
-    """既存のscoring_serviceが適切に分解されることを検証"""
-    
-    def test_スコア計算ロジックはドメイン層に移行される(self):
-        """scoring_service.pyの計算ロジックはドメインへ"""
-        # 旧：application層での実装
-        with pytest.raises(ImportError):
-            from application.scoring_service import VIOLATION_SCORES
-        
-        # 新：domain層での実装
-        from domain.violation_scores import VIOLATION_SCORES
-        assert "graph_depth_exceeded" in VIOLATION_SCORES
-        assert VIOLATION_SCORES["graph_depth_exceeded"] == -100
-    
-    def test_スコアサービスは薄いオーケストレーション層になる(self):
-        """アプリケーション層は組み立てのみ"""
-        from application.scoring_service import create_scoring_service
-        
-        service = create_scoring_service()
-        
-        # サービスはドメインを呼び出すだけ
-        assert "calculate_score" in service
-        assert "calculate_total_friction_score" in service
-        
-        # サービスメソッドが関数として存在
-        assert callable(service["calculate_score"])
-        assert callable(service["calculate_total_friction_score"])
+# Removed: TestScoringServiceRefactoring class - scoring system deleted

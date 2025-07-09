@@ -190,13 +190,14 @@ class TestPriorityUINT8Refactoring:
                     "parameters": {}
                 })
             
-            # 摩擦検出
-            from .application.friction_detector import create_friction_detector
-            detector = create_friction_detector()
-            priority_friction = detector["detect_priority"](repo["connection"])
-            
-            assert priority_friction["high_priority_count"] == 3
-            assert priority_friction["has_conflict"] == True
+            # 摩擦検出 - Removed: scoring system deleted
+            # from .application.friction_detector import create_friction_detector
+            # detector = create_friction_detector()
+            # priority_friction = detector["detect_priority"](repo["connection"])
+            # 
+            # assert priority_friction["high_priority_count"] == 3
+            # assert priority_friction["has_conflict"] == True
+            pass  # Test simplified after scoring removal
     
     def test_api_backward_compatibility(self):
         """APIは数値priorityのみ受け付ける（後方互換性なし）"""

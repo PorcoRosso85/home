@@ -75,8 +75,3 @@ class TestDatabaseFactory:
             if original_env is not None:
                 os.environ["RGL_SKIP_SCHEMA_CHECK"] = original_env
     
-    @pytest.mark.skip(reason="monkeypatchでの__import__モックは再帰エラーを引き起こす")
-    def test_import_error_handling(self, monkeypatch):
-        """kuzu importエラーのハンドリング"""
-        # このテストは実際のkuzuインポートエラーが発生する環境でのみ有効
-        pass

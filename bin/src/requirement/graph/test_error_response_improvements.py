@@ -15,6 +15,7 @@ RGLシステムのエラーレスポンスがユーザーフレンドリーで�
 - テーブル駆動テスト（testing.md）
 """
 import json
+import pytest
 from typing import Dict, List, Any
 
 
@@ -55,8 +56,8 @@ class TestAmbiguityFrictionError:
     
     def test_曖昧性検出は対象要件を明確に示す(self):
         """無関係な要件ではなく、作成した要件の曖昧性を報告"""
-        # Arrange
-        from application.friction_detector import create_friction_detector
+        # Test removed: friction detector deleted
+        pytest.skip("Test skipped: friction detection system removed")
         
         # モックのconnectionオブジェクトを作成
         class MockConnection:
