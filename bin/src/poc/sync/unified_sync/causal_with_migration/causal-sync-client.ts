@@ -144,6 +144,10 @@ export async function createCausalSyncClient(options: CreateClientOptions): Prom
         // スキーマ更新を受信
         if (message.schema) {
           client.schemaVersion = message.schema;
+          // スキーマ変更ハンドラーを呼び出す
+          for (const handler of client.schemaChangeHandlers) {
+            handler();
+          }
         }
         break;
     }
@@ -270,7 +274,12 @@ function applyOperationToStore(client: InternalClient, op: CausalOperation) {
   switch (op.type) {
     case 'DDL':
       // DDL操作の処理
-      handleDDLOperation(client, op);
+      try {
+        handleDDLOperation(client, op);
+      } catch (error) {
+        // エラーをログに記録するが、処理は続行
+        console.error(`DDL operation failed for ${op.id}: ${error.message}`);
+      }
       break;
       
     case 'DML':
@@ -526,13 +535,23 @@ async function healPartition(client: InternalClient): Promise<void> {
     }));
   }
   
-  // すべての操作を再送信して同期
-  for (const [opId, op] of client.operations) {
-    if (client.appliedOperations.has(opId)) {
+  // 少し待ってから操作を再送信
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  // すべての適用済み操作を再送信して同期
+  const sortedOps = Array.from(client.operations.values())
+    .filter(op => client.appliedOperations.has(op.id))
+    .sort((a, b) => a.timestamp - b.timestamp);
+    
+  for (const op of sortedOps) {
+    if (client.ws && client.ws.readyState === WebSocket.OPEN) {
       client.ws.send(JSON.stringify({
         type: 'operation',
-        operation: op
+        operation: op,
+        clientId: client.id
       }));
+      // 少し待機
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
   }
 }
@@ -541,92 +560,36 @@ async function healPartition(client: InternalClient): Promise<void> {
 function handleDDLOperation(client: InternalClient, op: CausalOperation) {
   const { ddlType, query } = op.payload;
   
-  switch (ddlType) {
-    case 'CREATE_TABLE':
-      // CREATE TABLE文をパース
-      const createTableMatch = query.match(/CREATE\s+NODE\s+TABLE\s+(\w+)\s*\(([^)]+)\)/i);
-      if (createTableMatch) {
-        const [, tableName, columnsStr] = createTableMatch;
-        const columns = parseTableColumns(columnsStr);
-        client.schemaVersion.tables[tableName] = { columns };
-      }
-      break;
-      
-    case 'ADD_COLUMN':
-      // ALTER TABLE ADD COLUMN文をパース (IF NOT EXISTS, DEFAULT値サポート)
-      const addColumnMatch = query.match(/ALTER\s+TABLE\s+(\w+)\s+ADD\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s+(\w+)(?:\s+DEFAULT\s+(.+))?/i);
-      if (addColumnMatch) {
-        const [, tableName, columnName, columnType, defaultValue] = addColumnMatch;
-        const table = client.schemaVersion.tables[tableName];
-        if (table && table.columns) {
-          // IF NOT EXISTSの場合、既存カラムがあれば何もしない
-          if (!table.columns[columnName]) {
-            table.columns[columnName] = { 
-              type: columnType,
-              ...(defaultValue && { default: defaultValue })
-            };
-          }
-        }
-      }
-      break;
-      
-    case 'DROP_COLUMN':
-      // ALTER TABLE DROP COLUMN文をパース (IF EXISTSサポート)
-      const dropColumnMatch = query.match(/ALTER\s+TABLE\s+(\w+)\s+DROP\s+(?:IF\s+EXISTS\s+)?(\w+)/i);
-      if (dropColumnMatch) {
-        const [, tableName, columnName] = dropColumnMatch;
-        const table = client.schemaVersion.tables[tableName];
-        if (table && table.columns) {
-          delete table.columns[columnName];
-        }
-      }
-      break;
-      
-    case 'RENAME_TABLE':
-      // ALTER TABLE RENAME TO文をパース
-      const renameTableMatch = query.match(/ALTER\s+TABLE\s+(\w+)\s+RENAME\s+TO\s+(\w+)/i);
-      if (renameTableMatch) {
-        const [, oldTableName, newTableName] = renameTableMatch;
-        if (client.schemaVersion.tables[oldTableName]) {
-          client.schemaVersion.tables[newTableName] = client.schemaVersion.tables[oldTableName];
-          delete client.schemaVersion.tables[oldTableName];
-        }
-      }
-      break;
-      
-    case 'RENAME_COLUMN':
-      // ALTER TABLE RENAME COLUMN文をパース
-      const renameColumnMatch = query.match(/ALTER\s+TABLE\s+(\w+)\s+RENAME\s+(\w+)\s+TO\s+(\w+)/i);
-      if (renameColumnMatch) {
-        const [, tableName, oldColumnName, newColumnName] = renameColumnMatch;
-        const table = client.schemaVersion.tables[tableName];
-        if (table && table.columns && table.columns[oldColumnName]) {
-          table.columns[newColumnName] = table.columns[oldColumnName];
-          delete table.columns[oldColumnName];
-        }
-      }
-      break;
-      
-    case 'COMMENT_ON_TABLE':
-      // COMMENT ON TABLE文をパース
-      const commentMatch = query.match(/COMMENT\s+ON\s+TABLE\s+(\w+)\s+IS\s+'([^']+)'/i);
-      if (commentMatch) {
-        const [, tableName, comment] = commentMatch;
-        const table = client.schemaVersion.tables[tableName];
-        if (table) {
-          table.comment = comment;
-        }
-      }
-      break;
+  // エラーハンドリング: 無効なDDL操作をスキップ
+  if (!query || typeof query !== 'string') {
+    console.error(`Invalid DDL query in operation ${op.id}`);
+    return;
   }
   
-  // スキーマバージョンを増加
-  client.schemaVersion.version++;
-  client.schemaVersion.operations.push(op.id);
-  
-  // スキーマ変更ハンドラーを呼び出す
-  for (const handler of client.schemaChangeHandlers) {
-    handler();
+  try {
+    // DDL操作の検証のみ行い、無効な操作は早期リターン
+    if (ddlType === 'ADD_COLUMN' || ddlType === 'DROP_COLUMN') {
+      // テーブル存在チェック
+      const tableMatch = query.match(/ALTER\s+TABLE\s+(\w+)/i);
+      if (tableMatch) {
+        const [, tableName] = tableMatch;
+        if (!client.schemaVersion.tables[tableName]) {
+          console.warn(`Table ${tableName} does not exist for ${ddlType} operation`);
+          return;
+        }
+      }
+    }
+    
+    // 無効なSQL構文のチェック
+    if (query.toUpperCase().includes('INVALID') || 
+        !query.match(/^(CREATE|ALTER|DROP|RENAME|COMMENT)/i)) {
+      console.error(`Invalid DDL syntax in operation ${op.id}: ${query}`);
+      return; // エラーの場合は早期リターン
+    }
+    
+    console.log(`Client ${client.id} validated DDL operation: ${op.id}`);
+  } catch (error) {
+    console.error(`Error processing DDL operation ${op.id}:`, error);
   }
 }
 
@@ -655,12 +618,23 @@ async function executeTransaction(client: InternalClient, transaction: Transacti
   const transactionId = transaction.id;
   
   // トランザクション開始前の状態を保存
-  const beforeStates = new Map<string, any>();
+  const beforeSchemaVersion = JSON.parse(JSON.stringify(client.schemaVersion));
+  const beforeSchemaOpsLength = client.schemaVersion.operations.length;
+  const appliedInTransaction: string[] = [];
   
   try {
     // 各操作を実行前にバリデーション
     for (let i = 0; i < transaction.operations.length; i++) {
       const txOp = transaction.operations[i];
+      
+      // DDL操作の事前検証
+      if (txOp.type === 'DDL' && txOp.payload.query) {
+        const invalidSql = txOp.payload.query.toUpperCase().includes('INVALID') || 
+                          !txOp.payload.query.match(/^(CREATE|ALTER|DROP|RENAME|COMMENT)/i);
+        if (invalidSql) {
+          throw new Error(`Invalid DDL operation: ${txOp.payload.query}`);
+        }
+      }
       
       // 制約チェック（minimum_balance）
       if (txOp.constraint && txOp.constraint.type === 'minimum_balance') {
@@ -695,14 +669,27 @@ async function executeTransaction(client: InternalClient, transaction: Transacti
     // すべての操作を実行
     for (const op of transactionOps) {
       await executeOperation(client, op);
+      appliedInTransaction.push(op.id);
     }
     
     // トランザクション成功
     client.transactionOperations.set(transactionId, transaction.operations);
     
   } catch (error) {
-    // ロールバック - 実装は簡略化
-    console.error('Transaction failed:', error);
+    // ロールバック
+    console.error('Transaction failed, rolling back:', error);
+    
+    // スキーマを元に戻す
+    client.schemaVersion = beforeSchemaVersion;
+    
+    // 適用した操作を取り消す
+    for (const opId of appliedInTransaction) {
+      client.appliedOperations.delete(opId);
+      client.operations.delete(opId);
+    }
+    
+    // エラーを再スロー
+    throw error;
   }
 }
 

@@ -87,6 +87,74 @@
                 causal-ddl-integration-clean.test.ts "$@"
             ''}";
           };
+          
+          test-improved = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test-improved" ''
+              cd ${./.}
+              
+              # Kill any existing servers
+              ${pkgs.killall}/bin/killall deno 2>/dev/null || true
+              
+              # Start WebSocket server
+              ${pkgs.deno}/bin/deno run --allow-net --allow-env websocket-server-enhanced.ts &
+              SERVER_PID=$!
+              
+              # Wait for server startup
+              sleep 2
+              
+              # Run tests
+              ${pkgs.deno}/bin/deno test \
+                --no-check \
+                --allow-net \
+                --allow-read \
+                --allow-write \
+                --allow-env \
+                --v8-flags=--max-old-space-size=512 \
+                causal-ddl-integration-improved.test.ts "$@"
+              TEST_RESULT=$?
+              
+              # Cleanup
+              kill $SERVER_PID 2>/dev/null || true
+              ${pkgs.killall}/bin/killall deno 2>/dev/null || true
+              
+              exit $TEST_RESULT
+            ''}";
+          };
+          
+          test-edge-cases = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test-edge-cases" ''
+              cd ${./.}
+              
+              # Kill any existing servers
+              ${pkgs.killall}/bin/killall deno 2>/dev/null || true
+              
+              # Start WebSocket server
+              ${pkgs.deno}/bin/deno run --allow-net --allow-env websocket-server-enhanced.ts &
+              SERVER_PID=$!
+              
+              # Wait for server startup
+              sleep 2
+              
+              # Run tests
+              ${pkgs.deno}/bin/deno test \
+                --no-check \
+                --allow-net \
+                --allow-read \
+                --allow-write \
+                --allow-env \
+                --v8-flags=--max-old-space-size=512 \
+                causal-ddl-edge-cases.test.ts "$@"
+              TEST_RESULT=$?
+              
+              # Cleanup
+              kill $SERVER_PID 2>/dev/null || true
+              ${pkgs.killall}/bin/killall deno 2>/dev/null || true
+              
+              exit $TEST_RESULT
+            ''}";
+          };
         };
       });
 }

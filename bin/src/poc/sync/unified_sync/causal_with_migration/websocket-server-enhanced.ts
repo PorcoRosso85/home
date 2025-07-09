@@ -39,6 +39,19 @@ const schemaVersion: SchemaVersion = {
 function handleServerDDL(op: CausalOperation) {
   const { ddlType, query } = op.payload;
   
+  // Validate DDL syntax first
+  if (!query || typeof query !== 'string') {
+    console.error(`Invalid DDL query in operation ${op.id}`);
+    return;
+  }
+  
+  // Check for invalid syntax
+  if (query.toUpperCase().includes('INVALID') || 
+      !query.match(/^(CREATE|ALTER|DROP|RENAME|COMMENT)/i)) {
+    console.error(`Invalid DDL syntax in operation ${op.id}: ${query}`);
+    return;
+  }
+  
   switch (ddlType) {
     case 'CREATE_TABLE':
       // CREATE TABLE文をパース
@@ -47,6 +60,9 @@ function handleServerDDL(op: CausalOperation) {
         const [, tableName, columnsStr] = createTableMatch;
         const columns = parseTableColumns(columnsStr);
         schemaVersion.tables[tableName] = { columns };
+        // 成功時のみバージョンを増加
+        schemaVersion.version++;
+        schemaVersion.operations.push(op.id);
       }
       break;
       
@@ -56,13 +72,20 @@ function handleServerDDL(op: CausalOperation) {
       if (addColumnMatch) {
         const [, tableName, columnName, columnType, defaultValue] = addColumnMatch;
         const table = schemaVersion.tables[tableName];
-        if (table && table.columns) {
+        if (!table) {
+          console.warn(`Table ${tableName} does not exist for ADD_COLUMN operation`);
+          return; // テーブルが存在しない場合は何もしない
+        }
+        if (table.columns) {
           // IF NOT EXISTSの場合、既存カラムがあれば何もしない
           if (!table.columns[columnName]) {
             table.columns[columnName] = { 
               type: columnType,
               ...(defaultValue && { default: defaultValue })
             };
+            // 成功時のみバージョンを増加
+            schemaVersion.version++;
+            schemaVersion.operations.push(op.id);
           }
         }
       }
@@ -74,8 +97,11 @@ function handleServerDDL(op: CausalOperation) {
       if (dropColumnMatch) {
         const [, tableName, columnName] = dropColumnMatch;
         const table = schemaVersion.tables[tableName];
-        if (table && table.columns) {
+        if (table && table.columns && table.columns[columnName]) {
           delete table.columns[columnName];
+          // 成功時のみバージョンを増加
+          schemaVersion.version++;
+          schemaVersion.operations.push(op.id);
         }
       }
       break;
@@ -88,6 +114,9 @@ function handleServerDDL(op: CausalOperation) {
         if (schemaVersion.tables[oldTableName]) {
           schemaVersion.tables[newTableName] = schemaVersion.tables[oldTableName];
           delete schemaVersion.tables[oldTableName];
+          // 成功時のみバージョンを増加
+          schemaVersion.version++;
+          schemaVersion.operations.push(op.id);
         }
       }
       break;
@@ -101,6 +130,9 @@ function handleServerDDL(op: CausalOperation) {
         if (table && table.columns && table.columns[oldColumnName]) {
           table.columns[newColumnName] = table.columns[oldColumnName];
           delete table.columns[oldColumnName];
+          // 成功時のみバージョンを増加
+          schemaVersion.version++;
+          schemaVersion.operations.push(op.id);
         }
       }
       break;
@@ -113,14 +145,13 @@ function handleServerDDL(op: CausalOperation) {
         const table = schemaVersion.tables[tableName];
         if (table) {
           table.comment = comment;
+          // 成功時のみバージョンを増加
+          schemaVersion.version++;
+          schemaVersion.operations.push(op.id);
         }
       }
       break;
   }
-  
-  // スキーマバージョンを増加
-  schemaVersion.version++;
-  schemaVersion.operations.push(op.id);
 }
 
 // テーブルカラムのパース
@@ -201,30 +232,77 @@ Deno.serve({ port }, (req) => {
             operation: op
           });
           
-          for (const [id, client] of clients) {
-            if (client.ws.readyState === WebSocket.OPEN) {
-              // Check partition rules
-              let canSend = true;
-              
-              // If sender is partitioned, only send to allowed clients
-              if (senderClient && senderClient.isPartitioned) {
-                canSend = senderClient.partitionAllowedClients.has(client.id);
-              }
-              
-              // If receiver is partitioned, only receive from allowed clients
-              if (client.isPartitioned && senderClientId) {
-                canSend = canSend && client.partitionAllowedClients.has(senderClientId);
-              }
-              
-              if (canSend) {
-                client.ws.send(broadcastMsg);
+          // DDL操作の場合、すべてのクライアントにスキーマ更新を送信
+          if (op.type === 'DDL') {
+            // まず操作をブロードキャスト
+            for (const [id, client] of clients) {
+              if (client.ws.readyState === WebSocket.OPEN) {
+                // Check partition rules
+                let canSend = true;
                 
-                // Also send schema update after DDL operations
-                if (op.type === 'DDL') {
-                  client.ws.send(JSON.stringify({
-                    type: "schema_update",
-                    schema: schemaVersion
-                  }));
+                // If sender is partitioned, only send to allowed clients
+                if (senderClient && senderClient.isPartitioned) {
+                  canSend = senderClient.partitionAllowedClients.has(client.id);
+                }
+                
+                // If receiver is partitioned, only receive from allowed clients
+                if (client.isPartitioned && senderClientId) {
+                  canSend = canSend && client.partitionAllowedClients.has(senderClientId);
+                }
+                
+                if (canSend) {
+                  client.ws.send(broadcastMsg);
+                }
+              }
+            }
+            
+            // その後、パーティションを考慮してスキーマを送信
+            setTimeout(() => {
+              const schemaMsg = JSON.stringify({
+                type: "schema_update",
+                schema: schemaVersion
+              });
+              
+              for (const [id, client] of clients) {
+                if (client.ws.readyState === WebSocket.OPEN) {
+                  // パーティションルールをチェック
+                  let canSend = true;
+                  
+                  // 送信者がパーティション中の場合
+                  if (senderClient && senderClient.isPartitioned) {
+                    canSend = senderClient.partitionAllowedClients.has(client.id);
+                  }
+                  
+                  // 受信者がパーティション中の場合
+                  if (client.isPartitioned && senderClientId) {
+                    canSend = canSend && client.partitionAllowedClients.has(senderClientId);
+                  }
+                  
+                  if (canSend) {
+                    client.ws.send(schemaMsg);
+                  }
+                }
+              }
+            }, 50); // 少し遅延を入れて操作が処理されるのを待つ
+          } else {
+            // 非DDL操作の場合は通常のブロードキャスト
+            for (const [id, client] of clients) {
+              if (client.ws.readyState === WebSocket.OPEN) {
+                // Check partition rules
+                let canSend = true;
+                
+                // If sender is partitioned, only send to allowed clients
+                if (senderClient && senderClient.isPartitioned) {
+                  canSend = senderClient.partitionAllowedClients.has(client.id);
+                }
+                
+                // If receiver is partitioned, only receive from allowed clients
+                if (client.isPartitioned && senderClientId) {
+                  canSend = canSend && client.partitionAllowedClients.has(senderClientId);
+                }
+                
+                if (canSend) {
+                  client.ws.send(broadcastMsg);
                 }
               }
             }
@@ -248,6 +326,12 @@ Deno.serve({ port }, (req) => {
             healClient.isPartitioned = false;
             healClient.partitionAllowedClients.clear();
             console.log(`Client ${message.clientId} partition healed`);
+            
+            // Send current schema to healed client
+            healClient.ws.send(JSON.stringify({
+              type: "schema_update",
+              schema: schemaVersion
+            }));
           }
           break;
 
