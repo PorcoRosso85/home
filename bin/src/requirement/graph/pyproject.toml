@@ -22,13 +22,7 @@ packages = ["application", "domain", "infrastructure", "query"]
 [tool.setuptools.package-data]
 "*" = ["*.cypher", "*.yaml", "*.json"]
 
-[project.optional-dependencies]
-test = [
-    "pytest>=7.0.0",
-]
-
 # uvはscriptsセクションを使わない
-
 
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -55,7 +49,6 @@ addopts = [
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
-    "ruff>=0.1.0",
 ]
 
 [tool.ruff]

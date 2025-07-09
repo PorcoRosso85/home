@@ -156,13 +156,7 @@
             type = "app";
             program = "${mkRunner "lint" ''
               echo "🔍 Running linter (ruff)..."
-              
-              # ruffがvenv内にある場合は使用、なければシステムのruffを使用
-              if [ -f ".venv/bin/ruff" ]; then
-                exec .venv/bin/ruff check . "$@"
-              else
-                exec ${pkgs.ruff}/bin/ruff check . "$@"
-              fi
+              exec ${pkgs.ruff}/bin/ruff check . "$@"
             ''}";
           };
           
@@ -170,12 +164,7 @@
             type = "app";
             program = "${mkRunner "lint-fix" ''
               echo "🔧 Running linter with auto-fix..."
-              
-              if [ -f ".venv/bin/ruff" ]; then
-                exec .venv/bin/ruff check --fix . "$@"
-              else
-                exec ${pkgs.ruff}/bin/ruff check --fix . "$@"
-              fi
+              exec ${pkgs.ruff}/bin/ruff check --fix . "$@"
             ''}";
           };
           
