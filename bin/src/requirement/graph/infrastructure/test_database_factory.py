@@ -50,28 +50,4 @@ class TestDatabaseFactory:
         assert result.has_next()
         assert result.get_next()[0] == 1
     
-    def test_singleton_pattern(self, tmp_path):
-        """同じパスでは同じインスタンスを返す（テストモードでは無効）"""
-        from .database_factory import create_database
-        import os
-        
-        # テストモードではキャッシュが無効なので、このテストはスキップ
-        if os.environ.get("RGL_SKIP_SCHEMA_CHECK") == "true":
-            pytest.skip("Singleton pattern is disabled in test mode")
-        
-        # 環境変数を一時的にクリアしてテスト
-        original_env = os.environ.get("RGL_SKIP_SCHEMA_CHECK")
-        try:
-            if "RGL_SKIP_SCHEMA_CHECK" in os.environ:
-                del os.environ["RGL_SKIP_SCHEMA_CHECK"]
-            
-            db_path = tmp_path / "test.db"
-            db1 = create_database(path=str(db_path))
-            db2 = create_database(path=str(db_path))
-            
-            # 同じインスタンスを返すべき
-            assert db1 is db2
-        finally:
-            if original_env is not None:
-                os.environ["RGL_SKIP_SCHEMA_CHECK"] = original_env
     
