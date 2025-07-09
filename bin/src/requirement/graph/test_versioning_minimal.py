@@ -37,7 +37,7 @@ def test_versioning_through_api():
         conn = create_connection(db)
         
         manager = DDLSchemaManager(conn)
-        schema_path = Path(current_dir) / "ddl" / "schema.cypher"
+        schema_path = Path(current_dir) / "ddl" / "migrations" / "3.2.0_current.cypher"
         
         success, results = manager.apply_schema(str(schema_path))
         if not success:

@@ -2,6 +2,12 @@
 KuzuDB Repository - グラフデータベース永続化
 依存: domain, application
 外部依存: kuzu
+
+TODO: リポジトリ層のクエリ管理改善
+- 現在: クエリが関数内に直接記述されている
+- 理想: query/dml, query/dqlからクエリを読み込む
+- 例: query_loader.load("dql/get_requirement_history.cypher")
+- 利点: クエリの再利用性向上、テスト容易性向上
 """
 import os
 import sys
@@ -85,84 +91,59 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             is_new = not existing_check.has_next()
             operation = "CREATE" if is_new else "UPDATE"
             
-            # イミュータブルバージョニング: 常に新しいエンティティを作成
-            from ..domain.version_tracking import create_version_id
-            
-            # 新しいバージョンIDを生成
+            # ミュータブルアプローチ: CREATEまたはUPDATE
             if is_new:
-                version_id = create_version_id(decision["id"], 1)
-            else:
-                # 既存要件の最新バージョンを取得
-                latest_version_result = conn.execute("""
-                    MATCH (l:LocationURI)-[:LOCATES]->(r:RequirementEntity)
-                    WHERE l.id = $uri
-                    RETURN r.version_id ORDER BY r.created_at DESC LIMIT 1
-                """, {"uri": f"req://{decision['id']}"})
-                
-                if latest_version_result.has_next():
-                    latest_version_id = latest_version_result.get_next()[0]
-                    # バージョン番号を抽出して増分
-                    version_num = int(latest_version_id.split('_v')[1]) + 1
-                    version_id = create_version_id(decision["id"], version_num)
-                else:
-                    version_id = create_version_id(decision["id"], 1)
-            
-            # 新しいエンティティを作成（常にCREATE）
-            conn.execute("""
-                CREATE (r:RequirementEntity {
-                    id: $id,
-                    version_id: $version_id,
-                    title: $title,
-                    description: $description,
-                    priority: $priority,
-                    requirement_type: $requirement_type,
-                    status: $status,
-                    embedding: $embedding,
-                    created_at: $created_at,
-                    operation: $operation
+                # 新規作成
+                conn.execute("""
+                    CREATE (r:RequirementEntity {
+                        id: $id,
+                        title: $title,
+                        description: $description,
+                        priority: $priority,
+                        requirement_type: $requirement_type,
+                        status: $status
+                    })
+                    RETURN r
+                """, {
+                    "id": decision["id"],
+                    "title": decision["title"],
+                    "description": decision["description"],
+                    "priority": 100,  # UINT8デフォルト値
+                    "requirement_type": "functional",  # デフォルト値
+                    "status": decision["status"]
                 })
-                RETURN r
-            """, {
-                "id": decision["id"],
-                "version_id": version_id,
-                "title": decision["title"],
-                "description": decision["description"],
-                "priority": "medium",  # デフォルト値
-                "requirement_type": "functional",  # デフォルト値
-                "status": decision["status"],
-                "embedding": decision["embedding"],
-                "created_at": decision["created_at"].isoformat(),
-                "operation": operation
-            })
+            else:
+                # 既存要件を更新
+                conn.execute("""
+                    MATCH (r:RequirementEntity {id: $id})
+                    SET r.title = $title,
+                        r.description = $description,
+                        r.status = $status
+                    RETURN r
+                """, {
+                    "id": decision["id"],
+                    "title": decision["title"],
+                    "description": decision["description"],
+                    "status": decision["status"]
+                })
             
             # LocationURIの処理
             from ..domain.version_tracking import create_location_uri
             location_uri = create_location_uri(decision["id"])
             
-            # LocationURIノードが存在しない場合は作成
-            uri_check = conn.execute("""
-                MATCH (l:LocationURI {id: $uri})
-                RETURN l
-            """, {"uri": location_uri})
-            
-            if not uri_check.has_next():
+            if is_new:
+                # LocationURIノードを作成
                 conn.execute("""
                     CREATE (l:LocationURI {id: $uri})
                     RETURN l
                 """, {"uri": location_uri})
-            else:
-                # 既存のLOCATES関係を削除
+                
+                # LOCATES関係を作成
                 conn.execute("""
-                    MATCH (l:LocationURI {id: $uri})-[loc:LOCATES]->()
-                    DELETE loc
-                """, {"uri": location_uri})
-            
-            # 新しいバージョンへのLOCATES関係を作成
-            conn.execute("""
-                MATCH (l:LocationURI {id: $uri})
-                MATCH (r:RequirementEntity {version_id: $version_id})
-                CREATE (l)-[:LOCATES {entity_type: 'requirement', is_latest: true}]->(r)
-            """, {"uri": location_uri, "version_id": version_id})
+                    MATCH (l:LocationURI {id: $uri})
+                    MATCH (r:RequirementEntity {id: $id})
+                    CREATE (l)-[:LOCATES {entity_type: 'requirement', current: true}]->(r)
+                """, {"uri": location_uri, "id": decision["id"]})
             
             # 変更フィールドを検出（既存要件の場合）
             # 変更フィールドを検出（既存要件の場合）
@@ -179,9 +160,25 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                                 "new_value": decision.get(field)
                             })
             
+            # バージョン番号を計算
+            # TODO: HAS_VERSION削除後の修正が必要
+            # 新方式: MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l:LocationURI {id: CONCAT('req://', $id)})
+            if is_new:
+                version_num = 1
+            else:
+                version_count_result = conn.execute("""
+                    MATCH (r:RequirementEntity {id: $id})-[:HAS_VERSION]->(v:VersionState)
+                    RETURN count(v) as count
+                """, {"id": decision["id"]})
+                
+                if version_count_result.has_next():
+                    version_num = version_count_result.get_next()[0] + 1
+                else:
+                    version_num = 1
+            
             # バージョン情報をdecisionに追加
-            decision["version_id"] = version_id
-            decision["version"] = int(version_id.split('_v')[1]) if '_v' in version_id else 1
+            decision["version_id"] = f"ver_{decision['id']}_v{version_num}"
+            decision["version"] = version_num
             
             # 親子関係を設定（LocationURI階層として）
             if parent_id:
@@ -261,8 +258,8 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "title": node["title"],
                     "description": node["description"],
                     "status": node["status"],
-                    "created_at": datetime.fromisoformat(node["created_at"]),
-                    "embedding": node["embedding"]
+                    "priority": node.get("priority", 1),
+                    "requirement_type": node.get("requirement_type", "functional")
                 }
             
             return {
@@ -292,14 +289,13 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 row = result.get_next()
                 node = row[0]
                 
-                from datetime import datetime
                 requirements.append({
                     "id": node["id"],
                     "title": node["title"],
                     "description": node["description"],
                     "status": node["status"],
-                    "created_at": datetime.fromisoformat(node["created_at"]),
-                    "embedding": node["embedding"]
+                    "priority": node.get("priority", 1),
+                    "requirement_type": node.get("requirement_type", "functional")
                 })
             
             return requirements
@@ -381,15 +377,14 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     node = row[0]
                     distance = row[1]
                     
-                    from datetime import datetime
                     dependencies.append({
                         "requirement": {
                             "id": node["id"],
                             "title": node["title"],
                             "description": node["description"],
                             "status": node["status"],
-                            "created_at": datetime.fromisoformat(node["created_at"]),
-                            "embedding": node["embedding"]
+                            "priority": node.get("priority", 1),
+                            "requirement_type": node.get("requirement_type", "functional")
                         },
                         "distance": distance
                     })
@@ -416,14 +411,13 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 row = result.get_next()
                 node = row[0]
                 
-                from datetime import datetime
                 requirements.append({
                     "id": node["id"],
                     "title": node["title"],
                     "description": node["description"],
                     "status": node["status"],
-                    "created_at": datetime.fromisoformat(node["created_at"]),
-                    "embedding": node["embedding"]
+                    "priority": node.get("priority", 1),
+                    "requirement_type": node.get("requirement_type", "functional")
                 })
             
             return requirements
@@ -518,6 +512,11 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         Returns:
             変更履歴のリスト
         """
+        # TODO: HAS_VERSION削除後の修正が必要
+        # 新方式:
+        # MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
+        # MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l)
+        # MATCH (l)-[:LOCATES]->(r:RequirementEntity)
         try:
             result = conn.execute("""
                 MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)
@@ -569,6 +568,8 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         Returns:
             その時点での要件状態
         """
+        # TODO: HAS_VERSION削除後の修正が必要
+        # 新方式: VersionState → LocationURI → RequirementEntity
         try:
             result = conn.execute("""
                 MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)

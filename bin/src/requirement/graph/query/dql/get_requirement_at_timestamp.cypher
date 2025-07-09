@@ -2,11 +2,11 @@
 // パラメータ: $req_id, $timestamp
 // 戻り値: requirement, version
 
-// LocationURI経由で要件にアクセス
+// LocationURI経由で要件にアクセス（新方式）
 MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
-MATCH (l)-[:LOCATES]->(r:RequirementEntity)
-MATCH (r)-[:HAS_VERSION]->(v:VersionState)
+MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l)
 WHERE v.timestamp <= $timestamp
+MATCH (l)-[:LOCATES]->(r:RequirementEntity)
 
 // 最新のものを選択
 WITH r, v

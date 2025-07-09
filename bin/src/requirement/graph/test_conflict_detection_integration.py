@@ -21,7 +21,7 @@ def setup_test_environment() -> Dict[str, Any]:
     
     # スキーマを適用
     schema_manager = DDLSchemaManager(repo["connection"])
-    schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+    schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
     
     if not schema_path.exists():
         return {"repo": repo, "error": "Schema file not found"}

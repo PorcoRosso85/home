@@ -44,7 +44,7 @@ class TestDependencyCreationError:
         # 例の内容を確認
         example_queries = [ex["query"] for ex in error_dict["examples"]]
         assert any("WHERE a.id" in q for q in example_queries)  # WHERE句を使った例
-        assert any("MERGE" in q for q in example_queries)  # MERGE構文の例
+        assert any("CREATE" in q for q in example_queries)  # CREATE構文の例
         
         # 技術的詳細の確認
         assert error_dict["technical_details"]["original_error"] == original_error

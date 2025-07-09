@@ -31,7 +31,7 @@ class TestRealtimeRippleEffect:
             # DB初期化
             repo = create_kuzu_repository(test_db)
             schema_manager = DDLSchemaManager(repo["connection"])
-            schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+            schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
             success, _ = schema_manager.apply_schema(str(schema_path))
             assert success
             

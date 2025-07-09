@@ -16,7 +16,7 @@ CREATE (v:VersionState {
     author: $author,
     change_reason: $reason
 })
-CREATE (r)-[:HAS_VERSION]->(v)
 CREATE (l:LocationURI {id: CONCAT('req://', $req_id)})
 CREATE (l)-[:LOCATES]->(r)
+CREATE (v)-[:TRACKS_STATE_OF {entity_type: 'requirement'}]->(l)
 RETURN r.id as entity_id, v.id as version_id, l.id as location_uri

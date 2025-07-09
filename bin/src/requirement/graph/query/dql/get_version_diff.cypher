@@ -3,10 +3,10 @@
 // 戻り値: 2つのバージョンの情報
 // 注: KuzuDBはバージョン番号を直接持たないため、タイムスタンプ順での取得
 
-// LocationURI経由で要件にアクセス
+// LocationURI経由で要件にアクセス（新方式）
 MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
+MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l)
 MATCH (l)-[:LOCATES]->(r:RequirementEntity)
-MATCH (r)-[:HAS_VERSION]->(v:VersionState)
 
 // タイムスタンプ順にソートして番号を付ける
 WITH r, v ORDER BY v.timestamp

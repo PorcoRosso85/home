@@ -102,8 +102,9 @@ def create_friction_detector() -> Dict[str, Any]:
         バージョン履歴や更新頻度から要件の変質を検出
         """
         query = """
-        // バージョン履歴を持つ要件を検出（簡略版）
-        MATCH (r:RequirementEntity)-[:HAS_VERSION]->(v:VersionState)
+        // バージョン履歴を持つ要件を検出（新方式）
+        MATCH (l:LocationURI)-[:LOCATES]->(r:RequirementEntity)
+        MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l)
         WITH r, count(v) as version_count
         WHERE version_count > 1
         RETURN r.id as requirement_id,

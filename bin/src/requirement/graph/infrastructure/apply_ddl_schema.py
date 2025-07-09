@@ -32,13 +32,14 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
     """
     info("rgl.schema", "Starting DDL schema application", db_path=db_path, create_test_data=create_test_data)
     
-    # スキーマファイルのパスを取得（graph/ddl/を参照）
+    # スキーマファイルのパスを取得（graph/ddl/migrations/を参照）
     # __file__を使用して絶対パスを取得（sys.pathの変更に影響されない）
     schema_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), 
         "..", 
         "ddl", 
-        "schema.cypher"
+        "migrations",
+        "3.2.0_current.cypher"
     )
     
     if not os.path.exists(schema_path):

@@ -26,7 +26,7 @@ class TestVersionTemplates:
         
         # スキーマ適用
         schema_manager = DDLSchemaManager(repo["connection"])
-        schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+        schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
         if schema_path.exists():
             success, results = schema_manager.apply_schema(str(schema_path))
             assert success

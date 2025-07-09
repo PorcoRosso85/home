@@ -7,7 +7,7 @@ MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
 MATCH (l)-[:LOCATES]->(r:RequirementEntity)
 
 // 現在のバージョン数を取得
-OPTIONAL MATCH (r)-[:HAS_VERSION]->(v:VersionState)
+OPTIONAL MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l)
 WITH l, r, count(v) as version_count
 
 // 要件を更新
@@ -24,6 +24,6 @@ CREATE (new_v:VersionState {
     author: $author,
     change_reason: $reason
 })
-CREATE (r)-[:HAS_VERSION]->(new_v)
+CREATE (new_v)-[:TRACKS_STATE_OF {entity_type: 'requirement'}]->(l)
 
 RETURN r.id as entity_id, new_v.id as version_id

@@ -62,7 +62,8 @@ def connection(db_path):
             operation STRING,
             author STRING,
             changed_fields STRING,
-            progress_percentage DOUBLE DEFAULT 0.0
+            progress_percentage DOUBLE DEFAULT 0.0,
+            previous_state STRING
         )
     """)
     
@@ -84,7 +85,8 @@ def connection(db_path):
     conn.execute("""
         CREATE REL TABLE IF NOT EXISTS LOCATES (
             FROM LocationURI TO RequirementEntity,
-            entity_type STRING DEFAULT 'requirement'
+            entity_type STRING DEFAULT 'requirement',
+            current BOOLEAN DEFAULT false
         )
     """)
     

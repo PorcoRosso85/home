@@ -98,10 +98,10 @@ def create_version_service(repository: VersionRepository):
             row = result.get_next()
             
             # 現在のバージョンを取得
+            # 新方式: VersionStateはLocationURIを追跡
             version_query = """
             MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
-            MATCH (l)-[:LOCATES]->(r:RequirementEntity)
-            MATCH (r)-[:HAS_VERSION]->(v:VersionState)
+            MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l)
             RETURN count(v) as version_count
             """
             version_result = repository["execute"](version_query, {"req_id": data["id"]})
@@ -138,14 +138,38 @@ def create_version_service(repository: VersionRepository):
         
         while result.has_next():
             row = result.get_next()
+            
+            # 各バージョンの状態を再構築
+            if row[6] == 'CREATE' and row[10]:  # operation == 'CREATE' and previous_state exists
+                # CREATE時は保存されたスナップショットを使用
+                import json
+                try:
+                    state = json.loads(row[10])  # previous_state
+                    title = state.get('title', row[1])
+                    description = state.get('description', row[2])
+                    status = state.get('status', row[3])
+                    priority = state.get('priority', row[4])
+                except:
+                    # JSONパースに失敗した場合は現在の値を使用
+                    title = row[1]
+                    description = row[2]
+                    status = row[3]
+                    priority = row[4]
+            else:
+                # UPDATE時は現在の状態を使用
+                title = row[1]
+                description = row[2]
+                status = row[3]
+                priority = row[4]
+            
             history.append({
                 "version": version_num,
                 "entity_id": row[0],
                 "version_id": row[5],
-                "title": row[1],
-                "description": row[2],
-                "status": row[3],
-                "priority": row[4],
+                "title": title,
+                "description": description,
+                "status": status,
+                "priority": priority,
                 "operation": row[6],
                 "author": row[7],
                 "change_reason": row[8],
@@ -175,11 +199,10 @@ def create_version_service(repository: VersionRepository):
             requirement = row[0]
             version = row[1]
             
-            # バージョン番号を計算
+            # バージョン番号を計算（新方式）
             version_query = """
             MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
-            MATCH (l)-[:LOCATES]->(r:RequirementEntity)
-            MATCH (r)-[:HAS_VERSION]->(v:VersionState)
+            MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l)
             WHERE v.timestamp <= $timestamp
             RETURN count(v) as version_count
             """

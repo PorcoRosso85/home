@@ -24,7 +24,7 @@ CREATE (v:VersionState {
     change_reason: $reason,
     previous_version: current.id
 })
-CREATE (r)-[:HAS_VERSION]->(v)
+CREATE (v)-[:TRACKS_STATE_OF {entity_type: 'requirement'}]->(l)
 
 // LocationURIのポインタを更新（削除状態もポイント）
 MATCH (l)-[old:LOCATES {current: true}]->()

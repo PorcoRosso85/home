@@ -17,7 +17,7 @@ def test_create_versioned_requirement():
     
     # スキーマ適用（テスト環境ではインメモリDBなので必要）
     schema_manager = DDLSchemaManager(repo["connection"])
-    schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+    schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
     if schema_path.exists():
         success, results = schema_manager.apply_schema(str(schema_path))
         assert success
@@ -52,7 +52,7 @@ def test_update_versioned_requirement():
     
     # スキーマ適用
     schema_manager = DDLSchemaManager(repo["connection"])
-    schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+    schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
     if schema_path.exists():
         success, results = schema_manager.apply_schema(str(schema_path))
         assert success
@@ -92,7 +92,7 @@ def test_get_requirement_history():
     
     # スキーマ適用
     schema_manager = DDLSchemaManager(repo["connection"])
-    schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+    schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
     if schema_path.exists():
         success, results = schema_manager.apply_schema(str(schema_path))
         assert success

@@ -29,7 +29,7 @@ class TestVersioningIntegration:
         # テスト環境では自動的にインメモリDBを使用
         self.repo = create_kuzu_repository()
         schema_manager = DDLSchemaManager(self.repo["connection"])
-        schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+        schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
         
         success, results = schema_manager.apply_schema(str(schema_path))
         if not success:

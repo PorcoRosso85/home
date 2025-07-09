@@ -49,7 +49,7 @@ class TestPriorityUINT8Refactoring:
             
             # 新しいスキーマを適用（UINT8版）
             schema_manager = DDLSchemaManager(repo["connection"])
-            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "schema.cypher")
+            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "migrations", "3.2.0_current.cypher")
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             
@@ -81,7 +81,7 @@ class TestPriorityUINT8Refactoring:
             repo = create_kuzu_repository(db_path)
             
             schema_manager = DDLSchemaManager(repo["connection"])
-            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "schema.cypher")
+            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "migrations", "3.2.0_current.cypher")
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             
@@ -112,7 +112,7 @@ class TestPriorityUINT8Refactoring:
             repo = create_kuzu_repository(db_path)
             
             schema_manager = DDLSchemaManager(repo["connection"])
-            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "schema.cypher")
+            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "migrations", "3.2.0_current.cypher")
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             
@@ -168,7 +168,7 @@ class TestPriorityUINT8Refactoring:
             repo = create_kuzu_repository(db_path)
             
             schema_manager = DDLSchemaManager(repo["connection"])
-            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "schema.cypher")
+            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "migrations", "3.2.0_current.cypher")
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             
@@ -205,7 +205,7 @@ class TestPriorityUINT8Refactoring:
             repo = create_kuzu_repository(db_path)
             
             schema_manager = DDLSchemaManager(repo["connection"])
-            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "schema.cypher")
+            schema_path = os.path.join(os.path.dirname(__file__), "ddl", "migrations", "3.2.0_current.cypher")
             success, results = schema_manager.apply_schema(schema_path)
             assert success
             

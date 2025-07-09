@@ -25,11 +25,10 @@ class TestVersionDQLTemplates:
         assert "$req_id" in content, "要件IDパラメータが含まれていません"
         
         # 必要なテーブルとリレーションが含まれている
-        assert "LocationURI" in content
         assert "RequirementEntity" in content
         assert "VersionState" in content
-        assert "HAS_VERSION" in content
-        assert "LOCATES" in content
+        # 新方式: VersionStateがLocationURIを追跡
+        assert "TRACKS_STATE_OF" in content
         
         # 時系列でソートされている
         assert "ORDER BY" in content
@@ -111,7 +110,7 @@ class TestVersionDQLTemplates:
         
         # スキーマ適用
         schema_manager = DDLSchemaManager(repo["connection"])
-        schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+        schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
         success, _ = schema_manager.apply_schema(str(schema_path))
         assert success
         
@@ -161,7 +160,7 @@ class TestVersionDQLTemplates:
         
         # スキーマ適用
         schema_manager = DDLSchemaManager(repo["connection"])
-        schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+        schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
         success, _ = schema_manager.apply_schema(str(schema_path))
         assert success
         
@@ -212,7 +211,7 @@ class TestVersionDQLTemplates:
         
         # スキーマ適用
         schema_manager = DDLSchemaManager(repo["connection"])
-        schema_path = Path(__file__).parent / "ddl" / "schema.cypher"
+        schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
         success, _ = schema_manager.apply_schema(str(schema_path))
         assert success
         

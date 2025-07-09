@@ -48,7 +48,8 @@ def connection(db_path):
             progress_percentage DOUBLE DEFAULT 0.0,
             operation STRING DEFAULT 'UPDATE',
             author STRING DEFAULT 'system',
-            changed_fields STRING
+            changed_fields STRING,
+            previous_state STRING
         )
     """)
     
@@ -89,7 +90,8 @@ def connection(db_path):
     conn.execute("""
         CREATE REL TABLE IF NOT EXISTS LOCATES (
             FROM LocationURI TO RequirementEntity,
-            entity_type STRING DEFAULT 'requirement'
+            entity_type STRING DEFAULT 'requirement',
+            current BOOLEAN DEFAULT false
         )
     """)
     
@@ -119,6 +121,12 @@ class TestKuzuRepository:
         }
         
         saved = repo["save"](requirement)
+        print(f"Saved result: {saved}")  # Debug print
+        
+        # Check if it's an error result
+        if "type" in saved and "Error" in saved["type"]:
+            raise AssertionError(f"Save failed: {saved}")
+            
         assert saved["id"] == "test_001"
         
         # Read
@@ -157,10 +165,12 @@ class TestKuzuRepository:
         
         # 依存関係追加
         result = repo["add_dependency"]("auth", "database", "depends_on", "ユーザー情報保存")
-        assert result["success"] == True
+        print(f"Add dependency result: {result}")
+        assert result.get("success") == True
         
         # 依存関係検索
         deps = repo["find_dependencies"]("auth", depth=2)
+        print(f"Dependencies found: {deps}")
         assert len(deps) == 1
         assert deps[0]["requirement"]["id"] == "database"
 
