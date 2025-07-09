@@ -62,26 +62,26 @@
         
         apps = {
           # TDD Red フェーズテスト
-          test-red = {
-            type = "app";
-            program = "${mkRunner "test-red" ''
-              export RGL_SKIP_SCHEMA_CHECK="true"
-              export PYTHONPATH="${projectDir}:${projectDir}/../../"
-              
-              echo "🔴 Running TDD Red phase tests..."
-              exec .venv/bin/python test_requirement_search_red.py
-            ''}";
-          };
-          
-          # 全テスト実行
           test = {
             type = "app";
             program = "${mkRunner "test" ''
               export RGL_SKIP_SCHEMA_CHECK="true"
-              export PYTHONPATH="${projectDir}:${projectDir}/../../"
+              export PYTHONPATH="${projectDir}/../../"
               
-              echo "🧪 Running all tests..."
-              exec .venv/bin/pytest "$@"
+              echo "🧪 Running compliant tests..."
+              exec .venv/bin/python test_requirement_search_compliant.py
+            ''}";
+          };
+          
+          # 統合テスト実行
+          test-integration = {
+            type = "app";
+            program = "${mkRunner "test-integration" ''
+              export RGL_SKIP_SCHEMA_CHECK="true"
+              export PYTHONPATH="${projectDir}/../../"
+              
+              echo "🔀 Running integration tests..."
+              exec .venv/bin/python test_integration_compliant.py
             ''}";
           };
           
@@ -93,7 +93,7 @@
               
               # requirements.txt作成
               cat > requirements.txt <<EOF
-kuzu>=0.0.12
+kuzu>=0.10.1
 sentence-transformers>=2.2.0
 pytest>=7.0.0
 EOF

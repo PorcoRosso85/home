@@ -278,7 +278,7 @@ function applyOperationToStore(client: InternalClient, op: CausalOperation) {
         handleDDLOperation(client, op);
       } catch (error) {
         // エラーをログに記録するが、処理は続行
-        console.error(`DDL operation failed for ${op.id}: ${error.message}`);
+        console.error(`DDL operation failed for ${op.id}: ${error instanceof Error ? error.message : String(error)}`);
       }
       break;
       

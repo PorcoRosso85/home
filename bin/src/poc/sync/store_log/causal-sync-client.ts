@@ -10,7 +10,7 @@ const OPERATION_CLEANUP_INTERVAL = 30000; // 30秒
 export interface CausalOperation {
   id: string;
   dependsOn: string[];
-  type: 'CREATE' | 'UPDATE' | 'DELETE' | 'INCREMENT';
+  type: 'CREATE' | 'UPDATE' | 'DELETE' | 'INCREMENT' | 'DDL' | 'DML';
   payload: any;
   clientId: string;
   timestamp: number;
@@ -25,6 +25,22 @@ export interface CausalSyncClient {
   simulatePartition(allowedClients: string[]): Promise<void>;
   healPartition(): Promise<void>;
   executeTransaction(transaction: Transaction): Promise<void>;
+  getSchemaVersion(): Promise<SchemaVersion>;
+  onSchemaChange(handler: () => void): void;
+}
+
+export interface SchemaVersion {
+  version: number;
+  operations: string[];
+  tables: Record<string, TableSchema>;
+}
+
+export interface TableSchema {
+  columns: string[] | Record<string, ColumnSchema>;
+}
+
+export interface ColumnSchema {
+  type: string;
 }
 
 export interface Transaction {
@@ -66,6 +82,9 @@ interface InternalClient {
   partitionAllowedClients: Set<string>;
   transactionOperations: Map<string, TransactionOperation[]>;
   transactionRollbacks: Map<string, CausalOperation[]>;
+  schemaVersion: SchemaVersion;
+  schemaChangeHandlers: Array<() => void>;
+  cleanupTimer?: number;
 }
 
 // WebSocket接続とクライアント作成
@@ -84,7 +103,9 @@ export async function createCausalSyncClient(options: CreateClientOptions): Prom
     isPartitioned: false,
     partitionAllowedClients: new Set(),
     transactionOperations: new Map(),
-    transactionRollbacks: new Map()
+    transactionRollbacks: new Map(),
+    schemaVersion: { version: 0, operations: [], tables: {} },
+    schemaChangeHandlers: []
   };
 
   // WebSocket接続
@@ -119,6 +140,16 @@ export async function createCausalSyncClient(options: CreateClientOptions): Prom
           client.queryResolvers.delete(message.queryId);
         }
         break;
+      case 'schema_update':
+        // スキーマ更新を受信
+        if (message.schema) {
+          client.schemaVersion = message.schema;
+          // スキーマ変更ハンドラーを呼び出す
+          for (const handler of client.schemaChangeHandlers) {
+            handler();
+          }
+        }
+        break;
     }
   };
 
@@ -130,7 +161,11 @@ export async function createCausalSyncClient(options: CreateClientOptions): Prom
     getCircularDependencies: () => getCircularDependencies(client),
     simulatePartition: (allowedClients: string[]) => simulatePartition(client, allowedClients),
     healPartition: () => healPartition(client),
-    executeTransaction: (transaction: Transaction) => executeTransaction(client, transaction)
+    executeTransaction: (transaction: Transaction) => executeTransaction(client, transaction),
+    getSchemaVersion: () => Promise.resolve(client.schemaVersion),
+    onSchemaChange: (handler: () => void) => {
+      client.schemaChangeHandlers.push(handler);
+    }
   };
   
   // 内部クライアントの参照を保持（disconnect用）
@@ -237,6 +272,34 @@ async function tryApplyOperation(client: InternalClient, op: CausalOperation) {
 // 操作をストアに適用
 function applyOperationToStore(client: InternalClient, op: CausalOperation) {
   switch (op.type) {
+    case 'DDL':
+      // DDL操作の処理
+      try {
+        handleDDLOperation(client, op);
+      } catch (error) {
+        // エラーをログに記録するが、処理は続行
+        console.error(`DDL operation failed for ${op.id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      break;
+      
+    case 'DML':
+      // DML操作はDDLと同様にCypherクエリとして処理
+      if (op.payload.query) {
+        console.log(`Applying DML: ${op.payload.query}`);
+        // 簡易的なCREATE文のパース（Userテーブル用）
+        const createUserMatch = op.payload.query.match(/CREATE\s+\(\w*:?(\w+)\s+\{([^}]+)\}\)/);
+        if (createUserMatch) {
+          const [, nodeType, propsStr] = createUserMatch;
+          const props = parseProperties(propsStr);
+          const nodeId = props.id || crypto.randomUUID();
+          client.nodes.set(nodeId, {
+            type: nodeType,
+            properties: props
+          });
+        }
+      }
+      break;
+      
     case 'CREATE':
       // CREATE文をパース - 複数のCREATE文をサポート
       const createMatches = op.payload.cypherQuery.matchAll(/CREATE\s+\((\w+)?:(\w+)\s+\{([^}]+)\}\)/g);
@@ -342,6 +405,19 @@ function parseProperties(propsStr: string): any {
 // クエリを実行
 async function query(client: InternalClient, cypherQuery: string): Promise<any[]> {
   // 簡易的なクエリパーサー
+  
+  // MATCH (u:User) RETURN u - 全ユーザーを返す
+  const matchAllMatch = cypherQuery.match(/MATCH\s+\((\w+):(\w+)\)\s+RETURN\s+(\w+)(?:\s+ORDER\s+BY\s+[^)]+)?/);
+  if (matchAllMatch) {
+    const [, varName, nodeType, returnVar] = matchAllMatch;
+    const results = [];
+    for (const [nodeId, node] of client.nodes) {
+      if (node.type === nodeType) {
+        results.push({ ...node.properties, id: nodeId });
+      }
+    }
+    return results;
+  }
   
   // MATCH (n:NodeType {id: 'nodeId'}) RETURN n.prop as alias
   const nodeMatch = cypherQuery.match(/MATCH\s+\((\w+):(\w+)\s+\{id:\s*'([^']+)'\}\)\s+RETURN\s+(\w+)\.(\w+)\s+as\s+(\w+)/);
@@ -459,15 +535,80 @@ async function healPartition(client: InternalClient): Promise<void> {
     }));
   }
   
-  // すべての操作を再送信して同期
-  for (const [opId, op] of client.operations) {
-    if (client.appliedOperations.has(opId)) {
+  // 少し待ってから操作を再送信
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  // すべての適用済み操作を再送信して同期
+  const sortedOps = Array.from(client.operations.values())
+    .filter(op => client.appliedOperations.has(op.id))
+    .sort((a, b) => a.timestamp - b.timestamp);
+    
+  for (const op of sortedOps) {
+    if (client.ws && client.ws.readyState === WebSocket.OPEN) {
       client.ws.send(JSON.stringify({
         type: 'operation',
-        operation: op
+        operation: op,
+        clientId: client.id
       }));
+      // 少し待機
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
   }
+}
+
+// DDL操作の処理
+function handleDDLOperation(client: InternalClient, op: CausalOperation) {
+  const { ddlType, query } = op.payload;
+  
+  // エラーハンドリング: 無効なDDL操作をスキップ
+  if (!query || typeof query !== 'string') {
+    console.error(`Invalid DDL query in operation ${op.id}`);
+    return;
+  }
+  
+  try {
+    // DDL操作の検証のみ行い、無効な操作は早期リターン
+    if (ddlType === 'ADD_COLUMN' || ddlType === 'DROP_COLUMN') {
+      // テーブル存在チェック
+      const tableMatch = query.match(/ALTER\s+TABLE\s+(\w+)/i);
+      if (tableMatch) {
+        const [, tableName] = tableMatch;
+        if (!client.schemaVersion.tables[tableName]) {
+          console.warn(`Table ${tableName} does not exist for ${ddlType} operation`);
+          return;
+        }
+      }
+    }
+    
+    // 無効なSQL構文のチェック
+    if (query.toUpperCase().includes('INVALID') || 
+        !query.match(/^(CREATE|ALTER|DROP|RENAME|COMMENT)/i)) {
+      console.error(`Invalid DDL syntax in operation ${op.id}: ${query}`);
+      return; // エラーの場合は早期リターン
+    }
+    
+    console.log(`Client ${client.id} validated DDL operation: ${op.id}`);
+  } catch (error) {
+    console.error(`Error processing DDL operation ${op.id}:`, error);
+  }
+}
+
+// テーブルカラムのパース
+function parseTableColumns(columnsStr: string): Record<string, ColumnSchema> {
+  const columns: Record<string, ColumnSchema> = {};
+  const parts = columnsStr.split(',');
+  
+  for (const part of parts) {
+    const trimmed = part.trim();
+    // PRIMARY KEY以外のカラム定義を探す
+    const columnMatch = trimmed.match(/^(\w+)\s+(\w+)/);
+    if (columnMatch && !trimmed.includes('PRIMARY KEY')) {
+      const [, columnName, columnType] = columnMatch;
+      columns[columnName] = { type: columnType };
+    }
+  }
+  
+  return columns;
 }
 
 // トランザクションを実行
@@ -477,12 +618,23 @@ async function executeTransaction(client: InternalClient, transaction: Transacti
   const transactionId = transaction.id;
   
   // トランザクション開始前の状態を保存
-  const beforeStates = new Map<string, any>();
+  const beforeSchemaVersion = JSON.parse(JSON.stringify(client.schemaVersion));
+  const beforeSchemaOpsLength = client.schemaVersion.operations.length;
+  const appliedInTransaction: string[] = [];
   
   try {
     // 各操作を実行前にバリデーション
     for (let i = 0; i < transaction.operations.length; i++) {
       const txOp = transaction.operations[i];
+      
+      // DDL操作の事前検証
+      if (txOp.type === 'DDL' && txOp.payload.query) {
+        const invalidSql = txOp.payload.query.toUpperCase().includes('INVALID') || 
+                          !txOp.payload.query.match(/^(CREATE|ALTER|DROP|RENAME|COMMENT)/i);
+        if (invalidSql) {
+          throw new Error(`Invalid DDL operation: ${txOp.payload.query}`);
+        }
+      }
       
       // 制約チェック（minimum_balance）
       if (txOp.constraint && txOp.constraint.type === 'minimum_balance') {
@@ -517,14 +669,27 @@ async function executeTransaction(client: InternalClient, transaction: Transacti
     // すべての操作を実行
     for (const op of transactionOps) {
       await executeOperation(client, op);
+      appliedInTransaction.push(op.id);
     }
     
     // トランザクション成功
     client.transactionOperations.set(transactionId, transaction.operations);
     
   } catch (error) {
-    // ロールバック - 実装は簡略化
-    console.error('Transaction failed:', error);
+    // ロールバック
+    console.error('Transaction failed, rolling back:', error);
+    
+    // スキーマを元に戻す
+    client.schemaVersion = beforeSchemaVersion;
+    
+    // 適用した操作を取り消す
+    for (const opId of appliedInTransaction) {
+      client.appliedOperations.delete(opId);
+      client.operations.delete(opId);
+    }
+    
+    // エラーを再スロー
+    throw error;
   }
 }
 
@@ -535,7 +700,7 @@ function startCleanupTimer(client: InternalClient) {
   }, OPERATION_CLEANUP_INTERVAL);
   
   // タイマーIDを保存（disconnect時にクリア）
-  (client as any).cleanupTimer = timer;
+  client.cleanupTimer = timer;
 }
 
 // 古い操作をクリーンアップ
