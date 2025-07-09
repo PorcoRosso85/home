@@ -32,9 +32,11 @@
         apps = {
           test = {
             type = "app";
-            program = "${mkRunner "test" ''
+            program = "${pkgs.writeShellScript "test" ''
+              cd ${projectDir}
               export PYTHONPATH="${projectDir}/../../"
-              exec ${pkgs.uv}/bin/uv run pytest -v
+              # Use requirement/graph's venv which has kuzu
+              exec /home/nixos/bin/src/requirement/graph/.venv/bin/python -m pytest -v
             ''}";
           };
           

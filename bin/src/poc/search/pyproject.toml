@@ -5,7 +5,7 @@ dependencies = ["pytest>=7.0.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]
-python_files = ["test_hybrid_search.py"]
+python_files = ["test_hybrid_search.py", "test_collaborative_requirements.py"]
 python_classes = []
 python_functions = ["test_*"]
 addopts = "-v"

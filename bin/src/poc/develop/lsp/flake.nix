@@ -21,6 +21,8 @@
           pydocstyle
           autopep8
           yapf
+          jedi
+          rope
         ]);
 
         # 改良版Python診断ツール
@@ -278,11 +280,185 @@
           fi
         '';
 
+        # Python参照検索ツール
+        pythonReferences = pkgs.writeShellScriptBin "python-references" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+          
+          if [[ $# -lt 2 ]]; then
+            echo "Usage: python-references <file.py> <symbol> [line] [column]"
+            echo "Examples:"
+            echo "  python-references main.py Calculator"
+            echo "  python-references main.py add 15 10"
+            exit 1
+          fi
+          
+          FILE="$1"
+          SYMBOL="$2"
+          LINE="''${3:-}"
+          COLUMN="''${4:-}"
+          
+          if [[ ! -f "$FILE" ]]; then
+            echo "Error: File not found: $FILE"
+            exit 1
+          fi
+          
+          echo "Finding references for '$SYMBOL' in $FILE..."
+          echo ""
+          
+          # Jediを使った参照検索
+          ${pythonEnv}/bin/python3 << EOF
+import sys
+import jedi
+from pathlib import Path
+
+file_path = "$FILE"
+symbol = "$SYMBOL"
+line = "$LINE"
+column = "$COLUMN"
+
+try:
+    # ファイル内容を読み込む
+    with open(file_path, 'r') as f:
+        source = f.read()
+    
+    # プロジェクトを作成
+    project = jedi.Project(Path(file_path).parent)
+    
+    if line and column:
+        # 特定の位置から検索
+        script = jedi.Script(source, path=file_path, project=project)
+        refs = script.get_references(int(line), int(column), include_builtins=False)
+    else:
+        # シンボル名で検索
+        script = jedi.Script(source, path=file_path, project=project)
+        # まず定義を探す
+        names = script.get_names(all_scopes=True, definitions=True, references=True)
+        refs = []
+        for name in names:
+            if name.name == symbol:
+                # その位置から参照を検索
+                refs.extend(script.get_references(name.line, name.column, include_builtins=False))
+    
+    if refs:
+        print(f"Found {len(refs)} reference(s):")
+        for ref in refs:
+            module_path = ref.module_path or file_path
+            print(f"  {module_path}:{ref.line}:{ref.column} - {ref.description}")
+    else:
+        print("No references found.")
+        
+except Exception as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)
+EOF
+        '';
+
+        # Pythonリネームツール
+        pythonRename = pkgs.writeShellScriptBin "python-rename" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+          
+          if [[ $# -lt 3 ]]; then
+            echo "Usage: python-rename <file.py> <old_name> <new_name>"
+            echo "Example: python-rename main.py Calculator ComputeEngine"
+            exit 1
+          fi
+          
+          FILE="$1"
+          OLD_NAME="$2"
+          NEW_NAME="$3"
+          
+          if [[ ! -f "$FILE" ]]; then
+            echo "Error: File not found: $FILE"
+            exit 1
+          fi
+          
+          echo "Renaming '$OLD_NAME' to '$NEW_NAME' in $FILE..."
+          echo ""
+          
+          # Ropeを使ったリファクタリング
+          ${pythonEnv}/bin/python3 << EOF
+import sys
+from rope.base.project import Project
+from rope.refactor.rename import Rename
+from pathlib import Path
+import tempfile
+import shutil
+
+file_path = "$FILE"
+old_name = "$OLD_NAME"
+new_name = "$NEW_NAME"
+
+try:
+    # 一時的なプロジェクトディレクトリを作成
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # ファイルを一時ディレクトリにコピー
+        temp_file = Path(temp_dir) / Path(file_path).name
+        shutil.copy2(file_path, temp_file)
+        
+        # Ropeプロジェクトを作成
+        project = Project(temp_dir)
+        resource = project.get_file(temp_file.name)
+        
+        # ファイル内容を読み込んでシンボルを探す
+        source = resource.read()
+        
+        # 簡易的な検索（より高度な実装が必要）
+        import re
+        pattern = r'\b' + re.escape(old_name) + r'\b'
+        matches = list(re.finditer(pattern, source))
+        
+        if not matches:
+            print(f"Symbol '{old_name}' not found in file.")
+            sys.exit(1)
+        
+        print(f"Found {len(matches)} occurrence(s) of '{old_name}'")
+        
+        # 最初のマッチ位置でリネームを実行
+        offset = matches[0].start()
+        rename = Rename(project, resource, offset)
+        
+        # 変更をプレビュー
+        changes = rename.get_changes(new_name)
+        print("\nProposed changes:")
+        print(changes.get_description())
+        
+        # 実際に変更を適用するかどうか確認
+        response = input("\nApply changes? [y/N]: ")
+        if response.lower() == 'y':
+            project.do(changes)
+            # 変更をオリジナルファイルに書き戻す
+            shutil.copy2(temp_file, file_path)
+            print("Changes applied successfully!")
+        else:
+            print("Changes cancelled.")
+            
+except Exception as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)
+EOF
+        '';
+
+        # Pyright直接テスト
+        pyrightTest = pkgs.writeShellScriptBin "pyright-test" ''
+          #!${pkgs.bash}/bin/bash
+          echo "Testing pyright from nixpkgs..."
+          echo "Version:"
+          ${pkgs.pyright}/bin/pyright --version
+          echo ""
+          echo "Running on test_good.py:"
+          ${pkgs.pyright}/bin/pyright test_good.py
+        '';
+
       in
       {
         packages = {
           default = lsmcpCli;
           python-diagnostics = pythonDiagnostics;
+          python-references = pythonReferences;
+          python-rename = pythonRename;
+          pyright-test = pyrightTest;
           lsmcp-cli = lsmcpCli;
         };
 
@@ -296,6 +472,8 @@
             python3Packages.black
             python3Packages.isort
             python3Packages.bandit
+            python3Packages.jedi
+            python3Packages.rope
             ruff
             
             # TypeScript/JavaScript
@@ -336,6 +514,18 @@
           
           python-diagnostics = flake-utils.lib.mkApp {
             drv = pythonDiagnostics;
+          };
+          
+          python-references = flake-utils.lib.mkApp {
+            drv = pythonReferences;
+          };
+          
+          python-rename = flake-utils.lib.mkApp {
+            drv = pythonRename;
+          };
+          
+          pyright-test = flake-utils.lib.mkApp {
+            drv = pyrightTest;
           };
         };
       }
