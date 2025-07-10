@@ -43,9 +43,47 @@
         # Direct Python LSP interface
         pythonLsp = pkgs.writeShellScriptBin "python-lsp" ''
           #!${pkgs.bash}/bin/bash
-          SCRIPT_DIR="$( cd "$( dirname "''${BASH_SOURCE[0]}" )" && pwd )"
           cd ${./.}
-          PATH="${pkgs.pyright}/bin:$PATH" ${pkgs.python3}/bin/python direct-lsp.py "$@"
+          PATH="${pkgs.pyright}/bin:$PATH" ${pkgs.python3}/bin/python3 direct_lsp.py "$@"
+        '';
+        
+        # Simple pyright test
+        pyrightTest = pkgs.writeShellScriptBin "pyright-test" ''
+          #!${pkgs.bash}/bin/bash
+          echo "=== Direct pyright test ==="
+          echo ""
+          
+          echo "1. Check pyright version:"
+          ${pkgs.pyright}/bin/pyright --version
+          echo ""
+          
+          echo "2. Run diagnostics on test_example.py:"
+          if [ -f "${./.}/test_example.py" ]; then
+            ${pkgs.pyright}/bin/pyright ${./.}/test_example.py
+          else
+            echo "Creating test file..."
+            cat > /tmp/test_pyright.py << 'EOF'
+class Calculator:
+    def add(self, a: float, b: float) -> float:
+        return a + b
+
+calc = Calculator()
+result = calc.add(10, 20)
+# Error: typo
+calc.addd(1, 2)
+EOF
+            ${pkgs.pyright}/bin/pyright /tmp/test_pyright.py
+          fi
+          echo ""
+          
+          echo "3. pyright-langserver requires --stdio for LSP mode"
+        '';
+        
+        # Direct pyright usage test
+        pyrightDirect = pkgs.writeShellScriptBin "pyright-direct" ''
+          #!${pkgs.bash}/bin/bash
+          cd ${./.}
+          PYRIGHT_PATH="${pkgs.pyright}/bin/pyright-langserver" ${pkgs.nodejs}/bin/node pyright_direct.js
         '';
         
       in
@@ -55,7 +93,9 @@
           pyright-cli = pyrightCliWrapper;
           test-find-refs = testFindRefs;
           test-rename = testRename;
-          python = pythonLsp;
+          python-lsp = pythonLsp;
+          pyright-test = pyrightTest;
+          pyright-direct = pyrightDirect;
         };
 
         devShells.default = pkgs.mkShell {
