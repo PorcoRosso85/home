@@ -1,65 +1,102 @@
 # LSMCP Wrapper - No Clone Required
 
-This implementation demonstrates using LSMCP's approach without cloning the repository locally.
+LSP client wrapper using LSMCP's approach without local cloning. Manages dependencies via Nix flakes.
 
-## Architecture
+## Prerequisites
+- Nix 2.4+ with flakes enabled
+- Language servers auto-provided by Nix
 
-- **External repository**: LSMCP is referenced via Nix flake input
-- **Local wrapper**: `cli.ts` implements the LSP client logic
-- **Nix packaging**: Each language gets its own command
-
-## Key Achievement
-
-**No local clone needed!** LSMCP source is fetched by Nix and stored in `/nix/store/`.
-
-## Usage
+## Quick Start
 
 ```bash
 # Test all features
 nix run .#test-lsp-features
 
-# Use individual language servers
-nix run .#lsp-python -- 'await findReferences("file.py", 10, "variable")'
-nix run .#lsp-typescript -- 'await getDefinition("file.ts", 20, "function")'
+# Find references
+nix run .#lsp-python -- 'console.log(await findReferences("file.py", 10, "symbol"))'
+
+# Get definition  
+nix run .#lsp-typescript -- 'console.log(await getDefinition("file.ts", 20, "function"))'
 ```
 
-## Verified Features
+## Available Functions
 
-All tested with pyright-langserver:
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `findReferences(file, line, symbol?)` | Find all usages | Returns `[{file, line, column}, ...]` |
+| `getDefinition(file, line, symbol?)` | Jump to definition | Returns definition location |
+| `getDocumentSymbols(file)` | List all symbols | Returns symbols with kinds |
+| `hover(file, line, column?)` | Get type info | Returns type/docs string |
 
-| Feature | Status | Example Result |
-|---------|--------|----------------|
-| findReferences | ✅ | Found 2 references |
-| getDefinition | ✅ | Found definition at line 5 |
-| getDocumentSymbols | ✅ | Found 8 symbols |
-| hover | ✅ | Shows type info |
+## Architecture
+
+- **Nix flake**: References LSMCP at specific commit (no clone needed)
+- **cli.ts**: LSP client implementation  
+- **Language runners**: Wrapped commands for each language
 
 ## How It Works
 
-1. **Nix flake input** references LSMCP at specific commit:
-   ```nix
-   lsmcp-src = {
-     url = "github:mizchi/lsmcp/35da2b193b0fc1326ba6bebcff62fcf0cbeac1b5";
-     flake = false;
-   };
-   ```
+1. Nix fetches LSMCP from GitHub to `/nix/store/`
+2. cli.ts spawns language server and handles LSP protocol
+3. Results returned as JSON
 
-2. **cli.ts** implements LSP client (based on LSMCP's approach)
+## Real Example
 
-3. **Nix wraps** everything into executable commands
+```bash
+# Create test file
+cat > example.py << 'EOF'
+def process(data):
+    return data.upper()
+
+result = process("hello")
+print(result)
+EOF
+
+# Find all references to 'process'
+nix run .#lsp-python -- '
+  const refs = await findReferences("example.py", 1, "process");
+  console.log(`Found ${refs.length} references`);
+  refs.forEach(r => console.log(`  Line ${r.line}`));
+'
+```
+
+## Updating LSMCP
+
+```nix
+# In flake.nix, change:
+url = "github:mizchi/lsmcp/<new-commit-hash>";
+
+# Then:
+nix flake update
+```
+
+## Adding Languages
+
+1. Edit `flake.nix`:
+```nix
+lsp-go = mkLspRunner {
+  name = "lsp-go";
+  lspCmd = "${pkgs.gopls}/bin";
+};
+```
+
+2. Edit `cli.ts` to handle `.go` extension
+
+## Troubleshooting
+
+- **Timeout**: Increase timeout in cli.ts
+- **No results**: Check file path and line numbers
+- **Errors**: Enable debug with `DEBUG=1`
 
 ## Benefits
 
-- **Version control**: Specific commit in flake.nix
-- **No manual clone**: Nix handles downloading
-- **Clean project**: No external repos in your tree
-- **Reproducible**: Same version everywhere
+✅ No manual clone  
+✅ Version pinning  
+✅ Reproducible  
+✅ Clean project  
 
-## Updating LSMCP Version
+## Limitations
 
-Edit `flake.nix` and change the commit hash:
-```nix
-url = "github:mizchi/lsmcp/<new-commit-hash>";
-```
-
-Then run `nix flake update`.
+- Read-only operations
+- Single file context
+- Language server dependent features
