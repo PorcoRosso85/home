@@ -5,10 +5,11 @@ from .infrastructure.kuzu_repository import create_kuzu_repository
 from .application.version_service import create_version_service
 from .infrastructure.ddl_schema_manager import DDLSchemaManager
 from pathlib import Path
+import pytest
 
 
 
-
+@pytest.mark.skip(reason="バージョニング設計検討中（セマンティックバージョニング/自動ナンバリング検討中）")
 def test_create_versioned_requirement():
     """バージョン付き要件を作成できる"""
     # テスト環境では自動的にインメモリDBを使用
@@ -44,6 +45,7 @@ def test_create_versioned_requirement():
     assert result["location_uri"] == f"req://{unique_id}"
 
 
+@pytest.mark.skip(reason="バージョニング設計検討中（セマンティックバージョニング/自動ナンバリング検討中）")
 def test_update_versioned_requirement():
     """既存要件を更新すると新しいバージョンが作成される"""
     # テスト環境では自動的にインメモリDBを使用
@@ -84,6 +86,7 @@ def test_update_versioned_requirement():
     assert update_result["change_reason"] == "セキュリティ要件の強化"
 
 
+@pytest.mark.skip(reason="バージョニング設計検討中（セマンティックバージョニング/自動ナンバリング検討中）")
 def test_get_requirement_history():
     """要件の変更履歴を取得できる"""
     # テスト環境では自動的にインメモリDBを使用

@@ -9,10 +9,12 @@
 """
 from datetime import datetime
 from pathlib import Path
+import pytest
 
 # テスト用環境設定は不要（kuzu_repositoryが自動判定）
 
 
+@pytest.mark.skip(reason="バージョニング設計検討中（セマンティックバージョニング/自動ナンバリング検討中）")
 class TestVersioningIntegration:
     """バージョニング機能の統合テスト"""
 

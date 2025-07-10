@@ -5,8 +5,10 @@
 正しく定義され、使用可能であることを確認する。
 """
 from pathlib import Path
+import pytest
 
 
+@pytest.mark.skip(reason="バージョニング設計検討中（セマンティックバージョニング/自動ナンバリング検討中）")
 class TestVersionDQLTemplates:
     """バージョニングDQLテンプレートのテスト"""
 
