@@ -2,7 +2,7 @@
 requirement/graph domain types - 純粋な型定義
 外部依存: なし
 """
-from typing import TypedDict, Literal, Union, List, Any, Dict, Optional
+from typing import TypedDict, Literal, Union, List
 from datetime import datetime
 
 
@@ -45,8 +45,8 @@ class QueryError(TypedDict):
     type: Literal["SyntaxError", "EmptyQueryError", "ConnectionError", "ValidationError"]
     message: str
     query: str
-    
-    
+
+
 class QuerySuccess(TypedDict):
     """Cypherクエリ実行成功結果"""
     columns: List[str]

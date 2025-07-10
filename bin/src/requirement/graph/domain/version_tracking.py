@@ -4,7 +4,6 @@ Version Tracking - 時系列追跡ドメインロジック
 """
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-from .types import Decision, DecisionResult
 
 
 def create_version_id(requirement_id: str, timestamp: Optional[datetime] = None) -> str:
@@ -43,10 +42,10 @@ def parse_location_uri(uri: str) -> Dict[str, str]:
     """
     if not uri.startswith("req://"):
         return {"error": "Invalid URI scheme"}
-    
+
     path = uri[6:]  # "req://"を除去
     parts = path.split("/")
-    
+
     return {
         "scheme": "req",
         "path": "/" + path,
@@ -72,12 +71,12 @@ def calculate_requirement_diff(
         }
     """
     changed_fields = []
-    
+
     # 基本フィールドの比較
     for field in ["title", "description", "priority", "requirement_type", "status"]:
         if old_requirement.get(field) != new_requirement.get(field):
             changed_fields.append((field, old_requirement.get(field), new_requirement.get(field)))
-    
+
     return {
         "changed_fields": changed_fields
     }

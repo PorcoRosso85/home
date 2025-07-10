@@ -105,20 +105,20 @@ def validate_hierarchy_env() -> Dict[str, str]:
         Dict[str, str]: エラーがある場合はエラーメッセージの辞書
     """
     errors = {}
-    
+
     try:
         get_hierarchy_mode()
     except EnvironmentError as e:
         errors['RGL_HIERARCHY_MODE'] = str(e)
-        
+
     try:
         get_max_hierarchy()
     except EnvironmentError as e:
         errors['RGL_MAX_HIERARCHY'] = str(e)
-        
+
     try:
         get_hierarchy_keywords()
     except EnvironmentError as e:
         errors['RGL_HIERARCHY_KEYWORDS'] = str(e)
-    
+
     return errors

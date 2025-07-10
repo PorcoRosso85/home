@@ -3,7 +3,7 @@
 
 技術的なエラーをユーザーフレンドリーなメッセージに変換
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime
 from domain.error_types import UserFriendlyError, ErrorExample, RecoveryGuidance
 
@@ -15,7 +15,7 @@ def create_error_handler() -> Dict[str, Any]:
     Returns:
         エラーハンドリング関数の辞書
     """
-    
+
     def handle_dependency_creation_error(original_error: str, query: str) -> UserFriendlyError:
         """依存関係作成エラーをハンドル"""
         if "Variable node is not in scope" in original_error:
@@ -40,7 +40,7 @@ def create_error_handler() -> Dict[str, Any]:
                 },
                 timestamp=datetime.now().isoformat()
             )
-        
+
         # その他の依存関係エラー
         return UserFriendlyError(
             error_code="DEPENDENCY_ERROR",
@@ -51,11 +51,11 @@ def create_error_handler() -> Dict[str, Any]:
             technical_details={"original_error": original_error},
             timestamp=datetime.now().isoformat()
         )
-    
+
     def handle_schema_error(original_error: str) -> Dict[str, Any]:
         """スキーマエラーをハンドル"""
         recovery = None
-        
+
         if "Failed to apply schema" in original_error:
             recovery = RecoveryGuidance(
                 error_type="SCHEMA_INIT_FAILED",
@@ -68,14 +68,14 @@ def create_error_handler() -> Dict[str, Any]:
             )
         elif "Permission denied" in original_error:
             recovery = RecoveryGuidance(
-                error_type="PERMISSION_DENIED", 
+                error_type="PERMISSION_DENIED",
                 steps=[
                     "1. ディレクトリの権限を確認: ls -la ./rgl_db",
                     "2. 書き込み権限を付与: chmod 755 ./rgl_db",
                     "3. 再実行: nix run .#schema"
                 ]
             )
-        
+
         error_dict = {
             "type": "error",
             "level": "error",
@@ -83,12 +83,12 @@ def create_error_handler() -> Dict[str, Any]:
             "score": -1.0,
             "timestamp": datetime.now().isoformat()
         }
-        
+
         if recovery:
             error_dict.update(recovery.to_dict())
-            
+
         return error_dict
-    
+
     def handle_kuzu_import_error(original_error: str) -> Dict[str, Any]:
         """KuzuDBインポートエラーをハンドル"""
         return {
@@ -111,7 +111,7 @@ def create_error_handler() -> Dict[str, Any]:
             },
             "timestamp": datetime.now().isoformat()
         }
-    
+
     def handle_environment_error(error_type: str, missing_vars: list = None) -> Dict[str, Any]:
         """環境変数エラーをハンドル"""
         if error_type == "RGL_DB_PATH_NOT_SET":
@@ -131,14 +131,14 @@ def create_error_handler() -> Dict[str, Any]:
                 },
                 "timestamp": datetime.now().isoformat()
             }
-        
+
         return {
             "type": "error",
-            "level": "error", 
+            "level": "error",
             "message": f"環境エラー: {error_type}",
             "timestamp": datetime.now().isoformat()
         }
-    
+
     return {
         "handle_dependency_creation_error": handle_dependency_creation_error,
         "handle_schema_error": handle_schema_error,

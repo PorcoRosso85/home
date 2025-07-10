@@ -9,9 +9,7 @@
 - 関数として提供（グローバル状態禁止）
 """
 import os
-import sys
-from typing import Optional, Dict, List
-import json
+from typing import Optional, Dict
 
 # エラー型定義
 class EnvironmentError(Exception):
@@ -48,7 +46,7 @@ def get_db_path() -> str:
     # /orgモードで共有DBが設定されている場合はそちらを優先
     org_mode = _optional_env('RGL_ORG_MODE')
     shared_db = _optional_env('RGL_SHARED_DB_PATH')
-    
+
     if org_mode and org_mode.lower() == 'true' and shared_db:
         return shared_db
     return get_rgl_db_path()
@@ -86,17 +84,17 @@ def get_shared_db_path() -> Optional[str]:
 def validate_environment() -> Dict[str, str]:
     """環境設定を検証し、問題があればエラー詳細を返す"""
     errors = {}
-    
+
     # 必須環境変数チェック（LD_LIBRARY_PATHは削除 - Nixが管理）
     required = ['RGL_DB_PATH']
     for var in required:
         if not os.environ.get(var):
             errors[var] = f"Required environment variable {var} is not set"
-    
+
     # /orgモード設定の整合性チェック
     if is_org_mode() and not get_shared_db_path():
         errors['RGL_SHARED_DB_PATH'] = "RGL_SHARED_DB_PATH must be set when RGL_ORG_MODE=true"
-    
+
     return errors
 
 # テスト用ヘルパー

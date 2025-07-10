@@ -7,8 +7,7 @@ import json
 from .infrastructure.kuzu_repository import create_kuzu_repository
 from .domain.requirement_conflict_rules import (
     detect_all_conflicts,
-    detect_numeric_threshold_conflicts,
-    ConflictDetectionResult
+    detect_numeric_threshold_conflicts
 )
 from .infrastructure.ddl_schema_manager import DDLSchemaManager
 from pathlib import Path
@@ -18,18 +17,18 @@ from pathlib import Path
 def setup_test_environment() -> Dict[str, Any]:
     """テスト環境を準備し、リポジトリを返す"""
     repo = create_kuzu_repository()
-    
+
     # スキーマを適用
     schema_manager = DDLSchemaManager(repo["connection"])
     schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
-    
+
     if not schema_path.exists():
         return {"repo": repo, "error": "Schema file not found"}
-    
+
     success, results = schema_manager.apply_schema(str(schema_path))
     if not success:
         return {"repo": repo, "error": f"Failed to apply schema: {results}"}
-    
+
     return {"repo": repo, "error": None}
 
 
@@ -55,10 +54,10 @@ def fetch_requirements_with_constraints(repo: Dict[str, Any], id_prefix: str) ->
            r.exclusive_constraint, r.quality_attributes
     ORDER BY r.priority DESC
     """
-    
+
     result = repo["execute"](query, {"prefix": id_prefix})
     requirements = []
-    
+
     while result.has_next():
         row = result.get_next()
         req = {
@@ -67,34 +66,34 @@ def fetch_requirements_with_constraints(repo: Dict[str, Any], id_prefix: str) ->
             "priority": row[2],
             "requirement_type": row[3]
         }
-        
+
         # JSON制約をパース
         if row[4]:  # numeric_constraints
             try:
                 req["numeric_constraints"] = json.loads(row[4])
             except json.JSONDecodeError:
                 pass
-        
+
         if row[5]:  # temporal_constraint
             try:
                 req["temporal_constraint"] = json.loads(row[5])
             except json.JSONDecodeError:
                 pass
-                
+
         if row[6]:  # exclusive_constraint
             try:
                 req["exclusive_constraint"] = json.loads(row[6])
             except json.JSONDecodeError:
                 pass
-                
+
         if row[7]:  # quality_attributes
             try:
                 req["quality_attributes"] = json.loads(row[7])
             except json.JSONDecodeError:
                 pass
-        
+
         requirements.append(req)
-    
+
     return requirements
 
 
@@ -104,9 +103,9 @@ def test_fintech_payment_conflicts_detection():
     env = setup_test_environment()
     if env["error"]:
         return f"Setup failed: {env['error']}"
-    
+
     repo = env["repo"]
-    
+
     # 矛盾する要件を作成
     test_data = [
         """CREATE (r1:RequirementEntity {
@@ -138,29 +137,29 @@ def test_fintech_payment_conflicts_detection():
             temporal_constraint: '{"timeline": "months", "duration": 6}'
         })"""
     ]
-    
+
     error = create_test_requirements(repo, test_data)
     if error:
         return error
-    
+
     # 要件を取得
     requirements = fetch_requirements_with_constraints(repo, "FINTECH_FIXED")
-    
+
     # 矛盾を検出
     all_conflicts = detect_all_conflicts(requirements)
-    
+
     # 検証
     numeric_result = all_conflicts.get("numeric_threshold", {})
     temporal_result = all_conflicts.get("temporal_incompatibility", {})
-    
+
     assert numeric_result.get("has_conflict", False) is True, "数値的矛盾が検出されるべき"
     assert temporal_result.get("has_conflict", False) is True, "時間的矛盾が検出されるべき"
-    
+
     # 具体的な矛盾内容を確認
     if numeric_result.get("conflicts"):
         conflict = numeric_result["conflicts"][0]
         assert conflict["ratio"] >= 2.0, "レスポンスタイムの差が2倍以上であるべき"
-    
+
     return "✅ Fintech conflicts detected successfully"
 
 
@@ -170,9 +169,9 @@ def test_conflict_query_patterns():
     env = setup_test_environment()
     if env["error"]:
         return f"Setup failed: {env['error']}"
-    
+
     repo = env["repo"]
-    
+
     # 様々なタイプの矛盾を作成
     test_data = [
         # 排他的選択の矛盾
@@ -198,11 +197,11 @@ def test_conflict_query_patterns():
             quality_attributes: '["security", "encryption"]'
         })"""
     ]
-    
+
     error = create_test_requirements(repo, test_data)
     if error:
         return error
-    
+
     # Cypherで直接矛盾パターンを検出
     conflict_query = """
     MATCH (r1:RequirementEntity), (r2:RequirementEntity)
@@ -219,7 +218,7 @@ def test_conflict_query_patterns():
            r2.id as id2, r2.title as title2,
            'Deployment conflict' as conflict_type
     """
-    
+
     result = repo["execute"](conflict_query, {})
     conflicts = []
     while result.has_next():
@@ -229,7 +228,7 @@ def test_conflict_query_patterns():
             "req2": (row[2], row[3]),
             "type": row[4]
         })
-    
+
     assert len(conflicts) > 0, "デプロイメント矛盾が検出されるべき"
     return "✅ Query pattern conflicts detected successfully"
 
@@ -240,9 +239,9 @@ def test_conflict_resolution_tracking():
     env = setup_test_environment()
     if env["error"]:
         return f"Setup failed: {env['error']}"
-    
+
     repo = env["repo"]
-    
+
     # 初期の矛盾する要件
     test_data = [
         """CREATE (r1:RequirementEntity {
@@ -260,24 +259,24 @@ def test_conflict_resolution_tracking():
             numeric_constraints: '{"metric": "response_time", "operator": "<", "value": 2, "unit": "seconds"}'
         })"""
     ]
-    
+
     error = create_test_requirements(repo, test_data)
     if error:
         return error
-    
+
     # 矛盾を検出
     requirements = fetch_requirements_with_constraints(repo, "RESOLVE")
     conflicts = detect_numeric_threshold_conflicts(requirements)
-    
+
     assert conflicts["has_conflict"] is True, "初期状態で矛盾があるべき"
-    
+
     # 矛盾を解決（要件を更新）
     repo["execute"]("""
     MATCH (r:RequirementEntity {id: 'RESOLVE_001'})
     SET r.status = 'rejected',
         r.rejection_reason = 'Technical infeasibility: 0.1s not achievable'
     """, {})
-    
+
     # 妥協案を追加
     repo["execute"]("""
     CREATE (r:RequirementEntity {
@@ -289,19 +288,19 @@ def test_conflict_resolution_tracking():
         resolution_notes: 'Balanced between business needs and technical constraints'
     })
     """, {})
-    
+
     # 解決後の状態を確認
     approved_query = """
     MATCH (r:RequirementEntity)
     WHERE r.id STARTS WITH 'RESOLVE' AND r.status = 'approved'
     RETURN count(r) as approved_count
     """
-    
+
     result = repo["execute"](approved_query, {})
     if result.has_next():
         row = result.get_next()
         assert row[0] == 1, "承認された妥協案が1つあるべき"
-    
+
     return "✅ Conflict resolution tracked successfully"
 
 
@@ -313,7 +312,7 @@ def run_all_integration_tests():
         ("Query patterns", test_conflict_query_patterns),
         ("Resolution tracking", test_conflict_resolution_tracking)
     ]
-    
+
     results = []
     for test_name, test_func in tests:
         print(f"Running {test_name}...")
@@ -329,11 +328,11 @@ def run_all_integration_tests():
             error_msg = f"❌ {test_name} error: {e}"
             results.append(error_msg)
             print(error_msg)
-    
+
     # 結果サマリー
     success_count = sum(1 for r in results if r.startswith("✅"))
     total_count = len(results)
-    
+
     print(f"\n{'='*50}")
     print(f"Test Summary: {success_count}/{total_count} passed")
     if success_count == total_count:

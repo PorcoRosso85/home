@@ -14,7 +14,7 @@ def test_find_similar_requirements_returns_list():
                 "req_001": {"id": "req_001", "title": "データベース移行", "description": "KuzuDBへの移行", "embedding": self._create_embedding("データベース移行 KuzuDBへの移行")},
                 "req_002": {"id": "req_002", "title": "API設計", "description": "RESTful API実装", "embedding": self._create_embedding("API設計 RESTful API実装")}
             }
-            
+
         def _create_embedding(self, text):
             embedding = [0.1] * 50
             for i, char in enumerate(text[:10]):
@@ -23,7 +23,7 @@ def test_find_similar_requirements_returns_list():
             if norm > 0:
                 embedding = [x / norm for x in embedding]
             return embedding
-            
+
         def execute(self, query, parameters=None):
             if "MATCH (r:RequirementEntity {id: $req_id})" in query:
                 req_id = parameters.get("req_id")
@@ -32,31 +32,31 @@ def test_find_similar_requirements_returns_list():
             elif "MATCH (r:RequirementEntity)" in query:
                 return TestResult([[req] for req in self.requirements.values()])
             return TestResult([])
-    
+
     class TestResult:
         def __init__(self, data):
             self.data = data
             self._index = 0
-        
+
         def has_next(self):
             return self._index < len(self.data)
-        
+
         def get_next(self):
             if self.has_next():
                 result = self.data[self._index]
                 self._index += 1
                 return result
             return None
-    
+
     conn = TestConnection()
     procedures = CustomProcedures(conn)
-    
+
     # Act
     results = procedures.find_similar_requirements(
         "req_001",
         "グラフデータベースの導入"
     )
-    
+
     # Assert
     assert isinstance(results, list), f"Expected list but got {type(results)}"
     if results:
@@ -77,7 +77,7 @@ def test_check_constraint_violations_detects_issues():
                 "req_003": {"id": "req_003", "title": "要件C", "description": "説明C"}
             }
             self.dependencies = [("req_001", "req_002"), ("req_002", "req_003"), ("req_003", "req_001")]
-            
+
         def execute(self, query, parameters=None):
             # 循環依存チェックのクエリ
             if "path = (start:RequirementEntity {id: $req_id})-[:DEPENDS_ON*]->(end:RequirementEntity)" in query:
@@ -89,28 +89,28 @@ def test_check_constraint_violations_detects_issues():
             elif "length(path) as depth" in query:
                 return TestResult([[1]])  # 深度1
             return TestResult([])
-    
+
     class TestResult:
         def __init__(self, data):
             self.data = data
             self._index = 0
-        
+
         def has_next(self):
             return self._index < len(self.data)
-        
+
         def get_next(self):
             if self.has_next():
                 result = self.data[self._index]
                 self._index += 1
                 return result
             return None
-    
+
     conn = TestConnection()
     procedures = CustomProcedures(conn)
-    
+
     # Act
     result = procedures.check_constraint_violations("req_001")
-    
+
     # Assert
     assert isinstance(result, dict), f"Expected dict but got {type(result)}"
     assert "violations" in result, f"Expected 'violations' in {result}"
@@ -128,7 +128,7 @@ def test_calculate_progress_with_children_returns_completion_rate():
                 "req_003": {"id": "req_003", "title": "子要件2", "description": "説明", "status": "proposed"}
             }
             self.parent_child = [("req_001", "req_002"), ("req_001", "req_003")]
-            
+
         def execute(self, query, parameters=None):
             if "MATCH (parent:RequirementEntity {id: $parent_id})-[:PARENT_OF]->(child:RequirementEntity)" in query:
                 parent_id = parameters.get("parent_id")
@@ -143,28 +143,28 @@ def test_calculate_progress_with_children_returns_completion_rate():
                 if req_id in self.requirements:
                     return TestResult([[self.requirements[req_id]["status"]]])
             return TestResult([])
-    
+
     class TestResult:
         def __init__(self, data):
             self.data = data
             self._index = 0
-        
+
         def has_next(self):
             return self._index < len(self.data)
-        
+
         def get_next(self):
             if self.has_next():
                 result = self.data[self._index]
                 self._index += 1
                 return result
             return None
-    
+
     conn = TestConnection()
     procedures = CustomProcedures(conn)
-    
+
     # Act
     results = procedures.calculate_progress("req_001", include_children=True)
-    
+
     # Assert
     progress, details = results[0]
     assert 0.0 <= progress <= 1.0
@@ -183,7 +183,7 @@ def test_validate_constraints_add_dependency_detects_circular():
                 "req_002": {"id": "req_002", "title": "要件B", "description": "説明B"}
             }
             self.dependencies = [("req_002", "req_001")]  # req_002 -> req_001
-            
+
         def execute(self, query, parameters=None):
             # 循環依存チェックのクエリ
             if "path = (start:RequirementEntity {id: $target_id})-[:DEPENDS_ON*]->(end:RequirementEntity {id: $req_id})" in query:
@@ -193,32 +193,32 @@ def test_validate_constraints_add_dependency_detects_circular():
                 if target_id == "req_002" and req_id == "req_001":
                     return TestResult([[True]])  # 経路あり = 循環になる
             return TestResult([])
-    
+
     class TestResult:
         def __init__(self, data):
             self.data = data
             self._index = 0
-        
+
         def has_next(self):
             return self._index < len(self.data)
-        
+
         def get_next(self):
             if self.has_next():
                 result = self.data[self._index]
                 self._index += 1
                 return result
             return None
-    
+
     conn = TestConnection()
     procedures = CustomProcedures(conn)
-    
+
     # Act - req_001 -> req_002を追加しようとする（循環になる）
     results = procedures.validate_constraints(
         "req_001",
         "add_dependency",
         "req_002"
     )
-    
+
     # Assert
     is_valid, violations = results[0]
     assert is_valid is False
@@ -236,7 +236,7 @@ def test_analyze_impact_modify_returns_affected_requirements():
                 "req_003": {"id": "req_003", "title": "依存要件2", "description": "説明"}
             }
             self.dependencies = [("req_002", "req_001"), ("req_003", "req_001")]
-            
+
         def execute(self, query, parameters=None):
             # 依存している要件を取得するクエリ
             if "MATCH (r:RequirementEntity)-[:DEPENDS_ON]->(target:RequirementEntity {id: $req_id})" in query:
@@ -245,28 +245,28 @@ def test_analyze_impact_modify_returns_affected_requirements():
                     # req_001に依存している要件を返す
                     return TestResult([[self.requirements["req_002"]], [self.requirements["req_003"]]])
             return TestResult([])
-    
+
     class TestResult:
         def __init__(self, data):
             self.data = data
             self._index = 0
-        
+
         def has_next(self):
             return self._index < len(self.data)
-        
+
         def get_next(self):
             if self.has_next():
                 result = self.data[self._index]
                 self._index += 1
                 return result
             return None
-    
+
     conn = TestConnection()
     procedures = CustomProcedures(conn)
-    
+
     # Act
     result = procedures.analyze_impact("req_001", "modify")
-    
+
     # Assert
     assert isinstance(result, dict), f"Expected dict but got {type(result)}"
     assert "affected_requirements" in result

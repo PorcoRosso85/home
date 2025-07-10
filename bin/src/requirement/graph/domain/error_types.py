@@ -33,7 +33,7 @@ class UserFriendlyError:
     examples: List[ErrorExample]
     technical_details: Dict[str, Any]
     timestamp: str
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """辞書形式に変換"""
         return {
@@ -59,7 +59,7 @@ class RecoveryGuidance:
     """エラー回復ガイダンス"""
     error_type: str
     steps: List[str]
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """辞書形式に変換"""
         return {

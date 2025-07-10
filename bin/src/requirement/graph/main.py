@@ -124,7 +124,7 @@ def safe_main():
                       issue_count=len(all_issues))
             
             # 結果を出力
-            print(json.dumps(query_result, ensure_ascii=False))
+            result(query_result)
 
 
         elif input_type == "semantic_search":
@@ -153,11 +153,11 @@ def safe_main():
                 
                 if search_result["status"] == "success":
                     # 結果を出力
-                    print(json.dumps({
+                    result({
                         "status": "success",
                         "data": search_result["data"],
                         "count": len(search_result["data"])
-                    }, ensure_ascii=False))
+                    })
                 else:
                     error("Semantic search failed", details=search_result)
 
@@ -218,7 +218,7 @@ def safe_main():
             
             # 結果を出力
             if "result" in locals():
-                print(json.dumps(result, ensure_ascii=False))
+                result(result)
 
         else:
             error("Unknown input type", details={"type": input_type})

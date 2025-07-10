@@ -1,9 +1,8 @@
 """Infrastructure Variablesのテスト"""
 
 import os
-import pytest
 from .variables import (
-    get_db_path, get_log_level, EMBEDDING_DIM, MAX_GRAPH_DEPTH, EnvironmentError,
+    get_db_path, get_log_level, EnvironmentError,
     with_test_env, restore_env
 )
 # 内部関数のテストなので、直接インポート
@@ -12,15 +11,15 @@ from .variables.env import _require_env as _check_env
 
 class TestVariables:
     """環境変数と設定のテスト"""
-    
+
     def test__check_env_未設定時_明確なエラーメッセージ(self):
         """_check_env_環境変数未設定_具体的な設定方法を含むエラー"""
         # 存在しない環境変数名でテスト
         test_env_name = 'TEST_NONEXISTENT_ENV_VAR'
-        
+
         # 念のため削除
         os.environ.pop(test_env_name, None)
-        
+
         try:
             _check_env(test_env_name)
             assert False, "EnvironmentError should be raised"
@@ -34,7 +33,7 @@ class TestVariables:
         """必須環境変数_設定されている場合_値を正しく取得"""
         # テスト環境で必須環境変数を設定
         test_db_path = "/test/db/path"
-        
+
         original = with_test_env(RGL_DB_PATH=test_db_path)
         try:
             # 環境変数が設定されていれば正常に取得できる
@@ -48,12 +47,12 @@ class TestVariables:
         original = with_test_env()
         if 'RGL_LOG_LEVEL' in os.environ:
             del os.environ['RGL_LOG_LEVEL']
-        
+
         try:
             # 環境変数が設定されていない場合はNoneを返す
             log_level = get_log_level()
             assert log_level is None
-            
+
         finally:
             # 環境変数を復元
             restore_env(original)

@@ -8,6 +8,7 @@ from typing import TypedDict, List, Optional
 
 class RequirementSearchResult(TypedDict):
     """要件検索結果"""
+
     id: str
     title: str
     description: str
@@ -18,6 +19,7 @@ class RequirementSearchResult(TypedDict):
 
 class VectorIndexResult(TypedDict):
     """ベクトルインデックス作成結果"""
+
     success: bool
     index_name: str
     error: Optional[str]
@@ -25,6 +27,7 @@ class VectorIndexResult(TypedDict):
 
 class FTSIndexResult(TypedDict):
     """FTSインデックス作成結果"""
+
     success: bool
     index_name: str
     error: Optional[str]

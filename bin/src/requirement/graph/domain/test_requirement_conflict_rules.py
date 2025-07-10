@@ -22,8 +22,7 @@ except ImportError:
         detect_exclusive_conflicts,
         detect_quality_conflicts,
         detect_all_conflicts,
-        suggest_conflict_resolution,
-        ConflictDetectionResult
+        suggest_conflict_resolution
     )
 
 
@@ -54,7 +53,7 @@ def test_numeric_threshold_conflicts_with_various_ratios():
         (
             # デフォルト閾値（2.0）でのテスト
             [
-                create_requirement("REQ1", priority=250, 
+                create_requirement("REQ1", priority=250,
                     numeric_constraints={"metric": "latency", "operator": "<", "value": 100, "unit": "ms"}),
                 create_requirement("REQ2", priority=200,
                     numeric_constraints={"metric": "latency", "operator": "<", "value": 500, "unit": "ms"})
@@ -81,7 +80,7 @@ def test_numeric_threshold_conflicts_with_various_ratios():
             False
         )
     ]
-    
+
     for requirements, threshold, expected in test_cases:
         result = detect_numeric_threshold_conflicts(requirements, threshold)
         assert result["has_conflict"] == expected, f"Failed for threshold {threshold}"
@@ -94,16 +93,16 @@ def test_numeric_threshold_conflicts_with_various_ratios():
 def test_temporal_conflicts_immediate_vs_longterm():
     """即時実装と長期計画の矛盾"""
     requirements = [
-        create_requirement("TEMP1", 
+        create_requirement("TEMP1",
             temporal_constraint={"timeline": "immediate", "duration": 0}),
         create_requirement("TEMP2",
             temporal_constraint={"timeline": "months", "duration": 6}),
         create_requirement("TEMP3",
             temporal_constraint={"timeline": "days", "duration": 7})
     ]
-    
+
     result = detect_temporal_conflicts(requirements)
-    
+
     assert result["has_conflict"] is True
     assert len(result["conflicts"]) == 1  # immediate vs months
     assert "immediate vs 6 months" in result["rule_violations"][0]
@@ -120,9 +119,9 @@ def test_exclusive_conflicts_deployment_choices():
         create_requirement("EXC3",
             exclusive_constraint={"category": "architecture", "value": "microservices"})
     ]
-    
+
     result = detect_exclusive_conflicts(requirements)
-    
+
     assert result["has_conflict"] is True
     conflicts = result["conflicts"]
     assert len(conflicts) == 1
@@ -141,9 +140,9 @@ def test_quality_conflicts_performance_vs_security():
         create_requirement("QUAL3",
             quality_attributes=["usability"])
     ]
-    
+
     result = detect_quality_conflicts(requirements)
-    
+
     assert result["has_conflict"] is True
     assert any("performance vs security" in v for v in result["rule_violations"])
 
@@ -168,17 +167,17 @@ def test_detect_all_conflicts_integration():
         create_requirement("INT6",
             exclusive_constraint={"category": "payment", "value": "subscription"})
     ]
-    
+
     # カスタム設定でテスト
     config = {"numeric_threshold_ratio": 3.0}
     results = detect_all_conflicts(requirements, config=config)
-    
+
     assert "numeric_threshold" in results
     assert results["numeric_threshold"]["has_conflict"] is True  # 5倍 > 3倍
-    
+
     assert "temporal_incompatibility" in results
     assert results["temporal_incompatibility"]["has_conflict"] is True
-    
+
     assert "exclusive_choice" in results
     assert results["exclusive_choice"]["has_conflict"] is True
 
@@ -192,7 +191,7 @@ def test_conflict_resolution_suggestions():
         ("exclusive", {}, ["ハイブリッド", "コンテキスト別", "移行パス"]),
         ("quality", {}, ["優先順位付け", "アーキテクチャ", "品質シナリオ"])
     ]
-    
+
     for conflict_type, details, expected_keywords in test_cases:
         suggestions = suggest_conflict_resolution(conflict_type, details)
         assert len(suggestions) > 0
@@ -205,13 +204,13 @@ def test_conflict_detection_properties():
     # 性質1: 空の要件リストは矛盾なし
     empty_result = detect_numeric_threshold_conflicts([])
     assert empty_result["has_conflict"] is False
-    
+
     # 性質2: 1つの要件は矛盾なし
-    single_req = [create_requirement("SINGLE", 
+    single_req = [create_requirement("SINGLE",
         numeric_constraints={"metric": "test", "operator": "=", "value": 100, "unit": "ms"})]
     single_result = detect_numeric_threshold_conflicts(single_req)
     assert single_result["has_conflict"] is False
-    
+
     # 性質3: 矛盾検出は決定的（同じ入力で同じ出力）
     requirements = [
         create_requirement("PROP1", numeric_constraints={"metric": "test", "operator": "<", "value": 10, "unit": "s"}),
@@ -230,7 +229,7 @@ def test_edge_cases_null_and_missing_constraints():
         create_requirement("EDGE2", numeric_constraints=None),  # 明示的にNone
         create_requirement("EDGE3", numeric_constraints={"metric": "test", "operator": "=", "value": 100, "unit": "ms"})
     ]
-    
+
     # エラーではなく、制約なしの要件を無視して処理
     result = detect_numeric_threshold_conflicts(requirements)
     assert result["has_conflict"] is False  # 1つしか制約がないので矛盾なし
@@ -241,33 +240,33 @@ if __name__ == "__main__":
     print("Running numeric threshold tests...")
     test_numeric_threshold_conflicts_with_various_ratios()
     print("✅ Numeric threshold tests passed")
-    
+
     print("Running temporal conflict tests...")
     test_temporal_conflicts_immediate_vs_longterm()
     print("✅ Temporal conflict tests passed")
-    
+
     print("Running exclusive conflict tests...")
     test_exclusive_conflicts_deployment_choices()
     print("✅ Exclusive conflict tests passed")
-    
+
     print("Running quality conflict tests...")
     test_quality_conflicts_performance_vs_security()
     print("✅ Quality conflict tests passed")
-    
+
     print("Running integration tests...")
     test_detect_all_conflicts_integration()
     print("✅ Integration tests passed")
-    
+
     print("Running resolution suggestion tests...")
     test_conflict_resolution_suggestions()
     print("✅ Resolution suggestion tests passed")
-    
+
     print("Running property tests...")
     test_conflict_detection_properties()
     print("✅ Property tests passed")
-    
+
     print("Running edge case tests...")
     test_edge_cases_null_and_missing_constraints()
     print("✅ Edge case tests passed")
-    
+
     print("\n🎉 All tests passed!")

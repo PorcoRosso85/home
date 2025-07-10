@@ -13,12 +13,11 @@
 テスト手法:
 - テーブル駆動テスト（TDT）: 様々なユーザーシナリオを網羅的に検証
 """
-from typing import Dict, List, Any
 
 
 class TestEnvironmentSetupHelper:
     """環境設定ヘルパーのテスト - テーブル駆動テスト"""
-    
+
     def test_環境変数未設定時に必要な設定を案内する(self):
         """環境変数が未設定の場合、設定方法を含む明確なメッセージを返す"""
         # テーブル駆動テスト: 環境変数の状態と期待されるガイダンス
@@ -72,7 +71,7 @@ class TestEnvironmentSetupHelper:
                 }
             }
         ]
-        
+
         # 仕様: 各エラーケースで適切なガイダンスが提供される
         for case in test_cases:
             # ここでは仕様のみを定義（実装は後で行う）
@@ -81,7 +80,7 @@ class TestEnvironmentSetupHelper:
 
 class TestErrorMessageImprovement:
     """エラーメッセージ改善のテスト - テーブル駆動テスト"""
-    
+
     def test_エラー時に次のアクションを明示する(self):
         """エラーメッセージは問題の説明と解決策を含む"""
         test_cases = [
@@ -124,14 +123,14 @@ class TestErrorMessageImprovement:
                 }
             }
         ]
-        
+
         # 仕様: エラーメッセージは構造化され、次のアクションが明確
         pass
 
 
 class TestStateQueryAPI:
     """状態確認APIのテスト - テーブル駆動テスト"""
-    
+
     def test_現在の要件グラフ状態を確認できる(self):
         """様々なクエリタイプで現在の状態を取得"""
         test_cases = [
@@ -210,14 +209,14 @@ class TestStateQueryAPI:
                 }
             }
         ]
-        
+
         # 仕様: 各クエリタイプで適切な状態情報が返される
         pass
 
 
 class TestHelpSystem:
     """ヘルプシステムのテスト - テーブル駆動テスト"""
-    
+
     def test_コンテキストに応じたヘルプを提供する(self):
         """ユーザーの状況に応じた適切なヘルプとサンプル"""
         test_cases = [
@@ -300,6 +299,6 @@ class TestHelpSystem:
                 }
             }
         ]
-        
+
         # 仕様: コンテキストに応じた実用的なヘルプが提供される
         pass

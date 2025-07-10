@@ -2,7 +2,6 @@
 要件間の矛盾を検出するドメイン層テスト
 TDD Red Phase: これらのテストは最初に失敗する
 """
-import pytest
 from typing import List, Tuple, Optional, TypedDict
 # Property-based testing would use hypothesis
 # from hypothesis import given, strategies as st
@@ -27,13 +26,13 @@ class ConflictResult(TypedDict):
 
 class RequirementConflictDetector:
     """要件間の矛盾を検出するドメインサービス"""
-    
+
     @staticmethod
     def detect_numeric_conflicts(requirements: List[Requirement]) -> ConflictResult:
         """同じメトリクスに対する数値的矛盾を検出"""
         conflicts = []
         descriptions = []
-        
+
         # メトリクスごとに要件をグループ化
         metrics_map = {}
         for req in requirements:
@@ -42,7 +41,7 @@ class RequirementConflictDetector:
                 if metric not in metrics_map:
                     metrics_map[metric] = []
                 metrics_map[metric].append(req)
-        
+
         # 同じメトリクスで矛盾する値を検出
         for metric, reqs in metrics_map.items():
             if len(reqs) > 1:
@@ -50,7 +49,7 @@ class RequirementConflictDetector:
                 # 値の範囲が大きすぎる場合は矛盾とみなす
                 min_val = min(v[1] for v in values)
                 max_val = max(v[1] for v in values)
-                
+
                 if max_val > min_val * 2:  # 2倍以上の差は矛盾
                     for i in range(len(values)):
                         for j in range(i + 1, len(values)):
@@ -58,39 +57,39 @@ class RequirementConflictDetector:
                             descriptions.append(
                                 f"{metric}: {values[i][1]} vs {values[j][1]}"
                             )
-        
+
         return ConflictResult(
             has_conflict=len(conflicts) > 0,
             conflicting_requirements=conflicts,
             conflict_descriptions=descriptions
         )
-    
+
     @staticmethod
     def detect_business_technical_conflicts(requirements: List[Requirement]) -> ConflictResult:
         """ビジネス要件と技術要件の矛盾を検出"""
         conflicts = []
         descriptions = []
-        
+
         business_reqs = [r for r in requirements if r["requirement_type"] == "business"]
         technical_reqs = [r for r in requirements if r["requirement_type"] == "technical"]
-        
+
         for biz in business_reqs:
             for tech in technical_reqs:
                 # 同じメトリクスで異なる制約がある場合
-                if (biz.get("numeric_constraints") and 
+                if (biz.get("numeric_constraints") and
                     tech.get("numeric_constraints") and
                     biz["numeric_constraints"]["metric"] == tech["numeric_constraints"]["metric"]):
-                    
+
                     biz_val = biz["numeric_constraints"]["value"]
                     tech_val = tech["numeric_constraints"]["value"]
-                    
+
                     # ビジネス要求が技術的制約より厳しい場合
                     if biz_val < tech_val:
                         conflicts.append((biz["id"], tech["id"]))
                         descriptions.append(
                             f"Business requires {biz_val}s but technical constraint is {tech_val}s"
                         )
-        
+
         return ConflictResult(
             has_conflict=len(conflicts) > 0,
             conflicting_requirements=conflicts,
@@ -100,7 +99,7 @@ class RequirementConflictDetector:
 
 class TestRequirementConflicts:
     """要件矛盾検出のテスト"""
-    
+
     def test_detect_numeric_conflicts_in_response_time(self):
         """レスポンスタイムの数値的矛盾を検出（TDT）"""
         # テーブル駆動テスト
@@ -153,12 +152,12 @@ class TestRequirementConflicts:
                 0
             )
         ]
-        
+
         for requirements, expected_conflict, expected_count in test_cases:
             result = RequirementConflictDetector.detect_numeric_conflicts(requirements)
             assert result["has_conflict"] == expected_conflict
             assert len(result["conflicting_requirements"]) == expected_count
-    
+
     def test_business_technical_constraint_conflicts(self):
         """ビジネス要求と技術制約の矛盾を検出"""
         requirements = [
@@ -175,18 +174,18 @@ class TestRequirementConflicts:
                 title="技術的制約",
                 description="現実的な処理時間",
                 priority=230,
-                requirement_type="technical", 
+                requirement_type="technical",
                 numeric_constraints={"metric": "response_time", "value": 5, "unit": "seconds"}
             )
         ]
-        
+
         result = RequirementConflictDetector.detect_business_technical_conflicts(requirements)
-        
+
         assert result["has_conflict"] is True
         assert ("BIZ_001", "TECH_001") in result["conflicting_requirements"]
-        assert any("Business requires 1s but technical constraint is 5s" in desc 
+        assert any("Business requires 1s but technical constraint is 5s" in desc
                   for desc in result["conflict_descriptions"])
-    
+
     # @given(st.lists(...))  # Property-based test would be here
     def test_conflict_detection_properties(self):
         """矛盾検出の性質をプロパティベーステストで検証"""
@@ -209,17 +208,17 @@ class TestRequirementConflicts:
                 numeric_constraints={"metric": "response_time", "value": 5, "unit": "seconds"}
             )
         ]
-        
+
         # 性質1: 矛盾検出は決定的（同じ入力で同じ結果）
         result1 = RequirementConflictDetector.detect_numeric_conflicts(requirements)
         result2 = RequirementConflictDetector.detect_numeric_conflicts(requirements)
         assert result1 == result2
-        
+
         # 性質2: 矛盾がある場合、必ず矛盾ペアが存在
         if result1["has_conflict"]:
             assert len(result1["conflicting_requirements"]) > 0
             assert len(result1["conflict_descriptions"]) > 0
-            
+
         # 性質3: 矛盾ペアは対称的
         for req1, req2 in result1["conflicting_requirements"]:
             # (A, B)の矛盾があれば、逆順でも同じ矛盾が検出されるべき
@@ -232,14 +231,14 @@ class TestRequirementConflicts:
 if __name__ == "__main__":
     # TDD Red Phase確認
     test = TestRequirementConflicts()
-    
+
     print("Running TDD Red Phase tests...")
     try:
         test.test_detect_numeric_conflicts_in_response_time()
         print("✅ Numeric conflicts test passed")
     except (AssertionError, AttributeError) as e:
         print(f"❌ TDD Red Phase - Numeric conflicts: {type(e).__name__}")
-    
+
     try:
         test.test_business_technical_constraint_conflicts()
         print("✅ Business-technical conflicts test passed")

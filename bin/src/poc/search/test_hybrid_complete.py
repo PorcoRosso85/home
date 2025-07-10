@@ -16,18 +16,13 @@ def run_test(name: str, code: str) -> Tuple[bool, str]:
     env = os.environ.copy()
     env["PYTHONPATH"] = PROJECT_ROOT
     env["RGL_SKIP_SCHEMA_CHECK"] = "true"
-    
-    result = subprocess.run(
-        [RGL_VENV, "-c", code],
-        capture_output=True,
-        text=True,
-        env=env
-    )
-    
-    print(f"\n{'='*60}")
+
+    result = subprocess.run([RGL_VENV, "-c", code], capture_output=True, text=True, env=env)
+
+    print(f"\n{'=' * 60}")
     print(f"テスト: {name}")
-    print(f"{'='*60}")
-    
+    print(f"{'=' * 60}")
+
     if result.returncode == 0:
         print("✅ SUCCESS")
         print(result.stdout)
@@ -487,37 +482,37 @@ print("\\n✓ ハイブリッドが最高のF1スコアを達成")
 
 
 if __name__ == "__main__":
-    print("="*80)
+    print("=" * 80)
     print("完全版ハイブリッド検索テスト")
-    print("="*80)
-    
+    print("=" * 80)
+
     tests = [
         test_duplicate_detection,
         test_terminology_variations,
         test_impact_analysis,
         test_contradiction_detection,
         test_requirement_evolution,
-        test_precision_recall
+        test_precision_recall,
     ]
-    
+
     results = []
     for test_func in tests:
         success, _ = test_func()
         results.append(success)
-    
-    print("\n" + "="*80)
+
+    print("\n" + "=" * 80)
     print("最終結果")
-    print("="*80)
-    
+    print("=" * 80)
+
     for i, (test_func, success) in enumerate(zip(tests, results)):
         status = "✅ GREEN" if success else "❌ FAILED"
-        print(f"{i+1}. {test_func.__doc__.strip()}: {status}")
-    
+        print(f"{i + 1}. {test_func.__doc__.strip()}: {status}")
+
     passed = sum(results)
     total = len(results)
-    
+
     print(f"\n合計: {passed}/{total} テスト成功")
-    
+
     if passed == total:
         print("\n🎉 全テストがGREENになりました！")
         print("\nハイブリッド検索の価値:")

@@ -2,7 +2,7 @@
 要件矛盾検出ルール（抽象化された実装）
 規約準拠：クラスを使わず、関数とデータ構造で実装
 """
-from typing import List, Dict, Any, Optional, Callable, TypedDict, Literal
+from typing import List, Dict, Any, Optional, TypedDict, Literal
 
 
 # データ構造（不変）
@@ -83,7 +83,7 @@ def detect_numeric_threshold_conflicts(
     """数値的閾値に基づく矛盾を検出（設定可能な閾値）"""
     conflicts = []
     violations = []
-    
+
     # メトリクスごとにグループ化
     metric_groups = {}
     for req in requirements:
@@ -93,16 +93,16 @@ def detect_numeric_threshold_conflicts(
             if metric not in metric_groups:
                 metric_groups[metric] = []
             metric_groups[metric].append((req["id"], constraints["value"], req.get("priority", 0)))
-    
+
     # 同じメトリクスで閾値を超える差を検出
     for metric, values in metric_groups.items():
         if len(values) < 2:
             continue
-            
+
         sorted_values = sorted(values, key=lambda x: x[1])
         min_val = sorted_values[0][1]
         max_val = sorted_values[-1][1]
-        
+
         if max_val > min_val * threshold_ratio:
             # 優先度も考慮
             for i in range(len(sorted_values)):
@@ -117,7 +117,7 @@ def detect_numeric_threshold_conflicts(
                             "ratio": val_j[1] / val_i[1]
                         })
                         violations.append(f"{metric}: {val_i[1]} vs {val_j[1]} (ratio: {val_j[1]/val_i[1]:.1f})")
-    
+
     return ConflictDetectionResult(
         has_conflict=len(conflicts) > 0,
         conflicts=conflicts,
@@ -131,13 +131,13 @@ def detect_temporal_conflicts(
     """時間的矛盾を検出"""
     conflicts = []
     violations = []
-    
+
     temporal_reqs = []
     for req in requirements:
         constraint = req.get("temporal_constraint")
         if constraint:
             temporal_reqs.append((req["id"], constraint))
-    
+
     # 即時 vs 長期計画の矛盾を検出
     for i, (id1, tc1) in enumerate(temporal_reqs):
         for id2, tc2 in temporal_reqs[i+1:]:
@@ -155,7 +155,7 @@ def detect_temporal_conflicts(
                     "conflict": f"immediate vs {tc1['duration']} {tc1['timeline']}"
                 })
                 violations.append(f"Temporal conflict: immediate vs {tc1['duration']} {tc1['timeline']}")
-    
+
     return ConflictDetectionResult(
         has_conflict=len(conflicts) > 0,
         conflicts=conflicts,
@@ -169,14 +169,14 @@ def detect_exclusive_conflicts(
     """排他的選択の矛盾を検出"""
     conflicts = []
     violations = []
-    
+
     # 排他的カテゴリの定義
     EXCLUSIVE_CATEGORIES = {
         "deployment": ["on-premise", "cloud-only", "hybrid"],
         "architecture": ["monolithic", "microservices", "serverless"],
         "payment": ["free", "subscription", "one-time"],
     }
-    
+
     category_choices = {}
     for req in requirements:
         constraint = req.get("exclusive_constraint")
@@ -186,7 +186,7 @@ def detect_exclusive_conflicts(
             if category not in category_choices:
                 category_choices[category] = []
             category_choices[category].append((req["id"], value))
-    
+
     # 同じカテゴリで異なる選択を検出
     for category, choices in category_choices.items():
         unique_values = set(v for _, v in choices)
@@ -201,7 +201,7 @@ def detect_exclusive_conflicts(
                             "values": [val1, val2]
                         })
                         violations.append(f"Exclusive {category}: {val1} vs {val2}")
-    
+
     return ConflictDetectionResult(
         has_conflict=len(conflicts) > 0,
         conflicts=conflicts,
@@ -215,7 +215,7 @@ def detect_quality_conflicts(
     """品質属性のトレードオフ矛盾を検出"""
     conflicts = []
     violations = []
-    
+
     # 相反する品質属性のペア
     QUALITY_TRADEOFFS = [
         ("performance", "security"),
@@ -223,7 +223,7 @@ def detect_quality_conflicts(
         ("cost", "reliability"),
         ("flexibility", "simplicity"),
     ]
-    
+
     quality_reqs = {}
     for req in requirements:
         qualities = req.get("quality_attributes", [])
@@ -231,7 +231,7 @@ def detect_quality_conflicts(
             if quality not in quality_reqs:
                 quality_reqs[quality] = []
             quality_reqs[quality].append(req["id"])
-    
+
     # トレードオフの検出
     for q1, q2 in QUALITY_TRADEOFFS:
         if q1 in quality_reqs and q2 in quality_reqs:
@@ -245,7 +245,7 @@ def detect_quality_conflicts(
                             "tradeoff": f"{q1} vs {q2}"
                         })
                         violations.append(f"Quality tradeoff: {q1} vs {q2}")
-    
+
     return ConflictDetectionResult(
         has_conflict=len(conflicts) > 0,
         conflicts=conflicts,
@@ -262,10 +262,10 @@ def detect_all_conflicts(
     """すべての矛盾ルールを適用"""
     if rules is None:
         rules = CONFLICT_RULES
-    
+
     if config is None:
         config = {}
-    
+
     # 検出関数マッピング
     detectors = {
         "detect_numeric_threshold_conflicts": detect_numeric_threshold_conflicts,
@@ -273,7 +273,7 @@ def detect_all_conflicts(
         "detect_exclusive_conflicts": detect_exclusive_conflicts,
         "detect_quality_conflicts": detect_quality_conflicts,
     }
-    
+
     results = {}
     for rule in rules:
         detector_name = rule["detector"]
@@ -285,9 +285,9 @@ def detect_all_conflicts(
                 result = detector(requirements, threshold)
             else:
                 result = detector(requirements)
-            
+
             results[rule["id"]] = result
-    
+
     return results
 
 
@@ -298,7 +298,7 @@ def suggest_conflict_resolution(
 ) -> List[str]:
     """矛盾タイプに基づいて解決策を提案"""
     suggestions = []
-    
+
     if conflict_type == "numeric":
         ratio = conflict_details.get("ratio", 0)
         suggestions.extend([
@@ -328,5 +328,5 @@ def suggest_conflict_resolution(
             "品質シナリオの具体化",
             "測定可能な品質メトリクスの定義"
         ])
-    
+
     return suggestions

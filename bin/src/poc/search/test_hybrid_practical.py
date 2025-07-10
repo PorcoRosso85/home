@@ -18,22 +18,17 @@ def run_test_scenario(scenario_name: str, test_code: str) -> Tuple[bool, str]:
     env = os.environ.copy()
     env["PYTHONPATH"] = PROJECT_ROOT
     env["RGL_SKIP_SCHEMA_CHECK"] = "true"
-    
-    result = subprocess.run(
-        [RGL_VENV, "-c", test_code],
-        capture_output=True,
-        text=True,
-        env=env
-    )
-    
+
+    result = subprocess.run([RGL_VENV, "-c", test_code], capture_output=True, text=True, env=env)
+
     success = result.returncode == 0
     output = result.stdout if success else result.stderr
-    
-    print(f"\n{'='*60}")
+
+    print(f"\n{'=' * 60}")
     print(f"シナリオ: {scenario_name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(output)
-    
+
     return success, output
 
 
@@ -750,29 +745,29 @@ print("- Hybrid: 両方の長所を活かして最高のF1スコア")
 
 
 if __name__ == "__main__":
-    print("="*80)
+    print("=" * 80)
     print("ハイブリッド検索の実用性テスト")
-    print("="*80)
-    
+    print("=" * 80)
+
     test_functions = [
         test_duplicate_requirement_detection,
         test_technical_terminology_variations,
         test_impact_analysis,
         test_contradiction_detection,
         test_requirement_evolution,
-        test_search_precision_comparison
+        test_search_precision_comparison,
     ]
-    
+
     passed = 0
     for test in test_functions:
         success, _ = test()
         if success:
             passed += 1
-    
-    print(f"\n{'='*80}")
+
+    print(f"\n{'=' * 80}")
     print(f"最終結果: {passed}/{len(test_functions)} テスト成功")
-    print(f"{'='*80}")
-    
+    print(f"{'=' * 80}")
+
     if passed == len(test_functions):
         print("\n✅ ハイブリッド検索の価値が実証されました！")
         print("\n主な価値:")

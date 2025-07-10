@@ -4,7 +4,6 @@
 アプリケーション全体で使用される定数を定義します。
 これらの値は変更不可で、コンパイル時に確定します。
 """
-from typing import Dict, List
 
 # 埋め込み関連
 EMBEDDING_DIM = 50

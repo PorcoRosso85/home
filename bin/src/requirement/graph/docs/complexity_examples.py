@@ -50,7 +50,7 @@ def count_valid_items(items):
 def process_order(order):
     if order is None:  # +1
         return None
-    
+
     if order.status == 'pending':  # +1
         if order.payment_method == 'credit':  # +1
             if validate_credit_card(order):  # +1
@@ -67,7 +67,7 @@ def process_order(order):
             for item in order.items:  # +1
                 if item.in_stock():  # +1
                     reserve_item(item)
-    
+
     return order
 
 
@@ -76,12 +76,12 @@ def process_order_refactored(order):
     """複雑度3に削減"""
     if order is None:  # +1
         return None
-    
+
     if order.status == 'pending':  # +1
         return process_pending_order(order)
     elif order.status == 'processing':  # +1
         return process_active_order(order)
-    
+
     return order
 
 
@@ -114,10 +114,10 @@ def process_active_order(order):
     """在庫処理 - 複雑度3"""
     if not order.items:  # +1
         return order
-    
+
     for item in order.items:  # +1
         process_item_stock(item)
-    
+
     return order
 
 

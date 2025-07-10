@@ -9,7 +9,6 @@
 """
 import os
 from typing import Dict
-from .env import EnvironmentError
 
 def setup_test_environment() -> None:
     """テスト用の環境変数を設定
@@ -21,7 +20,7 @@ def setup_test_environment() -> None:
         'RGL_DB_PATH': '/tmp/test_rgl_db',
         'RGL_SKIP_SCHEMA_CHECK': 'true',  # テスト時はスキーマチェックをスキップ
     }
-    
+
     for key, value in test_defaults.items():
         if key not in os.environ:
             os.environ[key] = value
@@ -40,7 +39,7 @@ def enable_test_mode() -> None:
     スキーマチェックをスキップし、テスト用の設定を適用します。
     """
     os.environ['RGL_SKIP_SCHEMA_CHECK'] = 'true'
-    
+
 def disable_test_mode() -> None:
     """テストモードを無効化
     

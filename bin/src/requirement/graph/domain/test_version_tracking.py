@@ -1,10 +1,7 @@
 """
 Tests for Version Tracking
 """
-import time
 from .version_tracking import (
-    create_version_id,
-    create_location_uri,
     parse_location_uri,
     calculate_requirement_diff
 )
@@ -17,7 +14,7 @@ from .version_tracking import (
 def test_parse_location_uri_extracts_components():
     """parse_location_uri_URI解析_コンポーネント抽出"""
     result = parse_location_uri("req://rgl/requirements/req_001")
-    
+
     assert result["scheme"] == "req"
     assert result["path"] == "/rgl/requirements/req_001"
     assert result["hierarchy"] == ["rgl", "requirements"]
@@ -31,15 +28,15 @@ def test_calculate_requirement_diff_detects_changes():
         "description": "Old desc",
         "status": "proposed"
     }
-    
+
     new = {
         "title": "New Title",
         "description": "Old desc",  # 変更なし
         "status": "approved"
     }
-    
+
     diff = calculate_requirement_diff(old, new)
-    
+
     assert len(diff["changed_fields"]) == 2
     assert ("title", "Old Title", "New Title") in diff["changed_fields"]
     assert ("status", "proposed", "approved") in diff["changed_fields"]

@@ -2,7 +2,6 @@
 Test schema initialization and re-initialization behavior
 """
 import tempfile
-import shutil
 import json
 import subprocess
 import os
@@ -22,11 +21,11 @@ def test_schema_not_initialized_behavior():
         # Try to create repository without initializing schema
         # Set environment to skip schema check
         os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
-        
+
         try:
             # Should fail when trying to use repository without schema
             repo = create_kuzu_repository(db_path=temp_dir)
-            
+
             # Try to save a requirement - should fail
             try:
                 os.environ["RGL_SKIP_SCHEMA_CHECK"] = "false"
@@ -47,32 +46,32 @@ def test_schema_already_initialized_behavior():
         # First initialization
         success1 = apply_ddl_schema(db_path=temp_dir, create_test_data=True)
         assert success1
-        
+
         # Verify schema exists
         db = create_database(path=temp_dir)
         conn = create_connection(db)
-        
+
         # Check that tables exist
         result = conn.execute("MATCH (r:RequirementEntity) RETURN count(r) as cnt")
         assert result.has_next()
         initial_count = result.get_next()[0]
         assert initial_count >= 2  # Test data created
-        
+
         conn.close()
-        
+
         # Second initialization - what happens?
         success2 = apply_ddl_schema(db_path=temp_dir, create_test_data=True)
-        
+
         # This might fail or might succeed - let's check
         db2 = create_database(path=temp_dir)
         conn2 = create_connection(db2)
-        
+
         # Check if data still exists or was reset
         result2 = conn2.execute("MATCH (r:RequirementEntity) RETURN count(r) as cnt")
         if result2.has_next():
             final_count = result2.get_next()[0]
             print(f"Initial count: {initial_count}, Final count: {final_count}")
-        
+
         conn2.close()
 
 
@@ -82,7 +81,7 @@ def test_check_schema_status_without_failing():
         # Before initialization
         db = create_database(path=temp_dir)
         conn = create_connection(db)
-        
+
         # Try to check if schema exists
         try:
             # This should fail if schema doesn't exist
@@ -90,22 +89,22 @@ def test_check_schema_status_without_failing():
             schema_exists = True
         except:
             schema_exists = False
-        
+
         assert not schema_exists
         conn.close()
-        
+
         # After initialization
         apply_ddl_schema(db_path=temp_dir)
-        
+
         db2 = create_database(path=temp_dir)
         conn2 = create_connection(db2)
-        
+
         try:
             result = conn2.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
             schema_exists = True
         except:
             schema_exists = False
-        
+
         assert schema_exists
         conn2.close()
 
@@ -118,10 +117,10 @@ def test_schema_command_via_main():
         "action": "apply",
         "create_test_data": True
     }
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         input_data["db_path"] = temp_dir
-        
+
         # Run via subprocess
         result = subprocess.run(
             ["python", "-m", "requirement.graph.main"],
@@ -130,7 +129,7 @@ def test_schema_command_via_main():
             text=True,
             cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         )
-        
+
         # Check output
         if result.stdout:
             output_lines = result.stdout.strip().split('\n')
@@ -148,11 +147,11 @@ def test_schema_protection_mechanism():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Initialize with important data
         apply_ddl_schema(db_path=temp_dir, create_test_data=False)
-        
+
         # Add custom data
         db = create_database(path=temp_dir)
         conn = create_connection(db)
-        
+
         # Create a custom requirement
         conn.execute("""
             CREATE (r:RequirementEntity {
@@ -163,29 +162,29 @@ def test_schema_protection_mechanism():
                 status: 'approved'
             })
         """)
-        
+
         # Verify it exists
         result = conn.execute("MATCH (r:RequirementEntity {id: 'important_req_001'}) RETURN r.title")
         assert result.has_next()
         assert result.get_next()[0] == 'Critical Business Requirement'
-        
+
         conn.close()
-        
+
         # Try to re-initialize - will this delete our data?
         apply_ddl_schema(db_path=temp_dir, create_test_data=True)
-        
+
         # Check if our data still exists
         db2 = create_database(path=temp_dir)
         conn2 = create_connection(db2)
-        
+
         try:
             result2 = conn2.execute("MATCH (r:RequirementEntity {id: 'important_req_001'}) RETURN r.title")
             data_preserved = result2.has_next()
         except:
             data_preserved = False
-        
+
         conn2.close()
-        
+
         print(f"Data preserved after re-init: {data_preserved}")
 
 

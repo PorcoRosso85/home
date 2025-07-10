@@ -6,7 +6,6 @@ Cypherクエリエントリーポイント
     echo '{"type": "schema", "action": "apply"}' | python run.py
 """
 import sys
-import os
 import json
 
 # Pythonパスを親ディレクトリに設定（相対インポート解決のため）

@@ -24,7 +24,7 @@ except ImportError:
 
 # Skip kuzu tests if not available
 requires_kuzu = pytest.mark.skipif(
-    not KUZU_AVAILABLE, 
+    not KUZU_AVAILABLE,
     reason="KuzuDB not available or improperly installed"
 )
 
@@ -32,7 +32,7 @@ requires_kuzu = pytest.mark.skipif(
 # 収集時に除外するファイル
 collect_ignore = [
     "run.py",
-    "run_all_tests.py", 
+    "run_all_tests.py",
     "run_all_tests_with_env.py",
     "test_single_module.py",
     "test_migrated_features.py",  # pytestに依存
@@ -56,9 +56,9 @@ def pytest_configure(config):
 def pytest_addoption(parser):
     """カスタムオプションの追加"""
     parser.addoption(
-        "--run-slow", 
-        action="store_true", 
-        default=False, 
+        "--run-slow",
+        action="store_true",
+        default=False,
         help="run slow tests"
     )
 

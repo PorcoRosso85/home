@@ -2,7 +2,6 @@
 健全性判定基準（ドメイン層）
 """
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -27,18 +26,18 @@ def evaluate_health(structure_score: int, friction_score: int, completeness_scor
     """
     # 総合スコアを計算
     total_score = structure_score + friction_score + completeness_score
-    
+
     # 最も悪いスコアを特定
     worst_score = min(structure_score, friction_score, completeness_score)
     worst_category = None
-    
+
     if worst_score == structure_score:
         worst_category = "構造"
     elif worst_score == friction_score:
         worst_category = "摩擦"
     else:
         worst_category = "完全性"
-    
+
     # レベルとメッセージを判定
     if total_score >= -30:
         level = "healthy"
@@ -55,7 +54,7 @@ def evaluate_health(structure_score: int, friction_score: int, completeness_scor
     else:
         level = "emergency"
         message = "緊急の対応が必要です"
-    
+
     return HealthResult(
         level=level,
         message=message,

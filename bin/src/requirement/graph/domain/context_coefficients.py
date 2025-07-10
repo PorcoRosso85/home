@@ -1,7 +1,6 @@
 """
 コンテキスト係数（ドメイン層）
 """
-from typing import Dict, Any
 
 
 # コンテキスト係数の定義
@@ -11,7 +10,7 @@ _CONTEXT_COEFFICIENTS = {
     "C03": 1.5,  # tech_debt
     "C04": 1.0,  # normal
     "early_stage": 0.5,      # 初期段階
-    "growth_stage": 1.0,     # 成長段階  
+    "growth_stage": 1.0,     # 成長段階
     "mature_stage": 1.5,     # 成熟段階
     "emergency": 0.3,        # 緊急時
     "experimental": 0.4      # 実験的
@@ -44,17 +43,17 @@ def identify_context(requirement_title: str, tags: list = None) -> str:
     """
     if tags is None:
         tags = []
-    
+
     # タイトルのプレフィックスチェック
     if requirement_title.startswith("hotfix_"):
         return "C01"
-    
+
     # タグチェック
     if "security_critical" in tags:
         return "C02"
-    
+
     if "technical_debt" in tags:
         return "C03"
-    
+
     # デフォルト
     return "C04"

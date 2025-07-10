@@ -106,22 +106,17 @@ print("✓ FTS単独では見逃す重複要件をVSSで発見")
 print("✓ 日英混在の環境でも関連要件を網羅的に検索")
 print("✓ 開発の手戻りとコストを削減")
 '''
-    
+
     env = os.environ.copy()
     env["PYTHONPATH"] = PROJECT_ROOT
     env["RGL_SKIP_SCHEMA_CHECK"] = "true"
-    
-    result = subprocess.run(
-        [RGL_VENV, "-c", code],
-        capture_output=True,
-        text=True,
-        env=env
-    )
-    
+
+    result = subprocess.run([RGL_VENV, "-c", code], capture_output=True, text=True, env=env)
+
     print(result.stdout)
     if result.stderr:
         print("エラー:", result.stderr)
-    
+
     return result.returncode == 0
 
 
@@ -209,39 +204,34 @@ print("✓ 100件規模でも実用的な速度で動作")
 print("✓ VSSは追加の関連要件を発見")
 print("✓ ハイブリッド検索で網羅性が向上")
 '''
-    
+
     env = os.environ.copy()
     env["PYTHONPATH"] = PROJECT_ROOT
     env["RGL_SKIP_SCHEMA_CHECK"] = "true"
-    
-    result = subprocess.run(
-        [RGL_VENV, "-c", code],
-        capture_output=True,
-        text=True,
-        env=env
-    )
-    
+
+    result = subprocess.run([RGL_VENV, "-c", code], capture_output=True, text=True, env=env)
+
     print(result.stdout)
     return result.returncode == 0
 
 
 if __name__ == "__main__":
-    print("="*60)
+    print("=" * 60)
     print("ハイブリッド検索の価値実証（簡潔版）")
-    print("="*60)
-    
+    print("=" * 60)
+
     # 実世界シナリオ
     print("\n1. 実世界シナリオテスト")
     test_real_world_scenario()
-    
+
     # 性能比較
     print("\n\n2. 性能比較テスト")
     test_performance_comparison()
-    
-    print("\n" + "="*60)
+
+    print("\n" + "=" * 60)
     print("ハイブリッド検索の実証された価値:")
     print("1. 重複要件の防止 - 表現が違っても同じ機能を発見")
     print("2. 網羅的な検索 - FTSが見逃す関連要件をVSSで補完")
     print("3. 実用的な性能 - 100件規模でもミリ秒単位の応答")
     print("4. 開発効率向上 - 手戻りとコスト削減に貢献")
-    print("="*60)
+    print("=" * 60)

@@ -24,13 +24,13 @@ class IntegratedValidationReport(TypedDict):
 
 class IntegratedConsistencyValidator:
     """すべての不整合性検証を統合"""
-    
+
     def __init__(self):
         self.semantic_validator = SemanticValidator()
         self.resource_detector = ResourceConflictDetector()
         self.priority_checker = PriorityConsistencyChecker()
         self.completeness_analyzer = RequirementCompletenessAnalyzer()
-    
+
     def validate_all(self, requirements: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         すべての観点から要件を検証
@@ -53,7 +53,7 @@ class IntegratedConsistencyValidator:
         resource_conflicts = self.resource_detector.detect_resource_conflicts(requirements)
         priority_issues = self.priority_checker.check_priority_consistency(requirements)
         completeness_analysis = self.completeness_analyzer.analyze_completeness(requirements)
-        
+
         # 健全性スコアを計算
         health_score = self._calculate_health_score(
             semantic_conflicts,
@@ -61,7 +61,7 @@ class IntegratedConsistencyValidator:
             priority_issues,
             completeness_analysis
         )
-        
+
         # サマリーを生成
         summary = self._generate_summary(
             semantic_conflicts,
@@ -70,7 +70,7 @@ class IntegratedConsistencyValidator:
             completeness_analysis,
             health_score
         )
-        
+
         return {
             "semantic_conflicts": semantic_conflicts,
             "resource_conflicts": resource_conflicts,
@@ -79,7 +79,7 @@ class IntegratedConsistencyValidator:
             "overall_health_score": health_score,
             "summary": summary
         }
-    
+
     def _calculate_health_score(
         self,
         semantic_conflicts: List[Dict[str, Any]],
@@ -98,32 +98,32 @@ class IntegratedConsistencyValidator:
             "priority": 0.25,
             "completeness": 0.2
         }
-        
+
         # 各カテゴリのスコアを計算
         scores = {}
-        
+
         # 意味的矛盾: 矛盾があるごとに0.2減点
         scores["semantic"] = max(0, 1.0 - len(semantic_conflicts) * 0.2)
-        
+
         # リソース競合: 競合があるごとに0.3減点
         scores["resource"] = max(0, 1.0 - len(resource_conflicts) * 0.3)
-        
+
         # 優先度問題: 問題があるごとに0.2減点
         scores["priority"] = max(0, 1.0 - len(priority_issues) * 0.2)
-        
+
         # 完全性: 欠落カテゴリごとに0.2減点
         missing_count = len(completeness_analysis.get("missing_categories", []))
         duplicate_count = len(completeness_analysis.get("duplicates", []))
         scores["completeness"] = max(0, 1.0 - missing_count * 0.2 - duplicate_count * 0.1)
-        
+
         # 重み付けスコアを計算
         overall_score = sum(
             scores[category] * weight
             for category, weight in weights.items()
         )
-        
+
         return round(overall_score, 2)
-    
+
     def _generate_summary(
         self,
         semantic_conflicts: List[Dict[str, Any]],
@@ -134,27 +134,27 @@ class IntegratedConsistencyValidator:
     ) -> str:
         """検証結果のサマリーを生成"""
         issues = []
-        
+
         if semantic_conflicts:
             issues.append(f"意味的矛盾: {len(semantic_conflicts)}件")
-        
+
         if resource_conflicts:
             issues.append(f"リソース競合: {len(resource_conflicts)}件")
-        
+
         if priority_issues:
             issues.append(f"優先度問題: {len(priority_issues)}件")
-        
+
         missing = completeness_analysis.get("missing_categories", [])
         if missing:
             issues.append(f"欠落カテゴリ: {', '.join(missing)}")
-        
+
         duplicates = completeness_analysis.get("duplicates", [])
         if duplicates:
             issues.append(f"重複要件: {len(duplicates)}件")
-        
+
         if not issues:
             return f"すべての検証に合格しました。健全性スコア: {health_score}/1.0"
-        
+
         return f"検出された問題: {', '.join(issues)}。健全性スコア: {health_score}/1.0"
 
 
@@ -162,7 +162,7 @@ class IntegratedConsistencyValidator:
 def test_integrated_validator_comprehensive():
     """統合的な不整合検出"""
     validator = IntegratedConsistencyValidator()
-    
+
     requirements = [
         # 意味的矛盾
         {
@@ -215,18 +215,18 @@ def test_integrated_validator_comprehensive():
             "Dependencies": []
         }
     ]
-    
+
     report = validator.validate_all(requirements)
-    
+
     # 各種問題が検出されることを確認
     assert len(report["semantic_conflicts"]) > 0
     assert len(report["resource_conflicts"]) > 0
     assert len(report["priority_issues"]) > 0
     assert "missing_categories" in report["completeness_gaps"]
-    
+
     # 健全性スコアが低いことを確認
     assert report["overall_health_score"] < 1.0
-    
+
     # サマリーが生成されていることを確認
     assert "検出された問題" in report["summary"]
 
@@ -234,7 +234,7 @@ def test_integrated_validator_comprehensive():
 def test_integrated_validator_healthy_project():
     """健全なプロジェクトの場合"""
     validator = IntegratedConsistencyValidator()
-    
+
     requirements = [
         {"ID": "sec_001", "Priority": 200, "Tags": ["security"], "Dependencies": []},
         {"ID": "perf_001", "Priority": 180, "Tags": ["performance"], "Dependencies": []},
@@ -242,9 +242,9 @@ def test_integrated_validator_healthy_project():
         {"ID": "ui_001", "Priority": 140, "Tags": ["usability"], "Dependencies": []},
         {"ID": "rel_001", "Priority": 160, "Tags": ["reliability"], "Dependencies": []}
     ]
-    
+
     report = validator.validate_all(requirements)
-    
+
     assert len(report["semantic_conflicts"]) == 0
     assert len(report["resource_conflicts"]) == 0
     assert len(report["priority_issues"]) == 0

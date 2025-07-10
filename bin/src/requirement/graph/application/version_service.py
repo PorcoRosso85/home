@@ -3,8 +3,7 @@ Version Service - バージョン管理ユースケース
 依存: domain層のみ
 外部依存: なし
 """
-import json
-from typing import Dict, List, Optional, Callable, Tuple, Any
+from typing import Dict, List, Optional, Callable, Any
 from datetime import datetime
 from pathlib import Path
 
@@ -32,7 +31,7 @@ def create_version_service(repository: VersionRepository):
     Returns:
         VersionService関数の辞書
     """
-    
+
     def create_versioned_requirement(data: Dict[str, Any]) -> Dict[str, Any]:
         """
         バージョン付きで新規要件を作成
@@ -44,7 +43,7 @@ def create_version_service(repository: VersionRepository):
             作成結果（entity_id, version_id, location_uri, version）
         """
         template = load_template("dml", "create_versioned_requirement")
-        
+
         params = {
             "req_id": data["id"],
             "title": data["title"],
@@ -54,7 +53,7 @@ def create_version_service(repository: VersionRepository):
             "reason": data.get("reason", "Initial creation"),
             "timestamp": datetime.now().isoformat()
         }
-        
+
         result = repository["execute"](template, params)
         if result.has_next():
             row = result.get_next()
@@ -68,7 +67,7 @@ def create_version_service(repository: VersionRepository):
             }
         else:
             raise RuntimeError("Failed to create versioned requirement")
-    
+
     def update_versioned_requirement(data: Dict[str, Any]) -> Dict[str, Any]:
         """
         既存要件を更新（新バージョン作成）
@@ -80,7 +79,7 @@ def create_version_service(repository: VersionRepository):
             更新結果（entity_id, version_id, version, previous_version）
         """
         template = load_template("dml", "update_versioned_requirement")
-        
+
         params = {
             "req_id": data["id"],
             "title": data.get("title"),
@@ -90,11 +89,11 @@ def create_version_service(repository: VersionRepository):
             "reason": data.get("reason", "Update"),
             "timestamp": datetime.now().isoformat()
         }
-        
+
         result = repository["execute"](template, params)
         if result.has_next():
             row = result.get_next()
-            
+
             # 現在のバージョンを取得
             # 新方式: VersionStateはLocationURIを追跡
             version_query = """
@@ -104,7 +103,7 @@ def create_version_service(repository: VersionRepository):
             """
             version_result = repository["execute"](version_query, {"req_id": data["id"]})
             version_count = version_result.get_next()[0] if version_result.has_next() else 2
-            
+
             return {
                 "entity_id": row[0],
                 "version_id": row[1],
@@ -116,7 +115,7 @@ def create_version_service(repository: VersionRepository):
             }
         else:
             raise RuntimeError("Failed to update versioned requirement")
-    
+
     def get_requirement_history(req_id: str) -> List[Dict[str, Any]]:
         """
         要件の変更履歴を取得
@@ -129,14 +128,14 @@ def create_version_service(repository: VersionRepository):
         """
         # テンプレートを使用
         template = load_template("dql", "get_requirement_history")
-        
+
         result = repository["execute"](template, {"req_id": req_id})
         history = []
         version_num = 1
-        
+
         while result.has_next():
             row = result.get_next()
-            
+
             # 各バージョンの状態を再構築
             if row[6] == 'CREATE' and row[10]:  # operation == 'CREATE' and previous_state exists
                 # CREATE時は保存されたスナップショットを使用
@@ -156,7 +155,7 @@ def create_version_service(repository: VersionRepository):
                 title = row[1]
                 description = row[2]
                 status = row[3]
-            
+
             history.append({
                 "version": version_num,
                 "entity_id": row[0],
@@ -170,9 +169,9 @@ def create_version_service(repository: VersionRepository):
                 "timestamp": row[8]
             })
             version_num += 1
-        
+
         return history
-    
+
     def get_requirement_at_timestamp(req_id: str, timestamp: str) -> Optional[Dict[str, Any]]:
         """
         特定時点の要件状態を取得
@@ -185,14 +184,14 @@ def create_version_service(repository: VersionRepository):
             その時点の要件状態
         """
         template = load_template("dql", "get_requirement_at_timestamp")
-        
+
         result = repository["execute"](template, {"req_id": req_id, "timestamp": timestamp})
-        
+
         if result.has_next():
             row = result.get_next()
             requirement = row[0]
             version = row[1]
-            
+
             # バージョン番号を計算（新方式）
             version_query = """
             MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
@@ -202,7 +201,7 @@ def create_version_service(repository: VersionRepository):
             """
             version_result = repository["execute"](version_query, {"req_id": req_id, "timestamp": timestamp})
             version_count = version_result.get_next()[0] if version_result.has_next() else 1
-            
+
             return {
                 "id": req_id,
                 "title": requirement.get("title"),
@@ -213,7 +212,7 @@ def create_version_service(repository: VersionRepository):
             }
         else:
             return None
-    
+
     def get_version_diff(req_id: str, from_version: int, to_version: int) -> Dict[str, Any]:
         """
         バージョン間の差分を取得
@@ -228,24 +227,24 @@ def create_version_service(repository: VersionRepository):
         """
         # 履歴を取得
         history = get_requirement_history(req_id)
-        
+
         if from_version > len(history) or to_version > len(history):
             raise ValueError("Invalid version number")
-        
+
         from_state = history[from_version - 1]
         to_state = history[to_version - 1]
-        
+
         # 変更されたフィールドを検出
         changed_fields = []
         old_values = {}
         new_values = {}
-        
+
         for field in ["title", "description", "status"]:
             if from_state.get(field) != to_state.get(field):
                 changed_fields.append(field)
                 old_values[field] = from_state.get(field)
                 new_values[field] = to_state.get(field)
-        
+
         return {
             "req_id": req_id,
             "from_version": from_version,
@@ -257,7 +256,7 @@ def create_version_service(repository: VersionRepository):
             "author": to_state.get("author"),
             "timestamp": to_state.get("timestamp")
         }
-    
+
     return {
         "create_versioned_requirement": create_versioned_requirement,
         "update_versioned_requirement": update_versioned_requirement,

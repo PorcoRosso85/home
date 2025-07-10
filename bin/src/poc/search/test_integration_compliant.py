@@ -97,34 +97,29 @@ print(f"   ユニーク要件数: {len(all_ids)}")
 
 print("\\n✅ 統合テスト完了")
 """
-    
+
     # 環境変数でPYTHONPATH設定
     env = os.environ.copy()
     env["PYTHONPATH"] = PROJECT_ROOT
     env["RGL_SKIP_SCHEMA_CHECK"] = "true"
-    
+
     # テスト実行
-    result = subprocess.run(
-        [RGL_VENV, "-c", test_script],
-        capture_output=True,
-        text=True,
-        env=env
-    )
-    
+    result = subprocess.run([RGL_VENV, "-c", test_script], capture_output=True, text=True, env=env)
+
     print("=== 統合テスト結果 ===")
     print(result.stdout)
-    
+
     if result.stderr:
         print("\nエラー:")
         print(result.stderr)
-    
+
     return result.returncode == 0
 
 
 def check_compliance():
     """規約準拠チェック"""
     print("\n=== 規約準拠チェック ===")
-    
+
     # チェック対象ファイル
     files_to_check = [
         "vss/requirement_embedder.py",
@@ -132,28 +127,28 @@ def check_compliance():
         "vss/similarity_search_fixed.py",
         "fts/keyword_search.py",
         "fts/keyword_search_fixed.py",
-        "hybrid/requirement_search_engine.py"
+        "hybrid/requirement_search_engine.py",
     ]
-    
+
     violations = []
-    
+
     for file_path in files_to_check:
         if os.path.exists(file_path):
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 content = f.read()
-                lines = content.split('\n')
-                
+                lines = content.split("\n")
+
                 for i, line in enumerate(lines, 1):
                     stripped = line.strip()
-                    
+
                     # sys.path チェック（コメント以外）
-                    if stripped and not stripped.startswith('#') and 'sys.path' in line:
+                    if stripped and not stripped.startswith("#") and "sys.path" in line:
                         violations.append(f"{file_path}:{i} - sys.path manipulation")
-                    
+
                     # クラス定義チェック（TypedDict以外）
-                    if stripped.startswith('class ') and 'TypedDict' not in line:
+                    if stripped.startswith("class ") and "TypedDict" not in line:
                         violations.append(f"{file_path}:{i} - class definition")
-    
+
     if violations:
         print("❌ 違反が見つかりました:")
         for v in violations:
@@ -167,10 +162,10 @@ def check_compliance():
 if __name__ == "__main__":
     # 規約チェック
     compliant = check_compliance()
-    
+
     # 統合テスト
     test_passed = run_integration_test()
-    
+
     # 最終結果
     print("\n=== 最終結果 ===")
     if compliant and test_passed:

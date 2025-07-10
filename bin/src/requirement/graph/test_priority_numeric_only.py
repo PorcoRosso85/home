@@ -6,7 +6,6 @@ Priority の純粋数値管理への移行 TDD Red フェーズテスト
 - 0-3 の数値のみで優先度を管理
 - 文字列との変換機能を削除
 """
-import pytest
 import os
 import tempfile
 from .infrastructure.kuzu_repository import create_kuzu_repository
@@ -29,29 +28,29 @@ def create_api_wrapper(repo):
                 return {"status": "error", "error": str(e)}
         else:
             return {"status": "error", "error": f"Unsupported query type: {input_data['type']}"}
-    
+
     return {"query": query}
 
 
 class TestPriorityNumericOnly:
     """優先度を純粋な数値として扱うテスト"""
-    
-    
-    
-    
+
+
+
+
     def test_api_rejects_string_priority(self):
         """APIが文字列priorityを拒否する"""
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = os.path.join(temp_dir, "numeric_only.db")
             repo = create_kuzu_repository(db_path)
-            
+
             schema_manager = DDLSchemaManager(repo["connection"])
             schema_path = os.path.join(os.path.dirname(__file__), "ddl", "migrations", "3.2.0_current.cypher")
             success, results = schema_manager.apply_schema(schema_path)
             assert success
-            
+
             api = create_api_wrapper(repo)
-            
+
             # 文字列priorityでの作成を試みる
             result = api["query"]({
                 "type": "cypher",
@@ -65,24 +64,24 @@ class TestPriorityNumericOnly:
                 """,
                 "parameters": {}
             })
-            
+
             # エラーになるべき
             assert result["status"] == "error"
             assert "UINT8" in result.get("error", "") or "Cast failed" in result.get("error", "")
-    
+
     def test_priority_accepts_full_uint8_range(self):
         """優先度は0-255の全UINT8範囲を受け付ける"""
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = os.path.join(temp_dir, "range_test.db")
             repo = create_kuzu_repository(db_path)
-            
+
             schema_manager = DDLSchemaManager(repo["connection"])
             schema_path = os.path.join(os.path.dirname(__file__), "ddl", "migrations", "3.2.0_current.cypher")
             success, results = schema_manager.apply_schema(schema_path)
             assert success
-            
+
             api = create_api_wrapper(repo)
-            
+
             # 有効な範囲（UINT8: 0-255）のサンプル
             test_priorities = [0, 1, 50, 100, 127, 200, 255]
             for priority in test_priorities:
@@ -102,7 +101,7 @@ class TestPriorityNumericOnly:
                 })
                 assert result["status"] == "success"
                 assert result["data"][0][0] == priority
-            
+
             # 範囲外の値（256以上）はエラーになる
             result = api["query"]({
                 "type": "cypher",
@@ -120,8 +119,8 @@ class TestPriorityNumericOnly:
             })
             # UINT8は0-255なので256はエラー
             assert result["status"] == "error"
-    
-    
+
+
 
 
 # in-source tests

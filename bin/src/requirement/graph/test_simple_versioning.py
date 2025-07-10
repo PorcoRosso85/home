@@ -1,7 +1,6 @@
 """
 バージョニング機能の単体テスト（簡単なテストから始める）
 """
-import pytest
 from .infrastructure.kuzu_repository import create_kuzu_repository
 from .application.version_service import create_version_service
 from .infrastructure.ddl_schema_manager import DDLSchemaManager
@@ -14,17 +13,17 @@ def test_create_versioned_requirement():
     """バージョン付き要件を作成できる"""
     # テスト環境では自動的にインメモリDBを使用
     repo = create_kuzu_repository()
-    
+
     # スキーマ適用（テスト環境ではインメモリDBなので必要）
     schema_manager = DDLSchemaManager(repo["connection"])
     schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
     if schema_path.exists():
         success, results = schema_manager.apply_schema(str(schema_path))
         assert success
-    
+
     # バージョンサービス作成
     version_service = create_version_service(repo)
-    
+
     # 要件作成（ユニークIDを使用）
     import time
     unique_id = f"REQ-SV-001-{int(time.time() * 1000)}"
@@ -35,9 +34,9 @@ def test_create_versioned_requirement():
         "author": "test_user",
         "reason": "新規機能追加"
     })
-    
+
     print(f"Create result: {result}")
-    
+
     assert "entity_id" in result
     assert "version_id" in result
     assert "location_uri" in result
@@ -49,17 +48,17 @@ def test_update_versioned_requirement():
     """既存要件を更新すると新しいバージョンが作成される"""
     # テスト環境では自動的にインメモリDBを使用
     repo = create_kuzu_repository()
-    
+
     # スキーマ適用
     schema_manager = DDLSchemaManager(repo["connection"])
     schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
     if schema_path.exists():
         success, results = schema_manager.apply_schema(str(schema_path))
         assert success
-    
+
     # バージョンサービス作成
     version_service = create_version_service(repo)
-    
+
     # 要件作成（ユニークIDを使用）
     import time
     unique_id = f"REQ-SV-002-{int(time.time() * 1000)}"
@@ -68,7 +67,7 @@ def test_update_versioned_requirement():
         "title": "ユーザー認証機能",
         "description": "安全なログイン機能を提供"
     })
-    
+
     # 要件更新
     update_result = version_service["update_versioned_requirement"]({
         "id": unique_id,
@@ -76,9 +75,9 @@ def test_update_versioned_requirement():
         "author": "security_team",
         "reason": "セキュリティ要件の強化"
     })
-    
+
     print(f"Update result: {update_result}")
-    
+
     assert update_result["version"] == 2
     assert update_result["previous_version"] == 1
     assert update_result["author"] == "security_team"
@@ -89,17 +88,17 @@ def test_get_requirement_history():
     """要件の変更履歴を取得できる"""
     # テスト環境では自動的にインメモリDBを使用
     repo = create_kuzu_repository()
-    
+
     # スキーマ適用
     schema_manager = DDLSchemaManager(repo["connection"])
     schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
     if schema_path.exists():
         success, results = schema_manager.apply_schema(str(schema_path))
         assert success
-    
+
     # バージョンサービス作成
     version_service = create_version_service(repo)
-    
+
     # 要件作成（ユニークIDを使用）
     import time
     unique_id = f"REQ-SV-003-{int(time.time() * 1000)}"
@@ -108,7 +107,7 @@ def test_get_requirement_history():
         "title": "ユーザー認証機能",
         "description": "安全なログイン機能を提供"
     })
-    
+
     # 要件更新
     version_service["update_versioned_requirement"]({
         "id": unique_id,
@@ -116,12 +115,12 @@ def test_get_requirement_history():
         "author": "security_team",
         "reason": "セキュリティ要件の強化"
     })
-    
+
     # 履歴取得
     history = version_service["get_requirement_history"](unique_id)
-    
+
     print(f"History: {history}")
-    
+
     assert len(history) == 2
     assert history[0]["version"] == 1
     assert history[0]["operation"] == "CREATE"
@@ -133,11 +132,11 @@ def test_get_requirement_history():
 if __name__ == "__main__":
     test_create_versioned_requirement()
     print("✓ test_create_versioned_requirement passed")
-    
+
     test_update_versioned_requirement()
     print("✓ test_update_versioned_requirement passed")
-    
+
     test_get_requirement_history()
     print("✓ test_get_requirement_history passed")
-    
+
     print("\nAll tests passed!")

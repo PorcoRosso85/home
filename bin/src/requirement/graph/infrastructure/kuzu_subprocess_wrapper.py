@@ -6,21 +6,20 @@ import subprocess
 import sys
 import json
 import os
-import tempfile
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List
 
 
 class KuzuJSONSubprocess:
     """JSON拡張機能を使用するKuzuDB操作をサブプロセスで実行"""
-    
+
     def __init__(self, db_path: str):
         self.db_path = db_path
-    
+
     def execute_with_json(self, queries: List[str]) -> List[Dict[str, Any]]:
         """JSON拡張機能を使用するクエリをサブプロセスで実行"""
         # クエリをPythonコードに埋め込む際のエスケープ処理
         escaped_queries = repr(queries)
-        
+
         code = f'''
 import kuzu
 import json
@@ -61,11 +60,11 @@ try:
 except Exception as e:
     print(json.dumps({{"error": str(e), "traceback": traceback.format_exc()}}))
 '''
-        
+
         # サブプロセスで実行
         # Nix環境のパスを設定 - LD_LIBRARY_PATHを明示的に保持
         env = {**os.environ, 'LD_LIBRARY_PATH': os.environ.get('LD_LIBRARY_PATH', '')}
-        
+
         # デバッグ用にコードをファイルに書き出す
         if os.environ.get('DEBUG_KUZU_SUBPROCESS'):
             import tempfile
@@ -73,33 +72,33 @@ except Exception as e:
                 f.write(code)
                 print(f"[DEBUG] Subprocess code written to: {f.name}")
                 print(f"[DEBUG] You can run it with: python {f.name}")
-        
+
         result = subprocess.run(
             [sys.executable, '-c', code],
             capture_output=True,
             text=True,
             env=env
         )
-        
+
         if result.returncode != 0:
             if result.returncode == -11:  # SIGSEGV
-                raise RuntimeError(f"Subprocess segfaulted. This is a known issue with KuzuDB JSON extension in pytest.")
+                raise RuntimeError("Subprocess segfaulted. This is a known issue with KuzuDB JSON extension in pytest.")
             raise RuntimeError(f"Subprocess failed with code {result.returncode}: stderr={result.stderr}, stdout={result.stdout}")
-        
+
         if not result.stdout.strip():
             raise RuntimeError(f"Subprocess returned empty output. stderr={result.stderr}")
-        
+
         try:
             response = json.loads(result.stdout.strip())
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             raise RuntimeError(f"Failed to parse subprocess output: {result.stdout}")
-        
+
         if "error" in response:
             traceback = response.get('traceback', '')
             raise RuntimeError(f"Subprocess error: {response['error']}\nTraceback: {traceback}")
-        
+
         return response["results"]
-    
+
     def execute_single(self, query: str) -> Dict[str, Any]:
         """単一のクエリを実行"""
         results = self.execute_with_json([query])
@@ -128,14 +127,14 @@ def execute_with_json_safe(db_path: str, query: str) -> Any:
         import kuzu
         db = kuzu.Database(db_path)
         conn = kuzu.Connection(db)
-        
+
         # JSON拡張機能をロード
         try:
             conn.execute("INSTALL json;")
             conn.execute("LOAD EXTENSION json;")
         except:
             pass
-        
+
         result = conn.execute(query)
         rows = []
         while result.has_next():

@@ -2,13 +2,13 @@
 循環参照検出器（インフラ層）
 要件間の依存関係グラフから循環参照を検出
 """
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Dict, List, Tuple
 from collections import defaultdict
 
 
 class CircularReferenceDetector:
     """循環参照を検出"""
-    
+
     def detect_cycles(self, dependencies: List[Tuple[str, str]]) -> Dict[str, any]:
         """
         依存関係グラフから循環参照を検出
@@ -22,24 +22,24 @@ class CircularReferenceDetector:
         # グラフを構築
         graph = defaultdict(list)
         all_nodes = set()
-        
+
         for from_id, to_id in dependencies:
             graph[from_id].append(to_id)
             all_nodes.add(from_id)
             all_nodes.add(to_id)
-        
+
         # 循環を検出
         cycles = []
         visited = set()
         rec_stack = set()
         path = []
-        
+
         def dfs(node: str) -> bool:
             """DFSを使用して循環を検出"""
             visited.add(node)
             rec_stack.add(node)
             path.append(node)
-            
+
             for neighbor in graph.get(node, []):
                 if neighbor not in visited:
                     if dfs(neighbor):
@@ -50,29 +50,29 @@ class CircularReferenceDetector:
                     cycle = path[cycle_start:] + [neighbor]
                     cycles.append(cycle)
                     return True
-            
+
             path.pop()
             rec_stack.remove(node)
             return False
-        
+
         # すべてのノードから探索
         for node in all_nodes:
             if node not in visited:
                 dfs(node)
-        
+
         # 自己参照を検出
         self_references = []
         for from_id, to_id in dependencies:
             if from_id == to_id:
                 self_references.append(from_id)
-        
+
         return {
             "has_cycles": len(cycles) > 0 or len(self_references) > 0,
             "cycles": cycles,
             "self_references": list(set(self_references)),
             "total_violations": len(cycles) + len(set(self_references))
         }
-    
+
     def find_all_cycles(self, dependencies: List[Tuple[str, str]]) -> List[List[str]]:
         """
         すべての循環を検出（Tarjanのアルゴリズム）
@@ -87,7 +87,7 @@ class CircularReferenceDetector:
         graph = defaultdict(list)
         for from_id, to_id in dependencies:
             graph[from_id].append(to_id)
-        
+
         # Tarjanのアルゴリズムで強連結成分を見つける
         index = 0
         stack = []
@@ -95,7 +95,7 @@ class CircularReferenceDetector:
         lowlinks = {}
         on_stack = set()
         sccs = []
-        
+
         def strongconnect(v):
             nonlocal index
             indices[v] = index
@@ -103,14 +103,14 @@ class CircularReferenceDetector:
             index += 1
             stack.append(v)
             on_stack.add(v)
-            
+
             for w in graph.get(v, []):
                 if w not in indices:
                     strongconnect(w)
                     lowlinks[v] = min(lowlinks[v], lowlinks[w])
                 elif w in on_stack:
                     lowlinks[v] = min(lowlinks[v], indices[w])
-            
+
             if lowlinks[v] == indices[v]:
                 scc = []
                 while True:
@@ -121,11 +121,11 @@ class CircularReferenceDetector:
                         break
                 if len(scc) > 1:  # 循環がある場合
                     sccs.append(list(reversed(scc)))
-        
+
         for v in graph:
             if v not in indices:
                 strongconnect(v)
-        
+
         return sccs
 
 
@@ -166,18 +166,18 @@ def validate_with_kuzu(connection) -> Dict[str, any]:
         "self_references": [],
         "total_violations": 0
     }
-    
+
     # 自己参照を検出
     self_ref_query = """
     MATCH (r:RequirementEntity)-[:DEPENDS_ON]->(r)
     RETURN r.id as self_reference_id
     """
-    
+
     self_ref_result = connection.execute(self_ref_query)
     while self_ref_result.has_next():
         row = self_ref_result.get_next()
         result["self_references"].append(row[0])
-    
+
     # 循環参照を検出（パスの長さを変えて探索）
     for length in range(2, 11):  # 2から10までの長さ
         cycle_query = f"""
@@ -186,7 +186,7 @@ def validate_with_kuzu(connection) -> Dict[str, any]:
                [node in nodes(path) | node.id] as cycle_path
         LIMIT 100
         """
-        
+
         cycle_result = connection.execute(cycle_query)
         while cycle_result.has_next():
             row = cycle_result.get_next()
@@ -194,14 +194,14 @@ def validate_with_kuzu(connection) -> Dict[str, any]:
             # 重複を避けるため、正規化（最小IDから開始）
             min_idx = cycle_path.index(min(cycle_path))
             normalized_cycle = cycle_path[min_idx:] + cycle_path[:min_idx]
-            
+
             # まだ追加されていない循環のみ追加
             if normalized_cycle not in result["cycles"]:
                 result["cycles"].append(normalized_cycle)
-    
+
     result["has_cycles"] = len(result["cycles"]) > 0 or len(result["self_references"]) > 0
     result["total_violations"] = len(result["cycles"]) + len(result["self_references"])
-    
+
     return result
 
 

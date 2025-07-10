@@ -29,10 +29,10 @@ def list_all_versions(repository: Dict[str, Any], req_id: str) -> List[Dict[str,
     """
     template = load_template("dql", "list_all_versions")
     result = repository["execute"](template, {"req_id": req_id})
-    
+
     versions = []
     version_num = 1
-    
+
     while result.has_next():
         row = result.get_next()
         versions.append({
@@ -43,11 +43,11 @@ def list_all_versions(repository: Dict[str, Any], req_id: str) -> List[Dict[str,
             "author": row[3]
         })
         version_num += 1
-    
+
     return versions
 
 
-def get_version_diff_from_template(repository: Dict[str, Any], req_id: str, 
+def get_version_diff_from_template(repository: Dict[str, Any], req_id: str,
                                   from_version: int, to_version: int) -> Optional[Dict[str, Any]]:
     """
     DQLテンプレートを使用してバージョン差分を取得
@@ -67,27 +67,27 @@ def get_version_diff_from_template(repository: Dict[str, Any], req_id: str,
         "from_version": from_version,
         "to_version": to_version
     })
-    
+
     if result.has_next():
         row = result.get_next()
         version_data = row[0]
-        
+
         # 差分を計算
         from_v = version_data.get("from_version", {})
         to_v = version_data.get("to_version", {})
-        
+
         if from_v and to_v:
             changed_fields = []
             old_values = {}
             new_values = {}
-            
+
             # フィールドごとに比較
             for field in ["title", "description", "status", "priority"]:
                 if from_v.get(field) != to_v.get(field):
                     changed_fields.append(field)
                     old_values[field] = from_v.get(field)
                     new_values[field] = to_v.get(field)
-            
+
             return {
                 "req_id": req_id,
                 "from_version": from_version,
@@ -99,5 +99,5 @@ def get_version_diff_from_template(repository: Dict[str, Any], req_id: str,
                 "author": to_v.get("author"),
                 "timestamp": to_v.get("timestamp")
             }
-    
+
     return None

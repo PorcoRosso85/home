@@ -2,16 +2,15 @@
 要件の完全性をチェックするドメイン層テスト
 TDD Red Phase: これらのテストは最初に失敗する
 """
-import pytest
 from typing import Dict, Any, Optional
 
 
 class RequirementCompleteness:
     """要件の完全性を検証するドメインロジック"""
-    
+
     @staticmethod
     def validate_high_priority_acceptance_criteria(
-        priority: int, 
+        priority: int,
         acceptance_criteria: Optional[str]
     ) -> bool:
         """高優先度要件は受け入れ条件が必須"""
@@ -21,7 +20,7 @@ class RequirementCompleteness:
             return acceptance_criteria is not None and len(acceptance_criteria.strip()) > 0
         # 低優先度は受け入れ条件不要
         return True
-    
+
     @staticmethod
     def validate_technical_specifications(
         requirement_type: str,
@@ -30,13 +29,13 @@ class RequirementCompleteness:
         """技術要件は技術仕様が必須"""
         # 技術系要件タイプ
         technical_types = ["technical", "infrastructure"]
-        
+
         if requirement_type in technical_types:
             # 技術仕様が存在し、空でないこと
             return technical_specifications is not None and len(technical_specifications.strip()) > 0
         # 非技術系要件は仕様不要
         return True
-    
+
     @staticmethod
     def validate_verification_completeness(
         verification_required: bool,
@@ -52,7 +51,7 @@ class RequirementCompleteness:
 
 class TestRequirementCompleteness:
     """要件完全性のテスト"""
-    
+
     def test_high_priority_requirements_must_have_acceptance_criteria(self):
         """高優先度要件（200以上）は受け入れ条件が必須"""
         # テーブル駆動テスト
@@ -65,14 +64,14 @@ class TestRequirementCompleteness:
             (199, None, True),                        # 中優先度 without criteria (OK)
             (100, None, True),                        # 低優先度 without criteria (OK)
         ]
-        
+
         for priority, criteria, expected in test_cases:
             result = RequirementCompleteness.validate_high_priority_acceptance_criteria(
                 priority, criteria
             )
             assert result == expected, \
                 f"Priority {priority} with criteria '{criteria}' should be {expected}"
-    
+
     def test_technical_requirements_must_have_specifications(self):
         """技術要件は技術仕様が必須"""
         test_cases = [
@@ -84,14 +83,14 @@ class TestRequirementCompleteness:
             ("functional", None, True),  # 機能要件は仕様不要
             ("business", None, True),    # ビジネス要件は仕様不要
         ]
-        
+
         for req_type, specs, expected in test_cases:
             result = RequirementCompleteness.validate_technical_specifications(
                 req_type, specs
             )
             assert result == expected, \
                 f"Type '{req_type}' with specs '{specs}' should be {expected}"
-    
+
     def test_verification_required_must_have_tests(self):
         """検証必須要件はテストを持つべき"""
         test_cases = [
@@ -101,14 +100,14 @@ class TestRequirementCompleteness:
             (False, False, True),  # 検証不要 & テストなし (OK)
             (False, True, True),   # 検証不要 & テストあり (OK)
         ]
-        
+
         for verification_required, has_tests, expected in test_cases:
             result = RequirementCompleteness.validate_verification_completeness(
                 verification_required, has_tests
             )
             assert result == expected, \
                 f"Verification={verification_required}, Tests={has_tests} should be {expected}"
-    
+
     def test_requirement_completeness_score(self):
         """要件の完全性スコアを計算"""
         # プロパティベーステスト的なアプローチ
@@ -141,7 +140,7 @@ class TestRequirementCompleteness:
                 "expected_score": 1.0  # 要求レベルでは完全
             }
         ]
-        
+
         for req in test_requirements:
             score = calculate_completeness_score(req)
             assert score == req["expected_score"], \
@@ -152,7 +151,7 @@ def calculate_completeness_score(requirement: Dict[str, Any]) -> float:
     """要件の完全性スコアを計算（0.0-1.0）"""
     violations = 0
     checks = 0
-    
+
     # 1. 高優先度の受け入れ条件チェック
     checks += 1
     if not RequirementCompleteness.validate_high_priority_acceptance_criteria(
@@ -160,7 +159,7 @@ def calculate_completeness_score(requirement: Dict[str, Any]) -> float:
         requirement.get("acceptance_criteria")
     ):
         violations += 1
-    
+
     # 2. 技術要件の仕様チェック
     checks += 1
     if not RequirementCompleteness.validate_technical_specifications(
@@ -168,7 +167,7 @@ def calculate_completeness_score(requirement: Dict[str, Any]) -> float:
         requirement.get("technical_specifications")
     ):
         violations += 1
-    
+
     # 3. 検証完全性チェック
     checks += 1
     if not RequirementCompleteness.validate_verification_completeness(
@@ -176,7 +175,7 @@ def calculate_completeness_score(requirement: Dict[str, Any]) -> float:
         requirement.get("has_tests", False)
     ):
         violations += 1
-    
+
     # スコア計算（違反がなければ1.0）
     return 1.0 - (violations / checks) if checks > 0 else 1.0
 
@@ -189,13 +188,13 @@ if __name__ == "__main__":
         print("❌ Test should fail but passed!")
     except NotImplementedError as e:
         print(f"✅ TDD Red Phase: {e}")
-    
+
     try:
         test.test_technical_requirements_must_have_specifications()
         print("❌ Test should fail but passed!")
     except NotImplementedError as e:
         print(f"✅ TDD Red Phase: {e}")
-    
+
     try:
         test.test_verification_required_must_have_tests()
         print("❌ Test should fail but passed!")

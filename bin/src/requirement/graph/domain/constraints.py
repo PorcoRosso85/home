@@ -3,7 +3,7 @@ Constraints - 制約ルール定義
 外部依存: なし
 """
 from typing import List, Dict, Union, Optional, Any
-from .types import Decision, DecisionError
+from .types import Decision
 
 
 # ConstraintViolationError型定義（TypedDictとして）
@@ -38,37 +38,37 @@ def validate_no_circular_dependency(
             # 循環を検出 - pathに既に存在する場合
             cycle_start = path.index(current)
             return path[cycle_start:] + [current]
-        
+
         if current in visited:
             # 既に訪問済みだが循環ではない
             return None
-        
+
         visited.add(current)
         path.append(current)
-        
+
         for dep in temp_map.get(current, []):
             cycle = find_cycle(dep, visited, path.copy())
             if cycle:
                 return cycle
-        
+
         path.pop()  # バックトラック
         return None
-    
+
     # 新しい依存関係を仮追加
     temp_map = all_dependencies_map.copy()
     temp_map[requirement_id] = dependencies
-    
+
     # 循環チェック
     cycle = find_cycle(requirement_id, set(), [])
-    
+
     if cycle:
         return {
             "type": "ConstraintViolationError",
-            "message": f"Circular dependency detected",
+            "message": "Circular dependency detected",
             "constraint": "no_circular_dependency",
             "details": [f"Cycle: {' -> '.join(cycle)}"]
         }
-    
+
     return True
 
 
@@ -92,15 +92,15 @@ def validate_max_depth(
     """
     if not parent_id:
         return True
-    
+
     depth = 1
     current = parent_id
-    
+
     while current and depth < max_depth:
         current = hierarchy_map.get(current)
         if current:
             depth += 1
-    
+
     if depth >= max_depth:
         return {
             "type": "ConstraintViolationError",
@@ -108,7 +108,7 @@ def validate_max_depth(
             "constraint": "max_hierarchy_depth",
             "details": [f"Current depth would be: {depth + 1}"]
         }
-    
+
     return True
 
 
@@ -131,7 +131,7 @@ def validate_implementation_completeness(
     total_items = len(implementations) if implementations else 1
     implemented = len([i for i in implementations if i.get("status") == "implemented"])
     tested = len([t for t in tests if t.get("status") == "passed"])
-    
+
     completeness = {
         "requirement_id": requirement["id"],
         "total_items": total_items,
@@ -141,16 +141,16 @@ def validate_implementation_completeness(
         "test_coverage": tested / implemented if implemented > 0 else 0,
         "is_complete": implemented == total_items and tested >= implemented
     }
-    
+
     if not completeness["is_complete"]:
         missing = []
         if implemented < total_items:
             missing.append(f"{total_items - implemented} implementations pending")
         if tested < implemented:
             missing.append(f"{implemented - tested} tests missing")
-        
+
         completeness["missing"] = missing
-    
+
     return completeness
 
 

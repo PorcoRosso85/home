@@ -31,5 +31,13 @@
 - **「TRD」「要件」「トレーサビリティ」「DQL」**: `/trd_dql` コマンドを実行（要件の照会・確認）
 - **「データ投入」「DML」「要件登録」**: `/trd_dml` コマンドを実行（要件データベースの構築）
 
+## APE（Automatic Prompt Engineer）ルール
+- 全タスク開始時「Let's work step by step」を前置
+- コード実装:「understand patterns→implement systematically」
+- バグ修正:「reproduce→isolate→fix」  
+- リファクタ:「identify→extract→refactor incrementally」
+- 完了時自己評価:「✅成功/⚠️要改善/❌失敗」+理由+改善点記録
+- 成功パターン蓄積→同種タスクで優先採用
+
 ## Git Commit Rules
 自らが編集したファイル以外のstagingがないことを確認後、初めてコミット可能

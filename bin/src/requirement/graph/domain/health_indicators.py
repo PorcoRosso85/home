@@ -1,15 +1,15 @@
 """
 健全性指標（ドメイン層）
 """
-from typing import Dict, List
+from typing import Dict
 
 
 class HealthIndicator:
     """健全性指標の管理"""
-    
+
     def __init__(self):
         self.scores = {}
-    
+
     def add_category_score(self, category: str, score: int):
         """
         カテゴリ別スコアを追加
@@ -21,15 +21,15 @@ class HealthIndicator:
         if score > 0:
             score = -score  # 常に負の値として保存
         self.scores[category] = score
-    
+
     def get_category_score(self, category: str) -> int:
         """カテゴリ別スコアを取得"""
         return self.scores.get(category, 0)
-    
+
     def set_category_score(self, category: str, score: int):
         """カテゴリ別スコアを設定"""
         self.add_category_score(category, score)
-    
+
     def get_all_scores(self) -> Dict[str, int]:
         """すべてのスコアを取得"""
         return self.scores.copy()
@@ -48,18 +48,18 @@ def calculate_weighted_average(scores: Dict[str, int], weights: Dict[str, float]
     """
     if not scores:
         return 0
-    
+
     total_weighted = 0
     total_weight = 0
-    
+
     for category, score in scores.items():
         weight = weights.get(category, 1.0)
         total_weighted += score * weight
         total_weight += weight
-    
+
     if total_weight == 0:
         return 0
-    
+
     # 整数で返す
     return int(round(total_weighted / total_weight))
 

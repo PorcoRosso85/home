@@ -3,17 +3,13 @@
 import json
 import sys
 import io
-import os
-import subprocess
-import tempfile
-import pytest
 
 from .main import main
 
 
 class TestMain:
     """main関数のテスト"""
-    
+
     def test_main_グラフ深さ制限超過クエリ_エラーレスポンス(self):
         """main_グラフ深さ制限超過Cypherクエリ_適切なJSONエラーレスポンス"""
         # 標準入力をモック
@@ -35,10 +31,10 @@ class TestMain:
                    (r6)-[:DEPENDS_ON]->(r7)
             """
         })
-        
+
         # 標準出力をキャプチャ
         output = io.StringIO()
-        
+
         # mainを実行（標準入出力を置き換え）
         original_stdin = sys.stdin
         original_stdout = sys.stdout
@@ -49,11 +45,11 @@ class TestMain:
         finally:
             sys.stdin = original_stdin
             sys.stdout = original_stdout
-        
+
         # JSONL形式のレスポンスを解析
         lines = output.getvalue().strip().split('\n')
         parsed_lines = [json.loads(line) for line in lines if line]
-        
+
         # エラー行を探す
         error_lines = [l for l in parsed_lines if l["type"] == "error"]
         assert len(error_lines) >= 1
@@ -81,11 +77,11 @@ class TestMain:
             (arch)-[:DEPENDS_ON]->(module)
             """
         })
-        
+
         output = io.StringIO()
         original_stdin = sys.stdin
         original_stdout = sys.stdout
-        
+
         try:
             sys.stdin = io.StringIO(test_input)
             sys.stdout = output
@@ -98,7 +94,7 @@ class TestMain:
         finally:
             sys.stdin = original_stdin
             sys.stdout = original_stdout
-        
+
         # グラフ深さ制限エラーが出ていないことを確認
         output_str = output.getvalue()
         if output_str:
@@ -114,11 +110,11 @@ class TestMain:
     def test_main_無効なJSON_エラーレスポンス(self):
         """main_無効なJSON入力_適切なエラーレスポンス"""
         test_input = "{ invalid json"
-        
+
         output = io.StringIO()
         original_stdin = sys.stdin
         original_stdout = sys.stdout
-        
+
         try:
             sys.stdin = io.StringIO(test_input)
             sys.stdout = output
@@ -126,11 +122,11 @@ class TestMain:
         finally:
             sys.stdin = original_stdin
             sys.stdout = original_stdout
-        
+
         # JSONL形式のレスポンスを解析
         lines = output.getvalue().strip().split('\n')
         parsed_lines = [json.loads(line) for line in lines if line]
-        
+
         # エラー行を探す
         error_lines = [l for l in parsed_lines if l["type"] == "error"]
         assert len(error_lines) >= 1
@@ -141,11 +137,11 @@ class TestMain:
     def test_main_空の入力_エラーレスポンス(self):
         """main_空の入力_適切なエラーレスポンス"""
         test_input = ""
-        
+
         output = io.StringIO()
         original_stdin = sys.stdin
         original_stdout = sys.stdout
-        
+
         try:
             sys.stdin = io.StringIO(test_input)
             sys.stdout = output
@@ -153,11 +149,11 @@ class TestMain:
         finally:
             sys.stdin = original_stdin
             sys.stdout = original_stdout
-        
+
         # JSONL形式のレスポンスを解析
         lines = output.getvalue().strip().split('\n')
         parsed_lines = [json.loads(line) for line in lines if line]
-        
+
         # エラー行を探す
         error_lines = [l for l in parsed_lines if l["type"] == "error"]
         assert len(error_lines) >= 1

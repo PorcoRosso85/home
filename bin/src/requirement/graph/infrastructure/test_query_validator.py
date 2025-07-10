@@ -1,19 +1,18 @@
 """Query Validatorのテスト"""
 
-import pytest
 from .query_validator import QueryValidator
 
 
 class TestQueryValidator:
     """QueryValidatorのテスト"""
-    
+
     def test_validate_safe_read_query_returns_valid(self):
         """validate_安全な読み取りクエリ_有効を返す"""
         validator = QueryValidator()
         query = "MATCH (r:RequirementEntity) WHERE r.status = 'approved' RETURN r"
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is True
         assert error is None
 
@@ -28,9 +27,9 @@ class TestQueryValidator:
         })
         RETURN r
         """
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is True
         assert error is None
 
@@ -38,9 +37,9 @@ class TestQueryValidator:
         """validate_DROP_DATABASEクエリ_無効を返す"""
         validator = QueryValidator()
         query = "DROP DATABASE production"
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is False, f"Expected invalid but got {is_valid}"
         assert error is not None, "Error message should not be None"
         assert "DROP" in error or "drop" in error, f"Expected 'DROP' in error but got: {error}"
@@ -49,9 +48,9 @@ class TestQueryValidator:
         """validate_DETACH_DELETEクエリ_無効を返す"""
         validator = QueryValidator()
         query = "MATCH (n) DETACH DELETE n"
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is False, f"Expected invalid but got {is_valid}"
         assert error is not None, "Error message should not be None"
         assert "DETACH" in error or "DELETE" in error, f"Expected 'DETACH DELETE' in error but got: {error}"
@@ -60,9 +59,9 @@ class TestQueryValidator:
         """validate_未承認ラベル_無効を返す"""
         validator = QueryValidator()
         query = "MATCH (u:User) DELETE u"
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is False
         assert "Unauthorized label" in error or "User" in error
 
@@ -70,9 +69,9 @@ class TestQueryValidator:
         """validate_パラメータインジェクション試行_無効を返す"""
         validator = QueryValidator()
         query = "MATCH (r:RequirementEntity) WHERE r.id = $id + '; DROP DATABASE prod;' RETURN r"
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is False
         assert "injection" in error.lower() or "forbidden" in error.lower()
 
@@ -84,9 +83,9 @@ class TestQueryValidator:
             "title": "Normal title",
             "description": "'; DROP TABLE RequirementEntity; --"
         }
-        
+
         sanitized = validator.sanitize_parameters(params)
-        
+
         assert sanitized["id"] == "req_001"
         assert sanitized["title"] == "Normal title"
         assert "DROP" not in sanitized["description"]
@@ -96,9 +95,9 @@ class TestQueryValidator:
         """validate_カスタムプロシージャ呼び出し_有効を返す"""
         validator = QueryValidator()
         query = "CALL requirement.score($req_id, $query_text, 'similarity') YIELD score, details RETURN score"
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is True
         assert error is None
 
@@ -114,18 +113,18 @@ class TestQueryValidator:
         ORDER BY child_count DESC
         LIMIT 10
         """
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is True, f"Expected valid but got invalid. Error: {error}"
         assert error is None
 
     def test_validate_empty_query_returns_invalid(self):
         """validate_空クエリ_無効を返す"""
         validator = QueryValidator()
-        
+
         is_valid, error = validator.validate("")
-        
+
         assert is_valid is False
         assert "empty" in error.lower()
 
@@ -137,9 +136,9 @@ class TestQueryValidator:
         CREATE (r1)-[:PARENT_OF]->(r3:RequirementEntity)
         RETURN r1, r2, r3
         """
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is True
         assert error is None
 
@@ -147,9 +146,9 @@ class TestQueryValidator:
         """validate_未承認の関係タイプ_無効を返す"""
         validator = QueryValidator()
         query = "MATCH (r1:RequirementEntity)-[:UNKNOWN_REL]->(r2:RequirementEntity) RETURN r1"
-        
+
         is_valid, error = validator.validate(query)
-        
+
         assert is_valid is False
         assert "Unauthorized relationship" in error
 
@@ -163,9 +162,9 @@ class TestQueryValidator:
             "tags": ["tag1", "tag2"],
             "metadata": {"key": "value"}
         }
-        
+
         sanitized = validator.sanitize_parameters(params)
-        
+
         assert sanitized["id"] == "req_001"
         assert sanitized["count"] == 42
         assert sanitized["is_active"] is True

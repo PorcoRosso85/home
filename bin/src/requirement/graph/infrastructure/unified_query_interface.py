@@ -3,7 +3,7 @@ Unified Query Interface - Cypherとカスタムプロシージャの統合イン
 依存: cypher_executor, custom_procedures, query_validator
 外部依存: なし
 """
-from typing import Dict, List, Any, Optional, Union, Callable
+from typing import Dict, List, Any, Optional
 import re
 
 
@@ -12,19 +12,19 @@ class UnifiedQueryInterface:
     Cypherクエリとカスタムプロシージャを統合的に扱うインターフェース
     LLMが自然にクエリを記述できるようにする
     """
-    
+
     def __init__(self, cypher_executor, custom_procedures, query_validator):
         self.cypher = cypher_executor
         self.procedures = custom_procedures
         self.validator = query_validator
-        
+
         # クエリタイプのパターン
         self.patterns = {
             "procedure_call": re.compile(r"CALL\s+(\w+\.\w+)\s*\((.*?)\)", re.IGNORECASE),
             "with_procedure": re.compile(r"WITH.*?CALL\s+(\w+\.\w+)", re.IGNORECASE),
             "return_procedure": re.compile(r"RETURN\s+(\w+\.\w+)\s*\(", re.IGNORECASE)
         }
-    
+
     def execute(
         self,
         query: str,
@@ -44,10 +44,10 @@ class UnifiedQueryInterface:
         """
         parameters = parameters or {}
         options = options or {}
-        
+
         # クエリタイプを判定
         query_type = self._detect_query_type(query)
-        
+
         if query_type == "pure_cypher":
             # 純粋なCypherクエリ
             return self._execute_pure_cypher(query, parameters, options)
@@ -57,20 +57,20 @@ class UnifiedQueryInterface:
         else:
             # 混合クエリ（Cypher + プロシージャ）
             return self._execute_mixed_query(query, parameters, options)
-    
+
     def _detect_query_type(self, query: str) -> str:
         """クエリタイプを検出"""
         has_call = bool(self.patterns["procedure_call"].search(query))
         has_match = "MATCH" in query.upper()
         has_create = "CREATE" in query.upper()
-        
+
         if has_call and not (has_match or has_create):
             return "procedure_only"
         elif has_call:
             return "mixed"
         else:
             return "pure_cypher"
-    
+
     def _execute_pure_cypher(
         self,
         query: str,
@@ -86,13 +86,13 @@ class UnifiedQueryInterface:
                 "error": f"Query validation failed: {error_msg}",
                 "query": query
             }
-        
+
         # パラメータサニタイズ
         clean_params = self.validator.sanitize_parameters(parameters)
-        
+
         # 実行
         result = self.cypher.execute(query, clean_params)
-        
+
         if "error" in result:
             return {
                 "status": "error",
@@ -100,7 +100,7 @@ class UnifiedQueryInterface:
                 "error_type": result["error"]["type"],
                 "query": query
             }
-        
+
         return {
             "status": "success",
             "data": result.get("data", []),
@@ -110,7 +110,7 @@ class UnifiedQueryInterface:
                 "query_type": "cypher"
             }
         }
-    
+
     def _execute_procedure_only(
         self,
         query: str,
@@ -124,13 +124,13 @@ class UnifiedQueryInterface:
                 "status": "error",
                 "error": "Invalid procedure call syntax"
             }
-        
+
         proc_name = match.group(1)
         args_str = match.group(2)
-        
+
         # 引数をパース
         args = self._parse_procedure_args(args_str, parameters)
-        
+
         # プロシージャを実行
         if proc_name not in self.procedures.procedures:
             return {
@@ -138,11 +138,11 @@ class UnifiedQueryInterface:
                 "error": f"Unknown procedure: {proc_name}",
                 "available_procedures": list(self.procedures.procedures.keys())
             }
-        
+
         try:
             proc_func = self.procedures.procedures[proc_name]
             results = proc_func(*args)
-            
+
             return {
                 "status": "success",
                 "data": results,
@@ -158,7 +158,7 @@ class UnifiedQueryInterface:
                 "error": str(e),
                 "procedure": proc_name
             }
-    
+
     def _execute_mixed_query(
         self,
         query: str,
@@ -168,10 +168,10 @@ class UnifiedQueryInterface:
         """Cypherとプロシージャの混合クエリを実行"""
         # 混合クエリを分解
         segments = self._split_mixed_query(query)
-        
+
         results = []
         final_data = []
-        
+
         for segment in segments:
             if segment["type"] == "cypher":
                 # Cypherセグメントを実行
@@ -182,13 +182,13 @@ class UnifiedQueryInterface:
                 )
                 if result["status"] == "error":
                     return result
-                
+
                 # 結果を次のセグメントのパラメータとして使用
                 if result["data"]:
                     # 最後の結果を次のパラメータに追加
                     parameters["_previous_result"] = result["data"]
                     final_data = result["data"]
-                    
+
             elif segment["type"] == "procedure":
                 # プロシージャセグメントを実行
                 # 前の結果を引数として使用
@@ -200,24 +200,24 @@ class UnifiedQueryInterface:
                     )
                 else:
                     proc_args = segment["args"]
-                
+
                 try:
                     proc_func = self.procedures.procedures[segment["name"]]
                     proc_results = proc_func(*proc_args)
-                    
+
                     # プロシージャ結果を統合
                     if isinstance(proc_results, list):
                         final_data.extend(proc_results)
                     else:
                         final_data.append(proc_results)
-                        
+
                 except Exception as e:
                     return {
                         "status": "error",
                         "error": str(e),
                         "procedure": segment["name"]
                     }
-        
+
         return {
             "status": "success",
             "data": final_data,
@@ -226,7 +226,7 @@ class UnifiedQueryInterface:
                 "segments": len(segments)
             }
         }
-    
+
     def _parse_procedure_args(
         self,
         args_str: str,
@@ -235,14 +235,14 @@ class UnifiedQueryInterface:
         """プロシージャ引数をパース"""
         if not args_str.strip():
             return []
-        
+
         args = []
         # 簡易パーサー（カンマ区切り）
         parts = args_str.split(",")
-        
+
         for part in parts:
             part = part.strip()
-            
+
             # パラメータ参照（$param）
             if part.startswith("$"):
                 param_name = part[1:]
@@ -265,17 +265,17 @@ class UnifiedQueryInterface:
             else:
                 # その他は文字列として扱う
                 args.append(part)
-        
+
         return args
-    
+
     def _split_mixed_query(self, query: str) -> List[Dict[str, Any]]:
         """混合クエリをセグメントに分割"""
         segments = []
-        
+
         # 簡易的な分割（CALLの位置で分割）
         # 実際の実装では、より高度なパーサーが必要
         call_pattern = re.compile(r"(.*?)(CALL\s+\w+\.\w+\s*\([^)]*\))(.*)", re.IGNORECASE | re.DOTALL)
-        
+
         remaining = query
         while remaining:
             match = call_pattern.match(remaining)
@@ -287,7 +287,7 @@ class UnifiedQueryInterface:
                         "type": "cypher",
                         "query": cypher_part
                     })
-                
+
                 # プロシージャパート
                 proc_match = self.patterns["procedure_call"].search(match.group(2))
                 if proc_match:
@@ -296,7 +296,7 @@ class UnifiedQueryInterface:
                         "name": proc_match.group(1),
                         "args": self._parse_procedure_args(proc_match.group(2), {})
                     })
-                
+
                 remaining = match.group(3).strip()
             else:
                 # 残りはCypherとして扱う
@@ -306,9 +306,9 @@ class UnifiedQueryInterface:
                         "query": remaining
                     })
                 break
-        
+
         return segments
-    
+
     def _merge_with_previous_result(
         self,
         args: List[Any],
@@ -322,18 +322,18 @@ class UnifiedQueryInterface:
                     args[0] = previous_result[0]["id"]
                 else:
                     args = [previous_result[0]["id"]]
-        
+
         return args
-    
+
     def explain(self, query: str) -> Dict[str, Any]:
         """クエリの実行計画を説明"""
         query_type = self._detect_query_type(query)
-        
+
         explanation = {
             "query_type": query_type,
             "steps": []
         }
-        
+
         if query_type == "pure_cypher":
             explanation["steps"].append({
                 "step": 1,
@@ -365,5 +365,5 @@ class UnifiedQueryInterface:
                         "procedure": segment["name"],
                         "description": f"Call procedure {segment['name']}"
                     })
-        
+
         return explanation

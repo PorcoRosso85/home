@@ -14,7 +14,7 @@ def test_create_decision_invalid_input_returns_validation_error():
         description="test",
         embedding=[1.0] * 30  # 不正な次元数
     )
-    
+
     assert "type" in result
     if "type" in result:
         error = result

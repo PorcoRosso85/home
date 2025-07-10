@@ -6,7 +6,7 @@ from typing import Dict, List
 
 class BusinessPhase:
     """ビジネスフェーズの定義"""
-    
+
     @staticmethod
     def get_all_phases() -> List[float]:
         """

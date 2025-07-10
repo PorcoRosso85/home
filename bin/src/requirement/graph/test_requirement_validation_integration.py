@@ -4,28 +4,28 @@
 """
 import pytest
 from .infrastructure.kuzu_repository import create_kuzu_repository
-from .domain.test_requirement_completeness import RequirementCompleteness, calculate_completeness_score
+from .domain.test_requirement_completeness import calculate_completeness_score
 
 
 class TestRequirementValidationIntegration:
     """要件検証の統合テスト"""
-    
+
     def setup_method(self):
         """各テストの前に環境を準備"""
         # テスト環境では自動的にインメモリDBを使用
         self.repo = create_kuzu_repository()
-        
+
         # スキーマを適用
         from .infrastructure.ddl_schema_manager import DDLSchemaManager
         from pathlib import Path
-        
+
         schema_manager = DDLSchemaManager(self.repo["connection"])
         schema_path = Path(__file__).parent / "ddl" / "migrations" / "3.2.0_current.cypher"
         if schema_path.exists():
             success, results = schema_manager.apply_schema(str(schema_path))
             if not success:
                 raise RuntimeError(f"Failed to apply schema: {results}")
-    
+
     def test_incomplete_requirements_detection(self):
         """不完全な要件を検出できる"""
         # 不完全な高優先度要件を作成
@@ -39,7 +39,7 @@ class TestRequirementValidationIntegration:
             // acceptance_criteria が欠落
         })
         """, {})
-        
+
         # 不完全な技術要件を作成
         self.repo["execute"]("""
         CREATE (r2:RequirementEntity {
@@ -51,7 +51,7 @@ class TestRequirementValidationIntegration:
             // technical_specifications が欠落
         })
         """, {})
-        
+
         # 検証必須だがテストがない要件
         self.repo["execute"]("""
         CREATE (r3:RequirementEntity {
@@ -63,7 +63,7 @@ class TestRequirementValidationIntegration:
             // IS_VERIFIED_BY 関係が欠落
         })
         """, {})
-        
+
         # 不完全な要件をクエリで検出
         result = self.repo["execute"]("""
         MATCH (r:RequirementEntity)
@@ -73,7 +73,7 @@ class TestRequirementValidationIntegration:
                r.verification_required
         ORDER BY r.priority DESC
         """, {})
-        
+
         incomplete_requirements = []
         while result.has_next():
             row = result.get_next()
@@ -87,16 +87,16 @@ class TestRequirementValidationIntegration:
                 "verification_required": row[6] if row[6] is not None else False,
                 "has_tests": False  # 簡略化のため、IS_VERIFIED_BY関係は未実装
             }
-            
+
             # 完全性スコアを計算
             score = calculate_completeness_score(req)
             if score < 1.0:
                 incomplete_requirements.append((req["id"], req["title"], score))
-        
+
         # 3つの不完全な要件が検出されるべき
         assert len(incomplete_requirements) == 3
         assert all(score < 1.0 for _, _, score in incomplete_requirements)
-    
+
     def test_complete_requirements_validation(self):
         """完全な要件は検証を通過する"""
         # 完全な高優先度要件
@@ -110,7 +110,7 @@ class TestRequirementValidationIntegration:
             acceptance_criteria: '1. SOC2準拠\\n2. データ暗号化\\n3. 監査ログ'
         })
         """, {})
-        
+
         # 完全な技術要件（高優先度なので受け入れ条件も必要）
         self.repo["execute"]("""
         CREATE (r2:RequirementEntity {
@@ -123,7 +123,7 @@ class TestRequirementValidationIntegration:
             acceptance_criteria: '1. 99.9%の稼働率\\n2. レスポンスタイム < 100ms'
         })
         """, {})
-        
+
         # 低優先度要件（受け入れ条件不要）
         self.repo["execute"]("""
         CREATE (r3:RequirementEntity {
@@ -134,7 +134,7 @@ class TestRequirementValidationIntegration:
             requirement_type: 'functional'
         })
         """, {})
-        
+
         # 完全な要件をクエリ
         result = self.repo["execute"]("""
         MATCH (r:RequirementEntity)
@@ -144,7 +144,7 @@ class TestRequirementValidationIntegration:
                r.verification_required
         ORDER BY r.priority DESC
         """, {})
-        
+
         complete_requirements = []
         while result.has_next():
             row = result.get_next()
@@ -158,20 +158,20 @@ class TestRequirementValidationIntegration:
                 "verification_required": row[6] if row[6] is not None else False,
                 "has_tests": False
             }
-            
+
             score = calculate_completeness_score(req)
             complete_requirements.append((req["id"], req["title"], score))
-        
+
         # すべての要件が完全であるべき
         assert len(complete_requirements) == 3
-        
+
         # デバッグ情報を出力
         for req_id, title, score in complete_requirements:
             print(f"{req_id}: {title} - Score: {score}")
-        
+
         # スコアが0.66以上であればOK（検証必須のチェックは無視）
         assert all(score >= 0.66 for _, _, score in complete_requirements)
-    
+
     def test_traceability_report_with_completeness(self):
         """完全性を含むトレーサビリティレポートを生成"""
         # テストデータを作成
@@ -193,10 +193,10 @@ class TestRequirementValidationIntegration:
                      (b:RequirementEntity {id: 'TRACE_001'})
                CREATE (a)-[:DEPENDS_ON]->(b)"""
         ]
-        
+
         for query in test_data:
             self.repo["execute"](query, {})
-        
+
         # トレーサビリティと完全性の統合レポート
         report_query = """
         MATCH (r:RequirementEntity)
@@ -207,9 +207,9 @@ class TestRequirementValidationIntegration:
                collect(dep.id) as dependencies
         ORDER BY r.priority DESC
         """
-        
+
         result = self.repo["execute"](report_query, {})
-        
+
         report = []
         while result.has_next():
             row = result.get_next()
@@ -224,7 +224,7 @@ class TestRequirementValidationIntegration:
                 "has_tests": False,
                 "verification_required": False
             }
-            
+
             score = calculate_completeness_score(req)
             report.append({
                 "id": req["id"],
@@ -232,7 +232,7 @@ class TestRequirementValidationIntegration:
                 "completeness_score": score,
                 "dependencies": req["dependencies"]
             })
-        
+
         # レポート検証
         assert len(report) == 2
         # TRACE_001は完全

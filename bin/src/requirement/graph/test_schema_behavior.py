@@ -16,27 +16,27 @@ from requirement.graph.infrastructure.database_factory import create_database, c
 def test_schema_re_initialization():
     """Test what happens when schema is initialized twice"""
     print("\n=== Testing Schema Re-initialization ===")
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Using temp directory: {temp_dir}")
-        
+
         # First initialization
         print("\n1. First initialization:")
         success1 = apply_ddl_schema(db_path=temp_dir, create_test_data=True)
         print(f"   Result: {'SUCCESS' if success1 else 'FAILED'}")
-        
+
         if success1:
             # Check what was created
             db = create_database(path=temp_dir)
             conn = create_connection(db)
-            
+
             try:
                 # Count nodes
                 result = conn.execute("MATCH (r:RequirementEntity) RETURN count(r) as cnt")
                 if result.has_next():
                     count1 = result.get_next()[0]
                     print(f"   RequirementEntity count: {count1}")
-                
+
                 # Add custom data
                 print("\n2. Adding custom requirement...")
                 conn.execute("""
@@ -49,22 +49,22 @@ def test_schema_re_initialization():
                     })
                 """)
                 print("   Custom requirement added")
-                
+
             except Exception as e:
                 print(f"   Error during first check: {e}")
             finally:
                 conn.close()
-            
+
             # Second initialization - this is the problem area
             print("\n3. Second initialization (re-init):")
             try:
                 success2 = apply_ddl_schema(db_path=temp_dir, create_test_data=True)
                 print(f"   Result: {'SUCCESS' if success2 else 'FAILED'}")
-                
+
                 # Check if custom data survived
                 db2 = create_database(path=temp_dir)
                 conn2 = create_connection(db2)
-                
+
                 try:
                     # Check custom requirement
                     result = conn2.execute("MATCH (r:RequirementEntity {id: 'custom_req_001'}) RETURN r.title")
@@ -72,42 +72,42 @@ def test_schema_re_initialization():
                         print("   ✓ Custom data PRESERVED after re-init")
                     else:
                         print("   ✗ Custom data LOST after re-init!")
-                    
+
                     # Count all requirements
                     result = conn2.execute("MATCH (r:RequirementEntity) RETURN count(r) as cnt")
                     if result.has_next():
                         count2 = result.get_next()[0]
                         print(f"   Total RequirementEntity count: {count2}")
-                        
+
                 except Exception as e:
                     print(f"   Error checking after re-init: {e}")
                 finally:
                     conn2.close()
-                    
+
             except Exception as e:
                 print(f"   Re-initialization failed with: {e}")
-                
+
 
 def test_schema_check_without_init():
     """Test repository behavior without schema initialization"""
     print("\n=== Testing Schema Check Without Init ===")
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Using temp directory: {temp_dir}")
-        
+
         # Try to check if schema exists
         db = create_database(path=temp_dir)
         conn = create_connection(db)
-        
+
         print("\n1. Checking if schema exists (before init):")
         try:
             result = conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
             print("   Schema check succeeded - schema exists")
         except Exception as e:
             print(f"   Schema check failed - schema does not exist: {e}")
-        
+
         conn.close()
-        
+
         # Now try to create repository without schema
         print("\n2. Creating repository without schema:")
         try:
@@ -124,11 +124,11 @@ def test_schema_check_without_init():
 def test_schema_status_check():
     """Test different ways to check schema status"""
     print("\n=== Testing Schema Status Check Methods ===")
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         db = create_database(path=temp_dir)
         conn = create_connection(db)
-        
+
         # Method 1: Try to query a table
         print("\n1. Query table method:")
         try:
@@ -140,7 +140,7 @@ def test_schema_status_check():
                 print("   Schema does not exist (table not found)")
             else:
                 print(f"   Unexpected error: {e}")
-        
+
         # Method 2: Check for specific tables
         print("\n2. Check table catalog (if available):")
         try:
@@ -151,7 +151,7 @@ def test_schema_status_check():
                 print(f"   - {result.get_next()}")
         except Exception as e:
             print(f"   Table catalog not available: {e}")
-        
+
         conn.close()
 
 
