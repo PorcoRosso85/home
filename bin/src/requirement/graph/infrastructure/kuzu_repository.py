@@ -9,17 +9,12 @@ TODO: リポジトリ層のクエリ管理改善
 - 例: query_loader.load("dql/get_requirement_history.cypher")
 - 利点: クエリの再利用性向上、テスト容易性向上
 """
-import os
-import sys
-import json
-from typing import List, Dict, Optional, Any
-from pathlib import Path
-from datetime import datetime
+from typing import List, Dict, Optional
 
 # 相対インポートのみ使用
-from ..domain.types import Decision, DecisionResult, DecisionNotFoundError, DecisionError
-from .variables import get_db_path, LD_LIBRARY_PATH, should_skip_schema_check
-from .logger import debug, info, warn, error
+from ..domain.types import Decision, DecisionResult
+from .variables import get_db_path, should_skip_schema_check
+from .logger import debug, info
 
 
 def create_kuzu_repository(db_path: str = None) -> Dict:
@@ -36,7 +31,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     """
     # データベースファクトリーを使用
     from .database_factory import create_database, create_connection
-    
+
     # db_pathが明示的に指定されていない場合、環境に応じて決定
     if db_path is None:
         # テストモードかどうか判定
@@ -47,21 +42,21 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         else:
             db_path = get_db_path()
             info("rgl.repo", "Production mode, using persistent database", db_path=db_path)
-    
+
     debug("rgl.repo", "Using database path", path=str(db_path))
-    
+
     # インメモリデータベースの判定
     in_memory = db_path == ":memory:"
-    
+
     # データベースとコネクションの作成
     if in_memory:
         # テスト用: キャッシュなし、ユニークインスタンス
         db = create_database(in_memory=True, use_cache=False, test_unique=True)
     else:
         db = create_database(path=str(db_path))
-    
+
     conn = create_connection(db)
-    
+
     def init_schema():
         """スキーマ初期化 - graph/ddl/schema.cypherは事前適用済みと仮定"""
         # graph/ddl/schema.cypherが適用済みであることを前提とする
@@ -70,15 +65,15 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
         except:
             raise RuntimeError("Schema not initialized. Run apply_ddl_schema.py first")
-    
+
     # 初回はスキーマ作成（テスト時はスキップ可能）
     if not should_skip_schema_check():
         init_schema()
-    
+
     # 階層処理用UDFを登録（削除済み）
     # from .hierarchy_udfs import register_hierarchy_udfs
     # register_hierarchy_udfs(conn)
-    
+
     def save(decision: Decision, parent_id: Optional[str] = None, track_version: bool = True) -> DecisionResult:
         """要件を保存（バージョン追跡付き）"""
         try:
@@ -87,10 +82,10 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 MATCH (r:RequirementEntity {id: $id})
                 RETURN r
             """, {"id": decision["id"]})
-            
+
             is_new = not existing_check.has_next()
             operation = "CREATE" if is_new else "UPDATE"
-            
+
             # ミュータブルアプローチ: CREATEまたはUPDATE
             if is_new:
                 # 新規作成
@@ -122,25 +117,25 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "description": decision["description"],
                     "status": decision["status"]
                 })
-            
+
             # LocationURIの処理
             from ..domain.version_tracking import create_location_uri
             location_uri = create_location_uri(decision["id"])
-            
+
             if is_new:
                 # LocationURIノードを作成
                 conn.execute("""
                     CREATE (l:LocationURI {id: $uri})
                     RETURN l
                 """, {"uri": location_uri})
-                
+
                 # LOCATES関係を作成
                 conn.execute("""
                     MATCH (l:LocationURI {id: $uri})
                     MATCH (r:RequirementEntity {id: $id})
                     CREATE (l)-[:LOCATES {entity_type: 'requirement', current: true}]->(r)
                 """, {"uri": location_uri, "id": decision["id"]})
-            
+
             # 変更フィールドを検出（既存要件の場合）
             # 変更フィールドを検出（既存要件の場合）
             changed_fields = []
@@ -155,7 +150,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                                 "old_value": old_req.get(field),
                                 "new_value": decision.get(field)
                             })
-            
+
             # バージョン番号を計算
             # TODO: HAS_VERSION削除後の修正が必要
             # 新方式: MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l:LocationURI {id: CONCAT('req://', $id)})
@@ -166,16 +161,16 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     MATCH (r:RequirementEntity {id: $id})-[:HAS_VERSION]->(v:VersionState)
                     RETURN count(v) as count
                 """, {"id": decision["id"]})
-                
+
                 if version_count_result.has_next():
                     version_num = version_count_result.get_next()[0] + 1
                 else:
                     version_num = 1
-            
+
             # バージョン情報をdecisionに追加
             decision["version_id"] = f"ver_{decision['id']}_v{version_num}"
             decision["version"] = version_num
-            
+
             # 親子関係を設定（LocationURI階層として）
             if parent_id:
                 # 親の存在確認
@@ -183,45 +178,45 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     MATCH (parent:RequirementEntity {id: $parent_id})
                     RETURN count(*) > 0 as parent_exists
                 """, {"parent_id": parent_id})
-                
+
                 if not parent_check.has_next() or not parent_check.get_next()[0]:
                     return {
                         "type": "DecisionNotFoundError",
                         "message": f"Parent requirement {parent_id} not found",
                         "decision_id": parent_id
                     }
-                
+
                 # 親のLocationURIを取得して階層関係を作成
                 parent_uri = location_uri.rsplit('/', 1)[0]  # 親パスを推定
-                
+
                 # 既存の関係を確認
                 existing_rel = conn.execute("""
                     MATCH (parent:LocationURI {id: $parent_uri})-[rel:CONTAINS_LOCATION]->(child:LocationURI {id: $child_uri})
                     RETURN rel
                 """, {
-                    "parent_uri": parent_uri, 
+                    "parent_uri": parent_uri,
                     "child_uri": location_uri
                 })
-                
+
                 if not existing_rel.has_next():
                     conn.execute("""
                         MATCH (parent:LocationURI {id: $parent_uri})
                         MATCH (child:LocationURI {id: $child_uri})
                         CREATE (parent)-[:CONTAINS_LOCATION {relation_type: 'hierarchy'}]->(child)
                     """, {
-                        "parent_uri": parent_uri, 
+                        "parent_uri": parent_uri,
                         "child_uri": location_uri
                     })
-            
+
             return decision
-            
+
         except Exception as e:
             return {
                 "type": "DatabaseError",
                 "message": f"Failed to save requirement: {str(e)}",
                 "decision_id": decision["id"]
             }
-    
+
     def find(requirement_id: str) -> DecisionResult:
         """IDで要件を検索（最新バージョンを返す）"""
         try:
@@ -233,7 +228,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 ORDER BY r.created_at DESC
                 LIMIT 1
             """, {"uri": f"req://{requirement_id}"})
-            
+
             # LocationURIがない場合は直接検索（後方互換性）
             if not result.has_next():
                 result = conn.execute("""
@@ -242,33 +237,32 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     ORDER BY r.created_at DESC
                     LIMIT 1
                 """, {"id": requirement_id})
-            
+
             if result.has_next():
                 row = result.get_next()
                 node = row[0]
-                
+
                 # KuzuDBのノードから辞書に変換
-                from datetime import datetime
                 return {
                     "id": node["id"],
                     "title": node["title"],
                     "description": node["description"],
                     "status": node["status"]
                 }
-            
+
             return {
                 "type": "DecisionNotFoundError",
                 "message": f"Requirement {requirement_id} not found",
                 "decision_id": requirement_id
             }
-            
+
         except Exception as e:
             return {
                 "type": "DatabaseError",
                 "message": f"Failed to find requirement: {str(e)}",
                 "decision_id": requirement_id
             }
-    
+
     def find_all() -> List[Decision]:
         """全要件を取得"""
         try:
@@ -277,24 +271,24 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 RETURN r
                 ORDER BY r.created_at DESC
             """)
-            
+
             requirements = []
             while result.has_next():
                 row = result.get_next()
                 node = row[0]
-                
+
                 requirements.append({
                     "id": node["id"],
                     "title": node["title"],
                     "description": node["description"],
                     "status": node["status"]
                 })
-            
+
             return requirements
-            
-        except Exception as e:
+
+        except Exception:
             return []
-    
+
     def add_dependency(from_id: str, to_id: str, dependency_type: str = "depends_on", reason: str = "") -> Dict:
         """依存関係を追加"""
         try:
@@ -305,21 +299,21 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "message": f"Self dependency not allowed: {from_id} -> {to_id}",
                     "constraint": "no_circular_dependency"
                 }
-            
+
             # 循環依存チェック
             # from_id → to_id を追加すると、to_id → ... → from_id のパスがあれば循環
             cycle_check = conn.execute("""
                 MATCH (from:RequirementEntity {id: $to_id})-[:DEPENDS_ON*]->(to:RequirementEntity {id: $from_id})
                 RETURN count(*) > 0 as has_cycle
             """, {"from_id": from_id, "to_id": to_id})
-            
+
             if cycle_check.has_next() and cycle_check.get_next()[0]:
                 return {
                     "type": "ConstraintViolationError",
                     "message": f"Circular dependency detected: {from_id} -> {to_id}",
                     "constraint": "no_circular_dependency"
                 }
-            
+
             # 既存の依存関係を確認
             existing_dep = conn.execute("""
                 MATCH (from:RequirementEntity {id: $from_id})-[dep:DEPENDS_ON]->(to:RequirementEntity {id: $to_id})
@@ -328,7 +322,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 "from_id": from_id,
                 "to_id": to_id
             })
-            
+
             if not existing_dep.has_next():
                 # 依存関係を作成
                 conn.execute("""
@@ -342,9 +336,9 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "type": dependency_type,
                     "reason": reason
                 })
-            
+
             return {"success": True, "from": from_id, "to": to_id}
-            
+
         except Exception as e:
             return {
                 "type": "DatabaseError",
@@ -352,7 +346,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 "from_id": from_id,
                 "to_id": to_id
             }
-    
+
     def find_dependencies(requirement_id: str, depth: int = 1) -> List[Dict]:
         """依存関係を検索"""
         try:
@@ -361,14 +355,14 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 RETURN DISTINCT dep, length(path) as distance
                 ORDER BY distance
             """, {"id": requirement_id})
-            
+
             dependencies = []
             while result.has_next():
                 row = result.get_next()
                 if len(row) >= 2:
                     node = row[0]
                     distance = row[1]
-                    
+
                     dependencies.append({
                         "requirement": {
                             "id": node["id"],
@@ -380,12 +374,12 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                         },
                         "distance": distance
                     })
-            
+
             return dependencies
-            
-        except Exception as e:
+
+        except Exception:
             return []
-    
+
     def search(query: str, threshold: float = 0.7) -> List[Decision]:
         """埋め込みベクトルを使った類似検索"""
         # TODO: ベクトル検索の実装
@@ -397,24 +391,24 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 RETURN r
                 ORDER BY r.created_at DESC
             """, {"query": query})
-            
+
             requirements = []
             while result.has_next():
                 row = result.get_next()
                 node = row[0]
-                
+
                 requirements.append({
                     "id": node["id"],
                     "title": node["title"],
                     "description": node["description"],
                     "status": node["status"]
                 })
-            
+
             return requirements
-            
-        except Exception as e:
+
+        except Exception:
             return []
-    
+
     def find_ancestors(requirement_id: str, depth: int = 10) -> List[Dict]:
         """要件の祖先（親・祖父母など）を探索"""
         try:
@@ -427,14 +421,14 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 RETURN DISTINCT ancestor, length(path) as distance
                 ORDER BY distance
             """, {"id": requirement_id})
-            
+
             ancestors = []
             while result.has_next():
                 row = result.get_next()
                 if len(row) >= 2:
                     node = row[0]
                     distance = row[1]
-                    
+
                     from datetime import datetime
                     ancestors.append({
                         "requirement": {
@@ -447,12 +441,12 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                         },
                         "distance": distance
                     })
-            
+
             return ancestors
-            
-        except Exception as e:
+
+        except Exception:
             return []
-    
+
     def find_children(requirement_id: str, depth: int = 10) -> List[Dict]:
         """要件の子孫（子・孫など）を探索"""
         try:
@@ -465,14 +459,14 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 RETURN DISTINCT child, length(path) as distance
                 ORDER BY distance, child.created_at DESC
             """, {"id": requirement_id})
-            
+
             children = []
             while result.has_next():
                 row = result.get_next()
                 if len(row) >= 2:
                     node = row[0]
                     distance = row[1]
-                    
+
                     from datetime import datetime
                     children.append({
                         "requirement": {
@@ -485,12 +479,12 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                         },
                         "distance": distance
                     })
-            
+
             return children
-            
-        except Exception as e:
+
+        except Exception:
             return []
-    
+
     def get_requirement_history(requirement_id: str, limit: int = 10) -> List[Dict]:
         """
         要件の変更履歴を取得
@@ -523,7 +517,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 ORDER BY v.timestamp DESC
                 LIMIT $limit
             """, {"req_id": requirement_id, "limit": limit})
-            
+
             history = []
             while result.has_next():
                 row = result.get_next()
@@ -540,12 +534,12 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                         "snapshot_at": row[5]
                     }
                 })
-            
+
             return history
-            
-        except Exception as e:
+
+        except Exception:
             return []
-    
+
     def get_requirement_at_version(requirement_id: str, timestamp: str) -> Optional[Dict]:
         """
         特定時点での要件状態を取得
@@ -567,7 +561,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 ORDER BY v.timestamp DESC
                 LIMIT 1
             """, {"req_id": requirement_id, "target_time": timestamp})
-            
+
             if result.has_next():
                 requirement, version = result.get_next()
                 return {
@@ -580,16 +574,16 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "version_id": version["id"],
                     "timestamp": version["timestamp"]
                 }
-            
+
             return None
-            
-        except Exception as e:
+
+        except Exception:
             return None
-    
+
     # CypherExecutorを作成
     from .cypher_executor import CypherExecutor
     executor = CypherExecutor(conn)
-    
+
     return {
         "save": save,
         "find": find,

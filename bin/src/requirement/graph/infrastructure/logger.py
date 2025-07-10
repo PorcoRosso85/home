@@ -2,7 +2,6 @@
 統一JSONL出力ロガー
 すべての出力をJSONL形式でstdoutに出力する
 """
-import sys
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -22,11 +21,11 @@ LOG_FORMAT = _LOG_FORMAT if _LOG_FORMAT is not None else "jsonl"
 def _should_log(level: str, module: str) -> bool:
     """ログ出力するかどうかを判定"""
     level_value = LOG_LEVELS.get(level.upper(), 2)
-    
+
     # 環境変数からモジュール別設定を解析
     module_levels = {}
     default_level = 3  # WARN
-    
+
     # LOG_LEVELがシンプルな文字列の場合（例: "debug"）
     if ':' not in LOG_LEVEL:
         default_level = LOG_LEVELS.get(LOG_LEVEL.upper(), 3)
@@ -39,14 +38,14 @@ def _should_log(level: str, module: str) -> bool:
                     default_level = LOG_LEVELS.get(lev.upper(), 3)
                 else:
                     module_levels[mod] = LOG_LEVELS.get(lev.upper(), 3)
-    
+
     # モジュールに対する設定を取得
     threshold = default_level
     for mod, lev in module_levels.items():
         if module.startswith(mod):
             threshold = lev
             break
-    
+
     return level_value >= threshold
 
 def _output(data: Dict[str, Any]) -> None:
@@ -67,17 +66,17 @@ def log(level: str, module: str, message: str, **kwargs) -> None:
     """
     if not _should_log(level, module):
         return
-    
+
     output_data = {
         "type": "log",
         "level": level.lower(),
         "module": module,
         "message": message
     }
-    
+
     if kwargs:
         output_data.update(kwargs)
-    
+
     _output(output_data)
 
 # 結果・エラー・スコア出力関数
@@ -88,13 +87,13 @@ def result(data: Any, level: str = "info", **kwargs) -> None:
         "level": level.lower(),
         "data": data
     }
-    
+
     if kwargs:
         output_data.update(kwargs)
-    
+
     _output(output_data)
 
-def error(message: str, details: Optional[Dict[str, Any]] = None, 
+def error(message: str, details: Optional[Dict[str, Any]] = None,
           score: Optional[float] = None, **kwargs) -> None:
     """エラー出力"""
     output_data = {
@@ -102,16 +101,16 @@ def error(message: str, details: Optional[Dict[str, Any]] = None,
         "level": "error",
         "message": message
     }
-    
+
     if details is not None:
         output_data["details"] = details
-    
+
     if score is not None:
         output_data["score"] = score
-    
+
     if kwargs:
         output_data.update(kwargs)
-    
+
     _output(output_data)
 
 def score(friction_analysis: Dict[str, Any], level: str = "info", **kwargs) -> None:
@@ -121,10 +120,10 @@ def score(friction_analysis: Dict[str, Any], level: str = "info", **kwargs) -> N
         "level": level.lower(),
         "data": friction_analysis
     }
-    
+
     if kwargs:
         output_data.update(kwargs)
-    
+
     _output(output_data)
 
 # 使いやすいショートカット

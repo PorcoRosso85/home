@@ -41,10 +41,10 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
         ValueError: パラメータが不正な場合
     """
     import time
-    
+
     # テストモードの判定を先に行う
     is_test_mode = os.environ.get("RGL_SKIP_SCHEMA_CHECK") == "true"
-    
+
     # インメモリの場合のキー設定
     if in_memory:
         if test_unique:
@@ -61,16 +61,16 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
     if is_test_mode and in_memory:
         use_cache = False
         test_unique = True  # テストモードでは常にユニークなインスタンスを作成
-        debug("rgl.db_factory", "Test mode: disabling cache for in-memory DB", 
+        debug("rgl.db_factory", "Test mode: disabling cache for in-memory DB",
               is_test_mode=is_test_mode, in_memory=in_memory, test_unique=test_unique)
-    
+
     # キャッシュから取得
     if use_cache and cache_key in _database_cache:
         # インメモリデータベースはテストモードではキャッシュしない
         if not (is_test_mode and in_memory):
             debug("rgl.db_factory", "Using cached database instance", key=cache_key)
             return _database_cache[cache_key]
-    
+
     # KuzuDBのインポート（関数内で毎回インポート）
     try:
         import kuzu
@@ -78,23 +78,23 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
         if is_test_mode:
             import importlib
             importlib.reload(kuzu)
-        debug("rgl.db_factory", "KuzuDB module loaded successfully", 
+        debug("rgl.db_factory", "KuzuDB module loaded successfully",
               has_database=hasattr(kuzu, 'Database'))
     except ImportError as e:
         ld_path = os.environ.get("LD_LIBRARY_PATH", "not set")
-        error("rgl.db_factory", "KuzuDB import failed", 
-              error=str(e), 
+        error("rgl.db_factory", "KuzuDB import failed",
+              error=str(e),
               ld_path=ld_path)
         raise ImportError(
             f"KuzuDB import failed: {e}\n"
             f"LD_LIBRARY_PATH is set to: {ld_path}\n"
             f"Try running with Nix: nix develop or nix run"
         )
-    
+
     # パラメータ検証
     if not in_memory and not path:
         raise ValueError("path is required for persistent database")
-    
+
     # データベース作成
     try:
         if in_memory:
@@ -104,25 +104,25 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
             # ディレクトリ作成
             db_path = Path(path)
             db_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             info("rgl.db_factory", "Creating persistent database", path=str(db_path))
             # max_db_sizeを1GBに制限して8TBメモリ割り当てエラーを回避
             db = kuzu.Database(str(db_path), max_db_size=1 << 30)  # 1GB
-        
+
         # キャッシュに保存（テストモードではキャッシュしない）
         if use_cache and not is_test_mode:
             _database_cache[cache_key] = db
             debug("rgl.db_factory", "Database cached", key=cache_key)
         else:
-            debug("rgl.db_factory", "Database not cached", 
+            debug("rgl.db_factory", "Database not cached",
                   key=cache_key, in_memory=in_memory, use_cache=use_cache, is_test_mode=is_test_mode)
-        
+
         return db
-        
+
     except Exception as e:
-        error("rgl.db_factory", "Failed to create database", 
-              error=str(e), 
-              path=path, 
+        error("rgl.db_factory", "Failed to create database",
+              error=str(e),
+              path=path,
               in_memory=in_memory)
         raise
 

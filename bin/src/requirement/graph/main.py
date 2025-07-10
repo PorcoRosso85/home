@@ -43,7 +43,7 @@ def safe_main():
         from .infrastructure.graph_depth_validator import GraphDepthValidator
         from .infrastructure.circular_reference_detector import CircularReferenceDetector
         from .infrastructure.variables import get_db_path
-        from log import debug, info, warn, log_error as error, result, score
+        from .infrastructure.logger import debug, info, warn, error, result, score
         from .infrastructure.query_validator import QueryValidator
         from .infrastructure.versioned_cypher_executor import create_versioned_cypher_executor
         # from .application.scoring_service import create_scoring_service  # Removed: scoring system deletion

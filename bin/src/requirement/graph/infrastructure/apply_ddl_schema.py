@@ -12,7 +12,7 @@ from typing import Optional
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 sys.path.insert(0, project_root)
 
-from .variables import LD_LIBRARY_PATH, RGL_DB_PATH
+from .variables import RGL_DB_PATH
 
 from .ddl_schema_manager import DDLSchemaManager
 from .logger import debug, info, warn, error
@@ -31,29 +31,29 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
         成功したかどうか
     """
     info("rgl.schema", "Starting DDL schema application", db_path=db_path, create_test_data=create_test_data)
-    
+
     # スキーマファイルのパスを取得（graph/ddl/migrations/を参照）
     # __file__を使用して絶対パスを取得（sys.pathの変更に影響されない）
     schema_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), 
-        "..", 
-        "ddl", 
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        "ddl",
         "migrations",
         "3.2.0_current.cypher"
     )
-    
+
     if not os.path.exists(schema_path):
         error("rgl.schema", "Schema file not found", path=schema_path)
         # print文を削除（JSON出力を汚染しないため）
         return False
-    
+
     # 接続を確立
     try:
         if db_path is None:
             db_path = RGL_DB_PATH
         debug("rgl.schema", "Creating database directory", path=db_path)
         os.makedirs(db_path, exist_ok=True)
-        
+
         info("rgl.schema", "Connecting to database")
         db = create_database(path=db_path)
         conn = create_connection(db)
@@ -62,19 +62,19 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
         error("rgl.schema", "Failed to connect to database", error=str(e))
         # print文を削除（JSON出力を汚染しないため）
         return False
-    
+
     manager = DDLSchemaManager(conn)
-    
+
     # スキーマを適用
     info("rgl.schema", "Applying schema", schema_path=schema_path)
     info("rgl.schema", "Applying schema", path=schema_path)
     success, results = manager.apply_schema(schema_path)
     debug("rgl.schema", "Schema application completed", success=success, result_count=len(results))
-    
+
     # 結果をログに記録
     for result in results:
         debug("rgl.schema", "Schema statement result", result=result)
-    
+
     if not success:
         warn("rgl.schema", "Schema application failed, rolling back")
         _, rollback_results = manager.rollback()
@@ -82,14 +82,14 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
             debug("rgl.schema", "Rollback result", result=result)
         conn.close()
         return False
-    
+
     # テストデータ作成
     if create_test_data:
         info("rgl.schema", "Creating test data")
         success, results = manager.create_test_data()
         for result in results:
             debug("rgl.schema", "Test data result", result=result)
-    
+
     info("rgl.schema", "Schema application completed successfully")
     conn.close()
     return True
