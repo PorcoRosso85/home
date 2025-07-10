@@ -1,0 +1,4 @@
+{
+  "import": ["moonbit-test/src/lib"],
+  "is-main": true
+}
