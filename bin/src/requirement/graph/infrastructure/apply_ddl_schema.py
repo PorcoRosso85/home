@@ -22,11 +22,11 @@ from .database_factory import create_database, create_connection
 def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = False) -> bool:
     """
     DDLスキーマを適用
-    
+
     Args:
         db_path: データベースパス（Noneの場合はデフォルト）
         create_test_data: テストデータを作成するか
-        
+
     Returns:
         成功したかどうか
     """

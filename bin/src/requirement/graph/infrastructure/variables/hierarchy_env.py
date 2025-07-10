@@ -11,7 +11,7 @@ from .env import _optional_env, EnvironmentError
 
 def get_hierarchy_mode() -> Optional[str]:
     """階層モード（オプション）
-    
+
     Returns:
         Optional[str]: 'legacy' または 'dynamic'、未設定の場合None
     """
@@ -24,10 +24,10 @@ def get_hierarchy_mode() -> Optional[str]:
 
 def get_max_hierarchy() -> Optional[int]:
     """最大階層深度（オプション）
-    
+
     Returns:
         Optional[int]: 最大階層深度、未設定の場合None
-        
+
     Raises:
         EnvironmentError: 値が整数でない場合
     """
@@ -48,7 +48,7 @@ def get_max_hierarchy() -> Optional[int]:
 
 def get_team() -> Optional[str]:
     """チーム名（オプション）
-    
+
     Returns:
         Optional[str]: チーム名、未設定の場合None
     """
@@ -56,11 +56,11 @@ def get_team() -> Optional[str]:
 
 def get_hierarchy_keywords() -> Optional[Dict[int, List[str]]]:
     """階層キーワード（オプション）
-    
+
     Returns:
         Optional[Dict[int, List[str]]]: 階層レベルごとのキーワード辞書、
                                         未設定の場合None
-        
+
     Raises:
         EnvironmentError: JSONパースエラーまたは形式エラーの場合
     """
@@ -100,7 +100,7 @@ def get_hierarchy_keywords() -> Optional[Dict[int, List[str]]]:
 
 def validate_hierarchy_env() -> Dict[str, str]:
     """階層関連の環境変数を検証
-    
+
     Returns:
         Dict[str, str]: エラーがある場合はエラーメッセージの辞書
     """

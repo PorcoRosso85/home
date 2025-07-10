@@ -22,7 +22,7 @@ class TestVariables:
 
         try:
             _check_env(test_env_name)
-            assert False, "EnvironmentError should be raised"
+            raise AssertionError("EnvironmentError should be raised")
         except EnvironmentError as e:
             # エラーメッセージの検証
             assert test_env_name in str(e)

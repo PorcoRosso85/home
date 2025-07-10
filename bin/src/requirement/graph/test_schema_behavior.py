@@ -101,7 +101,7 @@ def test_schema_check_without_init():
 
         print("\n1. Checking if schema exists (before init):")
         try:
-            result = conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
+            conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
             print("   Schema check succeeded - schema exists")
         except Exception as e:
             print(f"   Schema check failed - schema does not exist: {e}")
@@ -113,7 +113,7 @@ def test_schema_check_without_init():
         try:
             os.environ["RGL_SKIP_SCHEMA_CHECK"] = "false"
             from requirement.graph.infrastructure.kuzu_repository import create_kuzu_repository
-            repo = create_kuzu_repository(db_path=temp_dir)
+            create_kuzu_repository(db_path=temp_dir)
             print("   ERROR: Repository creation should have failed!")
         except Exception as e:
             print(f"   ✓ Repository creation correctly failed: {e}")

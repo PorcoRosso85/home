@@ -15,7 +15,7 @@ class DDLSchemaManager:
     def apply_schema(self, schema_path: str) -> Tuple[bool, List[str]]:
         """
         スキーマファイルを適用
-        
+
         Returns:
             (成功フラグ, 適用されたステートメントのリスト)
         """

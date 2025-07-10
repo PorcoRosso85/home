@@ -13,7 +13,7 @@ class HealthIndicator:
     def add_category_score(self, category: str, score: int):
         """
         カテゴリ別スコアを追加
-        
+
         Args:
             category: カテゴリ名
             score: スコア（負の整数）
@@ -38,11 +38,11 @@ class HealthIndicator:
 def calculate_weighted_average(scores: Dict[str, int], weights: Dict[str, float]) -> int:
     """
     重み付き平均を計算（整数で返す）
-    
+
     Args:
         scores: カテゴリ別スコア
         weights: カテゴリ別重み
-        
+
     Returns:
         重み付き平均（整数）
     """
@@ -67,10 +67,10 @@ def calculate_weighted_average(scores: Dict[str, int], weights: Dict[str, float]
 def get_health_level(score: int) -> str:
     """
     スコアから健全性レベルを判定
-    
+
     Args:
         score: 総合スコア（負の整数）
-        
+
     Returns:
         健全性レベル（S01-S05）
     """

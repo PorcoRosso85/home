@@ -42,13 +42,13 @@ class RequirementCompletenessAnalyzer:
     def analyze_completeness(self, requirements: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         要件セットの完全性を分析
-        
+
         Args:
             requirements: 要件のリスト
-            
+
         Returns:
             完全性分析結果
-            
+
         Example:
             >>> analyzer = RequirementCompletenessAnalyzer()
             >>> reqs = [
@@ -100,7 +100,6 @@ class RequirementCompletenessAnalyzer:
                     category_counts[cat] += 1
 
         # パーセンテージに変換（0-100）
-        total_reqs = len(requirements) if requirements else 1
         coverage = {}
 
         for cat, count in category_counts.items():
@@ -138,7 +137,7 @@ class RequirementCompletenessAnalyzer:
 
         # 簡易的な重複検出：タイトルやMetadataの類似性をチェック
         for i, req1 in enumerate(requirements):
-            for j, req2 in enumerate(requirements[i + 1:], start=i + 1):
+            for _j, req2 in enumerate(requirements[i + 1:], start=i + 1):
                 similarity = self._calculate_similarity(req1, req2)
 
                 if similarity > 0.8:  # 80%以上の類似度

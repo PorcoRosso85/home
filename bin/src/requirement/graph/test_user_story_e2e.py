@@ -113,7 +113,7 @@ class TestFirstTimeUserStory:
                 if "versioned requirement" in error_line.get('message', ''):
                     print("✅ 田中部長: ECサイトの基本要件を登録できました！（バージョニング付き）")
                     return
-            assert False, f"No result returned: {result['responses']}"
+            raise AssertionError(f"No result returned: {result['responses']}")
         else:
             print("✅ 田中部長: ECサイトの基本要件を登録できました！")
 

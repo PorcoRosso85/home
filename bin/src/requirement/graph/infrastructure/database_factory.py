@@ -26,16 +26,16 @@ def clear_database_cache():
 def create_database(path: Optional[str] = None, in_memory: bool = False, use_cache: bool = True, test_unique: bool = False) -> Any:
     """
     KuzuDBデータベースインスタンスを作成
-    
+
     Args:
         path: データベースファイルパス（in_memory=Falseの場合必須）
         in_memory: インメモリデータベースとして作成するか
         use_cache: キャッシュを使用するか（テスト時はFalse推奨）
         test_unique: テスト用にユニークなインスタンスを生成（インメモリ時のみ有効）
-        
+
     Returns:
         kuzu.Database インスタンス
-        
+
     Raises:
         ImportError: KuzuDBのインポートに失敗した場合
         ValueError: パラメータが不正な場合
@@ -130,10 +130,10 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
 def create_connection(database: Any) -> Any:
     """
     データベース接続を作成
-    
+
     Args:
         database: kuzu.Database インスタンス
-        
+
     Returns:
         kuzu.Connection インスタンス
     """

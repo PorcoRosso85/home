@@ -314,8 +314,8 @@ class TestComplexAIPlatformE2E:
         print("\n[4] 技術仕様が定義されている要件")
         tech_spec_query = f"""
         MATCH (r:RequirementEntity)
-        WHERE r.technical_specifications IS NOT NULL 
-          AND r.id STARTS WITH 'AI_' 
+        WHERE r.technical_specifications IS NOT NULL
+          AND r.id STARTS WITH 'AI_'
           AND r.id CONTAINS '{self.timestamp}'
         RETURN r.title, r.technical_specifications
         """
@@ -338,8 +338,8 @@ class TestComplexAIPlatformE2E:
         print("\n[5] 受け入れ条件が定義されている要件")
         acceptance_query = f"""
         MATCH (r:RequirementEntity)
-        WHERE r.acceptance_criteria IS NOT NULL 
-          AND r.id STARTS WITH 'AI_' 
+        WHERE r.acceptance_criteria IS NOT NULL
+          AND r.id STARTS WITH 'AI_'
           AND r.id CONTAINS '{self.timestamp}'
         RETURN r.title, r.acceptance_criteria
         """
@@ -441,8 +441,8 @@ class TestComplexAIPlatformE2E:
         print("\n[検証が必要な要件]")
         verification_query = f"""
         MATCH (r:RequirementEntity)
-        WHERE r.verification_required = true 
-          AND r.id STARTS WITH 'AI_' 
+        WHERE r.verification_required = true
+          AND r.id STARTS WITH 'AI_'
           AND r.id CONTAINS '{self.timestamp}'
         RETURN r.title, r.requirement_type, r.acceptance_criteria
         """

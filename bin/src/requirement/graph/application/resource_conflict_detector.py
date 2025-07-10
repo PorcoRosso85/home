@@ -23,13 +23,13 @@ class ResourceConflictDetector:
     def detect_resource_conflicts(self, requirements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         要件リストからリソース競合を検出
-        
+
         Args:
             requirements: 要件のリスト
-            
+
         Returns:
             検出された競合のリスト
-            
+
         Example:
             >>> detector = ResourceConflictDetector()
             >>> reqs = [

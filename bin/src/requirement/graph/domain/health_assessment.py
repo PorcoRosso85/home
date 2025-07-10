@@ -154,10 +154,10 @@ class HealthAssessment:
 def assess_project_health(total_score: int) -> str:
     """
     総合スコアからプロジェクト健全性を判定
-    
+
     Args:
         total_score: 総合スコア
-        
+
     Returns:
         健全性レベル
     """

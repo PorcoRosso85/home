@@ -10,10 +10,10 @@ from ..application.version_service import create_version_service
 def create_versioned_cypher_executor(repository: Dict) -> Dict:
     """
     バージョニング対応のCypherエグゼキュータを作成
-    
+
     Args:
         repository: KuzuDBリポジトリ
-        
+
     Returns:
         エグゼキュータ関数の辞書
     """
@@ -95,10 +95,10 @@ def create_versioned_cypher_executor(repository: Dict) -> Dict:
     def execute_versioned_query(input_data: Dict) -> Dict:
         """
         バージョニング対応でクエリを実行
-        
+
         Args:
             input_data: クエリとメタデータを含む入力
-            
+
         Returns:
             実行結果
         """

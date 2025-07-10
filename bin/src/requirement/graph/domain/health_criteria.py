@@ -15,12 +15,12 @@ class HealthResult:
 def evaluate_health(structure_score: int, friction_score: int, completeness_score: int) -> HealthResult:
     """
     複数の観点から健全性を評価
-    
+
     Args:
         structure_score: 構造スコア
         friction_score: 摩擦スコア
         completeness_score: 完全性スコア
-        
+
     Returns:
         健全性判定結果
     """

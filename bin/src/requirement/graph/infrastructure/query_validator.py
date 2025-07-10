@@ -49,10 +49,10 @@ class QueryValidator:
     def validate(self, query: str) -> Tuple[bool, Optional[str]]:
         """
         クエリの安全性を検証
-        
+
         Args:
             query: 検証するCypherクエリ
-            
+
         Returns:
             (is_valid, error_message)
         """
@@ -103,10 +103,10 @@ class QueryValidator:
     def sanitize_parameters(self, parameters: Dict) -> Dict:
         """
         パラメータのサニタイズ
-        
+
         Args:
             parameters: クエリパラメータ
-            
+
         Returns:
             サニタイズされたパラメータ
         """

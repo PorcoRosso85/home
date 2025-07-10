@@ -11,7 +11,7 @@ from domain.error_types import UserFriendlyError, ErrorExample, RecoveryGuidance
 def create_error_handler() -> Dict[str, Any]:
     """
     エラーハンドラーを作成
-    
+
     Returns:
         エラーハンドリング関数の辞書
     """

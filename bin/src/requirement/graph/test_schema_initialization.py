@@ -24,12 +24,12 @@ def test_schema_not_initialized_behavior():
 
         try:
             # Should fail when trying to use repository without schema
-            repo = create_kuzu_repository(db_path=temp_dir)
+            create_kuzu_repository(db_path=temp_dir)
 
             # Try to save a requirement - should fail
             try:
                 os.environ["RGL_SKIP_SCHEMA_CHECK"] = "false"
-                repo = create_kuzu_repository(db_path=temp_dir)
+                create_kuzu_repository(db_path=temp_dir)
                 print("ERROR: Expected RuntimeError but repository creation succeeded")
             except RuntimeError as e:
                 if "Schema not initialized" in str(e):
@@ -60,7 +60,7 @@ def test_schema_already_initialized_behavior():
         conn.close()
 
         # Second initialization - what happens?
-        success2 = apply_ddl_schema(db_path=temp_dir, create_test_data=True)
+        apply_ddl_schema(db_path=temp_dir, create_test_data=True)
 
         # This might fail or might succeed - let's check
         db2 = create_database(path=temp_dir)
@@ -85,7 +85,7 @@ def test_check_schema_status_without_failing():
         # Try to check if schema exists
         try:
             # This should fail if schema doesn't exist
-            result = conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
+            conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
             schema_exists = True
         except:
             schema_exists = False
@@ -100,7 +100,7 @@ def test_check_schema_status_without_failing():
         conn2 = create_connection(db2)
 
         try:
-            result = conn2.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
+            conn2.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
             schema_exists = True
         except:
             schema_exists = False

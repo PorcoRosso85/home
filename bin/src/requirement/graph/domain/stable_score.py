@@ -20,7 +20,7 @@ class StableScore:
     def initialize(self, initial_score: int):
         """
         ベースラインスコアを初期化
-        
+
         Args:
             initial_score: 初期スコア
         """
@@ -36,7 +36,7 @@ class StableScore:
     def update(self, new_score: int):
         """
         現在スコアを更新
-        
+
         Args:
             new_score: 新しいスコア
         """
@@ -50,7 +50,7 @@ class StableScore:
     def add_history_point(self, day: int, score: int):
         """
         履歴ポイントを追加
-        
+
         Args:
             day: 経過日数
             score: その時点のスコア
@@ -64,10 +64,10 @@ class StableScore:
     def predict_score(self, target_day: int) -> int:
         """
         指定日のスコアを予測
-        
+
         Args:
             target_day: 予測対象の日数
-            
+
         Returns:
             予測スコア
         """
@@ -99,10 +99,10 @@ class StableScore:
     def predict(self, days_ahead: int = 30) -> int:
         """
         将来のスコアを予測
-        
+
         Args:
             days_ahead: 予測する日数
-            
+
         Returns:
             予測スコア
         """

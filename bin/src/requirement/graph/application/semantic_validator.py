@@ -27,13 +27,13 @@ class SemanticValidator:
     def validate_semantic_conflicts(self, requirements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         要件リストから意味的矛盾を検出
-        
+
         Args:
             requirements: 要件のリスト
-            
+
         Returns:
             検出された矛盾のリスト
-            
+
         Example:
             >>> validator = SemanticValidator()
             >>> reqs = [

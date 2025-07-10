@@ -13,10 +13,10 @@ from ..domain.types import Decision, DecisionResult
 def create_jsonl_repository(file_path: str) -> Dict:
     """
     JSONLベースのリポジトリを作成
-    
+
     Args:
         file_path: JSONLファイルのパス
-        
+
     Returns:
         Repository関数の辞書
     """
@@ -25,7 +25,7 @@ def create_jsonl_repository(file_path: str) -> Dict:
         """ファイルが存在しない場合は作成"""
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         if not os.path.exists(file_path):
-            with open(file_path, 'w') as f:
+            with open(file_path, 'w'):
                 pass
 
     def save(decision: Decision) -> DecisionResult:

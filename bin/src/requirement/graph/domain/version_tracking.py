@@ -21,7 +21,7 @@ def create_location_uri(requirement_id: str) -> str:
     LocationURIを生成
     階層はRELATIONとEntityAggregationViewで管理されるため、
     シンプルなURIフォーマットを使用
-    
+
     例:
     - "req://rgl/requirements/{id}"
     """
@@ -31,7 +31,7 @@ def create_location_uri(requirement_id: str) -> str:
 def parse_location_uri(uri: str) -> Dict[str, str]:
     """
     LocationURIをパース
-    
+
     Returns:
         {
             "scheme": "req",
@@ -60,11 +60,11 @@ def calculate_requirement_diff(
 ) -> Dict[str, List[Tuple[str, any, any]]]:
     """
     2つの要件間の差分を計算
-    
+
     Args:
         old_requirement: 古い要件データ
         new_requirement: 新しい要件データ
-    
+
     Returns:
         {
             "changed_fields": [("field_name", old_value, new_value), ...]

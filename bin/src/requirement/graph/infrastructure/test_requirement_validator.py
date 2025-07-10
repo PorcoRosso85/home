@@ -12,7 +12,7 @@ class TestRequirementValidator:
 
         result = validator.validate_clarity("速いレスポンスタイムを実現する")
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         assert result["score"] == -0.5
         assert "曖昧な表現が含まれています" in result["errors"][0]
         assert "速い" in result["errors"][0]
@@ -24,7 +24,7 @@ class TestRequirementValidator:
 
         result = validator.validate_clarity("使いやすいUIを提供する")
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         assert result["score"] == -0.5
         assert "使いやすい" in result["errors"][0]
         assert "3クリック以内" in result["suggestions"][1]
@@ -35,7 +35,7 @@ class TestRequirementValidator:
 
         result = validator.validate_clarity("APIのレスポンスタイムを200ms以内にする")
 
-        assert result["is_valid"] == True
+        assert result["is_valid"]
         assert result["score"] == 0.0
         assert len(result["errors"]) == 0
 
@@ -48,7 +48,7 @@ class TestRequirementValidator:
         }
         result = validator.validate_measurability(requirement)
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         assert result["score"] == -0.3
         assert "改善目標に数値基準がありません" in result["errors"][0]
         assert "現状値と目標値" in result["suggestions"][0]
@@ -62,7 +62,7 @@ class TestRequirementValidator:
         }
         result = validator.validate_measurability(requirement)
 
-        assert result["is_valid"] == True
+        assert result["is_valid"]
         assert result["score"] == 0.0
 
     def test_完了条件なし_機能要件_エラー(self):
@@ -75,7 +75,7 @@ class TestRequirementValidator:
         }
         result = validator.validate_completeness(requirement)
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         assert result["score"] == -0.4
         assert "完了条件が定義されていません" in result["errors"][0]
         assert "機能の動作確認方法" in result["suggestions"][0]
@@ -90,7 +90,7 @@ class TestRequirementValidator:
         }
         result = validator.validate_completeness(requirement)
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         assert result["score"] == -0.4
         assert "完了条件が曖昧です" in result["errors"][0]
 
@@ -102,7 +102,7 @@ class TestRequirementValidator:
             "ユーザーがログインした後、利用者の情報を表示する"
         )
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         assert result["score"] == -0.2
         assert "用語が統一されていません" in result["errors"][0]
         assert "ユーザー" in result["suggestions"][0]
@@ -120,7 +120,7 @@ class TestRequirementValidator:
         if len(result["errors"]) < 2:
             print(f"Unexpected errors count: {result}")
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         # 少なくとも1つのエラー
         assert len(result["errors"]) >= 1
         assert any("略語" in error or "統一" in error for error in result["errors"])
@@ -137,7 +137,7 @@ class TestRequirementValidator:
         }
         result = validator.validate_testability(requirement)
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         assert result["score"] == -0.3
         assert "テスト方法が記載されていません" in result["errors"][0]
         assert "正常系のテストケース" in result["suggestions"][0]
@@ -152,7 +152,7 @@ class TestRequirementValidator:
         }
         result = validator.validate_testability(requirement)
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         assert "成功基準が主観的です" in result["errors"][0]
 
     def test_非機能要件_API_レスポンスタイムなし(self):
@@ -164,7 +164,7 @@ class TestRequirementValidator:
         }
         result = validator.validate_nonfunctional_requirements(requirement, "API")
 
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
         assert result["score"] == -0.4
         assert "レスポンスタイム" in result["errors"][0]
         assert "同時接続数" in result["errors"][0]
@@ -185,10 +185,10 @@ class TestRequirementValidator:
         nfr_result = validator.validate_nonfunctional_requirements(requirement, "API")
 
         # 全ての検証でエラーが出ること
-        assert clarity_result["is_valid"] == False
-        assert completeness_result["is_valid"] == False
-        assert testability_result["is_valid"] == False
-        assert nfr_result["is_valid"] == False
+        assert not clarity_result["is_valid"]
+        assert not completeness_result["is_valid"]
+        assert not testability_result["is_valid"]
+        assert not nfr_result["is_valid"]
 
         # 最も低いスコアは-0.5（曖昧性）
         scores = [

@@ -17,11 +17,11 @@ class TestDomainLayerResponsibilities:
 
         # 深さ3以内の依存関係は有効
         result = validator.validate_graph_depth([("A", "B"), ("B", "C")])
-        assert result["is_valid"] == True
+        assert result["is_valid"]
 
         # 深さ制限を超える依存関係は無効
         result = validator.validate_graph_depth([("A", "B"), ("B", "C"), ("C", "D"), ("D", "E")])
-        assert result["is_valid"] == False
+        assert not result["is_valid"]
 
     def test_健全性判定基準はドメイン層に存在する(self):
         """健全性の定義と判定はドメインルール"""

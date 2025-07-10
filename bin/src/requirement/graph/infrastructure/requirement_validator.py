@@ -37,10 +37,10 @@ class RequirementValidator:
     def validate_clarity(self, requirement_text: str) -> Dict[str, any]:
         """
         要件の明確性を検証
-        
+
         Args:
             requirement_text: 要件の説明文
-            
+
         Returns:
             検証結果（is_valid, score, errors, suggestions）
         """
@@ -76,10 +76,10 @@ class RequirementValidator:
     def validate_measurability(self, requirement: Dict) -> Dict[str, any]:
         """
         測定可能性を検証
-        
+
         Args:
             requirement: 要件データ
-            
+
         Returns:
             検証結果
         """
@@ -120,10 +120,10 @@ class RequirementValidator:
     def validate_completeness(self, requirement: Dict) -> Dict[str, any]:
         """
         完了条件（Definition of Done）の明確性を検証
-        
+
         Args:
             requirement: 要件データ
-            
+
         Returns:
             検証結果
         """
@@ -169,11 +169,11 @@ class RequirementValidator:
     def validate_terminology(self, requirement_text: str, glossary: Optional[Dict[str, str]] = None) -> Dict[str, any]:
         """
         用語の統一性を検証
-        
+
         Args:
             requirement_text: 要件テキスト
             glossary: 用語集（キー：正式用語、値：同義語リスト）
-            
+
         Returns:
             検証結果
         """
@@ -226,10 +226,10 @@ class RequirementValidator:
     def validate_testability(self, requirement: Dict) -> Dict[str, any]:
         """
         テスト可能性を検証
-        
+
         Args:
             requirement: 要件データ
-            
+
         Returns:
             検証結果
         """
@@ -270,11 +270,11 @@ class RequirementValidator:
     def validate_nonfunctional_requirements(self, requirement: Dict, requirement_type: str) -> Dict[str, any]:
         """
         非機能要件の考慮を検証
-        
+
         Args:
             requirement: 要件データ
             requirement_type: 要件のタイプ（API, UI, Batch等）
-            
+
         Returns:
             検証結果
         """

@@ -34,7 +34,7 @@ def main():
 
     print("=== PM視点の要件追加を開始します ===\n")
 
-    for category_key, category_data in pm_data["pm_requirements"]["categories"].items():
+    for _category_key, category_data in pm_data["pm_requirements"]["categories"].items():
         print(f"\n## {category_data['title']}")
         print("-" * 50)
 

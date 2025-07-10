@@ -71,7 +71,7 @@ class TestVersioningIntegration:
         if result.get('status') == 'error':
             print(f"Error: {result.get('error')}")
             print(f"Message: {result.get('message')}")
-            assert False, f"Error: {result.get('message', result.get('error'))}"
+            raise AssertionError(f"Error: {result.get('message', result.get('error'))}")
 
         assert result.get('status') == 'success', "Expected success status"
 
@@ -185,7 +185,7 @@ class TestVersioningIntegration:
         # 要件を作成（ユニークIDを使用）
         import time
         unique_id = f"REQ-003-{int(time.time() * 1000)}"
-        create_result = version_service["create_versioned_requirement"]({
+        version_service["create_versioned_requirement"]({
             "id": unique_id,
             "title": "時間テスト",
             "description": "初期状態"

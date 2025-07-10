@@ -33,12 +33,12 @@ class UnifiedQueryInterface:
     ) -> Dict[str, Any]:
         """
         統合クエリ実行
-        
+
         Args:
             query: Cypherクエリ（プロシージャ呼び出しを含む可能性あり）
             parameters: クエリパラメータ
             options: 実行オプション（timeout, explain等）
-            
+
         Returns:
             実行結果
         """
@@ -169,7 +169,6 @@ class UnifiedQueryInterface:
         # 混合クエリを分解
         segments = self._split_mixed_query(query)
 
-        results = []
         final_data = []
 
         for segment in segments:

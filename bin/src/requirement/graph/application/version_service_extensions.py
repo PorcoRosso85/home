@@ -19,11 +19,11 @@ def load_template(category: str, name: str) -> str:
 def list_all_versions(repository: Dict[str, Any], req_id: str) -> List[Dict[str, Any]]:
     """
     要件の全バージョン一覧を取得
-    
+
     Args:
         repository: リポジトリインスタンス
         req_id: 要件ID
-        
+
     Returns:
         バージョン一覧
     """
@@ -51,13 +51,13 @@ def get_version_diff_from_template(repository: Dict[str, Any], req_id: str,
                                   from_version: int, to_version: int) -> Optional[Dict[str, Any]]:
     """
     DQLテンプレートを使用してバージョン差分を取得
-    
+
     Args:
         repository: リポジトリインスタンス
         req_id: 要件ID
         from_version: 比較元バージョン番号
         to_version: 比較先バージョン番号
-        
+
     Returns:
         差分情報（テンプレートベース）
     """

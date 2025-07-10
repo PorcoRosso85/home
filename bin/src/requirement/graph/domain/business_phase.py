@@ -11,7 +11,7 @@ class BusinessPhase:
     def get_all_phases() -> List[float]:
         """
         すべてのフェーズ値を取得
-        
+
         Returns:
             0.2から1.0まで0.2刻みのリスト
         """
@@ -56,10 +56,10 @@ _PHASE_COEFFICIENTS = {
 def get_phase_coefficients(phase: float) -> Dict[str, float]:
     """
     フェーズに対応する係数を取得
-    
+
     Args:
         phase: ビジネスフェーズ値（0.2-1.0）
-        
+
     Returns:
         係数の辞書
     """

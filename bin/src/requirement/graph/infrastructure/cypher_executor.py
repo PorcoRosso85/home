@@ -17,11 +17,11 @@ class CypherExecutor:
     def execute(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Cypherクエリを実行
-        
+
         Args:
             query: Cypherクエリ文字列
             parameters: クエリパラメータ
-            
+
         Returns:
             Dict[str, Any]: 実行結果またはerrorキーを含む辞書
         """
@@ -83,10 +83,10 @@ class CypherExecutor:
     def execute_batch(self, queries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         複数のCypherクエリをバッチ実行
-        
+
         Args:
             queries: [{"query": str, "parameters": dict}, ...]
-            
+
         Returns:
             List[Dict[str, Any]]: 各クエリの実行結果
         """

@@ -9,15 +9,15 @@ from .types import EmbeddingError
 def create_embedding(text: str) -> Union[List[float], EmbeddingError]:
     """
     テキストから50次元の埋め込みベクトルを生成
-    
+
     Simple deterministic embedder:
     - 文字頻度ベース
     - 単語長統計
     - n-gram特徴
-    
+
     Args:
         text: 埋め込みを生成するテキスト
-        
+
     Returns:
         50次元のベクトル または EmbeddingError
     """

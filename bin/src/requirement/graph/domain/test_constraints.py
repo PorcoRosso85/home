@@ -67,7 +67,7 @@ def test_validate_no_circular_dependency_without_cycle_returns_true():
 
     # D -> B の依存は循環を作らない
     result = validate_no_circular_dependency("D", ["B"], all_deps)
-    assert result == True
+    assert result
 
 
 def test_validate_max_depth_exceeded_returns_error():
@@ -106,7 +106,7 @@ def test_validate_implementation_completeness_partial_returns_status():
     assert result["tested"] == 1
     assert result["implementation_rate"] == 2/3
     assert result["test_coverage"] == 0.5
-    assert result["is_complete"] == False
+    assert not result["is_complete"]
     assert "1 implementations pending" in result["missing"]
     assert "1 tests missing" in result["missing"]
 

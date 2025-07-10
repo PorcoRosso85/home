@@ -3,7 +3,7 @@
 
 実際のシステムを通じて：
 1. 経営者がCypherで要件を登録
-2. エンジニアがCypherで要件を登録  
+2. エンジニアがCypherで要件を登録
 3. システムが矛盾を検出してスコアリング
 """
 import json
@@ -152,14 +152,14 @@ def test_executive_vs_engineer_budget_conflict_real_e2e():
             "type": "cypher",
             "query": """
             MATCH (exec:RequirementEntity)
-            WHERE exec.requirement_type = 'constraint' 
+            WHERE exec.requirement_type = 'constraint'
               AND exec.description CONTAINS '5万円'
             WITH exec
-            
+
             MATCH (eng:RequirementEntity)
             WHERE eng.requirement_type = 'infrastructure'
               AND eng.description CONTAINS '12万円'
-            
+
             RETURN {
                 constraint: {
                     id: exec.id,

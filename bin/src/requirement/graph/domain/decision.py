@@ -15,13 +15,13 @@ def create_decision(
 ) -> DecisionResult:
     """
     Decisionを作成する
-    
+
     Args:
         id: 決定事項ID
         title: タイトル
         description: 説明
         embedding: 埋め込みベクトル
-        
+
     Returns:
         Decision または InvalidDecisionError
     """
@@ -61,11 +61,11 @@ def create_decision(
 def calculate_similarity(embedding1: List[float], embedding2: List[float]) -> float:
     """
     2つの埋め込みベクトル間のコサイン類似度を計算
-    
+
     Args:
         embedding1: 50次元ベクトル
         embedding2: 50次元ベクトル
-        
+
     Returns:
         類似度 (0.0 - 1.0)
     """

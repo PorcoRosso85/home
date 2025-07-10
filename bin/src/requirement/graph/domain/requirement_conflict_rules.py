@@ -300,7 +300,7 @@ def suggest_conflict_resolution(
     suggestions = []
 
     if conflict_type == "numeric":
-        ratio = conflict_details.get("ratio", 0)
+        conflict_details.get("ratio", 0)
         suggestions.extend([
             f"中間値（平均）を採用: {(conflict_details['values'][0] + conflict_details['values'][1]) / 2}",
             "優先度の高い要件の値を採用",

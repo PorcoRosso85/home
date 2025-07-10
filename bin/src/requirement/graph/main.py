@@ -4,26 +4,12 @@ Requirement Graph - Cypherクエリエントリーポイント
 使い方:
     echo '{"type": "cypher", "query": "CREATE ..."}' | python -m requirement.graph.main
     echo '{"type": "schema", "action": "apply"}' | python -m requirement.graph.main
-    
+
 戻り値:
-    {"status": "success|error", "score": -1.0~1.0, "message": "..."}
+    {"status": "success|error", "message": "..."}
 """
 import sys
 import json
-
-
-def _get_score_interpretation(total_score: float) -> str:
-    """スコアの解釈を返す"""
-    if total_score >= 0:
-        return "問題は検出されていません"
-    elif total_score > -0.2:
-        return "軽微な問題がありますが、システム全体への影響は小さいです"
-    elif total_score > -0.5:
-        return "いくつかの問題があります。可能であれば改善を検討してください"
-    elif total_score > -0.7:
-        return "重要な問題があります。早めの対応を推奨します"
-    else:
-        return "深刻な問題があります。即座の対応が必要です"
 
 
 def safe_main():
@@ -34,19 +20,18 @@ def safe_main():
         output = {"type": "error", "level": "error", "message": message}
         output.update(kwargs)
         print(json.dumps(output, ensure_ascii=False), flush=True)
-    
+
     error = emergency_error  # デフォルトでemergency_errorを使用
-    
+
     try:
         # インポート（相対インポートのみ使用）
         from .infrastructure.kuzu_repository import create_kuzu_repository
         from .infrastructure.graph_depth_validator import GraphDepthValidator
         from .infrastructure.circular_reference_detector import CircularReferenceDetector
         from .infrastructure.variables import get_db_path
-        from .infrastructure.logger import debug, info, warn, error, result, score
+        from .infrastructure.logger import debug, info, warn, error, result
         from .infrastructure.query_validator import QueryValidator
         from .infrastructure.versioned_cypher_executor import create_versioned_cypher_executor
-        # from .application.scoring_service import create_scoring_service  # Removed: scoring system deletion
 
         info("rgl.main", "Starting main function")
 
@@ -73,7 +58,7 @@ def safe_main():
             # Cypherクエリ実行
             query_str = input_data.get("query", "")
             params = input_data.get("parameters", {})
-            
+
             # クエリ検証
             is_valid, validation_error = validator.validate(query_str)
             if not is_valid:
@@ -92,37 +77,33 @@ def safe_main():
                     # 通常のクエリ実行
                     query_result = repository["execute"](query_str, params)
 
+            # エラーチェック
+            if "error" in query_result:
+                query_result["status"] = "error"
+            else:
+                query_result["status"] = "success"
+
             info("rgl.main", "Query completed", status=query_result.get("status"))
 
-            # リスク評価
-            if query_result.get("status") == "success":
-                # グラフ深さチェック
-                depth_validator = GraphDepthValidator(repository["connection"])
-                depth_issues = depth_validator.validate()
-                
-                # 循環参照チェック
-                circular_detector = CircularReferenceDetector(repository["connection"])
-                circular_issues = circular_detector.detect()
-                
-                # 全体スコアの計算
-                all_issues = depth_issues + circular_issues
-                if all_issues:
-                    total_score = min(issue["score"] for issue in all_issues)
-                    interpretation = _get_score_interpretation(total_score)
-                else:
-                    total_score = 0.0
-                    interpretation = "問題は検出されていません"
-                
-                # スコアと解釈を結果に追加
-                query_result["score"] = total_score
-                query_result["interpretation"] = interpretation
-                if all_issues:
-                    query_result["issues"] = all_issues
-                
-                debug("rgl.main", "Risk assessment completed", 
-                      total_score=total_score,
-                      issue_count=len(all_issues))
-            
+            # リスク評価（スコアは出力しない）
+            # TODO: GraphDepthValidator と CircularReferenceDetector の実装を修正する必要がある
+            # if query_result.get("status") == "success":
+            #     # グラフ深さチェック
+            #     depth_validator = GraphDepthValidator(repository["connection"])
+            #     depth_issues = depth_validator.validate()
+            #
+            #     # 循環参照チェック
+            #     circular_detector = CircularReferenceDetector(repository["connection"])
+            #     circular_issues = circular_detector.detect()
+            #
+            #     # 問題がある場合は issues として追加
+            #     all_issues = depth_issues + circular_issues
+            #     if all_issues:
+            #         query_result["issues"] = all_issues
+            #
+            #     debug("rgl.main", "Risk assessment completed",
+            #           issue_count=len(all_issues))
+
             # 結果を出力
             result(query_result)
 
@@ -130,27 +111,27 @@ def safe_main():
         elif input_type == "semantic_search":
             # 意味的検索機能
             from ..domain.embedder import Embedder
-            
+
             query_text = input_data.get("query", "")
             threshold = input_data.get("threshold", 0.5)
             limit = input_data.get("limit", 10)
-            
+
             if not query_text:
                 error("query is required for semantic search")
             else:
-                info("rgl.main", "Starting semantic search", 
+                info("rgl.main", "Starting semantic search",
                      query=query_text[:50], threshold=threshold)
-                
+
                 embedder = Embedder()
-                
+
                 # クエリテキストのベクトル化
                 query_vector = embedder.encode(query_text)
-                
+
                 # ベクトル検索実行
                 search_result = repository["semantic_search"](
                     query_vector, threshold, limit
                 )
-                
+
                 if search_result["status"] == "success":
                     # 結果を出力
                     result({
@@ -165,12 +146,12 @@ def safe_main():
         elif input_type == "version":
             # バージョン管理機能
             from .application.version_service import create_version_service
-            
+
             service = create_version_service(repository)
             action = input_data.get("action", "list")
-            
+
             info("rgl.main", "Processing version action", action=action)
-            
+
             if action == "list":
                 # バージョン一覧取得
                 requirement_id = input_data.get("requirement_id")
@@ -179,7 +160,7 @@ def safe_main():
                     result = {"status": "success", "data": versions}
                 else:
                     error("requirement_id is required for version list")
-            
+
             elif action == "get":
                 # 特定バージョン取得
                 requirement_id = input_data.get("requirement_id")
@@ -187,12 +168,12 @@ def safe_main():
                 if requirement_id and version is not None:
                     data = service["get_version"](requirement_id, version)
                     result = {"status": "success", "data": data} if data else {
-                        "status": "error", 
+                        "status": "error",
                         "message": f"Version {version} not found for requirement {requirement_id}"
                     }
                 else:
                     error("Both requirement_id and version are required")
-            
+
             elif action == "restore":
                 # バージョン復元
                 requirement_id = input_data.get("requirement_id")
@@ -201,7 +182,7 @@ def safe_main():
                     result = service["restore_version"](requirement_id, version)
                 else:
                     error("Both requirement_id and version are required for restore")
-            
+
             elif action == "diff":
                 # バージョン間の差分取得
                 requirement_id = input_data.get("requirement_id")
@@ -212,13 +193,14 @@ def safe_main():
                     result = {"status": "success", "data": diff}
                 else:
                     error("requirement_id, version1, and version2 are required for diff")
-            
+
             else:
                 result = {"status": "error", "message": f"Unknown version action: {action}"}
-            
+
             # 結果を出力
             if "result" in locals():
-                result(result)
+                result_data = locals()["result"]
+                result(result_data)
 
         else:
             error("Unknown input type", details={"type": input_type})

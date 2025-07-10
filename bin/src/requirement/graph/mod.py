@@ -4,9 +4,9 @@
 使用例:
     # KuzuDBベースの要件管理
     from requirement.graph.infrastructure.kuzu_repository import create_kuzu_repository
-    
+
     repo = create_kuzu_repository()
-    
+
     # 要件を保存
     requirement = {
         "id": "req_001",
@@ -16,18 +16,18 @@
         "created_at": datetime.now(),
         "embedding": [0.1] * 50
     }
-    
+
     result = repo["save"](requirement)
-    
+
     # 依存関係を追加
     repo["add_dependency"]("req_001", "req_002", "technical")
-    
+
     # 最適化機能を使用
     from requirement.graph.application.optimization_features import (
         optimize_implementation_order_with_layers,
         estimate_effort
     )
-    
+
     order = optimize_implementation_order_with_layers(
         requirements, code_entities, relations, dependencies
     )

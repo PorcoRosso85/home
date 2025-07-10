@@ -166,7 +166,7 @@ class TestKuzuRepository:
         # 依存関係追加
         result = repo["add_dependency"]("auth", "database", "depends_on", "ユーザー情報保存")
         print(f"Add dependency result: {result}")
-        assert result.get("success") == True
+        assert result.get("success")
 
         # 依存関係検索
         deps = repo["find_dependencies"]("auth", depth=2)

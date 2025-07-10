@@ -35,11 +35,11 @@ class CustomProcedures:
     ) -> List[Dict]:
         """
         類似要件を検索（スコアリングは行わない）
-        
+
         Args:
             requirement_id: 対象要件ID
             query_text: 比較用テキスト
-            
+
         Returns:
             類似要件のリスト
         """
@@ -145,11 +145,11 @@ class CustomProcedures:
     ) -> List[Tuple[str, Any]]:
         """
         要件の進捗を計算
-        
+
         Args:
             requirement_id: 対象要件ID
             include_children: 子要件を含めるか
-            
+
         Returns:
             [(progress, details), ...] の形式で結果を返す
         """
@@ -207,12 +207,12 @@ class CustomProcedures:
     ) -> List[Tuple[str, Any]]:
         """
         制約違反をチェック
-        
+
         Args:
             requirement_id: 対象要件ID
             operation: "add_dependency" | "add_child" | "delete"
             target_id: 操作対象ID（依存先や親など）
-            
+
         Returns:
             [(is_valid, violations), ...] の形式で結果を返す
         """
@@ -267,11 +267,11 @@ class CustomProcedures:
     ) -> Dict[str, Any]:
         """
         変更の影響範囲を分析（スコアリングは行わない）
-        
+
         Args:
             requirement_id: 対象要件ID
             change_type: "modify" | "delete" | "complete"
-            
+
         Returns:
             影響分析結果の辞書
         """
@@ -320,12 +320,12 @@ class CustomProcedures:
     ) -> List[Dict[str, Any]]:
         """
         要件の分解を提案
-        
+
         Args:
             requirement_id: 分解対象の要件ID
             strategy: "hierarchical" | "functional" | "temporal"
             target_count: 提案する子要件の数
-            
+
         Returns:
             分解提案のリスト
         """
@@ -345,7 +345,7 @@ class CustomProcedures:
         if strategy == "hierarchical":
             # 親要件から子要件への階層的分解
             aspects = ["architecture", "implementation", "testing"]
-            for i, aspect in enumerate(aspects[:target_count]):
+            for _i, aspect in enumerate(aspects[:target_count]):
                 suggestions.append({
                     "parent_id": requirement_id,
                     "title": f"{requirement['title']} - {aspect.capitalize()}",
@@ -376,11 +376,11 @@ class CustomProcedures:
     ) -> List[Tuple[float, str]]:
         """
         要件のスコアを計算（最小限の実装）
-        
+
         Args:
             requirement_id: 要件ID
             requirement_data: 要件データ
-            
+
         Returns:
             [(score, message), ...] の形式でスコアと説明を返す
         """

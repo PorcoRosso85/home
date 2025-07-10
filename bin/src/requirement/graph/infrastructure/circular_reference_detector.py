@@ -12,10 +12,10 @@ class CircularReferenceDetector:
     def detect_cycles(self, dependencies: List[Tuple[str, str]]) -> Dict[str, any]:
         """
         依存関係グラフから循環参照を検出
-        
+
         Args:
             dependencies: (from_id, to_id)のタプルリスト
-            
+
         Returns:
             検出結果の辞書
         """
@@ -76,10 +76,10 @@ class CircularReferenceDetector:
     def find_all_cycles(self, dependencies: List[Tuple[str, str]]) -> List[List[str]]:
         """
         すべての循環を検出（Tarjanのアルゴリズム）
-        
+
         Args:
             dependencies: (from_id, to_id)のタプルリスト
-            
+
         Returns:
             検出されたすべての循環のリスト
         """
@@ -132,7 +132,7 @@ class CircularReferenceDetector:
 def create_cypher_cycle_query() -> str:
     """
     循環参照を検出するCypherクエリを生成
-    
+
     Returns:
         Cypherクエリ文字列
     """
@@ -140,12 +140,12 @@ def create_cypher_cycle_query() -> str:
     // 自己参照を検出
     MATCH (r:RequirementEntity)-[:DEPENDS_ON]->(r)
     RETURN r.id as self_reference_id
-    
+
     UNION
-    
+
     // 循環参照を検出（最大深さ10まで）
     MATCH path = (start:RequirementEntity)-[:DEPENDS_ON*2..10]->(start)
-    RETURN start.id as cycle_start_id, 
+    RETURN start.id as cycle_start_id,
            [node in nodes(path) | node.id] as cycle_path
     """
 
@@ -153,10 +153,10 @@ def create_cypher_cycle_query() -> str:
 def validate_with_kuzu(connection) -> Dict[str, any]:
     """
     KuzuDBを使用して循環参照を検証
-    
+
     Args:
         connection: KuzuDB接続
-        
+
     Returns:
         検証結果
     """
@@ -182,7 +182,7 @@ def validate_with_kuzu(connection) -> Dict[str, any]:
     for length in range(2, 11):  # 2から10までの長さ
         cycle_query = f"""
         MATCH path = (start:RequirementEntity)-[:DEPENDS_ON*{length}]->(start)
-        RETURN DISTINCT start.id as cycle_start_id, 
+        RETURN DISTINCT start.id as cycle_start_id,
                [node in nodes(path) | node.id] as cycle_path
         LIMIT 100
         """
@@ -208,10 +208,10 @@ def validate_with_kuzu(connection) -> Dict[str, any]:
 def get_cycle_impact_score(cycle_length: int) -> int:
     """
     循環の長さに基づいて影響スコアを計算
-    
+
     Args:
         cycle_length: 循環の長さ
-        
+
     Returns:
         影響スコア（負の値）
     """

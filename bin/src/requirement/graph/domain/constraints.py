@@ -24,12 +24,12 @@ def validate_no_circular_dependency(
 ) -> Union[bool, ConstraintViolationError]:
     """
     循環依存がないことを検証
-    
+
     Args:
         requirement_id: 検証対象の要件ID
         dependencies: 直接の依存先ID一覧
         all_dependencies_map: 全要件の依存関係マップ
-        
+
     Returns:
         True または ConstraintViolationError
     """
@@ -80,13 +80,13 @@ def validate_max_depth(
 ) -> Union[bool, ConstraintViolationError]:
     """
     階層の深さが最大値を超えないことを検証
-    
+
     Args:
         requirement_id: 検証対象の要件ID
         parent_id: 親要件ID
         hierarchy_map: 要件ID -> 親IDのマップ
         max_depth: 最大階層深さ
-        
+
     Returns:
         True または ConstraintViolationError
     """
@@ -119,12 +119,12 @@ def validate_implementation_completeness(
 ) -> Dict[str, Any]:
     """
     実装完了度を検証
-    
+
     Args:
         requirement: 要件
         implementations: 実装情報リスト
         tests: テスト情報リスト
-        
+
     Returns:
         完了度情報
     """

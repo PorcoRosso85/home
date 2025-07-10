@@ -68,7 +68,7 @@ class TestRequirementValidationIntegration:
         result = self.repo["execute"]("""
         MATCH (r:RequirementEntity)
         WHERE r.id STARTS WITH 'REQ_INCOMPLETE'
-        RETURN r.id, r.title, r.priority, r.requirement_type, 
+        RETURN r.id, r.title, r.priority, r.requirement_type,
                r.acceptance_criteria, r.technical_specifications,
                r.verification_required
         ORDER BY r.priority DESC

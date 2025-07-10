@@ -19,10 +19,10 @@ class GraphDepthValidator:
     def validate_graph_depth(self, dependencies: List[Tuple[str, str]]) -> Dict[str, any]:
         """
         依存関係グラフの深さを検証
-        
+
         Args:
             dependencies: (from_id, to_id)のタプルリスト
-            
+
         Returns:
             検証結果の辞書
         """
@@ -104,10 +104,10 @@ class GraphDepthValidator:
 def create_cypher_depth_query(max_depth: Optional[int] = None) -> str:
     """
     グラフ深さ制限を確認するCypherクエリを生成
-    
+
     Args:
         max_depth: 最大深さ制限
-        
+
     Returns:
         Cypherクエリ文字列
     """
@@ -133,11 +133,11 @@ def create_cypher_depth_query(max_depth: Optional[int] = None) -> str:
 def validate_with_kuzu(connection, max_depth: Optional[int] = None) -> Dict[str, any]:
     """
     KuzuDBを使用してグラフ深さを検証
-    
+
     Args:
         connection: KuzuDB接続
         max_depth: 最大深さ制限
-        
+
     Returns:
         検証結果
     """

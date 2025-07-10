@@ -20,10 +20,10 @@ _CONTEXT_COEFFICIENTS = {
 def get_context_coefficient(context_id: str) -> float:
     """
     コンテキストIDから係数を取得
-    
+
     Args:
         context_id: コンテキストID
-        
+
     Returns:
         係数（0.0-2.0）
     """
@@ -33,11 +33,11 @@ def get_context_coefficient(context_id: str) -> float:
 def identify_context(requirement_title: str, tags: list = None) -> str:
     """
     要件名やタグからコンテキストを自動識別
-    
+
     Args:
         requirement_title: 要件のタイトル
         tags: タグのリスト
-        
+
     Returns:
         コンテキストID
     """

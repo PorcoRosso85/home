@@ -12,7 +12,7 @@ from typing import Dict
 
 def setup_test_environment() -> None:
     """テスト用の環境変数を設定
-    
+
     既に設定されている環境変数は上書きしません。
     """
     # 必須環境変数のデフォルト値（テスト用）
@@ -27,7 +27,7 @@ def setup_test_environment() -> None:
 
 def get_test_db_path() -> str:
     """テスト用のデータベースパスを取得
-    
+
     Returns:
         str: テスト用DBパス
     """
@@ -35,14 +35,14 @@ def get_test_db_path() -> str:
 
 def enable_test_mode() -> None:
     """テストモードを有効化
-    
+
     スキーマチェックをスキップし、テスト用の設定を適用します。
     """
     os.environ['RGL_SKIP_SCHEMA_CHECK'] = 'true'
 
 def disable_test_mode() -> None:
     """テストモードを無効化
-    
+
     テスト用の設定をクリアします。
     """
     if 'RGL_SKIP_SCHEMA_CHECK' in os.environ:
@@ -50,13 +50,13 @@ def disable_test_mode() -> None:
 
 def with_test_env(**kwargs) -> Dict[str, str]:
     """テスト用の環境変数を一時的に設定するためのコンテキスト用辞書を作成
-    
+
     Args:
         **kwargs: 設定する環境変数
-        
+
     Returns:
         Dict[str, str]: 元の環境変数の値
-        
+
     Example:
         >>> original = with_test_env(RGL_HIERARCHY_MODE='dynamic')
         >>> # テスト実行
@@ -70,7 +70,7 @@ def with_test_env(**kwargs) -> Dict[str, str]:
 
 def restore_env(original: Dict[str, str]) -> None:
     """環境変数を元に戻す
-    
+
     Args:
         original: with_test_envで取得した元の値
     """

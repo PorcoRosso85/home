@@ -57,7 +57,7 @@ def _output(data: Dict[str, Any]) -> None:
 def log(level: str, module: str, message: str, **kwargs) -> None:
     """
     ログを出力
-    
+
     Args:
         level: ログレベル (TRACE, DEBUG, INFO, WARN, ERROR)
         module: モジュール名 (例: "rgl.main", "rgl.validator")

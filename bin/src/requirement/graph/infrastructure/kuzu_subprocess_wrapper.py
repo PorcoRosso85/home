@@ -28,20 +28,20 @@ import traceback
 try:
     db = kuzu.Database({repr(self.db_path)})
     conn = kuzu.Connection(db)
-    
+
     # Always install and load JSON extension
     try:
         conn.execute("INSTALL json;")
         conn.execute("LOAD EXTENSION json;")
     except:
         pass  # Already installed
-    
+
     results = []
     queries = {escaped_queries}
     for query in queries:
         try:
             result = conn.execute(query)
-            
+
             # Check if this is a query with results
             if result is not None and hasattr(result, 'has_next') and result.has_next():
                 rows = []
@@ -51,12 +51,12 @@ try:
                 results.append({{"success": True, "rows": rows}})
             else:
                 results.append({{"success": True}})
-                
+
         except Exception as e:
             results.append({{"success": False, "error": str(e)}})
-    
+
     print(json.dumps({{"results": results}}))
-    
+
 except Exception as e:
     print(json.dumps({{"error": str(e), "traceback": traceback.format_exc()}}))
 '''

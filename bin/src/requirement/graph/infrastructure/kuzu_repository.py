@@ -20,12 +20,12 @@ from .logger import debug, info
 def create_kuzu_repository(db_path: str = None) -> Dict:
     """
     KuzuDBベースのリポジトリを作成
-    
+
     Args:
         db_path: データベースパス（デフォルト: 環境依存）
                  - テスト環境: ":memory:" (インメモリ)
                  - 本番環境: RGL_DB_PATH または ~/.rgl/graph.db
-        
+
     Returns:
         Repository関数の辞書
     """
@@ -84,7 +84,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             """, {"id": decision["id"]})
 
             is_new = not existing_check.has_next()
-            operation = "CREATE" if is_new else "UPDATE"
 
             # ミュータブルアプローチ: CREATEまたはUPDATE
             if is_new:
@@ -488,11 +487,11 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     def get_requirement_history(requirement_id: str, limit: int = 10) -> List[Dict]:
         """
         要件の変更履歴を取得
-        
+
         Args:
             requirement_id: 要件ID
             limit: 取得する履歴の最大数
-            
+
         Returns:
             変更履歴のリスト
         """
@@ -543,11 +542,11 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     def get_requirement_at_version(requirement_id: str, timestamp: str) -> Optional[Dict]:
         """
         特定時点での要件状態を取得
-        
+
         Args:
             requirement_id: 要件ID
             timestamp: 対象時刻（ISO形式）
-            
+
         Returns:
             その時点での要件状態
         """
@@ -597,6 +596,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         "get_requirement_at_version": get_requirement_at_version,
         "db": db,  # テスト用にDBオブジェクトも返す
         "connection": conn,  # LLM Hooks API用
-        "execute": conn.execute,  # CypherExecutor用
+        "execute": executor.execute,  # Cypherクエリ実行用
         "executor": executor  # LLM Hooks API用
     }

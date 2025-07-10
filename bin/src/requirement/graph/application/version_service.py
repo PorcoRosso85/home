@@ -24,10 +24,10 @@ def load_template(category: str, name: str) -> str:
 def create_version_service(repository: VersionRepository):
     """
     VersionServiceを作成（依存性注入）
-    
+
     Args:
         repository: execute, save_requirement, find_requirement メソッドを持つ辞書
-    
+
     Returns:
         VersionService関数の辞書
     """
@@ -35,10 +35,10 @@ def create_version_service(repository: VersionRepository):
     def create_versioned_requirement(data: Dict[str, Any]) -> Dict[str, Any]:
         """
         バージョン付きで新規要件を作成
-        
+
         Args:
             data: 要件データ（id, title, description必須）
-            
+
         Returns:
             作成結果（entity_id, version_id, location_uri, version）
         """
@@ -71,10 +71,10 @@ def create_version_service(repository: VersionRepository):
     def update_versioned_requirement(data: Dict[str, Any]) -> Dict[str, Any]:
         """
         既存要件を更新（新バージョン作成）
-        
+
         Args:
             data: 更新データ（id必須、変更したいフィールドのみ）
-            
+
         Returns:
             更新結果（entity_id, version_id, version, previous_version）
         """
@@ -119,10 +119,10 @@ def create_version_service(repository: VersionRepository):
     def get_requirement_history(req_id: str) -> List[Dict[str, Any]]:
         """
         要件の変更履歴を取得
-        
+
         Args:
             req_id: 要件ID
-            
+
         Returns:
             バージョン履歴のリスト
         """
@@ -175,11 +175,11 @@ def create_version_service(repository: VersionRepository):
     def get_requirement_at_timestamp(req_id: str, timestamp: str) -> Optional[Dict[str, Any]]:
         """
         特定時点の要件状態を取得
-        
+
         Args:
             req_id: 要件ID
             timestamp: ISO形式のタイムスタンプ
-            
+
         Returns:
             その時点の要件状態
         """
@@ -216,12 +216,12 @@ def create_version_service(repository: VersionRepository):
     def get_version_diff(req_id: str, from_version: int, to_version: int) -> Dict[str, Any]:
         """
         バージョン間の差分を取得
-        
+
         Args:
             req_id: 要件ID
             from_version: 比較元バージョン番号
             to_version: 比較先バージョン番号
-            
+
         Returns:
             差分情報
         """

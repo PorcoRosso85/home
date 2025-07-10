@@ -220,7 +220,7 @@ class TestRequirementConflicts:
             assert len(result1["conflict_descriptions"]) > 0
 
         # 性質3: 矛盾ペアは対称的
-        for req1, req2 in result1["conflicting_requirements"]:
+        for _req1, _req2 in result1["conflicting_requirements"]:
             # (A, B)の矛盾があれば、逆順でも同じ矛盾が検出されるべき
             reversed_reqs = list(reversed(requirements))
             result_reversed = RequirementConflictDetector.detect_numeric_conflicts(reversed_reqs)

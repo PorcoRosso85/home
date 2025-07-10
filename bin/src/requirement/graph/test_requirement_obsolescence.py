@@ -116,7 +116,7 @@ class TestRequirementObsolescence:
             repo["execute"](create_obsolete_query, {})
 
             # 陳腐化要件に依存する新要件
-            result = version_service["create_versioned_requirement"]({
+            version_service["create_versioned_requirement"]({
                 "id": "REQ-NEW-AUTH-001",
                 "title": "新認証機能",
                 "description": "既存の認証方式を拡張",
@@ -199,7 +199,7 @@ class TestRequirementObsolescence:
             WHERE req.status <> 'archived' AND dep.status <> 'archived'
             RETURN count(*) as active_dependencies
             """
-            result = repo["execute"](dependency_query, {})
+            repo["execute"](dependency_query, {})
             # アーカイブされた要件への依存関係は無視される
 
         finally:

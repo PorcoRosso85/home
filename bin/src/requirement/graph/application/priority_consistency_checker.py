@@ -22,13 +22,13 @@ class PriorityConsistencyChecker:
     def check_priority_consistency(self, requirements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         要件の優先度と依存関係の整合性をチェック
-        
+
         Args:
             requirements: 要件のリスト
-            
+
         Returns:
             検出された不整合のリスト
-            
+
         Example:
             >>> checker = PriorityConsistencyChecker()
             >>> reqs = [
@@ -69,10 +69,10 @@ class PriorityConsistencyChecker:
     def suggest_priority_adjustments(self, requirements: List[Dict[str, Any]]) -> Dict[str, int]:
         """
         優先度調整の提案を生成
-        
+
         Args:
             requirements: 要件のリスト
-            
+
         Returns:
             要件IDと推奨優先度のマッピング
         """

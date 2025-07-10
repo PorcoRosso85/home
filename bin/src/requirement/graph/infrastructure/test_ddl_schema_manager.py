@@ -21,7 +21,7 @@ class TestDDLSchemaManager:
         CREATE NODE TABLE Test (
             id STRING PRIMARY KEY
         );
-        
+
         /* Block comment */
         CREATE REL TABLE TestRel (
             FROM Test TO Test
@@ -73,7 +73,7 @@ class TestDDLSchemaManager:
             id STRING PRIMARY KEY,
             name STRING
         );
-        
+
         CREATE REL TABLE TEST_REL (
             FROM TestEntity TO TestEntity
         );
@@ -133,7 +133,7 @@ class TestDDLSchemaManager:
             # テーブルが削除されたか確認（エラーが発生すればOK）
             try:
                 conn.execute("CREATE (n:TestForRollback {id: 'test'})")
-                assert False, "Table should have been dropped"
+                raise AssertionError("Table should have been dropped")
             except:
                 pass  # Expected
 

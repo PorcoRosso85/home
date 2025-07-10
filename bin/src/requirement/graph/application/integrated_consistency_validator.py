@@ -34,13 +34,13 @@ class IntegratedConsistencyValidator:
     def validate_all(self, requirements: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         すべての観点から要件を検証
-        
+
         Args:
             requirements: 要件のリスト
-            
+
         Returns:
             統合検証レポート
-            
+
         Example:
             >>> validator = IntegratedConsistencyValidator()
             >>> reqs = [{"ID": "req1", "Priority": 100, "Tags": ["feature"]}]

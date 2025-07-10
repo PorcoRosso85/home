@@ -62,7 +62,7 @@ def test_update_versioned_requirement():
     # 要件作成（ユニークIDを使用）
     import time
     unique_id = f"REQ-SV-002-{int(time.time() * 1000)}"
-    create_result = version_service["create_versioned_requirement"]({
+    version_service["create_versioned_requirement"]({
         "id": unique_id,
         "title": "ユーザー認証機能",
         "description": "安全なログイン機能を提供"
