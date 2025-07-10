@@ -10,7 +10,7 @@ from .requirement_embedder import generate_requirement_embedding
 
 def search_similar_requirements(connection: Any, query: str, k: int = 10) -> List[Dict[str, Any]]:
     """
-    類似した要件を検索（スコアなし、順位のみ）
+    KuzuDBのVSS機能を使用して類似要件を検索
 
     Args:
         connection: KuzuDB接続
@@ -20,62 +20,35 @@ def search_similar_requirements(connection: Any, query: str, k: int = 10) -> Lis
     Returns:
         類似要件のリスト（similarity_rank付き）
     """
-    # モック実装：既存の要件を取得
+    # クエリの埋め込みを生成
+    query_embedding = generate_requirement_embedding({"title": query, "description": ""})
+    
+    # KuzuDBネイティブVSSを使用
     try:
+        # VSSインデックスが存在することを前提
         result = connection.execute("""
-            MATCH (r:RequirementEntity)
-            RETURN r.id, r.title, r.description
-            LIMIT 10
-        """)
-
-        requirements = []
+            CALL QUERY_VECTOR_INDEX('RequirementEntity', 'req_vss', $vec, $k)
+            RETURN node, distance
+        """, {"vec": query_embedding, "k": k})
+        
+        ranked_results = []
+        rank = 1
         while result.has_next():
             row = result.get_next()
-            requirements.append({"id": row[0], "title": row[1], "description": row[2]})
-    except:
-        # エラー時は空リストを返す
-        requirements = []
-
-    # クエリに基づいて簡易的なランキング
-    ranked_results = []
-    for i, req in enumerate(requirements[:k]):
-        # キーワードマッチでランキング（簡易版）
-        if query.lower() in (req.get("title", "") + req.get("description", "")).lower():
-            ranked_results.insert(
-                0,
-                {
-                    "id": req["id"],
-                    "title": req["title"],
-                    "description": req["description"],
-                    "similarity_rank": len(ranked_results) + 1,
-                },
-            )
-        else:
-            ranked_results.append(
-                {
-                    "id": req["id"],
-                    "title": req["title"],
-                    "description": req["description"],
-                    "similarity_rank": len(ranked_results) + 1,
-                }
-            )
-
-    # ランクを再計算
-    for i, result in enumerate(ranked_results[:k]):
-        result["similarity_rank"] = i + 1
-
-    return ranked_results[:k]
+            node = row[0]
+            ranked_results.append({
+                "id": node["id"],
+                "title": node["title"],
+                "description": node["description"],
+                "similarity_rank": rank
+            })
+            rank += 1
+            
+        return ranked_results
+        
+    except Exception as e:
+        # VSS機能が利用できない場合は空リスト
+        return []
 
 
-def _calculate_cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
-    """コサイン類似度を計算"""
-    import math
-
-    dot_product = sum(a * b for a, b in zip(vec1, vec2))
-    norm1 = math.sqrt(sum(a * a for a in vec1))
-    norm2 = math.sqrt(sum(b * b for b in vec2))
-
-    if norm1 == 0 or norm2 == 0:
-        return 0.0
-
-    return dot_product / (norm1 * norm2)
+# 手動計算は禁止 - KuzuDBネイティブ機能のみ使用

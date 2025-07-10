@@ -22,13 +22,16 @@ class PlamoEmbedder:
     """PLaMo-Embedding-1Bを使用したテキスト埋め込み生成"""
     
     def __init__(self):
+        import torch
         self.tokenizer = AutoTokenizer.from_pretrained(
             "pfnet/plamo-embedding-1b", 
             trust_remote_code=True
         )
         self.model = AutoModel.from_pretrained(
             "pfnet/plamo-embedding-1b", 
-            trust_remote_code=True
+            trust_remote_code=True,
+            torch_dtype=torch.float16,  # 半精度で読み込み
+            low_cpu_mem_usage=True      # メモリ使用量を削減
         )
     
     def encode_query(self, query: str) -> List[float]:

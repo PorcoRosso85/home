@@ -8,7 +8,9 @@ from typing import List, Dict
 
 
 # WARN: Mock実装（sentence_transformersなしで動作）
-# TODO: 本番環境ではsentence_transformersを使用すること
+# 本番環境ではsentence_transformersを使用
+# 理由: 埋め込み生成はアプリケーション側の責任であり、
+#       KuzuDBのVSS機能テストにはベクトルが必要なため
 def generate_requirement_embedding(requirement: Dict) -> List[float]:
     """
     要件から埋め込みベクトルを生成

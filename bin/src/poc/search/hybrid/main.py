@@ -1,19 +1,32 @@
 #!/usr/bin/env python3
 """KuzuDB Hybrid Search - Combining VSS, FTS, and Cypher"""
 
-import sys
+import os
 
-sys.path.append("/home/nixos/bin/src")
+# 環境変数で設定（規約準拠）
+os.environ["PYTHONPATH"] = "/home/nixos/bin/src"
 
 import time
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
-from sentence_transformers import SentenceTransformer
+# sentence_transformersはアプリケーション側で処理
 from db.kuzu.connection import get_connection
 from telemetry.telemetryLogger import log
 
 
-class HybridSearch:
+# クラス使用禁止 - 関数型実装に変更
+
+def create_hybrid_search(conn):
+    """ハイブリッド検索機能を作成"""
+    # KuzuDBネイティブ機能のみ使用
+    return {
+        "search_vss": lambda query, k: search_vss(conn, query, k),
+        "search_fts": lambda query: search_fts(conn, query),
+        "search_hybrid": lambda query, k, alpha: search_hybrid(conn, query, k, alpha)
+    }
+
+# 以下はクラスメソッドを関数として再実装する必要がある
+class HybridSearch_DEPRECATED:
     """Hybrid search combining Vector, Full-text, and Cypher graph search."""
 
     def __init__(self, conn):

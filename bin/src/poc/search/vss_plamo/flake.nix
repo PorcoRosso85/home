@@ -1,5 +1,5 @@
 {
-  description = "PLaMo-Embedding-1B + KuzuDB Vector Search POC";
+  description = "Ruri v3 + KuzuDB Vector Search POC";
   
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -21,7 +21,7 @@
           ];
           
           shellHook = ''
-            echo "PLaMo + KuzuDB VSS POC環境"
+            echo "Ruri v3 + KuzuDB VSS POC環境"
             echo "使用方法: nix run .#run"
             export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH
           '';
@@ -33,7 +33,7 @@
             export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH
             export TMPDIR=/tmp
             cd /home/nixos/bin/src/poc/search/vss_plamo
-            ${pkgs.uv}/bin/uv run python main.py
+            ${pkgs.uv}/bin/uv run python main_v2.py
           ''}";
         };
       });
