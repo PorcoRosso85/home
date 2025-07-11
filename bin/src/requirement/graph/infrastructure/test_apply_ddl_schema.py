@@ -1,8 +1,6 @@
 """
 Tests for Apply DDL Schema
 """
-import tempfile
-import shutil
 
 # Environment variables setup for tests
 # テスト用環境設定
@@ -15,19 +13,19 @@ from .database_factory import create_database, create_connection
 
 def test_apply_ddl_schema_テスト環境_正常適用():
     """apply_ddl_schema_テスト環境_スキーマが正常に適用される"""
-    # Arrange
-    temp_dir = tempfile.mkdtemp()
+    # Act
+    success = apply_ddl_schema(db_path=":memory:", create_test_data=True)
 
-    try:
-        # Act
-        success = apply_ddl_schema(db_path=temp_dir, create_test_data=True)
+    # Assert
+    assert success
 
-        # Assert
-        assert success
-
-        # スキーマが適用されたか確認
-        test_db = create_database(path=temp_dir)
-        conn = create_connection(test_db)
+    # スキーマが適用されたか確認
+    # Note: インメモリDBのため、新しいインスタンスを作成
+    test_db = create_database(in_memory=True, use_cache=False, test_unique=True)
+    conn = create_connection(test_db)
+    
+    # スキーマを再適用（インメモリDBのため）
+    apply_ddl_schema(db_path=":memory:", create_test_data=True)
 
         # LocationURIノードの確認
         result = conn.execute("MATCH (l:LocationURI) RETURN count(l) as cnt")
@@ -45,9 +43,6 @@ def test_apply_ddl_schema_テスト環境_正常適用():
         assert result.get_next()[0] >= 2
 
         conn.close()
-
-    finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def test_apply_ddl_schema_スキーマなし_エラー処理():

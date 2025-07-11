@@ -9,12 +9,16 @@ from .database_factory import create_database, create_connection
 
 @pytest.fixture
 def db_path():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield tmpdir
+    # インメモリDBを使用
+    yield ":memory:"
 
 @pytest.fixture
 def connection(db_path):
-    db = create_database(path=db_path)
+    # db_pathが:memory:の場合はインメモリDBを作成
+    if db_path == ":memory:":
+        db = create_database(in_memory=True, use_cache=False, test_unique=True)
+    else:
+        db = create_database(path=db_path)
     conn = create_connection(db)
 
     # スキーマのセットアップ（イミュータブル設計に準拠）

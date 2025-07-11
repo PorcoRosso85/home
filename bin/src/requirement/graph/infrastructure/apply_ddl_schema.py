@@ -51,11 +51,17 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
     try:
         if db_path is None:
             db_path = RGL_DB_PATH
-        debug("rgl.schema", "Creating database directory", path=db_path)
-        os.makedirs(db_path, exist_ok=True)
+        
+        # インメモリDBの場合はディレクトリ作成をスキップ
+        if db_path == ":memory:":
+            debug("rgl.schema", "Using in-memory database")
+            db = create_database(in_memory=True, use_cache=False, test_unique=True)
+        else:
+            debug("rgl.schema", "Creating database directory", path=db_path)
+            os.makedirs(db_path, exist_ok=True)
+            db = create_database(path=db_path)
 
         info("rgl.schema", "Connecting to database")
-        db = create_database(path=db_path)
         conn = create_connection(db)
         debug("rgl.schema", "Database connection established")
     except Exception as e:

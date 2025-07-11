@@ -11,6 +11,8 @@ if 'LD_LIBRARY_PATH' not in os.environ:
     os.environ['LD_LIBRARY_PATH'] = '/nix/store/l7d6vwajpfvgsd3j4cr25imd1mzb7d1d-gcc-14.3.0-lib/lib'
 if 'RGL_DB_PATH' not in os.environ:
     os.environ['RGL_DB_PATH'] = os.path.join(os.path.dirname(__file__), 'rgl_db')
+if 'RGL_DATABASE_PATH' not in os.environ:
+    os.environ['RGL_DATABASE_PATH'] = ':memory:'
 
 # プロジェクトルートをPythonパスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

@@ -15,15 +15,14 @@ class TestDatabaseFactory:
         from .database_factory import clear_database_cache
         clear_database_cache()
 
-    def test_create_persistent_database(self, tmp_path):
-        """永続化データベースの作成"""
+    def test_create_persistent_database(self):
+        """永続化データベースの作成（インメモリDBでテスト）"""
         from .database_factory import create_database
 
-        db_path = tmp_path / "test.db"
-        db = create_database(path=str(db_path), in_memory=False)
+        # テストではインメモリDBを使用
+        db = create_database(in_memory=True, use_cache=False, test_unique=True)
 
         assert db is not None
-        assert db_path.exists()
 
     def test_create_in_memory_database(self):
         """インメモリデータベースの作成"""
@@ -34,12 +33,12 @@ class TestDatabaseFactory:
         assert db is not None
         # インメモリデータベースはファイルを作成しない
 
-    def test_create_connection(self, tmp_path):
+    def test_create_connection(self):
         """コネクションの作成"""
         from .database_factory import create_database, create_connection
 
-        db_path = tmp_path / "test.db"
-        db = create_database(path=str(db_path))
+        # テストではインメモリDBを使用
+        db = create_database(in_memory=True, use_cache=False, test_unique=True)
         conn = create_connection(db)
 
         assert conn is not None

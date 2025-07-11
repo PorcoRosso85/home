@@ -83,10 +83,9 @@ class TestDDLSchemaManager:
             f.write(schema_content)
             schema_path = f.name
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # KuzuDB接続（LD_LIBRARY_PATHは外部で設定済みと仮定）
-            db = create_database(path=temp_dir)
-            conn = create_connection(db)
+        # インメモリDBを使用
+        db = create_database(in_memory=True, use_cache=False, test_unique=True)
+        conn = create_connection(db)
             manager = DDLSchemaManager(conn)
 
             try:
@@ -106,16 +105,16 @@ class TestDDLSchemaManager:
 
             finally:
                 conn.close()
-                os.unlink(schema_path)
+            os.unlink(schema_path)
 
     def test_rollback_適用済みスキーマ_ロールバック成功(self):
         """rollback_適用済みスキーマ_正常にロールバック"""
         # Arrange
         from .database_factory import create_database, create_connection
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            db = create_database(path=temp_dir)
-            conn = create_connection(db)
+        # インメモリDBを使用
+        db = create_database(in_memory=True, use_cache=False, test_unique=True)
+        conn = create_connection(db)
             manager = DDLSchemaManager(conn)
 
             # スキーマを適用
@@ -137,4 +136,4 @@ class TestDDLSchemaManager:
             except:
                 pass  # Expected
 
-            conn.close()
+        conn.close()
