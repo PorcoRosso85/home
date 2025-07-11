@@ -1,0 +1,153 @@
+#!/bin/bash
+# Claude Member Individual Tool Template
+# ============================================================
+# 責務: 個人が使用する可能性のあるツールのテンプレート集
+#      （実際の行動規範はCLAUDE.mdと.claude/*に従う）
+# ============================================================
+# 
+# 注意: これは個人が必要に応じて使用するツールのテンプレートです。
+#      個人の行動規範はCLAUDE.mdおよび.claude/配下の設定に従います。
+#      このファイルは構造の参考例として提供されています。
+
+set -e
+
+# ============================================================
+# 個人ツール例: 進捗報告
+# ============================================================
+
+# session.json更新ツール
+update_session_progress() {
+    local session_file="${1:-./session.json}"
+    local completion="${2:-0}"
+    local status="${3:-in_progress}"
+    
+    if [ ! -f "$session_file" ]; then
+        echo "Error: session.json not found" >&2
+        return 1
+    fi
+    
+    # Update session with current progress
+    jq --arg completion "$completion" \
+       --arg status "$status" \
+       --arg updated_at "$(date -Iseconds)" \
+       '.completion = ($completion | tonumber) | .status = $status | .updated_at = $updated_at' \
+       "$session_file" > "$session_file.tmp" && mv "$session_file.tmp" "$session_file"
+}
+
+# ============================================================
+# 個人ツール例: GraphDBクエリ
+# ============================================================
+
+# エラー解決策の検索
+query_solution_for_error() {
+    local error_type="$1"
+    local context="${2:-general}"
+    local graph_endpoint="${GRAPH_ENDPOINT:-http://localhost:8080/graphql}"
+    
+    # Query GraphDB for solutions
+    curl -s "$graph_endpoint" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"query\": \"query GetSolution(\$error: String!, \$context: String!) {
+                solutions(error_type: \$error, context: \$context) {
+                    action
+                    success_rate
+                    example
+                }
+            }\",
+            \"variables\": {
+                \"error\": \"$error_type\",
+                \"context\": \"$context\"
+            }
+        }" | jq -r '.data.solutions[]' 2>/dev/null || echo "{}"
+}
+
+# ============================================================
+# 個人ツール例: ローカルテスト実行
+# ============================================================
+
+# プロジェクトタイプに応じたテスト実行
+run_local_tests() {
+    local project_dir="${1:-.}"
+    
+    # Detect project type and run appropriate tests
+    if [ -f "$project_dir/Cargo.toml" ]; then
+        echo "Running Rust tests..."
+        cd "$project_dir" && cargo test
+    elif [ -f "$project_dir/package.json" ]; then
+        echo "Running Node.js tests..."
+        cd "$project_dir" && npm test
+    elif [ -f "$project_dir/pyproject.toml" ]; then
+        echo "Running Python tests..."
+        cd "$project_dir" && pytest
+    else
+        echo "Unknown project type, skipping tests"
+    fi
+}
+
+# ============================================================
+# 個人ツール例: stream.jsonlへの記録
+# ============================================================
+
+# エラーイベントの記録
+log_to_stream() {
+    local event_type="$1"
+    local message="$2"
+    local details="${3:-{}}"
+    local stream_file="${STREAM_FILE:-./stream.jsonl}"
+    
+    jq -n \
+        --arg type "$event_type" \
+        --arg msg "$message" \
+        --argjson details "$details" \
+        --arg timestamp "$(date -Iseconds)" \
+        '{
+            type: $type,
+            message: $msg,
+            details: $details,
+            timestamp: $timestamp
+        }' >> "$stream_file"
+}
+
+# ============================================================
+# テンプレート使用例
+# ============================================================
+
+example_usage() {
+    cat <<'EOF'
+# 進捗更新
+update_session_progress ./session.json 75 "testing"
+
+# エラー解決策の検索
+solution=$(query_solution_for_error "import_not_found" "rust_project")
+
+# テスト実行
+run_local_tests ./my_project
+
+# ログ記録
+log_to_stream "error" "Compilation failed" '{"file": "main.rs", "line": 42}'
+
+注意: これらは例示です。実際の使用時は各個人のCLAUDE.mdに従ってください。
+EOF
+}
+
+# ============================================================
+# ガード: 直接実行を防ぐ
+# ============================================================
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    echo "============================================================"
+    echo "WARNING: This is a template file for individual tools"
+    echo "============================================================"
+    echo ""
+    echo "This file provides tool templates that individuals may use."
+    echo "Actual behavior should follow CLAUDE.md and .claude/* settings."
+    echo ""
+    echo "To use these tools:"
+    echo "1. Source this file or copy needed functions"
+    echo "2. Adapt to your specific needs"
+    echo "3. Follow your CLAUDE.md guidelines"
+    echo ""
+    example_usage
+    exit 1
+fi
