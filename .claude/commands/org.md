@@ -18,8 +18,8 @@
 #### 今すぐ使える例
 ```bash
 # /orgで使う場合のCONFIG_PATHとSDK_PATHの設定
-CONFIG_PATH="$(find ~/bin/src/poc -name "config.ts" -path "*/claude_config/*" | head -1)"
-SDK_PATH="$(find ~/bin/src/poc -name "claude.ts" -path "*/claude_sdk/*" | head -1)"
+CONFIG_PATH="$(find ~/bin/src/poc -name "config.ts" -path "*/develop/claude/config/*" | head -1)"
+SDK_PATH="$(find ~/bin/src/poc -name "claude.ts" -path "*/develop/claude/sdk/*" | head -1)"
 
 # 1. 読み取り専用（ファイル編集不可）
 echo '{"prompt": "src/のコードをレビューして", "mode": "readonly"}' | \
@@ -90,17 +90,20 @@ production: {
 # 実行フロー
 
 ## sparse-checkout worktree作成
-テンプレート: `~/bin/src/poc/develop/org.sh`
+テンプレート: `~/bin/src/poc/develop/claude/org/template.sh`
 
 ```bash
-# 基本使用
-~/bin/src/poc/develop/org.sh <task_name> <target_dir> <prompt> [mode] [base_branch]
+# テンプレートを読み込む
+source ~/bin/src/poc/develop/claude/org/template.sh
 
-# 一覧表示
-~/bin/src/poc/develop/org.sh --list
+# 使用例を表示
+source ~/bin/src/poc/develop/claude/org/template.sh --examples
 
-# テンプレート参照
-~/bin/src/poc/develop/org.sh  # 引数なしでソース表示
+# worktree作成
+WORKTREE=$(create_sparse_worktree "task-name" "target/dir")
+
+# Claude起動
+launch_claude_sdk "task-name" "$WORKTREE" "タスクの説明" "development"
 ```
 
 ### 引数不足時
@@ -124,10 +127,17 @@ production: {
 
 ## 2. タスク実行
 ```bash
-# org.shを使用して並列実行
-~/bin/src/poc/develop/org.sh auth-feature src/auth "認証機能実装" development &
-~/bin/src/poc/develop/org.sh api-design docs/api "API設計" readonly &
-~/bin/src/poc/develop/org.sh test-impl tests "テスト実装" development &
+# テンプレートを読み込む
+source ~/bin/src/poc/develop/claude/org/template.sh
+
+# worktree作成と並列実行
+WORKTREE1=$(create_sparse_worktree "auth-feature" "src/auth")
+WORKTREE2=$(create_sparse_worktree "api-design" "docs/api")
+WORKTREE3=$(create_sparse_worktree "test-impl" "tests")
+
+launch_claude_sdk "auth-feature" "$WORKTREE1" "認証機能実装" "development" &
+launch_claude_sdk "api-design" "$WORKTREE2" "API設計" "readonly" &
+launch_claude_sdk "test-impl" "$WORKTREE3" "テスト実装" "development" &
 wait
 ```
 
