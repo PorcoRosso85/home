@@ -28,7 +28,7 @@ def test_schema_re_initialization():
     if success1:
         # Check what was created
         db = create_database(in_memory=True, use_cache=False, test_unique=True)
-            conn = create_connection(db)
+        conn = create_connection(db)
 
         try:
             # Count nodes
@@ -97,7 +97,7 @@ def test_schema_check_without_init():
 
     # Try to check if schema exists
     db = create_database(in_memory=True, use_cache=False, test_unique=True)
-        conn = create_connection(db)
+    conn = create_connection(db)
 
     print("\n1. Checking if schema exists (before init):")
     try:
@@ -127,7 +127,7 @@ def test_schema_status_check():
 
     # インメモリDBを使用
     db = create_database(in_memory=True, use_cache=False, test_unique=True)
-        conn = create_connection(db)
+    conn = create_connection(db)
 
     # Method 1: Try to query a table
     print("\n1. Query table method:")

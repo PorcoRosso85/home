@@ -63,20 +63,28 @@ def test_check_schema_status_without_failing():
     assert not schema_exists
     conn.close()
 
-    # After initialization
-    apply_ddl_schema(db_path=":memory:")
-
+    # After initialization - 同じDBインスタンスでスキーマ適用と確認
     db2 = create_database(in_memory=True, use_cache=False, test_unique=True)
     conn2 = create_connection(db2)
+    
+    # スキーマを適用
+    from .infrastructure.ddl_schema_manager import DDLSchemaManager
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    schema_path = os.path.join(current_dir, "ddl", "migrations", "3.2.0_current.cypher")
+    
+    manager = DDLSchemaManager(conn2)
+    success, results = manager.apply_schema(schema_path)
+    
+    # スキーマ存在確認
+    try:
+        conn2.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
+        schema_exists = True
+    except:
+        schema_exists = False
 
-        try:
-            conn2.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
-            schema_exists = True
-        except:
-            schema_exists = False
-
-        assert schema_exists
-        conn2.close()
+    assert schema_exists
+    conn2.close()
 
 
 def test_schema_command_via_main():

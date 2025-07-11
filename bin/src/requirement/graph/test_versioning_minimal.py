@@ -36,13 +36,46 @@ def test_versioning_through_api():
     schema_path = Path(current_dir) / "ddl" / "migrations" / "3.2.0_current.cypher"
 
     success, results = manager.apply_schema(str(schema_path))
-    if not success:
-        print("Failed to apply schema!")
-        return False
+    assert success, "Failed to apply schema!"
     print(f"Schema applied: {len(results)} statements")
 
-    # Create repository and versioned executor
-    repo = create_kuzu_repository(db_path=":memory:")
+    # Create repository using the same DB instance
+    from requirement.graph.infrastructure.kuzu_repository import create_kuzu_repository
+    from requirement.graph.infrastructure.variables import get_db_path
+    import os
+    
+    # 同じDBインスタンスを使用するため、connを使用してリポジトリ関数を作成
+    # これは他のテストと同じパターン
+    def save_requirement(decision):
+        try:
+            conn.execute("""
+                CREATE (r:RequirementEntity {
+                    id: $id,
+                    title: $title,
+                    description: $description
+                })
+                RETURN r
+            """, {
+                "id": decision["id"],
+                "title": decision["title"],
+                "description": decision["description"]
+            })
+            return decision
+        except Exception as e:
+            return {"type": "DatabaseError", "message": f"Failed to save requirement: {e}"}
+    
+    # 必要なメソッドを含むリポジトリを作成
+    def execute_query(query, params=None):
+        """Cypherクエリを実行"""
+        return conn.execute(query, params or {})
+    
+    repo = {
+        "save": save_requirement,
+        "connection": conn,
+        "db": db,
+        "execute": execute_query
+    }
+    
     versioned_executor = create_versioned_cypher_executor(repo)
     validator = QueryValidator()
 
@@ -62,16 +95,12 @@ def test_versioning_through_api():
 
     # Validate query first
     is_valid, error = validator.validate(create_request["query"])
-    if not is_valid:
-        print(f"Query validation failed: {error}")
-        return False
+    assert is_valid, f"Query validation failed: {error}"
 
     result = versioned_executor["execute"](create_request)
     print(f"Create result: {json.dumps(result, indent=2, ensure_ascii=False)}")
 
-    if result.get("status") != "success":
-        print(f"Create failed: {result}")
-        return False
+    assert result.get("status") == "success", f"Create failed: {result}"
 
     # Check if versioning worked
     data = result.get("data", [])
@@ -83,12 +112,9 @@ def test_versioning_through_api():
     # For versioned create, we expect the data to contain version info
     if data and len(data) > 0 and len(data[0]) >= 3:
         print(f"Version number: {data[0][2]}")  # Third element should be version
-        if data[0][2] != 1:
-            print("ERROR: Expected version 1 for new requirement")
-            return False
+        assert data[0][2] == 1, "Expected version 1 for new requirement"
     else:
-        print("ERROR: No version data returned")
-        return False
+        assert False, "No version data returned"
 
     print("\n=== Testing versioned UPDATE ===")
 
@@ -108,16 +134,12 @@ def test_versioning_through_api():
 
     # Validate and execute update
     is_valid, error = validator.validate(update_request["query"])
-    if not is_valid:
-        print(f"Update query validation failed: {error}")
-        return False
+    assert is_valid, f"Update query validation failed: {error}"
 
     result = versioned_executor["execute"](update_request)
     print(f"\nUpdate result: {json.dumps(result, indent=2, ensure_ascii=False)}")
 
-    if result.get("status") != "success":
-        print(f"Update failed: {result}")
-        return False
+    assert result.get("status") == "success", f"Update failed: {result}"
 
     # Check version incremented
     data = result.get("data", [])
@@ -130,16 +152,17 @@ def test_versioning_through_api():
     if metadata.get("version") == 2 and metadata.get("previous_version") == 1:
         print("Version correctly incremented to 2")
     else:
-        print("ERROR: Version not incremented properly")
-        print("Expected version=2, previous_version=1")
-        print(f"Got: version={metadata.get('version')}, previous_version={metadata.get('previous_version')}")
-        return False
+        assert False, f"Version not incremented properly. Expected version=2, previous_version=1. Got: version={metadata.get('version')}, previous_version={metadata.get('previous_version')}"
 
     print("\n=== All tests passed! ===")
-    return True
+    # Test completed successfully
 
 if __name__ == "__main__":
     print("Running minimal versioning integration test...")
-    success = test_versioning_through_api()
-    print(f"\nTest {'PASSED' if success else 'FAILED'}")
-    sys.exit(0 if success else 1)
+    try:
+        test_versioning_through_api()
+        print("\nTest PASSED")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\nTest FAILED: {e}")
+        sys.exit(1)

@@ -86,26 +86,26 @@ class TestDDLSchemaManager:
         # インメモリDBを使用
         db = create_database(in_memory=True, use_cache=False, test_unique=True)
         conn = create_connection(db)
-            manager = DDLSchemaManager(conn)
+        manager = DDLSchemaManager(conn)
 
-            try:
-                # Act
-                success, results = manager.apply_schema(schema_path)
+        try:
+            # Act
+            success, results = manager.apply_schema(schema_path)
 
-                # Assert
-                assert success
-                assert len(results) == 2
-                assert all('✓' in r for r in results)
+            # Assert
+            assert success
+            assert len(results) == 2
+            assert all('✓' in r for r in results)
 
-                # 実際にテーブルが作成されたか確認
-                conn.execute("CREATE (n:TestEntity {id: 'test_001', name: 'Test'})")
-                result = conn.execute("MATCH (n:TestEntity) RETURN count(n) as cnt")
-                assert result.has_next()
-                assert result.get_next()[0] == 1
+            # 実際にテーブルが作成されたか確認
+            conn.execute("CREATE (n:TestEntity {id: 'test_001', name: 'Test'})")
+            result = conn.execute("MATCH (n:TestEntity) RETURN count(n) as cnt")
+            assert result.has_next()
+            assert result.get_next()[0] == 1
 
-            finally:
-                conn.close()
-            os.unlink(schema_path)
+        finally:
+            conn.close()
+        os.unlink(schema_path)
 
     def test_rollback_適用済みスキーマ_ロールバック成功(self):
         """rollback_適用済みスキーマ_正常にロールバック"""
@@ -115,25 +115,25 @@ class TestDDLSchemaManager:
         # インメモリDBを使用
         db = create_database(in_memory=True, use_cache=False, test_unique=True)
         conn = create_connection(db)
-            manager = DDLSchemaManager(conn)
+        manager = DDLSchemaManager(conn)
 
-            # スキーマを適用
-            conn.execute("CREATE NODE TABLE TestForRollback (id STRING PRIMARY KEY)")
-            manager.applied_statements.append("CREATE NODE TABLE TestForRollback (id STRING PRIMARY KEY);")
+        # スキーマを適用
+        conn.execute("CREATE NODE TABLE TestForRollback (id STRING PRIMARY KEY)")
+        manager.applied_statements.append("CREATE NODE TABLE TestForRollback (id STRING PRIMARY KEY);")
 
-            # Act
-            success, results = manager.rollback()
+        # Act
+        success, results = manager.rollback()
 
-            # Assert
-            assert success
-            assert len(results) == 1
-            assert 'DROP TABLE TestForRollback' in results[0]
+        # Assert
+        assert success
+        assert len(results) == 1
+        assert 'DROP TABLE TestForRollback' in results[0]
 
-            # テーブルが削除されたか確認（エラーが発生すればOK）
-            try:
-                conn.execute("CREATE (n:TestForRollback {id: 'test'})")
-                raise AssertionError("Table should have been dropped")
-            except:
-                pass  # Expected
+        # テーブルが削除されたか確認（エラーが発生すればOK）
+        try:
+            conn.execute("CREATE (n:TestForRollback {id: 'test'})")
+            raise AssertionError("Table should have been dropped")
+        except:
+            pass  # Expected
 
         conn.close()

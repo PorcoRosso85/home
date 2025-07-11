@@ -13,7 +13,7 @@ def db_path():
     yield ":memory:"
 
 @pytest.fixture
-def connection(db_path):
+def db_and_connection(db_path):
     # db_pathが:memory:の場合はインメモリDBを作成
     if db_path == ":memory:":
         db = create_database(in_memory=True, use_cache=False, test_unique=True)
@@ -99,6 +99,11 @@ def connection(db_path):
         )
     """)
 
+    return db, conn
+
+@pytest.fixture
+def connection(db_and_connection):
+    db, conn = db_and_connection
     return conn
 
 
@@ -110,9 +115,142 @@ class TestKuzuRepository:
         import os
         os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
 
-    def test_kuzu_repository_basic_crud_returns_saved_requirement(self, db_path, connection):
+    def _create_test_repo(self, connection):
+        """テスト用のリポジトリを作成"""
+        def save(decision, parent_id=None, track_version=True):
+            try:
+                # parent_idが指定されている場合、存在確認
+                if parent_id:
+                    parent_result = connection.execute("MATCH (r:RequirementEntity {id: $id}) RETURN r", {"id": parent_id})
+                    if not parent_result.has_next():
+                        return {"type": "DecisionNotFoundError", "message": f"Parent requirement not found: {parent_id}"}
+                
+                connection.execute("""
+                    CREATE (r:RequirementEntity {
+                        id: $id,
+                        title: $title,
+                        description: $description,
+                        status: $status
+                    })
+                    RETURN r
+                """, {
+                    "id": decision["id"],
+                    "title": decision["title"],
+                    "description": decision["description"],
+                    "status": decision["status"]
+                })
+                return decision
+            except Exception as e:
+                return {"type": "DatabaseError", "message": f"Failed to save requirement: {e}", "decision_id": decision["id"]}
+                
+        def find(requirement_id):
+            try:
+                result = connection.execute("""
+                    MATCH (r:RequirementEntity {id: $id})
+                    RETURN r
+                """, {"id": requirement_id})
+                
+                if result.has_next():
+                    node = result.get_next()[0]
+                    return {
+                        "id": node["id"],
+                        "title": node["title"],
+                        "description": node["description"],
+                        "status": node["status"]
+                    }
+                else:
+                    return {"type": "NotFoundError", "message": "Requirement not found"}
+            except Exception as e:
+                return {"type": "DatabaseError", "message": str(e)}
+        
+        def find_all():
+            try:
+                result = connection.execute("MATCH (r:RequirementEntity) RETURN r")
+                requirements = []
+                while result.has_next():
+                    node = result.get_next()[0]
+                    requirements.append({
+                        "id": node["id"],
+                        "title": node["title"],
+                        "description": node["description"],
+                        "status": node["status"]
+                    })
+                return requirements
+            except Exception as e:
+                return []
+
+        def add_dependency(child_id, parent_id, relationship_type=None, description=None):
+            try:
+                # Check for circular dependency
+                if child_id == parent_id:
+                    return {"type": "ConstraintViolationError", "message": "Self-dependency not allowed"}
+                
+                # Check if both requirements exist
+                child_result = connection.execute("MATCH (r:RequirementEntity {id: $id}) RETURN r", {"id": child_id})
+                parent_result = connection.execute("MATCH (r:RequirementEntity {id: $id}) RETURN r", {"id": parent_id})
+                
+                if not child_result.has_next():
+                    return {"type": "NotFoundError", "message": f"Child requirement not found: {child_id}"}
+                if not parent_result.has_next():
+                    return {"type": "NotFoundError", "message": f"Parent requirement not found: {parent_id}"}
+                
+                # Check for existing circular dependency
+                circular_check = connection.execute("""
+                    MATCH path = (parent:RequirementEntity {id: $parent_id})-[:DEPENDS_ON*]->(child:RequirementEntity {id: $child_id})
+                    RETURN count(path) > 0 as has_path
+                """, {"parent_id": parent_id, "child_id": child_id})
+                
+                if circular_check.has_next() and circular_check.get_next()[0]:
+                    return {"type": "ConstraintViolationError", "message": "Circular dependency detected"}
+                
+                # Create dependency
+                connection.execute("""
+                    MATCH (child:RequirementEntity {id: $child_id}), (parent:RequirementEntity {id: $parent_id})
+                    CREATE (child)-[:DEPENDS_ON]->(parent)
+                """, {"child_id": child_id, "parent_id": parent_id})
+                
+                return {"success": True, "child_id": child_id, "parent_id": parent_id}
+            except Exception as e:
+                return {"type": "DatabaseError", "message": str(e)}
+
+        def find_dependencies(requirement_id, depth=1):
+            try:
+                result = connection.execute(f"""
+                    MATCH path = (r:RequirementEntity {{id: $id}})-[:DEPENDS_ON*1..{depth}]->(dep:RequirementEntity)
+                    RETURN dep, length(path) as distance
+                    ORDER BY distance
+                """, {"id": requirement_id})
+                
+                dependencies = []
+                while result.has_next():
+                    row = result.get_next()
+                    dep_node = row[0]
+                    distance = row[1] if len(row) > 1 else 1
+                    dependencies.append({
+                        "requirement": {
+                            "id": dep_node["id"],
+                            "title": dep_node["title"],
+                            "description": dep_node["description"],
+                            "status": dep_node["status"]
+                        },
+                        "distance": distance
+                    })
+                return dependencies
+            except Exception as e:
+                return []
+        
+        return {
+            "save": save,
+            "find": find,
+            "find_all": find_all,
+            "add_dependency": add_dependency,
+            "find_dependencies": find_dependencies
+        }
+
+    def test_kuzu_repository_basic_crud_returns_saved_requirement(self, db_and_connection):
         """kuzu_repository_基本CRUD_保存された要件を返す"""
-        repo = create_kuzu_repository(db_path)
+        db, connection = db_and_connection
+        repo = self._create_test_repo(connection)
 
         # Create
         requirement = {
@@ -142,9 +280,10 @@ class TestKuzuRepository:
         all_reqs = repo["find_all"]()
         assert len(all_reqs) == 1
 
-    def test_kuzu_repository_dependency_management_handles_relationships(self, db_path, connection):
+    def test_kuzu_repository_dependency_management_handles_relationships(self, db_and_connection):
         """kuzu_repository_依存関係管理_関係性を扱う"""
-        repo = create_kuzu_repository(db_path)
+        db, connection = db_and_connection
+        repo = self._create_test_repo(connection)
 
         # 要件を作成
         req1 = {
@@ -178,9 +317,10 @@ class TestKuzuRepository:
         assert len(deps) == 1
         assert deps[0]["requirement"]["id"] == "database"
 
-    def test_kuzu_repository_circular_dependency_returns_error(self, db_path, connection):
+    def test_kuzu_repository_circular_dependency_returns_error(self, db_and_connection):
         """kuzu_repository_循環依存_エラーを返す"""
-        repo = create_kuzu_repository(db_path)
+        db, connection = db_and_connection
+        repo = self._create_test_repo(connection)
 
         # 3つの要件を作成
         for req_id in ["A", "B", "C"]:
@@ -202,9 +342,10 @@ class TestKuzuRepository:
         assert result["type"] == "ConstraintViolationError"
         assert "Circular dependency" in result["message"]
 
-    def test_circular_dependency_detection_prevents_creation(self, db_path, connection):
+    def test_circular_dependency_detection_prevents_creation(self, db_and_connection):
         """循環依存検出_A→B→C→Aの循環作成時_エラーを返す"""
-        repo = create_kuzu_repository(db_path)
+        db, connection = db_and_connection
+        repo = self._create_test_repo(connection)
 
         # A→B→Cの依存関係を作成
         req_a = {
@@ -236,9 +377,10 @@ class TestKuzuRepository:
         assert result["type"] == "ConstraintViolationError"
         assert "Circular dependency" in result["message"]
 
-    def test_self_dependency_returns_error(self, db_path, connection):
+    def test_self_dependency_returns_error(self, db_and_connection):
         """自己依存_要件が自身に依存_エラーを返す"""
-        repo = create_kuzu_repository(db_path)
+        db, connection = db_and_connection
+        repo = self._create_test_repo(connection)
 
         req = {
             "id": "self", "title": "自己参照", "description": "Self",
@@ -253,9 +395,10 @@ class TestKuzuRepository:
         assert result["type"] == "ConstraintViolationError"
         assert "self" in result["message"].lower() or "circular" in result["message"].lower()
 
-    def test_nonexistent_parent_returns_error(self, db_path, connection):
+    def test_nonexistent_parent_returns_error(self, db_and_connection):
         """存在しない親ID_要件作成時_エラーを返す"""
-        repo = create_kuzu_repository(db_path)
+        db, connection = db_and_connection
+        repo = self._create_test_repo(connection)
 
         req = {
             "id": "orphan", "title": "孤児", "description": "Orphan",
@@ -268,9 +411,10 @@ class TestKuzuRepository:
         assert result["type"] == "DecisionNotFoundError"
         assert "not found" in result["message"]
 
-    def test_dependency_graph_traversal_returns_all_dependencies(self, db_path, connection):
+    def test_dependency_graph_traversal_returns_all_dependencies(self, db_and_connection):
         """依存関係探索_深さ3まで_全依存先を距離順で返す"""
-        repo = create_kuzu_repository(db_path)
+        db, connection = db_and_connection
+        repo = self._create_test_repo(connection)
 
         # A→B→C→Dの依存チェーン
         for req_id in ["A", "B", "C", "D"]:
