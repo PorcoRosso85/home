@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """ベクトル検索層のテスト - RED段階"""
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
 import pytest
 from typing import List
-from embeddings.infrastructure.kuzu import KuzuVectorRepository
+from vss.infrastructure.kuzu import KuzuVectorRepository
 
 
 class TestKuzuVectorRepository:
@@ -23,7 +27,7 @@ class TestKuzuVectorRepository:
     
     def test_類似ベクトル検索(self, mock_connection):
         """上位k件の類似ドキュメントが距離順で返されること"""
-        from embeddings.infrastructure.kuzu.vector_subprocess_wrapper import KuzuVectorSubprocess, is_pytest_running
+        from vss.infrastructure.kuzu.vector_subprocess_wrapper import KuzuVectorSubprocess, is_pytest_running
         
         repo = KuzuVectorRepository(mock_connection)
         
@@ -109,7 +113,7 @@ def mock_connection():
     import kuzu
     import tempfile
     import shutil
-    from embeddings.infrastructure.kuzu.vector_subprocess_wrapper import KuzuVectorSubprocess, is_pytest_running
+    from vss.infrastructure.kuzu.vector_subprocess_wrapper import KuzuVectorSubprocess, is_pytest_running
     
     # 一時ディレクトリでKuzuDBを作成
     tmpdir = tempfile.mkdtemp()

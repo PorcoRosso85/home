@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """ユースケース層のテスト - RED段階"""
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
 import pytest
-from embeddings.application import (
+from vss.application import (
     SearchSimilarDocumentsUseCase,
     IndexDocumentsUseCase,
     DocumentSearchResult,

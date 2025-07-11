@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """統合テスト - RED段階"""
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
 import pytest
 import tempfile
 import shutil
-from pathlib import Path
-from embeddings import VectorSearchSystem
-from embeddings.infrastructure.kuzu.vector_subprocess_wrapper import is_pytest_running
+from vss import VectorSearchSystem
+from vss.infrastructure.kuzu.vector_subprocess_wrapper import is_pytest_running
 
 
 class TestVectorSearchIntegration:

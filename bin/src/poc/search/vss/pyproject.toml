@@ -1,7 +1,7 @@
 [project]
-name = "vss-plamo-poc"
-version = "0.1.0"
-description = "PLaMo-Embedding-1B + KuzuDB Vector Search POC"
+name = "vss"
+version = "0.2.0"
+description = "Vector Search System with KuzuDB and Ruri embeddings"
 requires-python = ">=3.11"
 dependencies = [
     "transformers>=4.48.0",

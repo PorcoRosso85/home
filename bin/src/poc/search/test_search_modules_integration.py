@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-search/vssとsearch/embeddingsの統合テスト
-両モジュールが独立して正しく動作することを確認
+search/vssの統合テスト
+embeddingsから移行後も全機能が正しく動作することを確認
 """
 
 import pytest
@@ -12,33 +12,27 @@ from pathlib import Path
 # モジュールパスを追加
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir / "vss"))
-sys.path.insert(0, str(current_dir / "embeddings"))
 sys.path.insert(0, str(current_dir))
 
 
-class TestSearchModulesIntegration:
-    """検索モジュールの統合テスト"""
+class TestVSSIntegration:
+    """VSS統合テスト"""
     
     def test_vss_module_imports(self):
         """VSSモジュールが正しくインポートできること"""
         # VSSモジュールのインポート
-        from requirement_embedder import generate_requirement_embedding
-        from similarity_search import search_similar_requirements
+        from vss import VectorSearchSystem, create_embedding_model
+        from vss.domain import EmbeddingRequest, EmbeddingType
         
-        # 基本的な動作確認
-        embedding = generate_requirement_embedding({
-            "title": "テスト要件",
-            "description": "これはテストです"
-        })
-        
-        assert isinstance(embedding, list)
-        assert len(embedding) == 384  # VSSは384次元
+        # システムの作成
+        system = VectorSearchSystem(db_path=":memory:")
+        assert system is not None
     
-    def test_embeddings_module_imports(self):
-        """Embeddingsモジュールが正しくインポートできること"""
-        # Embeddingsモジュールのインポート
-        from infrastructure import create_embedding_model
-        from domain import EmbeddingRequest, EmbeddingType
+    def test_embedding_model_functionality(self):
+        """埋め込みモデルの機能が維持されていること"""
+        # VSSモジュールからのインポート
+        from vss.infrastructure import create_embedding_model
+        from vss.domain import EmbeddingRequest, EmbeddingType
         
         # モデルの作成
         model = create_embedding_model("ruri-v3-30m")
@@ -53,40 +47,39 @@ class TestSearchModulesIntegration:
         assert result.embeddings is not None
         assert len(result.embeddings) == 256  # Ruriは256次元
     
-    def test_dimension_compatibility(self):
-        """両モジュールのベクトル次元の違いを確認"""
-        from requirement_embedder import generate_requirement_embedding
-        from infrastructure import create_embedding_model
-        from domain import EmbeddingRequest, EmbeddingType
+    def test_vector_search_functionality(self):
+        """ベクトル検索機能が維持されていること"""
+        from vss import VectorSearchSystem
+        import tempfile
         
-        # VSSの埋め込み（384次元）
-        vss_embedding = generate_requirement_embedding({"title": "test"})
-        
-        # Embeddingsの埋め込み（256次元）
-        model = create_embedding_model("ruri-v3-30m")
-        request = EmbeddingRequest(text="test", embedding_type=EmbeddingType.DOCUMENT)
-        embeddings_result = model.encode(request)
-        
-        # 次元数の確認
-        assert len(vss_embedding) == 384
-        assert len(embeddings_result.embeddings) == 256
-        
-        # 両者は異なる次元数を持つことを確認
-        assert len(vss_embedding) != len(embeddings_result.embeddings)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # システムの初期化
+            system = VectorSearchSystem(db_path=tmpdir)
+            
+            # 文書のインデックス
+            docs = ["テスト文書1", "テスト文書2"]
+            result = system.index_documents(docs)
+            assert result.ok is True
+            assert result.indexed_count == 2
+            
+            # 検索
+            search_result = system.search("テスト", k=1)
+            assert search_result.ok is True
     
-    def test_mock_vs_real_implementation(self):
-        """モック実装と実装の違いを確認"""
-        from requirement_embedder import generate_requirement_embedding
+    def test_kuzu_vector_repository(self):
+        """KuzuDBベクトルリポジトリが動作すること"""
+        from vss.infrastructure.kuzu import KuzuVectorRepository
+        import kuzu
+        import tempfile
         
-        # 同じ入力に対して同じ出力を返すか確認（モック）
-        text = {"title": "同じテキスト"}
-        embedding1 = generate_requirement_embedding(text)
-        embedding2 = generate_requirement_embedding(text)
-        
-        # モック実装は決定的（同じ入力→同じ出力）
-        assert embedding1 == embedding2
-        
-        # 実際のモデルは少し異なる可能性がある（ここではテストしない）
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # KuzuDB接続
+            db = kuzu.Database(tmpdir)
+            conn = kuzu.Connection(db)
+            
+            # リポジトリの作成
+            repo = KuzuVectorRepository(conn)
+            assert repo is not None
     
     @pytest.mark.parametrize("query_text", [
         "要件管理システム",
@@ -94,21 +87,17 @@ class TestSearchModulesIntegration:
         "ベクトル類似度",
         "日本語の意味検索",
     ])
-    def test_both_modules_handle_japanese(self, query_text):
-        """両モジュールが日本語を処理できること"""
-        from requirement_embedder import generate_requirement_embedding
-        from infrastructure import create_embedding_model
-        from domain import EmbeddingRequest, EmbeddingType
+    def test_japanese_text_processing(self, query_text):
+        """日本語テキストが正しく処理できること"""
+        from vss.infrastructure import create_embedding_model
+        from vss.domain import EmbeddingRequest, EmbeddingType
         
-        # VSSモジュール
-        vss_embedding = generate_requirement_embedding({"title": query_text})
-        assert len(vss_embedding) == 384
-        
-        # Embeddingsモジュール
+        # VSSモジュール（Ruri実装）
         model = create_embedding_model("ruri-v3-30m")
         request = EmbeddingRequest(text=query_text, embedding_type=EmbeddingType.QUERY)
         result = model.encode(request)
         assert len(result.embeddings) == 256
+        assert all(isinstance(v, float) for v in result.embeddings)
 
 
 class TestHybridSearchConcept:

@@ -7,9 +7,9 @@ import kuzu
 import os
 import shutil
 
-from embeddings.infrastructure import create_embedding_model
-from embeddings.application import TextEmbeddingService
-from embeddings.domain import EmbeddingType
+from .infrastructure import create_embedding_model
+from .application import TextEmbeddingService
+from .domain import EmbeddingType
 
 
 @dataclass

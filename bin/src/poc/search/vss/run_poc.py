@@ -4,11 +4,10 @@
 import sys
 from pathlib import Path
 
-# 親ディレクトリをパスに追加
-parent_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(parent_dir))
+# Add the parent directory to the path so we can import from vss package
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from embeddings.main import main
+from vss.main import main
 
 if __name__ == "__main__":
     main()

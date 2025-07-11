@@ -1,186 +1,51 @@
-# org
-/org
+# /org - Delegate tasks to multiple Claude instances
 
-# 説明
-複数のClaudeインスタンスを使った並列タスク実行を管理する
+## Overview
+Delegates tasks to Claude instances working in parallel using Git worktrees with sparse-checkout.
 
-# 重要な制約
-**/orgを実行したClaudeは作業禁止**
-- /orgを実行したClaudeは依頼者であり、管理者である
-- 自らTaskツールで作業してはならない
-- 他のClaudeインスタンスに依頼し、結果を収集するのみ
-- すべての実作業（調査、分析、コーディング）は委任先のClaudeが行う
-
-## ツール制限の推奨設定
-
-### 権限管理パイプライン
-
-#### 今すぐ使える例
+## Usage
 ```bash
-# /orgで使う場合のCONFIG_PATHとSDK_PATHの設定
-CONFIG_PATH="$(find ~/bin/src/poc -name "config.ts" -path "*/develop/claude/config/*" | head -1)"
-SDK_PATH="$(find ~/bin/src/poc -name "claude.ts" -path "*/develop/claude/sdk/*" | head -1)"
-
-# 1. 読み取り専用（ファイル編集不可）
-echo '{"prompt": "src/のコードをレビューして", "mode": "readonly"}' | \
-  deno run --allow-all $CONFIG_PATH | deno run --allow-all $SDK_PATH
-
-# 2. 開発モード（すべて許可）
-echo '{"prompt": "新機能を実装して", "mode": "development"}' | \
-  deno run --allow-all $CONFIG_PATH | deno run --allow-all $SDK_PATH
-
-# 3. 本番モード（rm/dd等の危険コマンドブロック）
-echo '{"prompt": "本番環境のログを確認", "mode": "production"}' | \
-  deno run --allow-all $CONFIG_PATH | deno run --allow-all $SDK_PATH
+/org <task_name> <target_directory> <description>
 ```
 
-#### プリセットの中身（~/bin/src/poc/claude_config/src/config.ts）
-```typescript
-readonly: {
-  allowedTools: ["Read", "Glob", "Grep", "LS"],
-  settings: { permissions: { /* 読み取りのみ */ } }
-}
-
-development: {
-  allowedTools: ["*"],  // すべて許可
-  permissionMode: "acceptEdits"
-}
-
-production: {
-  disallowedTools: ["Bash", "Write", "Edit"],
-  settings: {
-    permissions: {
-      deny: ["rm:**", "dd:**", "mkfs:**", "/etc/**"]
-    }
-  }
-}
+## Example
+```bash
+/org auth-feature src/auth "Implement JWT authentication with tests"
 ```
 
-### 依頼する側に許可されるツール
-- `Read`, `LS` - 進捗確認のためのファイル読み取り
-- `TodoRead`, `TodoWrite` - タスク管理
-- `Bash(git:*)` - worktree作成とブランチ管理
-- `Bash(nix:*)` - Claude SDKとDuckDB実行
-- `Bash(cd:*)` - ディレクトリ移動
-- `Bash(export:*)`, `Bash(echo:*)` - 環境変数設定
+## How it works
+1. Creates isolated Git worktree for the task
+2. Sets up sparse-checkout for the target directory
+3. Launches Claude with the task description
+4. Claude works autonomously in the isolated environment
 
-### 依頼する側に禁止されるツール
-- `Write`, `Edit`, `MultiEdit` - ファイル変更禁止
-- `Task` - 自ら作業することを防ぐ
-- `WebSearch`, `WebFetch` - 外部調査の防止
-
-**注意**: DuckDB実行は`nix run nixpkgs#duckdb`経由で許可される
-
-# 実行内容
-1. タスクの識別（ユーザー要求を解釈、分割は自分で判断）
-2. 各タスクに対してworktreeを作成
-3. 各タスクごとにClaudeインスタンスを起動して依頼（並列実行）
-4. stream.jsonl生成開始の確認（DuckDBで確認）
-5. 監視終了（依頼完了時点で終了）
-
-# 関連ツール
-- **claude_config**: 権限設定生成 → `~/bin/src/poc/claude_config/`
-- **claude_sdk**: Claudeインスタンスの起動と管理 → `~/bin/src/poc/claude_sdk/`
-- **claude_orchestra**: 統合テストと動作検証 → `~/bin/src/poc/claude_orchestra/`
-- **DuckDB**: stream.jsonlの分析とクエリ（`nix run nixpkgs#duckdb`経由）
-
-## 詳細ドキュメント
-- 権限とフックの完全仕様 → `~/bin/src/poc/claude_permission_principle.md`
-
-# 実行フロー
-
-## sparse-checkout worktree作成
-テンプレート: `~/bin/src/poc/develop/claude/org/main.sh.template`
-
+## Template location
+View the evolved org template:
 ```bash
-# テンプレートを参照（実行不可）
 cat ~/bin/src/poc/develop/claude/org/main.sh.template
-
-# 自分のスクリプトを作成
-vi my_org_task.sh
-
-# テンプレートの関数をコピーしてパラメータを設定
-# TASK_NAME="auth-feature"
-# TARGET_DIR="src/auth"
-# PROMPT="認証機能を実装してください"
-
-# 実行
-bash my_org_task.sh
 ```
 
-### 引数不足時
-1. `org.sh --list`で既存worktree確認
-2. 不足情報をユーザーに依頼
-   - task_name: タスク名
-   - target_dir: sparse対象ディレクトリ
-   - prompt: タスク説明
-   - mode: readonly/development/production
-
-## 1. タスク分割（/orgを実行したClaudeが判断）
+## Member tools
+Individual member tools are available at:
 ```bash
-# /orgを実行したClaudeがユーザー要求を解釈してタスクを識別
-# 例: "AとBを同時に調査して" → タスク1: A調査, タスク2: B調査
-# Taskツールは使用せず、/orgを実行したClaudeが直接判断する
-# タスクの例:
-# - "auth-feature": 認証機能を実装
-# - "api-design": API設計書を作成
-# - "test-implementation": テストを実装
+cat ~/bin/src/poc/develop/claude/member/main.sh.template
 ```
 
-## 2. タスク実行
-```bash
-# 1. テンプレートを参照
-cat ~/bin/src/poc/develop/claude/org/main.sh.template
+## Advanced options (from evolved template)
+- `--spec-id`: Use GraphDB specification
+- `--resume`: Resume previous task
+- `--test-driven`: Start with test implementation
+- `--list`: List active Claude processes
+- `--cleanup`: Remove zombie worktrees
+- `--status`: Show all task statuses
 
-# 2. 自分のスクリプトを作成して実装
-#!/bin/bash
-# parallel_tasks.sh
-
-# パラメータ設定
-TASKS=(
-  "auth-feature:src/auth:認証機能実装:development"
-  "api-design:docs/api:API設計:readonly"
-  "test-impl:tests:テスト実装:development"
-)
-
-# テンプレートから関数をコピーして実装
-# ... (create_sparse_worktree関数等)
-
-# 3. 実行
-bash parallel_tasks.sh
+## Directory structure
 ```
-
-## 3. タスク記録
-TodoWriteで各タスクをin_progressとして記録
-
-## 4. 監視
-org.shの起動確認がorg.sh内で完結。stream.jsonl作成を監視
-
-
-# 進捗確認
-```bash
-# 進捗監視
-nix run nixpkgs#duckdb -- -json -c "SELECT worktree_uri, MAX(timestamp) FROM read_json_auto('.worktrees/claude-org/*/stream.jsonl') GROUP BY worktree_uri"
-
-# 完了確認
-grep -l "Task completed" .worktrees/claude-org/*/stream.jsonl
+poc/develop/claude/
+├── org/                    # Organization coordination
+│   └── main.sh.template   # Org-level guardrails
+└── member/                # Individual member tools
+    ├── sdk/              # Execution environment
+    ├── config/           # Configuration
+    └── main.sh.template  # Individual tool templates
 ```
-
-# 注意事項
-- 各Claudeは独立したworktreeで作業（ファイル競合なし）
-- session.jsonで会話継続性を保証
-- stream.jsonlは削除禁止（分析用）
-- 同時実行数: /orgを実行したClaudeの判断に従う（1〜n個）
-- 依頼完了確認: stream.jsonl作成で判定
-- **監視は依頼時点で終了**（タスク完了を待たない）
-- 識別子: worktree_uriとprocess_idで各Claudeを識別
-- DuckDB分析: `nix run nixpkgs#duckdb`で実行（analyze_jsonl不要）
-
-## worktree内作業の保証
-- **作業ディレクトリ**: Claude SDKは`cwd: workdir`で起動され、worktree内で作業
-- **設定保存**: 以下がworktree内に保存される
-  - `session.json`: 会話履歴とコンテキスト
-  - `stream.jsonl`: 全入出力ログ
-  - `.claude/settings.json`: 権限設定
-- **再利用時**: 既存worktreeを再利用すると過去のコンテキストが継承される
-

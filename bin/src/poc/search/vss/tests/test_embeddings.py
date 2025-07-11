@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """埋め込みモデル層のテスト - RED段階"""
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
 import pytest
-from embeddings.infrastructure import create_embedding_model
-from embeddings.domain import EmbeddingRequest, EmbeddingType
+from vss.infrastructure import create_embedding_model
+from vss.domain import EmbeddingRequest, EmbeddingType
 
 
 def test_埋め込みモデルの初期化():
