@@ -1,481 +1,231 @@
 #!/bin/bash
-# Claude Organization Coordination Template
+# Organization Coordination Template
 # ============================================================
-# 責務: 組織レベルの調整・管理・ガードレール
-#      （個人の実装詳細には関与しない）
+# 責務: 環境準備、タスク配分、状態管理
+# 規約: エラー時はフォールバック禁止、失敗を明示的に報告
 # ============================================================
-# 
-# このテンプレートは組織としての振る舞いのみを定義します。
-# 個人（member）の具体的な実装方法は指定しません。
 
 set -e
 
-# ============================================================
-# EVOLVED ORG COMMAND TEMPLATE
-# Features: GraphDB integration, session merge, spec-driven
-# ============================================================
-
 # Configuration
-GRAPH_ENDPOINT="${GRAPH_ENDPOINT:-http://localhost:8080/graphql}"
-BACKUP_PATHS=("local/graph_backup.json" "github:graph_state.json" "s3://claude-graph/backup.json")
-MAX_CONCURRENT_CLAUDES="${MAX_CONCURRENT_CLAUDES:-3}"
+DB_URI="${DB_URI:-kuzu://localhost:7687}"  # KuzuDB is local
+MAX_CONCURRENT="${MAX_CONCURRENT:-3}"
 
 # ============================================================
-# GRAPH DATABASE INTEGRATION
+# CORE FUNCTIONS
 # ============================================================
 
-# Query GraphDB with fallback strategy
-query_graph() {
-    local query="$1"
-    local params="$2"
-    
-    # Try primary GraphDB
-    if curl -s --connect-timeout 5 "$GRAPH_ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d "{\"query\": \"$query\", \"params\": $params}" 2>/dev/null; then
-        return 0
-    fi
-    
-    # Fallback to backup sources
-    for backup in "${BACKUP_PATHS[@]}"; do
-        if load_from_backup "$backup" "$query"; then
-            return 0
-        fi
-    done
-    
-    echo "{\"error\": \"All graph sources unavailable\"}" >&2
-    return 1
-}
-
-# Load specification from GraphDB
-load_specification() {
-    local spec_id="$1"
-    
-    query_graph "
-        MATCH (spec:Specification {id: \$spec_id})
-        RETURN spec.tests, spec.acceptance_criteria, spec.estimated_effort
-    " "{\"spec_id\": \"$spec_id\"}"
-}
-
-# Get expected state for URI
-get_expected_state() {
-    local uri="$1"
-    
-    query_graph "
-        MATCH (expected:ExpectedState {uri: \$uri})
-        RETURN expected.files, expected.dependencies, expected.completion_criteria
-    " "{\"uri\": \"$uri\"}"
-}
-
-# Get solution patterns for error type
-get_solutions() {
-    local error_type="$1"
-    local context="$2"
-    
-    query_graph "
-        MATCH (e:Error {type: \$error_type})-[:SOLVED_BY]->(s:Solution)
-        WHERE s.context =~ \$context AND s.success_rate > 0.7
-        RETURN s.action, s.success_rate
-        ORDER BY s.success_rate DESC LIMIT 3
-    " "{\"error_type\": \"$error_type\", \"context\": \"$context\"}"
-}
-
-# ============================================================
-# SESSION & STREAM MANAGEMENT
-# ============================================================
-
-# Create session.json for a task
-create_session() {
-    local task_id="$1"
-    local worktree_path="$2"
-    local spec_id="$3"
-    
-    cat > "$worktree_path/session.json" <<EOF
-{
-  "task_id": "$task_id",
-  "spec_id": "$spec_id",
-  "created_at": "$(date -Iseconds)",
-  "status": "started",
-  "worktree_path": "$worktree_path",
-  "completion": 0.0,
-  "tests_passed": false,
-  "expected_state": $(get_expected_state "$worktree_path" 2>/dev/null || echo 'null')
-}
-EOF
-}
-
-# Merge multiple session.json files
-merge_sessions() {
-    local parent_task_id="$1"
-    shift
-    local session_files=("$@")
-    
-    local merged_file="/tmp/merged_session_$parent_task_id.json"
-    
-    jq -s '{
-        task_id: $parent_task_id,
-        overall_progress: (map(.completion) | add / length),
-        merged_at: now | strftime("%Y-%m-%dT%H:%M:%SZ"),
-        subtasks: map({
-            task_id: .task_id,
-            status: .status,
-            completion: .completion,
-            tests_passed: .tests_passed
-        })
-    }' --arg parent_task_id "$parent_task_id" "${session_files[@]}" > "$merged_file"
-    
-    echo "$merged_file"
-}
-
-# Merge stream.jsonl files chronologically
-merge_streams() {
-    local output_file="$1"
-    shift
-    local stream_files=("$@")
-    
-    # Merge and sort by timestamp
-    jq -s 'sort_by(.timestamp)' "${stream_files[@]}" > "$output_file"
-}
-
-# ============================================================
-# ENHANCED WORKTREE MANAGEMENT
-# ============================================================
-
-# Create enhanced worktree with GraphDB context
-create_enhanced_worktree() {
+# Create worktree with sparse-checkout
+create_worktree() {
     local task_name="$1"
     local target_dir="$2"
-    local spec_id="$3"
-    local base_branch="${4:-$(git rev-parse --abbrev-ref HEAD)}"
-    
-    local GIT_ROOT=$(git rev-parse --show-toplevel)
     local timestamp=$(date +%s)
-    local worktree_path="$GIT_ROOT/.worktrees/claude-org/${task_name}-$timestamp"
+    local worktree_path=".worktrees/claude-org/${task_name}-${timestamp}"
     
     # Create worktree
-    mkdir -p "$GIT_ROOT/.worktrees/claude-org"
-    local branch_name="claude-${task_name}-$timestamp"
-    git worktree add "$worktree_path" -b "$branch_name" "$base_branch"
+    git worktree add "$worktree_path" -b "claude-${task_name}-${timestamp}" || {
+        echo "Error: Failed to create worktree for $task_name"
+        return 1
+    }
     
-    # Configure sparse-checkout
-    cd "$worktree_path"
-    git sparse-checkout init --cone
-    git sparse-checkout set "$target_dir"
+    cd "$worktree_path" || return 1
+    git sparse-checkout set "$target_dir" || {
+        echo "Error: Failed to set sparse-checkout for $target_dir"
+        cd - > /dev/null
+        return 1
+    }
     cd - > /dev/null
     
-    # Create session and inject GraphDB context
-    create_session "$task_name-$timestamp" "$worktree_path" "$spec_id"
-    
-    # Inject GraphDB context into workspace
-    local context_file="$worktree_path/.claude/graph_context.json"
-    mkdir -p "$(dirname "$context_file")"
-    
-    # Load specification and solutions
-    local spec_data=$(load_specification "$spec_id" 2>/dev/null || echo '{}')
-    local solutions=$(get_solutions "common_errors" "$target_dir" 2>/dev/null || echo '[]')
-    
-    jq -n \
-        --argjson spec "$spec_data" \
-        --argjson solutions "$solutions" \
-        '{specification: $spec, known_solutions: $solutions, loaded_at: now}' \
-        > "$context_file"
+    # Create session.json
+    cat > "$worktree_path/session.json" <<EOF
+{
+  "task_id": "${task_name}-${timestamp}",
+  "target_dir": "$target_dir",
+  "created_at": "$(date -Iseconds)",
+  "status": "started",
+  "completion": 0,
+  "worktree_path": "$worktree_path"
+}
+EOF
     
     echo "$worktree_path"
 }
 
-# ============================================================
-# ENHANCED CLAUDE LAUNCHING
-# ============================================================
-
-# Launch Claude with GraphDB integration
-launch_enhanced_claude() {
-    local task_name="$1"
-    local worktree_path="$2"
-    local prompt="$3"
-    local mode="${4:-development}"
-    local spec_id="$5"
+# Get directory context from GraphDB
+get_directory_context() {
+    local dir_path="$1"
     
-    local GIT_ROOT=$(git rev-parse --show-toplevel)
-    local context_file="$worktree_path/.claude/graph_context.json"
+    # Query GraphDB (KuzuDB local)
+    local query="MATCH (d:Directory {path: '$dir_path'}) RETURN d.version, d.expected_state, d.required_files"
+    local result=$(curl -s "$DB_URI" -d "{\"query\": \"$query\"}" 2>/dev/null)
     
-    # Inject GraphDB context into prompt
-    local graph_context=""
-    if [ -f "$context_file" ]; then
-        graph_context=$(jq -r '.specification.tests // [] | join(", ")' "$context_file" 2>/dev/null || echo "")
+    if [ $? -ne 0 ] || [ -z "$result" ]; then
+        echo "Error: Cannot get context for $dir_path from GraphDB"
+        return 1
     fi
     
-    # Enhanced prompt with specification
-    local enhanced_prompt="$prompt
+    echo "$result"
+}
 
-GraphDB仕様情報:
-テスト要件: $graph_context
-期待される成果物: $(jq -r '.specification.acceptance_criteria // "標準品質基準"' "$context_file" 2>/dev/null)
-
-過去の解決策:
-$(jq -r '.known_solutions[] | "- \(.action) (成功率: \(.success_rate))"' "$context_file" 2>/dev/null | head -5)
-
-重要事項:
-1. テスト駆動開発を実践してください
-2. 実装完了時にはsession.jsonを更新してください  
-3. エラー発生時はstream.jsonlに詳細を記録してください
-4. 最終的に \"Task completed: [$task_name]\" と報告してください"
-
-    # Find Claude SDK path
-    local sdk_path="$(find "$GIT_ROOT" -name "claude.ts" -path "*/poc/develop/claude/member/sdk/*" 2>/dev/null | head -1)"
+# Launch member
+launch_member() {
+    local task_name="$1"
+    local worktree_path="$2"
+    local description="$3"
+    local target_dir="$4"
     
+    # Find member SDK
+    local sdk_path="$(find . -path "*/member/sdk/claude.ts" | head -1)"
     if [ -z "$sdk_path" ]; then
-        echo "Error: Claude SDK not found" >&2
+        echo "Error: Cannot find member SDK"
+        return 1
+    fi
+    
+    # Get GraphDB context
+    local context=$(get_directory_context "$target_dir")
+    if [ $? -ne 0 ]; then
+        echo "Error: Cannot get GraphDB context for $target_dir"
+        echo "Task $task_name cannot start without context"
         return 1
     fi
     
     # Create PID file
-    echo $$ > "$worktree_path/claude.pid"
+    local pid_file="$worktree_path/claude.pid"
     
-    # Launch Claude with enhanced context
-    nix run github:NixOS/nixpkgs/nixos-unstable#deno -- run --allow-all "$sdk_path" \
-        --claude-id "$task_name" \
+    # Prompt with context
+    local prompt="$description
+
+作業情報:
+- 場所: $worktree_path
+- 対象: $target_dir
+- DB_URI: ${DB_URI}
+- Context: $context
+
+重要な規則:
+1. pwd と flake.nix から文脈を把握
+2. エラー時は背景を説明してGraphDBに照会
+3. エラー解決できない場合は明示的に失敗を報告
+4. 進捗は session.json に記録
+5. 完了時は 'Task completed: [$task_name]' と報告"
+
+    # Launch member
+    DB_URI="$DB_URI" nix run nixpkgs#deno -- run --allow-all "$sdk_path" \
         --uri "$worktree_path" \
-        --spec-id "$spec_id" \
-        --graph-context "$context_file" \
-        --print "$enhanced_prompt" \
-        --allow-write &
+        --print "$prompt" &
     
     local pid=$!
-    echo "$pid" > "$worktree_path/claude.pid"
-    echo "Enhanced Claude started with PID: $pid"
+    echo $pid > "$pid_file"
     
-    return 0
+    # Verify launch
+    sleep 2
+    if ps -p $pid > /dev/null; then
+        echo "✓ Member launched: $task_name (PID: $pid)"
+        return 0
+    else
+        echo "✗ Failed to launch member: $task_name"
+        rm -f "$pid_file"
+        return 1
+    fi
 }
 
 # ============================================================
-# MANAGEMENT FUNCTIONS (for you=0)
+# MANAGEMENT FUNCTIONS
 # ============================================================
 
-# List active Claude processes
-list_active_claudes() {
-    echo "=== Active Claude Processes ==="
-    find .worktrees/claude-org -name "claude.pid" 2>/dev/null | while read pidfile; do
-        local pid=$(cat "$pidfile" 2>/dev/null)
-        local worktree=$(dirname "$pidfile")
-        local task_name=$(basename "$worktree" | cut -d'-' -f1)
-        
-        if ps -p "$pid" > /dev/null 2>&1; then
-            echo "✓ $task_name (PID: $pid) - $worktree"
-        else
-            echo "✗ $task_name (ZOMBIE) - $worktree"
-        fi
-    done
-}
-
-# Clean up zombie worktrees
-cleanup_zombies() {
-    echo "=== Cleaning up zombie worktrees ==="
-    find .worktrees/claude-org -name "claude.pid" 2>/dev/null | while read pidfile; do
-        local pid=$(cat "$pidfile" 2>/dev/null)
-        local worktree=$(dirname "$pidfile")
-        
-        if ! ps -p "$pid" > /dev/null 2>&1; then
-            echo "Removing zombie: $worktree"
-            rm -rf "$worktree"
-            
-            # Remove corresponding git worktree
-            git worktree remove --force "$worktree" 2>/dev/null || true
-        fi
-    done
-}
-
-# Get status of all tasks
-status_all_tasks() {
+# List all tasks with status
+list_status() {
     echo "=== Task Status Overview ==="
     find .worktrees/claude-org -name "session.json" 2>/dev/null | while read session; do
-        local task_id=$(jq -r '.task_id' "$session")
-        local status=$(jq -r '.status' "$session")
-        local completion=$(jq -r '.completion' "$session")
-        local tests_passed=$(jq -r '.tests_passed' "$session")
-        
-        echo "$task_id: $status (${completion}%) [Tests: $tests_passed]"
+        if [ -f "$session" ]; then
+            local task_id=$(jq -r '.task_id' "$session")
+            local status=$(jq -r '.status' "$session")
+            local completion=$(jq -r '.completion' "$session")
+            local pid_file="$(dirname "$session")/claude.pid"
+            
+            if [ -f "$pid_file" ] && ps -p $(cat "$pid_file") > /dev/null 2>&1; then
+                echo "✓ $task_id: $status ($completion%) [ACTIVE]"
+            else
+                echo "✗ $task_id: $status ($completion%) [INACTIVE]"
+            fi
+        fi
     done
 }
 
-# Force resume a specific task
-force_resume_task() {
-    local task_id="$1"
-    local worktree=$(find .worktrees/claude-org -name "*$task_id*" -type d | head -1)
-    
-    if [ -z "$worktree" ]; then
-        echo "Task $task_id not found"
-        return 1
-    fi
-    
-    echo "Resuming task: $task_id at $worktree"
-    
-    # Kill existing process if any
-    if [ -f "$worktree/claude.pid" ]; then
-        local old_pid=$(cat "$worktree/claude.pid")
-        kill "$old_pid" 2>/dev/null || true
-    fi
-    
-    # Extract previous context and resume
-    local spec_id=$(jq -r '.spec_id' "$worktree/session.json" 2>/dev/null || echo "")
-    local last_prompt="Resume from previous session. Check session.json for context."
-    
-    launch_enhanced_claude "$task_id" "$worktree" "$last_prompt" "development" "$spec_id"
-}
-
-# ============================================================
-# EVOLVED ORG COMMAND INTERFACE
-# ============================================================
-
-# Main evolved org function
-org_evolved() {
-    local spec_id=""
-    local resume=false
-    local parallel=false
-    local test_driven=false
-    local dry_run=false
-    local task_name=""
-    local target_dir=""
-    local description=""
-    
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --spec-id)
-                spec_id="$2"
-                shift 2
-                ;;
-            --resume)
-                resume=true
-                shift
-                ;;
-            --parallel)
-                parallel=true
-                shift
-                ;;
-            --test-driven)
-                test_driven=true
-                shift
-                ;;
-            --dry-run)
-                dry_run=true
-                shift
-                ;;
-            --list)
-                list_active_claudes
-                return 0
-                ;;
-            --cleanup)
-                cleanup_zombies
-                return 0
-                ;;
-            --status)
-                status_all_tasks
-                return 0
-                ;;
-            --resume-task)
-                force_resume_task "$2"
-                return 0
-                ;;
-            *)
-                if [ -z "$task_name" ]; then
-                    task_name="$1"
-                elif [ -z "$target_dir" ]; then
-                    target_dir="$1"
-                elif [ -z "$description" ]; then
-                    description="$1"
-                fi
-                shift
-                ;;
-        esac
+# Cleanup zombie worktrees
+cleanup() {
+    echo "=== Cleaning up zombies ==="
+    find .worktrees/claude-org -name "claude.pid" 2>/dev/null | while read pidfile; do
+        if [ -f "$pidfile" ]; then
+            local pid=$(cat "$pidfile")
+            if ! ps -p "$pid" > /dev/null 2>&1; then
+                local worktree=$(dirname "$pidfile")
+                echo "Removing zombie: $worktree"
+                rm -rf "$worktree"
+                git worktree prune 2>/dev/null || true
+            fi
+        fi
     done
+}
+
+# Resume a task
+resume_task() {
+    local task_pattern="$1"
+    local worktree=$(find .worktrees/claude-org -name "*${task_pattern}*" -type d | head -1)
     
-    # Validation
-    if [ -z "$task_name" ] || [ -z "$target_dir" ]; then
-        echo "Usage: org_evolved [options] <task_name> <target_dir> [description]"
-        echo ""
-        echo "Options:"
-        echo "  --spec-id ID      Use GraphDB specification"
-        echo "  --resume          Resume from previous session"
-        echo "  --parallel        Enable parallel execution"
-        echo "  --test-driven     Start with test implementation"
-        echo "  --dry-run         Show execution plan only"
-        echo "  --list            List active Claude processes"
-        echo "  --cleanup         Remove zombie worktrees"
-        echo "  --status          Show all task statuses"
-        echo "  --resume-task ID  Force resume specific task"
+    if [ -z "$worktree" ] || [ ! -f "$worktree/session.json" ]; then
+        echo "Error: Task not found: $task_pattern"
         return 1
     fi
     
-    # Dry run
-    if [ "$dry_run" = true ]; then
-        echo "=== Execution Plan ==="
-        echo "Task: $task_name"
-        echo "Target: $target_dir"
-        echo "Spec ID: ${spec_id:-none}"
-        echo "Test-driven: $test_driven"
-        echo "Resume: $resume"
-        return 0
-    fi
+    local task_id=$(jq -r '.task_id' "$worktree/session.json")
+    local target_dir=$(jq -r '.target_dir' "$worktree/session.json")
     
-    # Execute
-    if [ "$resume" = true ]; then
-        force_resume_task "$task_name"
-    else
-        local worktree=$(create_enhanced_worktree "$task_name" "$target_dir" "$spec_id")
-        launch_enhanced_claude "$task_name" "$worktree" "$description" "development" "$spec_id"
-    fi
+    echo "Resuming task: $task_id"
+    launch_member "$task_id" "$worktree" "Resume previous work. Check session.json." "$target_dir"
 }
 
 # ============================================================
-# TEMPLATE USAGE EXAMPLES
+# MAIN INTERFACE
 # ============================================================
 
-example_evolved_usage() {
-    cat <<'EOF'
-Examples of evolved /org command usage:
-
-# Basic task with GraphDB specification
-org_evolved --spec-id rust_auth_v1 auth-impl src/auth "JWT認証機能の実装"
-
-# Resume previous task
-org_evolved --resume --resume-task auth-impl-1234567
-
-# Test-driven development
-org_evolved --test-driven tdd-example src/lib "TDD実践でライブラリ実装"
-
-# Dry run to see execution plan
-org_evolved --dry-run --spec-id web_api_v2 api-server src/server "REST API実装"
-
-# Management commands
-org_evolved --list              # List active processes
-org_evolved --cleanup           # Remove zombies
-org_evolved --status            # Show all task statuses
-
-EOF
+main() {
+    case "${1:-}" in
+        --list|--status)
+            list_status
+            ;;
+        --cleanup)
+            cleanup
+            ;;
+        --resume)
+            resume_task "$2"
+            ;;
+        *)
+            if [ $# -lt 3 ]; then
+                echo "Usage: main <task_name> <target_dir> <description>"
+                return 1
+            fi
+            
+            local task_name="$1"
+            local target_dir="$2"
+            local description="$3"
+            
+            echo "Creating task: $task_name"
+            local worktree=$(create_worktree "$task_name" "$target_dir")
+            if [ $? -ne 0 ]; then
+                echo "Error: Failed to create worktree"
+                return 1
+            fi
+            
+            launch_member "$task_name" "$worktree" "$description" "$target_dir"
+            ;;
+    esac
 }
 
 # ============================================================
 # TEMPLATE GUARD
 # ============================================================
 
-cat <<'EOF'
-============================================================
-EVOLVED ORG TEMPLATE - DO NOT EXECUTE DIRECTLY
-============================================================
-
-This template represents the evolved /org command with:
-- GraphDB integration and fallback strategies
-- Session/stream merge capabilities
-- Specification-driven development
-- Enhanced error handling and management
-
-To implement:
-1. Adapt functions to your specific environment
-2. Configure GraphDB endpoints and backup paths
-3. Integrate with your existing Claude SDK
-4. Test incrementally before full deployment
-
-============================================================
-EOF
-
-exit 1  # Prevent direct execution
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    echo "This is a template. Copy and adapt for your needs."
+    exit 1
+fi

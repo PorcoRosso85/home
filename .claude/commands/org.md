@@ -16,36 +16,44 @@ Delegates tasks to Claude instances working in parallel using Git worktrees with
 ## How it works
 1. Creates isolated Git worktree for the task
 2. Sets up sparse-checkout for the target directory
-3. Launches Claude with the task description
-4. Claude works autonomously in the isolated environment
+3. Provides DB_URI environment variable for GraphDB access
+4. Claude works autonomously based on directory context
 
-## Template location
-View the evolved org template:
+## Directory-based context
+Each Claude member:
+- Identifies its location via pwd and flake.nix
+- Queries GraphDB for expected state based on directory path
+- Works autonomously to achieve the expected state
+- Explains error context before querying solutions
+
+## Template locations
 ```bash
+# Organization coordination template
 cat ~/bin/src/poc/develop/claude/org/main.sh.template
-```
 
-## Member tools
-Individual member tools are available at:
-```bash
+# Member tool templates
 cat ~/bin/src/poc/develop/claude/member/main.sh.template
 ```
 
-## Advanced options (from evolved template)
-- `--spec-id`: Use GraphDB specification
-- `--resume`: Resume previous task
-- `--test-driven`: Start with test implementation
+## Management commands
 - `--list`: List active Claude processes
 - `--cleanup`: Remove zombie worktrees
 - `--status`: Show all task statuses
+- `--resume-task ID`: Force resume specific task
 
 ## Directory structure
 ```
 poc/develop/claude/
 ├── org/                    # Organization coordination
-│   └── main.sh.template   # Org-level guardrails
+│   └── main.sh.template   # Minimal environment setup
 └── member/                # Individual member tools
     ├── sdk/              # Execution environment
     ├── config/           # Configuration
-    └── main.sh.template  # Individual tool templates
+    └── main.sh.template  # Directory context tools
 ```
+
+## Key principles
+- No spec_id needed (directory path is the context)
+- No graph_context.json (direct GraphDB access via DB_URI)
+- Stream.jsonl is automatically recorded (no explicit logging)
+- Error handling includes background explanation

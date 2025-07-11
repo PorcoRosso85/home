@@ -1,153 +1,192 @@
 #!/bin/bash
-# Claude Member Individual Tool Template
+# Member Tool Template
 # ============================================================
-# 責務: 個人が使用する可能性のあるツールのテンプレート集
-#      （実際の行動規範はCLAUDE.mdと.claude/*に従う）
+# 責務: memberが必要時に使うツール群
+# 規約: エラー時はフォールバック禁止、失敗を明示的に報告
+# 注意: 実際の行動はCLAUDE.mdに従う
 # ============================================================
-# 
-# 注意: これは個人が必要に応じて使用するツールのテンプレートです。
-#      個人の行動規範はCLAUDE.mdおよび.claude/配下の設定に従います。
-#      このファイルは構造の参考例として提供されています。
 
 set -e
 
 # ============================================================
-# 個人ツール例: 進捗報告
+# CONTEXT & STATE MANAGEMENT
 # ============================================================
 
-# session.json更新ツール
-update_session_progress() {
-    local session_file="${1:-./session.json}"
-    local completion="${2:-0}"
-    local status="${3:-in_progress}"
+# Get current state from GraphDB
+check_my_state() {
+    local path="$(pwd)"
+    local db_uri="${DB_URI:-kuzu://localhost:7687}"  # KuzuDB is local
     
-    if [ ! -f "$session_file" ]; then
-        echo "Error: session.json not found" >&2
+    echo "=== 現在地の状態確認 ==="
+    echo "Path: $path"
+    
+    # Check flake.nix for project type
+    if [ -f "flake.nix" ]; then
+        echo "Project type: $(grep -m1 'description' flake.nix | cut -d'"' -f2)"
+    fi
+    
+    # Query GraphDB (required)
+    local query="MATCH (d:Directory {path: '$path'}) RETURN d.version, d.expected_state, d.required_files"
+    echo "GraphDB query: $query"
+    
+    local result=$(curl -s "$db_uri" -d "{\"query\": \"$query\"}" 2>/dev/null)
+    if [ $? -ne 0 ] || [ -z "$result" ]; then
+        echo "Error: Cannot connect to GraphDB at $db_uri"
+        echo "Directory context required but unavailable"
         return 1
     fi
     
-    # Update session with current progress
-    jq --arg completion "$completion" \
-       --arg status "$status" \
-       --arg updated_at "$(date -Iseconds)" \
-       '.completion = ($completion | tonumber) | .status = $status | .updated_at = $updated_at' \
-       "$session_file" > "$session_file.tmp" && mv "$session_file.tmp" "$session_file"
+    local data=$(echo "$result" | jq -r '.data // empty')
+    if [ -z "$data" ]; then
+        echo "Error: No GraphDB data for $path"
+        echo "Directory not registered in knowledge base"
+        return 1
+    fi
+    
+    echo "Expected state: $data"
+    echo "Local files: $(ls -la | wc -l) items"
+    [ -f "session.json" ] && echo "Progress: $(jq -r '.completion' session.json)%"
 }
 
-# ============================================================
-# 個人ツール例: GraphDBクエリ
-# ============================================================
-
-# エラー解決策の検索
-query_solution_for_error() {
-    local error_type="$1"
-    local context="${2:-general}"
-    local graph_endpoint="${GRAPH_ENDPOINT:-http://localhost:8080/graphql}"
+# Find error solution from GraphDB
+find_solution() {
+    local error="$1"
+    local why="$2"
+    local db_uri="${DB_URI:-kuzu://localhost:7687}"  # KuzuDB is local
     
-    # Query GraphDB for solutions
-    curl -s "$graph_endpoint" \
-        -H "Content-Type: application/json" \
-        -d "{
-            \"query\": \"query GetSolution(\$error: String!, \$context: String!) {
-                solutions(error_type: \$error, context: \$context) {
-                    action
-                    success_rate
-                    example
-                }
-            }\",
-            \"variables\": {
-                \"error\": \"$error_type\",
-                \"context\": \"$context\"
-            }
-        }" | jq -r '.data.solutions[]' 2>/dev/null || echo "{}"
+    echo "=== エラー解決策の検索 ==="
+    echo "Error: $error"
+    echo "背景: $why"
+    echo "発生場所: $(pwd)"
+    
+    echo "GraphDBに問い合わせ中..."
+    
+    local query="MATCH (e:Error {type: '$error'})-[:SOLVED_BY]->(s:Solution) WHERE s.context =~ '.*$(basename $(pwd)).*' RETURN s.action, s.success_rate ORDER BY s.success_rate DESC LIMIT 3"
+    local result=$(curl -s "$db_uri" -d "{\"query\": \"$query\"}" 2>/dev/null)
+    
+    if [ $? -ne 0 ] || [ -z "$result" ]; then
+        echo "Error: Cannot query GraphDB for solutions"
+        echo "Query failed: $query"
+        return 1
+    fi
+    
+    local solutions=$(echo "$result" | jq -r '.data[]' 2>/dev/null)
+    if [ -z "$solutions" ]; then
+        echo "Error: No solutions found for error type '$error'"
+        echo "This error pattern is not in the knowledge base"
+        return 1
+    fi
+    
+    echo "解決策候補:"
+    echo "$solutions" | jq -r '"- \(.action) (成功率: \(.success_rate))"'
 }
 
-# ============================================================
-# 個人ツール例: ローカルテスト実行
-# ============================================================
-
-# プロジェクトタイプに応じたテスト実行
-run_local_tests() {
-    local project_dir="${1:-.}"
+# Update progress
+update_progress() {
+    local percent="$1"
+    local status="${2:-in_progress}"
+    local session_file="session.json"
     
-    # Detect project type and run appropriate tests
-    if [ -f "$project_dir/Cargo.toml" ]; then
-        echo "Running Rust tests..."
-        cd "$project_dir" && cargo test
-    elif [ -f "$project_dir/package.json" ]; then
-        echo "Running Node.js tests..."
-        cd "$project_dir" && npm test
-    elif [ -f "$project_dir/pyproject.toml" ]; then
-        echo "Running Python tests..."
-        cd "$project_dir" && pytest
-    else
-        echo "Unknown project type, skipping tests"
+    if [ ! -f "$session_file" ]; then
+        echo "Error: session.json not found"
+        echo "Cannot update progress without session file"
+        return 1
+    fi
+    
+    # Update session
+    local tmp=$(mktemp)
+    if ! jq ".completion = $percent | .status = \"$status\" | .updated_at = \"$(date -Iseconds)\"" "$session_file" > "$tmp"; then
+        echo "Error: Failed to update session.json"
+        rm -f "$tmp"
+        return 1
+    fi
+    
+    mv "$tmp" "$session_file"
+    echo "Progress updated: $percent% ($status)"
+    
+    # Check if completed
+    if [ "$percent" -eq 100 ]; then
+        local task_id=$(jq -r '.task_id' "$session_file")
+        echo "Task completed: [$task_id]"
     fi
 }
 
-# ============================================================
-# 個人ツール例: stream.jsonlへの記録
-# ============================================================
-
-# エラーイベントの記録
-log_to_stream() {
-    local event_type="$1"
-    local message="$2"
-    local details="${3:-{}}"
-    local stream_file="${STREAM_FILE:-./stream.jsonl}"
+# Get hierarchical context from GraphDB
+get_full_context() {
+    local current_path="$(pwd)"
+    local db_uri="${DB_URI:-kuzu://localhost:7687}"  # KuzuDB is local
     
-    jq -n \
-        --arg type "$event_type" \
-        --arg msg "$message" \
-        --argjson details "$details" \
-        --arg timestamp "$(date -Iseconds)" \
-        '{
-            type: $type,
-            message: $msg,
-            details: $details,
-            timestamp: $timestamp
-        }' >> "$stream_file"
+    echo "=== 階層的文脈の確認 ==="
+    
+    # Get hierarchical view from GraphDB (required)
+    local query="MATCH path = (current:Directory {path: '$current_path'})-[:CHILD_OF*0..3]->(parent:Directory) RETURN parent.path, parent.expected_state ORDER BY length(path)"
+    local result=$(curl -s "$db_uri" -d "{\"query\": \"$query\"}" 2>/dev/null)
+    
+    if [ $? -ne 0 ] || [ -z "$result" ]; then
+        echo "Error: Cannot query hierarchical context from GraphDB"
+        echo "Failed query: $query"
+        return 1
+    fi
+    
+    local hierarchy=$(echo "$result" | jq -r '.data[]' 2>/dev/null)
+    if [ -z "$hierarchy" ]; then
+        echo "Error: No hierarchical data found for $current_path"
+        echo "Directory hierarchy not registered in knowledge base"
+        return 1
+    fi
+    
+    echo "階層構造:"
+    echo "$hierarchy" | jq -r '"\(.path): \(.expected_state)"'
+}
+
+# Report failure after attempts
+report_failure() {
+    local error_type="$1"
+    local attempts="$2"
+    
+    echo "=== タスク失敗報告 ==="
+    echo "Error type: $error_type"
+    echo "Attempts: $attempts"
+    echo "Status: タスクを完了できませんでした"
+    echo "Time: $(date -Iseconds)"
+    
+    # Record failure in session if exists
+    if [ -f "session.json" ]; then
+        local tmp=$(mktemp)
+        if jq '.failure = {"error": "'"$error_type"'", "attempts": '"$attempts"', "timestamp": "'"$(date -Iseconds)"'"}' session.json > "$tmp"; then
+            mv "$tmp" session.json
+        else
+            rm -f "$tmp"
+        fi
+    fi
+    
+    return 1
 }
 
 # ============================================================
-# テンプレート使用例
+# USAGE EXAMPLES
 # ============================================================
 
-example_usage() {
-    cat <<'EOF'
+cat <<'EOF'
+使用例:
+
+# 状態確認（GraphDB必須）
+check_my_state || echo "Failed to get state"
+
+# エラー解決（GraphDB照会）
+find_solution "trait_not_implemented" "UserCredentialsをcloneする必要がある" || echo "No solution found"
+
 # 進捗更新
-update_session_progress ./session.json 75 "testing"
+update_progress 75 "testing" || echo "Failed to update progress"
 
-# エラー解決策の検索
-solution=$(query_solution_for_error "import_not_found" "rust_project")
+# 階層的文脈確認
+get_full_context || echo "Failed to get context"
 
-# テスト実行
-run_local_tests ./my_project
+# 失敗報告
+report_failure "compilation_error" 3
 
-# ログ記録
-log_to_stream "error" "Compilation failed" '{"file": "main.rs", "line": 42}'
-
-注意: これらは例示です。実際の使用時は各個人のCLAUDE.mdに従ってください。
+注意: エラー時はフォールバック禁止。失敗は明示的に報告。
 EOF
-}
 
-# ============================================================
-# ガード: 直接実行を防ぐ
-# ============================================================
-
-if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
-    echo "============================================================"
-    echo "WARNING: This is a template file for individual tools"
-    echo "============================================================"
-    echo ""
-    echo "This file provides tool templates that individuals may use."
-    echo "Actual behavior should follow CLAUDE.md and .claude/* settings."
-    echo ""
-    echo "To use these tools:"
-    echo "1. Source this file or copy needed functions"
-    echo "2. Adapt to your specific needs"
-    echo "3. Follow your CLAUDE.md guidelines"
-    echo ""
-    example_usage
-    exit 1
-fi
+# Prevent direct execution
+[ "${BASH_SOURCE[0]}" = "${0}" ] && exit 1
