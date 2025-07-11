@@ -36,10 +36,11 @@ class TestUnifiedJSONLOutput:
         """正常なクエリ実行時、ログと結果がJSONL形式で出力される"""
         # 環境変数を一時的に設定
         original_log_level = os.environ.get('RGL_LOG_LEVEL')
-        original_db_path = os.environ.get('RGL_DB_PATH')
+        original_db_path = os.environ.get('RGL_DATABASE_PATH')
+        original_skip = os.environ.get('RGL_SKIP_SCHEMA_CHECK')
         os.environ['RGL_LOG_LEVEL'] = 'info'  # infoレベルに設定
-        os.environ['RGL_DB_PATH'] = ':memory:'  # インメモリDBを使用
-        os.environ['RGL_SKIP_SCHEMA_CHECK'] = 'true'  # スキーマチェックをスキップ
+        os.environ['RGL_DATABASE_PATH'] = ':memory:'  # インメモリDBを明示的に指定
+        os.environ['RGL_SKIP_SCHEMA_CHECK'] = 'true'  # テスト用にスキーマチェックをスキップ
 
         try:
             test_input = json.dumps({
@@ -65,10 +66,13 @@ class TestUnifiedJSONLOutput:
             else:
                 os.environ['RGL_LOG_LEVEL'] = original_log_level
             if original_db_path is None:
-                os.environ.pop('RGL_DB_PATH', None)
+                os.environ.pop('RGL_DATABASE_PATH', None)
             else:
-                os.environ['RGL_DB_PATH'] = original_db_path
-            os.environ.pop('RGL_SKIP_SCHEMA_CHECK', None)
+                os.environ['RGL_DATABASE_PATH'] = original_db_path
+            if original_skip is None:
+                os.environ.pop('RGL_SKIP_SCHEMA_CHECK', None)
+            else:
+                os.environ['RGL_SKIP_SCHEMA_CHECK'] = original_skip
 
         # 出力を行ごとに解析
         lines = output.getvalue().strip().split('\n')
@@ -104,9 +108,8 @@ class TestUnifiedJSONLOutput:
     def test_エラー発生時_JSONL形式でエラー出力(self):
         """エラー発生時もJSONL形式で出力される"""
         # 環境変数を一時的に設定
-        original_db_path = os.environ.get('RGL_DB_PATH')
-        os.environ['RGL_DB_PATH'] = ':memory:'
-        os.environ['RGL_SKIP_SCHEMA_CHECK'] = 'true'
+        original_db_path = os.environ.get('RGL_DATABASE_PATH')
+        os.environ['RGL_DATABASE_PATH'] = ':memory:'
 
         try:
             test_input = json.dumps({
@@ -138,22 +141,20 @@ class TestUnifiedJSONLOutput:
         finally:
             # 環境変数を元に戻す
             if original_db_path is None:
-                os.environ.pop('RGL_DB_PATH', None)
+                os.environ.pop('RGL_DATABASE_PATH', None)
             else:
-                os.environ['RGL_DB_PATH'] = original_db_path
-            os.environ.pop('RGL_SKIP_SCHEMA_CHECK', None)
+                os.environ['RGL_DATABASE_PATH'] = original_db_path
 
     def test_デバッグログ_環境変数で制御(self):
         """デバッグログが環境変数で制御される"""
         import os
         original_env = os.environ.get('RGL_LOG_LEVEL')
-        original_db_path = os.environ.get('RGL_DB_PATH')
+        original_db_path = os.environ.get('RGL_DATABASE_PATH')
 
         try:
             # デバッグレベルを設定
             os.environ['RGL_LOG_LEVEL'] = 'debug'
-            os.environ['RGL_DB_PATH'] = ':memory:'
-            os.environ['RGL_SKIP_SCHEMA_CHECK'] = 'true'
+            os.environ['RGL_DATABASE_PATH'] = ':memory:'
 
             # loggerモジュールをリロード（環境変数の変更を反映するため）
             import importlib
@@ -204,10 +205,9 @@ class TestUnifiedJSONLOutput:
             else:
                 os.environ['RGL_LOG_LEVEL'] = original_env
             if original_db_path is None:
-                os.environ.pop('RGL_DB_PATH', None)
+                os.environ.pop('RGL_DATABASE_PATH', None)
             else:
-                os.environ['RGL_DB_PATH'] = original_db_path
-            os.environ.pop('RGL_SKIP_SCHEMA_CHECK', None)
+                os.environ['RGL_DATABASE_PATH'] = original_db_path
 
             # loggerモジュールを再度リロード（元の設定に戻すため）
             import importlib

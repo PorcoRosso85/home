@@ -61,7 +61,8 @@ class TestVariables:
     def test_get_db_path_環境変数を返す(self):
         """get_db_path_環境変数の値_そのまま返す"""
         test_path = "/test/database.db"
-        original = with_test_env(RGL_DB_PATH=test_path)
+        # 新しい環境変数を優先するため、RGL_DATABASE_PATHを設定
+        original = with_test_env(RGL_DATABASE_PATH=test_path)
         try:
             # 関数が環境変数を参照していることを確認
             assert get_db_path() == test_path

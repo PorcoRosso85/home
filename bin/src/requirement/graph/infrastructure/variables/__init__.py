@@ -11,7 +11,7 @@ import warnings
 from .env import (
     EnvironmentError,
     get_ld_library_path,
-    get_rgl_db_path,
+    get_rgl_database_path,
     get_db_path,
     get_log_level,
     get_log_format,
@@ -43,7 +43,7 @@ from .test_env import (
 LD_LIBRARY_PATH = get_ld_library_path()
 
 try:
-    RGL_DB_PATH = get_rgl_db_path()
+    RGL_DB_PATH = get_db_path()  # 後方互換性のため
 except EnvironmentError:
     RGL_DB_PATH = None
 
@@ -83,7 +83,7 @@ __all__ = [
     'RGL_SKIP_SCHEMA_CHECK',
     # 環境変数アクセス関数（推奨）
     'get_ld_library_path',
-    'get_rgl_db_path',
+    'get_rgl_database_path',
     'get_db_path',
     'get_log_level',
     'get_log_format',

@@ -32,16 +32,10 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     # データベースファクトリーを使用
     from .database_factory import create_database, create_connection
 
-    # db_pathが明示的に指定されていない場合、環境に応じて決定
+    # db_pathが明示的に指定されていない場合、環境変数から取得
     if db_path is None:
-        # テストモードかどうか判定
-        is_test_mode = should_skip_schema_check()  # RGL_SKIP_SCHEMA_CHECK=true
-        if is_test_mode:
-            db_path = ":memory:"
-            info("rgl.repo", "Test mode detected, using in-memory database")
-        else:
-            db_path = get_db_path()
-            info("rgl.repo", "Production mode, using persistent database", db_path=db_path)
+        db_path = get_db_path()  # RGL_DATABASE_PATH または RGL_DB_PATH から取得
+        info("rgl.repo", "Using database path from environment", db_path=db_path)
 
     debug("rgl.repo", "Using database path", path=str(db_path))
 

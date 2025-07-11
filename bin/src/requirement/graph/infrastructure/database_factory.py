@@ -42,9 +42,6 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
     """
     import time
 
-    # テストモードの判定を先に行う
-    is_test_mode = os.environ.get("RGL_SKIP_SCHEMA_CHECK") == "true"
-
     # インメモリの場合のキー設定
     if in_memory:
         if test_unique:
@@ -53,31 +50,17 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
         else:
             cache_key = ":memory:"
     else:
-        # ファイルベースDBの場合は常にユニーク（テストモードでキャッシュの競合を避ける）
-        if is_test_mode:
-            cache_key = f"{path}:{time.time_ns()}"
-        else:
-            cache_key = str(path)
-    if is_test_mode and in_memory:
-        use_cache = False
-        test_unique = True  # テストモードでは常にユニークなインスタンスを作成
-        debug("rgl.db_factory", "Test mode: disabling cache for in-memory DB",
-              is_test_mode=is_test_mode, in_memory=in_memory, test_unique=test_unique)
+        # ファイルベースDBの場合
+        cache_key = str(path)
 
     # キャッシュから取得
     if use_cache and cache_key in _database_cache:
-        # インメモリデータベースはテストモードではキャッシュしない
-        if not (is_test_mode and in_memory):
-            debug("rgl.db_factory", "Using cached database instance", key=cache_key)
-            return _database_cache[cache_key]
+        debug("rgl.db_factory", "Using cached database instance", key=cache_key)
+        return _database_cache[cache_key]
 
     # KuzuDBのインポート（関数内で毎回インポート）
     try:
         import kuzu
-        # テストモードではモジュールをリロード
-        if is_test_mode:
-            import importlib
-            importlib.reload(kuzu)
         debug("rgl.db_factory", "KuzuDB module loaded successfully",
               has_database=hasattr(kuzu, 'Database'))
     except ImportError as e:
@@ -110,12 +93,12 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
             db = kuzu.Database(str(db_path), max_db_size=1 << 30)  # 1GB
 
         # キャッシュに保存（テストモードではキャッシュしない）
-        if use_cache and not is_test_mode:
+        if use_cache:
             _database_cache[cache_key] = db
             debug("rgl.db_factory", "Database cached", key=cache_key)
         else:
             debug("rgl.db_factory", "Database not cached",
-                  key=cache_key, in_memory=in_memory, use_cache=use_cache, is_test_mode=is_test_mode)
+                  key=cache_key, in_memory=in_memory, use_cache=use_cache)
 
         return db
 
