@@ -16,6 +16,7 @@
           buildInputs = with pkgs; [
             python311
             uv
+            patchelf
             stdenv.cc.cc.lib  # For compiled dependencies
           ];
 
@@ -148,16 +149,19 @@ for readme in readme_files:
           ''}";
         };
 
-        # Test command
+        # Test command  
         apps.test = {
           type = "app";
           program = "${pkgs.writeShellScript "fts-test" ''
             set -e
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
-            cd ${./.}
-            echo "Running FTS Tests..."
-            ${pkgs.uv}/bin/uv sync --extra test
-            ${pkgs.uv}/bin/uv run pytest test_fts.py -v "$@"
+            
+            # Patch KuzuDB .so files to fix libstdc++ issues
+            for lib in .venv/lib/python*/site-packages/kuzu/*.so; do
+              [ -f "$lib" ] && ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" "$lib"
+            done
+            
+            ${pkgs.uv}/bin/uv run pytest test_fts_wall.py -v "$@"
           ''}";
         };
 

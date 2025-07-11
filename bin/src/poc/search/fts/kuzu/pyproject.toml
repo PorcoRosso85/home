@@ -13,3 +13,9 @@ test = [
     "pytest>=7.0.0",
     "pytest-timeout>=2.0.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
