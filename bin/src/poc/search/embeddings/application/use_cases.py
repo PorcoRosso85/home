@@ -1,8 +1,136 @@
-"""埋め込みモデルのユースケース"""
+"""テキスト埋め込みサービス"""
 
-from typing import List, Tuple
+from typing import List, Tuple, Protocol, Any
+from dataclasses import dataclass
 import numpy as np
 from ..domain.types import EmbeddingModel, EmbeddingRequest, EmbeddingType, EmbeddingResult
+
+
+@dataclass
+class Document:
+    id: int
+    content: str
+    similarity_score: float = 0.0
+
+
+@dataclass
+class DocumentSearchResult:
+    ok: bool
+    documents: List[Document] = None
+    error: str = ""
+
+
+@dataclass
+class IndexResult:
+    ok: bool
+    indexed_count: int = 0
+    failed_count: int = 0
+    error: str = ""
+
+
+class VectorRepository(Protocol):
+    """ベクトルリポジトリのプロトコル"""
+    def query_index(self, index_name: str, query_vector: List[float], k: int) -> Any:
+        ...
+    
+    def insert_documents(self, documents: List[Any]) -> Any:
+        ...
+
+
+class SearchSimilarDocumentsUseCase:
+    """類似文書検索ユースケース"""
+    
+    def __init__(self, embedding_model: EmbeddingModel, vector_repository: VectorRepository):
+        self.embedding_model = embedding_model
+        self.vector_repository = vector_repository
+    
+    def execute(self, query: str, k: int) -> DocumentSearchResult:
+        """類似文書を検索"""
+        if not query:
+            return DocumentSearchResult(
+                ok=False,
+                error="Empty query not allowed"
+            )
+        
+        # クエリの埋め込みを生成
+        request = EmbeddingRequest(text=query, embedding_type=EmbeddingType.QUERY)
+        embedding_result = self.embedding_model.encode(request)
+        
+        # ベクトル検索を実行
+        search_result = self.vector_repository.query_index(
+            index_name="doc_embedding_index",
+            query_vector=embedding_result.embeddings,
+            k=k
+        )
+        
+        if not search_result.ok:
+            return DocumentSearchResult(
+                ok=False,
+                error=search_result.error
+            )
+        
+        # 結果をDocumentオブジェクトに変換
+        documents = []
+        if search_result.results:
+            for i, result in enumerate(search_result.results):
+                # 距離をスコアに変換（小さいほど類似度が高い）
+                score = 1.0 - result['distance']
+                documents.append(Document(
+                    id=result['id'],
+                    content=result['content'],
+                    similarity_score=score
+                ))
+        
+        return DocumentSearchResult(
+            ok=True,
+            documents=documents
+        )
+
+
+class IndexDocumentsUseCase:
+    """文書インデックス作成ユースケース"""
+    
+    def __init__(self, embedding_model: EmbeddingModel, vector_repository: VectorRepository):
+        self.embedding_model = embedding_model
+        self.vector_repository = vector_repository
+    
+    def execute(self, documents: List[Document]) -> IndexResult:
+        """文書をインデックスに追加"""
+        if not documents:
+            return IndexResult(
+                ok=False,
+                error="No documents provided"
+            )
+        
+        # 埋め込みを生成
+        requests = [
+            EmbeddingRequest(text=doc.content, embedding_type=EmbeddingType.DOCUMENT)
+            for doc in documents
+        ]
+        embedding_results = self.embedding_model.encode_batch(requests)
+        
+        # リポジトリに保存
+        docs_with_embeddings = []
+        for doc, embedding_result in zip(documents, embedding_results):
+            docs_with_embeddings.append({
+                'id': doc.id,
+                'content': doc.content,
+                'embedding': embedding_result.embeddings
+            })
+        
+        insert_result = self.vector_repository.insert_documents(docs_with_embeddings)
+        
+        if not insert_result.ok:
+            return IndexResult(
+                ok=False,
+                error=insert_result.error
+            )
+        
+        return IndexResult(
+            ok=True,
+            indexed_count=len(documents),
+            failed_count=0
+        )
 
 
 class TextEmbeddingService:
