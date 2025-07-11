@@ -36,5 +36,25 @@
             ${pkgs.uv}/bin/uv run python run_poc.py
           ''}";
         };
+        
+        apps.test = {
+          type = "app";
+          program = "${pkgs.writeShellScript "run-tests" ''
+            export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH
+            export TMPDIR=/tmp
+            cd /home/nixos/bin/src/poc/search/embeddings
+            ${pkgs.uv}/bin/uv run pytest tests/ -v
+          ''}";
+        };
+        
+        apps.integration-test = {
+          type = "app";
+          program = "${pkgs.writeShellScript "run-integration-tests" ''
+            export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH
+            export TMPDIR=/tmp
+            cd /home/nixos/bin/src/poc/search/embeddings
+            ${pkgs.uv}/bin/uv run bash integration_test_runner.sh
+          ''}";
+        };
       });
 }

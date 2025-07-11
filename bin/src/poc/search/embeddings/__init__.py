@@ -9,13 +9,22 @@ from .domain import (
 )
 
 # アプリケーション層
-from .application import TextEmbeddingService
+from .application import (
+    TextEmbeddingService,
+    SearchSimilarDocumentsUseCase,
+    IndexDocumentsUseCase,
+    DocumentSearchResult,
+    Document,
+)
 
 # インフラストラクチャ層
 from .infrastructure import (
     create_embedding_model,
     get_available_models,
 )
+
+# 統合システム
+from .vector_search_system import VectorSearchSystem
 
 __all__ = [
     # ドメイン型
@@ -25,7 +34,13 @@ __all__ = [
     "EmbeddingModel",
     # サービス
     "TextEmbeddingService",
+    "SearchSimilarDocumentsUseCase",
+    "IndexDocumentsUseCase",
+    "DocumentSearchResult",
+    "Document",
     # ファクトリー
     "create_embedding_model",
     "get_available_models",
+    # システム
+    "VectorSearchSystem",
 ]
