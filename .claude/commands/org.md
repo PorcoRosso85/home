@@ -90,20 +90,22 @@ production: {
 # 実行フロー
 
 ## sparse-checkout worktree作成
-テンプレート: `~/bin/src/poc/develop/claude/org/template.sh`
+テンプレート: `~/bin/src/poc/develop/claude/org/main.sh.template`
 
 ```bash
-# テンプレートを読み込む
-source ~/bin/src/poc/develop/claude/org/template.sh
+# テンプレートを参照（実行不可）
+cat ~/bin/src/poc/develop/claude/org/main.sh.template
 
-# 使用例を表示
-source ~/bin/src/poc/develop/claude/org/template.sh --examples
+# 自分のスクリプトを作成
+vi my_org_task.sh
 
-# worktree作成
-WORKTREE=$(create_sparse_worktree "task-name" "target/dir")
+# テンプレートの関数をコピーしてパラメータを設定
+# TASK_NAME="auth-feature"
+# TARGET_DIR="src/auth"
+# PROMPT="認証機能を実装してください"
 
-# Claude起動
-launch_claude_sdk "task-name" "$WORKTREE" "タスクの説明" "development"
+# 実行
+bash my_org_task.sh
 ```
 
 ### 引数不足時
@@ -127,18 +129,25 @@ launch_claude_sdk "task-name" "$WORKTREE" "タスクの説明" "development"
 
 ## 2. タスク実行
 ```bash
-# テンプレートを読み込む
-source ~/bin/src/poc/develop/claude/org/template.sh
+# 1. テンプレートを参照
+cat ~/bin/src/poc/develop/claude/org/main.sh.template
 
-# worktree作成と並列実行
-WORKTREE1=$(create_sparse_worktree "auth-feature" "src/auth")
-WORKTREE2=$(create_sparse_worktree "api-design" "docs/api")
-WORKTREE3=$(create_sparse_worktree "test-impl" "tests")
+# 2. 自分のスクリプトを作成して実装
+#!/bin/bash
+# parallel_tasks.sh
 
-launch_claude_sdk "auth-feature" "$WORKTREE1" "認証機能実装" "development" &
-launch_claude_sdk "api-design" "$WORKTREE2" "API設計" "readonly" &
-launch_claude_sdk "test-impl" "$WORKTREE3" "テスト実装" "development" &
-wait
+# パラメータ設定
+TASKS=(
+  "auth-feature:src/auth:認証機能実装:development"
+  "api-design:docs/api:API設計:readonly"
+  "test-impl:tests:テスト実装:development"
+)
+
+# テンプレートから関数をコピーして実装
+# ... (create_sparse_worktree関数等)
+
+# 3. 実行
+bash parallel_tasks.sh
 ```
 
 ## 3. タスク記録

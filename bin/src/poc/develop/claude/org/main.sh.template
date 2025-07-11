@@ -1,8 +1,12 @@
 #!/bin/bash
-# Claude parallel task execution templates
-# Usage: Source this file and use the functions
+# Claude parallel task execution template
+# THIS IS A TEMPLATE FILE - DO NOT EXECUTE DIRECTLY
+# View this file to understand the pattern, then implement your own script
 
 set -e
+
+# WARNING: This file is for reference only.
+# Copy the patterns below and adapt them to your needs.
 
 # Function to list existing worktrees with sparse settings
 list_work_sparse() {
@@ -135,7 +139,35 @@ example_parallel_tasks() {
     echo 'wait'
 }
 
-# Show examples if sourced with --examples
-if [ "${1:-}" = "--examples" ]; then
-    example_parallel_tasks
-fi
+# DO NOT SOURCE THIS FILE
+# Instead, use it as a reference to create your own implementation:
+#
+# 1. View this template: cat ~/bin/src/poc/develop/claude/org/main.sh.template
+# 2. Copy the patterns you need
+# 3. Create your own script with specific parameters
+# 4. Execute your script directly
+
+cat <<'EOF'
+============================================================
+THIS IS A TEMPLATE - DO NOT EXECUTE OR SOURCE
+============================================================
+
+To use these patterns:
+
+1. Create your own script:
+   vi my_org_task.sh
+
+2. Copy the functions you need from this template
+
+3. Set your specific parameters:
+   TASK_NAME="your-task"
+   TARGET_DIR="your/target/dir"
+   PROMPT="Your specific task description"
+
+4. Execute your script:
+   bash my_org_task.sh
+
+============================================================
+EOF
+
+exit 1  # Prevent execution
