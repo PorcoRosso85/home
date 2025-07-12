@@ -62,6 +62,7 @@
 - **「データ投入」「DML」「要件登録」**: `/trd_dml` コマンドを実行（要件データベースの構築）
 - **「ユーザー視点」「レビュー」「使いやすさ」「初心者」「目的確認」**: `/review_by_user` コマンドを実行（ユーザー視点でのシステムレビュー）
 - **「規約」「ルール」「conventions」「標準」「規則」**: `/conventions` コマンドを実行（文脈に応じた規約確認とタスク統合）
+- **「エントリーポイント」「nix run」「LLM-first」「対話的」「JSON入力」**: `/entry` コマンドを実行（LLM-firstなエントリポイントの設計）
 
 ## APE（Automatic Prompt Engineer）ルール
 - 全タスク開始時「Let's work step by step」を前置
