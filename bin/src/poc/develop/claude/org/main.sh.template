@@ -8,8 +8,9 @@
 set -e
 
 # Configuration
-DB_URI="${DB_URI:-kuzu://localhost:7687}"  # KuzuDB is local
-MAX_CONCURRENT="${MAX_CONCURRENT:-3}"
+# 環境変数はCLAUDE_プレフィックスを使用（規約）
+CLAUDE_KUZU_DB_PATH="${CLAUDE_KUZU_DB_PATH:-~/.kuzu/knowledge.db}"
+CLAUDE_MAX_CONCURRENT="${CLAUDE_MAX_CONCURRENT:-3}"
 
 # ============================================================
 # CORE FUNCTIONS
@@ -55,12 +56,13 @@ EOF
 get_directory_context() {
     local dir_path="$1"
     
-    # Query GraphDB (KuzuDB local)
+    # Query embedded KuzuDB
     local query="MATCH (d:Directory {path: '$dir_path'}) RETURN d.version, d.expected_state, d.required_files"
-    local result=$(curl -s "$DB_URI" -d "{\"query\": \"$query\"}" 2>/dev/null)
+    local result=$(kuzu --db "$CLAUDE_KUZU_DB_PATH" --query "$query" 2>/dev/null)
     
     if [ $? -ne 0 ] || [ -z "$result" ]; then
-        echo "Error: Cannot get context for $dir_path from GraphDB"
+        echo "Error: Cannot query KuzuDB at $CLAUDE_KUZU_DB_PATH"
+        echo "Ensure database exists and contains directory information"
         return 1
     fi
     
@@ -98,7 +100,7 @@ launch_member() {
 作業情報:
 - 場所: $worktree_path
 - 対象: $target_dir
-- DB_URI: ${DB_URI}
+- KUZU_DB: ${CLAUDE_KUZU_DB_PATH}
 - Context: $context
 
 重要な規則:
@@ -109,7 +111,7 @@ launch_member() {
 5. 完了時は 'Task completed: [$task_name]' と報告"
 
     # Launch member
-    DB_URI="$DB_URI" nix run nixpkgs#deno -- run --allow-all "$sdk_path" \
+    CLAUDE_KUZU_DB_PATH="$CLAUDE_KUZU_DB_PATH" nix run nixpkgs#deno -- run --allow-all "$sdk_path" \
         --uri "$worktree_path" \
         --print "$prompt" &
     
