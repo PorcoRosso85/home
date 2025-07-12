@@ -11,9 +11,7 @@ os.environ["PYTHONPATH"] = "/home/nixos/bin/src"
 os.environ["RGL_SKIP_SCHEMA_CHECK"] = "true"
 
 # Import subprocess wrapper
-import sys
-sys.path.insert(0, "/home/nixos/bin/src/poc/search/hybrid")
-from kuzu_extension_wrapper import KuzuExtensionSubprocess
+from poc.search.hybrid.kuzu_extension_wrapper import KuzuExtensionSubprocess
 
 
 def create_kuzu_test_db():
@@ -56,7 +54,7 @@ def create_requirement_table(conn) -> bool:
                 author STRING,
                 category STRING,
                 created_at INT64,
-                embedding DOUBLE[384]
+                embedding DOUBLE[256]
             )
         """)
         
@@ -77,9 +75,9 @@ def generate_mock_embedding(requirement: Dict[str, Any]) -> List[float]:
     text = requirement.get("title", "") + " " + requirement.get("description", "")
     hash_value = hash(text)
     
-    # 決定的な384次元ベクトル生成
+    # 決定的な256次元ベクトル生成（Ruriモデルに合わせる）
     embedding = []
-    for i in range(384):
+    for i in range(256):
         seed = (hash_value + i) % 2147483647
         value = (seed % 1000) / 1000.0
         embedding.append(value)
@@ -164,8 +162,11 @@ def insert_sample_requirements(conn) -> List[Dict[str, Any]]:
 
 
 def test_vss_similarity_search():
-    """VSS: 類似要件の検索"""
-    # Create test database
+    """VSS: 類似要件の検索
+    
+    仕様: 認証関連のクエリで検索すると、認証関連の要件が上位に返される
+    """
+    # GIVEN: テスト用データベースと要件データ
     conn, extensions = create_kuzu_test_db()
     
     if not extensions["vector"]:
@@ -256,19 +257,23 @@ def test_vss_similarity_search():
                 print("\nVSS検索結果:")
                 for r in enriched_results:
                     print(f"  {r['id']}: {r['title']} (スコア: {r['score']:.3f})")
-                return True
+                assert True  # テスト成功
+                return
         
         print("⚠️ VSS検索結果が期待と異なります")
-        return False
+        assert False, "VSS検索結果が期待と異なります"
         
     except Exception as e:
         print(f"✗ VSS検索実行失敗: {e}")
-        return False
+        assert False, f"VSS検索実行失敗: {e}"
 
 
 def test_fts_keyword_search():
-    """FTS: キーワード検索"""
-    # Create test database
+    """FTS: キーワード検索
+    
+    仕様: "認証"というキーワードで検索すると、認証を含む要件が返される
+    """
+    # GIVEN: テスト用データベースと要件データ
     conn, extensions = create_kuzu_test_db()
     
     if not extensions["fts"]:
@@ -354,14 +359,15 @@ def test_fts_keyword_search():
                 print("\nFTS検索結果:")
                 for r in enriched_results:
                     print(f"  {r['id']}: {r['title']} (スコア: {r['score']:.3f})")
-                return True
+                assert True  # テスト成功
+                return
         
         print("⚠️ FTS検索結果が期待と異なります")
-        return False
+        assert False, "FTS検索結果が期待と異なります"
         
     except Exception as e:
         print(f"✗ FTS検索実行失敗: {e}")
-        return False
+        assert False, f"FTS検索実行失敗: {e}"
 
 
 def test_duplicate_detection_use_case():
