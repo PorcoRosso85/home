@@ -99,12 +99,13 @@ class TestR2Operations:
     
     def run_mc_command(self, *args):
         """nix develop環境でmcコマンドを実行"""
-        cmd = ["nix", "develop", str(FLAKE_PATH), "-c", "mc"] + list(args)
+        cmd = ["nix", "develop", ".", "-c", "mc"] + list(args)
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            env=self.env
+            env=self.env,
+            cwd=FLAKE_PATH
         )
         return result
     
@@ -154,9 +155,10 @@ class TestFlakeUsability:
     def test_shell_hook_displays_instructions(self):
         """shellHookが使用方法を表示することを確認"""
         result = subprocess.run(
-            ["nix", "develop", str(FLAKE_PATH), "-c", "true"],
+            ["nix", "develop", ".", "-c", "true"],
             capture_output=True,
-            text=True
+            text=True,
+            cwd=FLAKE_PATH
         )
         
         output = result.stdout + result.stderr
