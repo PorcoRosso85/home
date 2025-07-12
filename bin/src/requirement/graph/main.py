@@ -49,7 +49,7 @@ def safe_main():
             if action == "apply":
                 from .infrastructure.apply_ddl_schema import apply_ddl_schema
                 info("rgl.main", "Applying DDL schema", action=action)
-                apply_ddl_schema(repository["connection"], repository["logger"])
+                apply_ddl_schema(db_path, input_data.get("create_test_data", False))
                 result({"status": "success", "message": "Schema applied"})
             else:
                 error("Unknown schema action", details={"action": action})
@@ -205,8 +205,7 @@ def safe_main():
         else:
             error("Unknown input type", details={"type": input_type})
 
-        # クローズ処理
-        repository["close"]()
+        # クローズ処理は不要（KuzuDBは自動的にクローズされる）
 
     except json.JSONDecodeError as e:
         # JSONパースエラー

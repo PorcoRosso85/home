@@ -29,14 +29,7 @@ from .hierarchy_env import (
     validate_hierarchy_env,
 )
 
-from .test_env import (
-    setup_test_environment,
-    get_test_db_path,
-    enable_test_mode,
-    disable_test_mode,
-    with_test_env,
-    restore_env,
-)
+# test_env import removed - test file was deleted
 
 # 互換性のための変数（直接アクセスは非推奨）
 # LD_LIBRARY_PATHはNixが管理するため、Noneの可能性がある
@@ -91,13 +84,6 @@ __all__ = [
     'is_org_mode',
     'get_shared_db_path',
     'validate_environment',
-    # テスト関連
-    'setup_test_environment',
-    'get_test_db_path',
-    'enable_test_mode',
-    'disable_test_mode',
-    'with_test_env',
-    'restore_env',
     # 定数
     'EMBEDDING_DIM',
     'MAX_GRAPH_DEPTH',

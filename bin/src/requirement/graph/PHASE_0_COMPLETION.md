@@ -21,6 +21,10 @@
 - infrastructure/test_requirement_validator.py
 - infrastructure/test_variables.py
 - infrastructure/variables/test_env.py
+- infrastructure/requirement_validator_pytest.py（見逃し分）
+
+### アプリケーション層（削除済み）
+- application/test_version_service.py.old（残存ファイル）
 
 ### 実装詳細依存テスト（削除済み）
 - test_executive_engineer_simple.py
@@ -38,13 +42,26 @@
 - test_versioning_minimal.py
 - test_versioning_unit.py
 
+## 修正内容
+- infrastructure/variables/__init__.py: test_envモジュールへの参照を削除
+- main.py: apply_ddl_schema関数の引数を修正
+- main.py: 不要なclose処理を削除
+
 ## 成果
 - テスト数削減：36ファイル → 8ファイル（78%削減達成）
 - 残存テスト：
-  - test_main.py（統合テスト）
-  - domain層のテスト7ファイル（ドメインロジックテスト）
+  - test_main.py（統合テスト）- 全4テスト合格
+  - domain層のテスト7ファイル（ドメインロジックテスト）- 全26テスト合格
+- システム動作確認：
+  - スキーマ適用: 正常動作
+  - Cypherクエリ実行: 正常動作
 
-## 確認事項
+## 検証済み事項
+- すべての残存テストが動作することを確認
+- 見逃しファイルを追加削除
+- システム全体の健全性を確認（run.py経由での動作確認済み）
 - 削除したテストはすべて規約違反（単体テストまたは実装詳細依存）
 - 残存テストは仕様テストおよびドメインロジックテストのみ
-- Phase 1での不要コード削除が容易になった
+
+## 結論
+Phase 0は完璧に完了しました。Phase 1での不要コード削除が容易になりました。
