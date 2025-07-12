@@ -86,6 +86,22 @@ EOF
           PYRIGHT_PATH="${pkgs.pyright}/bin/pyright-langserver" ${pkgs.nodejs}/bin/node pyright_direct.js
         '';
         
+        # Test LSP capabilities
+        testCapabilities = pkgs.writeShellScriptBin "test-capabilities" ''
+          #!${pkgs.bash}/bin/bash
+          echo "=== Testing Pyright LSP Capabilities ==="
+          cd /home/nixos/bin/src/poc/develop/lsp/pyright
+          PATH="${pkgs.pyright}/bin:$PATH" ${pkgs.python3}/bin/python3 lsp_capabilities_test.py
+        '';
+        
+        # Run pytest suite
+        testSuite = pkgs.writeShellScriptBin "test-suite" ''
+          #!${pkgs.bash}/bin/bash
+          echo "=== Running Pyright LSP Test Suite ==="
+          cd /home/nixos/bin/src/poc/develop/lsp/pyright
+          PATH="${pkgs.pyright}/bin:$PATH" ${pkgs.python3.withPackages (ps: [ ps.pytest ])}/bin/pytest -v test_pyright_lsp.py
+        '';
+        
       in
       {
         packages = {
@@ -96,6 +112,8 @@ EOF
           python-lsp = pythonLsp;
           pyright-test = pyrightTest;
           pyright-direct = pyrightDirect;
+          test-capabilities = testCapabilities;
+          test-suite = testSuite;
         };
 
         devShells.default = pkgs.mkShell {
@@ -130,6 +148,14 @@ EOF
           
           test-rename = flake-utils.lib.mkApp {
             drv = testRename;
+          };
+          
+          test-capabilities = flake-utils.lib.mkApp {
+            drv = testCapabilities;
+          };
+          
+          test-suite = flake-utils.lib.mkApp {
+            drv = testSuite;
           };
           
           python = flake-utils.lib.mkApp {
