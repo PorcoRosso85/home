@@ -1,0 +1,1 @@
+# Infrastructure layer - 外部システムとの統合
