@@ -23,6 +23,29 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
     template = input_data.get("template", "")
     params = input_data.get("parameters", {})
     
+    # パラメータ検証用の必須フィールド定義
+    required_params = {
+        "create_requirement": ["id", "title"],
+        "find_requirement": ["id"],
+        "add_dependency": ["child_id", "parent_id"],
+        "find_dependencies": ["requirement_id"],
+        "update_requirement": ["id"],
+        "delete_requirement": ["id"]
+    }
+    
+    # 必須パラメータチェック
+    if template in required_params:
+        missing = [p for p in required_params[template] if not params.get(p)]
+        if missing:
+            return {
+                "error": {
+                    "type": "MissingParameterError",
+                    "message": f"Missing required parameters: {', '.join(missing)}",
+                    "template": template,
+                    "required": required_params[template]
+                }
+            }
+    
     # テンプレート→Cypherマッピング（最小限の実装）
     if template == "create_requirement":
         # 要件作成前に重複チェック
@@ -85,7 +108,39 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         query_params = {}
         
     elif template == "add_dependency":
-        # 依存関係追加
+        # 依存関係追加の前に循環検証
+        child_id = params.get("child_id")
+        parent_id = params.get("parent_id")
+        
+        # 循環依存チェック
+        from domain.constraints import validate_no_circular_dependency
+        
+        # 既存の依存関係を取得
+        dep_query = """
+        MATCH (r:RequirementEntity)-[:DEPENDS_ON]->(dep:RequirementEntity)
+        RETURN r.id as from_id, dep.id as to_id
+        """
+        dep_result = repository["execute"](dep_query, {})
+        
+        all_deps = {}
+        if dep_result.get("status") == "success":
+            for row in dep_result.get("data", []):
+                from_id = row[0]
+                to_id = row[1]
+                if from_id not in all_deps:
+                    all_deps[from_id] = []
+                all_deps[from_id].append(to_id)
+        
+        # 新しい依存関係で循環が発生するかチェック
+        validation_result = validate_no_circular_dependency(child_id, [parent_id], all_deps)
+        
+        if isinstance(validation_result, dict) and validation_result.get("type") == "ConstraintViolationError":
+            return {
+                "error": validation_result,
+                "status": "error"
+            }
+        
+        # 循環がなければ依存関係を追加
         query = """
         MATCH (child:RequirementEntity {id: $child_id})
         MATCH (parent:RequirementEntity {id: $parent_id})
@@ -93,8 +148,8 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         RETURN child, parent
         """
         query_params = {
-            "child_id": params.get("child_id"),
-            "parent_id": params.get("parent_id")
+            "child_id": child_id,
+            "parent_id": parent_id
         }
         
     elif template == "find_dependencies":
