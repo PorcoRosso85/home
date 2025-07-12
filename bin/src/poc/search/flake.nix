@@ -60,13 +60,18 @@
               $VENV_PATH/bin/python test_hybrid_search_e2e.py
               
               echo ""
-              echo "4. その他のテスト"
+              echo "4. TDD Redテスト"
+              $VENV_PATH/bin/python -m pytest test_hybrid_tdd_red.py -v
+              
+              echo ""
+              echo "5. その他のテスト"
               $VENV_PATH/bin/python -m pytest -v \
                 --ignore=test_search_poc_spec.py \
                 --ignore=test_kuzu_native_spec.py \
                 --ignore=test_kuzu_vss_fts_integration.py \
                 --ignore=test_requirement_search_integration.py \
-                --ignore=test_hybrid_search_e2e.py
+                --ignore=test_hybrid_search_e2e.py \
+                --ignore=test_hybrid_tdd_red.py
             ''}";
           };
           
