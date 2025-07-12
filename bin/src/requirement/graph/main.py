@@ -58,15 +58,9 @@ def safe_main():
             # リポジトリを作成
             repository = create_kuzu_repository(db_path)
             
-            # POC search統合を初期化（オプション）
-            search_integration = None
-            if input_data.get("enable_duplicate_check", True):
-                try:
-                    # POC searchが利用可能な場合のみ使用
-                    search_integration = SearchIntegration(db_path)
-                    info("rgl.main", "POC search integration enabled")
-                except Exception as e:
-                    warn("rgl.main", f"POC search not available: {str(e)}")
+            # POC search統合を初期化（必須）
+            search_integration = SearchIntegration(db_path)
+            info("rgl.main", "POC search integration enabled")
             
             info("rgl.main", "Processing template", template=input_data.get("template"))
             query_result = process_template(input_data, repository, search_integration)

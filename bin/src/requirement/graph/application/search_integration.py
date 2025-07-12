@@ -7,16 +7,13 @@ from typing import List, Dict, Any, Optional
 import sys
 import os
 
-# POC searchモジュールへのパスを追加
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
+# 環境変数からプロジェクトルートを取得
+project_root = os.environ.get('PYTHONPATH', '/home/nixos/bin/src')
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-try:
-    from poc.search.infrastructure.search_service_factory import SearchServiceFactory
-    from poc.search.domain.interfaces import SearchService
-except ImportError:
-    # POC searchが利用できない場合のフォールバック
-    SearchServiceFactory = None
-    SearchService = None
+from poc.search.infrastructure.search_service_factory import SearchServiceFactory
+from poc.search.domain.interfaces import SearchService
 
 
 class SearchIntegration:
@@ -28,9 +25,9 @@ class SearchIntegration:
             db_path: SearchServiceのデータベースパス（Noneの場合は一時DB）
         """
         if SearchServiceFactory is None:
-            # POC searchが利用できない場合
-            self.search_service = None
-        elif db_path:
+            raise ImportError("POC search is required but not available")
+        
+        if db_path:
             self.search_service = SearchServiceFactory.create_for_production(db_path)
         else:
             self.search_service = SearchServiceFactory.create_for_test()
@@ -47,15 +44,11 @@ class SearchIntegration:
         Returns:
             類似要件のリスト（スコア順）
         """
-        if self.search_service is None:
-            # POC searchが利用できない場合は空リストを返す
-            return []
-            
         try:
             # POC searchのハイブリッド検索を利用
             results = self.search_service.search_hybrid(
                 query=text,
-                top_k=k
+                k=k  # top_k -> k
             )
             
             # 閾値以上のスコアの結果のみ返す
