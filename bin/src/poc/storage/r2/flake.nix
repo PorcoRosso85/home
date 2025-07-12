@@ -11,16 +11,13 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # Node.js環境（Wrangler用）
-        nodejs = pkgs.nodejs_20;
         
       in
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            # Wrangler（Cloudflare公式CLI）
-            nodejs
-            nodePackages.npm
+            # Wrangler（Cloudflare公式CLI） - nixpkgsから直接
+            wrangler
             
             # MinIO Client
             minio-client
@@ -42,20 +39,15 @@
             echo "Cloudflare R2 CLI環境"
             echo ""
             echo "利用可能なツール:"
-            echo "  - wrangler: Cloudflare公式CLI（npm install -g wranglerで初回インストール）"
+            echo "  - wrangler: Cloudflare公式CLI"
             echo "  - mc: MinIO Client（S3互換CLI）"
             # echo "  - aws: AWS CLI（S3互換接続） - オプション"
             echo ""
             echo "セットアップ手順:"
-            echo "  1. npm install -g wrangler"
-            echo "  2. wrangler login または export CLOUDFLARE_API_TOKEN='your-token'"
-            echo "  3. mc alias set r2 https://[account-id].r2.cloudflarestorage.com [key] [secret]"
+            echo "  1. wrangler login または export CLOUDFLARE_API_TOKEN='your-token'"
+            echo "  2. mc alias set r2 https://[account-id].r2.cloudflarestorage.com [key] [secret]"
             echo ""
             
-            # package.jsonがない場合は作成
-            if [ ! -f package.json ]; then
-              echo '{"private": true}' > package.json
-            fi
             
             # .envファイルのテンプレート作成
             if [ ! -f .env.example ]; then
