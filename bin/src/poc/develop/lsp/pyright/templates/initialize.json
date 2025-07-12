@@ -1,0 +1,108 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "processId": null,
+    "clientInfo": {
+      "name": "pyright-test-client",
+      "version": "1.0.0"
+    },
+    "rootPath": "${WORKSPACE_PATH}",
+    "rootUri": "file://${WORKSPACE_PATH}",
+    "capabilities": {
+      "textDocument": {
+        "synchronization": {
+          "willSave": true,
+          "willSaveWaitUntil": true,
+          "didSave": true
+        },
+        "completion": {
+          "completionItem": {
+            "snippetSupport": true,
+            "commitCharactersSupport": true,
+            "documentationFormat": ["markdown", "plaintext"],
+            "deprecatedSupport": true,
+            "preselectSupport": true
+          }
+        },
+        "hover": {
+          "contentFormat": ["markdown", "plaintext"]
+        },
+        "signatureHelp": {
+          "signatureInformation": {
+            "documentationFormat": ["markdown", "plaintext"]
+          }
+        },
+        "definition": {
+          "linkSupport": true
+        },
+        "typeDefinition": {
+          "linkSupport": true
+        },
+        "references": {},
+        "documentHighlight": {},
+        "documentSymbol": {
+          "symbolKind": {
+            "valueSet": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+          }
+        },
+        "codeAction": {
+          "codeActionLiteralSupport": {
+            "codeActionKind": {
+              "valueSet": [
+                "",
+                "quickfix",
+                "refactor",
+                "refactor.extract",
+                "refactor.inline",
+                "refactor.rewrite",
+                "source",
+                "source.organizeImports",
+                "source.fixAll"
+              ]
+            }
+          }
+        },
+        "rename": {
+          "prepareSupport": true
+        },
+        "publishDiagnostics": {
+          "relatedInformation": true,
+          "versionSupport": false,
+          "codeDescriptionSupport": true,
+          "dataSupport": true
+        }
+      },
+      "workspace": {
+        "applyEdit": true,
+        "workspaceEdit": {
+          "documentChanges": true
+        },
+        "didChangeConfiguration": {
+          "dynamicRegistration": true
+        },
+        "didChangeWatchedFiles": {
+          "dynamicRegistration": true
+        },
+        "symbol": {
+          "symbolKind": {
+            "valueSet": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+          }
+        },
+        "executeCommand": {
+          "dynamicRegistration": true
+        },
+        "workspaceFolders": true,
+        "configuration": true
+      }
+    },
+    "initializationOptions": {},
+    "workspaceFolders": [
+      {
+        "uri": "file://${WORKSPACE_PATH}",
+        "name": "workspace"
+      }
+    ]
+  }
+}

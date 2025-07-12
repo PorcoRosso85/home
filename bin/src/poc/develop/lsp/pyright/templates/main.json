@@ -1,0 +1,91 @@
+[
+  {
+    "description": "Initialize Pyright LSP server",
+    "template": "initialize",
+    "file": "templates/initialize.json",
+    "variables": {
+      "WORKSPACE_PATH": "/home/nixos/bin/src/poc/develop/lsp/pyright"
+    }
+  },
+  {
+    "description": "Open a Python file for analysis",
+    "template": "document_open",
+    "file": "templates/document_open.json",
+    "variables": {
+      "FILE_PATH": "/path/to/your/file.py",
+      "FILE_CONTENT": "# Your Python code here\n"
+    }
+  },
+  {
+    "description": "Rename a symbol",
+    "template": "rename",
+    "file": "templates/rename.json",
+    "variables": {
+      "FILE_PATH": "/path/to/your/file.py",
+      "LINE": 0,
+      "CHARACTER": 0,
+      "NEW_NAME": "new_symbol_name"
+    }
+  },
+  {
+    "description": "Find all references to a symbol",
+    "template": "find_references",
+    "file": "templates/find_references.json",
+    "variables": {
+      "FILE_PATH": "/path/to/your/file.py",
+      "LINE": 0,
+      "CHARACTER": 0
+    }
+  },
+  {
+    "description": "Go to definition",
+    "template": "goto_definition",
+    "file": "templates/goto_definition.json",
+    "variables": {
+      "FILE_PATH": "/path/to/your/file.py",
+      "LINE": 0,
+      "CHARACTER": 0
+    }
+  },
+  {
+    "description": "Get hover information",
+    "template": "hover",
+    "file": "templates/hover.json",
+    "variables": {
+      "FILE_PATH": "/path/to/your/file.py",
+      "LINE": 0,
+      "CHARACTER": 0
+    }
+  },
+  {
+    "description": "Get code actions (quickfix, organize imports)",
+    "template": "code_action",
+    "file": "templates/code_action.json",
+    "variables": {
+      "FILE_PATH": "/path/to/your/file.py",
+      "START_LINE": 0,
+      "START_CHARACTER": 0,
+      "END_LINE": 10,
+      "END_CHARACTER": 0,
+      "ACTION_KIND": "source.organizeImports"
+    }
+  },
+  {
+    "description": "Get completions",
+    "template": "completion",
+    "file": "templates/completion.json",
+    "variables": {
+      "FILE_PATH": "/path/to/your/file.py",
+      "LINE": 0,
+      "CHARACTER": 0
+    }
+  },
+  {
+    "description": "Get document symbols",
+    "template": "document_symbols",  
+    "file": "templates/document_symbols.json",
+    "variables": {
+      "FILE_PATH": "/path/to/your/file.py"
+    }
+  }
+]

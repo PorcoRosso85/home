@@ -3,7 +3,6 @@ Constraints - 制約ルール定義
 外部依存: なし
 """
 from typing import List, Dict, Union, Optional, Any
-from .types import Decision
 
 
 # ConstraintViolationError型定義（TypedDictとして）
@@ -113,7 +112,7 @@ def validate_max_depth(
 
 
 def validate_implementation_completeness(
-    requirement: Decision,
+    requirement: Dict[str, Any],
     implementations: List[Dict],
     tests: List[Dict]
 ) -> Dict[str, Any]:

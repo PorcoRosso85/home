@@ -7,7 +7,7 @@ import os
 import json
 from typing import List, Dict
 from datetime import datetime
-from ..domain.types import Decision, DecisionResult
+from typing import TypedDict, Union, Any
 
 
 def create_jsonl_repository(file_path: str) -> Dict:

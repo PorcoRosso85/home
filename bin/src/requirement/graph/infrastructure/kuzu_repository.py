@@ -12,7 +12,6 @@ TODO: リポジトリ層のクエリ管理改善
 from typing import List, Dict, Optional, Any
 
 # 相対インポートのみ使用
-from ..domain.types import Decision, DecisionResult
 from .variables import get_db_path, should_skip_schema_check
 from .logger import debug, info
 

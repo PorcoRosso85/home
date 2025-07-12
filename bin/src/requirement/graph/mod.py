@@ -13,8 +13,7 @@
         "title": "ユーザー認証",
         "description": "OAuth2による認証実装",
         "status": "proposed",
-        "created_at": datetime.now(),
-        "embedding": [0.1] * 50
+        "created_at": datetime.now()
     }
 
     result = repo["save"](requirement)
@@ -22,28 +21,9 @@
     # 依存関係を追加
     repo["add_dependency"]("req_001", "req_002", "technical")
 
-    # 最適化機能を使用
-    from requirement.graph.application.optimization_features import (
-        optimize_implementation_order_with_layers,
-        estimate_effort
-    )
-
-    order = optimize_implementation_order_with_layers(
-        requirements, code_entities, relations, dependencies
-    )
 """
 
 # Domain層
-from .domain.types import (
-    Decision,
-    DecisionResult,
-    DecisionError,
-    DecisionNotFoundError
-)
-
-from .domain.decision import (
-    create_decision
-)
 
 from .domain.constraints import (
     ConstraintViolationError,
@@ -52,12 +32,6 @@ from .domain.constraints import (
     validate_implementation_completeness
 )
 
-from .domain.version_tracking import (
-    create_location_uri,
-    create_version_id,
-    create_requirement_snapshot,
-    parse_location_uri
-)
 
 # Application層
 
@@ -70,19 +44,10 @@ from .infrastructure.ddl_schema_manager import DDLSchemaManager
 
 __all__ = [
     # Domain
-    "Decision",
-    "DecisionResult",
-    "DecisionError",
-    "DecisionNotFoundError",
     "ConstraintViolationError",
-    "create_decision",
     "validate_no_circular_dependency",
     "validate_max_depth",
     "validate_implementation_completeness",
-    "create_location_uri",
-    "create_version_id",
-    "create_requirement_snapshot",
-    "parse_location_uri",
     # Application
     # Infrastructure
     "create_kuzu_repository",

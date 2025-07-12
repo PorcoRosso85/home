@@ -46,17 +46,12 @@ RGL_LOG_FORMAT = get_log_format()
 RGL_SKIP_SCHEMA_CHECK = str(should_skip_schema_check()).lower()
 
 from .constants import (
-    # 埋め込み関連
-    EMBEDDING_DIM,
     # グラフ制約関連
     MAX_GRAPH_DEPTH,
     # ログ関連
     LOG_LEVELS,
     # レイヤー優先度
     LAYER_PRIORITY,
-    # 自律的分解関連
-    AUTONOMOUS_MAX_DEPTH,
-    AUTONOMOUS_TARGET_SIZE,
     # 検索関連
     DEFAULT_SEARCH_THRESHOLD,
     DEFAULT_SEARCH_LIMIT,
@@ -85,12 +80,9 @@ __all__ = [
     'get_shared_db_path',
     'validate_environment',
     # 定数
-    'EMBEDDING_DIM',
     'MAX_GRAPH_DEPTH',
     'LOG_LEVELS',
     'LAYER_PRIORITY',
-    'AUTONOMOUS_MAX_DEPTH',
-    'AUTONOMOUS_TARGET_SIZE',
     'DEFAULT_SEARCH_THRESHOLD',
     'DEFAULT_SEARCH_LIMIT',
 ]

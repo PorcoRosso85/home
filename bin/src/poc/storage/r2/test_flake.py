@@ -4,7 +4,7 @@ R2 SDK Flakeの責務テスト
 
 このflakeの責務:
 1. R2バケット操作のための開発環境提供
-2. MinIO Client (mc) の提供
+2. MinIO Client (mc) の提供（S3互換CLI）
 3. 認証情報の管理支援
 """
 
@@ -19,6 +19,10 @@ from datetime import datetime
 FLAKE_PATH = Path(__file__).parent
 TEST_BUCKET_PREFIX = "flake-test"
 
+# Nixストア内から実行される場合、カレントディレクトリをFLAKE_PATHとして使用
+if str(FLAKE_PATH).startswith('/nix/store'):
+    FLAKE_PATH = Path.cwd()
+
 
 class TestFlakeEnvironment:
     """Flake環境の基本的な責務をテスト"""
@@ -26,9 +30,10 @@ class TestFlakeEnvironment:
     def test_nix_develop_loads_successfully(self):
         """nix develop環境が正常に起動することを確認"""
         result = subprocess.run(
-            ["nix", "develop", str(FLAKE_PATH), "-c", "echo", "success"],
+            ["nix", "develop", ".", "-c", "echo", "success"],
             capture_output=True,
-            text=True
+            text=True,
+            cwd=FLAKE_PATH
         )
         assert result.returncode == 0
         assert "success" in result.stdout
@@ -36,9 +41,10 @@ class TestFlakeEnvironment:
     def test_minio_client_available(self):
         """MinIO Clientが利用可能であることを確認"""
         result = subprocess.run(
-            ["nix", "develop", str(FLAKE_PATH), "-c", "mc", "--version"],
+            ["nix", "develop", ".", "-c", "mc", "--version"],
             capture_output=True,
-            text=True
+            text=True,
+            cwd=FLAKE_PATH
         )
         assert result.returncode == 0
         assert "mc version" in result.stdout.lower()
@@ -51,7 +57,6 @@ class TestFlakeEnvironment:
         # 必要な環境変数が定義されているか確認
         content = env_example.read_text()
         required_vars = [
-            "CLOUDFLARE_API_TOKEN",
             "R2_ACCESS_KEY_ID", 
             "R2_SECRET_ACCESS_KEY",
             "R2_ENDPOINT"
@@ -143,65 +148,6 @@ class TestR2Operations:
             assert any(error in result.stderr for error in expected_errors), \
                 f"Unexpected error: {result.stderr}"
 
-
-class TestWranglerOperations:
-    """Wranglerを使ったR2操作のテスト"""
-    
-    @pytest.fixture(autouse=True)
-    def check_credentials(self):
-        """テスト実行前に認証情報を確認"""
-        env_file = FLAKE_PATH / ".env.local"
-        if not env_file.exists():
-            pytest.skip("No .env.local file found. Skipping Wrangler operations tests.")
-        
-        # 環境変数を読み込む
-        self.env = os.environ.copy()
-        with open(env_file) as f:
-            for line in f:
-                if line.strip() and not line.startswith('#'):
-                    if 'export ' in line:
-                        line = line.replace('export ', '')
-                    key, value = line.strip().split('=', 1)
-                    self.env[key] = value.strip('"\'')
-    
-    def run_wrangler_command(self, *args):
-        """nix develop環境でwranglerコマンドを実行"""
-        cmd = ["nix", "develop", str(FLAKE_PATH), "-c", "wrangler"] + list(args)
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            env=self.env
-        )
-        return result
-    
-    def test_wrangler_available(self):
-        """Wranglerが利用可能であることを確認"""
-        result = subprocess.run(
-            ["nix", "develop", str(FLAKE_PATH), "-c", "wrangler", "--version"],
-            capture_output=True,
-            text=True
-        )
-        assert result.returncode == 0
-        assert "wrangler" in result.stdout.lower()
-    
-    @pytest.mark.integration
-    def test_wrangler_bucket_list(self):
-        """Wranglerでバケット一覧が取得できることを確認"""
-        result = self.run_wrangler_command("r2", "bucket", "list")
-        
-        if result.returncode != 0:
-            if "Authentication error" in result.stderr:
-                pytest.skip("Wrangler authentication failed. Check API token permissions.")
-            else:
-                pytest.fail(f"Failed to list buckets with wrangler: {result.stderr}")
-        
-        # 正常に実行できたことを確認
-        assert result.returncode == 0
-        # バケット一覧が表示されるか、空のリストが返ることを確認
-        assert "Listing buckets" in result.stderr or "name:" in result.stdout or "No buckets" in result.stdout
-
-
 class TestFlakeUsability:
     """Flakeの使いやすさに関するテスト"""
     
@@ -216,6 +162,7 @@ class TestFlakeUsability:
         output = result.stdout + result.stderr
         assert "Cloudflare R2 CLI環境" in output
         assert "利用可能なツール" in output
+        assert "MinIO Client" in output or "mc" in output
     
     def test_gitignore_exists(self):
         """.gitignoreが存在し、認証情報を除外していることを確認"""

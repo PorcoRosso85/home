@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "textDocument/references",
+  "params": {
+    "textDocument": {
+      "uri": "file://${FILE_PATH}"
+    },
+    "position": {
+      "line": ${LINE},
+      "character": ${CHARACTER}
+    },
+    "context": {
+      "includeDeclaration": true
+    }
+  }
+}

@@ -39,30 +39,21 @@
               fi
             fi
             
-            # pytestを実行（現在のディレクトリから実行）
-            exec ${pkgs.python3.withPackages (ps: with ps; [ pytest ])}/bin/pytest "$TEST_FILE" -v "$@"
+            # カレントディレクトリでテストを実行
+            cd "$(dirname "$TEST_FILE")"
+            exec ${pkgs.python3.withPackages (ps: with ps; [ pytest ])}/bin/pytest "$(basename "$TEST_FILE")" -v "$@"
           ''}";
         };
         
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            # Wrangler（Cloudflare公式CLI） - nixpkgsから直接
-            wrangler
-            
-            # MinIO Client
+            # MinIO Client - S3互換CLI
             minio-client
-            
-            # AWS CLI（S3互換接続用） - オプション
-            # awscli2
             
             # 開発ツール
             jq
             curl
             gnumake
-            
-            # セキュリティ（認証情報管理） - 本番環境で推奨
-            # pass
-            # gnupg
           ];
 
           shellHook = ''
@@ -75,23 +66,21 @@
               echo "✓ 認証情報を.env.localから読み込みました"
               echo ""
               echo "利用可能なツール:"
-              echo "  - wrangler: Cloudflare公式CLI（認証済み）"
-              echo "  - mc: MinIO Client（認証済み）"
+              echo "  - mc: MinIO Client（S3互換CLI）"
               echo ""
               echo "使用例:"
-              echo "  wrangler r2 bucket list"
-              echo "  mc ls r2/"
+              echo "  mc ls r2/                    # バケット一覧"
+              echo "  mc mb r2/my-bucket           # バケット作成"
+              echo "  mc cp file.txt r2/my-bucket  # ファイルアップロード"
             else
               echo "⚠️  .env.localファイルが見つかりません"
               echo ""
               echo "利用可能なツール:"
-              echo "  - wrangler: Cloudflare公式CLI"
               echo "  - mc: MinIO Client（S3互換CLI）"
               echo ""
               echo "セットアップ手順:"
               echo "  1. .env.localファイルを作成して認証情報を設定"
-              echo "  2. または手動で環境変数を設定:"
-              echo "     export CLOUDFLARE_API_TOKEN='your-token'"
+              echo "  2. MinIO Clientのエイリアスを設定:"
               echo "     mc alias set r2 https://[account-id].r2.cloudflarestorage.com [key] [secret]"
             fi
             echo ""

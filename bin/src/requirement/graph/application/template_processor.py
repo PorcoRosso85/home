@@ -4,16 +4,18 @@ Template Processor - テンプレート入力をCypherクエリに変換
 最小限の実装でtemplate入力を受け付ける。
 後方互換性のため、内部的にCypherクエリに変換して実行。
 """
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from application.search_integration import SearchIntegration
 
 
-def process_template(input_data: Dict[str, Any], repository: Dict[str, Any]) -> Dict[str, Any]:
+def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], search_integration: Optional[SearchIntegration] = None) -> Dict[str, Any]:
     """
     テンプレート入力を処理
     
     Args:
         input_data: {"template": "...", "parameters": {...}}
         repository: KuzuDBリポジトリ
+        search_integration: POC search統合（オプション）
         
     Returns:
         実行結果
@@ -23,6 +25,21 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any]) -> 
     
     # テンプレート→Cypherマッピング（最小限の実装）
     if template == "create_requirement":
+        # 要件作成前に重複チェック
+        if search_integration:
+            title = params.get("title", "")
+            duplicates = search_integration.check_duplicates(title, k=5, threshold=0.7)
+            
+            if duplicates:
+                return {
+                    "warning": {
+                        "type": "DuplicateWarning",
+                        "message": "Similar requirements found",
+                        "duplicates": duplicates
+                    },
+                    "continue": True  # 作成は継続可能
+                }
+        
         # 要件作成
         query = """
         CREATE (r:RequirementEntity {
@@ -39,6 +56,22 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any]) -> 
             "description": params.get("description", ""),
             "status": params.get("status", "proposed")
         }
+        
+        # クエリ実行
+        result = repository["execute"](query, query_params)
+        
+        # 成功時は検索インデックスに追加
+        if search_integration and result.get("status") == "success":
+            requirement_data = result.get("data", [{}])[0]
+            if requirement_data:
+                search_integration.add_to_search_index({
+                    "id": params.get("id"),
+                    "title": params.get("title"),
+                    "description": params.get("description", ""),
+                    "status": params.get("status", "proposed")
+                })
+        
+        return result
         
     elif template == "find_requirement":
         # 要件検索

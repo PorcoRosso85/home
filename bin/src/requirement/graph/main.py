@@ -54,9 +54,20 @@ def safe_main():
         elif input_type == "template":
             # テンプレート処理
             from .application.template_processor import process_template
+            from .application.search_integration import SearchIntegration
+            
+            # POC search統合を初期化（オプション）
+            search_integration = None
+            if input_data.get("enable_duplicate_check", True):
+                try:
+                    # POC searchが利用可能な場合のみ使用
+                    search_integration = SearchIntegration(db_path)
+                    info("rgl.main", "POC search integration enabled")
+                except Exception as e:
+                    warn("rgl.main", f"POC search not available: {str(e)}")
             
             info("rgl.main", "Processing template", template=input_data.get("template"))
-            query_result = process_template(input_data, repository)
+            query_result = process_template(input_data, repository, search_integration)
             
             # エラーチェック
             if "error" in query_result:
@@ -75,38 +86,8 @@ def safe_main():
 
 
         elif input_type == "semantic_search":
-            # 意味的検索機能
-            from ..domain.embedder import Embedder
-
-            query_text = input_data.get("query", "")
-            threshold = input_data.get("threshold", 0.5)
-            limit = input_data.get("limit", 10)
-
-            if not query_text:
-                error("query is required for semantic search")
-            else:
-                info("rgl.main", "Starting semantic search",
-                     query=query_text[:50], threshold=threshold)
-
-                embedder = Embedder()
-
-                # クエリテキストのベクトル化
-                query_vector = embedder.encode(query_text)
-
-                # ベクトル検索実行
-                search_result = repository["semantic_search"](
-                    query_vector, threshold, limit
-                )
-
-                if search_result["status"] == "success":
-                    # 結果を出力
-                    result({
-                        "status": "success",
-                        "data": search_result["data"],
-                        "count": len(search_result["data"])
-                    })
-                else:
-                    error("Semantic search failed", details=search_result)
+            # 意味的検索機能はPOC searchに統合
+            error("Semantic search has been integrated into POC search. Use template input with duplicate check.")
 
 
         elif input_type == "version":

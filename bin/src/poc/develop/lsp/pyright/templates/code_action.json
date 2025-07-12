@@ -1,0 +1,24 @@
+{
+  "jsonrpc": "2.0",
+  "id": 6,
+  "method": "textDocument/codeAction",
+  "params": {
+    "textDocument": {
+      "uri": "file://${FILE_PATH}"
+    },
+    "range": {
+      "start": {
+        "line": ${START_LINE},
+        "character": ${START_CHARACTER}
+      },
+      "end": {
+        "line": ${END_LINE},
+        "character": ${END_CHARACTER}
+      }
+    },
+    "context": {
+      "diagnostics": [],
+      "only": ["${ACTION_KIND}"]
+    }
+  }
+}
