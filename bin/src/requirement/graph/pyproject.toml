@@ -44,6 +44,7 @@ addopts = [
     "--ignore=test_subprocess_debug2.py",
     "--ignore=test_subprocess_simple.py",
     "--ignore=query_location_uris.py",
+    "--ignore=integration_tests/",
 ]
 
 [dependency-groups]

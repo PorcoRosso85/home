@@ -9,7 +9,7 @@ TODO: リポジトリ層のクエリ管理改善
 - 例: query_loader.load("dql/get_requirement_history.cypher")
 - 利点: クエリの再利用性向上、テスト容易性向上
 """
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 
 # 相対インポートのみ使用
 from .variables import get_db_path, should_skip_schema_check
@@ -67,7 +67,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     # from .hierarchy_udfs import register_hierarchy_udfs
     # register_hierarchy_udfs(conn)
 
-    def save(decision: Decision, parent_id: Optional[str] = None, track_version: bool = True) -> DecisionResult:
+    def save(decision: Dict[str, Any], parent_id: Optional[str] = None, track_version: bool = True) -> Dict[str, Any]:
         """要件を保存（バージョン追跡付き）"""
         try:
             # 既存の要件かチェック
@@ -209,7 +209,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 "decision_id": decision["id"]
             }
 
-    def find(requirement_id: str) -> DecisionResult:
+    def find(requirement_id: str) -> Dict[str, Any]:
         """IDで要件を検索（最新バージョンを返す）"""
         try:
             # LocationURI経由で最新バージョンを取得
@@ -255,7 +255,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 "decision_id": requirement_id
             }
 
-    def find_all() -> List[Decision]:
+    def find_all() -> List[Dict[str, Any]]:
         """全要件を取得"""
         try:
             result = conn.execute("""
@@ -372,7 +372,7 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         except Exception:
             return []
 
-    def search(query: str, threshold: float = 0.7) -> List[Decision]:
+    def search(query: str, threshold: float = 0.7) -> List[Dict[str, Any]]:
         """埋め込みベクトルを使った類似検索"""
         # TODO: ベクトル検索の実装
         # 簡易実装: タイトルと説明文で部分一致検索

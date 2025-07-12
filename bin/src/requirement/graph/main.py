@@ -34,8 +34,7 @@ def safe_main():
         info("rgl.main", "Starting main function")
 
         db_path = get_db_path()
-        repository = create_kuzu_repository(db_path)
-
+        
         # 入力データの読み込み
         input_data = json.load(sys.stdin)
         input_type = input_data.get("type", "cypher")
@@ -55,6 +54,9 @@ def safe_main():
             # テンプレート処理
             from .application.template_processor import process_template
             from .application.search_integration import SearchIntegration
+            
+            # リポジトリを作成
+            repository = create_kuzu_repository(db_path)
             
             # POC search統合を初期化（オプション）
             search_integration = None

@@ -35,6 +35,28 @@
             stdenv.cc.cc.lib
             ruff
           ];
+          
+          shellHook = ''
+            echo "Setting up Python environment..."
+            if [ ! -d ".venv" ]; then
+              uv venv
+            fi
+            source .venv/bin/activate
+            
+            # KuzuDBとその他の依存関係をインストール
+            if [ ! -f ".venv/.deps_installed" ]; then
+              echo "Installing dependencies..."
+              uv pip install kuzu pytest sentence-transformers
+              touch .venv/.deps_installed
+            fi
+            
+            # patchelf for kuzu
+            for lib in .venv/lib/python*/site-packages/kuzu/*.so; do
+              [ -f "$lib" ] && patchelf --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" "$lib"
+            done
+            
+            echo "Environment ready!"
+          '';
         };
         
         apps = {
