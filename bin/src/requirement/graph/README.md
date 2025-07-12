@@ -18,15 +18,20 @@
 
 ## 現在の状態
 
-Phase 1完了により、以下の機能に集約：
-- 基本的なCRUD操作
-- グラフクエリ実行
-- 依存関係管理
+Phase 3完了により、以下の機能を提供：
+- テンプレートベースの安全な要件操作
+- POC searchによる重複検出（VSS+FTSハイブリッド検索）
+- 循環依存の検出とフィードバック
+- 深さ制限によるグラフ構造の健全性保証
 
-削除した機能：
-- Cypher直接実行（セキュリティリスク） - template入力に統一
-- 摩擦スコアリング（POC searchで代替予定）
-- バージョニング（Gitで管理）
+利用可能なテンプレート：
+- `create_requirement`: 要件作成（重複チェック付き）
+- `update_requirement`: 要件更新
+- `delete_requirement`: 要件削除
+- `find_requirement`: 要件検索
+- `list_requirements`: 要件一覧
+- `add_dependency`: 依存関係追加（循環検出付き）
+- `find_dependencies`: 依存関係検索
 
 ## システムの流れ
 
@@ -78,21 +83,29 @@ nix run .#run
 ```bash
 # スキーマ初期化（初回のみ）
 nix run .#init
+# または
+echo '{"type": "schema", "action": "apply"}' | nix run .#run
 
-# 基本的な要件作成
-echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_001\", title: \"ユーザー認証機能\", description: \"安全なログイン機能を提供\"})"}' | nix run .#run
+# 基本的な要件作成（テンプレート入力）
+echo '{"type": "template", "template": "create_requirement", "parameters": {"id": "req_001", "title": "ユーザー認証機能", "description": "安全なログイン機能を提供"}}' | nix run .#run
 
-# 詳細な要件作成（より多くのプロパティを使用）
-echo '{"type": "cypher", "query": "CREATE (r:RequirementEntity {id: \"req_002\", title: \"二要素認証\", description: \"セキュリティ強化のための2FA実装\", status: \"proposed\"})"}' | nix run .#run
+# 詳細な要件作成（ステータス指定）
+echo '{"type": "template", "template": "create_requirement", "parameters": {"id": "req_002", "title": "二要素認証", "description": "セキュリティ強化のための2FA実装", "status": "proposed"}}' | nix run .#run
 
 # 依存関係の作成（req_002はreq_001に依存）
-echo '{"type": "cypher", "query": "MATCH (a:RequirementEntity {id: \"req_002\"}), (b:RequirementEntity {id: \"req_001\"}) CREATE (a)-[:DEPENDS_ON]->(b)"}' | nix run .#run
+echo '{"type": "template", "template": "add_dependency", "parameters": {"child_id": "req_002", "parent_id": "req_001"}}' | nix run .#run
 
-# 要件の確認
-echo '{"type": "cypher", "query": "MATCH (r:RequirementEntity) RETURN r.id, r.title, r.status ORDER BY r.id"}' | nix run .#run
+# 要件の検索
+echo '{"type": "template", "template": "find_requirement", "parameters": {"id": "req_001"}}' | nix run .#run
 
-# 依存関係の確認
-echo '{"type": "cypher", "query": "MATCH (a:RequirementEntity)-[:DEPENDS_ON]->(b:RequirementEntity) RETURN a.id, a.title, b.id, b.title"}' | nix run .#run
+# 要件の一覧取得
+echo '{"type": "template", "template": "list_requirements", "parameters": {"limit": 10}}' | nix run .#run
+
+# 要件の更新
+echo '{"type": "template", "template": "update_requirement", "parameters": {"id": "req_001", "status": "implemented"}}' | nix run .#run
+
+# 依存関係の検索
+echo '{"type": "template", "template": "find_dependencies", "parameters": {"requirement_id": "req_002", "depth": 2}}' | nix run .#run
 ```
 
 ### デバッグ/トレース
@@ -156,23 +169,34 @@ RGLのスキーマ（ノード、プロパティ、リレーション）の詳�
 
 ## よくあるエラーと対処法
 
-### "Cannot find property parent_id"
+### "テンプレートが見つからない"
 ```bash
 # ❌ 間違い
-CREATE (r:RequirementEntity {id: "req_002", parent_id: "req_001"})
+{"type": "template", "template": "add_requirement", "parameters": {...}}
 
-# ✅ 正しい方法（依存関係を使用）
-MATCH (a:RequirementEntity {id: "req_002"}), (b:RequirementEntity {id: "req_001"})
-CREATE (a)-[:DEPENDS_ON]->(b)
+# ✅ 正しいテンプレート名
+{"type": "template", "template": "create_requirement", "parameters": {...}}
 ```
 
-### "Binder exception: Table PARENT_OF does not exist"
+### "必須パラメータが不足"
 ```bash
-# ❌ 間違い（存在しないリレーション）
-CREATE (a)-[:PARENT_OF]->(b)
+# ❌ 間違い（idとtitleが必須）
+{"type": "template", "template": "create_requirement", "parameters": {}}
 
-# ✅ 正しいリレーション
-CREATE (a)-[:DEPENDS_ON]->(b)
+# ✅ 正しい
+{"type": "template", "template": "create_requirement", "parameters": {
+  "id": "req_001",
+  "title": "要件名"
+}}
+```
+
+### "循環依存が検出されました"
+```bash
+# ❌ 間違い（A→B→Aの循環）
+{"type": "template", "template": "add_dependency", 
+ "parameters": {"child_id": "req_001", "parent_id": "req_002"}}
+
+# ✅ 解決策：依存関係を見直し、循環を断ち切る
 ```
 
 ### グラフ深さ制限違反
