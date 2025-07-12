@@ -14,6 +14,36 @@
         
       in
       {
+        # テスト実行用のアプリ
+        apps.test = {
+          type = "app";
+          program = "${pkgs.writeShellScript "test-runner" ''
+            #!/usr/bin/env bash
+            set -euo pipefail
+            
+            # フレークのソースディレクトリを取得
+            FLAKE_DIR="${self}"
+            
+            # テストファイルへの絶対パス
+            TEST_FILE="$FLAKE_DIR/test_flake.py"
+            
+            # テストファイルの存在確認
+            if [ ! -f "$TEST_FILE" ]; then
+              echo "Error: test_flake.py not found at $TEST_FILE"
+              echo "Looking for test file in current directory..."
+              if [ -f "./test_flake.py" ]; then
+                TEST_FILE="./test_flake.py"
+              else
+                echo "Error: test_flake.py not found"
+                exit 1
+              fi
+            fi
+            
+            # pytestを実行（現在のディレクトリから実行）
+            exec ${pkgs.python3.withPackages (ps: with ps; [ pytest ])}/bin/pytest "$TEST_FILE" -v "$@"
+          ''}";
+        };
+        
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Wrangler（Cloudflare公式CLI） - nixpkgsから直接
@@ -87,7 +117,7 @@ export R2_ENDPOINT="https://[account-id].r2.cloudflarestorage.com"
 export CLOUDFLARE_ACCOUNT_ID="your-account-id"
 
 # MinIO Client用エイリアス設定
-export MC_HOST_r2="https://${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}@[account-id].r2.cloudflarestorage.com"
+export MC_HOST_r2="https://[ACCESS_KEY]:[SECRET_KEY]@[account-id].r2.cloudflarestorage.com"
 EOF
               echo "📝 .env.exampleを作成しました"
             fi
