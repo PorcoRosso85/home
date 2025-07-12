@@ -18,6 +18,7 @@
           findutils
           coreutils
           gnugrep
+          bash
         ];
         text = ''
           # Phase 1: Find flake.nix files
@@ -33,7 +34,8 @@
               --prompt="Select flake.nix or enter new project path: " \
               --preview="head -20 {}" \
               --preview-window=right:50%:wrap \
-              --header=$'Enter: Select | Type path: Create new project\n─────────────────────────────────────────────────' \
+              --header=$'Enter: Confirm | Tab: Edit selection | Type path: Create new project\n─────────────────────────────────────────────────' \
+              --bind='tab:replace-query' \
               || echo ""
           }
           
@@ -83,8 +85,15 @@
             # Phase 1: File discovery and selection
             local files
             files=$(find_flake_files)
+            
             local result
             result=$(run_fzf_selector "$files")
+            
+            # Check if fzf was cancelled
+            if [[ -z "$result" ]]; then
+              echo "No selection made"
+              exit 1
+            fi
             
             # Parse fzf output
             local query selected
@@ -93,16 +102,20 @@
             
             # Phase 1.5: Path preparation and project determination
             if [[ -z "$selected" && -n "$query" ]]; then
-              # New project mode
+              # New project mode - query is the path
               local target_dir
               target_dir=$(normalize_path "$query")
+              
+              echo "Creating new project at: $target_dir"
               create_project_dir "$target_dir" || exit 1
               # Phase 2: Launch Claude
               launch_claude "$target_dir" "false"
             elif [[ -n "$selected" ]]; then
-              # Existing project mode
+              # Existing project mode - selected file path
               local target_dir
               target_dir=$(dirname "$selected")
+              
+              echo "Launching Claude in: $target_dir"
               # Phase 2: Launch Claude with continue option
               launch_claude "$target_dir" "true"
             else
