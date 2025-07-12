@@ -20,53 +20,48 @@
           gnugrep
         ];
         text = ''
-          # Parse command line arguments
-          search_dir="."
-          while [[ $# -gt 0 ]]; do
-            case $1 in
-              --directory)
-                if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                  search_dir="$2"
-                  shift 2
-                else
-                  echo "Error: --directory requires a path argument"
-                  exit 1
-                fi
-                ;;
-              *)
-                echo "Unknown option: $1"
-                echo "Usage: $0 [--directory <path>]"
-                exit 1
-                ;;
-            esac
-          done
-          
-          # Validate directory exists
-          if [[ ! -d "$search_dir" ]]; then
-            echo "Error: Directory '$search_dir' does not exist"
-            exit 1
-          fi
-          
-          # Find all flake.nix files and let user select one
-          selected=$(find "$search_dir" -name "flake.nix" -type f 2>/dev/null | \
+          # Find all flake.nix files and let user select one or create new project
+          result=$(find "$(pwd)" -name "flake.nix" -type f 2>/dev/null | \
             grep -v "/.git/" | \
-            nix run nixpkgs#fzf -- --prompt="Select flake.nix to launch Claude: " \
+            nix run nixpkgs#fzf -- \
+                --print-query \
+                --prompt="Select flake.nix or enter new project path: " \
                 --preview="head -20 {}" \
-                --preview-window=right:50%:wrap)
+                --preview-window=right:50%:wrap \
+                --header=$'Enter: Select | Type path: Create new project\n─────────────────────────────────────────────────')
           
-          if [ -z "$selected" ]; then
-            echo "No flake.nix selected"
+          # Parse fzf output
+          query=$(echo "$result" | head -1)
+          selected=$(echo "$result" | tail -n +2)
+          
+          if [[ -z "$selected" && -n "$query" ]]; then
+            # New project creation mode
+            # Expand tilde and normalize path
+            target_dir=$(eval echo "$query")
+            target_dir=$(realpath -m "$target_dir")
+            
+            echo "Creating new project at: $target_dir"
+            mkdir -p "$target_dir"
+            cd "$target_dir"
+            
+            # Launch Claude without --continue for new projects
+            exec env NIXPKGS_ALLOW_UNFREE=1 nix run github:NixOS/nixpkgs/nixos-unstable#claude-code --impure -- --dangerously-skip-permissions
+          elif [[ -n "$selected" ]]; then
+            # Existing project selected
+            target_dir=$(dirname "$selected")
+            
+            echo "Launching Claude in: $target_dir"
+            cd "$target_dir"
+            
+            # Try to launch Claude with --continue first
+            env NIXPKGS_ALLOW_UNFREE=1 nix run github:NixOS/nixpkgs/nixos-unstable#claude-code --impure -- --continue --dangerously-skip-permissions || {
+              echo "No conversation history found. Starting new session..."
+              exec env NIXPKGS_ALLOW_UNFREE=1 nix run github:NixOS/nixpkgs/nixos-unstable#claude-code --impure -- --dangerously-skip-permissions
+            }
+          else
+            echo "No selection made"
             exit 1
           fi
-          
-          # Get directory of selected flake.nix
-          target_dir=$(dirname "$selected")
-          
-          echo "Launching Claude in: $target_dir"
-          cd "$target_dir"
-          
-          # Launch Claude with required flags
-          exec env NIXPKGS_ALLOW_UNFREE=1 nix run github:NixOS/nixpkgs/nixos-unstable#claude-code --impure -- --continue --dangerously-skip-permissions
         '';
       };
     };
