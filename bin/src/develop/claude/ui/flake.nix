@@ -23,7 +23,9 @@
         text = ''
           # Debug logging
           debug_log() {
-            [[ -n "$DEBUG" ]] && echo "[DEBUG] $*" >&2
+            if [[ -n "''${DEBUG:-}" ]]; then
+              echo "[DEBUG] $*" >&2
+            fi
           }
           
           # Normalize path: expand tilde and make absolute
