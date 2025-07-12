@@ -48,18 +48,19 @@ class SearchIntegration:
             # POC searchのハイブリッド検索を利用
             results = self.search_service.search_hybrid(
                 query=text,
-                k=k  # top_k -> k
+                k=k
             )
             
             # 閾値以上のスコアの結果のみ返す
             duplicates = []
             for result in results:
-                if result.get("score", 0) >= threshold:
+                # SearchResultオブジェクトから属性として取得
+                if result.score >= threshold:
                     duplicates.append({
-                        "id": result.get("id"),
-                        "title": result.get("title", ""),
-                        "description": result.get("description", ""),
-                        "score": result.get("score"),
+                        "id": result.id,
+                        "title": result.title,
+                        "description": result.content,  # POC searchでは"content"フィールド
+                        "score": result.score,
                         "type": "hybrid"  # VSS + FTSのハイブリッド
                     })
             
