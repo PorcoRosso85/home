@@ -21,11 +21,11 @@
 ### main.py（修正）
 - input_type == "template"の処理を追加
 - template_processorを呼び出し
-- 既存のCypher処理と並行して動作
+- input_type == "cypher"はエラーを返すように変更（セキュリティ対策）
 
 ## 成果
 - Template入力で基本操作が可能：確認済み
-- 既存のCypher入力も動作（後方互換）：維持
+- Cypher直接実行を廃止：セキュリティリスク排除
 - テスト修正は最小限：追加修正不要
 
 ## 動作確認

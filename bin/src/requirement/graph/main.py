@@ -26,8 +26,7 @@ def safe_main():
     try:
         # インポート（相対インポートのみ使用）
         from .infrastructure.kuzu_repository import create_kuzu_repository
-        from .infrastructure.graph_depth_validator import GraphDepthValidator
-        from .infrastructure.circular_reference_detector import CircularReferenceDetector
+        # Removed imports for deleted validation modules
         from .infrastructure.variables import get_db_path
         from .infrastructure.logger import debug, info, warn, error, result
         # Removed imports for deleted modules (query_validator, versioned_cypher_executor)
@@ -71,42 +70,8 @@ def safe_main():
             result(query_result)
             
         elif input_type == "cypher":
-            # Cypherクエリ実行
-            query_str = input_data.get("query", "")
-            params = input_data.get("parameters", {})
-
-            # 直接クエリを実行（検証とバージョニングは削除）
-            query_result = repository["execute"](query_str, params)
-
-            # エラーチェック
-            if "error" in query_result:
-                query_result["status"] = "error"
-            else:
-                query_result["status"] = "success"
-
-            info("rgl.main", "Query completed", status=query_result.get("status"))
-
-            # リスク評価（スコアは出力しない）
-            # TODO: GraphDepthValidator と CircularReferenceDetector の実装を修正する必要がある
-            # if query_result.get("status") == "success":
-            #     # グラフ深さチェック
-            #     depth_validator = GraphDepthValidator(repository["connection"])
-            #     depth_issues = depth_validator.validate()
-            #
-            #     # 循環参照チェック
-            #     circular_detector = CircularReferenceDetector(repository["connection"])
-            #     circular_issues = circular_detector.detect()
-            #
-            #     # 問題がある場合は issues として追加
-            #     all_issues = depth_issues + circular_issues
-            #     if all_issues:
-            #         query_result["issues"] = all_issues
-            #
-            #     debug("rgl.main", "Risk assessment completed",
-            #           issue_count=len(all_issues))
-
-            # 結果を出力
-            result(query_result)
+            # Cypher直接実行は廃止（セキュリティリスク）
+            error("Cypher direct execution has been removed. Please use template input instead.")
 
 
         elif input_type == "semantic_search":
