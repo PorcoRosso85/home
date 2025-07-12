@@ -30,14 +30,12 @@ def safe_main():
         from .infrastructure.circular_reference_detector import CircularReferenceDetector
         from .infrastructure.variables import get_db_path
         from .infrastructure.logger import debug, info, warn, error, result
-        from .infrastructure.query_validator import QueryValidator
-        from .infrastructure.versioned_cypher_executor import create_versioned_cypher_executor
+        # Removed imports for deleted modules (query_validator, versioned_cypher_executor)
 
         info("rgl.main", "Starting main function")
 
         db_path = get_db_path()
         repository = create_kuzu_repository(db_path)
-        validator = QueryValidator()
 
         # 入力データの読み込み
         input_data = json.load(sys.stdin)
@@ -54,28 +52,31 @@ def safe_main():
             else:
                 error("Unknown schema action", details={"action": action})
 
+        elif input_type == "template":
+            # テンプレート処理
+            from .application.template_processor import process_template
+            
+            info("rgl.main", "Processing template", template=input_data.get("template"))
+            query_result = process_template(input_data, repository)
+            
+            # エラーチェック
+            if "error" in query_result:
+                query_result["status"] = "error"
+            else:
+                query_result["status"] = "success"
+                
+            info("rgl.main", "Template completed", status=query_result.get("status"))
+            
+            # 結果を出力
+            result(query_result)
+            
         elif input_type == "cypher":
             # Cypherクエリ実行
             query_str = input_data.get("query", "")
             params = input_data.get("parameters", {})
 
-            # クエリ検証
-            is_valid, validation_error = validator.validate(query_str)
-            if not is_valid:
-                query_result = {
-                    "status": "error",
-                    "error": "Query validation failed",
-                    "details": validation_error
-                }
-            else:
-                # バージョニングの有無で実行を切り替え
-                enable_versioning = input_data.get("enable_versioning", False)
-                if enable_versioning:
-                    versioned_executor = create_versioned_cypher_executor(repository)
-                    query_result = versioned_executor["execute"](input_data)
-                else:
-                    # 通常のクエリ実行
-                    query_result = repository["execute"](query_str, params)
+            # 直接クエリを実行（検証とバージョニングは削除）
+            query_result = repository["execute"](query_str, params)
 
             # エラーチェック
             if "error" in query_result:
@@ -144,64 +145,9 @@ def safe_main():
 
 
         elif input_type == "version":
-            # バージョン管理機能
-            from .application.version_service import create_version_service
-
-            service = create_version_service(repository)
-            action = input_data.get("action", "list")
-
-            info("rgl.main", "Processing version action", action=action)
-
-            if action == "list":
-                # バージョン一覧取得
-                requirement_id = input_data.get("requirement_id")
-                if requirement_id:
-                    versions = service["get_requirement_versions"](requirement_id)
-                    result = {"status": "success", "data": versions}
-                else:
-                    error("requirement_id is required for version list")
-
-            elif action == "get":
-                # 特定バージョン取得
-                requirement_id = input_data.get("requirement_id")
-                version = input_data.get("version")
-                if requirement_id and version is not None:
-                    data = service["get_version"](requirement_id, version)
-                    result = {"status": "success", "data": data} if data else {
-                        "status": "error",
-                        "message": f"Version {version} not found for requirement {requirement_id}"
-                    }
-                else:
-                    error("Both requirement_id and version are required")
-
-            elif action == "restore":
-                # バージョン復元
-                requirement_id = input_data.get("requirement_id")
-                version = input_data.get("version")
-                if requirement_id and version is not None:
-                    result = service["restore_version"](requirement_id, version)
-                else:
-                    error("Both requirement_id and version are required for restore")
-
-            elif action == "diff":
-                # バージョン間の差分取得
-                requirement_id = input_data.get("requirement_id")
-                version1 = input_data.get("version1")
-                version2 = input_data.get("version2")
-                if requirement_id and version1 is not None and version2 is not None:
-                    diff = service["get_version_diff"](requirement_id, version1, version2)
-                    result = {"status": "success", "data": diff}
-                else:
-                    error("requirement_id, version1, and version2 are required for diff")
-
-            else:
-                result = {"status": "error", "message": f"Unknown version action: {action}"}
-
-            # 結果を出力
-            if "result" in locals():
-                result_data = locals()["result"]
-                result(result_data)
-
+            # Version service removed (use Git for versioning)
+            error("Version service has been removed. Please use Git for version control.")
+            
         else:
             error("Unknown input type", details={"type": input_type})
 

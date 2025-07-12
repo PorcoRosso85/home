@@ -9,7 +9,7 @@ TODO: リポジトリ層のクエリ管理改善
 - 例: query_loader.load("dql/get_requirement_history.cypher")
 - 利点: クエリの再利用性向上、テスト容易性向上
 """
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 # 相対インポートのみ使用
 from ..domain.types import Decision, DecisionResult
@@ -573,9 +573,17 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         except Exception:
             return None
 
-    # CypherExecutorを作成
-    from .cypher_executor import CypherExecutor
-    executor = CypherExecutor(conn)
+    # シンプルなクエリ実行関数
+    def execute(query: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Cypherクエリを実行"""
+        try:
+            result = conn.execute(query, parameters)
+            data = []
+            while result.has_next():
+                data.append(result.get_next())
+            return {"data": data, "status": "success"}
+        except Exception as e:
+            return {"error": {"type": "ExecutionError", "message": str(e)}, "status": "error"}
 
     return {
         "save": save,
@@ -590,6 +598,5 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         "get_requirement_at_version": get_requirement_at_version,
         "db": db,  # テスト用にDBオブジェクトも返す
         "connection": conn,  # LLM Hooks API用
-        "execute": executor.execute,  # Cypherクエリ実行用
-        "executor": executor  # LLM Hooks API用
+        "execute": execute  # Cypherクエリ実行用
     }
