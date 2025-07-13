@@ -5,9 +5,10 @@ Template Processor - テンプレート入力をCypherクエリに変換
 後方互換性のため、内部的にCypherクエリに変換して実行。
 """
 from typing import Dict, Any, Optional
+from .poc_search_adapter import POCSearchAdapter
 
 
-def process_template(input_data: Dict[str, Any], repository: Dict[str, Any]) -> Dict[str, Any]:
+def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc_search: Optional[POCSearchAdapter] = None) -> Dict[str, Any]:
     """
     テンプレート入力を処理
     
@@ -19,6 +20,7 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any]) -> 
     Returns:
         実行結果
     """
+    print(f"[DEBUG] process_template called with poc_search={poc_search}")
     template = input_data.get("template", "")
     params = input_data.get("parameters", {})
     
@@ -52,9 +54,16 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any]) -> 
         # タイトルと説明を組み合わせて検索
         search_text = f"{params.get('title', '')} {params.get('description', '')}"
         
-        # TODO: POC search統合を使用して重複検出
-        # 現在は未実装
+        # POC search統合を使用して重複検出
         duplicates = []
+        if poc_search:
+            try:
+                print(f"[DEBUG] Checking duplicates for: {search_text}")
+                duplicates = poc_search.check_duplicates(search_text, k=5, threshold=0.5)
+                print(f"[DEBUG] Found {len(duplicates)} duplicates")
+            except Exception as e:
+                print(f"POC search error: {e}")
+                # エラー時は重複チェックをスキップ
         
         # 要件作成（embeddingはNULLで作成）
         query = """
@@ -77,8 +86,20 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any]) -> 
         # クエリ実行
         result = repository["execute"](query, query_params)
         
-        # TODO: 成功時は検索インデックスに追加
-        # 現在は未実装
+        # 成功時は検索インデックスに追加
+        if poc_search and result.get("status") == "success":
+            try:
+                print(f"[DEBUG] Adding to search index: {params.get('id')}")
+                poc_search.add_to_index({
+                    "id": params.get("id"),
+                    "title": params.get("title"),
+                    "description": params.get("description", ""),
+                    "status": params.get("status", "proposed")
+                })
+                print(f"[DEBUG] Successfully added to search index")
+            except Exception as e:
+                print(f"[DEBUG] Failed to add to search index: {e}")
+                # インデックス追加エラーは致命的ではない
         
         # 重複警告を結果に含める
         if duplicates and result.get("status") == "success":

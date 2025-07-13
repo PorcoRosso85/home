@@ -128,7 +128,16 @@ class TestPOCSearchCompleteIntegration:
         
         # Then: エンベディングが保存されている
         assert "error" not in find_result
-        data = find_result.get("data", [])
+        
+        # データ構造を確認
+        print(f"Find result: {find_result}")
+        
+        # 結果からdataを取得
+        if "data" in find_result and "data" in find_result["data"]:
+            data = find_result["data"]["data"]
+        else:
+            data = find_result.get("data", [])
+        
         assert len(data) > 0
         
         requirement = data[0][0] if isinstance(data[0], list) else data[0]

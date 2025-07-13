@@ -53,12 +53,24 @@ def safe_main():
         elif input_type == "template":
             # テンプレート処理
             from .application.template_processor import process_template
+            from .application.poc_search_adapter import POCSearchAdapter
             
             # リポジトリを作成
             repository = create_kuzu_repository(db_path)
             
+            # POC searchアダプターを作成（リポジトリ接続を共有）
+            poc_search = None
+            try:
+                # リポジトリの接続を取得
+                repo_connection = repository.get("connection")
+                poc_search = POCSearchAdapter(db_path, repository_connection=repo_connection)
+                info("rgl.main", "POC search adapter initialized with shared connection")
+            except Exception as e:
+                warn("rgl.main", f"POC search initialization failed: {e}")
+                # POC searchが初期化できなくても処理は続行
+            
             info("rgl.main", "Processing template", template=input_data.get("template"))
-            query_result = process_template(input_data, repository)
+            query_result = process_template(input_data, repository, poc_search)
             
             # エラーチェック
             if "error" in query_result:
