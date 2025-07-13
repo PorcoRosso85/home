@@ -79,6 +79,10 @@
           buildInputs = with pkgs; [
             deno
             sqlite
+            python3
+            python3Packages.google-api-python-client
+            python3Packages.google-auth-httplib2
+            python3Packages.google-auth-oauthlib
           ];
           
           shellHook = ''

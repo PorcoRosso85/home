@@ -22,7 +22,28 @@ communication/
     └── n8n/                  # n8n本体（参考実装）
 ```
 
-## Gmail CLI
+## Python Gmail Store
+
+### シンプルな環境変数設定
+環境変数を設定してpython実行するだけで動作します：
+
+```bash
+# 1. Google Cloud Consoleで認証情報を取得
+# 2. 環境変数を設定
+export GMAIL_CLIENT_ID="your_client_id"
+export GMAIL_CLIENT_SECRET="your_client_secret"
+
+# 3. メール取得実行
+cd gmail
+python store.py
+```
+
+### 初回認証後の完全自動化
+- 初回実行時のみブラウザで認証
+- token.jsonに認証情報が保存
+- 2回目以降は完全自動実行
+
+## Gmail CLI（TypeScript）
 
 ### 特徴
 - 初回認証時はブラウザが自動で開く
