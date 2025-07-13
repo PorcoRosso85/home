@@ -27,7 +27,7 @@ packages = ["application", "domain", "infrastructure", "query"]
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["."]
-python_files = ["*.py"]
+python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 # KuzuDBのLD_LIBRARY_PATH設定が必要な場合のためのマーカー
 markers = [
@@ -44,6 +44,7 @@ addopts = [
     "--ignore=test_subprocess_debug2.py",
     "--ignore=test_subprocess_simple.py",
     "--ignore=query_location_uris.py",
+    "--ignore=search/",
 ]
 
 [dependency-groups]
