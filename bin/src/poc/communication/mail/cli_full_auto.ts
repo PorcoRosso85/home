@@ -131,21 +131,29 @@ async function main() {
     limit: 10
   };
   
+  logger.info("Fetching emails", { options });
   console.log("📧 メールを取得中...");
-  const emails = await gmail.fetchEmails(options);
   
-  console.log(`\n取得したメール: ${emails.length}件\n`);
-  
-  for (const email of emails) {
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`📧 ${email.subject}`);
-    console.log(`👤 ${email.fromAddress}`);
-    console.log(`📅 ${email.receivedAt.toLocaleString("ja-JP")}`);
+  try {
+    const emails = await gmail.fetchEmails(options);
+    logger.info("Emails fetched", { count: emails.length });
+    console.log(`\n取得したメール: ${emails.length}件\n`);
     
-    if (email.bodyText) {
-      const preview = email.bodyText.substring(0, 100).replace(/\n/g, " ");
-      console.log(`\n${preview}${email.bodyText.length > 100 ? "..." : ""}`);
+    for (const email of emails) {
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`📧 ${email.subject}`);
+      console.log(`👤 ${email.fromAddress}`);
+      console.log(`📅 ${email.receivedAt.toLocaleString("ja-JP")}`);
+      
+      if (email.bodyText) {
+        const preview = email.bodyText.substring(0, 100).replace(/\n/g, " ");
+        console.log(`\n${preview}${email.bodyText.length > 100 ? "..." : ""}`);
+      }
     }
+  } catch (error) {
+    logger.error("Failed to fetch emails", error);
+    console.error("❌ メールの取得に失敗しました");
+    Deno.exit(1);
   }
 }
 
