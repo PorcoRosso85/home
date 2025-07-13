@@ -23,7 +23,7 @@
           bash
         ];
         text = ''
-          exec ${./main.sh} "$@"
+          exec bash ${./main.sh} "$@"
         '';
       };
     };
