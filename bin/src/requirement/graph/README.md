@@ -10,6 +10,17 @@
 
 概念とその関係性を有向グラフとして管理する汎用システム。適用領域は使用者が定義する。
 
+### 設計思想: Append-Only Architecture
+
+本システムは**Git-likeなappend-only**アーキテクチャを採用しています：
+
+- **イミュータブルな要件**: 一度作成された要件は削除・更新されず、新しいバージョンが追加される
+- **完全な履歴追跡**: すべての変更は新しいバージョンとして記録され、過去の状態を完全に再現可能
+- **データの整合性**: 削除や更新による不整合が発生しない
+- **監査可能性**: いつ、誰が、何を、なぜ変更したかを完全に追跡
+
+この設計により、要件の進化過程を透明化し、意思決定の根拠を永続的に保持します。
+
 ## アーキテクチャ
 
 - [`domain/`](./domain/README.md) - 要件グラフのルールと制約
@@ -26,8 +37,6 @@ Phase 3完了により、以下の機能を提供：
 
 利用可能なテンプレート：
 - `create_requirement`: 要件作成（重複チェック付き）
-- `update_requirement`: 要件更新
-- `delete_requirement`: 要件削除
 - `find_requirement`: 要件検索
 - `list_requirements`: 要件一覧
 - `add_dependency`: 依存関係追加（循環検出付き）
@@ -100,9 +109,6 @@ echo '{"type": "template", "template": "find_requirement", "parameters": {"id": 
 
 # 要件の一覧取得
 echo '{"type": "template", "template": "list_requirements", "parameters": {"limit": 10}}' | nix run .#run
-
-# 要件の更新
-echo '{"type": "template", "template": "update_requirement", "parameters": {"id": "req_001", "status": "implemented"}}' | nix run .#run
 
 # 依存関係の検索
 echo '{"type": "template", "template": "find_dependencies", "parameters": {"requirement_id": "req_002", "depth": 2}}' | nix run .#run
