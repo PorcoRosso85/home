@@ -5,10 +5,9 @@ Template Processor - テンプレート入力をCypherクエリに変換
 後方互換性のため、内部的にCypherクエリに変換して実行。
 """
 from typing import Dict, Any, Optional
-from .search_integration import SearchIntegration
 
 
-def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], search_integration: Optional[SearchIntegration] = None) -> Dict[str, Any]:
+def process_template(input_data: Dict[str, Any], repository: Dict[str, Any]) -> Dict[str, Any]:
     """
     テンプレート入力を処理
     
@@ -53,60 +52,9 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         # タイトルと説明を組み合わせて検索
         search_text = f"{params.get('title', '')} {params.get('description', '')}"
         
-        # 直接DBから既存の要件を検索
-        conn = repository.get("connection")
-        if conn:
-            try:
-                # 既存の要件を取得
-                result = conn.execute("MATCH (r:RequirementEntity) RETURN r.id, r.title, r.description")
-                
-                
-                # シンプルな部分一致チェック
-                search_lower = search_text.lower()
-                
-                while result.has_next():
-                    row = result.get_next()
-                    req_id, title, description = row
-                    
-                    # 既存要件のテキスト
-                    existing_text = f"{title or ''} {description or ''}".lower()
-                    
-                    # シンプルな部分一致チェック
-                    # 両テキストの共通部分を検出
-                    import difflib
-                    
-                    # 文字列の類似度を計算
-                    similarity = difflib.SequenceMatcher(None, search_lower, existing_text).ratio()
-                    
-                    # 部分一致もチェック（例: "ダッシュボード" が両方に含まれる）
-                    common_words = [
-                        "ダッシュボード", "管理", "ユーザー", "認証", 
-                        "ログイン", "システム", "機能", "画面"
-                    ]
-                    
-                    for word in common_words:
-                        if word in search_lower and word in existing_text:
-                            # 共通ワードがあればスコアを上げる
-                            similarity = max(similarity, 0.6)
-                    
-                    # デバッグ: すべてのスコアを記録
-                    if similarity >= 0.5:
-                        duplicates.append({
-                            "id": req_id,
-                            "title": title,
-                            "description": description,
-                            "score": round(similarity, 3),
-                            "type": "keyword_match"
-                        })
-                    # デバッグ情報を削除
-                
-                # スコア順にソート
-                duplicates.sort(key=lambda x: x["score"], reverse=True)
-                duplicates = duplicates[:5]  # 上位5件
-                
-            except Exception as e:
-                # エラー時は重複チェックをスキップ
-                duplicates = []
+        # TODO: POC search統合を使用して重複検出
+        # 現在は未実装
+        duplicates = []
         
         # 要件作成（embeddingはNULLで作成）
         query = """
@@ -129,14 +77,8 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         # クエリ実行
         result = repository["execute"](query, query_params)
         
-        # 成功時は検索インデックスに追加
-        if search_integration and result.get("status") == "success":
-            search_integration.add_to_search_index({
-                "id": params.get("id"),
-                "title": params.get("title"),
-                "description": params.get("description", ""),
-                "status": params.get("status", "proposed")
-            })
+        # TODO: 成功時は検索インデックスに追加
+        # 現在は未実装
         
         # 重複警告を結果に含める
         if duplicates and result.get("status") == "success":

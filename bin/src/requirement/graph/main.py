@@ -53,18 +53,12 @@ def safe_main():
         elif input_type == "template":
             # テンプレート処理
             from .application.template_processor import process_template
-            from .application.search_integration import SearchIntegration
             
             # リポジトリを作成
             repository = create_kuzu_repository(db_path)
             
-            # POC search統合を初期化（同じDBインスタンスを使用）
-            conn = repository.get("connection")
-            search_integration = SearchIntegration(connection=conn)
-            info("rgl.main", "POC search integration enabled")
-            
             info("rgl.main", "Processing template", template=input_data.get("template"))
-            query_result = process_template(input_data, repository, search_integration)
+            query_result = process_template(input_data, repository)
             
             # エラーチェック
             if "error" in query_result:

@@ -49,10 +49,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         db = create_database(path=str(db_path))
 
     conn = create_connection(db)
-    
-    # Store db_path and db_obj for search integration
-    conn.db_path = db_path
-    conn.db_obj = db
 
     def init_schema():
         """スキーマ初期化 - graph/ddl/schema.cypherは事前適用済みと仮定"""

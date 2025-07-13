@@ -1,1 +1,0 @@
-# Common utilities for search POC
