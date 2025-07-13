@@ -5,7 +5,8 @@ Template Processor - テンプレート入力をCypherクエリに変換
 後方互換性のため、内部的にCypherクエリに変換して実行。
 """
 from typing import Dict, Any, Optional
-from application.search_integration import SearchIntegration
+from .search_integration import SearchIntegration
+from .simple_duplicate_checker import check_duplicates_simple
 
 
 def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], search_integration: Optional[SearchIntegration] = None) -> Dict[str, Any]:
@@ -49,27 +50,31 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
     # テンプレート→Cypherマッピング（最小限の実装）
     if template == "create_requirement":
         # 要件作成前に重複チェック
-        if search_integration:
-            title = params.get("title", "")
-            duplicates = search_integration.check_duplicates(title, k=5, threshold=0.7)
-            
-            if duplicates:
-                return {
-                    "warning": {
-                        "type": "DuplicateWarning",
-                        "message": "Similar requirements found",
-                        "duplicates": duplicates
-                    },
-                    "continue": True  # 作成は継続可能
-                }
+        duplicates = []
+        # タイトルと説明を組み合わせて検索
+        search_text = f"{params.get('title', '')} {params.get('description', '')}"
         
-        # 要件作成
+        # シンプルな重複検出を使用（POC search統合は後で修正）
+        conn = repository.get("connection")
+        if conn:
+            # 閾値を下げて、部分一致でも検出できるようにする
+            duplicates = check_duplicates_simple(conn, search_text, threshold=0.5)
+        
+        # embeddingを生成（POC searchと同じ256次元）
+        embedding = None
+        if search_integration:
+            # 内部的にembedding生成を含むため、まず要件を検索インデックスに追加
+            # これにより内部でembeddingが生成される
+            pass  # embeddingは後で処理
+        
+        # 要件作成（embeddingはNULLで作成、後で更新）
         query = """
         CREATE (r:RequirementEntity {
             id: $id,
             title: $title,
             description: $description,
-            status: $status
+            status: $status,
+            embedding: NULL
         })
         RETURN r
         """
@@ -85,14 +90,20 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         
         # 成功時は検索インデックスに追加
         if search_integration and result.get("status") == "success":
-            requirement_data = result.get("data", [{}])[0]
-            if requirement_data:
-                search_integration.add_to_search_index({
-                    "id": params.get("id"),
-                    "title": params.get("title"),
-                    "description": params.get("description", ""),
-                    "status": params.get("status", "proposed")
-                })
+            search_integration.add_to_search_index({
+                "id": params.get("id"),
+                "title": params.get("title"),
+                "description": params.get("description", ""),
+                "status": params.get("status", "proposed")
+            })
+        
+        # 重複警告を結果に含める
+        if duplicates and result.get("status") == "success":
+            result["warning"] = {
+                "type": "DuplicateWarning",
+                "message": "Similar requirements found",
+                "duplicates": duplicates
+            }
         
         return result
         
@@ -113,7 +124,7 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         parent_id = params.get("parent_id")
         
         # 循環依存チェック
-        from domain.constraints import validate_no_circular_dependency
+        from ..domain.constraints import validate_no_circular_dependency
         
         # 既存の依存関係を取得
         dep_query = """
