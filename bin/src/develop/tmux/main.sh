@@ -1,20 +1,20 @@
 #!/bin/bash
 
-# tmux統合スクリプト
+# tmux統合スクリプト (main.sh)
 
 # ヘルプ表示
 if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
     cat << EOF
-Usage: $0 [options]
+Usage: nix run flake#run [options]
 
-tmux 水平2分割構成セッション作成スクリプト
+tmux 水平2分割構成セッション作成スクリプト (Nix版)
 
 環境変数:
   なし
 
 実行例:
   # デフォルト設定で起動
-  ./tmux.sh
+  nix run flake#run
 
 
 キーバインド:
@@ -32,9 +32,15 @@ fi
 GIT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
 SESSION_NAME="$(basename $(pwd))-${GIT_BRANCH}"
 
-# セッション削除・作成
-tmux has-session -t $SESSION_NAME 2>/dev/null && tmux kill-session -t $SESSION_NAME
-tmux new-session -d -s $SESSION_NAME
+# セッション参加または作成
+if tmux has-session -t $SESSION_NAME 2>/dev/null; then
+    echo "Attaching to existing session: $SESSION_NAME"
+    tmux attach-session -t $SESSION_NAME
+    exit 0
+else
+    echo "Creating new session: $SESSION_NAME"
+    tmux new-session -d -s $SESSION_NAME
+fi
 
 # tmux設定
 tmux set -g window-style 'fg=colour245'
@@ -92,8 +98,6 @@ tmux bind-key j select-pane -D
 tmux bind-key k select-pane -U
 tmux bind-key l select-pane -R
 tmux bind-key v copy-mode
-tmux bind-key S detach-client -E "bash $HOME/tmux-select.sh"
-tmux bind-key C detach-client -E "bash $HOME/tmux-create.sh"
 
 # コピーモード
 tmux bind-key -T copy-mode-vi v send-keys -X begin-selection
