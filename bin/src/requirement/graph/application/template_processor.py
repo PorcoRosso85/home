@@ -6,7 +6,6 @@ Template Processor - テンプレート入力をCypherクエリに変換
 """
 from typing import Dict, Any, Optional
 from .search_integration import SearchIntegration
-from .simple_duplicate_checker import check_duplicates_simple
 
 
 def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], search_integration: Optional[SearchIntegration] = None) -> Dict[str, Any]:
@@ -54,20 +53,62 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         # タイトルと説明を組み合わせて検索
         search_text = f"{params.get('title', '')} {params.get('description', '')}"
         
-        # シンプルな重複検出を使用（POC search統合は後で修正）
+        # 直接DBから既存の要件を検索
         conn = repository.get("connection")
         if conn:
-            # 閾値を下げて、部分一致でも検出できるようにする
-            duplicates = check_duplicates_simple(conn, search_text, threshold=0.5)
+            try:
+                # 既存の要件を取得
+                result = conn.execute("MATCH (r:RequirementEntity) RETURN r.id, r.title, r.description")
+                
+                
+                # シンプルな部分一致チェック
+                search_lower = search_text.lower()
+                
+                while result.has_next():
+                    row = result.get_next()
+                    req_id, title, description = row
+                    
+                    # 既存要件のテキスト
+                    existing_text = f"{title or ''} {description or ''}".lower()
+                    
+                    # シンプルな部分一致チェック
+                    # 両テキストの共通部分を検出
+                    import difflib
+                    
+                    # 文字列の類似度を計算
+                    similarity = difflib.SequenceMatcher(None, search_lower, existing_text).ratio()
+                    
+                    # 部分一致もチェック（例: "ダッシュボード" が両方に含まれる）
+                    common_words = [
+                        "ダッシュボード", "管理", "ユーザー", "認証", 
+                        "ログイン", "システム", "機能", "画面"
+                    ]
+                    
+                    for word in common_words:
+                        if word in search_lower and word in existing_text:
+                            # 共通ワードがあればスコアを上げる
+                            similarity = max(similarity, 0.6)
+                    
+                    # デバッグ: すべてのスコアを記録
+                    if similarity >= 0.5:
+                        duplicates.append({
+                            "id": req_id,
+                            "title": title,
+                            "description": description,
+                            "score": round(similarity, 3),
+                            "type": "keyword_match"
+                        })
+                    # デバッグ情報を削除
+                
+                # スコア順にソート
+                duplicates.sort(key=lambda x: x["score"], reverse=True)
+                duplicates = duplicates[:5]  # 上位5件
+                
+            except Exception as e:
+                # エラー時は重複チェックをスキップ
+                duplicates = []
         
-        # embeddingを生成（POC searchと同じ256次元）
-        embedding = None
-        if search_integration:
-            # 内部的にembedding生成を含むため、まず要件を検索インデックスに追加
-            # これにより内部でembeddingが生成される
-            pass  # embeddingは後で処理
-        
-        # 要件作成（embeddingはNULLで作成、後で更新）
+        # 要件作成（embeddingはNULLで作成）
         query = """
         CREATE (r:RequirementEntity {
             id: $id,

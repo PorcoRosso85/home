@@ -11,13 +11,18 @@ from ..search.infrastructure.kuzu_search_service import KuzuSearchService
 class SearchIntegration:
     """POC Searchを利用した重複検出 - 直接POC Search APIを使用"""
     
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: Optional[str] = None, connection: Optional[Any] = None):
         """
         Args:
             db_path: SearchServiceのデータベースパス（Noneの場合は一時DB）
+            connection: 既存のKuzuDB接続（指定された場合はdb_pathは無視）
         """
-        # POC searchのKuzuSearchServiceを直接使用
-        self.search_service = KuzuSearchService(db_path=db_path)
+        if connection:
+            # 既存の接続を使用
+            self.search_service = KuzuSearchService(connection=connection)
+        else:
+            # POC searchのKuzuSearchServiceを直接使用
+            self.search_service = KuzuSearchService(db_path=db_path)
     
     def check_duplicates(self, text: str, k: int = 5, threshold: float = 0.8) -> List[Dict[str, Any]]:
         """

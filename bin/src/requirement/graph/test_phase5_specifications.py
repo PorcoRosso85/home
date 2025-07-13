@@ -92,12 +92,18 @@ class TestPhase5_8_POCSearchIntegration:
         # Then: 重複警告が表示される（仕様）
         print(f"Result2: {create_result2}")  # デバッグ出力
         
-        # warningが最上位レベルまたはdata内に含まれている
-        has_warning = (
-            "warning" in create_result2 or 
-            "duplicates" in create_result2.get("data", {}) or
-            (create_result2.get("warning") is not None)
-        )
+        # warningが含まれているかチェック
+        # data内のwarningまたは最上位のwarning
+        has_warning = False
+        
+        # 最上位レベルのwarning
+        if "warning" in create_result2:
+            has_warning = True
+        
+        # data内のwarning
+        data = create_result2.get("data", {})
+        if isinstance(data, dict) and "warning" in data:
+            has_warning = True
         
         assert has_warning, f"Expected warning in result but got: {create_result2}"
         
