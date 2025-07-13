@@ -3,9 +3,14 @@ Template Processor - テンプレート入力をCypherクエリに変換
 
 最小限の実装でtemplate入力を受け付ける。
 後方互換性のため、内部的にCypherクエリに変換して実行。
+
+規約準拠:
+- security.md: パラメータ化クエリによるSQLインジェクション完全防止
+- layered_architecture.md: アプリケーション層からインフラ層への適切な依存
 """
 from typing import Dict, Any, Optional
 from .poc_search_adapter import POCSearchAdapter
+from ..query import execute_query
 
 
 def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc_search: Optional[POCSearchAdapter] = None) -> Dict[str, Any]:
@@ -66,16 +71,6 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
                 # エラー時は重複チェックをスキップ
         
         # 要件作成（embeddingはNULLで作成）
-        query = """
-        CREATE (r:RequirementEntity {
-            id: $id,
-            title: $title,
-            description: $description,
-            status: $status,
-            embedding: NULL
-        })
-        RETURN r
-        """
         query_params = {
             "id": params.get("id"),
             "title": params.get("title"),
@@ -83,8 +78,8 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
             "status": params.get("status", "proposed")
         }
         
-        # クエリ実行
-        result = repository["execute"](query, query_params)
+        # クエリローダーを使用して実行
+        result = execute_query(repository, "create_requirement", query_params, "dml")
         
         # 成功時は検索インデックスに追加
         if poc_search and result.get("status") == "success":
@@ -113,14 +108,13 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
         
     elif template == "find_requirement":
         # 要件検索
-        query = "MATCH (r:RequirementEntity {id: $id}) RETURN r"
         query_params = {"id": params.get("id")}
+        return execute_query(repository, "find_requirement", query_params, "dql")
         
     elif template == "list_requirements":
         # 要件一覧
-        limit = params.get("limit", 100)
-        query = f"MATCH (r:RequirementEntity) RETURN r LIMIT {limit}"
-        query_params = {}
+        query_params = {"limit": params.get("limit", 100)}
+        return execute_query(repository, "list_requirements", query_params, "dql")
         
     elif template == "add_dependency":
         # 依存関係追加の前に循環検証
@@ -131,11 +125,7 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
         from ..domain.constraints import validate_no_circular_dependency
         
         # 既存の依存関係を取得
-        dep_query = """
-        MATCH (r:RequirementEntity)-[:DEPENDS_ON]->(dep:RequirementEntity)
-        RETURN r.id as from_id, dep.id as to_id
-        """
-        dep_result = repository["execute"](dep_query, {})
+        dep_result = execute_query(repository, "get_dependencies", {}, "dql")
         
         all_deps = {}
         if dep_result.get("status") == "success":
@@ -156,51 +146,42 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
             }
         
         # 循環がなければ依存関係を追加
-        query = """
-        MATCH (child:RequirementEntity {id: $child_id})
-        MATCH (parent:RequirementEntity {id: $parent_id})
-        CREATE (child)-[:DEPENDS_ON]->(parent)
-        RETURN child, parent
-        """
         query_params = {
             "child_id": child_id,
             "parent_id": parent_id
         }
+        return execute_query(repository, "add_dependency", query_params, "dml")
         
     elif template == "find_dependencies":
         # 依存関係検索
-        depth = params.get("depth", 1)
-        query = f"""
-        MATCH path = (r:RequirementEntity {{id: $id}})-[:DEPENDS_ON*1..{depth}]->(dep:RequirementEntity)
-        RETURN dep, length(path) as distance
-        ORDER BY distance
-        """
-        query_params = {"id": params.get("requirement_id")}
+        query_params = {
+            "id": params.get("requirement_id"),
+            "depth": params.get("depth", 1)
+        }
+        return execute_query(repository, "find_dependencies", query_params, "dql")
         
     elif template == "update_requirement":
         # 要件更新
-        updates = []
         query_params = {"id": params.get("id")}
+        updates = {}
         
         if "title" in params:
-            updates.append("r.title = $title")
-            query_params["title"] = params["title"]
+            updates["title"] = params["title"]
         if "description" in params:
-            updates.append("r.description = $description")
-            query_params["description"] = params["description"]
+            updates["description"] = params["description"]
         if "status" in params:
-            updates.append("r.status = $status")
-            query_params["status"] = params["status"]
+            updates["status"] = params["status"]
             
         if updates:
-            query = f"MATCH (r:RequirementEntity {{id: $id}}) SET {', '.join(updates)} RETURN r"
+            query_params["updates"] = updates
+            return execute_query(repository, "update_requirement", query_params, "dml")
         else:
             return {"error": {"type": "ValidationError", "message": "No fields to update"}}
             
     elif template == "delete_requirement":
         # 要件削除
-        query = "MATCH (r:RequirementEntity {id: $id}) DETACH DELETE r"
         query_params = {"id": params.get("id")}
+        return execute_query(repository, "delete_requirement", query_params, "dml")
         
     else:
         return {
@@ -209,6 +190,3 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
                 "message": f"Unknown template: {template}"
             }
         }
-    
-    # Cypherクエリを実行
-    return repository["execute"](query, query_params)
