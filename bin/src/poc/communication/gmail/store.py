@@ -20,7 +20,10 @@ except ImportError:
     sys.exit(1)
 
 
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+SCOPES = [
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.compose'
+]
 
 
 def setup():
