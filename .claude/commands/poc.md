@@ -2,44 +2,24 @@
 /poc
 
 # 説明
-ドキュメントをreadabilityで取得し、POCディレクトリに永続化する
+品質保証付きPOC実施の自動化コマンド
 
 # 実行内容
-## URLが指定された場合
-```
-/poc https://example.com/article
-```
-1. npx @mizchi/readabilityでURLのコンテンツを取得
-2. Markdown形式で保存
-3. POCディレクトリに日付とタイトルで整理して保存
-   - 例: ~/bin/src/poc/2025-06-29_article-title.md
+1. 情報収集（POC対象・実施場所・参考資料・期待結果）
+2. 品質保証フロー自動実行
+   - /web実行（URLがある場合）
+   - /conventions確認（規約準拠）
+   - /tdd_red実行（失敗テスト作成）
+   - GREEN実装（最小限の動作実装）
+   - /tested実行（テスト価値確認）
+3. 成果物生成
+   - README.md（概要・背景・結果）
+   - テストコード（仕様明確化）
+   - 実装コード（動作確認済み）
+   - flake.nix（実行環境）
 
-## 探索モードの場合
-```
-/poc
-```
-または
-```
-/poc search キーワード
-```
-1. ドキュメントの探索支援
-2. 見つかったURLに対して保存処理
-
-# POCディレクトリ
-- デフォルト: ~/bin/src/poc/
-- 初回実行時に確認し、CLAUDE.mdに保存
-
-# 保存形式
-```markdown
----
-url: https://example.com/article
-saved_at: 2025-06-29T12:00:00Z
-title: Article Title
----
-
-[記事の本文]
-```
-
-# 使用ツール
-- npx @mizchi/readability --format md
-- メタデータはフロントマターとして追加
+# 情報不足時の確認フロー
+1. 「何についてのPOCを実施しますか？」
+2. 「POCをどこに作成しますか？」（デフォルト: ~/bin/src/poc/[技術名]/）
+3. 「参考にする記事やURLはありますか？」
+4. 「どのような検証結果を期待しますか？」
