@@ -16,14 +16,14 @@ def run_system(input_data, db_path=None):
     env = os.environ.copy()
     if db_path:
         env["RGL_DATABASE_PATH"] = db_path
-    
+
     # venvのPythonを使用
     venv_python = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python")
     if os.path.exists(venv_python):
         python_cmd = venv_python
     else:
         python_cmd = sys.executable
-    
+
     # プロジェクトルートから実行
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     result = subprocess.run(
@@ -34,7 +34,7 @@ def run_system(input_data, db_path=None):
         env=env,
         cwd=project_root
     )
-    
+
     if result.stdout:
         lines = result.stdout.strip().split('\n')
         for line in reversed(lines):
@@ -43,13 +43,13 @@ def run_system(input_data, db_path=None):
                     return json.loads(line)
                 except json.JSONDecodeError:
                     continue
-    
+
     return {"error": "No valid JSON output", "stderr": result.stderr}
 
 
 class TestPhase5_8_POCSearchIntegration:
     """Phase 5.8: POC search統合の修正 - 仕様テスト"""
-    
+
     @pytest.fixture
     def temp_db(self):
         """一時的なデータベース環境"""
@@ -57,7 +57,7 @@ class TestPhase5_8_POCSearchIntegration:
             # スキーマ初期化
             result = run_system({"type": "schema", "action": "apply"}, db_dir)
             yield db_dir
-    
+
     def test_duplicate_detection_works(self, temp_db):
         """重複検出が正しく動作する - Phase 5.8の完了基準"""
         # Given: 要件を作成
@@ -70,14 +70,14 @@ class TestPhase5_8_POCSearchIntegration:
                 "description": "ログイン機能"
             }
         }, temp_db)
-        
+
         # Then: 作成が成功する
         assert "error" not in create_result1
         assert create_result1.get("data", {}).get("status") == "success" or "data" in create_result1
-        
+
         # インデックス更新を待つ
         time.sleep(0.2)
-        
+
         # When: 類似した要件を作成
         create_result2 = run_system({
             "type": "template",
@@ -88,28 +88,28 @@ class TestPhase5_8_POCSearchIntegration:
                 "description": "ログインシステム"
             }
         }, temp_db)
-        
+
         # Then: 重複警告が表示される（仕様）
         print(f"Result2: {create_result2}")  # デバッグ出力
-        
+
         # warningが含まれているかチェック
         # data内のwarningまたは最上位のwarning
         has_warning = False
-        
+
         # 最上位レベルのwarning
         if "warning" in create_result2:
             has_warning = True
-        
+
         # data内のwarning
         data = create_result2.get("data", {})
         if isinstance(data, dict) and "warning" in data:
             has_warning = True
-        
+
         assert has_warning, f"Expected warning in result but got: {create_result2}"
-        
+
         # 警告があっても要件は作成される（append-only）
         assert "error" not in create_result2
-    
+
     def test_embedding_field_properly_stored(self, temp_db):
         """embeddingフィールドが正しく保存される"""
         # Given: 要件を作成
@@ -122,17 +122,17 @@ class TestPhase5_8_POCSearchIntegration:
                 "description": "ベクトル化のテスト"
             }
         }, temp_db)
-        
+
         # Then: エラーなく作成される
         assert "error" not in create_result
-        
+
         # When: 要件を取得
         find_result = run_system({
             "type": "template",
             "template": "find_requirement",
             "parameters": {"id": "embed_test"}
         }, temp_db)
-        
+
         # Then: 要件が見つかる（embeddingの存在は内部実装）
         assert "error" not in find_result
         assert find_result.get("data") is not None
@@ -140,14 +140,14 @@ class TestPhase5_8_POCSearchIntegration:
 
 class TestPhase5_9_DependencyManagement:
     """Phase 5.9: 依存関係管理の完成 - 仕様テスト"""
-    
+
     @pytest.fixture
     def temp_db_with_requirements(self):
         """要件が事前に作成されたDB"""
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマとテストデータ
             run_system({"type": "schema", "action": "apply"}, db_dir)
-            
+
             # 要件を作成
             for req_id, title in [("req_001", "認証機能"), ("req_002", "二要素認証"), ("req_003", "権限管理")]:
                 run_system({
@@ -155,9 +155,9 @@ class TestPhase5_9_DependencyManagement:
                     "template": "create_requirement",
                     "parameters": {"id": req_id, "title": title, "description": f"{title}の実装"}
                 }, db_dir)
-            
+
             yield db_dir
-    
+
     def test_add_dependency_success(self, temp_db_with_requirements):
         """依存関係の追加が成功する"""
         # When: req_002はreq_001に依存
@@ -169,11 +169,11 @@ class TestPhase5_9_DependencyManagement:
                 "parent_id": "req_001"
             }
         }, temp_db_with_requirements)
-        
+
         # Then: 成功する
         assert "error" not in result
         assert result.get("data", {}).get("status") == "success" or "success" in str(result)
-    
+
     def test_circular_dependency_detected(self, temp_db_with_requirements):
         """循環依存が検出される"""
         # Given: req_002→req_001の依存関係
@@ -182,17 +182,17 @@ class TestPhase5_9_DependencyManagement:
             "template": "add_dependency",
             "parameters": {"child_id": "req_002", "parent_id": "req_001"}
         }, temp_db_with_requirements)
-        
+
         # When: 逆方向の依存を追加しようとする
         result = run_system({
             "type": "template",
             "template": "add_dependency",
             "parameters": {"child_id": "req_001", "parent_id": "req_002"}
         }, temp_db_with_requirements)
-        
+
         # Then: エラーまたは警告が発生
         assert "error" in result or "circular" in str(result).lower()
-    
+
     def test_find_dependencies_works(self, temp_db_with_requirements):
         """依存関係の検索が動作する"""
         # Given: 依存関係チェーン req_003→req_002→req_001
@@ -201,20 +201,20 @@ class TestPhase5_9_DependencyManagement:
             "template": "add_dependency",
             "parameters": {"child_id": "req_002", "parent_id": "req_001"}
         }, temp_db_with_requirements)
-        
+
         run_system({
             "type": "template",
             "template": "add_dependency",
             "parameters": {"child_id": "req_003", "parent_id": "req_002"}
         }, temp_db_with_requirements)
-        
+
         # When: req_003の依存関係を検索
         result = run_system({
             "type": "template",
             "template": "find_dependencies",
             "parameters": {"requirement_id": "req_003", "depth": 2}
         }, temp_db_with_requirements)
-        
+
         # Then: 依存関係が見つかる
         assert "error" not in result
         assert result.get("data") is not None
@@ -222,13 +222,13 @@ class TestPhase5_9_DependencyManagement:
 
 class TestPhase5_10_EndToEndScenarios:
     """Phase 5.10: エンドツーエンドシナリオ - 統合テスト"""
-    
+
     @pytest.fixture
     def temp_db(self):
         with tempfile.TemporaryDirectory() as db_dir:
             run_system({"type": "schema", "action": "apply"}, db_dir)
             yield db_dir
-    
+
     def test_complete_requirement_workflow(self, temp_db):
         """完全な要件管理ワークフロー"""
         # 1. 要件作成
@@ -242,7 +242,7 @@ class TestPhase5_10_EndToEndScenarios:
             }
         }, temp_db)
         assert "error" not in create_result
-        
+
         # 2. 関連要件の作成
         run_system({
             "type": "template",
@@ -253,7 +253,7 @@ class TestPhase5_10_EndToEndScenarios:
                 "description": "パスワードを忘れた場合の対応"
             }
         }, temp_db)
-        
+
         # 3. 依存関係の追加
         dep_result = run_system({
             "type": "template",
@@ -264,7 +264,7 @@ class TestPhase5_10_EndToEndScenarios:
             }
         }, temp_db)
         assert "error" not in dep_result
-        
+
         # 4. 要件一覧の取得
         list_result = run_system({
             "type": "template",
@@ -273,7 +273,7 @@ class TestPhase5_10_EndToEndScenarios:
         }, temp_db)
         assert "error" not in list_result
         assert len(list_result.get("data", [])) >= 2
-        
+
         # 5. 特定要件の検索
         find_result = run_system({
             "type": "template",
@@ -282,7 +282,7 @@ class TestPhase5_10_EndToEndScenarios:
         }, temp_db)
         assert "error" not in find_result
         assert find_result.get("data") is not None
-    
+
     def test_duplicate_detection_in_workflow(self, temp_db):
         """ワークフロー内での重複検出"""
         # 初期要件
@@ -295,9 +295,9 @@ class TestPhase5_10_EndToEndScenarios:
                 "description": "管理者向けダッシュボード"
             }
         }, temp_db)
-        
+
         time.sleep(0.2)  # インデックス更新待ち
-        
+
         # 類似要件（重複検出されるべき）
         result = run_system({
             "type": "template",
@@ -308,6 +308,6 @@ class TestPhase5_10_EndToEndScenarios:
                 "description": "管理者用のダッシュボード画面"
             }
         }, temp_db)
-        
+
         # 重複の可能性が警告される
         assert "warning" in result or "duplicate" in str(result).lower()

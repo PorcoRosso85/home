@@ -16,7 +16,7 @@ from .loader import (
 
 __all__ = [
     "QueryLoader",
-    "create_query_loader", 
+    "create_query_loader",
     "get_default_loader",
     "load_query",
     "execute_query"

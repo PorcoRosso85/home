@@ -34,7 +34,7 @@ def safe_main():
         info("rgl.main", "Starting main function")
 
         db_path = get_db_path()
-        
+
         # 入力データの読み込み
         input_data = json.load(sys.stdin)
         input_type = input_data.get("type", "cypher")
@@ -54,10 +54,10 @@ def safe_main():
             # テンプレート処理
             from .application.template_processor import process_template
             from .application.poc_search_adapter import POCSearchAdapter
-            
+
             # リポジトリを作成
             repository = create_kuzu_repository(db_path)
-            
+
             # POC searchアダプターを作成（リポジトリ接続を共有）
             poc_search = None
             try:
@@ -68,21 +68,21 @@ def safe_main():
             except Exception as e:
                 warn("rgl.main", f"POC search initialization failed: {e}")
                 # POC searchが初期化できなくても処理は続行
-            
+
             info("rgl.main", "Processing template", template=input_data.get("template"))
             query_result = process_template(input_data, repository, poc_search)
-            
+
             # エラーチェック
             if "error" in query_result:
                 query_result["status"] = "error"
             else:
                 query_result["status"] = "success"
-                
+
             info("rgl.main", "Template completed", status=query_result.get("status"))
-            
+
             # 結果を出力
             result(query_result)
-            
+
         elif input_type == "cypher":
             # Cypher直接実行は廃止（セキュリティリスク）
             error("Cypher direct execution has been removed. Please use template input instead.")
@@ -96,7 +96,7 @@ def safe_main():
         elif input_type == "version":
             # Version service removed (use Git for versioning)
             error("Version service has been removed. Please use Git for version control.")
-            
+
         else:
             error("Unknown input type", details={"type": input_type})
 

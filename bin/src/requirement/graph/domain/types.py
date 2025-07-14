@@ -3,7 +3,6 @@ requirement/graph domain types - 純粋な型定義
 外部依存: なし
 """
 from typing import TypedDict, Literal, Union, List
-from datetime import datetime
 
 
 # Cypher Query型定義

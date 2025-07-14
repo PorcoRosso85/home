@@ -6,14 +6,13 @@
 - module_design.md: 1ファイル1機能、純粋関数優先
 - layered_architecture.md: インフラストラクチャ層のデータアクセス
 """
-import os
 from typing import Dict, Any, Optional
 from pathlib import Path
 
 
 class QueryLoader:
     """Cypherクエリファイルの安全な読み込みと実行"""
-    
+
     def __init__(self, query_dir: Optional[str] = None):
         """
         Args:
@@ -25,10 +24,10 @@ class QueryLoader:
             self.query_dir = current_dir
         else:
             self.query_dir = Path(query_dir)
-        
+
         self.dml_dir = self.query_dir / "dml"
         self.dql_dir = self.query_dir / "dql"
-    
+
     def load_query(self, query_name: str, query_type: str = "auto") -> str:
         """
         クエリファイルを読み込み
@@ -49,21 +48,21 @@ class QueryLoader:
                 query_path = dir_path / f"{query_name}.cypher"
                 if query_path.exists():
                     return self._read_query_file(query_path)
-            
+
             raise FileNotFoundError(f"Query '{query_name}' not found in dml or dql directories")
-        
+
         elif query_type == "dml":
             query_path = self.dml_dir / f"{query_name}.cypher"
         elif query_type == "dql":
             query_path = self.dql_dir / f"{query_name}.cypher"
         else:
             raise ValueError(f"Invalid query_type: {query_type}. Use 'dml', 'dql', or 'auto'")
-        
+
         if not query_path.exists():
             raise FileNotFoundError(f"Query file not found: {query_path}")
-        
+
         return self._read_query_file(query_path)
-    
+
     def _read_query_file(self, query_path: Path) -> str:
         """
         クエリファイルを安全に読み込み
@@ -77,7 +76,7 @@ class QueryLoader:
         try:
             with open(query_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            
+
             # コメント行を除去（//で始まる行）
             lines = content.split('\n')
             query_lines = []
@@ -85,18 +84,18 @@ class QueryLoader:
                 stripped = line.strip()
                 if stripped and not stripped.startswith('//'):
                     query_lines.append(line)
-            
+
             query = '\n'.join(query_lines).strip()
-            
+
             if not query:
                 raise ValueError(f"Empty query file: {query_path}")
-            
+
             return query
-            
+
         except Exception as e:
             raise RuntimeError(f"Failed to read query file {query_path}: {e}")
-    
-    def execute_query(self, repository: Dict[str, Any], query_name: str, 
+
+    def execute_query(self, repository: Dict[str, Any], query_name: str,
                      params: Dict[str, Any], query_type: str = "auto") -> Dict[str, Any]:
         """
         クエリを読み込んで実行（推奨インターフェース）
@@ -136,7 +135,7 @@ def load_query(query_name: str, query_type: str = "auto") -> str:
     return get_default_loader().load_query(query_name, query_type)
 
 
-def execute_query(repository: Dict[str, Any], query_name: str, 
+def execute_query(repository: Dict[str, Any], query_name: str,
                  params: Dict[str, Any], query_type: str = "auto") -> Dict[str, Any]:
     """便利関数: デフォルトローダーでクエリを実行"""
     return get_default_loader().execute_query(repository, query_name, params, query_type)

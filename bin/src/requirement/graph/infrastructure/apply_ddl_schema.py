@@ -51,7 +51,7 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
     try:
         if db_path is None:
             db_path = RGL_DB_PATH
-        
+
         # インメモリDBの場合はディレクトリ作成をスキップ
         if db_path == ":memory:":
             debug("rgl.schema", "Using in-memory database")

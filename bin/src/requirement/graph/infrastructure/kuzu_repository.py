@@ -9,7 +9,7 @@ TODO: リポジトリ層のクエリ管理改善
 - 例: query_loader.load("dql/get_requirement_history.cypher")
 - 利点: クエリの再利用性向上、テスト容易性向上
 """
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Optional, Any
 
 # 相対インポートのみ使用
 from .variables import get_db_path, should_skip_schema_check

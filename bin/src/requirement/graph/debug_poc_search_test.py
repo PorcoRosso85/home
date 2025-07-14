@@ -16,14 +16,14 @@ def run_system(input_data, db_path=None):
     env["PYTHONPATH"] = "/home/nixos/bin/src"
     if db_path:
         env["RGL_DATABASE_PATH"] = db_path
-    
+
     # venvのPythonを使用
     venv_python = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python")
     if os.path.exists(venv_python):
         python_cmd = venv_python
     else:
         python_cmd = sys.executable
-    
+
     # プロジェクトルートから実行
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     result = subprocess.run(
@@ -34,11 +34,11 @@ def run_system(input_data, db_path=None):
         env=env,
         cwd=project_root
     )
-    
+
     print(f"STDOUT: {result.stdout}")
     print(f"STDERR: {result.stderr}")
     print(f"Return code: {result.returncode}")
-    
+
     if result.stdout:
         lines = result.stdout.strip().split('\n')
         for line in reversed(lines):
@@ -47,17 +47,17 @@ def run_system(input_data, db_path=None):
                     return json.loads(line)
                 except json.JSONDecodeError:
                     continue
-    
+
     return {"error": "No valid JSON output", "stderr": result.stderr}
 
 def main():
     with tempfile.TemporaryDirectory() as db_dir:
         print(f"Using temp db: {db_dir}")
-        
+
         # Initialize schema
         schema_result = run_system({"type": "schema", "action": "apply"}, db_dir)
         print(f"Schema result: {schema_result}")
-        
+
         # Create first requirement
         create1_result = run_system({
             "type": "template",
@@ -69,7 +69,7 @@ def main():
             }
         }, db_dir)
         print(f"Create 1 result: {create1_result}")
-        
+
         # Create similar requirement
         create2_result = run_system({
             "type": "template",

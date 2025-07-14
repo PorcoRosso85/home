@@ -16,18 +16,18 @@ def test_poc_search_adapter_direct():
     with tempfile.TemporaryDirectory() as db_dir:
         # スキーマを適用
         apply_ddl_schema(db_dir, create_test_data=False)
-        
+
         # リポジトリを作成
         repository = create_kuzu_repository(db_dir)
-        
+
         # POC searchアダプターを作成
         try:
             adapter = POCSearchAdapter(db_dir)
-            print(f"✓ POC search adapter created successfully")
+            print("✓ POC search adapter created successfully")
         except Exception as e:
             print(f"✗ Failed to create POC search adapter: {e}")
             return
-        
+
         # 最初の要件を追加
         query = """
         CREATE (r:RequirementEntity {
@@ -41,7 +41,7 @@ def test_poc_search_adapter_direct():
         """
         result = repository["execute"](query, {})
         print(f"✓ First requirement created: {result.get('status')}")
-        
+
         # POC searchインデックスに追加
         added = adapter.add_to_index({
             "id": "test_001",
@@ -49,7 +49,7 @@ def test_poc_search_adapter_direct():
             "description": "ログイン機能の実装"
         })
         print(f"✓ Added to index: {added}")
-        
+
         # 重複チェック
         duplicates = adapter.check_duplicates("認証システム ユーザーログイン機能", k=5, threshold=0.3)
         print(f"✓ Duplicates found: {len(duplicates)}")
