@@ -13,19 +13,18 @@ from .poc_search_adapter import POCSearchAdapter
 from ..query import execute_query
 
 
-def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc_search: Optional[POCSearchAdapter] = None) -> Dict[str, Any]:
+def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc_search_factory=None) -> Dict[str, Any]:
     """
     テンプレート入力を処理
     
     Args:
         input_data: {"template": "...", "parameters": {...}}
         repository: KuzuDBリポジトリ
-        search_integration: POC search統合（オプション）
+        poc_search_factory: POC searchを作成するファクトリー関数（オプション）
         
     Returns:
         実行結果
     """
-    print(f"[DEBUG] process_template called with poc_search={poc_search}")
     template = input_data.get("template", "")
     params = input_data.get("parameters", {})
 
@@ -59,16 +58,18 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
         # タイトルと説明を組み合わせて検索
         search_text = f"{params.get('title', '')} {params.get('description', '')}"
 
-        # POC search統合を使用して重複検出
+        # POC search統合を使用して重複検出（遅延初期化）
         duplicates = []
-        if poc_search:
-            try:
-                print(f"[DEBUG] Checking duplicates for: {search_text}")
-                duplicates = poc_search.check_duplicates(search_text, k=5, threshold=0.5)
-                print(f"[DEBUG] Found {len(duplicates)} duplicates")
-            except Exception as e:
-                print(f"POC search error: {e}")
-                # エラー時は重複チェックをスキップ
+        if poc_search_factory and search_text.strip():  # 検索テキストがある場合のみ
+            poc_search = poc_search_factory()  # 必要時に初期化
+            if poc_search:
+                try:
+                    print(f"[DEBUG] Checking duplicates for: {search_text}")
+                    duplicates = poc_search.check_duplicates(search_text, k=5, threshold=0.5)
+                    print(f"[DEBUG] Found {len(duplicates)} duplicates")
+                except Exception as e:
+                    print(f"POC search error: {e}")
+                    # エラー時は重複チェックをスキップ
 
         # 要件作成（embeddingはNULLで作成）
         query_params = {
@@ -81,8 +82,8 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
         # クエリローダーを使用して実行
         result = execute_query(repository, "create_requirement", query_params, "dml")
 
-        # 成功時は検索インデックスに追加
-        if poc_search and result.get("status") == "success":
+        # 成功時は検索インデックスに追加（重複チェックで既に初期化済みの場合のみ）
+        if 'poc_search' in locals() and poc_search and result.get("status") == "success":
             try:
                 print(f"[DEBUG] Adding to search index: {params.get('id')}")
                 poc_search.add_to_index({

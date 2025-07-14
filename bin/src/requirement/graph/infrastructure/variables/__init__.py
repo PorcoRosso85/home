@@ -6,6 +6,12 @@ Variables モジュール - 外部変数定義の集約
 """
 
 import warnings
+import os
+
+# SentenceTransformerモデルのキャッシュディレクトリを設定
+# テスト高速化のため、共通のキャッシュディレクトリを使用
+if not os.environ.get("SENTENCE_TRANSFORMERS_HOME"):
+    os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/.cache/sentence_transformers"
 
 # 新システムからインポート
 from .env import (

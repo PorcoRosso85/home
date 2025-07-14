@@ -58,19 +58,26 @@ def safe_main():
             # リポジトリを作成
             repository = create_kuzu_repository(db_path)
 
-            # POC searchアダプターを作成（リポジトリ接続を共有）
-            poc_search = None
-            try:
-                # リポジトリの接続を取得
-                repo_connection = repository.get("connection")
-                poc_search = POCSearchAdapter(db_path, repository_connection=repo_connection)
-                info("rgl.main", "POC search adapter initialized with shared connection")
-            except Exception as e:
-                warn("rgl.main", f"POC search initialization failed: {e}")
-                # POC searchが初期化できなくても処理は続行
+            # POC searchアダプターは遅延初期化のため、ファクトリー関数を渡す
+            def create_poc_search():
+                """POC searchを必要時にのみ作成"""
+                try:
+                    repo_connection = repository.get("connection")
+                    poc_search = POCSearchAdapter(db_path, repository_connection=repo_connection)
+                    info("rgl.main", "POC search adapter initialized with shared connection")
+                    return poc_search
+                except Exception as e:
+                    warn("rgl.main", f"POC search initialization failed: {e}")
+                    return None
 
-            info("rgl.main", "Processing template", template=input_data.get("template"))
-            query_result = process_template(input_data, repository, poc_search)
+            template_name = input_data.get("template")
+            info("rgl.main", "Processing template", template=template_name)
+            
+            # 依存関係管理系のテンプレートではPOC searchは不要
+            if template_name in ["add_dependency", "find_dependencies", "remove_dependency"]:
+                query_result = process_template(input_data, repository, None)
+            else:
+                query_result = process_template(input_data, repository, create_poc_search)
 
             # エラーチェック
             if "error" in query_result:

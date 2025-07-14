@@ -1,6 +1,7 @@
 """
-POC Search完全統合の仕様テスト
-このテストは現在失敗するべき（TDD RED状態）
+ハイブリッド検索仕様テスト
+ベクトル検索（VSS）と全文検索（FTS）を組み合わせた
+ハイブリッド検索機能の仕様テスト
 """
 import subprocess
 import json
@@ -46,8 +47,8 @@ def run_system(input_data, db_path=None):
     return {"error": "No valid JSON output", "stderr": result.stderr}
 
 
-class TestPOCSearchCompleteIntegration:
-    """POC Search完全統合の仕様
+class TestHybridSearchSpec:
+    """ハイブリッド検索の仕様
     
     要求仕様:
     1. POC searchのAPIを直接使用（一切の独自実装禁止）

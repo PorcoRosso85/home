@@ -1,5 +1,5 @@
 """
-Phase 5.8-5.10の仕様を表現する統合テスト
+要件管理システムの統合テスト
 規約に従い、公開APIの振る舞いのみを検証する
 """
 import subprocess
@@ -47,8 +47,8 @@ def run_system(input_data, db_path=None):
     return {"error": "No valid JSON output", "stderr": result.stderr}
 
 
-class TestPhase5_8_POCSearchIntegration:
-    """Phase 5.8: POC search統合の修正 - 仕様テスト"""
+class TestDuplicateDetectionIntegration:
+    """重複検出機能の統合テスト"""
 
     @pytest.fixture
     def temp_db(self):
@@ -138,8 +138,8 @@ class TestPhase5_8_POCSearchIntegration:
         assert find_result.get("data") is not None
 
 
-class TestPhase5_9_DependencyManagement:
-    """Phase 5.9: 依存関係管理の完成 - 仕様テスト"""
+class TestDependencyManagement:
+    """依存関係管理機能のテスト"""
 
     @pytest.fixture
     def temp_db_with_requirements(self):
@@ -220,8 +220,8 @@ class TestPhase5_9_DependencyManagement:
         assert result.get("data") is not None
 
 
-class TestPhase5_10_EndToEndScenarios:
-    """Phase 5.10: エンドツーエンドシナリオ - 統合テスト"""
+class TestEndToEndScenarios:
+    """エンドツーエンドシナリオの統合テスト"""
 
     @pytest.fixture
     def temp_db(self):

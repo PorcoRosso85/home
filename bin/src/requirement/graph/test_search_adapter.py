@@ -1,4 +1,4 @@
-"""POC Search Adapter直接テスト"""
+"""検索アダプター単体テスト"""
 import tempfile
 import os
 import sys
@@ -11,8 +11,8 @@ from requirement.graph.infrastructure.kuzu_repository import create_kuzu_reposit
 from requirement.graph.infrastructure.apply_ddl_schema import apply_ddl_schema
 
 
-def test_poc_search_adapter_direct():
-    """POC searchアダプターが正しく動作するか確認"""
+def test_search_adapter_functionality():
+    """検索アダプターが正しく動作するか確認"""
     with tempfile.TemporaryDirectory() as db_dir:
         # スキーマを適用
         apply_ddl_schema(db_dir, create_test_data=False)

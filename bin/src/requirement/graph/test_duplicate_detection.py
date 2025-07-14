@@ -1,5 +1,5 @@
 """
-POC Search完全統合の振る舞いテスト
+重複検出機能の振る舞いテスト
 規約に従い、公開APIの振る舞いのみを検証する統合テスト
 """
 import subprocess
@@ -47,8 +47,8 @@ def run_system(input_data, db_path=None):
     return {"error": "No valid JSON output", "stderr": result.stderr}
 
 
-class TestPOCSearchIntegration:
-    """POC Search統合の振る舞いテスト - リファクタリングの壁原則に準拠"""
+class TestDuplicateDetection:
+    """重複検出機能の振る舞いテスト - リファクタリングの壁原則に準拠"""
 
     @pytest.fixture
     def temp_db(self):
