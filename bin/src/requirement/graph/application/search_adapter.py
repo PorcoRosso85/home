@@ -1,28 +1,28 @@
 """
-POC Search Adapter - requirement/graphとPOC searchの統合レイヤー
+Search Adapter - requirement/graphとsemantic searchの統合レイヤー
 
-このアダプターは、POC searchのAPIを直接使用して重複検出機能を提供する。
-独自実装は一切含まず、POC searchの機能をそのまま利用する。
+このアダプターは、semantic searchのAPIを直接使用して重複検出機能を提供する。
+独自実装は一切含まず、semantic searchの機能をそのまま利用する。
 """
 import sys
 import os
 import math
 from typing import List, Dict, Any, Optional
 
-# POC searchモジュールへのパスを追加
-poc_search_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../poc/search"))
-if poc_search_path not in sys.path:
-    sys.path.insert(0, poc_search_path)
+# Semantic searchモジュールへのパスを追加
+semantic_search_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../poc/search"))
+if semantic_search_path not in sys.path:
+    sys.path.insert(0, semantic_search_path)
 
 try:
     from infrastructure.kuzu_search_service import KuzuSearchService
     from domain.interfaces import SearchService, SearchResult
 except ImportError as e:
-    raise ImportError(f"POC search modules not found. Make sure POC search is available at {poc_search_path}: {e}")
+    raise ImportError(f"Semantic search modules not found. Make sure semantic search is available at {semantic_search_path}: {e}")
 
 
 class RequirementGraphSearchService(KuzuSearchService):
-    """Requirement Graph専用の検索サービス（POC searchベース）"""
+    """Requirement Graph専用の検索サービス（semantic searchベース）"""
 
     def __init__(self, db_path: Optional[str] = None, existing_connection=None):
         """
@@ -107,7 +107,7 @@ class RequirementGraphSearchService(KuzuSearchService):
                 similarities.append({
                     "id": req["id"],
                     "title": req["title"],
-                    "content": req["description"],  # POC searchの期待に合わせてcontentとして返す
+                    "content": req["description"],  # semantic searchの期待に合わせてcontentとして返す
                     "score": similarity
                 })
 
@@ -143,7 +143,7 @@ class RequirementGraphSearchService(KuzuSearchService):
             results.append(SearchResult(
                 id=row[0],
                 title=row[1],
-                content=row[2],  # POC searchの期待に合わせてcontentとして返す
+                content=row[2],  # semantic searchの期待に合わせてcontentとして返す
                 score=1.0,  # キーワード検索は固定スコア
                 source="fts"
             ))
@@ -200,8 +200,8 @@ class RequirementGraphSearchService(KuzuSearchService):
         return dot_product / (magnitude1 * magnitude2)
 
 
-class POCSearchAdapter:
-    """POC searchの機能をrequirement/graphで使用するためのアダプター"""
+class SearchAdapter:
+    """Semantic searchの機能をrequirement/graphで使用するためのアダプター"""
 
     def __init__(self, db_path: str, repository_connection=None):
         """
@@ -228,7 +228,7 @@ class POCSearchAdapter:
         Returns:
             重複候補のリスト（スコア順）
         """
-        # POC searchのハイブリッド検索を直接使用
+        # Semantic searchのハイブリッド検索を直接使用
         search_results: List[SearchResult] = self.search_service.search_hybrid(text, k=k)
 
         # 閾値以上のスコアの結果のみ返す
@@ -238,7 +238,7 @@ class POCSearchAdapter:
                 duplicates.append({
                     "id": result.id,
                     "title": result.title,
-                    "description": result.content,  # POC searchはcontentフィールドを使用
+                    "description": result.content,  # semantic searchはcontentフィールドを使用
                     "score": result.score,
                     "type": "hybrid"  # VSS + FTSの結果
                 })
@@ -256,11 +256,11 @@ class POCSearchAdapter:
             成功時True
         """
         try:
-            # POC searchのadd_requirementメソッドを直接使用
+            # Semantic searchのadd_requirementメソッドを直接使用
             self.search_service.add_requirement(
                 id=requirement["id"],
                 title=requirement["title"],
-                content=requirement.get("description", "")  # POC searchはcontentを期待
+                content=requirement.get("description", "")  # semantic searchはcontentを期待
             )
             return True
         except Exception as e:

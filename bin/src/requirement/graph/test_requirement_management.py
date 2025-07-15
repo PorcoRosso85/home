@@ -17,12 +17,8 @@ def run_system(input_data, db_path=None):
     if db_path:
         env["RGL_DATABASE_PATH"] = db_path
 
-    # venvのPythonを使用
-    venv_python = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python")
-    if os.path.exists(venv_python):
-        python_cmd = venv_python
-    else:
-        python_cmd = sys.executable
+    # 現在のPython（venv内）を使用
+    python_cmd = sys.executable
 
     # プロジェクトルートから実行
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -19,12 +19,8 @@ def run_system(input_data, db_path=None):
     # 公開API（main.py）を通じて実行
     # プロジェクトルートから実行
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    # venvのPythonを使用
-    venv_python = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python")
-    if os.path.exists(venv_python):
-        python_cmd = venv_python
-    else:
-        python_cmd = sys.executable
+    # 現在のPython（venv内）を使用
+    python_cmd = sys.executable
 
     result = subprocess.run(
         [python_cmd, "-m", "requirement.graph"],
@@ -56,7 +52,7 @@ class TestDuplicateDetection:
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマ初期化（公開API経由）
             result = run_system({"type": "schema", "action": "apply"}, db_dir)
-            # POC search準拠のスキーマが適用されることを期待
+            # Search service準拠のスキーマが適用されることを期待
             yield db_dir
 
     def test_duplicate_detection_behavior(self, temp_db):
@@ -91,7 +87,7 @@ class TestDuplicateDetection:
         }, temp_db)
 
         # Then: 重複が検出される（振る舞いの検証）
-        # 実装がPOC searchを使っているかは問わない
+        # 実装がSearch serviceを使っているかは問わない
         if "warning" in duplicate_result:
             warning = duplicate_result["warning"]
             assert warning.get("type") == "DuplicateWarning"
@@ -158,7 +154,7 @@ class TestDuplicateDetection:
         # assert len(search_result["data"]) >= 2
 
     def test_embedding_generation(self, temp_db):
-        """エンベディング生成の振る舞い - POC search統合の確認"""
+        """エンベディング生成の振る舞い - Search service統合の確認"""
         # Given: 要件を作成
         create_result = run_system({
             "type": "template",
@@ -199,5 +195,5 @@ def test_schema_migration_readiness():
     # 例：マイグレーションスクリプトの存在確認など
 
     # 将来的なマイグレーションファイルの存在を確認
-    # assert os.path.exists("ddl/migrations/3.4.0_poc_search_integration.cypher")
+    # assert os.path.exists("ddl/migrations/3.4.0_search_integration.cypher")
     pytest.skip("マイグレーション実装後に有効化")

@@ -32,6 +32,11 @@ python_functions = ["test_*"]
 # KuzuDBのLD_LIBRARY_PATH設定が必要な場合のためのマーカー
 markers = [
     "requires_kuzu: marks tests that require KuzuDB (deselect with '-m \"not requires_kuzu\"')",
+    "integration: marks integration tests that may take longer to run",
+    "slow: marks tests that take more than 10 seconds",
+    "unit: marks fast unit tests",
+    "contract: marks contract tests that verify external APIs",
+    "requires_embedding: marks tests that require embedding generation",
 ]
 # in-sourceテストを検出
 addopts = [

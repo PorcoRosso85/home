@@ -53,31 +53,31 @@ def safe_main():
         elif input_type == "template":
             # テンプレート処理
             from .application.template_processor import process_template
-            from .application.poc_search_adapter import POCSearchAdapter
+            from .application.search_adapter import SearchAdapter
 
             # リポジトリを作成
             repository = create_kuzu_repository(db_path)
 
-            # POC searchアダプターは遅延初期化のため、ファクトリー関数を渡す
-            def create_poc_search():
-                """POC searchを必要時にのみ作成"""
+            # Searchアダプターは遅延初期化のため、ファクトリー関数を渡す
+            def create_search_service():
+                """Search serviceを必要時にのみ作成"""
                 try:
                     repo_connection = repository.get("connection")
-                    poc_search = POCSearchAdapter(db_path, repository_connection=repo_connection)
-                    info("rgl.main", "POC search adapter initialized with shared connection")
-                    return poc_search
+                    search_service = SearchAdapter(db_path, repository_connection=repo_connection)
+                    info("rgl.main", "Search adapter initialized with shared connection")
+                    return search_service
                 except Exception as e:
-                    warn("rgl.main", f"POC search initialization failed: {e}")
+                    warn("rgl.main", f"Search service initialization failed: {e}")
                     return None
 
             template_name = input_data.get("template")
             info("rgl.main", "Processing template", template=template_name)
             
-            # 依存関係管理系のテンプレートではPOC searchは不要
+            # 依存関係管理系のテンプレートではsearch serviceは不要
             if template_name in ["add_dependency", "find_dependencies", "remove_dependency"]:
                 query_result = process_template(input_data, repository, None)
             else:
-                query_result = process_template(input_data, repository, create_poc_search)
+                query_result = process_template(input_data, repository, create_search_service)
 
             # エラーチェック
             if "error" in query_result:
@@ -96,8 +96,8 @@ def safe_main():
 
 
         elif input_type == "semantic_search":
-            # 意味的検索機能はPOC searchに統合
-            error("Semantic search has been integrated into POC search. Use template input with duplicate check.")
+            # 意味的検索機能はsearch serviceに統合
+            error("Semantic search has been integrated into search service. Use template input with duplicate check.")
 
 
         elif input_type == "version":

@@ -9,18 +9,18 @@ Template Processor - テンプレート入力をCypherクエリに変換
 - layered_architecture.md: アプリケーション層からインフラ層への適切な依存
 """
 from typing import Dict, Any, Optional
-from .poc_search_adapter import POCSearchAdapter
+from .search_adapter import SearchAdapter
 from ..query import execute_query
 
 
-def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc_search_factory=None) -> Dict[str, Any]:
+def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], search_factory=None) -> Dict[str, Any]:
     """
     テンプレート入力を処理
     
     Args:
         input_data: {"template": "...", "parameters": {...}}
         repository: KuzuDBリポジトリ
-        poc_search_factory: POC searchを作成するファクトリー関数（オプション）
+        search_factory: Search serviceを作成するファクトリー関数（オプション）
         
     Returns:
         実行結果
@@ -58,17 +58,17 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
         # タイトルと説明を組み合わせて検索
         search_text = f"{params.get('title', '')} {params.get('description', '')}"
 
-        # POC search統合を使用して重複検出（遅延初期化）
+        # Search service統合を使用して重複検出（遅延初期化）
         duplicates = []
-        if poc_search_factory and search_text.strip():  # 検索テキストがある場合のみ
-            poc_search = poc_search_factory()  # 必要時に初期化
-            if poc_search:
+        if search_factory and search_text.strip():  # 検索テキストがある場合のみ
+            search_service = search_factory()  # 必要時に初期化
+            if search_service:
                 try:
                     print(f"[DEBUG] Checking duplicates for: {search_text}")
-                    duplicates = poc_search.check_duplicates(search_text, k=5, threshold=0.5)
+                    duplicates = search_service.check_duplicates(search_text, k=5, threshold=0.5)
                     print(f"[DEBUG] Found {len(duplicates)} duplicates")
                 except Exception as e:
-                    print(f"POC search error: {e}")
+                    print(f"Search service error: {e}")
                     # エラー時は重複チェックをスキップ
 
         # 要件作成（embeddingはNULLで作成）
@@ -83,10 +83,10 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], poc
         result = execute_query(repository, "create_requirement", query_params, "dml")
 
         # 成功時は検索インデックスに追加（重複チェックで既に初期化済みの場合のみ）
-        if 'poc_search' in locals() and poc_search and result.get("status") == "success":
+        if 'search_service' in locals() and search_service and result.get("status") == "success":
             try:
                 print(f"[DEBUG] Adding to search index: {params.get('id')}")
-                poc_search.add_to_index({
+                search_service.add_to_index({
                     "id": params.get("id"),
                     "title": params.get("title"),
                     "description": params.get("description", ""),

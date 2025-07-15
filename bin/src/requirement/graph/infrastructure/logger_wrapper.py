@@ -15,9 +15,11 @@ from log import log as base_log
 from .variables.constants import LOG_LEVELS
 from .variables import get_log_level, get_log_format
 
-# 環境変数の取得
-_LOG_LEVEL = get_log_level()
-LOG_LEVEL = _LOG_LEVEL if _LOG_LEVEL is not None else "*:WARN"
+# 環境変数の取得（動的に取得するため関数化）
+def _get_current_log_level():
+    """現在のログレベルを取得"""
+    level = get_log_level()
+    return level if level is not None else "*:WARN"
 
 
 def _should_log(level: str, module: str) -> bool:
@@ -27,11 +29,14 @@ def _should_log(level: str, module: str) -> bool:
     # 環境変数からモジュール別設定を解析
     module_levels = {}
     default_level = 3  # WARN
+    
+    # 動的に現在のログレベルを取得
+    log_level = _get_current_log_level()
 
-    if ':' not in LOG_LEVEL:
-        default_level = LOG_LEVELS.get(LOG_LEVEL.upper(), 3)
+    if ':' not in log_level:
+        default_level = LOG_LEVELS.get(log_level.upper(), 3)
     else:
-        for config in LOG_LEVEL.split(','):
+        for config in log_level.split(','):
             parts = config.strip().split(':')
             if len(parts) == 2:
                 mod, lev = parts
@@ -47,7 +52,7 @@ def _should_log(level: str, module: str) -> bool:
             threshold = lev
             break
 
-    return level_value >= threshold
+    return level_value <= threshold
 
 
 def _inject_metadata(data: Dict[str, Any]) -> Dict[str, Any]:

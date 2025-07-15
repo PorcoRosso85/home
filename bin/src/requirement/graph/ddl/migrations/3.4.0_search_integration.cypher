@@ -1,17 +1,17 @@
-// KuzuDB要件管理システム POC Search完全統合スキーマ v3.4
+// KuzuDB要件管理システム Search Service完全統合スキーマ v3.4
 // 作成日: 2025-07-13
-// 目的: POC searchのスキーマに完全準拠したスキーマ
+// 目的: Search serviceのスキーマに完全準拠したスキーマ
 
 // ========================================
 // ノードテーブル（エンティティ）- 3個
 // ========================================
 
-// 要件エンティティ（POC Search対応版）
+// 要件エンティティ（Search Service対応版）
 CREATE NODE TABLE RequirementEntity (
     id STRING PRIMARY KEY,
     title STRING,
-    description STRING,            -- メインコンテンツフィールド（POC searchで使用）
-    embedding DOUBLE[256],         -- POC search必須フィールド
+    description STRING,            -- メインコンテンツフィールド（search serviceで使用）
+    embedding DOUBLE[256],         -- search service必須フィールド
     status STRING DEFAULT 'proposed'
 );
 

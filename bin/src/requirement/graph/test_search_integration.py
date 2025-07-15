@@ -1,5 +1,5 @@
 """
-POC Search統合テスト
+Search Service統合テスト
 テスト哲学に準拠し、外部から観測可能な振る舞いのみを検証
 
 規約準拠:
@@ -9,6 +9,7 @@ POC Search統合テスト
 import subprocess
 import json
 import os
+import sys
 import tempfile
 import pytest
 import time
@@ -20,8 +21,12 @@ def run_system(input_data, db_path=None):
     if db_path:
         env["RGL_DATABASE_PATH"] = db_path
     
+    # venvのPythonを使用
+    import sys
+    python_cmd = sys.executable  # 現在のPython（venv内）を使用
+    
     result = subprocess.run(
-        ["python", "-m", "requirement.graph"],
+        [python_cmd, "-m", "requirement.graph"],
         input=json.dumps(input_data),
         capture_output=True,
         text=True,
@@ -41,8 +46,8 @@ def run_system(input_data, db_path=None):
     return {"error": "No valid JSON output", "stderr": result.stderr}
 
 
-class TestPOCSearchIntegration:
-    """POC Search統合の振る舞いテスト（TDD Red Phase）"""
+class TestSearchIntegration:
+    """Search Service統合の振る舞いテスト（TDD Red Phase）"""
     
     @pytest.fixture
     def temp_db(self):
@@ -52,8 +57,8 @@ class TestPOCSearchIntegration:
             result = run_system({"type": "schema", "action": "apply"}, db_dir)
             yield db_dir
     
-    def test_duplicate_detection_with_poc_search(self, temp_db):
-        """POC searchによる重複検出が動作する"""
+    def test_duplicate_detection_with_search_service(self, temp_db):
+        """Search serviceによる重複検出が動作する"""
         # Given: 要件を作成
         create_result = run_system({
             "type": "template",
@@ -81,12 +86,12 @@ class TestPOCSearchIntegration:
             }
         }, temp_db)
         
-        # Then: POC searchによる重複が検出される
+        # Then: Search serviceによる重複が検出される
         warning = duplicate_result.get("warning") or duplicate_result.get("data", {}).get("warning")
         assert warning is not None, "重複警告が発生すべき"
         assert warning["type"] == "DuplicateWarning"
         
-        # POC search特有の情報を確認
+        # Search service特有の情報を確認
         duplicates = warning["duplicates"]
         assert len(duplicates) > 0
         assert duplicates[0]["id"] == "auth_001"
@@ -124,24 +129,24 @@ class TestPOCSearchIntegration:
         assert warning is not None
         assert "emb_001" in [d["id"] for d in warning["duplicates"]]
     
-    def test_poc_search_error_handling(self, temp_db):
-        """POC search障害時もシステムは動作継続する"""
-        # Given: POC searchが利用できない状況をシミュレート
+    def test_search_service_error_handling(self, temp_db):
+        """Search service障害時もシステムは動作継続する"""
+        # Given: Search serviceが利用できない状況をシミュレート
         # （環境変数で無効化など、実装に応じて調整）
         env = os.environ.copy()
-        env["DISABLE_POC_SEARCH"] = "true"  # 仮の無効化フラグ
+        env["DISABLE_SEARCH_SERVICE"] = "true"  # 仮の無効化フラグ
         env["RGL_DATABASE_PATH"] = temp_db
         
         # When: 要件を作成
         result = subprocess.run(
-            ["python", "-m", "requirement.graph"],
+            [sys.executable, "-m", "requirement.graph"],
             input=json.dumps({
                 "type": "template",
                 "template": "create_requirement",
                 "parameters": {
                     "id": "fallback_001",
                     "title": "フォールバックテスト",
-                    "description": "POC search無しでも動作"
+                    "description": "Search service無しでも動作"
                 }
             }),
             capture_output=True,

@@ -39,7 +39,7 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
         "..",
         "ddl",
         "migrations",
-        "3.4.0_poc_search_integration.cypher"
+        "3.4.0_search_integration.cypher"
     )
 
     if not os.path.exists(schema_path):

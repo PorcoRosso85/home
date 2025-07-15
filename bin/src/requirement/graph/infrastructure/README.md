@@ -24,8 +24,8 @@
 ### Phase 2: テンプレートローダー
 操作定義の読み込み。ファイルシステムからのテンプレート管理。
 
-### Phase 3: POC Search統合
-- **VSSAdapter**: POC searchとの統合インターフェース
+### Phase 3: Search Service統合
+- **VSSAdapter**: Search serviceとの統合インターフェース
 - **EmbeddingGenerator**: 256次元ベクトル生成
 - VSS/FTSによる類似検索の実現
 

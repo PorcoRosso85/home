@@ -4,14 +4,27 @@ bin/src/logの必須フィールド要件を満たすことを確認
 """
 import json
 import sys
+import os
 from io import StringIO
 import pytest
-
-from .logger_wrapper import log, info, error, result
 
 
 class TestLoggerWrapper:
     """logger_wrapperがbin/src/logの仕様を満たすことを確認"""
+    
+    @pytest.fixture(autouse=True)
+    def setup_logging(self, monkeypatch):
+        """テスト前にログレベルを設定"""
+        # テスト時は全レベルのログを出力
+        monkeypatch.setenv('LOG_LEVEL', '*:TRACE')
+        # 毎回モジュールを再インポート
+        if 'infrastructure.logger_wrapper' in sys.modules:
+            del sys.modules['infrastructure.logger_wrapper']
+        from infrastructure.logger_wrapper import log, info, error, result
+        self.log = log
+        self.info = info  
+        self.error = error
+        self.result = result
     
     def test_log_output_has_required_fields(self):
         """log出力に必須フィールド（uri, message）が含まれる"""
@@ -21,10 +34,11 @@ class TestLoggerWrapper:
         
         try:
             # ログ出力
-            log("INFO", "test.module", "Test message", extra="data")
+            self.log("INFO", "test.module", "Test message", extra="data")
             
             # 出力を取得
             output = captured_output.getvalue().strip()
+            assert output, "No output captured"
             data = json.loads(output)
             
             # 必須フィールドの確認
@@ -44,9 +58,10 @@ class TestLoggerWrapper:
         sys.stdout = captured_output
         
         try:
-            info("app.handler", "Processing request", request_id="123")
+            self.info("app.handler", "Processing request", request_id="123")
             
             output = captured_output.getvalue().strip()
+            assert output, "No output captured"
             data = json.loads(output)
             
             # bin/src/logの必須フィールド
@@ -64,7 +79,7 @@ class TestLoggerWrapper:
         sys.stdout = captured_output
         
         try:
-            error("Database connection failed", details={"host": "localhost", "port": 5432})
+            self.error("Database connection failed", details={"host": "localhost", "port": 5432})
             
             output = captured_output.getvalue().strip()
             data = json.loads(output)
@@ -88,7 +103,7 @@ class TestLoggerWrapper:
         sys.stdout = captured_output
         
         try:
-            result({"status": "success", "count": 42})
+            self.result({"status": "success", "count": 42})
             
             output = captured_output.getvalue().strip()
             data = json.loads(output)
@@ -111,7 +126,7 @@ class TestLoggerWrapper:
         sys.stdout = captured_output
         
         try:
-            log("WARN", "test.module", "Warning message")
+            self.log("WARN", "test.module", "Warning message")
             
             output = captured_output.getvalue().strip()
             # bin/src/logが先にlevelを設定するので、追加のlevelフィールドがないことを確認
@@ -126,9 +141,10 @@ class TestLoggerWrapper:
         sys.stdout = captured_output
         
         try:
-            info("my.module", "Test")
+            self.info("my.module", "Test")
             
             output = captured_output.getvalue().strip()
+            assert output, "No output captured"
             data = json.loads(output)
             
             # moduleフィールドが保持されている

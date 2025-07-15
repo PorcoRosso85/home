@@ -17,12 +17,8 @@ def run_system(input_data, db_path=None):
     if db_path:
         env["RGL_DATABASE_PATH"] = db_path
 
-    # venvのPythonを使用
-    venv_python = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python")
-    if os.path.exists(venv_python):
-        python_cmd = venv_python
-    else:
-        python_cmd = sys.executable
+    # 現在のPython（venv内）を使用
+    python_cmd = sys.executable
 
     # プロジェクトルートから実行
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -51,7 +47,7 @@ class TestHybridSearchSpec:
     """ハイブリッド検索の仕様
     
     要求仕様:
-    1. POC searchのAPIを直接使用（一切の独自実装禁止）
+    1. Search serviceのAPIを直接使用（一切の独自実装禁止）
     2. ハイブリッド検索（VSS + FTS）を実行
     3. エンベディングの生成と保存
     4. 同一DBインスタンスの共有
@@ -147,10 +143,10 @@ class TestHybridSearchSpec:
         assert requirement["embedding"] is not None
         assert len(requirement["embedding"]) == 256
 
-    def test_poc_search_api_usage(self, temp_db):
-        """POC searchのAPIが正しく使用される"""
+    def test_search_service_api_usage(self, temp_db):
+        """Search serviceのAPIが正しく使用される"""
         # このテストは実装の詳細ではなく、振る舞いを検証
-        # POC searchが動作していることを間接的に確認
+        # Search serviceが動作していることを間接的に確認
 
         # Given: 複数の要件を作成
         requirements = [
@@ -192,4 +188,4 @@ class TestHybridSearchSpec:
 
 
 # このテストファイルを実行すると、現在は全て失敗するはず（TDD RED）
-# POC search統合が正しく実装されたら、これらのテストが通るようになる
+# Search service統合が正しく実装されたら、これらのテストが通るようになる
