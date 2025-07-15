@@ -75,29 +75,27 @@ def log(level: str, module: str, message: str, **kwargs) -> None:
         return
 
     data = {
-        "module": module,
+        "uri": f"/rgl/{module}",  # bin/src/logの必須フィールド
         "message": message,
+        "module": module,  # 後方互換性のため保持
         "type": "log",
         **kwargs
     }
     
-    # レベルを小文字に統一（requirement/graph仕様）
-    data["level"] = level.lower()
-    
-    # メタデータ注入
+    # メタデータ注入（timestampなど）
     data = _inject_metadata(data)
     
-    # bin/src/logを使用
+    # bin/src/logを使用（levelはbin/src/logが設定するので、dataには含めない）
     base_log(level.upper(), data)
 
 
 def result(data: Any, level: str = "info", **kwargs) -> None:
     """結果出力（requirement/graph特有）"""
     log_data = {
-        "type": "result",
-        "level": level.lower(),
-        "module": "rgl.result",
+        "uri": "/rgl/result",  # bin/src/logの必須フィールド
         "message": "Result data",
+        "type": "result",
+        "module": "rgl.result",  # 後方互換性
         "data": data,
         **kwargs
     }
@@ -110,9 +108,10 @@ def error(message: str, details: Optional[Dict[str, Any]] = None,
           score: Optional[float] = None, **kwargs) -> None:
     """エラー出力（requirement/graph特有）"""
     log_data = {
-        "type": "error",
-        "module": "rgl.error",
+        "uri": "/rgl/error",  # bin/src/logの必須フィールド
         "message": message,
+        "type": "error",
+        "module": "rgl.error",  # 後方互換性
         **kwargs
     }
     
@@ -129,10 +128,10 @@ def error(message: str, details: Optional[Dict[str, Any]] = None,
 def score(friction_analysis: Dict[str, Any], level: str = "info", **kwargs) -> None:
     """スコア出力（摩擦検出結果など - requirement/graph特有）"""
     log_data = {
-        "type": "score",
-        "level": level.lower(),
-        "module": "rgl.score",
+        "uri": "/rgl/score",  # bin/src/logの必須フィールド
         "message": "Friction analysis",
+        "type": "score",
+        "module": "rgl.score",  # 後方互換性
         "data": friction_analysis,
         **kwargs
     }
@@ -149,10 +148,11 @@ def trace(module: str, message: str, **kwargs) -> None:
         return
     
     data = {
-        "module": module,
+        "uri": f"/rgl/{module}",  # bin/src/logの必須フィールド
         "message": message,
+        "module": module,  # 後方互換性
         "type": "log",
-        "level": "trace",  # 元のレベルを保持
+        "original_level": "trace",  # 元のレベルを記録
         **kwargs
     }
     
