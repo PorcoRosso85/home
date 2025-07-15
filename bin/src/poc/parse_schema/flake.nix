@@ -278,11 +278,15 @@
           '';
         };
 
-        # サンプルスキーマ
+        # テスト用スキーマ（デモンストレーション目的）
         lib = {
-          sampleSchema = pkgs.writeTextFile {
-            name = "log-schema.json";
-            text = builtins.toJSON {
+          testSchema = pkgs.writeTextFile {
+            name = "test-schema.json";
+            text = ''
+              {
+                "_comment": "This is a TEST SCHEMA for demonstration purposes only",
+                "_note": "Each tool should define its own production schema",
+              '' + builtins.toJSON {
               "$schema" = "http://json-schema.org/draft-07/schema#";
               type = "object";
               required = ["timestamp" "level" "message"];
@@ -322,8 +326,9 @@
                   };
                 };
               };
-            };
-          };
+            } + ''
+              }
+            '';
         };
 
         # Apps for nix run
@@ -365,9 +370,12 @@
             echo "  - sample-consumer: Process log entry"
             echo ""
             echo "Example workflow:"
-            echo "  1. Create schema: cp ${self.lib.${system}.sampleSchema} log-schema.json"
-            echo "  2. Test producer: test-producer log-schema.json sample-producer"
-            echo "  3. Full test: contract-test log-schema.json sample-producer sample-consumer"
+            echo "  1. Create test schema: cp ${self.lib.${system}.testSchema} test-schema.json"
+            echo "  2. Test producer: test-producer test-schema.json sample-producer"
+            echo "  3. Full test: contract-test test-schema.json sample-producer sample-consumer"
+            echo ""
+            echo "Note: Each tool should define its own production schema."
+            echo "      The test-schema.json is for demonstration purposes only."
           '';
         };
       }
