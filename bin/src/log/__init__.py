@@ -7,20 +7,24 @@ import json
 from typing import Any, Dict, TypedDict
 
 
-# ログデータの型定義例（使用者が自由に定義・拡張可能）
-class LogData(TypedDict, total=False):
+# ログデータの基本型定義
+class LogData(TypedDict):
     """
-    型定義の例。使用者は：
-    - 独自の型を定義可能
+    ログデータの基本型（必須フィールド）
+    
+    使用者はこの型を：
     - 継承して拡張可能
+    - 独自フィールドを追加可能
     - 各言語で同等の型定義可能
+    
+    例:
+        class MyLogData(LogData):
+            user_id: str
+            request_id: str
+            latency_ms: int
     """
-    uri: str
-    message: str
-    # 以下、アプリケーション固有のフィールド例
-    user_id: str
-    amount: int
-    error: str
+    uri: str      # 必須: 発生場所
+    message: str  # 必須: メッセージ
 
 
 def log(level: str, data: Dict[str, Any]) -> None:

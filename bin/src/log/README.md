@@ -46,9 +46,9 @@ log INFO '{"uri": "/api/users", "message": "User created", "user_id": "123"}'  #
 
 ### 基本的な使用
 ```python
-from log import log, to_jsonl
+from log import log, to_jsonl, LogData
 
-# ログ出力
+# ログ出力（uri, messageは必須）
 log("INFO", {
     "uri": "/api/v1/payment/process",
     "message": "Payment processed",
@@ -64,13 +64,10 @@ jsonl_line = to_jsonl(data)
 
 ### 型定義の拡張例
 ```python
-from typing import TypedDict
-from log import log
+from log import log, LogData
 
-# アプリケーション固有の型定義
-class MyLogData(TypedDict):
-    uri: str
-    message: str
+# アプリケーション固有の型定義（LogDataを継承）
+class MyLogData(LogData):
     request_id: str
     latency_ms: int
 
