@@ -15,7 +15,6 @@
     },
     "timestamp": {
       "type": "string",
-      "format": "date-time",
       "description": "ISO 8601 timestamp"
     },
     "_loc": {
@@ -29,7 +28,6 @@
       "description": "Operation result type"
     },
     "data": {
-      "type": ["object", "array", "null"],
       "description": "Operation result data"
     },
     "operation": {

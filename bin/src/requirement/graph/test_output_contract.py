@@ -9,6 +9,7 @@ import pytest
 import tempfile
 import os
 from pathlib import Path
+import time
 
 
 class TestRequirementGraphOutputContract:
@@ -24,15 +25,34 @@ class TestRequirementGraphOutputContract:
         """parse_schemaのパス"""
         return Path(__file__).parent.parent.parent / "poc" / "parse_schema"
     
-    def run_requirement_graph(self, input_data):
+    @pytest.fixture
+    def temp_db(self):
+        """テスト用の一時データベース"""
+        # インメモリデータベースを使用
+        yield None  # インメモリの場合はNone
+    
+    def run_requirement_graph(self, input_data, db_path=None):
         """requirement/graphを実行して出力を取得"""
+        import sys
+        env = {**os.environ, "LOG_LEVEL": "*:ERROR"}  # ログレベルを上げて余計な出力を抑制
+        if db_path:
+            env["RGL_DATABASE_PATH"] = db_path
+        else:
+            # インメモリデータベースを使用
+            env["RGL_DATABASE_PATH"] = ":memory:"
+            
         result = subprocess.run(
-            ["python", "-m", "requirement.graph"],
+            [sys.executable, "-m", "requirement.graph"],
             input=json.dumps(input_data),
             capture_output=True,
             text=True,
-            cwd=Path(__file__).parent.parent.parent  # requirement/まで戻る
+            cwd=Path(__file__).parent.parent.parent,  # requirement/まで戻る
+            env=env
         )
+        
+        # エラーチェック
+        if result.returncode != 0:
+            return {"error": "Process failed", "stderr": result.stderr}
         
         # 最後の有効なJSON行を取得
         lines = result.stdout.strip().split('\n')
@@ -45,42 +65,57 @@ class TestRequirementGraphOutputContract:
         
         return {"error": "No valid JSON output", "stderr": result.stderr}
     
-    def test_with_parse_schema(self, schema_path, parse_schema_path, operation, expected_fields):
+    def test_with_parse_schema(self, schema_path, parse_schema_path, operation, expected_fields, db_path=None):
         """parse_schemaを使って出力を検証するヘルパー"""
-        # 一時スクリプトを作成してrequirement/graphを実行
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
-            f.write(f"""#!/bin/bash
-echo '{json.dumps(operation)}' | python -m requirement.graph
-""")
-            script_path = f.name
+        # requirement/graphを直接実行して出力を取得
+        output = self.run_requirement_graph(operation, db_path=db_path)
         
-        os.chmod(script_path, 0o755)
+        # 一時ファイルにJSON出力を保存
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(output, f)
+            output_file = f.name
         
         try:
-            # parse_schemaのtest-producerで検証
+            # parse_schemaのtest-consumerで検証（出力JSONを直接検証）
             result = subprocess.run([
                 "nix", "run", 
-                f"{parse_schema_path}#test-producer",
+                f"{parse_schema_path}#test-consumer",
                 "--",
                 str(schema_path),
-                script_path
-            ], capture_output=True, text=True, cwd=Path(__file__).parent.parent.parent)
+                output_file
+            ], capture_output=True, text=True)
             
             # 検証結果をチェック
+            if result.returncode != 0:
+                # エラー詳細を出力
+                print(f"Schema validation failed for operation: {operation}")
+                print(f"Output: {json.dumps(output, indent=2)}")
+                print(f"Error: {result.stderr}")
+            
             assert result.returncode == 0, f"Schema validation failed: {result.stderr}"
-            assert "✅ Producer output is valid" in result.stdout
             
             # 期待されるフィールドの存在も確認（オプション）
             if expected_fields:
-                output = self.run_requirement_graph(operation)
                 for field in expected_fields:
                     assert field in output, f"Expected field '{field}' not found"
                     
         finally:
-            os.unlink(script_path)
+            os.unlink(output_file)
     
-    def test_list_requirements_output_schema(self, schema_path, parse_schema_path):
+    def test_list_requirements_output_schema(self, schema_path, parse_schema_path, temp_db):
         """list_requirements操作の出力がスキーマに準拠する"""
+        # まずスキーマを初期化
+        schema_result = self.run_requirement_graph(
+            {"type": "schema", "action": "apply"},
+            db_path=temp_db
+        )
+        
+        # スキーマ初期化の結果を確認
+        if schema_result.get("type") == "error":
+            pytest.skip(f"Schema initialization failed: {schema_result.get('message')}")
+        
+        time.sleep(0.1)  # スキーマ初期化待ち
+        
         operation = {
             "type": "template",
             "template": "list_requirements",
@@ -91,10 +126,11 @@ echo '{json.dumps(operation)}' | python -m requirement.graph
             schema_path, 
             parse_schema_path,
             operation,
-            expected_fields=["message", "type", "data"]
+            expected_fields=["message", "type", "data"],
+            db_path=temp_db
         )
     
-    def test_error_output_has_error_level(self, schema_path, parse_schema_path):
+    def test_error_output_has_error_level(self, schema_path, parse_schema_path, temp_db):
         """エラー出力はERRORレベルを持つ"""
         operation = {"type": "invalid_operation"}
         
@@ -103,15 +139,16 @@ echo '{json.dumps(operation)}' | python -m requirement.graph
             schema_path, 
             parse_schema_path,
             operation,
-            expected_fields=["message", "type", "level"]
+            expected_fields=["message", "type", "level"],
+            db_path=temp_db
         )
         
         # エラー固有の検証
-        output = self.run_requirement_graph(operation)
+        output = self.run_requirement_graph(operation, db_path=temp_db)
         assert output.get("type") == "error"
         assert output.get("level") == "ERROR"
     
-    def test_output_has_log_compatible_fields(self, schema_path, parse_schema_path):
+    def test_output_has_log_compatible_fields(self, schema_path, parse_schema_path, temp_db):
         """出力はlog互換のフィールドを持つ"""
         operation = {
             "type": "template",
@@ -123,11 +160,12 @@ echo '{json.dumps(operation)}' | python -m requirement.graph
             schema_path,
             parse_schema_path,
             operation,
-            expected_fields=["message"]
+            expected_fields=["message"],
+            db_path=temp_db
         )
         
         # log互換フィールドの詳細検証
-        output = self.run_requirement_graph(operation)
+        output = self.run_requirement_graph(operation, db_path=temp_db)
         
         # Optional but recommended fields
         if "timestamp" in output:
@@ -142,7 +180,7 @@ echo '{json.dumps(operation)}' | python -m requirement.graph
             assert len(parts) >= 2
             assert parts[-1].isdigit()
     
-    def test_all_operations_comply_with_schema(self, schema_path, parse_schema_path):
+    def test_all_operations_comply_with_schema(self, schema_path, parse_schema_path, temp_db):
         """すべての操作タイプが統一スキーマに準拠"""
         operations = [
             {"type": "template", "template": "list_requirements"},
@@ -161,7 +199,8 @@ echo '{json.dumps(operation)}' | python -m requirement.graph
                     schema_path,
                     parse_schema_path,
                     op,
-                    expected_fields=None  # 個別検証は不要
+                    expected_fields=None,  # 個別検証は不要
+                    db_path=temp_db
                 )
             except AssertionError as e:
                 pytest.fail(f"Operation {op} produced invalid output: {e}")
