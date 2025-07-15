@@ -1,120 +1,47 @@
 # log - 全言語共通ログAPI規約
 
-## 概要
-
-全言語で統一されたログ出力APIを提供する規約実装モジュール。
-
-## このモジュールの意義
-
-### 1. **言語間の一貫性**
-どの言語を使っても同じ形式でログを出力できる統一インターフェース。
+全言語統一の標準出力ログAPI。`log = stdout`。
 
 ```python
-# Python
-log("INFO", "/api/v1/users/login", "User logged in", user_id="123")
-
-# JavaScript  
-log("INFO", "/api/v1/users/login", "User logged in", {userId: "123"})
-
-# Go
-Log("INFO", "/api/v1/users/login", "User logged in", map[string]string{"user_id": "123"})
-
-# Shell
-log INFO /api/v1/users/login "User logged in" user_id=123
+log("INFO", "/api/users", "User created", user_id="123")  # Python
+log("INFO", "/api/users", "User created", {userId: "123"})  # JS
+Log("INFO", "/api/users", "User created", map[string]string{"user_id": "123"})  # Go
+log INFO /api/users "User created" user_id=123  # Shell
 ```
 
-### 2. **Unix哲学との調和**
-- 標準出力へのシンプルな出力
-- パイプラインでの処理を前提
-- 他のツールとの組み合わせが容易
+## 責務
 
-### 3. **最小限の規約**
-- 呼び出し方法のみを規定
-- データ構造は使用者の自由
-- 過度な制約を課さない
+1. **`log(level, uri, message, **kwargs)` → stdout**
+   - 全言語統一API
+   - level: ログレベル
+   - uri: 発生場所（例: `/api/users`, `cmd://git/commit`）
+   - message: メッセージ
+   - kwargs: 追加情報
 
-## 責務（このモジュールがやること）
+2. **`to_jsonl(data)` → JSONL文字列**
 
-### 1. **ログ出力API（`log`関数）の提供**
-全言語で以下の引数構成を統一：
-- 第1引数: ログレベル（文字列）
-- 第2引数: URI（文字列） - 発生場所を示すURI/パス
-- 第3引数: メッセージ（文字列）
-- 第4引数以降: 追加のコンテキスト情報（キーバリュー形式）
+3. **各言語実装**（Python, JS, Go, Shell）
 
-#### URIの例
-- HTTPエンドポイント: `/api/v1/users/login`
-- ファイルパス: `/var/log/app.log` または `file:///etc/config.yaml`
-- 内部処理: `internal://auth/validate`
-- コマンド: `cmd://git/commit`
-- データベース: `db://users/insert`
+4. **format関数の注入点**（オプション）
+   - デフォルトなし
+   - format.pyはサンプル
+   - `set_formatter(fn)`で注入可能
 
-### 2. **JSONL変換機能（`to_jsonl`関数）の提供**
-構造化データをJSONL（JSON Lines）形式に変換する機能：
-- 1行1JSONオブジェクト
-- 改行区切り
-- ストリーム処理に最適
+## 責務外
 
-### 3. **各言語での規約準拠実装**
-- Python実装
-- JavaScript実装
-- Go実装
-- Shell実装
-- （将来）共通バイナリ + 各言語バインディング
-
-## 責務外（このモジュールがやらないこと）
-
-### 1. **ログのデータ構造定義**
-- ❌ 必須フィールドの強制
-- ❌ スキーマの定義
-- ❌ フィールドの型制約
-
-**理由**: 各アプリケーションが自由にログ構造を設計できるようにするため。
-
-### 2. **ログの永続化**
-- ❌ ファイルへの書き込み
-- ❌ データベースへの保存
-- ❌ ログローテーション
-
-**理由**: Unix哲学に従い、永続化は別のツールの責務とする。
-
-### 3. **ログのフィルタリング・加工**
-- ❌ ログレベルによるフィルタリング
-- ❌ ログの集約・統計
-- ❌ ログのフォーマット変換（JSONL以外）
-
-**理由**: これらは後段のツールで処理すべき。
-
-### 4. **エラーハンドリング**
-- ❌ ログ出力失敗時のリトライ
-- ❌ バッファリング
-- ❌ 非同期処理
-
-**理由**: シンプルさを保ち、複雑性を排除。
-
-### 5. **設定管理**
-- ❌ ログレベルの設定
-- ❌ 出力先の設定
-- ❌ フォーマットのカスタマイズ
-
-**理由**: 設定は使用側の責務。
+- データ構造定義（スキーマ、型制約）
+- 永続化（ファイル、DB、ローテーション）
+- フィルタリング・加工・集約
+- エラーハンドリング（リトライ、バッファ）
+- 設定管理
 
 ## 設計原則
 
-### 1. **シンプルさ**
-最小限のAPIで最大限の互換性を実現。
-
-### 2. **非侵襲的**
-アプリケーションの設計に制約を課さない。
-
-### 3. **パイプライン指向**
-```bash
-app | to_jsonl | gzip > logs.jsonl.gz
-app | to_jsonl | jq '.level == "ERROR"'
-```
-
-### 4. **言語中立**
-特定の言語の慣習に依存しない設計。
+1. **シンプル** - 最小限API
+2. **非侵襲的** - 制約なし
+3. **パイプライン指向** - `app | to_jsonl | jq`
+4. **言語中立** - 慣習に依存しない
+5. **拡張可能** - format注入
 
 ## 使用例
 
@@ -140,6 +67,43 @@ jsonl_line = to_jsonl(data)
 cat app.jsonl | jq 'select(.level == "ERROR")'
 ```
 
+### カスタムフォーマッターの使用
+```python
+from log import log, set_formatter, to_jsonl
+
+# 組織の標準フォーマットに合わせる
+def org_format(level, uri, message, **kwargs):
+    return {
+        "@timestamp": datetime.utcnow().isoformat() + "Z",
+        "@version": 1,
+        "level": level,
+        "logger_name": uri,
+        "message": message,
+        "metadata": kwargs
+    }
+
+set_formatter(org_format)
+
+# 以降のログは組織フォーマットで出力
+log("INFO", "/api/users", "User created", user_id="123")
+```
+
+### 他の出力先への対応
+```python
+# syslogへの出力は別モジュール/ツールで実現
+# 例：log出力をパイプでsysloggerに渡す
+./myapp | logger -t myapp -p local0.info
+
+# またはPythonで別途実装
+import syslog
+from log import format_fn, to_jsonl
+
+def log_to_syslog(level, uri, message, **kwargs):
+    data = format_fn(level, uri, message, **kwargs)
+    priority = {"ERROR": syslog.LOG_ERR}.get(level, syslog.LOG_INFO)
+    syslog.syslog(priority, to_jsonl(data))
+```
+
 ## 将来の拡張
 
 ### バイナリ実装
@@ -157,4 +121,9 @@ cat app.jsonl | jq 'select(.level == "ERROR")'
 
 ## まとめ
 
-このモジュールは「どのようにログを出力するか」という**呼び出し規約**のみを提供し、「何を出力するか」は完全に使用者の自由とする。これにより、最大限の柔軟性を保ちながら、言語間の一貫性を実現する。
+このモジュールは以下を提供する：
+1. **`log`関数** - 標準出力へのログ出力を意味する統一API
+2. **`to_jsonl`関数** - JSONL形式への変換
+3. **format注入** - データ構造のカスタマイズ
+
+`log = stdout`という明確な設計により、Unix哲学に完全に準拠しつつ、最大限の柔軟性を保ちながら言語間の一貫性を実現する。
