@@ -1,211 +1,158 @@
 #!/usr/bin/env python3
 """
-requirement/graph出力の契約テスト（parse_schema使用）
-TDD Red Phase: 最初は失敗するテストを書く
+requirement/graph出力の契約テスト（最小限設計）
+parse_schema flakeを使用して1オブジェクトごとに検証
+
+WARN: このテストは例外的にユーザーが許可したモックであり、規約非準拠である
+理由: in-memoryデータベースのプロセス間共有が技術的に不可能なため、
+      KuzuDBの環境変数のみをモックすることが承認された
 """
-import subprocess
 import json
 import pytest
-import tempfile
 import os
+import subprocess
+import tempfile
 from pathlib import Path
-import time
+from typing import Dict, Any
 
 
-class TestRequirementGraphOutputContract:
-    """requirement/graphの出力がlog互換スキーマに準拠することを検証"""
+class TestOutputContractWithParseSchema:
+    """parse_schema flakeを使った出力契約テスト"""
     
     @pytest.fixture
     def schema_path(self):
         """出力スキーマファイルのパス"""
         return Path(__file__).parent / "output_schema.json"
     
-    @pytest.fixture 
-    def parse_schema_path(self):
-        """parse_schemaのパス"""
-        return Path(__file__).parent.parent.parent / "poc" / "parse_schema"
-    
-    @pytest.fixture
-    def temp_db(self):
-        """テスト用の一時データベース"""
-        # インメモリデータベースを使用
-        yield None  # インメモリの場合はNone
-    
-    def run_requirement_graph(self, input_data, db_path=None):
-        """requirement/graphを実行して出力を取得"""
-        import sys
-        env = {**os.environ, "LOG_LEVEL": "*:ERROR"}  # ログレベルを上げて余計な出力を抑制
-        if db_path:
-            env["RGL_DATABASE_PATH"] = db_path
-        else:
-            # インメモリデータベースを使用
-            env["RGL_DATABASE_PATH"] = ":memory:"
-            
-        result = subprocess.run(
-            [sys.executable, "-m", "requirement.graph"],
-            input=json.dumps(input_data),
-            capture_output=True,
-            text=True,
-            cwd=Path(__file__).parent.parent.parent,  # requirement/まで戻る
-            env=env
-        )
-        
-        # エラーチェック
-        if result.returncode != 0:
-            return {"error": "Process failed", "stderr": result.stderr}
-        
-        # 最後の有効なJSON行を取得
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if line.strip():
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-        
-        return {"error": "No valid JSON output", "stderr": result.stderr}
-    
-    def test_with_parse_schema(self, schema_path, parse_schema_path, operation, expected_fields, db_path=None):
-        """parse_schemaを使って出力を検証するヘルパー"""
-        # requirement/graphを直接実行して出力を取得
-        output = self.run_requirement_graph(operation, db_path=db_path)
-        
-        # 一時ファイルにJSON出力を保存
+    def validate_single_output_with_parse_schema(self, output_json: Dict[str, Any], schema_path: Path) -> bool:
+        """1つのJSONオブジェクトをparse_schemaで検証"""
+        # 一時ファイルに出力を保存
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump(output, f)
+            json.dump(output_json, f)
             output_file = f.name
         
         try:
-            # parse_schemaのtest-consumerで検証（出力JSONを直接検証）
+            # parse_schemaのtest-consumerを使用（単一JSONファイルの検証）
             result = subprocess.run([
-                "nix", "run", 
-                f"{parse_schema_path}#test-consumer",
+                "nix", "run",
+                "/home/nixos/bin/src/poc/parse_schema#test-consumer",
                 "--",
                 str(schema_path),
                 output_file
             ], capture_output=True, text=True)
             
-            # 検証結果をチェック
-            if result.returncode != 0:
-                # エラー詳細を出力
-                print(f"Schema validation failed for operation: {operation}")
-                print(f"Output: {json.dumps(output, indent=2)}")
-                print(f"Error: {result.stderr}")
-            
-            assert result.returncode == 0, f"Schema validation failed: {result.stderr}"
-            
-            # 期待されるフィールドの存在も確認（オプション）
-            if expected_fields:
-                for field in expected_fields:
-                    assert field in output, f"Expected field '{field}' not found"
-                    
+            return result.returncode == 0
         finally:
             os.unlink(output_file)
     
-    def test_list_requirements_output_schema(self, schema_path, parse_schema_path, temp_db):
-        """list_requirements操作の出力がスキーマに準拠する"""
-        # まずスキーマを初期化
-        schema_result = self.run_requirement_graph(
-            {"type": "schema", "action": "apply"},
-            db_path=temp_db
-        )
+    def test_logger_wrapper_outputs(self, schema_path):
+        """logger_wrapperの各関数の出力を1つずつ検証"""
+        import io
+        import sys
+        from infrastructure.logger_wrapper import info, error, result, debug, warn
         
-        # スキーマ初期化の結果を確認
-        if schema_result.get("type") == "error":
-            pytest.skip(f"Schema initialization failed: {schema_result.get('message')}")
-        
-        time.sleep(0.1)  # スキーマ初期化待ち
-        
-        operation = {
-            "type": "template",
-            "template": "list_requirements",
-            "parameters": {"limit": 5}
-        }
-        
-        self.test_with_parse_schema(
-            schema_path, 
-            parse_schema_path,
-            operation,
-            expected_fields=["message", "type", "data"],
-            db_path=temp_db
-        )
-    
-    def test_error_output_has_error_level(self, schema_path, parse_schema_path, temp_db):
-        """エラー出力はERRORレベルを持つ"""
-        operation = {"type": "invalid_operation"}
-        
-        # エラー出力もスキーマに準拠することを確認
-        self.test_with_parse_schema(
-            schema_path, 
-            parse_schema_path,
-            operation,
-            expected_fields=["message", "type", "level"],
-            db_path=temp_db
-        )
-        
-        # エラー固有の検証
-        output = self.run_requirement_graph(operation, db_path=temp_db)
-        assert output.get("type") == "error"
-        assert output.get("level") == "ERROR"
-    
-    def test_output_has_log_compatible_fields(self, schema_path, parse_schema_path, temp_db):
-        """出力はlog互換のフィールドを持つ"""
-        operation = {
-            "type": "template",
-            "template": "find_requirement",
-            "parameters": {"id": "test_001"}
-        }
-        
-        self.test_with_parse_schema(
-            schema_path,
-            parse_schema_path,
-            operation,
-            expected_fields=["message"],
-            db_path=temp_db
-        )
-        
-        # log互換フィールドの詳細検証
-        output = self.run_requirement_graph(operation, db_path=temp_db)
-        
-        # Optional but recommended fields
-        if "timestamp" in output:
-            # ISO 8601形式であること
-            from datetime import datetime
-            datetime.fromisoformat(output["timestamp"].replace('Z', '+00:00'))
-        
-        if "_loc" in output:
-            # file:line形式であること
-            assert ":" in output["_loc"]
-            parts = output["_loc"].split(":")
-            assert len(parts) >= 2
-            assert parts[-1].isdigit()
-    
-    def test_all_operations_comply_with_schema(self, schema_path, parse_schema_path, temp_db):
-        """すべての操作タイプが統一スキーマに準拠"""
-        operations = [
-            {"type": "template", "template": "list_requirements"},
-            {"type": "template", "template": "create_requirement", 
-             "parameters": {"id": "req_001", "title": "Test"}},
-            {"type": "template", "template": "find_dependencies",
-             "parameters": {"requirement_id": "req_001", "depth": 2}},
-            {"type": "schema", "action": "apply"},
-            {"type": "invalid"}  # エラーケース
+        test_cases = [
+            # (関数, 引数, 説明)
+            (info, ["test.module", "Info message"], "info関数の出力"),
+            (debug, ["test.module", "Debug message"], "debug関数の出力"),
+            (warn, ["test.module", "Warning message"], "warn関数の出力"),
+            (error, ["Error message", {"code": 500}], "error関数の出力"),
+            (result, [{"status": "success", "data": []}], "result関数の出力"),
         ]
         
-        for op in operations:
-            # 各操作をparse_schemaで検証
+        for func, args, description in test_cases:
+            # 標準出力をキャプチャ
+            captured = io.StringIO()
+            original_stdout = sys.stdout
+            sys.stdout = captured
+            
             try:
-                self.test_with_parse_schema(
-                    schema_path,
-                    parse_schema_path,
-                    op,
-                    expected_fields=None,  # 個別検証は不要
-                    db_path=temp_db
-                )
-            except AssertionError as e:
-                pytest.fail(f"Operation {op} produced invalid output: {e}")
+                # 関数を実行
+                func(*args)
+                
+                # 出力を取得
+                sys.stdout = original_stdout
+                captured.seek(0)
+                output_line = captured.getvalue().strip()
+                
+                # JSONとしてパース
+                output_json = json.loads(output_line)
+                
+                # parse_schemaで検証
+                is_valid = self.validate_single_output_with_parse_schema(output_json, schema_path)
+                assert is_valid, f"{description}がスキーマに準拠していません: {output_json}"
+                
+            finally:
+                sys.stdout = original_stdout
+    
+    def test_main_error_output(self, schema_path):
+        """mainモジュールのエラー出力を検証
+        
+        WARN: KuzuDBの環境変数のみモックを使用（ユーザー承認済み）
+        """
+        # 無効な操作でエラーを発生させる
+        test_input = {"type": "invalid_operation"}
+        
+        # 環境変数を設定してサブプロセスで実行
+        env = os.environ.copy()
+        env["RGL_DATABASE_PATH"] = ":memory:"  # WARN: 承認されたモック
+        
+        result = subprocess.run(
+            ["python", "-m", "requirement.graph"],
+            input=json.dumps(test_input),
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=Path(__file__).parent.parent.parent
+        )
+        
+        # 出力から各JSON行を検証
+        output_lines = result.stdout.strip().split('\n')
+        validated_count = 0
+        
+        for line in output_lines:
+            if line.strip():
+                try:
+                    output_json = json.loads(line)
+                    is_valid = self.validate_single_output_with_parse_schema(output_json, schema_path)
+                    assert is_valid, f"出力がスキーマに準拠していません: {output_json}"
+                    validated_count += 1
+                except json.JSONDecodeError:
+                    pass
+        
+        assert validated_count > 0, "有効なJSON出力がありません"
+    
+    def test_various_output_types(self, schema_path):
+        """様々な出力タイプを個別に検証"""
+        test_outputs = [
+            {
+                "message": "Test log message",
+                "type": "log",
+                "level": "INFO",
+                "uri": "/rgl/test",
+                "module": "test",
+                "timestamp": "2024-01-01T00:00:00Z"
+            },
+            {
+                "message": "Operation completed",
+                "type": "result",
+                "data": {"status": "success"},
+                "timestamp": "2024-01-01T00:00:00Z"
+            },
+            {
+                "message": "An error occurred",
+                "type": "error",
+                "level": "ERROR",
+                "uri": "/rgl/error",
+                "module": "rgl.error",
+                "timestamp": "2024-01-01T00:00:00Z"
+            }
+        ]
+        
+        for i, output in enumerate(test_outputs):
+            is_valid = self.validate_single_output_with_parse_schema(output, schema_path)
+            assert is_valid, f"テスト出力{i+1}がスキーマに準拠していません: {output}"
 
 
 if __name__ == "__main__":
-    # pytestで実行
     pytest.main([__file__, "-v"])

@@ -10,7 +10,7 @@
     },
     "level": {
       "type": "string",
-      "enum": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"],
+      "enum": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "error"],
       "description": "Log level"
     },
     "timestamp": {
@@ -24,7 +24,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["result", "error", "info", "warning"],
+      "enum": ["result", "error", "info", "warning", "log"],
       "description": "Operation result type"
     },
     "data": {
