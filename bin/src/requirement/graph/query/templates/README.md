@@ -162,3 +162,26 @@ RETURN collect({
 - 大量バッチの場合はチャンク分割を検討
 
 この設計により、システム全体の一貫性と拡張性を確保します。
+
+## ユーザーの思考 → クエリユースケース
+
+### 「ログイン機能が必要だ」
+→ `check_duplicates_local` で類似要件を確認
+→ `create_requirements` で新規作成
+
+### 「これ、似た要件あったかも」
+→ `check_duplicates_local` でスコープ内を高速検索
+→ `find_requirements_by_uri` で詳細確認
+
+### 「この機能は認証が前提だ」
+→ `add_dependencies` で依存関係を定義
+
+### 「ログイン機能に2FA追加したい」（将来実装）
+→ `create_requirement_versions` で新バージョン作成
+
+## 実装状況
+
+- ✅ バッチ設計（全クエリ共通）
+- 🚧 LocationURI階層管理
+- 📋 スコープベース重複検出
+- ❌ 要件バージョニング
