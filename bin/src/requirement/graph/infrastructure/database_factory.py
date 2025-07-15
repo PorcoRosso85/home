@@ -89,6 +89,12 @@ def create_database(path: Optional[str] = None, in_memory: bool = False, use_cac
             db_path.parent.mkdir(parents=True, exist_ok=True)
 
             info("rgl.db_factory", "Creating persistent database", path=str(db_path))
+            
+            # ディレクトリが渡された場合、その中にdb.kuzuファイルを作成
+            if db_path.is_dir():
+                db_path = db_path / "db.kuzu"
+                debug("rgl.db_factory", "Directory provided, using db.kuzu file", path=str(db_path))
+            
             # max_db_sizeを1GBに制限して8TBメモリ割り当てエラーを回避
             db = kuzu.Database(str(db_path), max_db_size=1 << 30)  # 1GB
 
