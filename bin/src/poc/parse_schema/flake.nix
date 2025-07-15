@@ -32,7 +32,7 @@
             echo "Running: $command"
             
             # ツールを実行してajvで検証
-            $command | ${pkgs.nodePackages.ajv-cli}/bin/ajv validate -s "$schema" -d -
+            $command | ${pkgs.nodejs}/bin/npx ajv-cli validate -s "$schema" -d -
             
             if [ $? -eq 0 ]; then
               echo "✅ Producer output is valid"
@@ -59,7 +59,7 @@
             echo "Validating test data against schema: $schema"
             
             # テストデータを検証
-            ${pkgs.nodePackages.ajv-cli}/bin/ajv validate -s "$schema" -d "$testdata"
+            ${pkgs.nodejs}/bin/npx ajv-cli validate -s "$schema" -d "$testdata"
             
             if [ $? -eq 0 ]; then
               echo "✅ Test data is valid for consumer"
@@ -97,11 +97,11 @@
             echo "Step 1: Testing producer output..."
             $producer > "$tmpfile"
             
-            if ${pkgs.nodePackages.ajv-cli}/bin/ajv validate -s "$schema" -d "$tmpfile" > /dev/null 2>&1; then
+            if ${pkgs.nodejs}/bin/npx ajv-cli validate -s "$schema" -d "$tmpfile" > /dev/null 2>&1; then
               echo "✅ Producer output is valid"
             else
               echo "❌ Producer output violates contract:"
-              ${pkgs.nodePackages.ajv-cli}/bin/ajv validate -s "$schema" -d "$tmpfile"
+              ${pkgs.nodejs}/bin/npx ajv-cli validate -s "$schema" -d "$tmpfile"
               rm "$tmpfile"
               exit 1
             fi
@@ -352,7 +352,6 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             nodejs
-            nodePackages.ajv-cli
             jq
             python3
             python3Packages.pytest
@@ -360,6 +359,12 @@
 
           shellHook = ''
             echo "Contract Testing Environment"
+            echo ""
+            # ajv-cliが利用可能か確認し、なければnpxで自動インストール
+            if ! command -v ajv &> /dev/null; then
+              echo "Installing ajv-cli..."
+              npm install -g ajv-cli@latest
+            fi
             echo "Available commands:"
             echo "  - test-producer: Validate tool output against schema"
             echo "  - test-consumer: Validate test data for consumer"
@@ -378,6 +383,6 @@
             echo "      The test-schema.json is for demonstration purposes only."
           '';
         };
-      }
-    );
+      };
+    });
 }
