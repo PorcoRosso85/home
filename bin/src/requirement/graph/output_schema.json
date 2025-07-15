@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RequirementGraphOutput",
+  "type": "object",
+  "required": ["message"],
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "The log message"
+    },
+    "level": {
+      "type": "string",
+      "enum": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"],
+      "description": "Log level"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp"
+    },
+    "_loc": {
+      "type": "string",
+      "description": "Caller location (file:line)",
+      "pattern": "^.+:[0-9]+$"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["result", "error", "info", "warning"],
+      "description": "Operation result type"
+    },
+    "data": {
+      "type": ["object", "array", "null"],
+      "description": "Operation result data"
+    },
+    "operation": {
+      "type": "object",
+      "properties": {
+        "template": {"type": "string"},
+        "parameters": {"type": "object"}
+      },
+      "description": "Operation context"
+    }
+  },
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {"properties": {"type": {"const": "result"}}},
+      "then": {"required": ["data"]}
+    },
+    {
+      "if": {"properties": {"type": {"const": "error"}}},
+      "then": {"required": ["level"], "properties": {"level": {"const": "ERROR"}}}
+    }
+  ]
+}
