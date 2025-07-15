@@ -1,0 +1,9 @@
+[project]
+name = "cypher"
+version = "0.1.0"
+description = "KuzuDB Cypher Graph Search - Native Graph Query"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "kuzu>=0.10.0",
+]
