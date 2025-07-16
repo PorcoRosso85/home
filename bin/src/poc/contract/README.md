@@ -1,6 +1,6 @@
 # Contract Service POC
 
-異なるスキーマを持つマイクロサービス間の自動通信を実現する仲介サービス。JSON Schemaベースの契約により、データ変換とルーティングを自動化。
+あるサービスは`city`、別のサービスは`location`。同じ意味なのに通信できない... Contract Serviceがこの違いを自動で吸収し、マイクロサービス間の「翻訳者」として機能します。JSON Schemaベースの契約により、データ変換とルーティングを自動化。
 
 ## 問題と解決
 **問題**: POC独立開発による言語バージョン差異、フィールド名不一致（`location`/`city`）、手動互換性管理  
@@ -10,12 +10,21 @@
 
 ### 1. JSON-RPC2 API
 ```json
-// Provider/Consumer統一登録
+// Provider/Consumer統一登録（スキーマファイルパス必須）
 {"method": "contract.register", "params": {
   "type": "provider",
   "uri": "weather/v1",
-  "schema": {"input": {"location": "string"}, "output": {"temperature": "number"}},
+  "inputSchemaPath": "/path/to/input.schema.json",
+  "outputSchemaPath": "/path/to/output.schema.json",
   "endpoint": "http://weather:8080"
+}}
+
+// Consumer登録
+{"method": "contract.register", "params": {
+  "type": "consumer",
+  "uri": "dashboard/v2",
+  "expectsInputSchemaPath": "/path/to/expects-input.schema.json",
+  "expectsOutputSchemaPath": "/path/to/expects-output.schema.json"
 }}
 
 // 自動変換付き通信
@@ -26,12 +35,17 @@
 // → {"temp": 25.5, "city": "Tokyo"}  // 自動変換済み
 ```
 
-### 2. 自動スキーマ変換
+### 2. スキーマファイル要件
+- **必須**: 全てのサービスはJSON Schemaファイルパスで契約を定義
+- **検証**: ファイル存在確認、JSON妥当性、JSON Schema形式検証
+- **相対パス対応**: `./schema.json`は実行ディレクトリ基準で解決
+
+### 3. 自動スキーマ変換
 - 登録時に互換性判定・`CAN_CALL`関係作成
 - 基本マッピング自動生成: `city`↔`location`, `temp`↔`temperature`
 - 双方向変換（forward/reverse）対応
 
-### 3. セキュア実行環境
+### 4. セキュア実行環境
 - 変換スクリプトはWorker分離（権限なし）
 - カスタム変換も安全に実行:
 ```javascript
@@ -56,7 +70,7 @@ function transform(input) {
 
 ## コア機能（続き）
 
-### 4. バッチリクエスト
+### 5. バッチリクエスト
 ```json
 // 複数操作を一度に実行
 [
@@ -66,7 +80,7 @@ function transform(input) {
 ]
 ```
 
-### 5. 変換テスト（ドライラン）
+### 6. 変換テスト（ドライラン）
 ```json
 // 実際のProviderを呼ばずに変換を検証
 {"method": "contract.test", "params": {
