@@ -35,6 +35,8 @@
             uv
             ruff
             black
+            stdenv.cc.cc.lib
+            zlib
           ];
           
           shellHook = ''
@@ -47,6 +49,9 @@
             echo "  nix run .#format    - Format code"
             echo "  nix run .#validate  - Validate JSON schemas"
             echo ""
+            
+            # Set LD_LIBRARY_PATH for NumPy C++ extensions
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH"
           '';
         };
         
@@ -67,6 +72,7 @@
             program = "${pkgs.writeShellScript "test" ''
               cd ${./.}
               export PYTHONPATH="${./.}:$PYTHONPATH"
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH"
               echo "Running VSS tests with JSON Schema validation..."
               exec ${pythonEnv}/bin/pytest -v "$@"
             ''}";
