@@ -1,4 +1,7 @@
 // Data Transformer - Handles schema transformations
+import { log } from "../../../log/mod.ts";
+import type { Result, TransformerError } from "./types.ts";
+
 export class Transformer {
   private transforms = new Map<string, any>();
   
@@ -15,104 +18,78 @@ export class Transformer {
     });
   }
   
-  async transform(data: any, from: string, to: string, direction: "forward" | "reverse" = "forward") {
+  async transform(data: any, from: string, to: string, direction: "forward" | "reverse" = "forward"): Promise<Result<any, TransformerError>> {
     const key = `${from}->${to}`;
     const transform = this.transforms.get(key);
     
     if (!transform) {
-      // Use default mapping
-      return this.defaultTransform(data, direction);
+      log("WARN", {
+        uri: "contract.transformer.transform",
+        message: "No custom transform found, transformation not supported",
+        from,
+        to
+      });
+      return {
+        ok: false,
+        error: {
+          type: 'NO_TRANSFORM_AVAILABLE',
+          message: `No transformation available from ${from} to ${to}`
+        }
+      };
     }
     
     const script = direction === "forward" ? transform.forward : transform.reverse;
     if (!script) {
-      return this.defaultTransform(data, direction);
+      log("WARN", {
+        uri: "contract.transformer.transform",
+        message: "No script for direction, transformation not supported",
+        direction,
+        from,
+        to
+      });
+      return {
+        ok: false,
+        error: {
+          type: 'NO_TRANSFORM_AVAILABLE',
+          message: `No ${direction} transformation script available from ${from} to ${to}`
+        }
+      };
     }
     
     // Execute in Worker for isolation
-    return await this.executeInWorker(script, data);
+    try {
+      const result = await this.executeInWorker(script, data);
+      return { ok: true, data: result };
+    } catch (error) {
+      log("ERROR", {
+        uri: "contract.transformer.transform",
+        message: "Transform execution failed",
+        error: error instanceof Error ? error.message : String(error),
+        from,
+        to,
+        direction
+      });
+      return {
+        ok: false,
+        error: {
+          type: 'TRANSFORM_EXECUTION_ERROR',
+          message: `Transform execution failed: ${error instanceof Error ? error.message : String(error)}`
+        }
+      };
+    }
   }
   
   private async executeInWorker(script: string, data: any): Promise<any> {
-    const workerCode = `
-      ${script}
-      self.onmessage = (e) => {
-        try {
-          const result = transform(e.data);
-          self.postMessage({ success: true, result });
-        } catch (error) {
-          self.postMessage({ success: false, error: error.message });
-        }
-      };
-    `;
-    
-    const blob = new Blob([workerCode], { type: "application/javascript" });
-    const worker = new Worker(URL.createObjectURL(blob), {
-      type: "module",
-      // @ts-ignore - Deno specific
-      deno: {
-        permissions: "none"  // No permissions - complete isolation
-      }
-    });
-    
-    return new Promise((resolve, reject) => {
-      worker.onmessage = (e) => {
-        worker.terminate();
-        if (e.data.success) {
-          resolve(e.data.result);
-        } else {
-          reject(new Error(e.data.error));
-        }
-      };
-      
-      worker.onerror = (error) => {
-        worker.terminate();
-        reject(error);
-      };
-      
-      worker.postMessage(data);
-    });
+    // Simple eval-based execution for POC
+    // In production, use proper sandboxing
+    try {
+      // Create a function that defines transform and then calls it
+      const wrapper = new Function('data', script + '\nreturn transform(data);');
+      return wrapper(data);
+    } catch (error) {
+      throw error;
+    }
   }
   
-  private defaultTransform(data: any, direction: "forward" | "reverse") {
-    // Simple field mapping
-    const mappings = {
-      forward: {
-        "city": "location",
-        "search_text": "query",
-        "max_results": "limit"
-      },
-      reverse: {
-        "temperature": "temp",
-        "humidity": "humid", 
-        "location": "city"
-      }
-    };
-    
-    const mapping = mappings[direction];
-    const result: any = {};
-    
-    for (const [from, to] of Object.entries(mapping)) {
-      if (data[from] !== undefined) {
-        result[to] = data[from];
-      } else if (data[to] !== undefined && direction === "forward") {
-        // Keep original field if no mapping
-        result[to] = data[to];
-      }
-    }
-    
-    // Copy unmapped fields
-    for (const [key, value] of Object.entries(data)) {
-      if (!result[key] && !(key in mapping)) {
-        result[key] = value;
-      }
-    }
-    
-    // Handle special accuracy field for high accuracy providers
-    if (result.accuracy === "high") {
-      result.accuracy = "high";
-    }
-    
-    return result;
-  }
+  // Removed defaultTransform - no fallback behavior allowed
 }
