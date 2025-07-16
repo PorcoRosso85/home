@@ -21,6 +21,7 @@
           buildInputs = with pkgs; [
             pythonEnv
             nodejs_20
+            deno
             go
             bash
             jq
@@ -52,9 +53,10 @@
             '';
             
             checkPhase = ''
-              # Run tests in the source directory
+              # Run behavior tests
               export PYTHONPATH="$src:$PYTHONPATH"
-              pytest $src/test_log.py -v
+              export PATH="${pkgs.deno}/bin:$PATH"
+              pytest $src/test_behavior.py -v
             '';
           };
           
@@ -63,24 +65,17 @@
         
         # アプリケーション
         apps = {
-          # テスト実行
+          # 全言語振る舞いテスト（pytestのみ）
           test = {
             type = "app";
             program = "${pkgs.writeShellScriptBin "test-log" ''
               set -e
-              echo "=== Running log module tests ==="
+              echo "=== Running log API specification tests ==="
               cd /home/nixos/bin/src/log
-              PYTHONPATH=. ${pythonEnv}/bin/pytest test_log.py -v
+              # DenoをPATHに追加
+              export PATH="${pkgs.deno}/bin:$PATH"
+              ${pythonEnv}/bin/pytest test_behavior.py -v
             ''}/bin/test-log";
-          };
-          
-          # 出力例の実行
-          example = {
-            type = "app";
-            program = "${pkgs.writeShellScriptBin "log-example" ''
-              cd ${./.}
-              ${pythonEnv}/bin/python test_output.py
-            ''}/bin/log-example";
           };
           
           default = self.apps.${system}.test;

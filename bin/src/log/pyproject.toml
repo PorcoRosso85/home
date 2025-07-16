@@ -4,5 +4,5 @@ version = "0.1.0"
 description = "Universal log API specification"
 
 [tool.pytest.ini_options]
-testpaths = ["test_log.py"]
+testpaths = ["test_behavior.py"]
 python_files = ["test_*.py"]
