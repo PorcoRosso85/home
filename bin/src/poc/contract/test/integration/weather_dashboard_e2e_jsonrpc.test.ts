@@ -1,0 +1,241 @@
+/**
+ * E2E Integration Test: Contract Service JSON-RPC2版
+ * 
+ * テスト対象機能:
+ * 1. 契約登録（Provider/Consumer）
+ * 2. 自動マッチング（スキーマ互換性判定）
+ * 3. データ変換（フィールドマッピング）
+ * 4. ルーティング（適切なProviderへの転送）
+ * 6. エラーハンドリング（不正な契約、通信エラー）
+ */
+
+import { assert, assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { delay } from "https://deno.land/std@0.208.0/async/delay.ts";
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { handler } from "../../src/main.ts";
+
+const CONTRACT_SERVICE_URL = "http://localhost:8000/rpc";
+
+// JSON-RPC2 helper
+async function rpcCall(method: string, params: any, id = 1) {
+  const response = await fetch(CONTRACT_SERVICE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id
+    })
+  });
+  
+  const result = await response.json();
+  if (result.error) {
+    throw new Error(`RPC Error ${result.error.code}: ${result.error.message}`);
+  }
+  return result.result;
+}
+
+Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (t) => {
+  // Start Contract Service within test
+  const controller = new AbortController();
+  const contractService = serve(handler, { 
+    port: 8000,
+    signal: controller.signal,
+    onListen: () => console.log("Test server started on port 8000")
+  });
+  await delay(100); // Wait for server startup
+  
+  try {
+  // 準備: Contract Serviceが起動していることを確認
+  await t.step("Contract Service健全性チェック", async () => {
+    const health = await fetch("http://localhost:8000/health");
+    assertEquals(health.status, 200);
+    await health.text(); // Consume response body
+  });
+
+  // Step 1: Weather Service（Provider）の契約登録
+  await t.step("Weather Serviceを登録", async () => {
+    const result = await rpcCall("contract.register", {
+      type: "provider",
+      uri: "services/weather/v1",
+      schema: {
+        input: { location: "string" },
+        output: { temperature: "number", humidity: "number", location: "string" }
+      },
+      endpoint: "http://localhost:9001/weather"
+    });
+
+    assertEquals(result.status, "registered");
+    assertEquals(result.provider, "services/weather/v1");
+    assert(Array.isArray(result.matches), "Should return matches array");
+  });
+
+  // Step 2: Dashboard（Consumer）の契約登録
+  await t.step("Dashboard Consumerを登録", async () => {
+    const result = await rpcCall("contract.register", {
+      type: "consumer",
+      uri: "ui/dashboard/v2",
+      expects: {
+        output: { city: "string" },
+        input: { temp: "number", humid: "number", city: "string" }
+      }
+    }, 2);
+
+    assertEquals(result.status, "registered");
+    assertEquals(result.consumer, "ui/dashboard/v2");
+    assert(Array.isArray(result.providers), "Should return providers array");
+    assertEquals(result.providers.length, 1);
+    assertEquals(result.providers[0].uri, "services/weather/v1");
+  });
+
+  // Step 3: 変換ルールの確認
+  await t.step("変換ルールが正しく設定されていることを確認", async () => {
+    const result = await rpcCall("contract.inspect", {
+      consumer: "ui/dashboard/v2",
+      provider: "services/weather/v1"
+    }, 3);
+
+    assertEquals(result.compatible, true);
+    assert(result.transform !== null);
+    assertEquals(result.confidence, 0.9);
+    assertEquals(result.issues.length, 0);
+  });
+
+  // Step 4: 変換テスト（ドライラン）
+  await t.step("変換のドライランテスト", async () => {
+    const result = await rpcCall("contract.test", {
+      from: "ui/dashboard/v2",
+      to: "services/weather/v1",
+      testData: { city: "Tokyo" },
+      dryRun: true
+    }, 4);
+
+    assert(Array.isArray(result.steps));
+    assertEquals(result.steps[0].step, "input");
+    assertEquals(result.steps[0].data, { city: "Tokyo" });
+    assertEquals(result.steps[1].step, "transformed");
+    assertEquals(result.steps[1].data, { location: "Tokyo" });
+    assertEquals(result.steps[3].step, "output");
+    assertEquals(result.steps[3].data.city, "Tokyo");
+  });
+
+  // Step 5: エラーハンドリングテスト
+  await t.step("不正な契約登録のエラーハンドリング", async () => {
+    try {
+      await rpcCall("contract.register", {
+        type: "provider",
+        uri: "invalid/service",
+        schema: "not-a-valid-schema" // 不正なスキーマ
+      }, 5);
+      assert(false, "Should throw error");
+    } catch (error) {
+      assert(error instanceof Error);
+      assert(error.message.includes("-32003")); // Invalid schema error code
+    }
+  });
+
+  // Step 6: 実際の通信テスト
+  const weatherService = await startMockWeatherService();
+  
+  try {
+    await t.step("Dashboard → Contract Service → Weather Service の通信", async () => {
+      const result = await rpcCall("contract.call", {
+        from: "ui/dashboard/v2",
+        data: { city: "Tokyo" }
+      }, 6);
+
+      // Check response structure
+      assert(result.data);
+      assert(result.meta);
+      
+      // Check transformed data
+      assertEquals(result.data.temp, 25.5);
+      assertEquals(result.data.humid, 60);
+      assertEquals(result.data.city, "Tokyo");
+      
+      // Check metadata
+      assertEquals(result.meta.transformApplied, true);
+      assert(typeof result.meta.latency === "number");
+    });
+
+  } finally {
+    // クリーンアップ
+    await weatherService.shutdown();
+  }
+
+  // Step 7: Provider不在エラー
+  await t.step("Provider通信エラー時のエラーハンドリング", async () => {
+    try {
+      await rpcCall("contract.call", {
+        from: "ui/dashboard/v2",
+        data: { city: "Tokyo" }
+      }, 7);
+      assert(false, "Should throw error");
+    } catch (error) {
+      assert(error instanceof Error);
+      assert(error.message.includes("-32001")); // No provider error code
+    }
+  });
+
+  // Step 8: バッチリクエストテスト
+  await t.step("バッチリクエストの処理", async () => {
+    const response = await fetch(CONTRACT_SERVICE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([
+        {
+          jsonrpc: "2.0",
+          method: "contract.inspect",
+          params: { consumer: "ui/dashboard/v2", provider: "services/weather/v1" },
+          id: 1
+        },
+        {
+          jsonrpc: "2.0",
+          method: "contract.test",
+          params: {
+            from: "ui/dashboard/v2",
+            to: "services/weather/v1",
+            testData: { city: "Osaka" },
+            dryRun: true
+          },
+          id: 2
+        }
+      ])
+    });
+
+    const results = await response.json();
+    assertEquals(results.length, 2);
+    assertEquals(results[0].id, 1);
+    assertEquals(results[1].id, 2);
+    assertEquals(results[0].result.compatible, true);
+    assertEquals(results[1].result.steps[0].data.city, "Osaka");
+  });
+  
+  } finally {
+    // Cleanup Contract Service
+    controller.abort();
+    await contractService;
+  }
+});
+
+// Mock Weather Service Helper
+async function startMockWeatherService() {
+  const server = Deno.serve({ port: 9001 }, (req) => {
+    const url = new URL(req.url);
+    
+    if (url.pathname === "/weather" && req.method === "POST") {
+      return Response.json({
+        temperature: 25.5,
+        humidity: 60,
+        location: "Tokyo"
+      });
+    }
+    
+    return new Response("Not Found", { status: 404 });
+  });
+
+  await delay(100);
+  
+  return server;
+}

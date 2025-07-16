@@ -7,15 +7,19 @@ export class Matcher {
   async findContracts(consumerUri: string) {
     const result = await this.db.query(`
       MATCH (c:Consumer {uri: $uri})-[r:CAN_CALL]->(p:Provider)
-      RETURN p.uri as provider, r.transform as transform
+      RETURN p.uri as provider, r.transform as transform, p.endpoint as endpoint
     `, { uri: consumerUri });
     
     const canCall = result.map((row: any) => ({
       provider: row.provider,
-      transform: JSON.parse(row.transform || "{}")
+      transform: row.transform,
+      endpoint: row.endpoint
     }));
     
-    return { canCall };
+    return { 
+      consumer: consumerUri,
+      canCall 
+    };
   }
   
   async findBestProvider(consumerUri: string, preferences?: any) {
@@ -45,5 +49,34 @@ export class Matcher {
     }
     
     return result[0];
+  }
+  
+  async findConsumersFor(providerUri: string) {
+    // Find all consumers that can use this provider
+    const result = await this.db.query(`
+      MATCH (p:Provider {uri: $uri})<-[:CAN_CALL]-(c:Consumer)
+      RETURN c.uri as consumer
+    `, {
+      uri: providerUri
+    });
+    
+    return result.map(r => ({
+      consumer: r.consumer
+    }));
+  }
+  
+  async findProvidersFor(consumerUri: string) {
+    // Find all providers this consumer can call
+    const result = await this.db.query(`
+      MATCH (c:Consumer {uri: $uri})-[:CAN_CALL]->(p:Provider)
+      RETURN p.uri as provider, p.endpoint as endpoint
+    `, {
+      uri: consumerUri
+    });
+    
+    return result.map(r => ({
+      provider: r.provider,
+      endpoint: r.endpoint
+    }));
   }
 }

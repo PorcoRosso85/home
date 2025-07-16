@@ -74,6 +74,24 @@ class MockDatabase implements Database {
       return results;
     }
     
+    if (cypher.includes("MATCH (p:Provider {uri: $uri})<-[:CAN_CALL]-(c:Consumer)")) {
+      // Find consumers that can call this provider
+      const results = [];
+      for (const [key, rels] of this.relationships.entries()) {
+        if (key.startsWith("consumer:")) {
+          const consumer = this.nodes.get(key);
+          const canCallProvider = rels.some(rel => 
+            rel.type === "CAN_CALL" && 
+            this.nodes.get(rel.to)?.uri === params.uri
+          );
+          if (canCallProvider && consumer) {
+            results.push({ consumer: consumer.uri });
+          }
+        }
+      }
+      return results;
+    }
+    
     if (cypher.includes("WHERE p.metadata CONTAINS")) {
       // Find high accuracy providers
       const consumer = `consumer:${params.uri}`;
