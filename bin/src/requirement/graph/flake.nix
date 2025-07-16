@@ -22,6 +22,7 @@
         # 共通の実行ラッパー
         mkRunner = name: script: pkgs.writeShellScript name ''
           cd ${projectDir}
+          export PYTHONPATH=/home/nixos/bin/src:$PYTHONPATH
           ${patchKuzu}
           ${script}
         '';
@@ -42,6 +43,10 @@
               uv venv
             fi
             source .venv/bin/activate
+            
+            # PYTHONPATHにbin/srcを追加
+            export PYTHONPATH=/home/nixos/bin/src:$PYTHONPATH
+            echo "PYTHONPATH set to include /home/nixos/bin/src"
             
             # KuzuDBとその他の依存関係をインストール
             if [ ! -f ".venv/.deps_installed" ]; then

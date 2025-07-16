@@ -10,9 +10,17 @@ import math
 from typing import List, Dict, Any, Optional
 
 # Semantic searchモジュールへのパスを追加
-semantic_search_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../poc/search"))
-if semantic_search_path not in sys.path:
-    sys.path.insert(0, semantic_search_path)
+# ローカルのsearchディレクトリを優先的に使用
+local_search_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../search"))
+if os.path.exists(local_search_path):
+    if local_search_path not in sys.path:
+        sys.path.insert(0, local_search_path)
+    semantic_search_path = local_search_path
+else:
+    # フォールバック
+    semantic_search_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../poc/search"))
+    if semantic_search_path not in sys.path:
+        sys.path.insert(0, semantic_search_path)
 
 try:
     from infrastructure.kuzu_search_service import KuzuSearchService
