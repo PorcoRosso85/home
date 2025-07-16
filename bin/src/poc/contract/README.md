@@ -1,196 +1,256 @@
 # Contract Service POC
 
-自動契約締結サービスのPOC実装 - JSON Schemaさえあれば異なるサービス間で自動的に通信可能になる
+異なるスキーマを持つマイクロサービス間の自動通信を実現する仲介サービス。JSON Schemaベースの契約により、データ変換とルーティングを自動化。
 
 ## 問題と解決
+**問題**: POC独立開発による言語バージョン差異、フィールド名不一致（`location`/`city`）、手動互換性管理  
+**解決**: 契約ベース通信、自動マッチング、透過的変換、グラフDB関係管理
 
-### 問題
-- 各POC/機能を独立して並列開発したい
-- あとから統合を考えたくない（各々の責務を全うするだけでいい）
-- 異なるPythonバージョン、異なる言語間での連携が困難
-- `python -m`などの言語依存の実装に合わせたくない
+## コア機能
 
-### 解決
-- **契約（JSON Schema）を持っていれば自動で通信可能**
-- Consumerは「自分の情報を送る」だけ
-- Providerを意識する必要なし
-- 変換は自動化される
+### 1. JSON-RPC2 API
+```json
+// Provider/Consumer統一登録
+{"method": "contract.register", "params": {
+  "type": "provider",
+  "uri": "weather/v1",
+  "schema": {"input": {"location": "string"}, "output": {"temperature": "number"}},
+  "endpoint": "http://weather:8080"
+}}
 
-## コンセプト
-
-```
-Consumer「私はこういうデータ形式で送ります」
-    ↓
-Contract Service「了解。適切なProviderを探して変換します」
-    ↓
-Provider「私はこういうデータ形式で受け取ります」
-    ↓
-Contract Service「変換して届けました。結果も変換して返します」
-    ↓
-Consumer「自分の形式で結果を受け取りました！」
+// 自動変換付き通信
+{"method": "contract.call", "params": {
+  "from": "dashboard/v2",
+  "data": {"city": "Tokyo"}  // 送信側スキーマ
+}}
+// → {"temp": 25.5, "city": "Tokyo"}  // 自動変換済み
 ```
 
-## アーキテクチャ
+### 2. 自動スキーマ変換
+- 登録時に互換性判定・`CAN_CALL`関係作成
+- 基本マッピング自動生成: `city`↔`location`, `temp`↔`temperature`
+- 双方向変換（forward/reverse）対応
 
-### グラフDBによる契約管理
+### 3. セキュア実行環境
+- 変換スクリプトはWorker分離（権限なし）
+- カスタム変換も安全に実行:
+```javascript
+function transform(input) {
+  return {location: input.city.toUpperCase()};
+}
+```
+
+## 技術選定
+- **Deno/TypeScript**: Worker isolation標準対応
+- **JSON-RPC2**: バッチ処理、構造化エラー
+- **KuzuDB**: グラフ構造でサービス関係を自然に表現
+
+## グラフDB構造
 ```cypher
-// Provider登録
-(p:Provider {uri: "poc/search#run"})
-  -[:PROVIDES]->(schema:Schema {
-    input: {query: string, limit: integer},
-    output: {results: array}
-  })
-
-// Consumer登録  
-(c:Consumer {uri: "requirement/graph"})
-  -[:EXPECTS]->(schema:Schema {
-    output: {search_text: string, max_results: integer}
-  })
-
+// サービス登録時
+(app:App {uri: "weather/v1"}) -[:PROVIDES]-> (schema:Schema)
+(app:App {uri: "dashboard/v2"}) -[:EXPECTS]-> (schema:Schema)
 // 自動マッチング
-(c)-[:CAN_CALL]->(p) // 互換性があれば自動接続
+(dashboard) -[:CAN_CALL {transform: {...}}]-> (weather)
 ```
 
-### 主要機能
+## ユーザーフロー例（シーケンス図）
 
-1. **契約登録**
-   - Provider: 「こういう入力でこういう出力を返せます」
-   - Consumer: 「こういう出力を送ります」
-   - 両方JSON Schemaで宣言
-
-2. **自動マッチング**
-   - スキーマの互換性をグラフDBで判定
-   - 型が一致または変換可能なら接続
-
-3. **動的データ変換**
-   ```javascript
-   // 変換スクリプトも登録可能（DB保存）
-   function transform(input) {
-     return {
-       query: input.search_text,
-       limit: input.max_results || 10
-     };
-   }
-   ```
-
-4. **安全な実行**
-   - Deno Workerで隔離実行
-   - 権限なしで変換のみ許可
-
-## 使用例
-
-### Provider側
-```typescript
-// poc/search/contract.yaml
-provider:
-  uri: "poc/search#run"
-  schema:
-    input: 
-      type: object
-      properties:
-        query: { type: string }
-        limit: { type: integer }
-    output:
-      type: object
-      properties:
-        results: { type: array }
+```
+┌─────────────┐     ┌──────────────┐     ┌───────────────┐     ┌──────────────┐
+│  Dashboard  │     │   Contract   │     │     KuzuDB    │     │   Weather    │
+│    (App)    │     │   Service    │     │ (Graph Store) │     │    (App)     │
+└──────┬──────┘     └──────┬───────┘     └───────┬───────┘     └──────┬───────┘
+       │                   │                     │                     │
+       │                   │                     │                     │
+   ┌───┴───────────────────┴─────────────────────┴─────────────────────┴───┐
+   │                      1. アプリケーション登録フェーズ                      │
+   └───────────────────────────────────────────────────────────────────────┘
+       │                   │                     │                     │
+       │                   │<────────────────────┼─────────────────────┤
+       │                   │ POST /rpc           │                     │
+       │                   │ app.register        │                     │
+       │                   │ {uri:"weather/v1",  │                     │
+       │                   │  endpoint:"http..", │                     │
+       │                   │  metadata:{...}}    │                     │
+       │                   │                     │                     │
+       │                   ├────────────────────>│                     │
+       │                   │ CREATE (a:App {     │                     │
+       │                   │   uri:"weather/v1", │                     │
+       │                   │   endpoint:".."})   │                     │
+       │                   │<────────────────────┤                     │
+       │                   │                     │                     │
+       │                   ├─────────────────────┼─────────────────────>
+       │                   │ Response: {status:"registered",           │
+       │                   │           app:"weather/v1"}                │
+       │                   │                     │                     │
+       ├──────────────────>│                     │                     │
+       │ POST /rpc         │                     │                     │
+       │ app.register      │                     │                     │
+       │ {uri:"dash/v2",   │                     │                     │
+       │  endpoint:null,   │                     │                     │
+       │  metadata:{...}}  │                     │                     │
+       │                   │                     │                     │
+       │                   ├────────────────────>│                     │
+       │                   │ CREATE (a:App {     │                     │
+       │                   │   uri:"dash/v2"})   │                     │
+       │                   │<────────────────────┤                     │
+       │                   │                     │                     │
+       │<──────────────────┤                     │                     │
+       │ Response:         │                     │                     │
+       │ {status:"registered",                   │                     │
+       │  app:"dash/v2"}   │                     │                     │
+       │                   │                     │                     │
+       │                   │                     │                     │
+   ┌───┴───────────────────┴─────────────────────┴─────────────────────┴───┐
+   │                    2. ルーティング設定フェーズ                          │
+   └───────────────────────────────────────────────────────────────────────┘
+       │                   │                     │                     │
+       │                   │<────────────────────┼─────────────────────┤
+       │                   │ POST /rpc           │                     │
+       │                   │ route.provide       │                     │
+       │                   │ {app:"weather/v1",  │                     │
+       │                   │  schema:{           │                     │
+       │                   │   input:{location}, │                     │
+       │                   │   output:{temp,..}}}│                     │
+       │                   │                     │                     │
+       │                   ├────────────────────>│                     │
+       │                   │ CREATE (s:Schema)   │                     │
+       │                   │ CREATE (a)-[:PROVIDES]->(s)               │
+       │                   │<────────────────────┤                     │
+       │                   │                     │                     │
+       │                   ├─────────────────────┼─────────────────────>
+       │                   │ Response: {status:"route_created"}        │
+       │                   │                     │                     │
+       ├──────────────────>│                     │                     │
+       │ POST /rpc         │                     │                     │
+       │ route.consume     │                     │                     │
+       │ {app:"dash/v2",   │                     │                     │
+       │  expects:{        │                     │                     │
+       │   output:{city},  │                     │                     │
+       │   input:{temp,..}}│                     │                     │
+       │                   │                     │                     │
+       │                   ├────────────────────>│                     │
+       │                   │ CREATE (s:Schema)   │                     │
+       │                   │ CREATE (a)-[:EXPECTS]->(s)                │
+       │                   │ Auto-match:         │                     │
+       │                   │ CREATE (dash)-[:CAN_CALL {               │
+       │                   │   transform:{...}   │                     │
+       │                   │ }]->(weather)       │                     │
+       │                   │<────────────────────┤                     │
+       │                   │                     │                     │
+       │<──────────────────┤                     │                     │
+       │ Response:         │                     │                     │
+       │ {routes:[         │                     │                     │
+       │   {to:"weather",  │                     │                     │
+       │    transform:{    │                     │                     │
+       │     forward:{city->location},          │                     │
+       │     reverse:{temp<-temperature}        │                     │
+       │   }}]}            │                     │                     │
+       │                   │                     │                     │
+       │                   │                     │                     │
+   ┌───┴───────────────────┴─────────────────────┴─────────────────────┴───┐
+   │                       3. 実行時の通信フロー                            │
+   └───────────────────────────────────────────────────────────────────────┘
+       │                   │                     │                     │
+   [User Action]           │                     │                     │
+       │                   │                     │                     │
+       ├──────────────────>│                     │                     │
+       │ POST /rpc         │                     │                     │
+       │ route.call        │                     │                     │
+       │ {from:"dash/v2",  │                     │                     │
+       │  data:{           │                     │                     │
+       │   city:"Tokyo"}}  │                     │                     │
+       │                   │                     │                     │
+       │                   ├────────────────────>│                     │
+       │                   │ MATCH (from:App)-[:CAN_CALL]->(to:App)   │
+       │                   │ WHERE from.uri=$from│                     │
+       │                   │<────────────────────┤                     │
+       │                   │ weather/v1 + transform + endpoint         │
+       │                   │                     │                     │
+       │               ┌───┴───┐                 │                     │
+       │               │Transform                │                     │
+       │               │Forward │                │                     │
+       │               └───┬───┘                 │                     │
+       │                   │                     │                     │
+       │                   ├─────────────────────┼─────────────────────>
+       │                   │ POST to endpoint    │                     │
+       │                   │ {location:"Tokyo"}  │                     │
+       │                   │<────────────────────┼─────────────────────┤
+       │                   │ Response data       │                     │
+       │                   │                     │                     │
+       │               ┌───┴───┐                 │                     │
+       │               │Transform                │                     │
+       │               │Reverse │                │                     │
+       │               └───┬───┘                 │                     │
+       │                   │                     │                     │
+       │<──────────────────┤                     │                     │
+       │ Transformed data  │                     │                     │
+       │                   │                     │                     │
 ```
 
-### Consumer側
-```typescript
-// requirement/graph/main.ts
-const result = await contract.call({
-  from: "requirement/graph",
-  data: {
-    search_text: "ユーザー認証",
-    max_results: 5
-  }
-});
-// 自動的にpoc/searchが呼ばれ、結果が返る
-```
+### API設計（JSON-RPC2）
 
-### 契約登録API
-```typescript
-// POST /register/provider
+現在の実装では`contract.register`、`contract.call`などのメソッドを使用していますが、
+将来的には以下のようなアプリケーション中心の設計に移行予定です：
+
+#### アプリケーション登録
+```json
+// Request
 {
-  "uri": "poc/weather#forecast",
-  "schema": {
-    "output": {
-      "temperature": "number",
-      "humidity": "number"
+  "jsonrpc": "2.0",
+  "method": "app.register",
+  "params": {
+    "uri": "services/weather/v1",
+    "endpoint": "http://weather:8080/rpc",
+    "metadata": {
+      "version": "1.0.0",
+      "description": "Weather information service"
     }
-  }
+  },
+  "id": 1
+}
+```
+
+#### ルーティング設定
+```json
+// Provider側の設定
+{
+  "jsonrpc": "2.0",
+  "method": "route.provide",
+  "params": {
+    "app": "services/weather/v1",
+    "schema": {
+      "input": {"location": "string"},
+      "output": {"temperature": "number", "humidity": "number"}
+    }
+  },
+  "id": 2
 }
 
-// POST /register/consumer
+// Consumer側の設定
 {
-  "uri": "dashboard/widget",
-  "expects": {
-    "input": {
-      "temp": "number",
-      "humid": "number" 
+  "jsonrpc": "2.0",
+  "method": "route.consume",
+  "params": {
+    "app": "ui/dashboard/v2",
+    "expects": {
+      "output": {"city": "string"},
+      "input": {"temp": "number", "humid": "number"}
     }
-  }
+  },
+  "id": 3
 }
 ```
 
-## 技術スタック
-
-- **Deno**: TypeScript実行環境、セキュリティ（Worker隔離）
-- **KuzuDB**: グラフDB（契約関係の永続化、高速マッチング）
-- **JSON Schema**: 契約定義の標準
-- **JavaScript**: 変換スクリプト（動的実行）
-
-## セキュリティ
-
-- 変換スクリプトはWorkerで完全隔離
-- ネットワーク・ファイルアクセス権限なし
-- CPU/メモリ制限可能
-- 入力検証は自動実施
-
-## ディレクトリ構成
-
-```
-poc/contract/
-├── README.md
-├── flake.nix            # Nix環境定義
-├── deno.json            # Denoタスク定義
-├── src/
-│   ├── main.ts          # HTTPサーバー
-│   ├── registry.ts      # 契約登録・管理
-│   ├── matcher.ts       # 契約マッチング 
-│   ├── transformer.ts   # データ変換実行
-│   ├── router.ts        # ルーティング
-│   └── kuzu_wrapper.ts  # KuzuDB接続
-├── test/
-│   ├── fixtures/        # テスト用契約
-│   └── integration/     # 統合テスト
-└── examples/
-    ├── simple/          # 基本的な例
-    └── transform/       # 変換スクリプト例
-```
-
-## 将来の拡張
-
-- WebSocket対応（リアルタイム通信）
-- 契約バージョニング
-- 変換パフォーマンス最適化（キャッシュ、事前コンパイル）
-- 可視化ダッシュボード（誰と誰が繋がっているか）
-
-## 開発開始
+## 開発・テスト
 
 ```bash
-cd poc/contract
+# 開発環境起動
 nix develop
-deno task dev  # http://localhost:8000
-```
+deno task dev  # http://localhost:8000/rpc
 
-## テスト
-
-```bash
-# 単体テスト
+# テスト実行（JSON-RPC2 E2E）
 deno task test
-
-# 統合テスト（実際のProvider/Consumer）
-deno task test:integration
 ```
+
