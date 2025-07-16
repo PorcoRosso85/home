@@ -54,119 +54,104 @@ function transform(input) {
 (dashboard) -[:CAN_CALL {transform: {...}}]-> (weather)
 ```
 
+## コア機能（続き）
+
+### 4. バッチリクエスト
+```json
+// 複数操作を一度に実行
+[
+  {"jsonrpc": "2.0", "method": "contract.register", "params": {...}, "id": 1},
+  {"jsonrpc": "2.0", "method": "contract.register", "params": {...}, "id": 2},
+  {"jsonrpc": "2.0", "method": "contract.call", "params": {...}, "id": 3}
+]
+```
+
+### 5. 変換テスト（ドライラン）
+```json
+// 実際のProviderを呼ばずに変換を検証
+{"method": "contract.test", "params": {
+  "from": "dashboard/v2",
+  "to": "weather/v1",
+  "testData": {"city": "Tokyo"},
+  "dryRun": true
+}}
+// → 変換ステップを可視化して返却
+{
+  "steps": [
+    {"step": "input", "data": {"city": "Tokyo"}},
+    {"step": "transformed", "data": {"location": "Tokyo"}},
+    {"step": "mockResponse", "data": {"temp": 20, "humidity": 50}},
+    {"step": "output", "data": {"temp": 20, "humid": 50, "city": "Tokyo"}}
+  ]
+}
+```
+
 ## ユーザーフロー例（シーケンス図）
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌───────────────┐     ┌──────────────┐
 │  Dashboard  │     │   Contract   │     │     KuzuDB    │     │   Weather    │
-│    (App)    │     │   Service    │     │ (Graph Store) │     │    (App)     │
+│ (Consumer)  │     │   Service    │     │ (Graph Store) │     │  (Provider)  │
 └──────┬──────┘     └──────┬───────┘     └───────┬───────┘     └──────┬───────┘
        │                   │                     │                     │
        │                   │                     │                     │
    ┌───┴───────────────────┴─────────────────────┴─────────────────────┴───┐
-   │                      1. アプリケーション登録フェーズ                      │
+   │                      1. サービス登録フェーズ                            │
    └───────────────────────────────────────────────────────────────────────┘
        │                   │                     │                     │
        │                   │<────────────────────┼─────────────────────┤
        │                   │ POST /rpc           │                     │
-       │                   │ app.register        │                     │
-       │                   │ {uri:"weather/v1",  │                     │
-       │                   │  endpoint:"http..", │                     │
-       │                   │  metadata:{...}}    │                     │
+       │                   │ contract.register   │                     │
+       │                   │ {type:"provider",   │                     │
+       │                   │  uri:"weather/v1",  │                     │
+       │                   │  schema:{...}}      │                     │
        │                   │                     │                     │
        │                   ├────────────────────>│                     │
-       │                   │ CREATE (a:App {     │                     │
-       │                   │   uri:"weather/v1", │                     │
-       │                   │   endpoint:".."})   │                     │
+       │                   │ CREATE Provider Node│                     │
+       │                   │ + Schema            │                     │
        │                   │<────────────────────┤                     │
        │                   │                     │                     │
        │                   ├─────────────────────┼─────────────────────>
        │                   │ Response: {status:"registered",           │
-       │                   │           app:"weather/v1"}                │
+       │                   │           provider:"weather/v1"}          │
        │                   │                     │                     │
        ├──────────────────>│                     │                     │
        │ POST /rpc         │                     │                     │
-       │ app.register      │                     │                     │
-       │ {uri:"dash/v2",   │                     │                     │
-       │  endpoint:null,   │                     │                     │
-       │  metadata:{...}}  │                     │                     │
+       │ contract.register │                     │                     │
+       │ {type:"consumer", │                     │                     │
+       │  uri:"dash/v2",   │                     │                     │
+       │  expects:{...}}   │                     │                     │
        │                   │                     │                     │
        │                   ├────────────────────>│                     │
-       │                   │ CREATE (a:App {     │                     │
-       │                   │   uri:"dash/v2"})   │                     │
+       │                   │ CREATE Consumer Node│                     │
+       │                   │ + Auto-match        │                     │
        │                   │<────────────────────┤                     │
        │                   │                     │                     │
        │<──────────────────┤                     │                     │
        │ Response:         │                     │                     │
        │ {status:"registered",                   │                     │
-       │  app:"dash/v2"}   │                     │                     │
+       │  consumer:"dash/v2",                     │                     │
+       │  providers:[...]} │                     │                     │
        │                   │                     │                     │
        │                   │                     │                     │
    ┌───┴───────────────────┴─────────────────────┴─────────────────────┴───┐
-   │                    2. ルーティング設定フェーズ                          │
-   └───────────────────────────────────────────────────────────────────────┘
-       │                   │                     │                     │
-       │                   │<────────────────────┼─────────────────────┤
-       │                   │ POST /rpc           │                     │
-       │                   │ route.provide       │                     │
-       │                   │ {app:"weather/v1",  │                     │
-       │                   │  schema:{           │                     │
-       │                   │   input:{location}, │                     │
-       │                   │   output:{temp,..}}}│                     │
-       │                   │                     │                     │
-       │                   ├────────────────────>│                     │
-       │                   │ CREATE (s:Schema)   │                     │
-       │                   │ CREATE (a)-[:PROVIDES]->(s)               │
-       │                   │<────────────────────┤                     │
-       │                   │                     │                     │
-       │                   ├─────────────────────┼─────────────────────>
-       │                   │ Response: {status:"route_created"}        │
-       │                   │                     │                     │
-       ├──────────────────>│                     │                     │
-       │ POST /rpc         │                     │                     │
-       │ route.consume     │                     │                     │
-       │ {app:"dash/v2",   │                     │                     │
-       │  expects:{        │                     │                     │
-       │   output:{city},  │                     │                     │
-       │   input:{temp,..}}│                     │                     │
-       │                   │                     │                     │
-       │                   ├────────────────────>│                     │
-       │                   │ CREATE (s:Schema)   │                     │
-       │                   │ CREATE (a)-[:EXPECTS]->(s)                │
-       │                   │ Auto-match:         │                     │
-       │                   │ CREATE (dash)-[:CAN_CALL {               │
-       │                   │   transform:{...}   │                     │
-       │                   │ }]->(weather)       │                     │
-       │                   │<────────────────────┤                     │
-       │                   │                     │                     │
-       │<──────────────────┤                     │                     │
-       │ Response:         │                     │                     │
-       │ {routes:[         │                     │                     │
-       │   {to:"weather",  │                     │                     │
-       │    transform:{    │                     │                     │
-       │     forward:{city->location},          │                     │
-       │     reverse:{temp<-temperature}        │                     │
-       │   }}]}            │                     │                     │
-       │                   │                     │                     │
-       │                   │                     │                     │
-   ┌───┴───────────────────┴─────────────────────┴─────────────────────┴───┐
-   │                       3. 実行時の通信フロー                            │
+   │                       2. 実行時の通信フロー                            │
    └───────────────────────────────────────────────────────────────────────┘
        │                   │                     │                     │
    [User Action]           │                     │                     │
        │                   │                     │                     │
        ├──────────────────>│                     │                     │
        │ POST /rpc         │                     │                     │
-       │ route.call        │                     │                     │
+       │ contract.call     │                     │                     │
        │ {from:"dash/v2",  │                     │                     │
        │  data:{           │                     │                     │
        │   city:"Tokyo"}}  │                     │                     │
        │                   │                     │                     │
        │                   ├────────────────────>│                     │
-       │                   │ MATCH (from:App)-[:CAN_CALL]->(to:App)   │
-       │                   │ WHERE from.uri=$from│                     │
+       │                   │ Find best provider  │                     │
+       │                   │ + transform rules   │                     │
        │                   │<────────────────────┤                     │
-       │                   │ weather/v1 + transform + endpoint         │
+       │                   │ weather/v1 endpoint │
        │                   │                     │                     │
        │               ┌───┴───┐                 │                     │
        │               │Transform                │                     │
@@ -189,57 +174,20 @@ function transform(input) {
        │                   │                     │                     │
 ```
 
-### API設計（JSON-RPC2）
-
-現在の実装では`contract.register`、`contract.call`などのメソッドを使用していますが、
-将来的には以下のようなアプリケーション中心の設計に移行予定です：
-
-#### アプリケーション登録
+### エラーハンドリング
 ```json
-// Request
+// スキーマ不一致
 {
   "jsonrpc": "2.0",
-  "method": "app.register",
-  "params": {
-    "uri": "services/weather/v1",
-    "endpoint": "http://weather:8080/rpc",
-    "metadata": {
-      "version": "1.0.0",
-      "description": "Weather information service"
+  "error": {
+    "code": -32002,
+    "message": "Schema transformation failed",
+    "data": {
+      "missing": ["altitude"],
+      "incompatible": [{"field": "date", "expected": "ISO8601"}]
     }
   },
   "id": 1
-}
-```
-
-#### ルーティング設定
-```json
-// Provider側の設定
-{
-  "jsonrpc": "2.0",
-  "method": "route.provide",
-  "params": {
-    "app": "services/weather/v1",
-    "schema": {
-      "input": {"location": "string"},
-      "output": {"temperature": "number", "humidity": "number"}
-    }
-  },
-  "id": 2
-}
-
-// Consumer側の設定
-{
-  "jsonrpc": "2.0",
-  "method": "route.consume",
-  "params": {
-    "app": "ui/dashboard/v2",
-    "expects": {
-      "output": {"city": "string"},
-      "input": {"temp": "number", "humid": "number"}
-    }
-  },
-  "id": 3
 }
 ```
 

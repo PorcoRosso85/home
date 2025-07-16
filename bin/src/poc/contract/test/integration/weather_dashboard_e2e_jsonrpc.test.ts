@@ -47,12 +47,6 @@ Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (
   await delay(100); // Wait for server startup
   
   try {
-  // 準備: Contract Serviceが起動していることを確認
-  await t.step("Contract Service健全性チェック", async () => {
-    const health = await fetch("http://localhost:8000/health");
-    assertEquals(health.status, 200);
-    await health.text(); // Consume response body
-  });
 
   // Step 1: Weather Service（Provider）の契約登録
   await t.step("Weather Serviceを登録", async () => {
@@ -89,18 +83,6 @@ Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (
     assertEquals(result.providers[0].uri, "services/weather/v1");
   });
 
-  // Step 3: 変換ルールの確認
-  await t.step("変換ルールが正しく設定されていることを確認", async () => {
-    const result = await rpcCall("contract.inspect", {
-      consumer: "ui/dashboard/v2",
-      provider: "services/weather/v1"
-    }, 3);
-
-    assertEquals(result.compatible, true);
-    assert(result.transform !== null);
-    assertEquals(result.confidence, 0.9);
-    assertEquals(result.issues.length, 0);
-  });
 
   // Step 4: 変換テスト（ドライラン）
   await t.step("変換のドライランテスト", async () => {
@@ -186,8 +168,8 @@ Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (
       body: JSON.stringify([
         {
           jsonrpc: "2.0",
-          method: "contract.inspect",
-          params: { consumer: "ui/dashboard/v2", provider: "services/weather/v1" },
+          method: "contract.register",
+          params: { type: "provider", uri: "services/geocode/v1", schema: { input: {}, output: {} }, endpoint: "http://localhost:9003" },
           id: 1
         },
         {
@@ -208,7 +190,7 @@ Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (
     assertEquals(results.length, 2);
     assertEquals(results[0].id, 1);
     assertEquals(results[1].id, 2);
-    assertEquals(results[0].result.compatible, true);
+    assertEquals(results[0].result.status, "registered");
     assertEquals(results[1].result.steps[0].data.city, "Osaka");
   });
   

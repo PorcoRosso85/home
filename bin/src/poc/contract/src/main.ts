@@ -90,28 +90,6 @@ const methods: Record<string, (params: any) => Promise<any>> = {
     };
   },
   
-  // Inspect transformation rules
-  "contract.inspect": async (params) => {
-    const contracts = await matcher.findContracts(params.consumer);
-    const contract = contracts.canCall.find(c => c.provider === params.provider);
-    
-    if (!contract) {
-      return {
-        compatible: false,
-        transform: null,
-        confidence: 0,
-        issues: ["No matching contract found"]
-      };
-    }
-    
-    return {
-      compatible: true,
-      transform: JSON.parse(contract.transform || "{}"),
-      confidence: 0.9,
-      issues: []
-    };
-  },
-  
   // Test transformation without calling provider
   "contract.test": async (params) => {
     if (!params.dryRun) {
@@ -221,11 +199,6 @@ async function handleRpcRequest(request: any): Promise<any> {
 // Server handler function
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  
-  // Health check
-  if (url.pathname === "/health" && req.method === "GET") {
-    return new Response("OK", { status: 200 });
-  }
   
   // JSON-RPC2 endpoint
   if (url.pathname === "/rpc" && req.method === "POST") {
