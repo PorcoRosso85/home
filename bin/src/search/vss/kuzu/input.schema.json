@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VSS Search Input",
+  "description": "Vector Similarity Search input schema",
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "Search query text",
+      "minLength": 1
+    },
+    "query_vector": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "description": "Pre-computed query vector (optional)"
+    },
+    "limit": {
+      "type": "integer",
+      "description": "Maximum number of results to return",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 10
+    },
+    "model": {
+      "type": "string",
+      "description": "Embedding model to use",
+      "enum": ["ruri-v3-30m"],
+      "default": "ruri-v3-30m"
+    },
+    "threshold": {
+      "type": "number",
+      "description": "Minimum similarity score threshold",
+      "minimum": 0.0,
+      "maximum": 1.0
+    }
+  },
+  "required": ["query"],
+  "additionalProperties": false
+}

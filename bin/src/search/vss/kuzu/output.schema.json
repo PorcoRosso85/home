@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VSS Search Output",
+  "description": "Vector Similarity Search output schema",
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "array",
+      "description": "Array of search results",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Document or requirement ID"
+          },
+          "content": {
+            "type": "string",
+            "description": "Text content of the result"
+          },
+          "score": {
+            "type": "number",
+            "description": "Similarity score (0-1, higher is more similar)",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "distance": {
+            "type": "number",
+            "description": "Vector distance (lower is more similar)",
+            "minimum": 0.0
+          }
+        },
+        "required": ["id", "content", "score"],
+        "additionalProperties": false
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Search metadata",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Embedding model used"
+        },
+        "dimension": {
+          "type": "integer",
+          "description": "Vector dimension"
+        },
+        "total_results": {
+          "type": "integer",
+          "description": "Total number of results found"
+        },
+        "query_time_ms": {
+          "type": "number",
+          "description": "Query execution time in milliseconds"
+        }
+      },
+      "required": ["model", "dimension", "total_results"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["results", "metadata"],
+  "additionalProperties": false
+}
