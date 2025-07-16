@@ -10,12 +10,16 @@ from typing import Dict, Any, List, Optional
 import jsonschema
 import numpy as np
 
+# Use the persistence layer for KuzuDB
+from persistence.kuzu.core.database import create_database, create_connection
+
 
 class VSSService:
     """Vector Similarity Search service with JSON Schema validation"""
     
-    def __init__(self, db_path: str = "./kuzu_db"):
+    def __init__(self, db_path: str = "./kuzu_db", in_memory: bool = False):
         self.db_path = db_path
+        self.in_memory = in_memory
         self.dimension = 256  # Default dimension for ruri-v3-30m
         
         # Load schemas
@@ -29,21 +33,51 @@ class VSSService:
         self.input_validator = jsonschema.Draft7Validator(self.input_schema)
         self.output_validator = jsonschema.Draft7Validator(self.output_schema)
         
-        # Import dependencies lazily to avoid circular imports
-        self._kuzu_db = None
+        # Database and connection
+        self._db = None
+        self._conn = None
         self._embedding_service = None
+        self._vector_index_created = False
     
-    def _get_kuzu_db(self):
-        """Lazy initialization of KuzuDB"""
-        if self._kuzu_db is None:
-            # Import POC implementation
-            import sys
-            poc_path = Path(__file__).parent.parent.parent.parent / "poc" / "search" / "vss"
-            sys.path.insert(0, str(poc_path))
+    def _get_connection(self):
+        """Get or create database connection using persistence layer"""
+        if self._conn is None:
+            # Create database using persistence layer
+            self._db = create_database(
+                path=self.db_path if not self.in_memory else None,
+                in_memory=self.in_memory,
+                use_cache=not self.in_memory  # Don't cache in-memory DBs for tests
+            )
+            self._conn = create_connection(self._db)
             
-            from main import KuzuVectorDB
-            self._kuzu_db = KuzuVectorDB(db_path=self.db_path, dimension=self.dimension)
-        return self._kuzu_db
+            # Initialize schema
+            self._initialize_schema()
+        return self._conn
+    
+    def _initialize_schema(self):
+        """Initialize database schema for vector search"""
+        conn = self._conn
+        
+        # Install and load VECTOR extension
+        try:
+            conn.execute("INSTALL VECTOR;")
+        except:
+            pass  # Extension might already be installed
+        
+        conn.execute("LOAD EXTENSION VECTOR;")
+        
+        # Create Document table if not exists
+        try:
+            conn.execute(f"""
+                CREATE NODE TABLE Document (
+                    id INT64,
+                    content STRING,
+                    embedding FLOAT[{self.dimension}],
+                    PRIMARY KEY (id)
+                )
+            """)
+        except:
+            pass  # Table might already exist
     
     def _get_embedding_service(self):
         """Lazy initialization of embedding service"""
@@ -100,7 +134,7 @@ class VSSService:
         
         # Get services
         embedding_service = self._get_embedding_service()
-        kuzu_db = self._get_kuzu_db()
+        conn = self._get_connection()
         
         # Get query embedding
         if query_vector is None:
@@ -109,8 +143,26 @@ class VSSService:
         else:
             query_embedding = query_vector
         
-        # Perform search
-        results = kuzu_db.search_similar(query_embedding, k=limit)
+        # Ensure vector index exists
+        self._ensure_vector_index()
+        
+        # Perform search using direct KuzuDB query
+        result = conn.execute("""
+            CALL QUERY_VECTOR_INDEX(
+                'Document',
+                'doc_embedding_index',
+                $embedding,
+                $k
+            ) RETURN node, distance
+        """, {"embedding": query_embedding, "k": limit})
+        
+        # Collect results
+        results = []
+        while result.has_next():
+            row = result.get_next()
+            node = row[0]
+            distance = row[1]
+            results.append((node["content"], distance))
         
         # Format results
         formatted_results = []
@@ -149,6 +201,23 @@ class VSSService:
         
         return output
     
+    def _ensure_vector_index(self):
+        """Ensure vector index exists"""
+        if not self._vector_index_created:
+            conn = self._get_connection()
+            try:
+                conn.execute("""
+                    CALL CREATE_VECTOR_INDEX(
+                        'Document',
+                        'doc_embedding_index',
+                        'embedding'
+                    )
+                """)
+                self._vector_index_created = True
+            except:
+                # Index might already exist
+                self._vector_index_created = True
+    
     def index_documents(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Index documents for vector search
@@ -159,11 +228,9 @@ class VSSService:
         Returns:
             Status dictionary
         """
-        from main import Document
-        
         # Get services
         embedding_service = self._get_embedding_service()
-        kuzu_db = self._get_kuzu_db()
+        conn = self._get_connection()
         
         # Extract content
         contents = [doc["content"] for doc in documents]
@@ -171,24 +238,23 @@ class VSSService:
         # Generate embeddings
         doc_results = embedding_service.embed_documents(contents)
         
-        # Create Document objects
-        doc_objects = [
-            Document(
-                id=doc.get("id", i),
-                content=doc["content"],
-                embedding=result.embeddings
-            )
-            for i, (doc, result) in enumerate(zip(documents, doc_results))
-        ]
+        # Insert documents directly
+        for i, (doc, result) in enumerate(zip(documents, doc_results)):
+            doc_id = doc.get("id", i)
+            conn.execute("""
+                CREATE (d:Document {
+                    id: $id,
+                    content: $content,
+                    embedding: $embedding
+                })
+            """, {
+                "id": doc_id,
+                "content": doc["content"],
+                "embedding": result.embeddings
+            })
         
-        # Insert into database
-        kuzu_db.insert_documents(doc_objects)
-        
-        # Create index if not exists
-        try:
-            kuzu_db.create_vector_index()
-        except:
-            pass  # Index might already exist
+        # Ensure index exists
+        self._ensure_vector_index()
         
         return {
             "status": "success",

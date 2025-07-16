@@ -130,11 +130,17 @@ vss_service.py          # Main service with JSON validation
     └── test_vss_json_schema.py  # Tests with JSON I/O
 ```
 
-The service wraps the POC implementation while providing:
+The service provides:
 1. JSON Schema validation for all inputs/outputs
-2. Consistent error handling
-3. Proper typing and documentation
-4. Clean API surface
+2. Integration with persistence/kuzu database layer
+3. Direct KuzuDB queries for vector operations
+4. Consistent error handling and clean API surface
+
+### Key Changes from POC
+- Uses `persistence.kuzu.core.database` for database management
+- Direct SQL queries instead of POC wrapper classes
+- Proper connection lifecycle management
+- Support for both in-memory and persistent databases
 
 ## Dependencies
 
