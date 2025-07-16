@@ -137,7 +137,7 @@ EOF
       test = {
         type = "app";
         program = "${pkgs.writeShellScript "entry-test" ''
-          cd ${./.}
+          # Run tests in current directory, not in nix store
           exec ${pkgs.deno}/bin/deno test --allow-all test/integration/
         ''}";
       };
