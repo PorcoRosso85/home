@@ -10,7 +10,7 @@
 
 ### 1. JSON-RPC2 API
 ```json
-// Provider/Consumer統一登録（スキーマファイルパス必須）
+// App(provider)登録（スキーマファイルパス必須）
 {"method": "contract.register", "params": {
   "type": "provider",
   "uri": "weather/v1",
@@ -19,7 +19,7 @@
   "endpoint": "http://weather:8080"
 }}
 
-// Consumer登録
+// App(consumer)登録
 {"method": "contract.register", "params": {
   "type": "consumer",
   "uri": "dashboard/v2",
@@ -62,10 +62,10 @@ function transform(input) {
 ## グラフDB構造
 ```cypher
 // サービス登録時
-(app:App {uri: "weather/v1"}) -[:PROVIDES]-> (schema:Schema)
-(app:App {uri: "dashboard/v2"}) -[:EXPECTS]-> (schema:Schema)
+(provider:App(provider) {uri: "weather/v1"}) -[:PROVIDES]-> (schema:Schema)
+(consumer:App(consumer) {uri: "dashboard/v2"}) -[:EXPECTS]-> (schema:Schema)
 // 自動マッチング
-(dashboard) -[:CAN_CALL {transform: {...}}]-> (weather)
+(consumer) -[:CAN_CALL {transform: {...}}]-> (provider)
 ```
 
 ## コア機能（続き）
@@ -82,7 +82,7 @@ function transform(input) {
 
 ### 6. 変換テスト（ドライラン）
 ```json
-// 実際のProviderを呼ばずに変換を検証
+// 実際のApp(provider)を呼ばずに変換を検証
 {"method": "contract.test", "params": {
   "from": "dashboard/v2",
   "to": "weather/v1",
@@ -105,7 +105,7 @@ function transform(input) {
 ```
 ┌─────────────┐     ┌──────────────┐     ┌───────────────┐     ┌──────────────┐
 │  Dashboard  │     │   Contract   │     │     KuzuDB    │     │   Weather    │
-│ (Consumer)  │     │   Service    │     │ (Graph Store) │     │  (Provider)  │
+│(App:consumer)│     │   Service    │     │ (Graph Store) │     │(App:provider)│
 └──────┬──────┘     └──────┬───────┘     └───────┬───────┘     └──────┬───────┘
        │                   │                     │                     │
        │                   │                     │                     │
@@ -121,7 +121,7 @@ function transform(input) {
        │                   │  schema:{...}}      │                     │
        │                   │                     │                     │
        │                   ├────────────────────>│                     │
-       │                   │ CREATE Provider Node│                     │
+       │                   │CREATE App(provider) │                     │
        │                   │ + Schema            │                     │
        │                   │<────────────────────┤                     │
        │                   │                     │                     │
@@ -137,7 +137,7 @@ function transform(input) {
        │  expects:{...}}   │                     │                     │
        │                   │                     │                     │
        │                   ├────────────────────>│                     │
-       │                   │ CREATE Consumer Node│                     │
+       │                   │CREATE App(consumer) │                     │
        │                   │ + Auto-match        │                     │
        │                   │<────────────────────┤                     │
        │                   │                     │                     │
@@ -162,7 +162,7 @@ function transform(input) {
        │   city:"Tokyo"}}  │                     │                     │
        │                   │                     │                     │
        │                   ├────────────────────>│                     │
-       │                   │ Find best provider  │                     │
+       │                   │Find best App(provider)│                     │
        │                   │ + transform rules   │                     │
        │                   │<────────────────────┤                     │
        │                   │ weather/v1 endpoint │
