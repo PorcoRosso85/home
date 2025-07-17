@@ -43,6 +43,50 @@ else
 fi
 
 # tmux設定
+# ====================
+# 共通関数定義
+# ====================
+
+# 2分割作成（50%-50%）
+create_2_split() {
+    local target="$1"
+    tmux split-window -h -t "$target" -p 50
+}
+
+# 4分割作成（25%-25%-25%-25%）
+create_4_split() {
+    local target="$1"
+    # 1回目: 50%-50%
+    tmux split-window -h -t "$target" -p 50
+    # 2回目: 左を50%-50%（全体の25%-25%）
+    tmux split-window -h -t "$target.0" -p 50
+    # 3回目: 右を50%-50%（全体の25%-25%）
+    tmux split-window -h -t "$target.2" -p 50
+}
+
+# 欠けているペインを補充して指定数を維持
+maintain_pane_count() {
+    local target="$1"
+    local expected_count="$2"
+    local current_count="$3"
+    
+    if [ "$expected_count" -eq 2 ] && [ "$current_count" -eq 1 ]; then
+        create_2_split "$target"
+    elif [ "$expected_count" -eq 4 ] && [ "$current_count" -lt 4 ]; then
+        case $current_count in
+            1) create_4_split "$target" ;;
+            2) # 2つある場合は、それぞれを分割
+               tmux split-window -h -t "$target.0" -p 50
+               tmux split-window -h -t "$target.2" -p 50 ;;
+            3) # 3つある場合は、最初のペインを分割
+               tmux split-window -h -t "$target.0" -p 50 ;;
+        esac
+    fi
+}
+
+# ====================
+# tmux基本設定
+# ====================
 tmux set -g window-style 'fg=colour245'
 tmux set -g window-active-style 'fg=colour255'
 tmux set -g mode-keys vi
@@ -63,26 +107,41 @@ create_window() {
         tmux new-window -t "$SESSION_NAME" -n "$name"
     fi
     
-    # 水平2分割
-    tmux split-window -h -t "$SESSION_NAME:$idx"
-    
-    # コマンド実行
-    [ -n "$cmd1" ] && tmux send-keys -t "$SESSION_NAME:$idx.0" "$cmd1" Enter
-    [ -n "$cmd2" ] && tmux send-keys -t "$SESSION_NAME:$idx.1" "$cmd2" Enter
+    if [ $idx -eq 0 ]; then
+        # window 0は2分割
+        create_2_split "$SESSION_NAME:$idx"
+        # コマンド実行
+        [ -n "$cmd1" ] && tmux send-keys -t "$SESSION_NAME:$idx.0" "$cmd1" Enter
+        [ -n "$cmd2" ] && tmux send-keys -t "$SESSION_NAME:$idx.1" "$cmd2" Enter
+    else
+        # window 1以降は4分割
+        create_4_split "$SESSION_NAME:$idx"
+    fi
 }
+
+# hook内で使用する関数を環境変数として定義
+export -f create_2_split
+export -f create_4_split
+export -f maintain_pane_count
 
 # 共通hook設定関数
 setup_hooks() {
-    # 2分割維持hook設定
+    # ペイン数維持hook設定
     tmux set-hook -g pane-exited \
-        "run-shell 'panes=\$(tmux list-panes -t #{session_name}:#{window_index} 2>/dev/null | wc -l); \
-        if [ \$panes -eq 1 ]; then \
-            tmux split-window -h -t #{session_name}:#{window_index}; \
+        "run-shell 'source ${BASH_SOURCE[0]}; \
+        panes=\$(tmux list-panes -t #{session_name}:#{window_index} 2>/dev/null | wc -l); \
+        idx=#{window_index}; \
+        target=\"#{session_name}:#{window_index}\"; \
+        if [ \$idx -eq 0 ]; then \
+            maintain_pane_count \"\$target\" 2 \$panes; \
+        else \
+            maintain_pane_count \"\$target\" 4 \$panes; \
         fi'"
     
-    # 新規window作成時の2分割設定
+    # 新規window作成時の4分割設定
     tmux set-hook -t $SESSION_NAME after-new-window \
-        "run-shell 'tmux split-window -h -t #{session_name}:#{window_index}'"
+        "run-shell 'source ${BASH_SOURCE[0]}; \
+        create_4_split \"#{session_name}:#{window_index}\"'"
 }
 
 setup_hooks
@@ -108,12 +167,13 @@ tmux bind-key -T copy-mode-vi C-v send-keys -X rectangle-toggle
 
 # Window数2維持（windowが1つになったら自動で新規window作成）
 tmux set-hook -g window-closed \
-    "run-shell 'windows=\$(tmux list-windows -t #{session_name} 2>/dev/null | wc -l); \
+    "run-shell 'source ${BASH_SOURCE[0]}; \
+    windows=\$(tmux list-windows -t #{session_name} 2>/dev/null | wc -l); \
     if [ \$windows -eq 1 ]; then \
         tmux new-window -t #{session_name} -c #{pane_current_path}; \
         sleep 0.1; \
         new_idx=\$(tmux list-windows -t #{session_name} -F "#{window_index}" | tail -1); \
-        tmux split-window -h -t #{session_name}:\$new_idx; \
+        create_4_split \"#{session_name}:\$new_idx\"; \
     fi'"
 
 # 最初のウィンドウを選択
