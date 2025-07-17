@@ -7,7 +7,10 @@
   };
 
   outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+    {
+      # システム非依存の出力
+      lib.pythonPath = ./kuzu_py;
+    } // flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
@@ -64,8 +67,6 @@
           '';
         };
         
-        # kuzu_pyモジュールへの参照
-        lib.pythonPath = ./kuzu_py;
         
         packages = {
           default = pythonEnv;
