@@ -57,7 +57,11 @@ def test_in_memory_database():
 def test_persistence_module():
     """persistenceモジュールの動作テスト"""
     try:
-        from persistence_kuzu.core.database import create_database, create_connection
+        # kuzu_pyディレクトリからインポート
+        import sys
+        import os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'kuzu_py'))
+        from core.database import create_database, create_connection
         
         # In-memoryデータベース作成（テスト用ユニーク）
         db = create_database(":memory:", test_unique=True)

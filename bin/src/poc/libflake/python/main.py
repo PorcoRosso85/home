@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from persistence_kuzu.core.database import create_database, create_connection
+from core.database import create_database, create_connection
 
 db = create_database(":memory:")
 conn = create_connection(db)

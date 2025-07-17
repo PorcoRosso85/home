@@ -64,16 +64,8 @@
           '';
         };
         
-        # 外部から直接参照するための出力
-        lib = {
-          # PYTHONPATHに追加するディレクトリ
-          pythonPath = ./.;
-          
-          # shellHookで使用可能な環境変数設定
-          shellHook = ''
-            export PYTHONPATH="${./.}:$PYTHONPATH"
-          '';
-        };
+        # kuzu_pyモジュールへの参照
+        lib.pythonPath = ./kuzu_py;
         
         packages = {
           default = pythonEnv;

@@ -17,8 +17,7 @@
         ];
         
         shellHook = ''
-          export PYTHONPATH="${persistence}:$PYTHONPATH"
-          echo "Persistence module loaded from: ${persistence}"
+          export PYTHONPATH="${persistence.lib.pythonPath}:$PYTHONPATH"
         '';
       };
     };
