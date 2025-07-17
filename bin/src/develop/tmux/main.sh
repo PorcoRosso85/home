@@ -85,12 +85,26 @@ create_window() {
 
 # hook設定
 setup_hooks() {
-    # window0のみ2分割維持
+    # ペイン終了時の処理
     tmux set-hook -g pane-exited \
         "run-shell 'idx=#{window_index}; \
         if [ \$idx -eq 0 ]; then \
+            # window0は2分割維持
             panes=\$(tmux list-panes -t #{session_name}:0 2>/dev/null | wc -l); \
             [ \$panes -eq 1 ] && tmux split-window -h -t #{session_name}:0 -p 50; \
+        elif [ \$idx -ne 0 ]; then \
+            # window1以降は4分割維持
+            panes=\$(tmux list-panes -t #{session_name}:#{window_index} 2>/dev/null | wc -l); \
+            if [ \$panes -lt 4 ]; then \
+                case \$panes in \
+                    1) tmux split-window -h -t #{session_name}:#{window_index} -p 50; \
+                       tmux split-window -h -t #{session_name}:#{window_index}.0 -p 50; \
+                       tmux split-window -h -t #{session_name}:#{window_index}.2 -p 50 ;; \
+                    2) tmux split-window -h -t #{session_name}:#{window_index}.0 -p 50; \
+                       tmux split-window -h -t #{session_name}:#{window_index}.2 -p 50 ;; \
+                    3) tmux split-window -h -t #{session_name}:#{window_index}.0 -p 50 ;; \
+                esac \
+            fi \
         fi'"
     
     # 新規window作成時は4分割
