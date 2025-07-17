@@ -1,13 +1,14 @@
 {
   "tasks": {
-    "test": "deno test --allow-read --allow-write --allow-net --allow-env",
+    "test": "deno test --allow-read --allow-write --allow-net --allow-env --allow-ffi --unstable-ffi",
     "fmt": "deno fmt",
     "lint": "deno lint"
   },
   "imports": {
-    "kuzu": "npm:kuzu@^0.10.0"
+    "kuzu": "npm:kuzu@0.10.0"
   },
   "test": {
     "include": ["tests/"]
-  }
+  },
+  "nodeModulesDir": "auto"
 }

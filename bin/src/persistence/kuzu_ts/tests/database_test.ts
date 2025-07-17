@@ -11,7 +11,7 @@ Deno.test("createConnection - connection creation", async () => {
   const db = await createDatabase(":memory:");
   const conn = await createConnection(db);
   assertExists(conn);
-  assertEquals(typeof conn.execute, "function");
+  assertEquals(typeof conn.query, "function");
 });
 
 Deno.test("database operations - basic CRUD", async () => {
@@ -19,14 +19,14 @@ Deno.test("database operations - basic CRUD", async () => {
   const conn = await createConnection(db);
   
   // Create schema
-  await conn.execute("CREATE NODE TABLE Person(name STRING, age INT64, PRIMARY KEY (name))");
+  await conn.query("CREATE NODE TABLE Person(name STRING, age INT64, PRIMARY KEY (name))");
   
   // Insert data
-  await conn.execute("CREATE (:Person {name: 'Alice', age: 30})");
-  await conn.execute("CREATE (:Person {name: 'Bob', age: 25})");
+  await conn.query("CREATE (:Person {name: 'Alice', age: 30})");
+  await conn.query("CREATE (:Person {name: 'Bob', age: 25})");
   
   // Query data
-  const result = await conn.execute("MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age");
+  const result = await conn.query("MATCH (p:Person) RETURN p.name, p.age ORDER BY p.age");
   const rows = await result.getAll();
   
   assertEquals(rows.length, 2);

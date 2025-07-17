@@ -1,45 +1,21 @@
-// KuzuDB is a native module that requires special handling in Deno
-// For now, we'll create a mock implementation for testing
-const kuzu = {
-  Database: class Database {
-    constructor(public path: string) {}
-    close() {}
-  },
-  Connection: class Connection {
-    constructor(public database: any) {}
-    async execute(query: string) {
-      // Mock implementation
-      if (query.includes("MATCH")) {
-        return {
-          async getAll() {
-            return [
-              { "p.name": "Bob", "p.age": 25 },
-              { "p.name": "Alice", "p.age": 30 }
-            ];
-          }
-        };
-      }
-      return {};
-    }
-  }
-};
+import { Database, Connection } from "kuzu";
 
 export interface DatabaseOptions {
   useCache?: boolean;
   testUnique?: boolean;
 }
 
-const dbCache = new Map<string, any>();
+const dbCache = new Map<string, Database>();
 
 export async function createDatabase(
   path: string,
   options: DatabaseOptions = {}
-): Promise<any> {
+): Promise<Database> {
   const { useCache = true, testUnique = false } = options;
   
   // In-memory with testUnique should always create new instance
   if (path === ":memory:" && testUnique) {
-    return new kuzu.Database(":memory:");
+    return new Database(":memory:");
   }
   
   // Check cache
@@ -48,7 +24,7 @@ export async function createDatabase(
   }
   
   // Create new database
-  const db = new kuzu.Database(path);
+  const db = new Database(path);
   
   // Cache if enabled
   if (useCache) {
@@ -58,8 +34,8 @@ export async function createDatabase(
   return db;
 }
 
-export async function createConnection(db: any): Promise<any> {
-  return new kuzu.Connection(db);
+export async function createConnection(db: Database): Promise<Connection> {
+  return new Connection(db);
 }
 
 export function clearCache(): void {
