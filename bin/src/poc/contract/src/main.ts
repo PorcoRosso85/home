@@ -226,26 +226,18 @@ const methods: Record<string, (params: any) => Promise<any>> = {
       throw new Error(`Forward transformation failed: ${forwardResult.error.message}`);
     }
     
-    // Mock response based on schema
-    const mockResponse = { temp: 20, humidity: 50, location: forwardResult.data.location || "Unknown" };
-    
-    const reverseResult = await transformer.transform(
-      mockResponse,
-      params.to,
-      params.from,
-      "reverse"
-    );
-    
-    if (!reverseResult.ok) {
-      throw new Error(`Reverse transformation failed: ${reverseResult.error.message}`);
+    // TODO: 実際のプロバイダーを呼び出す実装が必要
+    // 現在はドライランのみサポート
+    if (!params.dryRun) {
+      throw new Error("Non-dry-run mode not yet implemented");
     }
     
+    // ドライランモード：変換のみを検証
     return {
       steps: [
         { step: "input", data: params.testData },
         { step: "transformed", data: forwardResult.data },
-        { step: "mockResponse", data: mockResponse },
-        { step: "output", data: reverseResult.data }
+        { step: "note", data: "Dry-run mode - no actual provider call" }
       ]
     };
   }

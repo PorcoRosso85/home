@@ -37,6 +37,10 @@ async function rpcCall(method: string, params: any, id = 1) {
 }
 
 Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (t) => {
+  // Declare variables outside try block
+  let testDir: string = "";
+  let weatherService: any;
+  
   // Start Contract Service within test
   const controller = new AbortController();
   const contractService = serve(handler, { 
@@ -47,16 +51,64 @@ Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (
   await delay(100); // Wait for server startup
   
   try {
+  // Create temporary directory for schema files
+  testDir = await Deno.makeTempDir();
+  
+  // Create Weather Service schema files
+  await Deno.writeTextFile(
+    `${testDir}/weather-input.schema.json`,
+    JSON.stringify({
+      type: "object",
+      properties: {
+        location: { type: "string" }
+      },
+      required: ["location"]
+    })
+  );
+  await Deno.writeTextFile(
+    `${testDir}/weather-output.schema.json`,
+    JSON.stringify({
+      type: "object",
+      properties: {
+        temperature: { type: "number" },
+        humidity: { type: "number" },
+        location: { type: "string" }
+      },
+      required: ["temperature", "humidity", "location"]
+    })
+  );
+  
+  // Create Dashboard schema files
+  await Deno.writeTextFile(
+    `${testDir}/dashboard-expects-input.schema.json`,
+    JSON.stringify({
+      type: "object",
+      properties: {
+        temp: { type: "number" },
+        humid: { type: "number" },
+        city: { type: "string" }
+      },
+      required: ["temp", "humid", "city"]
+    })
+  );
+  await Deno.writeTextFile(
+    `${testDir}/dashboard-expects-output.schema.json`,
+    JSON.stringify({
+      type: "object",
+      properties: {
+        city: { type: "string" }
+      },
+      required: ["city"]
+    })
+  );
 
   // Step 1: Weather Service（Provider）の契約登録
   await t.step("Weather Serviceを登録", async () => {
     const result = await rpcCall("contract.register", {
       type: "provider",
       uri: "services/weather/v1",
-      schema: {
-        input: { location: "string" },
-        output: { temperature: "number", humidity: "number", location: "string" }
-      },
+      inputSchemaPath: `${testDir}/weather-input.schema.json`,
+      outputSchemaPath: `${testDir}/weather-output.schema.json`,
       endpoint: "http://localhost:9001/weather"
     });
 
@@ -70,10 +122,8 @@ Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (
     const result = await rpcCall("contract.register", {
       type: "consumer",
       uri: "ui/dashboard/v2",
-      expects: {
-        output: { city: "string" },
-        input: { temp: "number", humid: "number", city: "string" }
-      }
+      expectsInputSchemaPath: `${testDir}/dashboard-expects-output.schema.json`,
+      expectsOutputSchemaPath: `${testDir}/dashboard-expects-input.schema.json`
     }, 2);
 
     assertEquals(result.status, "registered");
@@ -108,17 +158,18 @@ Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (
       await rpcCall("contract.register", {
         type: "provider",
         uri: "invalid/service",
-        schema: "not-a-valid-schema" // 不正なスキーマ
+        // Missing required inputSchemaPath and outputSchemaPath
       }, 5);
       assert(false, "Should throw error");
     } catch (error) {
       assert(error instanceof Error);
-      assert(error.message.includes("-32003")); // Invalid schema error code
+      assert(error.message.includes("-32602")); // Invalid params error code
     }
   });
 
   // Step 6: 実際の通信テスト
-  const weatherService = await startMockWeatherService();
+  // TODO: 実際のWeather Serviceの起動が必要
+  // weatherService = await startRealWeatherService();
   
   try {
     await t.step("Dashboard → Contract Service → Weather Service の通信", async () => {
@@ -169,7 +220,13 @@ Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (
         {
           jsonrpc: "2.0",
           method: "contract.register",
-          params: { type: "provider", uri: "services/geocode/v1", schema: { input: {}, output: {} }, endpoint: "http://localhost:9003" },
+          params: { 
+            type: "provider", 
+            uri: "services/geocode/v1", 
+            inputSchemaPath: `${testDir}/weather-input.schema.json`,
+            outputSchemaPath: `${testDir}/weather-output.schema.json`,
+            endpoint: "http://localhost:9003" 
+          },
           id: 1
         },
         {
@@ -195,29 +252,23 @@ Deno.test("E2E: Contract Service JSON-RPC2 主要機能統合テスト", async (
   });
   
   } finally {
+    // Cleanup weather service
+    if (weatherService) {
+      weatherService.shutdown();
+    }
+    
+    // Cleanup temporary directory
+    if (testDir) {
+      await Deno.remove(testDir, { recursive: true });
+    }
+    
     // Cleanup Contract Service
     controller.abort();
     await contractService;
   }
 });
 
-// Mock Weather Service Helper
-async function startMockWeatherService() {
-  const server = Deno.serve({ port: 9001 }, (req) => {
-    const url = new URL(req.url);
-    
-    if (url.pathname === "/weather" && req.method === "POST") {
-      return Response.json({
-        temperature: 25.5,
-        humidity: 60,
-        location: "Tokyo"
-      });
-    }
-    
-    return new Response("Not Found", { status: 404 });
-  });
-
-  await delay(100);
-  
-  return server;
-}
+// TODO: 実際のWeather Service起動ヘルパーが必要
+// async function startRealWeatherService() {
+//   // 実際のサービスを起動する実装
+// }
