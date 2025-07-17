@@ -93,17 +93,16 @@ setup_hooks() {
             panes=\$(tmux list-panes -t #{session_name}:0 2>/dev/null | wc -l); \
             [ \$panes -eq 1 ] && tmux split-window -h -t #{session_name}:0 -p 50; \
         elif [ \$idx -ne 0 ]; then \
-            # window1以降は4分割維持
+            # window1以降は4分割維持（均等レイアウト使用）
             panes=\$(tmux list-panes -t #{session_name}:#{window_index} 2>/dev/null | wc -l); \
-            if [ \$panes -lt 4 ]; then \
-                case \$panes in \
-                    1) tmux split-window -h -t #{session_name}:#{window_index} -p 50; \
-                       tmux split-window -h -t #{session_name}:#{window_index}.0 -p 50; \
-                       tmux split-window -h -t #{session_name}:#{window_index}.2 -p 50 ;; \
-                    2) tmux split-window -h -t #{session_name}:#{window_index}.0 -p 50; \
-                       tmux split-window -h -t #{session_name}:#{window_index}.2 -p 50 ;; \
-                    3) tmux split-window -h -t #{session_name}:#{window_index}.0 -p 50 ;; \
-                esac \
+            if [ \$panes -lt 4 ] && [ \$panes -gt 0 ]; then \
+                # 不足分のペインを追加
+                while [ \$panes -lt 4 ]; do \
+                    tmux split-window -h -t #{session_name}:#{window_index} ; \
+                    panes=\$((panes + 1)); \
+                done; \
+                # 均等な水平レイアウトを適用（各ペイン25%）
+                tmux select-layout -t #{session_name}:#{window_index} even-horizontal; \
             fi \
         fi'"
     
