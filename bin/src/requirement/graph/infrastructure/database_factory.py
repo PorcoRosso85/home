@@ -2,7 +2,7 @@
 データベースファクトリー - persistence.kuzuへのプロキシ
 
 このモジュールは後方互換性のために残されています。
-新しいコードではpersistence.kuzu.core.databaseを直接使用してください。
+新しいコードではpersistence.kuzu_py.core.databaseを直接使用してください。
 """
 import os
 import sys
@@ -13,7 +13,7 @@ if bin_src_path not in sys.path:
     sys.path.insert(0, bin_src_path)
 
 # persistence.kuzuの関数をインポートして再エクスポート
-from persistence.kuzu.core.database import (
+from persistence.kuzu_py.core.database import (
     create_database,
     create_connection,
     clear_database_cache,
