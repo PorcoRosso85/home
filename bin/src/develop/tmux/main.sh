@@ -53,37 +53,6 @@ create_2_split() {
     tmux split-window -h -t "$target" -p 50
 }
 
-# 4分割作成（25%-25%-25%-25%）
-create_4_split() {
-    local target="$1"
-    # 1回目: 50%-50%
-    tmux split-window -h -t "$target" -p 50
-    # 2回目: 左を50%-50%（全体の25%-25%）
-    tmux split-window -h -t "$target.0" -p 50
-    # 3回目: 右を50%-50%（全体の25%-25%）
-    tmux split-window -h -t "$target.2" -p 50
-}
-
-# 欠けているペインを補充して指定数を維持
-maintain_pane_count() {
-    local target="$1"
-    local expected_count="$2"
-    local current_count="$3"
-    
-    if [ "$expected_count" -eq 2 ] && [ "$current_count" -eq 1 ]; then
-        create_2_split "$target"
-    elif [ "$expected_count" -eq 4 ] && [ "$current_count" -lt 4 ]; then
-        case $current_count in
-            1) create_4_split "$target" ;;
-            2) # 2つある場合は、それぞれを分割
-               tmux split-window -h -t "$target.0" -p 50
-               tmux split-window -h -t "$target.2" -p 50 ;;
-            3) # 3つある場合は、最初のペインを分割
-               tmux split-window -h -t "$target.0" -p 50 ;;
-        esac
-    fi
-}
-
 # ====================
 # tmux基本設定
 # ====================
@@ -102,46 +71,33 @@ create_window() {
     local cmd2="${4:-}"
     
     if [ $idx -eq 0 ]; then
+        # window 0の特別処理
         tmux rename-window -t "$SESSION_NAME:$idx" "$name"
-    else
-        tmux new-window -t "$SESSION_NAME" -n "$name"
-    fi
-    
-    if [ $idx -eq 0 ]; then
-        # window 0は2分割
         create_2_split "$SESSION_NAME:$idx"
         # コマンド実行
         [ -n "$cmd1" ] && tmux send-keys -t "$SESSION_NAME:$idx.0" "$cmd1" Enter
         [ -n "$cmd2" ] && tmux send-keys -t "$SESSION_NAME:$idx.1" "$cmd2" Enter
     else
-        # window 1以降は4分割
-        create_4_split "$SESSION_NAME:$idx"
+        # window 1以降は単にnew-windowするだけ（hooksが4分割を処理）
+        tmux new-window -t "$SESSION_NAME" -n "$name"
     fi
 }
 
-# hook内で使用する関数を環境変数として定義
-export -f create_2_split
-export -f create_4_split
-export -f maintain_pane_count
-
-# 共通hook設定関数
+# hook設定
 setup_hooks() {
-    # ペイン数維持hook設定
+    # window0のみ2分割維持
     tmux set-hook -g pane-exited \
-        "run-shell 'source ${BASH_SOURCE[0]}; \
-        panes=\$(tmux list-panes -t #{session_name}:#{window_index} 2>/dev/null | wc -l); \
-        idx=#{window_index}; \
-        target=\"#{session_name}:#{window_index}\"; \
+        "run-shell 'idx=#{window_index}; \
         if [ \$idx -eq 0 ]; then \
-            maintain_pane_count \"\$target\" 2 \$panes; \
-        else \
-            maintain_pane_count \"\$target\" 4 \$panes; \
+            panes=\$(tmux list-panes -t #{session_name}:0 2>/dev/null | wc -l); \
+            [ \$panes -eq 1 ] && tmux split-window -h -t #{session_name}:0 -p 50; \
         fi'"
     
-    # 新規window作成時の4分割設定
+    # 新規window作成時は4分割
     tmux set-hook -t $SESSION_NAME after-new-window \
-        "run-shell 'source ${BASH_SOURCE[0]}; \
-        create_4_split \"#{session_name}:#{window_index}\"'"
+        "run-shell 'tmux split-window -h -t #{session_name}:#{window_index} -p 50; \
+        tmux split-window -h -t #{session_name}:#{window_index}.0 -p 50; \
+        tmux split-window -h -t #{session_name}:#{window_index}.2 -p 50'"
 }
 
 setup_hooks
@@ -165,16 +121,6 @@ tmux bind-key -T copy-mode-vi V send-keys -X select-line
 tmux bind-key -T copy-mode-vi C-v send-keys -X rectangle-toggle
 
 
-# Window数2維持（windowが1つになったら自動で新規window作成）
-tmux set-hook -g window-closed \
-    "run-shell 'source ${BASH_SOURCE[0]}; \
-    windows=\$(tmux list-windows -t #{session_name} 2>/dev/null | wc -l); \
-    if [ \$windows -eq 1 ]; then \
-        tmux new-window -t #{session_name} -c #{pane_current_path}; \
-        sleep 0.1; \
-        new_idx=\$(tmux list-windows -t #{session_name} -F "#{window_index}" | tail -1); \
-        create_4_split \"#{session_name}:\$new_idx\"; \
-    fi'"
 
 # 最初のウィンドウを選択
 tmux select-window -t "$SESSION_NAME:0"
