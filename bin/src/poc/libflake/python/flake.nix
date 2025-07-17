@@ -1,10 +1,10 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    persistence.url = "path:../../../persistence";
+    kuzu-py.url = "path:../../../persistence/kuzu_py";
   };
 
-  outputs = { self, nixpkgs, persistence }:
+  outputs = { self, nixpkgs, kuzu-py }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -13,11 +13,11 @@
       devShells.${system}.default = pkgs.mkShell {
         buildInputs = with pkgs; [
           python312
-          python312Packages.kuzu
+          kuzu-py.packages.${system}.kuzu
         ];
         
         shellHook = ''
-          export PYTHONPATH="${persistence.lib.pythonPath}:$PYTHONPATH"
+          export PYTHONPATH="${kuzu-py.lib.pythonPath}:$PYTHONPATH"
         '';
       };
     };

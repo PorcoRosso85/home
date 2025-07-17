@@ -4,9 +4,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    kuzu-py.url = "path:../../persistence/kuzu_py";
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }:
+  outputs = { self, nixpkgs, flake-utils, kuzu-py, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -22,7 +23,7 @@
         # 共通の実行ラッパー
         mkRunner = name: script: pkgs.writeShellScript name ''
           cd ${projectDir}
-          export PYTHONPATH=/home/nixos/bin/src:$PYTHONPATH
+          export PYTHONPATH="${kuzu-py.lib.pythonPath}:/home/nixos/bin/src:$PYTHONPATH"
           ${patchKuzu}
           ${script}
         '';
@@ -31,6 +32,7 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             python311
+            kuzu-py.packages.${system}.pythonEnv
             uv
             patchelf
             stdenv.cc.cc.lib
@@ -44,14 +46,14 @@
             fi
             source .venv/bin/activate
             
-            # PYTHONPATHにbin/srcを追加
-            export PYTHONPATH=/home/nixos/bin/src:$PYTHONPATH
-            echo "PYTHONPATH set to include /home/nixos/bin/src"
+            # PYTHONPATHにbin/srcとkuzu-pyを追加
+            export PYTHONPATH="${kuzu-py.lib.pythonPath}:/home/nixos/bin/src:$PYTHONPATH"
+            echo "PYTHONPATH set to include kuzu-py and /home/nixos/bin/src"
             
             # KuzuDBとその他の依存関係をインストール
             if [ ! -f ".venv/.deps_installed" ]; then
               echo "Installing dependencies..."
-              uv pip install kuzu pytest sentence-transformers
+              uv pip install pytest sentence-transformers
               touch .venv/.deps_installed
             fi
             
