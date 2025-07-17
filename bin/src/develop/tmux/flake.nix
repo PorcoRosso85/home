@@ -21,6 +21,7 @@
           git
           coreutils
           bash
+          fzf
         ];
         text = ''
           exec bash ${./main.sh} "$@"

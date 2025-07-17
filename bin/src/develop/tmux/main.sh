@@ -23,6 +23,7 @@ tmux 水平2分割構成セッション作成スクリプト (Nix版)
   Ctrl-b + C        新規セッション作成
   Ctrl-b + v        コピーモード
   Ctrl-b + h/j/k/l  ペイン移動
+  Ctrl-b + b        fzfでペインジャンプ
 EOF
     exit 0
 fi
@@ -126,6 +127,14 @@ tmux bind-key j select-pane -D
 tmux bind-key k select-pane -U
 tmux bind-key l select-pane -R
 tmux bind-key v copy-mode
+
+# fzfでペインジャンプ (prefix + b)
+tmux bind-key b display-popup -E -w 80% -h 80% \
+    "tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{window_name} [#{pane_current_command}] #{pane_current_path}' | \
+    fzf --reverse --header='Jump to pane (ESC to cancel):' \
+        --preview 'tmux capture-pane -p -t {1} 2>/dev/null || echo \"Pane content not available\"' \
+        --preview-window=right:50% | \
+    cut -d' ' -f1 | xargs -I {} tmux switch-client -t {} \\; select-pane -t {}"
 
 # コピーモード
 tmux bind-key -T copy-mode-vi v send-keys -X begin-selection
