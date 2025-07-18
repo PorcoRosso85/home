@@ -9,10 +9,16 @@ from typing import List, Dict, Any
 import tempfile
 import shutil
 from pathlib import Path
-import numpy as np
-from unittest.mock import Mock, patch
+import sys
 
-from vss_service import VSSService
+# モックを設定
+from unittest.mock import Mock, patch
+sys.modules['numpy'] = Mock()
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
+from search.vss.kuzu.vss_service import VSSService
 
 
 def test_vss_specification():
@@ -38,8 +44,8 @@ def test_vss_specification():
        - REQ003（DB）は下位に
     """
     
-    with patch('vss_service.create_database') as mock_create_db, \
-         patch('vss_service.create_connection') as mock_create_conn:
+    with patch('search.vss.kuzu.vss_service.create_database') as mock_create_db, \
+         patch('search.vss.kuzu.vss_service.create_connection') as mock_create_conn:
         
         # モックの設定
         mock_db = Mock()
@@ -145,8 +151,8 @@ def test_vss_operational_specification():
         "CALL QUERY_VECTOR_INDEX('Document', 'doc_embedding_index', $embedding, $k)"
     ]
     
-    with patch('vss_service.create_database') as mock_create_db, \
-         patch('vss_service.create_connection') as mock_create_conn:
+    with patch('search.vss.kuzu.vss_service.create_database') as mock_create_db, \
+         patch('search.vss.kuzu.vss_service.create_connection') as mock_create_conn:
         
         # モックの設定
         mock_db = Mock()

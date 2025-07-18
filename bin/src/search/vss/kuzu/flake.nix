@@ -15,8 +15,6 @@
           # Core dependencies
           kuzu
           numpy
-          sentence-transformers
-          torch
           
           # JSON Schema validation
           jsonschema
@@ -52,34 +50,19 @@
             echo "  nix run .#validate  - Validate JSON schemas"
             echo ""
             
-            # Set PYTHONPATH to find persistence module
-            export PYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"
-            
             # Set LD_LIBRARY_PATH for NumPy C++ extensions
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH"
           '';
         };
         
         apps = {
-          # LLM-first entry point (default)
+          # Main VSS service
           default = {
             type = "app";
-            program = "${pkgs.writeShellScript "vss-entry" ''
+            program = "${pkgs.writeShellScript "vss-service" ''
               cd ${./.}
               export PYTHONPATH="${./.}:$PYTHONPATH"
-              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH"
-              exec ${pythonEnv}/bin/python entry.py "$@"
-            ''}";
-          };
-          
-          # Run mode (JSON input)
-          run = {
-            type = "app";
-            program = "${pkgs.writeShellScript "vss-run" ''
-              cd ${./.}
-              export PYTHONPATH="${./.}:$PYTHONPATH"
-              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH"
-              exec ${pythonEnv}/bin/python entry.py run "$@"
+              exec ${pythonEnv}/bin/python -m vss_service "$@"
             ''}";
           };
           
@@ -88,7 +71,7 @@
             type = "app";
             program = "${pkgs.writeShellScript "test" ''
               cd ${./.}
-              export PYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"
+              export PYTHONPATH="${./.}:$PYTHONPATH"
               export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH"
               echo "Running VSS tests with JSON Schema validation..."
               exec ${pythonEnv}/bin/pytest -v "$@"

@@ -9,8 +9,12 @@ import json
 import tempfile
 import shutil
 from pathlib import Path
+import sys
 
-from vss_service import VSSService
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
+from search.vss.kuzu.vss_service import VSSService
 
 
 class TestVSSFromPOC:
