@@ -1,0 +1,10 @@
+{"type":"summary","summary":"Gmail CLI POC: OAuth, Nix, and TDD Implementation","leafUuid":"d7e18021-bec6-4561-a621-ccf0a8d9df53"}
+{"type":"summary","summary":"Nix Flake Gmail CLI: Conventions, Auth, Test Setup","leafUuid":"db0b1add-665a-4b65-bee9-29b3972c08ee"}
+{"type":"summary","summary":"Refactor Domain Scoring System with TDD Red Approach","leafUuid":"3c397aaf-f8fd-4573-9745-59d49a87e7d3"}
+{"type":"summary","summary":"Refactor Scoring System: Domain Layer Separation","leafUuid":"1b3e4da0-3591-44d5-805d-82b770878d66"}
+{"type":"summary","summary":"KuzuDB Graph System: Requirement Tracing & Claude Integration","leafUuid":"e93b6078-467c-463c-a69f-69e8e6aabc74"}
+{"type":"summary","summary":"POC Code Review: Layered Architecture and Testing Gaps","leafUuid":"5628e8e8-dc63-4ee7-af93-c93f710fe491"}
+{"type":"summary","summary":"KuzuDB Task Tracking: Requirements, Priority, Dependencies","leafUuid":"b377cd8c-2d6a-4a0e-b2b9-cfbe74c349c5"}
+{"type":"summary","summary":"TDD Red: Version State Task Discovery in Cypher","leafUuid":"39c51920-dfcf-4a31-bf9c-5a908a9df112"}
+{"type":"summary","summary":"Causal Ordering POC: Complex Dependency Graph and Conflict Resolution Test Implementation","leafUuid":"fa33bc31-edf4-4eab-8bc6-a24c8e91cb25"}
+{"type":"summary","summary":"KuzuDB WebSocket Sync: Causal Ordering POC Complete","leafUuid":"71c45e17-651d-4faf-812e-acb97410a894"}

@@ -1,0 +1,9 @@
+{"type":"summary","summary":"tmux panes: POC, testing, and architecture refinement","leafUuid":"0f48ec53-8461-4b87-a6ad-deaf35d1a529"}
+{"type":"summary","summary":"Scalability POC: Server Limits and Performance Testing","leafUuid":"dce55dc4-8ef4-45ed-a026-630414b8b575"}
+{"type":"summary","summary":"Centralizing Logging Architecture and Consolidating Log Implementations Across Project","leafUuid":"aea14d92-590f-40b0-a1b4-7e7a7d890971"}
+{"type":"summary","summary":"Logging Implementation Audit and Consolidation Strategy","leafUuid":"da07078b-0b73-4559-9a0b-c0ca8c230335"}
+{"type":"summary","summary":"Logging Architecture Consolidation and Migration Strategy","leafUuid":"235f1c8f-f287-41d1-8b3e-1e931692f50b"}
+{"type":"summary","summary":"Nix Flake MinIO Container Deployment Strategy","leafUuid":"4c3fe6e6-b1fc-46d4-96c7-89e252cc306e"}
+{"type":"summary","summary":"Radical Schema Simplification: Lint, Test, and Cleanup","leafUuid":"339d8a2d-8836-4acb-a3cd-ec1677891ec3"}
+{"type":"summary","summary":"Hybrid Search Implementation for Requirement Management with VSS, FTS, and Graph Traversal","leafUuid":"d14f4efd-3f01-4a33-8f81-460da15fbe17"}
+{"type":"summary","summary":"KuzuDB Vector/FTS Test: Capabilities and Limitations","leafUuid":"85251600-5b7e-45bb-8160-8c47b02088cc"}
