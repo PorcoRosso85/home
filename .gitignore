@@ -59,7 +59,9 @@
 !.claude/commands/
 !.claude/commands/**
 !.claude/settings.json
-.claude/projects*
+!.claude/projects*
+!.claude/projects/
+!.claude/projects/**
 .claude/statsig*
 .claude/todos*
 .claude/.credentials.json
