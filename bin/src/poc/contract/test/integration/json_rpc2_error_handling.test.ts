@@ -17,6 +17,10 @@ import { handler } from "../../src/main.ts";
 const RPC_URL = "http://localhost:8000/rpc";
 
 Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", async (t) => {
+  // Create temporary schema files for batch test
+  await Deno.writeTextFile("/tmp/test-input.json", JSON.stringify({ type: "object", properties: {} }));
+  await Deno.writeTextFile("/tmp/test-output.json", JSON.stringify({ type: "object", properties: {} }));
+  
   // Start server
   const controller = new AbortController();
   const server = serve(handler, { 
@@ -104,15 +108,15 @@ Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", asy
         params: {
           type: "provider",
           uri: "services/no-contract",
-          // schemaが欠落
+          // inputSchemaPath and outputSchemaPath are missing
         },
         id: 5
       })
     });
     
     const result = await response.json();
-    assertEquals(result.error.code, -32003); // Invalid schema
-    assert(result.error.message.includes("schema"));
+    assertEquals(result.error.code, -32602); // Invalid params
+    assert(result.error.data.detail.includes("inputSchemaPath"));
   });
 
   // 6. 契約書なしでのConsumer登録
@@ -126,19 +130,19 @@ Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", asy
         params: {
           type: "consumer",
           uri: "ui/no-expects"
-          // expectsが欠落
+          // expectsInputSchemaPath and expectsOutputSchemaPath are missing
         },
         id: 6
       })
     });
     
     const result = await response.json();
-    assertEquals(result.error.code, -32003); // Invalid schema
-    assert(result.error.message.includes("expects"));
+    assertEquals(result.error.code, -32602); // Invalid params
+    assert(result.error.data.detail.includes("expectsInputSchemaPath"));
   });
 
   // 7. 不正な型でのパラメータ
-  await t.step("schemaが文字列の場合", async () => {
+  await t.step("schemaPathが不正な場合", async () => {
     const response = await fetch(RPC_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -148,15 +152,16 @@ Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", asy
         params: {
           type: "provider",
           uri: "services/bad-schema",
-          schema: "not an object"  // オブジェクトでない
+          inputSchemaPath: 123,  // Should be string
+          outputSchemaPath: "output.json"
         },
         id: 7
       })
     });
     
     const result = await response.json();
-    assertEquals(result.error.code, -32003); // Invalid schema
-    assertEquals(result.error.message, "Invalid schema format");
+    assertEquals(result.error.code, -32602); // Invalid params
+    assert(result.error.data.detail.includes("inputSchemaPath must be a string"));
   });
 
   // 8. 必須パラメータ不足
@@ -169,7 +174,8 @@ Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", asy
         method: "contract.register",
         params: {
           uri: "services/no-type",
-          schema: { input: {}, output: {} }
+          inputSchemaPath: "input.json",
+          outputSchemaPath: "output.json"
           // typeが欠落
         },
         id: 8
@@ -177,8 +183,8 @@ Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", asy
     });
     
     const result = await response.json();
-    assert(result.error);
-    assert(result.error.message.includes("type"));
+    assertEquals(result.error.code, -32602); // Invalid params
+    assert(result.error.data.detail.includes("type"));
   });
 
   // 9. callメソッドでfromパラメータなし
@@ -198,8 +204,8 @@ Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", asy
     });
     
     const result = await response.json();
-    assert(result.error);
-    assert(result.error.message.includes("from"));
+    assertEquals(result.error.code, -32602); // Invalid params
+    assert(result.error.data.detail.includes("from"));
   });
 
   // 10. バッチリクエストで一部が失敗
@@ -214,7 +220,8 @@ Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", asy
           params: {
             type: "provider",
             uri: "services/batch-ok",
-            schema: { input: {}, output: {} },
+            inputSchemaPath: "/tmp/test-input.json",
+            outputSchemaPath: "/tmp/test-output.json",
             endpoint: "http://localhost:9999"
           },
           id: "batch-1"
@@ -277,8 +284,8 @@ Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", asy
         params: {
           type: "provider",
           // 不正なパラメータでエラーを誘発
-          uri: "test",
-          schema: "invalid"
+          uri: "test"
+          // Missing required schema paths
         }
         // idフィールドなし = 通知
       })
@@ -293,5 +300,13 @@ Deno.test("異常系: JSON-RPC2 プロトコルエラーハンドリング", asy
   } finally {
     controller.abort();
     await server;
+    
+    // Clean up temporary files
+    try {
+      await Deno.remove("/tmp/test-input.json");
+      await Deno.remove("/tmp/test-output.json");
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 });

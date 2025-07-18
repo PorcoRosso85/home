@@ -28,23 +28,7 @@
         echo "  deno task build   - Build for production"
         echo ""
         
-        # Create deno.json if not exists
-        if [ ! -f deno.json ]; then
-          cat > deno.json << 'EOF'
-{
-  "tasks": {
-    "dev": "deno run --allow-net --allow-read --allow-write --watch src/main.ts",
-    "test": "deno test --allow-all",
-    "test:integration": "deno test --allow-all test/integration/",
-    "build": "deno compile --allow-net --allow-read --allow-write --output=contract-service src/main.ts"
-  },
-  "imports": {
-    "@std/": "https://deno.land/std@0.208.0/",
-    "kuzu": "./src/kuzu_wrapper.ts"
-  }
-}
-EOF
-        fi
+        # deno.json is already maintained in the repository
       '';
     };
 
