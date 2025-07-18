@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "kuzu": "^0.10.0"
+  }
+}

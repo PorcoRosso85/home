@@ -26,6 +26,7 @@
             # C++ dependencies for kuzu native module
             stdenv.cc.cc.lib
             gcc
+            patchelf  # For fixing native module paths
           ];
           
           shellHook = ''
@@ -33,6 +34,13 @@
             echo "Deno version: $(deno --version | head -n1)"
             # Set library path for native modules
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+            
+            # Patch KuzuDB native modules if they exist
+            if [ -d "node_modules/.deno" ]; then
+              for lib in node_modules/.deno/*/node_modules/kuzu/*.node; do
+                [ -f "$lib" ] && ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" "$lib" || true
+              done
+            fi
           '';
         };
         
@@ -51,6 +59,11 @@
             
             # Install dependencies
             ${pkgs.deno}/bin/deno install --allow-scripts=npm:kuzu@0.10.0
+            
+            # Patch native modules
+            for lib in node_modules/.deno/*/node_modules/kuzu/*.node; do
+              [ -f "$lib" ] && ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" "$lib" || true
+            done
             
             # Run tests
             ${pkgs.deno}/bin/deno test --allow-read --allow-write --allow-net --allow-env --allow-ffi --unstable-ffi
