@@ -11,7 +11,7 @@ import jsonschema
 import numpy as np
 
 # Use the persistence layer for KuzuDB
-from persistence.kuzu.core.database import create_database, create_connection
+from persistence.kuzu_py.core.database import create_database, create_connection
 
 
 class VSSService:
@@ -82,17 +82,58 @@ class VSSService:
     def _get_embedding_service(self):
         """Lazy initialization of embedding service"""
         if self._embedding_service is None:
-            # Import POC implementation
-            import sys
-            poc_path = Path(__file__).parent.parent.parent.parent / "poc" / "search" / "vss"
-            sys.path.insert(0, str(poc_path))
+            # Create a standalone embedding service
+            from sentence_transformers import SentenceTransformer
+            from dataclasses import dataclass
+            from typing import List
             
-            from infrastructure import create_embedding_model
-            from application import TextEmbeddingService
+            @dataclass
+            class EmbeddingResult:
+                """Minimal embedding result"""
+                embeddings: List[float]
+                model_name: str
+                dimension: int
             
-            model = create_embedding_model("ruri-v3-30m")
-            self._embedding_service = TextEmbeddingService(model)
-            self.dimension = model.dimension
+            class StandaloneEmbeddingService:
+                """Standalone embedding service with proper query/document prefixes"""
+                
+                def __init__(self):
+                    self.model_name = "cl-nagoya/ruri-v3-30m"
+                    self.dimension = 256
+                    self.model = SentenceTransformer(self.model_name)
+                    
+                def embed_documents(self, texts):
+                    """Embed documents with proper prefix"""
+                    # Add document prefix for better search results
+                    prefixed_texts = [f"検索文書: {text}" for text in texts]
+                    embeddings = self.model.encode(prefixed_texts)
+                    
+                    results = []
+                    for emb in embeddings:
+                        result = EmbeddingResult(
+                            embeddings=emb.tolist(),
+                            model_name=self.model_name,
+                            dimension=self.dimension
+                        )
+                        results.append(result)
+                    return results
+                
+                def embed_query(self, text):
+                    """Embed query with proper prefix"""
+                    # Add query prefix for better search results
+                    prefixed_text = f"検索クエリ: {text}"
+                    embedding = self.model.encode(prefixed_text)
+                    
+                    result = EmbeddingResult(
+                        embeddings=embedding.tolist(),
+                        model_name=self.model_name,
+                        dimension=self.dimension
+                    )
+                    return result
+            
+            self._embedding_service = StandaloneEmbeddingService()
+            self.dimension = self._embedding_service.dimension
+                
         return self._embedding_service
     
     def validate_input(self, data: Dict[str, Any]) -> None:
@@ -176,7 +217,7 @@ class VSSService:
                 continue
             
             formatted_results.append({
-                "id": f"doc_{i}",  # Generate ID since POC doesn't return it
+                "id": f"doc_{i}",  # Generate ID for results
                 "content": content,
                 "score": score,
                 "distance": float(distance)

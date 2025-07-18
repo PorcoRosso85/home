@@ -4,7 +4,7 @@ JSON Schema contract-based implementation of Vector Similarity Search using Kuzu
 
 ## Overview
 
-This implementation provides a clean, contract-first interface for vector similarity search while leveraging the existing POC implementation. All inputs and outputs are validated against JSON schemas.
+This implementation provides a clean, contract-first interface for vector similarity search with a standalone embedding service. All inputs and outputs are validated against JSON schemas.
 
 ## Features
 
@@ -110,7 +110,7 @@ nix run .#lint
 
 ### Testing
 
-Tests follow the POC specifications but use JSON input/output format:
+Tests use JSON input/output format:
 
 ```bash
 # Run all tests
@@ -136,7 +136,7 @@ The service provides:
 3. Direct KuzuDB queries for vector operations
 4. Consistent error handling and clean API surface
 
-### Key Changes from POC
+### Key Implementation Details
 - Uses `persistence.kuzu.core.database` for database management
 - Direct SQL queries instead of POC wrapper classes
 - Proper connection lifecycle management

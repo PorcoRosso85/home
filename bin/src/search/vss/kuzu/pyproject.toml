@@ -47,6 +47,9 @@ addopts = [
     "--strict-markers",
     "--tb=short",
 ]
+markers = [
+    "integration: marks tests as integration tests",
+]
 
 [tool.black]
 line-length = 100

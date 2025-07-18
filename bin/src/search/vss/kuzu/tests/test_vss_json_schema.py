@@ -10,10 +10,6 @@ from pathlib import Path
 import tempfile
 import shutil
 
-# Add parent directory to path
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from vss_service import VSSService
 
 
