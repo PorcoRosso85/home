@@ -64,6 +64,12 @@ tmux set -g status-keys vi
 tmux setw -g monitor-activity on
 tmux set-option -g window-status-activity-style "bg=yellow,fg=black"
 
+# ステータスバーでフォーカス中のwindowを強調
+tmux set-option -g window-status-current-style "bg=blue,fg=white,bold"
+tmux set-option -g window-status-style "bg=black,fg=white"
+tmux set-option -g window-status-format " #I:#W "
+tmux set-option -g window-status-current-format " #I:#W* "
+
 # window作成関数
 create_window() {
     local idx=$1
