@@ -30,9 +30,8 @@ EOF
 fi
 
 
-# セッション名
-GIT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
-SESSION_NAME="$(basename $(pwd))-${GIT_BRANCH}"
+# セッション名（モノレポルート名）
+SESSION_NAME="bin"
 
 # セッション参加または作成
 if tmux has-session -t $SESSION_NAME 2>/dev/null; then
@@ -126,9 +125,11 @@ setup_hooks() {
 
 setup_hooks
 
-# Window作成
-create_window 0 "apps" "lazygit" "yazi"
-create_window 1 "bash"
+# Window作成（相対パス表示）
+# 現在のディレクトリからの相対パス
+current_rel_path=${PWD#/home/nixos/bin/}
+create_window 0 "$current_rel_path" "lazygit" "yazi"
+create_window 1 "$current_rel_path"
 
 
 # キーバインド
@@ -150,7 +151,18 @@ tmux bind-key b display-popup -E -w 80% -h 80% \
 tmux bind-key c display-popup -E -w 80% -h 80% \
     "selected_dir=\$(nix run /home/nixos/bin/src/poc/develop/search/flakes#run 2>/dev/null); \
     if [ -n \"\$selected_dir\" ]; then \
-        window_name=\$(basename \"\$selected_dir\"); \
+        # モノレポルートからの相対パス取得
+        rel_path=\${selected_dir#/home/nixos/bin/}; \
+        # パスが長い場合は省略記法を使用
+        if [ \$(echo \"\$rel_path\" | tr '/' '\\n' | wc -l) -gt 3 ]; then \
+            # 最初のディレクトリと最後の2階層を保持
+            first=\$(echo \"\$rel_path\" | cut -d'/' -f1); \
+            parent=\$(basename \$(dirname \"\$selected_dir\")); \
+            last=\$(basename \"\$selected_dir\"); \
+            window_name=\"\$first/.../\$parent/\$last\"; \
+        else \
+            window_name=\"\$rel_path\"; \
+        fi; \
         tmux new-window -n \"\$window_name\" -c \"\$selected_dir\"; \
     fi"
 
