@@ -24,6 +24,7 @@ tmux 水平2分割構成セッション作成スクリプト (Nix版)
   Ctrl-b + v        コピーモード
   Ctrl-b + h/j/k/l  ペイン移動
   Ctrl-b + b        fzfでペインジャンプ
+  Ctrl-b + c        flakeディレクトリ選択して新規window作成
 EOF
     exit 0
 fi
@@ -103,9 +104,11 @@ setup_hooks() {
             # window1以降は4分割維持（均等レイアウト使用）
             panes=\$(tmux list-panes -t #{session_name}:#{window_index} 2>/dev/null | wc -l); \
             if [ \$panes -lt 4 ] && [ \$panes -gt 0 ]; then \
-                # 不足分のペインを追加
+                # 現在のwindowのディレクトリを取得
+                cwd=\$(tmux display-message -t #{session_name}:#{window_index} -p \"#{pane_current_path}\"); \
+                # 不足分のペインを追加（同じディレクトリで）
                 while [ \$panes -lt 4 ]; do \
-                    tmux split-window -h -t #{session_name}:#{window_index} ; \
+                    tmux split-window -h -t #{session_name}:#{window_index} -c \"\$cwd\"; \
                     panes=\$((panes + 1)); \
                 done; \
                 # 均等な水平レイアウトを適用（各ペイン25%）
@@ -113,11 +116,12 @@ setup_hooks() {
             fi \
         fi'"
     
-    # 新規window作成時は4分割
+    # 新規window作成時は4分割（現在のディレクトリで）
     tmux set-hook -t $SESSION_NAME after-new-window \
-        "run-shell 'tmux split-window -h -t #{session_name}:#{window_index} -p 50; \
-        tmux split-window -h -t #{session_name}:#{window_index}.0 -p 50; \
-        tmux split-window -h -t #{session_name}:#{window_index}.2 -p 50'"
+        "run-shell 'cwd=\$(tmux display-message -t #{session_name}:#{window_index} -p \"#{pane_current_path}\"); \
+        tmux split-window -h -t #{session_name}:#{window_index} -c \"\$cwd\" -p 50; \
+        tmux split-window -h -t #{session_name}:#{window_index}.0 -c \"\$cwd\" -p 50; \
+        tmux split-window -h -t #{session_name}:#{window_index}.2 -c \"\$cwd\" -p 50'"
 }
 
 setup_hooks
@@ -141,6 +145,14 @@ tmux bind-key b display-popup -E -w 80% -h 80% \
         --preview 'tmux capture-pane -p -t {1} 2>/dev/null || echo \"Pane content not available\"' \
         --preview-window=right:50% | \
     cut -d' ' -f1 | xargs -I {} tmux switch-client -t {} \\; select-pane -t {}"
+
+# flake.nixディレクトリ選択して新規window作成 (prefix + c)
+tmux bind-key c display-popup -E -w 80% -h 80% \
+    "selected_dir=\$(nix run /home/nixos/bin/src/poc/develop/search/flakes#run 2>/dev/null); \
+    if [ -n \"\$selected_dir\" ]; then \
+        window_name=\$(basename \"\$selected_dir\"); \
+        tmux new-window -n \"\$window_name\" -c \"\$selected_dir\"; \
+    fi"
 
 # コピーモード
 tmux bind-key -T copy-mode-vi v send-keys -X begin-selection
