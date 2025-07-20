@@ -10,10 +10,15 @@
     pkgs = nixpkgs.legacyPackages.${system};
   in {
     packages.${system}.default = pkgs.writeShellScriptBin "search-bash-histories" ''
-      # 履歴から選択して結果を出力（キャンセル時は何も出力しない）
-      HISTTIMEFORMAT= history | 
-          awk '{$1=""; print substr($0,2)}' |
-          ${pkgs.fzf}/bin/fzf --height ''${FZF_TMUX_HEIGHT:-40%} $FZF_DEFAULT_OPTS -n2..,.. --tiebreak=index --bind=ctrl-r:toggle-sort $FZF_CTRL_R_OPTS --query="$READLINE_LINE" +m
+      # 履歴ファイルから直接読み込む
+      if [ -f ~/.bash_history ]; then
+        tac ~/.bash_history | 
+        awk '!seen[$0]++' | 
+        ${pkgs.fzf}/bin/fzf --height ''${FZF_TMUX_HEIGHT:-40%} $FZF_DEFAULT_OPTS -n2..,.. --tiebreak=index --bind=ctrl-r:toggle-sort $FZF_CTRL_R_OPTS --query="$READLINE_LINE" +m
+      else
+        echo "No bash history file found" >&2
+        exit 1
+      fi
     '';
 
     apps.${system}.default = {
