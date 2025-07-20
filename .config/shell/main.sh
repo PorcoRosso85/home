@@ -73,12 +73,23 @@ if ! shopt -oq posix; then
   fi
 fi
 # eval "$(starship init bash)"
+# Source traditional shell scripts
 for file in $HOME/.config/shell/*.sh; do
     if [ "$(basename "$file")" != "main.sh" ]; then
         source "$file"
         # echo "sourced $file"
     fi
 done
+
+# Source bash_histories from POC flake
+if [ -f "$HOME/bin/src/poc/develop/search/bash_histories/flake.nix" ]; then
+    if result=$(cd "$HOME/bin/src/poc/develop/search/bash_histories" && nix run . 2>&1); then
+        eval "$result"
+        # echo "Loaded bash_histories from POC"
+    else
+        echo "Failed to load bash_histories: $result"
+    fi
+fi
 # export GO111MODULE=on
 # export GOPATH=
 export EDITOR=hx
