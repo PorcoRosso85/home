@@ -30,8 +30,8 @@ EOF
 fi
 
 
-# セッション名（モノレポルート名）
-SESSION_NAME="bin"
+# セッション名（ディレクトリベース）
+SESSION_NAME="$(basename $(pwd))"
 
 # セッション参加または作成
 if tmux has-session -t $SESSION_NAME 2>/dev/null; then
@@ -155,13 +155,11 @@ tmux bind-key v copy-mode
 
 # fzfでペインジャンプ (prefix + b)
 tmux bind-key b display-popup -E -w 80% -h 80% \
-    "tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{window_name} #{pane_current_command}' | \
-    awk '{window=\$2; pane=substr(\$1,index(\$1,\".\")+1); cmd=\$3; print window \".\" pane \" [\" cmd \"]\"}' | \
+    "tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{window_name} [#{pane_current_command}]' | \
     fzf --reverse --header='Jump to pane (ESC to cancel):' \
-        --preview 'full_id=\$(tmux list-panes -a -F \"#{session_name}:#{window_index}.#{pane_index} #{window_name}\" | grep \"\$(echo {} | cut -d\" \" -f1)\" | cut -d\" \" -f1); \
-                   tmux capture-pane -p -t \$full_id 2>/dev/null || echo \"Pane content not available\"' \
+        --preview 'tmux capture-pane -p -t {1} 2>/dev/null || echo \"Pane content not available\"' \
         --preview-window=right:50% | \
-    cut -d' ' -f1 | xargs -I {} sh -c 'full_id=\$(tmux list-panes -a -F \"#{session_name}:#{window_index}.#{pane_index} #{window_name}\" | grep \"{}\" | cut -d\" \" -f1); tmux switch-client -t \$full_id \\; select-pane -t \$full_id'"
+    cut -d' ' -f1 | xargs -I {} tmux switch-client -t {} \\; select-pane -t {}"
 
 # flake.nixディレクトリ選択して新規window作成 (prefix + c)
 tmux bind-key c display-popup -E -w 80% -h 80% \
