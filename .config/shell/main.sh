@@ -81,14 +81,20 @@ for file in $HOME/.config/shell/*.sh; do
     fi
 done
 
-# Source bash_histories from POC flake
+# Bind Ctrl+R to search bash histories
 if [ -f "$HOME/bin/src/poc/develop/search/bash_histories/flake.nix" ]; then
-    if result=$(cd "$HOME/bin/src/poc/develop/search/bash_histories" && nix run . 2>&1); then
-        eval "$result"
-        # echo "Loaded bash_histories from POC"
-    else
-        echo "Failed to load bash_histories: $result"
-    fi
+    # echo "DEBUG: flake.nix found, setting up search_bash_histories"
+    search_bash_histories() {
+        local output
+        output=$(HISTTIMEFORMAT= history | 
+            awk '{$1=""; print substr($0,2)}' |
+            fzf --height ${FZF_TMUX_HEIGHT:-40%} $FZF_DEFAULT_OPTS -n2..,.. --tiebreak=index --bind=ctrl-r:toggle-sort $FZF_CTRL_R_OPTS --query="$READLINE_LINE" +m)
+        READLINE_LINE=${output}
+        READLINE_POINT=${#READLINE_LINE}
+    }
+    bind -x '"\C-r": search_bash_histories'
+else
+    echo "DEBUG: flake.nix not found at $HOME/bin/src/poc/develop/search/bash_histories/flake.nix"
 fi
 # export GO111MODULE=on
 # export GOPATH=
