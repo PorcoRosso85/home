@@ -57,16 +57,30 @@ create_2_split() {
 # ====================
 # tmux基本設定
 # ====================
-tmux set -g window-style 'fg=colour245'
-tmux set -g window-active-style 'fg=colour255'
 tmux set -g mode-keys vi
 tmux set -g status-keys vi
 tmux setw -g monitor-activity on
-tmux set-option -g window-status-activity-style "bg=yellow,fg=black"
 
-# ステータスバーでフォーカス中のwindowを強調
-tmux set-option -g window-status-current-style "bg=blue,fg=white,bold"
-tmux set-option -g window-status-style "bg=black,fg=white"
+# ====================
+# カラーテーマ設定（ミニマル暗め）
+# ====================
+# 基本カラー定義
+BG_BASE="colour236"      # ベース背景（濃いグレー）
+BG_ACTIVE="colour238"    # アクティブ背景（少し明るめ）
+FG_DIM="colour242"       # 薄暗い文字
+FG_NORMAL="colour245"    # 通常文字
+FG_BRIGHT="colour250"    # 明るい文字
+FG_ALERT="colour214"     # アラート（控えめなオレンジ）
+
+# ペインスタイル
+tmux set -g window-style "fg=$FG_NORMAL"
+tmux set -g window-active-style "fg=colour255"
+
+# ステータスバー
+tmux set-option -g status-style "bg=$BG_BASE,fg=$FG_NORMAL"
+tmux set-option -g window-status-current-style "bg=$BG_ACTIVE,fg=$FG_BRIGHT"
+tmux set-option -g window-status-style "bg=$BG_BASE,fg=$FG_DIM"
+tmux set-option -g window-status-activity-style "bg=$BG_BASE,fg=$FG_ALERT"
 tmux set-option -g window-status-format " #I:#W "
 tmux set-option -g window-status-current-format " #I:#W* "
 
