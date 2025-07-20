@@ -81,21 +81,8 @@ for file in $HOME/.config/shell/*.sh; do
     fi
 done
 
-# Bind Ctrl+R to search bash histories
-if [ -f "$HOME/bin/src/poc/develop/search/bash_histories/flake.nix" ]; then
-    # echo "DEBUG: flake.nix found, setting up search_bash_histories"
-    search_bash_histories() {
-        local output
-        output=$(HISTTIMEFORMAT= history | 
-            awk '{$1=""; print substr($0,2)}' |
-            fzf --height ${FZF_TMUX_HEIGHT:-40%} $FZF_DEFAULT_OPTS -n2..,.. --tiebreak=index --bind=ctrl-r:toggle-sort $FZF_CTRL_R_OPTS --query="$READLINE_LINE" +m)
-        READLINE_LINE=${output}
-        READLINE_POINT=${#READLINE_LINE}
-    }
-    bind -x '"\C-r": search_bash_histories'
-else
-    echo "DEBUG: flake.nix not found at $HOME/bin/src/poc/develop/search/bash_histories/flake.nix"
-fi
+# Bash history search with fzf
+bind -x '"\C-r": READLINE_LINE=$(HISTTIMEFORMAT= history | awk "{print substr(\$0,index(\$0,\$2))}" | fzf --height 40% +m); READLINE_POINT=${#READLINE_LINE}'
 # export GO111MODULE=on
 # export GOPATH=
 export EDITOR=hx
