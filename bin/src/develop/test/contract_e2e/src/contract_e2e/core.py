@@ -20,7 +20,11 @@ def generate_sample_from_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
             prop_type = prop_schema.get("type")
             
             if prop_type == "string":
-                sample[prop_name] = "test_string"
+                # Check for enum constraint
+                if "enum" in prop_schema:
+                    sample[prop_name] = prop_schema["enum"][0]  # Use first enum value
+                else:
+                    sample[prop_name] = "test_string"
             elif prop_type == "integer":
                 # minimum/maximumを考慮
                 minimum = prop_schema.get("minimum", 0)

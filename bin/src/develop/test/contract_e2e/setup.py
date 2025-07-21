@@ -23,4 +23,9 @@ setup(
             "mypy>=1.0.0",
         ],
     },
+    entry_points={
+        "console_scripts": [
+            "contract-e2e-runner=contract_e2e.runner:main",
+        ],
+    },
 )

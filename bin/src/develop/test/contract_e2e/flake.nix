@@ -88,8 +88,14 @@
             pkgs.writeShellApplication {
               name = "contract-e2e-test-${name}";
               runtimeInputs = [ pythonEnv ];
-              text = ''
-                exec ${pythonEnv}/bin/python -m contract_e2e.runner \
+              text = let
+                runnerPath = pkgs.writeTextFile {
+                  name = "runner.py";
+                  text = builtins.readFile ./src/contract_e2e/runner.py;
+                };
+              in ''
+                export PYTHONPATH="${./src}:''${PYTHONPATH:-}"
+                exec ${pythonEnv}/bin/python ${runnerPath} \
                   --name "${name}" \
                   --executable "${executable}" \
                   --input-schema "${inputSchema}" \

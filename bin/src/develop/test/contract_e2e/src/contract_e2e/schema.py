@@ -19,7 +19,7 @@ def validate_schemas(
     except jsonschema.ValidationError as e:
         return ValidationError(
             type="validation_error",
-            schema_path=str(e.schema_path),
-            instance_path=str(e.instance_path),
+            schema_path=str(e.absolute_schema_path) if hasattr(e, 'absolute_schema_path') else "",
+            instance_path=str(e.absolute_path) if hasattr(e, 'absolute_path') else "",
             message=str(e.message)
         )
