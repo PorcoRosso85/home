@@ -34,6 +34,35 @@
 }
 ```
 
+## 環境の継承
+
+### 親flakeの利用
+共通の言語環境は `bin/src/flakes/<言語名>/` から継承する：
+
+```nix
+inputs = {
+  nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  flake-utils.url = "github:numtide/flake-utils";
+  python-flake.url = "path:/home/nixos/bin/src/flakes/python";
+};
+
+outputs = { self, nixpkgs, flake-utils, python-flake }:
+  flake-utils.lib.eachDefaultSystem (system:
+    let
+      pkgs = nixpkgs.legacyPackages.${system};
+      # 親flakeから環境を継承
+      pythonEnv = python-flake.packages.${system}.pythonEnv;
+    in
+    {
+      # pythonEnvを使用した実装
+    });
+```
+
+### バージョン管理の原則
+- 言語バージョンは親flakeで一元管理
+- 子flakeでは親から継承し、バージョンをハードコードしない
+- 例外的にバージョン指定が必要な場合は、inputsで明示的に定義
+
 ## Python プロジェクトのFlake化
 
 ### 問題と解決策
@@ -58,6 +87,20 @@
    ```
 
 3. **テスト実行**
+   
+   標準パターン（推奨）：
+   ```nix
+   test = {
+     type = "app";
+     program = "${pkgs.writeShellScript "test" ''
+       # ソースディレクトリで実行
+       cd ${./.}
+       exec ${pythonEnv}/bin/pytest -v "$@"
+     ''}";
+   };
+   ```
+   
+   書き込み権限が必要な場合：
    ```nix
    test = {
      type = "app";
@@ -66,11 +109,11 @@
        export TMPDIR=$(mktemp -d)
        cd $TMPDIR
        
-       # 必要なファイルをコピー
-       cp -r ${./.}/test_data .
-       cp ${./.}/test_standalone.py .
+       # ソースとテストファイルをコピー
+       cp -r ${./.}/* .
        
-       ${pythonEnv}/bin/python test_standalone.py
+       # テストファイルは同じディレクトリに配置されているため
+       ${pythonEnv}/bin/pytest test_*.py
        
        rm -rf $TMPDIR 2>/dev/null || true
      ''}";
@@ -165,6 +208,23 @@ devShells.default = pkgs.mkShell {
 - CLIエントリポイントは`def main`を使用
 - 出力は`to json | print`でJSON形式に
 
+## 言語別の標準構成
+
+### Python
+- **テストランナー**: pytest（標準）
+- **フォーマッター**: black, ruff
+- **型チェッカー**: mypy
+- **親flake**: `bin/src/flakes/python/flake.nix`
+
+### TypeScript/Deno
+- **テストランナー**: deno test
+- **フォーマッター**: deno fmt
+- **型チェッカー**: deno check
+- **親flake**: 将来的に `bin/src/flakes/typescript/flake.nix`
+
+### 詳細実装の参照
+具体的な実装例は `bin/src/flakes/` の各言語テンプレートを参照
+
 ## Node.js/npm CLIツールのFlake化
 
 ### 問題と解決策
@@ -220,16 +280,20 @@ devShells.default = pkgs.mkShell {
 - ❌ 相対インポートに依存した構造
 - ❌ ハードコードされたパス
 - ❌ 環境依存の前提条件
+- ❌ 言語バージョンのハードコード（例: `pkgs.python312` を直接使用）
+- ❌ 共通環境の重複定義
 
 ## ベストプラクティス
 
 - ✅ `writeScriptBin`でシンプルに
 - ✅ スタンドアロンスクリプトで相対インポート回避
-- ✅ 一時ディレクトリでテスト実行
+- ✅ 通常はソースディレクトリでテスト実行（特殊な場合のみ一時ディレクトリ）
 - ✅ 明確なエラーメッセージ
 - ✅ `nix run`をメインの実行方法として設計
 - ✅ 複数実装がある場合は`apps.default`で主要実装を指定
 - ✅ デフォルトコマンドは必ずREADME.mdを表示（エラー時も含む）
+- ✅ 言語環境は親flakeから継承
+- ✅ バージョン管理は親flakeで一元化
 
 ## Nushellスクリプトの統合
 
