@@ -14,20 +14,14 @@
         pkgs = nixpkgs.legacyPackages.${system};
         projectDir = "/home/nixos/bin/src/requirement/graph";
         
-        # 共通のpatchelf処理
-        patchKuzu = ''
-          for lib in .venv/lib/python*/site-packages/kuzu/*.so; do
-            [ -f "$lib" ] && ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" "$lib"
-          done
-        '';
         
-        # Python環境の構築 - flakes/pythonから取得
-        pythonEnv = python-flake.packages.${system}.pythonEnv;
+        # Python環境 - flakes/pythonから取得し、kuzu_pyを含む環境を使用
+        pythonEnv = kuzu-py.packages.${system}.pythonEnv;
         
         # 共通の実行ラッパー
         mkRunner = name: script: pkgs.writeShellScript name ''
           cd ${projectDir}
-          export PYTHONPATH="${kuzu-py.lib.pythonPath}:/home/nixos/bin/src:$PYTHONPATH"
+          export PYTHONPATH="${projectDir}:$PYTHONPATH"
           ${script}
         '';
         
@@ -35,31 +29,11 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             pythonEnv
-            uv
-            patchelf
-            stdenv.cc.cc.lib
             ruff
           ];
           
           shellHook = ''
-            echo "Setting up Python environment..."
-            if [ ! -d ".venv" ]; then
-              uv venv
-            fi
-            source .venv/bin/activate
-            
-            # PYTHONPATHにbin/srcとkuzu-pyを追加
-            export PYTHONPATH="${kuzu-py.lib.pythonPath}:/home/nixos/bin/src:$PYTHONPATH"
-            echo "PYTHONPATH set to include kuzu-py and /home/nixos/bin/src"
-            
-            # nixpkgsで依存関係が提供されるので、追加インストールは不要
-            echo "Dependencies provided by nixpkgs"
-            
-            # patchelf for kuzu
-            for lib in .venv/lib/python*/site-packages/kuzu/*.so; do
-              [ -f "$lib" ] && patchelf --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" "$lib"
-            done
-            
+            echo "Requirement Graph Logic (RGL) Development Environment"
             echo "Environment ready!"
           '';
         };
@@ -100,7 +74,7 @@
               # テスト用スキーマの適用
               echo "📊 Applying test schema..."
               export RGL_SKIP_SCHEMA_CHECK="true"
-              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python run.py
+              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python main.py
               
               echo "✅ Test environment is ready!"
               echo "   DB Path: $RGL_DB_PATH"
@@ -148,7 +122,7 @@
             type = "app";
             program = "${mkRunner "run" ''
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              exec ${pythonEnv}/bin/python run.py "$@"
+              exec ${pythonEnv}/bin/python -m requirement.graph "$@"
             ''}";
           };
           
@@ -166,7 +140,7 @@
               fi
               
               # 初期化実行
-              echo '{"type": "init", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python run.py
+              echo '{"type": "init", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python -m requirement.graph
             ''}";
           };
           
