@@ -14,12 +14,7 @@
       {
         # 共通のPython環境を提供
         packages.pythonEnv = pkgs.python312.withPackages (ps: with ps; [
-          kuzu
           pytest
-          # 一般的な依存関係
-          sentence-transformers
-          numpy
-          pandas
         ]);
       });
 }
