@@ -72,6 +72,8 @@
 !bin/**
 bin/src/.venv/
 
+flake.lock
+
 # Claude org worktrees
 .worktrees/
 
