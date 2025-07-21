@@ -7,13 +7,7 @@
   };
 
   outputs = { self, nixpkgs, flake-utils }:
-    {
-      # システム非依存の出力
-      lib = {
-        pythonPath = ./.;
-        moduleImport = "kuzu_py";
-      };
-    } // flake-utils.lib.eachDefaultSystem (system:
+    flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
@@ -22,9 +16,37 @@
           # 拡張機能をここで追加可能
         });
         
+        # kuzu_py パッケージ  
+        kuzuPy = pkgs.python312Packages.buildPythonPackage rec {
+          pname = "kuzu_py";
+          version = "0.1.0";
+          
+          src = pkgs.lib.cleanSourceWith {
+            src = ./.;
+            filter = path: type: 
+              (pkgs.lib.hasSuffix ".py" path) ||
+              (pkgs.lib.hasSuffix "pyproject.toml" path) ||
+              (pkgs.lib.hasSuffix "setup.py" path);
+          };
+          
+          # setuptools形式でビルド
+          pyproject = true;
+          build-system = with pkgs.python312Packages; [
+            setuptools
+            wheel
+          ];
+          
+          propagatedBuildInputs = with pkgs.python312Packages; [
+            customKuzu
+          ];
+          
+          pythonImportsCheck = [ "kuzu_py" ];
+          doCheck = false;
+        };
+        
         # Python環境
         pythonEnv = pkgs.python312.withPackages (ps: with ps; [
-          customKuzu
+          kuzuPy
           pytest
         ]);
       in
@@ -36,7 +58,6 @@
           ];
           
           shellHook = ''
-            export PYTHONPATH="$PWD/..:$PYTHONPATH"
             echo "KuzuDB thin wrapper"
             echo "Python version: $(python --version)"
           '';
@@ -47,13 +68,13 @@
           default = pythonEnv;
           kuzu = customKuzu;
           pythonEnv = pythonEnv;
+          kuzuPy = kuzuPy;
         };
         
         # テストランナー
         apps.test = {
           type = "app";
           program = "${pkgs.writeShellScriptBin "test" ''
-            export PYTHONPATH="/home/nixos/bin/src/persistence:$PYTHONPATH"
             cd /home/nixos/bin/src/persistence/kuzu_py
             ${pythonEnv}/bin/pytest -v test_kuzu_py.py
           ''}/bin/test";

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kuzu_py"
+version = "0.1.0"
+description = "KuzuDB thin wrapper for Nix environments"
+requires-python = ">=3.12"
+
+[tool.setuptools]
+packages = ["kuzu_py"]
+
+[tool.setuptools.package-data]
+kuzu_py = ["*.py"]

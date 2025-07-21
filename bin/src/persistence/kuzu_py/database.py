@@ -7,13 +7,11 @@ from pathlib import Path
 from typing import Optional, Any
 from .result_types import DatabaseResult, ConnectionResult, ErrorDict
 
-# ロギング - /home/nixos/bin/src/logを使用
-import sys
-# /home/nixos/bin/src/kuzu との名前衝突を避けるため、
-# このパスは最後に追加（先頭ではなく）
-if "/home/nixos/bin/src" not in sys.path:
-    sys.path.append("/home/nixos/bin/src")
-from log import log
+# ロギング - 一旦シンプルなprint使用（後でlog依存を解決）
+def log(level: str, data: dict) -> None:
+    """シンプルなログ出力"""
+    import json
+    print(json.dumps({"level": level, **data}))
 
 
 def create_database(path: Optional[str] = None) -> DatabaseResult:
