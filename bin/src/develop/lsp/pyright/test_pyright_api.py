@@ -14,12 +14,12 @@ from pathlib import Path
 
 
 def run_pyright_json(method: str, params: dict) -> dict:
-    """pyright-json APIを実行してレスポンスを取得"""
+    """pyright-lsp APIを実行してレスポンスを取得"""
     request = json.dumps({"method": method, "params": params})
     
-    # pyright_json_api.pyを直接実行
+    # pyright_lsp_api.pyを直接実行
     script_dir = Path(__file__).parent
-    api_script = script_dir / "pyright_json_api.py"
+    api_script = script_dir / "pyright_lsp_api.py"
     cmd = ["python3", str(api_script)]
     env = os.environ.copy()
     

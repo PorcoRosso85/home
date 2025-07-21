@@ -35,7 +35,7 @@
           # Copy test files to a writable directory
           export TEST_DIR=$(mktemp -d)
           cp ${./test_pyright_api.py} $TEST_DIR/test_pyright_api.py
-          cp ${./pyright_json_api.py} $TEST_DIR/pyright_json_api.py
+          cp ${./pyright_lsp_api.py} $TEST_DIR/pyright_lsp_api.py
           
           cd $TEST_DIR
           PATH="${pkgs.pyright}/bin:$PATH" ${pkgs.python3}/bin/python3 test_pyright_api.py
@@ -44,30 +44,30 @@
           rm -rf $TEST_DIR
         '';
         
-        # JSON-RPC API for pyright
-        pyrightJson = pkgs.writeShellScriptBin "pyright-json" ''
+        # LSP API for pyright
+        pyrightLspApi = pkgs.writeShellScriptBin "pyright-lsp-api" ''
           #!${pkgs.bash}/bin/bash
           set -euo pipefail
           
           if [ -t 0 ]; then
             # Interactive mode - show usage
             cat << 'EOF'
-Pyright JSON-RPC API
+Pyright LSP API
 
-Usage: echo '<json>' | pyright-json
+Usage: echo '<json>' | pyright-lsp-api
 
 Examples:
   # Initialize
-  echo '{"method": "initialize", "params": {"rootPath": "."}}' | pyright-json
+  echo '{"method": "initialize", "params": {"rootPath": "."}}' | pyright-lsp-api
   
   # Get diagnostics
-  echo '{"method": "textDocument/diagnostics", "params": {"file": "test.py"}}' | pyright-json
+  echo '{"method": "textDocument/diagnostics", "params": {"file": "test.py"}}' | pyright-lsp-api
   
   # Go to definition
-  echo '{"method": "textDocument/definition", "params": {"file": "test.py", "position": {"line": 10, "character": 5}}}' | pyright-json
+  echo '{"method": "textDocument/definition", "params": {"file": "test.py", "position": {"line": 10, "character": 5}}}' | pyright-lsp-api
   
   # Find references
-  echo '{"method": "textDocument/references", "params": {"file": "test.py", "position": {"line": 10, "character": 5}}}' | pyright-json
+  echo '{"method": "textDocument/references", "params": {"file": "test.py", "position": {"line": 10, "character": 5}}}' | pyright-lsp-api
 
 Available methods:
   - initialize: Initialize LSP server and show capabilities
@@ -79,11 +79,11 @@ EOF
           fi
           
           # Run the JSON API
-          PATH="${pkgs.pyright}/bin:$PATH" ${pkgs.python3}/bin/python3 ${./pyright_json_api.py}
+          PATH="${pkgs.pyright}/bin:$PATH" ${pkgs.python3}/bin/python3 ${./pyright_lsp_api.py}
         '';
         
-        # Minimal LSP client for basic operations
-        pyrightLsp = pkgs.writeShellScriptBin "pyright-lsp" ''
+        # Minimal LSP client for basic operations (legacy)
+        pyrightLspLegacy = pkgs.writeShellScriptBin "pyright-lsp-legacy" ''
           #!${pkgs.bash}/bin/bash
           set -euo pipefail
           
@@ -290,10 +290,10 @@ EOF
       in
       {
         packages = {
-          default = pyrightJson;
+          default = pyrightLspApi;
           check = pyrightCheck;
-          lsp = pyrightLsp;
-          json = pyrightJson;
+          lsp = pyrightLspApi;
+          "lsp-legacy" = pyrightLspLegacy;
           test = testRunner;
         };
 
@@ -308,17 +308,17 @@ EOF
             echo ""
             echo "Available commands:"
             echo "  nix run .#check -- <file.py>                   # Run pyright diagnostics"
-            echo "  nix run .#json                                 # Show JSON-RPC API usage (recommended)"
-            echo "  nix run .#lsp -- init <workspace>              # Initialize LSP server"
-            echo "  nix run .#lsp -- check <file.py>               # Get diagnostics via LSP"
-            echo "  nix run .#lsp -- definition <file> <line> <col># Go to definition"
-            echo "  nix run .#lsp -- references <file> <line> <col># Find references"
+            echo "  nix run .#lsp                                  # Show LSP API usage (recommended)"
+            echo "  nix run .#lsp-legacy -- init <workspace>       # Initialize LSP server (legacy)"
+            echo "  nix run .#lsp-legacy -- check <file.py>        # Get diagnostics via LSP (legacy)"
+            echo "  nix run .#lsp-legacy -- definition <file> <line> <col># Go to definition (legacy)"
+            echo "  nix run .#lsp-legacy -- references <file> <line> <col># Find references (legacy)"
           '';
         };
         
         apps = {
           default = flake-utils.lib.mkApp {
-            drv = pyrightJson;
+            drv = pyrightLspApi;
           };
           
           check = flake-utils.lib.mkApp {
@@ -326,11 +326,11 @@ EOF
           };
           
           lsp = flake-utils.lib.mkApp {
-            drv = pyrightLsp;
+            drv = pyrightLspApi;
           };
           
-          json = flake-utils.lib.mkApp {
-            drv = pyrightJson;
+          "lsp-legacy" = flake-utils.lib.mkApp {
+            drv = pyrightLspLegacy;
           };
           
           test = flake-utils.lib.mkApp {
