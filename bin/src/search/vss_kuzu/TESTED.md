@@ -124,10 +124,11 @@ The application strictly follows the JSON Schema contracts:
 
 ## 4. nix run .#test コマンドの状況
 
-❌ **現在エラーが発生**
-- PYTHONPATHの設定問題でインポートエラー
-- `persistence`モジュールが見つからない
-- flake.nixでPYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"の設定が必要
+✅ **PYTHONPATHなしで動作可能**
+- kuzu-py-flakeをinputとして使用
+- kuzu_pyパッケージが正常にインポート可能
+- 純粋なNix flakeの依存関係として機能
+- 残っているのはテストファイルの相対インポートパスの問題のみ
 
 ## 5. 推奨事項
 
@@ -171,8 +172,9 @@ But do not guarantee:
 - **仕様の網羅性**: 主要機能は十分にテストされている
 - **テスト哲学の遵守**: 公開APIのみをテストする原則を守っている
 - **独立性の確保**: POC依存を排除し、スタンドアロン動作を保証
+- **PYTHONPATHなしで動作**: 純粋なNix flakeの依存関係として機能
 
 ### 改善点
-1. **テスト実行環境の修正**: nix run .#test が動作するよう修正必要
+1. **テストファイルのインポートパス修正**: `from search.vss.kuzu` → 正しいパスへ
 2. **パフォーマンステストの追加**: 実用的な規模でのテスト
 3. **並行性テストの追加**: マルチスレッド環境での動作保証

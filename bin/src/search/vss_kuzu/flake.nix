@@ -86,11 +86,11 @@
           test = {
             type = "app";
             program = "${pkgs.writeShellScript "test" ''
-              # Run tests from the source directory, not from nix store
-              cd /home/nixos/bin/src/search/vss/kuzu
+              # Run tests from the source directory
+              cd /home/nixos/bin/src/search/vss_kuzu
               echo "Running VSS tests with JSON Schema validation..."
-              echo "Testing without PYTHONPATH, using pure flake input"
-              exec ${pythonEnv}/bin/pytest -v tests/ "$@"
+              # Run pytest with importlib import mode to avoid namespace conflicts
+              PYTHONPATH=. exec ${pythonEnv}/bin/pytest -v --import-mode=importlib test_*.py "$@"
             ''}";
           };
           

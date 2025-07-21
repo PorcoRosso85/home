@@ -10,9 +10,6 @@ from typing import Dict, Any, List, Optional
 import jsonschema
 import numpy as np
 
-# Use the kuzu_py package from flake
-from kuzu_py.database import create_database, create_connection
-
 
 class VSSService:
     """Vector Similarity Search service with JSON Schema validation"""
@@ -42,13 +39,25 @@ class VSSService:
     def _get_connection(self):
         """Get or create database connection using persistence layer"""
         if self._conn is None:
-            # Create database using persistence layer
-            self._db = create_database(
-                path=self.db_path if not self.in_memory else None,
-                in_memory=self.in_memory,
-                use_cache=not self.in_memory  # Don't cache in-memory DBs for tests
-            )
-            self._conn = create_connection(self._db)
+            from kuzu_py import create_database, create_connection
+            
+            # For in-memory database, pass ":memory:" to kuzu
+            db_path = ":memory:" if self.in_memory else self.db_path
+            
+            # Create database and connection using kuzu_py helper functions
+            db_result = create_database(db_path)
+            if not db_result.get("success", False):
+                error_msg = db_result.get("error", {}).get("message", "Unknown error")
+                raise RuntimeError(f"Failed to create database: {error_msg}")
+            
+            self._db = db_result["database"]
+            
+            conn_result = create_connection(self._db)
+            if not conn_result.get("success", False):
+                error_msg = conn_result.get("error", {}).get("message", "Unknown error")
+                raise RuntimeError(f"Failed to create connection: {error_msg}")
+            
+            self._conn = conn_result["connection"]
             
             # Initialize schema
             self._initialize_schema()

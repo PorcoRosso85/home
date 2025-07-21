@@ -10,10 +10,6 @@ from pathlib import Path
 import tempfile
 import shutil
 
-# Add parent directory to path
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from vss_service import VSSService
 
 
@@ -195,6 +191,15 @@ class TestVSSJSONSchema:
 
 class TestVSSSpecification:
     """Test cases based on POC specification"""
+    
+    @pytest.fixture
+    def vss_service(self):
+        """VSS service with temporary database"""
+        tmpdir = tempfile.mkdtemp()
+        service = VSSService(db_path=tmpdir, in_memory=False)
+        yield service
+        # Cleanup
+        shutil.rmtree(tmpdir)
     
     def test_specification_vector_dimension(self, vss_service):
         """Verify vector dimension matches specification"""
