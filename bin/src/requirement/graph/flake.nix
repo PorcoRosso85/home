@@ -5,9 +5,10 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     kuzu-py.url = "path:../../persistence/kuzu_py";
+    python-flake.url = "path:../../flakes/python";
   };
 
-  outputs = { self, nixpkgs, flake-utils, kuzu-py, ... }:
+  outputs = { self, nixpkgs, flake-utils, kuzu-py, python-flake, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -20,19 +21,20 @@
           done
         '';
         
+        # Python環境の構築 - flakes/pythonから取得
+        pythonEnv = python-flake.packages.${system}.pythonEnv;
+        
         # 共通の実行ラッパー
         mkRunner = name: script: pkgs.writeShellScript name ''
           cd ${projectDir}
           export PYTHONPATH="${kuzu-py.lib.pythonPath}:/home/nixos/bin/src:$PYTHONPATH"
-          ${patchKuzu}
           ${script}
         '';
         
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            python311
-            kuzu-py.packages.${system}.pythonEnv
+            pythonEnv
             uv
             patchelf
             stdenv.cc.cc.lib
@@ -50,12 +52,8 @@
             export PYTHONPATH="${kuzu-py.lib.pythonPath}:/home/nixos/bin/src:$PYTHONPATH"
             echo "PYTHONPATH set to include kuzu-py and /home/nixos/bin/src"
             
-            # KuzuDBとその他の依存関係をインストール
-            if [ ! -f ".venv/.deps_installed" ]; then
-              echo "Installing dependencies..."
-              uv pip install pytest sentence-transformers
-              touch .venv/.deps_installed
-            fi
+            # nixpkgsで依存関係が提供されるので、追加インストールは不要
+            echo "Dependencies provided by nixpkgs"
             
             # patchelf for kuzu
             for lib in .venv/lib/python*/site-packages/kuzu/*.so; do
@@ -78,7 +76,7 @@
             type = "app";
             program = "${mkRunner "test" ''
               export RGL_SKIP_SCHEMA_CHECK="true"
-              exec .venv/bin/pytest "$@"
+              exec ${pythonEnv}/bin/pytest "$@"
             ''}";
           };
           
@@ -102,7 +100,7 @@
               # テスト用スキーマの適用
               echo "📊 Applying test schema..."
               export RGL_SKIP_SCHEMA_CHECK="true"
-              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | .venv/bin/python run.py
+              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python run.py
               
               echo "✅ Test environment is ready!"
               echo "   DB Path: $RGL_DB_PATH"
@@ -150,7 +148,7 @@
             type = "app";
             program = "${mkRunner "run" ''
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              exec .venv/bin/python run.py "$@"
+              exec ${pythonEnv}/bin/python run.py "$@"
             ''}";
           };
           
@@ -168,7 +166,7 @@
               fi
               
               # 初期化実行
-              echo '{"type": "init", "action": "apply", "create_test_data": true}' | .venv/bin/python run.py
+              echo '{"type": "init", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python run.py
             ''}";
           };
           
