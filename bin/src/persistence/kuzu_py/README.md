@@ -1,11 +1,13 @@
-# kuzu_py - Nix-based KuzuDB Persistence Layer
+# kuzu_py - KuzuDB Thin Wrapper for Nix
 
-## 背景と要件
+## 概要
 
-### 初期状況
-- プロジェクトでKuzuDBを使用（`pyproject.toml`で`kuzu>=0.0.12`）
-- uvパッケージマネージャーでPyPIからインストール
-- ローカルに`kuzu/core/database.py`というファクトリーモジュールが存在
+KuzuDBのNixパッケージを提供し、薄いヘルパー関数でin-memory/persistence切り替えを簡単にします。
+
+### 設計原則
+- **薄いラッパー**: KuzuDBのAPIを隠さず、最小限のヘルパー関数のみ提供
+- **規約準拠**: エラー処理、ロギング、モジュール設計の規約に従う
+- **インフラ層のみ**: ビジネスロジックなし、技術的な実装のみ
 
 ### 実現した要件
 
@@ -95,16 +97,21 @@ persistence/
 
 ### 2. Pythonコードでのインポート
 ```python
-from core.database import create_database, create_connection
+# KuzuDBのAPIを直接使用
+from kuzu_py import Database, Connection
 
-# In-memoryデータベース
-db = create_database(":memory:")
-conn = create_connection(db)
+# またはヘルパー関数を使用
+from kuzu_py import create_database, create_connection
+
+# In-memoryデータベース（Result型で安全）
+db_result = create_database(":memory:")
+if "error" not in db_result:
+    conn_result = create_connection(db_result)
 ```
 
-### 3. テスト実行
+### 3. 開発環境
 ```bash
-nix run .#test
+nix develop
 ```
 
 ## 特徴
@@ -114,10 +121,13 @@ nix run .#test
 - **PyPI非依存**: Nixpkgsのkuzuのみ使用
 - **シンプル**: 最小限の構成で外部参照を実現
 
-## database.pyの機能
+## 提供する機能
 
-- データベースインスタンスのファクトリーメソッド
-- グローバルキャッシュ機能（`use_cache`パラメータ）
-- In-memoryとpersistent両対応
-- テスト用の`test_unique`パラメータ
-- エラーハンドリングとロギング
+### ヘルパー関数
+- `create_database(path)`: DatabaseResult型を返す安全なDB作成
+- `create_connection(db)`: ConnectionResult型を返す安全な接続作成
+
+### Result型
+- エラー処理は例外ではなくResult型で実装
+- `DatabaseResult = Union[kuzu.Database, ErrorDict]`
+- `ConnectionResult = Union[kuzu.Connection, ErrorDict]`

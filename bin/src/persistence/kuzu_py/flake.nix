@@ -1,5 +1,5 @@
 {
-  description = "KuzuDB Python persistence layer";
+  description = "KuzuDB thin wrapper for Python";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -11,7 +11,7 @@
       # システム非依存の出力
       lib = {
         pythonPath = ./.;
-        moduleImport = "core.database";
+        moduleImport = "kuzu_py";
       };
     } // flake-utils.lib.eachDefaultSystem (system:
       let
@@ -25,10 +25,7 @@
         # Python環境
         pythonEnv = pkgs.python312.withPackages (ps: with ps; [
           customKuzu
-          numpy
-          pandas
           pytest
-          pydantic
         ]);
       in
       {
@@ -39,8 +36,8 @@
           ];
           
           shellHook = ''
-            export PYTHONPATH="$PWD:$PYTHONPATH"
-            echo "KuzuDB Python persistence layer"
+            export PYTHONPATH="$PWD/..:$PYTHONPATH"
+            echo "KuzuDB thin wrapper"
             echo "Python version: $(python --version)"
           '';
         };
@@ -56,9 +53,9 @@
         apps.test = {
           type = "app";
           program = "${pkgs.writeShellScriptBin "test" ''
-            cd ${../.}
-            export PYTHONPATH="${./.}:$PYTHONPATH"
-            ${pythonEnv}/bin/python test_minimal_kuzu.py
+            export PYTHONPATH="/home/nixos/bin/src/persistence:$PYTHONPATH"
+            cd /home/nixos/bin/src/persistence/kuzu_py
+            ${pythonEnv}/bin/pytest -v test_kuzu_py.py
           ''}/bin/test";
         };
       });

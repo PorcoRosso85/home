@@ -92,12 +92,5 @@
           };
         };
         
-        apps.test = {
-          type = "app";
-          program = "${pkgs.writeShellScriptBin "test" ''
-            export PYTHONPATH="$PWD:$PYTHONPATH"
-            ${pythonEnv}/bin/python test_minimal_kuzu.py
-          ''}/bin/test";
-        };
       });
 }
