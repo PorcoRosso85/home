@@ -24,6 +24,64 @@
           ${pkgs.pyright}/bin/pyright "$@"
         '';
         
+        # Test runner
+        testRunner = pkgs.writeShellScriptBin "test-runner" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+          
+          echo "Running Pyright API Tests..."
+          cd ${./.}
+          
+          # Copy test files to a writable directory
+          export TEST_DIR=$(mktemp -d)
+          cp ${./test_pyright_api.py} $TEST_DIR/test_pyright_api.py
+          cp ${./pyright_json_api.py} $TEST_DIR/pyright_json_api.py
+          
+          cd $TEST_DIR
+          PATH="${pkgs.pyright}/bin:$PATH" ${pkgs.python3}/bin/python3 test_pyright_api.py
+          
+          # Clean up
+          rm -rf $TEST_DIR
+        '';
+        
+        # JSON-RPC API for pyright
+        pyrightJson = pkgs.writeShellScriptBin "pyright-json" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+          
+          if [ -t 0 ]; then
+            # Interactive mode - show usage
+            cat << 'EOF'
+Pyright JSON-RPC API
+
+Usage: echo '<json>' | pyright-json
+
+Examples:
+  # Initialize
+  echo '{"method": "initialize", "params": {"rootPath": "."}}' | pyright-json
+  
+  # Get diagnostics
+  echo '{"method": "textDocument/diagnostics", "params": {"file": "test.py"}}' | pyright-json
+  
+  # Go to definition
+  echo '{"method": "textDocument/definition", "params": {"file": "test.py", "position": {"line": 10, "character": 5}}}' | pyright-json
+  
+  # Find references
+  echo '{"method": "textDocument/references", "params": {"file": "test.py", "position": {"line": 10, "character": 5}}}' | pyright-json
+
+Available methods:
+  - initialize: Initialize LSP server and show capabilities
+  - textDocument/diagnostics: Get type errors and warnings
+  - textDocument/definition: Find where a symbol is defined
+  - textDocument/references: Find all uses of a symbol
+EOF
+            exit 0
+          fi
+          
+          # Run the JSON API
+          PATH="${pkgs.pyright}/bin:$PATH" ${pkgs.python3}/bin/python3 ${./pyright_json_api.py}
+        '';
+        
         # Minimal LSP client for basic operations
         pyrightLsp = pkgs.writeShellScriptBin "pyright-lsp" ''
           #!${pkgs.bash}/bin/bash
@@ -232,9 +290,11 @@ EOF
       in
       {
         packages = {
-          default = pyrightLsp;
+          default = pyrightJson;
           check = pyrightCheck;
           lsp = pyrightLsp;
+          json = pyrightJson;
+          test = testRunner;
         };
 
         devShells.default = pkgs.mkShell {
@@ -248,6 +308,7 @@ EOF
             echo ""
             echo "Available commands:"
             echo "  nix run .#check -- <file.py>                   # Run pyright diagnostics"
+            echo "  nix run .#json                                 # Show JSON-RPC API usage (recommended)"
             echo "  nix run .#lsp -- init <workspace>              # Initialize LSP server"
             echo "  nix run .#lsp -- check <file.py>               # Get diagnostics via LSP"
             echo "  nix run .#lsp -- definition <file> <line> <col># Go to definition"
@@ -257,7 +318,7 @@ EOF
         
         apps = {
           default = flake-utils.lib.mkApp {
-            drv = pyrightLsp;
+            drv = pyrightJson;
           };
           
           check = flake-utils.lib.mkApp {
@@ -266,6 +327,14 @@ EOF
           
           lsp = flake-utils.lib.mkApp {
             drv = pyrightLsp;
+          };
+          
+          json = flake-utils.lib.mkApp {
+            drv = pyrightJson;
+          };
+          
+          test = flake-utils.lib.mkApp {
+            drv = testRunner;
           };
         };
       }
