@@ -1,5 +1,5 @@
 {
-  description = "VSS (Vector Similarity Search) with KuzuDB - JSON Schema based implementation";
+  description = "VSS (Vector Similarity Search) with KuzuDB";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -30,8 +30,6 @@
             sentence-transformers
             torch
             
-            # JSON Schema validation
-            jsonschema
             
             # Development tools
             pytest-cov
@@ -49,14 +47,13 @@
           ];
           
           shellHook = ''
-            echo "VSS KuzuDB JSON Schema Implementation"
-            echo "======================================"
+            echo "VSS KuzuDB Implementation"
+            echo "========================"
             echo ""
             echo "Available commands:"
             echo "  nix run .#test      - Run tests"
             echo "  nix run .#lint      - Run linter"
             echo "  nix run .#format    - Format code"
-            echo "  nix run .#validate  - Validate JSON schemas"
             echo ""
             
             # No PYTHONPATH needed, testing pure flake input
@@ -88,7 +85,7 @@
             program = "${pkgs.writeShellScript "test" ''
               # Run tests from the source directory
               cd /home/nixos/bin/src/search/vss_kuzu
-              echo "Running VSS tests with JSON Schema validation..."
+              echo "Running VSS tests..."
               # Run pytest with importlib import mode to avoid namespace conflicts
               PYTHONPATH=. exec ${pythonEnv}/bin/pytest -v --import-mode=importlib test_*.py "$@"
             ''}";
@@ -112,36 +109,6 @@
               echo "Formatting code..."
               ${pkgs.black}/bin/black .
               ${pkgs.ruff}/bin/ruff format .
-            ''}";
-          };
-          
-          # JSON Schema validator
-          validate = {
-            type = "app";
-            program = "${pkgs.writeShellScript "validate" ''
-              cd ${./.}
-              echo "Validating JSON schemas..."
-              ${pythonEnv}/bin/python -c "
-import json
-import jsonschema
-from pathlib import Path
-
-schemas = ['input.schema.json', 'output.schema.json']
-for schema_file in schemas:
-    path = Path(schema_file)
-    if path.exists():
-        with open(path) as f:
-            schema = json.load(f)
-        try:
-            jsonschema.Draft7Validator.check_schema(schema)
-            print(f'✓ {schema_file} is valid')
-        except jsonschema.SchemaError as e:
-            print(f'✗ {schema_file} has errors: {e}')
-            exit(1)
-    else:
-        print(f'✗ {schema_file} not found')
-        exit(1)
-"
             ''}";
           };
         };

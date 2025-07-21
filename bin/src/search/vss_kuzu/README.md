@@ -1,68 +1,19 @@
 # VSS (Vector Similarity Search) with KuzuDB
 
-JSON Schema contract-based implementation of Vector Similarity Search using KuzuDB.
+Implementation of Vector Similarity Search using KuzuDB.
 
 ## Overview
 
-This implementation provides a clean, contract-first interface for vector similarity search while leveraging the existing POC implementation. All inputs and outputs are validated against JSON schemas.
+This implementation provides vector similarity search functionality leveraging KuzuDB's VECTOR extension and Japanese language embeddings.
 
 ## Features
 
-- **JSON Schema Validation**: All inputs and outputs are validated against predefined schemas
 - **Vector Similarity Search**: Semantic search using Ruri v3 embeddings (256 dimensions)
 - **KuzuDB Integration**: Leverages KuzuDB's VECTOR extension for efficient similarity search
 - **Threshold Filtering**: Optional minimum similarity score filtering
 - **Pre-computed Vectors**: Support for pre-computed query embeddings
 
-## API Contract
-
-### Input Schema (`input.schema.json`)
-
-```json
-{
-  "query": "search text",           // Required: search query
-  "limit": 10,                      // Optional: max results (default: 10)
-  "model": "ruri-v3-30m",          // Optional: embedding model
-  "threshold": 0.7,                 // Optional: min similarity score
-  "query_vector": [0.1, ...]        // Optional: pre-computed vector
-}
-```
-
-### Output Schema (`output.schema.json`)
-
-```json
-{
-  "results": [
-    {
-      "id": "doc_1",
-      "content": "matched text",
-      "score": 0.95,              // Similarity score (0-1)
-      "distance": 0.05            // Vector distance
-    }
-  ],
-  "metadata": {
-    "model": "ruri-v3-30m",
-    "dimension": 256,
-    "total_results": 3,
-    "query_time_ms": 15.2
-  }
-}
-```
-
 ## Usage
-
-### CLI Usage
-
-```bash
-# Search
-vss-service search '{"query": "ユーザー認証", "limit": 5}'
-
-# Index documents
-vss-service index '[{"id": "1", "content": "認証機能"}]'
-
-# Validate schemas
-vss-service validate
-```
 
 ### Python API
 
@@ -98,9 +49,6 @@ nix develop
 # Run tests
 nix run .#test
 
-# Validate schemas
-nix run .#validate
-
 # Format code
 nix run .#format
 
@@ -110,43 +58,25 @@ nix run .#lint
 
 ### Testing
 
-Tests follow the POC specifications but use JSON input/output format:
-
 ```bash
 # Run all tests
-pytest
+nix run .#test
 
 # Run specific test
-pytest tests/test_vss_json_schema.py::TestVSSJSONSchema::test_search_with_sample_data
+nix run .#test -- -k test_name
 ```
 
 ## Architecture
 
-```
-vss_service.py          # Main service with JSON validation
-├── input.schema.json   # Input contract definition
-├── output.schema.json  # Output contract definition
-└── tests/
-    └── test_vss_json_schema.py  # Tests with JSON I/O
-```
-
 The service provides:
-1. JSON Schema validation for all inputs/outputs
-2. Integration with persistence/kuzu database layer
-3. Direct KuzuDB queries for vector operations
-4. Consistent error handling and clean API surface
-
-### Key Changes from POC
-- Uses `persistence.kuzu.core.database` for database management
-- Direct SQL queries instead of POC wrapper classes
-- Proper connection lifecycle management
-- Support for both in-memory and persistent databases
+1. Integration with kuzu_py database layer
+2. Direct KuzuDB queries for vector operations
+3. Consistent error handling and clean API surface
 
 ## Dependencies
 
 - KuzuDB: Graph database with vector extension
 - Ruri v3: Japanese embedding model (30M parameters)
-- jsonschema: JSON Schema validation
 - numpy: Vector operations
 
 ## Performance
