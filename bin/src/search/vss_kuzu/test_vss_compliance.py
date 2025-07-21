@@ -25,27 +25,43 @@ class TestVSSCompliance:
     
     def test_vector_extension_not_available_error(self, vss_service):
         """VECTOR拡張が利用できない場合、エラーを返すこと"""
+        # 新しいサービスインスタンスを作成（既存の接続を避ける）
+        tmpdir = tempfile.mkdtemp()
+        service = VSSService(db_path=tmpdir, in_memory=False)
+        
+        # 接続を初期化して状態を確定
+        service._get_connection()
+        
+        # 実際のVECTOR拡張の状態を保存
+        original_available = service._vector_extension_available
+        
         # VECTOR拡張をモックで無効化
-        vss_service._vector_extension_available = False
+        service._vector_extension_available = False
         
-        # インデックス時のエラー確認
-        documents = [{"id": "1", "content": "テストドキュメント"}]
-        result = vss_service.index_documents(documents)
-        
-        # ErrorDictが返されること
-        assert isinstance(result, dict)
-        assert result["ok"] is False
-        assert "VECTOR extension not available" in result["error"]
-        assert result["details"]["extension"] == "VECTOR"
-        assert "install_command" in result["details"]
-        
-        # 検索時のエラー確認
-        search_result = vss_service.search({"query": "テスト"})
-        
-        # ErrorDictが返されること
-        assert isinstance(search_result, dict)
-        assert search_result["ok"] is False
-        assert "VECTOR extension not available" in search_result["error"]
+        try:
+            # インデックス時のエラー確認
+            documents = [{"id": "1", "content": "テストドキュメント"}]
+            result = service.index_documents(documents)
+            
+            # ErrorDictが返されること
+            assert isinstance(result, dict)
+            assert result["ok"] is False
+            assert "VECTOR extension not available" in result["error"]
+            assert result["details"]["extension"] == "VECTOR"
+            assert "install_command" in result["details"]
+            
+            # 検索時のエラー確認
+            search_result = service.search({"query": "テスト"})
+            
+            # ErrorDictが返されること
+            assert isinstance(search_result, dict)
+            assert search_result["ok"] is False
+            assert "VECTOR extension not available" in search_result["error"]
+        finally:
+            # 元の状態に戻す
+            service._vector_extension_available = original_available
+            # Cleanup
+            shutil.rmtree(tmpdir)
     
     def test_successful_indexing_with_vector_extension(self, vss_service):
         """VECTOR拡張が利用可能な場合、正常にインデックスできること"""
@@ -113,19 +129,35 @@ class TestVSSCompliance:
     
     def test_result_type_consistency(self, vss_service):
         """結果の型が一貫していることを確認"""
+        # 新しいサービスインスタンスを作成
+        tmpdir = tempfile.mkdtemp()
+        service = VSSService(db_path=tmpdir, in_memory=False)
+        
+        # 接続を初期化
+        service._get_connection()
+        
+        # 実際のVECTOR拡張の状態を保存
+        original_available = service._vector_extension_available
+        
         # VECTOR拡張を無効化してエラーを確実に発生させる
-        vss_service._vector_extension_available = False
+        service._vector_extension_available = False
         
-        # インデックス操作
-        index_result = vss_service.index_documents([{"content": "test"}])
-        assert "ok" in index_result
-        assert isinstance(index_result["ok"], bool)
-        
-        # 検索操作
-        search_result = vss_service.search({"query": "test"})
-        assert "ok" in search_result
-        assert isinstance(search_result["ok"], bool)
-        
-        # 両方ともErrorDictであること
-        assert index_result["ok"] is False
-        assert search_result["ok"] is False
+        try:
+            # インデックス操作
+            index_result = service.index_documents([{"content": "test"}])
+            assert "ok" in index_result
+            assert isinstance(index_result["ok"], bool)
+            
+            # 検索操作
+            search_result = service.search({"query": "test"})
+            assert "ok" in search_result
+            assert isinstance(search_result["ok"], bool)
+            
+            # 両方ともErrorDictであること
+            assert index_result["ok"] is False
+            assert search_result["ok"] is False
+        finally:
+            # 元の状態に戻す
+            service._vector_extension_available = original_available
+            # Cleanup
+            shutil.rmtree(tmpdir)

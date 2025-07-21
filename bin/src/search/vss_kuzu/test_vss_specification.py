@@ -161,12 +161,22 @@ def test_vss_error_handling_compliance():
     print("✓ フォールバック実装が存在しない（規約準拠）")
     
     # エラー型の確認
+    # 接続を初期化
+    service._get_connection()
+    
+    # 実際のVECTOR拡張の状態を保存
+    original_available = service._vector_extension_available
+    
     # VECTOR拡張を無効化
     service._vector_extension_available = False
     
-    result = service.search({"query": "test"})
-    assert result.get("ok", False) is False
-    assert "error" in result
-    assert "details" in result
-    
-    print("✓ 明示的なエラー型（ErrorDict）を使用")
+    try:
+        result = service.search({"query": "test"})
+        assert result.get("ok", False) is False
+        assert "error" in result
+        assert "details" in result
+        
+        print("✓ 明示的なエラー型（ErrorDict）を使用")
+    finally:
+        # 元の状態に戻す
+        service._vector_extension_available = original_available
