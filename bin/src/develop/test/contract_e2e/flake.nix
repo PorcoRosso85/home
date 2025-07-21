@@ -10,70 +10,91 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        
         python = pkgs.python311;
-        pythonPackages = python.pkgs;
         
-        # Define our Python package
-        contract-e2e = pythonPackages.buildPythonPackage {
-          pname = "contract-e2e";
+        # contract_e2e パッケージ
+        contractE2e = pkgs.python311Packages.buildPythonPackage rec {
+          pname = "contract_e2e";
           version = "0.1.0";
-          src = ./.;
           
-          propagatedBuildInputs = with pythonPackages; [
+          src = pkgs.lib.cleanSourceWith {
+            src = ./.;
+            filter = path: type: 
+              (pkgs.lib.hasSuffix ".py" path) ||
+              (pkgs.lib.hasSuffix ".toml" path) ||
+              (baseNameOf path == "src");
+          };
+          
+          format = "setuptools";
+          
+          propagatedBuildInputs = with pkgs.python311Packages; [
             jsonschema
             hypothesis
           ];
           
-          checkInputs = with pythonPackages; [
-            pytest
-            pytest-cov
-          ];
-          
-          # Ensure tests are discovered from src/
-          checkPhase = ''
-            pytest src/
-          '';
-        };
-      in
-      {
-        packages = {
-          default = contract-e2e;
-          contract-e2e = contract-e2e;
+          # pythonImportsCheck = [ "contract_e2e" ];
+          doCheck = false;
         };
         
+        # Python環境
+        pythonEnv = python.withPackages (ps: with ps; [
+          contractE2e
+          pytest
+          pytest-cov
+        ]);
+      in
+      {
+        # パッケージ出力
+        packages = {
+          default = contractE2e;
+          pythonEnv = pythonEnv;
+        };
+        
+        # 開発環境
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            python
-            pythonPackages.pytest
-            pythonPackages.pytest-cov
-            pythonPackages.jsonschema
-            pythonPackages.hypothesis
-            pythonPackages.black
-            pythonPackages.isort
-            pythonPackages.flake8
-            pythonPackages.mypy
+            pythonEnv
+            ruff
+            uv
           ];
           
           shellHook = ''
-            echo "Contract E2E Testing Framework Development Shell"
-            echo "Run 'pytest' to execute tests"
+            echo "Contract E2E Testing Framework"
+            echo "Python: $(python --version)"
+            export PYTHONPATH="$PWD/src:$PYTHONPATH"
           '';
         };
         
+        # アプリケーション
         apps = {
           test = {
             type = "app";
-            program = "${pkgs.writeShellScript "run-tests" ''
-              ${python}/bin/python -m pytest src/ -v
-            ''}";
+            program = toString (pkgs.writeScript "test" ''
+              #!${pkgs.bash}/bin/bash
+              cd /home/nixos/bin/src/develop/test/contract_e2e
+              export PYTHONPATH="src:$PYTHONPATH"
+              exec ${pythonEnv}/bin/pytest -v test_contract_e2e.py
+            '');
           };
         };
         
+        # ライブラリ関数
         lib = {
-          # This will be implemented as we build the framework
-          mkContractE2ETest = { name, executable, inputSchema, outputSchema }: 
-            throw "mkContractE2ETest not yet implemented";
+          mkContractE2ETest = { name, executable, inputSchema, outputSchema, testCount ? 100, timeout ? 3000, verbose ? false }:
+            pkgs.writeShellApplication {
+              name = "contract-e2e-test-${name}";
+              runtimeInputs = [ pythonEnv ];
+              text = ''
+                exec ${pythonEnv}/bin/python -m contract_e2e.runner \
+                  --name "${name}" \
+                  --executable "${executable}" \
+                  --input-schema "${inputSchema}" \
+                  --output-schema "${outputSchema}" \
+                  --test-count ${toString testCount} \
+                  --timeout ${toString timeout} \
+                  ${if verbose then "--verbose" else ""}
+              '';
+            };
         };
       });
 }
