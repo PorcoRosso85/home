@@ -65,12 +65,11 @@ def test_vss_specification():
     assert len(search_result["results"]) == 3
     
     # 認証系のドキュメントが上位2件に含まれること
-    top_2_contents = [r["content"] for r in search_result["results"][:2]]
-    assert "認証" in top_2_contents[0] or "ログイン" in top_2_contents[0]
-    assert "認証" in top_2_contents[1] or "ログイン" in top_2_contents[1]
+    top_2_ids = [r["id"] for r in search_result["results"][:2]]
+    assert set(top_2_ids) == {"REQ001", "REQ002"}  # 順序は問わない
     
     # データベース系が最下位であること
-    assert "データベース" in search_result["results"][-1]["content"]
+    assert search_result["results"][-1]["id"] == "REQ003"
     
     # スコアが降順であること
     scores = [r["score"] for r in search_result["results"]]

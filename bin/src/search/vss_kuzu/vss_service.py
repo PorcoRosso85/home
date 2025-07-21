@@ -16,7 +16,7 @@ class VSSService:
         self.in_memory = in_memory
         self.dimension = 256  # Default dimension for ruri-v3-30m
         
-        # Database and connection
+        # Database and connection - always create fresh instances
         self._db = None
         self._conn = None
         self._embedding_service = None
@@ -32,18 +32,22 @@ class VSSService:
             
             # Create database and connection using kuzu_py helper functions
             db_result = create_database(db_path)
-            if not db_result.get("success", False):
-                error_msg = db_result.get("error", {}).get("message", "Unknown error")
+            # Check if it's an error (ErrorDict has 'ok' attribute set to False)
+            if hasattr(db_result, 'get') and db_result.get("ok") is False:
+                error_msg = db_result.get("error", "Unknown error")
                 raise RuntimeError(f"Failed to create database: {error_msg}")
             
-            self._db = db_result["database"]
+            # db_result is the Database object itself
+            self._db = db_result
             
             conn_result = create_connection(self._db)
-            if not conn_result.get("success", False):
-                error_msg = conn_result.get("error", {}).get("message", "Unknown error")
+            # Check if it's an error (ErrorDict has 'ok' attribute set to False)
+            if hasattr(conn_result, 'get') and conn_result.get("ok") is False:
+                error_msg = conn_result.get("error", "Unknown error")
                 raise RuntimeError(f"Failed to create connection: {error_msg}")
             
-            self._conn = conn_result["connection"]
+            # conn_result is the Connection object itself
+            self._conn = conn_result
             
             # Initialize schema
             self._initialize_schema()
@@ -53,22 +57,44 @@ class VSSService:
         """Initialize database schema"""
         conn = self._conn
         
-        # Check if Document table exists
-        result = conn.execute("CALL show_tables() RETURN *;")
-        tables = []
-        while result.has_next():
-            tables.append(result.get_next()[0])
+        # Install and load VECTOR extension
+        try:
+            conn.execute("INSTALL VECTOR;")
+        except Exception as e:
+            # Extension might already be installed
+            pass
         
-        if "Document" not in tables:
-            # Create Document table with id, content, and embedding
+        try:
+            conn.execute("LOAD EXTENSION VECTOR;")
+        except Exception as e:
+            # Extension might already be loaded
+            pass
+        
+        # Create Document table if it doesn't exist
+        try:
             conn.execute(f"""
-                CREATE NODE TABLE Document (
-                    id INT64,
+                CREATE NODE TABLE IF NOT EXISTS Document (
+                    id STRING,
                     content STRING,
                     embedding FLOAT[{self.dimension}],
                     PRIMARY KEY (id)
                 )
             """)
+        except Exception as e:
+            # KuzuDB might not support IF NOT EXISTS, try without it
+            try:
+                conn.execute(f"""
+                    CREATE NODE TABLE Document (
+                        id STRING,
+                        content STRING,
+                        embedding FLOAT[{self.dimension}],
+                        PRIMARY KEY (id)
+                    )
+                """)
+            except Exception as inner_e:
+                # Table already exists, which is fine
+                if "already exists" not in str(inner_e):
+                    raise
     
     def _get_embedding_service(self):
         """Get or create embedding service"""
@@ -157,28 +183,61 @@ class VSSService:
         # Execute vector search
         results = []
         try:
-            # Use QUERY_VECTOR_INDEX for search
-            result = conn.execute(
-                "CALL QUERY_VECTOR_INDEX('Document', 'doc_embedding_index', $embedding, $k) RETURN *;",
-                {"embedding": query_embedding, "k": limit}
-            )
+            # Try to use QUERY_VECTOR_INDEX if available
+            if self._vector_index_created:
+                result = conn.execute(
+                    "CALL QUERY_VECTOR_INDEX('Document', 'doc_embedding_index', $embedding, $k) RETURN *;",
+                    {"embedding": query_embedding, "k": limit}
+                )
+            else:
+                # Fallback: Manual vector similarity search using cosine similarity
+                result = conn.execute("""
+                    MATCH (d:Document)
+                    WITH d, 
+                         REDUCE(dot = 0.0, i IN range(0, len($embedding)-1) | 
+                             dot + d.embedding[i] * $embedding[i]) / 
+                         (SQRT(REDUCE(sum1 = 0.0, x IN d.embedding | sum1 + x*x)) * 
+                          SQRT(REDUCE(sum2 = 0.0, x IN $embedding | sum2 + x*x))) AS similarity
+                    WHERE similarity > 0
+                    RETURN d.id AS id, d.content AS content, similarity, 1.0 - similarity AS distance
+                    ORDER BY similarity DESC, d.id ASC
+                    LIMIT $k
+                """, {"embedding": query_embedding, "k": limit})
             
             while result.has_next():
                 row = result.get_next()
-                doc_data = row[0]  # Document node
-                distance = row[1]  # Distance
                 
-                # Convert distance to similarity score
-                score = 1.0 - distance
-                
-                # Apply threshold filter if specified
-                if threshold is None or score >= threshold:
-                    results.append({
-                        "id": str(doc_data.get("id", "")),
-                        "content": doc_data.get("content", ""),
-                        "score": float(score),
-                        "distance": float(distance)
-                    })
+                if self._vector_index_created:
+                    # QUERY_VECTOR_INDEX returns (Document node, distance)
+                    doc_data = row[0]  # Document node
+                    distance = row[1]  # Distance
+                    
+                    # Convert distance to similarity score
+                    score = 1.0 - distance
+                    
+                    # Apply threshold filter if specified
+                    if threshold is None or score >= threshold:
+                        results.append({
+                            "id": str(doc_data.get("id", "")),
+                            "content": doc_data.get("content", ""),
+                            "score": float(score),
+                            "distance": float(distance)
+                        })
+                else:
+                    # Fallback query returns (id, content, similarity, distance)
+                    doc_id = row[0]
+                    content = row[1]
+                    similarity = row[2]
+                    distance = row[3]
+                    
+                    # Apply threshold filter if specified
+                    if threshold is None or similarity >= threshold:
+                        results.append({
+                            "id": str(doc_id),
+                            "content": content,
+                            "score": float(similarity),
+                            "distance": float(distance)
+                        })
         except Exception as e:
             # If vector index doesn't exist, return empty results
             if "does not exist" in str(e):
@@ -188,6 +247,9 @@ class VSSService:
         
         # Calculate query time
         query_time_ms = (time.time() - start_time) * 1000
+        
+        # Sort results by score in descending order to ensure consistency
+        results.sort(key=lambda x: x["score"], reverse=True)
         
         # Build output
         output = {
@@ -226,17 +288,15 @@ class VSSService:
         
         # Insert documents
         indexed_count = 0
-        for doc, embedding_result in zip(documents, embeddings):
+        for i, (doc, embedding_result) in enumerate(zip(documents, embeddings)):
             # Get next ID if not provided
             doc_id = doc.get("id")
             if doc_id is None:
-                # Get max ID and increment
-                result = conn.execute("MATCH (d:Document) RETURN MAX(d.id) AS max_id;")
-                max_id_row = result.get_next()
-                max_id = max_id_row[0] if max_id_row[0] is not None else 0
-                doc_id = max_id + 1
+                # Generate a unique string ID based on timestamp
+                doc_id = f"doc_{int(time.time() * 1000)}_{i}"
             else:
-                doc_id = int(doc_id)
+                # Keep doc_id as string
+                doc_id = str(doc_id)
             
             # Insert or update document
             conn.execute("""
@@ -265,21 +325,15 @@ class VSSService:
         if not self._vector_index_created:
             try:
                 # Create vector index
-                conn.execute("CALL CREATE_VECTOR_INDEX('Document', 'doc_embedding_index', 'embedding') RETURN *;")
+                conn.execute("CALL CREATE_VECTOR_INDEX('Document', 'doc_embedding_index', 'embedding')")
                 self._vector_index_created = True
             except Exception as e:
                 # Index might already exist
                 if "already exists" in str(e):
                     self._vector_index_created = True
                 else:
-                    # Try to drop and recreate
-                    try:
-                        conn.execute("CALL DROP_VECTOR_INDEX('Document', 'doc_embedding_index') RETURN *;")
-                        conn.execute("CALL CREATE_VECTOR_INDEX('Document', 'doc_embedding_index', 'embedding') RETURN *;")
-                        self._vector_index_created = True
-                    except:
-                        # Ignore if we can't create index
-                        pass
+                    # Vector extension not available, use fallback
+                    self._vector_index_created = False
 
 
 # Simple data class for embedding results
