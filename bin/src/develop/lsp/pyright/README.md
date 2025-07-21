@@ -11,7 +11,7 @@ The POC demonstrated that pyright-langserver can be used directly without LSMCP 
 Based on the POC findings, this minimal implementation provides:
 
 1. **Direct Pyright diagnostics** - Static type checking using pyright CLI
-2. **LSP-based operations**:
+2. **Unified LSP API** - JSON-RPC interface for all LSP operations:
    - Initialize LSP server
    - Get diagnostics via LSP protocol
    - Go to definition
@@ -22,10 +22,10 @@ Based on the POC findings, this minimal implementation provides:
 ### Quick Start
 
 ```bash
-# Check Python file for type errors
+# Check Python file for type errors (direct CLI)
 nix run .#check -- test_example.py
 
-# Use LSP API (recommended)
+# Use LSP API for all operations
 echo '{"method": "textDocument/diagnostics", "params": {"file": "test_example.py"}}' | nix run .#lsp
 echo '{"method": "textDocument/definition", "params": {"file": "test_example.py", "position": {"line": 7, "character": 10}}}' | nix run .#lsp
 ```
@@ -38,9 +38,9 @@ echo '{"method": "textDocument/definition", "params": {"file": "test_example.py"
    ```
    Runs pyright's type checker directly on a Python file.
 
-2. **LSP API** (Recommended)
+2. **LSP API**
    ```bash
-   # Show usage
+   # Show usage and examples
    nix run .#lsp
    
    # Initialize LSP server (shows capabilities)
