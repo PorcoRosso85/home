@@ -9,7 +9,10 @@ from .result_types import DatabaseResult, ConnectionResult, ErrorDict
 
 # ロギング - /home/nixos/bin/src/logを使用
 import sys
-sys.path.insert(0, "/home/nixos/bin/src")
+# /home/nixos/bin/src/kuzu との名前衝突を避けるため、
+# このパスは最後に追加（先頭ではなく）
+if "/home/nixos/bin/src" not in sys.path:
+    sys.path.append("/home/nixos/bin/src")
 from log import log
 
 
