@@ -11,154 +11,152 @@ import sys
 from pathlib import Path
 
 
-def test_external_import():
-    """パッケージが外部から正しくインポートできることを確認"""
-    # ソースディレクトリ外で実行
-    with tempfile.TemporaryDirectory() as tmpdir:
-        test_script = Path(tmpdir) / "test_import.py"
-        test_script.write_text("""
+class TestExternalImport:
+    """外部インポート関連のテスト"""
+    
+    def run_python_code(self, code: str, env=None, cwd=None):
+        """Pythonコードを実行するヘルパー関数"""
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=cwd
+        )
+        return result
+    
+    def run_python_script(self, script_path: Path, env=None, cwd=None):
+        """Pythonスクリプトを実行するヘルパー関数"""
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=cwd
+        )
+        return result
+    
+    def test_basic_import(self):
+        """基本的なインポートテスト"""
+        result = self.run_python_code("import kuzu_py; print('OK')")
+        assert result.returncode == 0
+        assert "OK" in result.stdout
+    
+    def test_exports_available(self):
+        """エクスポートされた関数・型の確認"""
+        code = """
 import kuzu_py
-from kuzu_py import create_database, create_connection
-from kuzu_py import DatabaseResult, ConnectionResult, ErrorDict
 
-# KuzuDB APIが露出していることを確認
+# エクスポートされているべき項目
+exports = ["create_database", "create_connection", 
+           "DatabaseResult", "ConnectionResult", "ErrorDict"]
+
+for item in exports:
+    assert hasattr(kuzu_py, item), f"{item} not found"
+    
+# KuzuDB APIの露出確認
 assert hasattr(kuzu_py, 'Database')
 assert hasattr(kuzu_py, 'Connection')
 
-# ヘルパー関数が利用可能なことを確認
-db = create_database()
+print("✓ All exports available")
+"""
+        result = self.run_python_code(code)
+        assert result.returncode == 0
+        assert "✓ All exports available" in result.stdout
+    
+    def test_package_location(self):
+        """パッケージがsite-packagesにインストールされていることを確認"""
+        result = self.run_python_code("import kuzu_py; print(kuzu_py.__file__)")
+        assert result.returncode == 0
+        assert ("site-packages" in result.stdout or "/nix/store" in result.stdout)
+        assert "/home/nixos/bin/src/persistence/kuzu_py" not in result.stdout
+    
+    def test_no_pythonpath_dependency(self):
+        """PYTHONPATH依存なしで動作することを確認"""
+        env = os.environ.copy()
+        env.pop("PYTHONPATH", None)
+        
+        result = self.run_python_code("import kuzu_py; print('OK')", env=env)
+        assert result.returncode == 0
+        assert "OK" in result.stdout
+    
+    def test_external_project_usage(self):
+        """外部プロジェクトからの利用シミュレーション"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_script = Path(tmpdir) / "test_app.py"
+            test_script.write_text("""
+from kuzu_py import create_database, create_connection
+
+# 基本的な使用例
+db = create_database()  # in-memory DB
 assert db is not None
 
-print("✓ External import successful")
+conn = create_connection(db)
+assert conn is not None
+
+# KuzuDBの基本操作
+conn.execute("CREATE NODE TABLE test(id INT64, PRIMARY KEY(id))")
+conn.execute("CREATE (:test {id: 1})")
+result = conn.execute("MATCH (t:test) RETURN t.id")
+assert result.get_next()[0] == 1
+
+print("✓ External usage successful")
 """)
-        
-        result = subprocess.run(
-            [sys.executable, str(test_script)],
-            capture_output=True,
-            text=True
-        )
-        
-        assert result.returncode == 0, f"Import failed: {result.stderr}"
-        assert "✓ External import successful" in result.stdout
+            
+            result = self.run_python_script(test_script, cwd=tmpdir)
+            assert result.returncode == 0, f"Failed: {result.stderr}"
+            assert "✓ External usage successful" in result.stdout
+
+
+# pytest用のテスト関数
+def test_basic_import():
+    """基本的なインポートテスト"""
+    t = TestExternalImport()
+    t.test_basic_import()
+
+
+def test_exports_available():
+    """エクスポートされた関数・型の確認"""
+    t = TestExternalImport()
+    t.test_exports_available()
 
 
 def test_package_location():
-    """パッケージがsite-packagesにインストールされていることを確認"""
-    result = subprocess.run(
-        [sys.executable, "-c", "import kuzu_py; print(kuzu_py.__file__)"],
-        capture_output=True,
-        text=True
-    )
-    
-    assert result.returncode == 0
-    assert "site-packages" in result.stdout or "/nix/store" in result.stdout
-    assert "/home/nixos/bin/src/persistence/kuzu_py" not in result.stdout
+    """パッケージの場所確認"""
+    t = TestExternalImport()
+    t.test_package_location()
 
 
 def test_no_pythonpath_dependency():
-    """PYTHONPATH設定なしで動作することを確認"""
-    # 環境変数からPYTHONPATHを削除
-    env = os.environ.copy()
-    env.pop("PYTHONPATH", None)
-    
-    result = subprocess.run(
-        [sys.executable, "-c", "import kuzu_py; print('OK')"],
-        capture_output=True,
-        text=True,
-        env=env
-    )
-    
-    assert result.returncode == 0
-    assert "OK" in result.stdout
+    """PYTHONPATH非依存の確認"""
+    t = TestExternalImport()
+    t.test_no_pythonpath_dependency()
 
 
-def test_flake_input_simulation():
-    """他プロジェクトからflake inputとして利用できることをシミュレート"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # 擬似的な外部プロジェクト
-        test_project = Path(tmpdir) / "test_app.py"
-        test_project.write_text("""
-from kuzu_py import create_database, create_connection
-
-# In-memory DBを作成
-db_result = create_database()
-if hasattr(db_result, 'ok') and not db_result['ok']:
-    raise Exception(f"DB creation failed: {db_result}")
-
-# 接続を作成
-conn_result = create_connection(db_result)
-if hasattr(conn_result, 'ok') and not conn_result['ok']:
-    raise Exception(f"Connection failed: {conn_result}")
-
-# 基本的なクエリを実行
-conn_result.execute("CREATE NODE TABLE person(name STRING, age INT64, PRIMARY KEY(name))")
-conn_result.execute("CREATE (p:person {name: 'Alice', age: 30})")
-
-result = conn_result.execute("MATCH (p:person) RETURN p.name, p.age")
-data = [(row[0], row[1]) for row in result]
-assert data == [('Alice', 30)]
-
-print("✓ Flake input simulation successful")
-""")
-        
-        result = subprocess.run(
-            [sys.executable, str(test_project)],
-            capture_output=True,
-            text=True,
-            cwd=tmpdir  # ソースディレクトリ外で実行
-        )
-        
-        assert result.returncode == 0, f"Execution failed: {result.stderr}"
-        assert "✓ Flake input simulation successful" in result.stdout
-
-
-def test_all_exports_available():
-    """__all__で定義された全エクスポートが利用可能なことを確認"""
-    test_code = """
-import kuzu_py
-
-# __all__の内容を確認
-expected_exports = [
-    "create_database",
-    "create_connection", 
-    "DatabaseResult",
-    "ConnectionResult",
-    "ErrorDict",
-]
-
-for export in expected_exports:
-    assert hasattr(kuzu_py, export), f"{export} not found in kuzu_py"
-    
-print("✓ All exports available")
-"""
-    
-    result = subprocess.run(
-        [sys.executable, "-c", test_code],
-        capture_output=True,
-        text=True
-    )
-    
-    assert result.returncode == 0, f"Export check failed: {result.stderr}"
-    assert "✓ All exports available" in result.stdout
+def test_external_project_usage():
+    """外部プロジェクトからの利用"""
+    t = TestExternalImport()
+    t.test_external_project_usage()
 
 
 if __name__ == "__main__":
-    # 各テストを実行
+    # 直接実行時の簡易テストランナー
+    t = TestExternalImport()
+    tests = [
+        ("Basic import", t.test_basic_import),
+        ("Exports available", t.test_exports_available),
+        ("Package location", t.test_package_location),
+        ("No PYTHONPATH dependency", t.test_no_pythonpath_dependency),
+        ("External project usage", t.test_external_project_usage),
+    ]
+    
     print("Running e2e tests...")
-    
-    test_external_import()
-    print("✓ test_external_import")
-    
-    test_package_location()
-    print("✓ test_package_location")
-    
-    test_no_pythonpath_dependency()
-    print("✓ test_no_pythonpath_dependency")
-    
-    test_flake_input_simulation()
-    print("✓ test_flake_input_simulation")
-    
-    test_all_exports_available()
-    print("✓ test_all_exports_available")
+    for name, test_func in tests:
+        try:
+            test_func()
+            print(f"✓ {name}")
+        except AssertionError as e:
+            print(f"✗ {name}: {e}")
+            raise
     
     print("\nAll e2e tests passed! 🎉")

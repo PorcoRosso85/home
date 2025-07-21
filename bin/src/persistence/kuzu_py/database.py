@@ -34,8 +34,8 @@ def create_database(path: Optional[str] = None) -> DatabaseResult:
         })
         return ErrorDict(
             ok=False,
-            error="KuzuDB import failed",
-            details={"import_error": str(e)}
+            error="KuzuDB not available",
+            details={"import_error": str(e), "module": "kuzu"}
         )
     
     try:
@@ -65,6 +65,30 @@ def create_database(path: Optional[str] = None) -> DatabaseResult:
         
         return db
         
+    except PermissionError as e:
+        log("ERROR", {
+            "uri": "kuzu_py.database",
+            "message": "Permission denied",
+            "error": str(e),
+            "path": path
+        })
+        return ErrorDict(
+            ok=False,
+            error="Permission denied for database path",
+            details={"exception": str(e), "path": path, "type": "PermissionError"}
+        )
+    except OSError as e:
+        log("ERROR", {
+            "uri": "kuzu_py.database",
+            "message": "OS error creating database",
+            "error": str(e),
+            "path": path
+        })
+        return ErrorDict(
+            ok=False,
+            error="OS error creating database",
+            details={"exception": str(e), "path": path, "type": "OSError"}
+        )
     except Exception as e:
         log("ERROR", {
             "uri": "kuzu_py.database",
@@ -75,7 +99,7 @@ def create_database(path: Optional[str] = None) -> DatabaseResult:
         return ErrorDict(
             ok=False,
             error="Failed to create database",
-            details={"exception": str(e), "path": path}
+            details={"exception": str(e), "path": path, "type": type(e).__name__}
         )
 
 
@@ -89,14 +113,49 @@ def create_connection(database: Any) -> ConnectionResult:
     Returns:
         ConnectionResult: kuzu.Connectionインスタンスまたはエラー辞書
     """
+    if database is None:
+        log("ERROR", {
+            "uri": "kuzu_py.database",
+            "message": "Database instance is None"
+        })
+        return ErrorDict(
+            ok=False,
+            error="Database instance is required",
+            details={"database": None, "type": "ValueError"}
+        )
+    
     try:
         import kuzu
+    except ImportError as e:
+        log("ERROR", {
+            "uri": "kuzu_py.database",
+            "message": "KuzuDB import failed",
+            "error": str(e)
+        })
+        return ErrorDict(
+            ok=False,
+            error="KuzuDB not available",
+            details={"import_error": str(e), "module": "kuzu"}
+        )
+    
+    try:
         conn = kuzu.Connection(database)
         log("DEBUG", {
             "uri": "kuzu_py.database",
             "message": "Connection created successfully"
         })
         return conn
+    except AttributeError as e:
+        log("ERROR", {
+            "uri": "kuzu_py.database",
+            "message": "Invalid database object",
+            "error": str(e)
+        })
+        return ErrorDict(
+            ok=False,
+            error="Invalid database object",
+            details={"exception": str(e), "type": "AttributeError"}
+        )
     except Exception as e:
         log("ERROR", {
             "uri": "kuzu_py.database",
@@ -106,5 +165,5 @@ def create_connection(database: Any) -> ConnectionResult:
         return ErrorDict(
             ok=False,
             error="Failed to create connection", 
-            details={"exception": str(e)}
+            details={"exception": str(e), "type": type(e).__name__}
         )

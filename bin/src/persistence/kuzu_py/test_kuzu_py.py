@@ -81,7 +81,7 @@ def test_error_handling_none_database():
     assert "ok" in result
     assert result["ok"] is False
     assert "error" in result
-    assert result["error"] == "Failed to create connection"
+    assert result["error"] == "Database instance is required"
 
 
 def test_kuzu_api_exposed():
