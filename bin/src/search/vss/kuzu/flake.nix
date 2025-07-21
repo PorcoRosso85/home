@@ -13,14 +13,17 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # Create Python environment extending the base from python-flake
-        # python-flake now only provides pytest
+        # Get kuzuPy package from kuzu-py-flake
+        kuzuPyPackage = kuzu-py-flake.packages.${system}.kuzuPy;
+        
+        # Create Python environment
         pythonEnv = pkgs.python312.withPackages (ps: with ps; [
-            # Base testing framework from python-flake
+            # Base testing framework
             pytest
             
             # Core dependencies for VSS
-            kuzu
+            kuzu  # Base kuzu package
+            kuzuPyPackage  # This provides kuzu_py module
             numpy
             scipy  # Required by sentence-transformers
             sentencepiece  # Required for tokenizer
@@ -43,10 +46,6 @@
             uv
             ruff
             black
-            stdenv.cc.cc.lib
-            zlib
-            blas
-            lapack
           ];
           
           shellHook = ''
@@ -60,11 +59,7 @@
             echo "  nix run .#validate  - Validate JSON schemas"
             echo ""
             
-            # Set PYTHONPATH to find persistence module
-            export PYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"
-            
-            # Set LD_LIBRARY_PATH for NumPy C++ extensions
-            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.blas}/lib:${pkgs.lapack}/lib:$LD_LIBRARY_PATH"
+            # No PYTHONPATH needed, testing pure flake input
           '';
         };
         
@@ -74,8 +69,6 @@
             type = "app";
             program = "${pkgs.writeShellScript "vss-entry" ''
               cd ${./.}
-              export PYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"
-              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.blas}/lib:${pkgs.lapack}/lib:$LD_LIBRARY_PATH"
               exec ${pythonEnv}/bin/python entry.py "$@"
             ''}";
           };
@@ -85,8 +78,6 @@
             type = "app";
             program = "${pkgs.writeShellScript "vss-run" ''
               cd ${./.}
-              export PYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"
-              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.blas}/lib:${pkgs.lapack}/lib:$LD_LIBRARY_PATH"
               exec ${pythonEnv}/bin/python entry.py run "$@"
             ''}";
           };
@@ -97,15 +88,8 @@
             program = "${pkgs.writeShellScript "test" ''
               # Run tests from the source directory, not from nix store
               cd /home/nixos/bin/src/search/vss/kuzu
-              export PYTHONPATH="/home/nixos/bin/src:/home/nixos/bin/src/search/vss/kuzu:$PYTHONPATH"
-              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.blas}/lib:${pkgs.lapack}/lib:$LD_LIBRARY_PATH"
-              # Fix numpy import issue
-              export OPENBLAS_NUM_THREADS=1
-              export MKL_NUM_THREADS=1
-              export OMP_NUM_THREADS=1
-              # Workaround for scipy numpy version issue
-              export SCIPY_USE_PROPACK=1
               echo "Running VSS tests with JSON Schema validation..."
+              echo "Testing without PYTHONPATH, using pure flake input"
               exec ${pythonEnv}/bin/pytest -v tests/ "$@"
             ''}";
           };

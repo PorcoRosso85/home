@@ -10,8 +10,8 @@ from typing import Dict, Any, List, Optional
 import jsonschema
 import numpy as np
 
-# Use the persistence layer for KuzuDB
-from persistence.kuzu_py.database import create_database, create_connection
+# Use the kuzu_py package from flake
+from kuzu_py.database import create_database, create_connection
 
 
 class VSSService:
