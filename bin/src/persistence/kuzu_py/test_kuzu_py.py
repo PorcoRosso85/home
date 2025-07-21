@@ -59,11 +59,29 @@ def test_basic_kuzu_operations():
     assert row[1] == 30
 
 
-def test_error_handling_import_failure():
-    """インポートエラーのResult型での処理確認"""
-    # この部分はモックが必要なため、実装を簡略化
-    # 実際のインポートエラーはNix環境外でしか発生しない
-    pass
+def test_error_handling_invalid_path():
+    """無効なパスでのデータベース作成時のエラーハンドリング"""
+    # 存在しないディレクトリへのパス
+    result = create_database("/invalid/path/to/database")
+    
+    # ErrorDictが返されることを確認
+    assert isinstance(result, dict)
+    assert "ok" in result
+    assert result["ok"] is False
+    assert "error" in result
+    assert "details" in result
+
+
+def test_error_handling_none_database():
+    """Noneデータベースでの接続作成時のエラーハンドリング"""
+    result = create_connection(None)
+    
+    # ErrorDictが返されることを確認
+    assert isinstance(result, dict)
+    assert "ok" in result
+    assert result["ok"] is False
+    assert "error" in result
+    assert result["error"] == "Failed to create connection"
 
 
 def test_kuzu_api_exposed():

@@ -72,12 +72,34 @@
         };
         
         # テストランナー
-        apps.test = {
-          type = "app";
-          program = "${pkgs.writeShellScriptBin "test" ''
-            cd /home/nixos/bin/src/persistence/kuzu_py
-            ${pythonEnv}/bin/pytest -v test_kuzu_py.py
-          ''}/bin/test";
+        apps = {
+          test = {
+            type = "app";
+            program = "${pkgs.writeShellScriptBin "test" ''
+              cd /home/nixos/bin/src/persistence/kuzu_py
+              ${pythonEnv}/bin/pytest -v test_kuzu_py.py
+            ''}/bin/test";
+          };
+          
+          # e2eテストランナー
+          e2e = {
+            type = "app";
+            program = "${pkgs.writeShellScriptBin "e2e" ''
+              cd /home/nixos/bin/src/persistence/kuzu_py
+              echo "Running e2e tests for external import capability..."
+              ${pythonEnv}/bin/pytest -v test_e2e.py
+            ''}/bin/e2e";
+          };
+          
+          # 全テスト実行
+          test-all = {
+            type = "app";
+            program = "${pkgs.writeShellScriptBin "test-all" ''
+              cd /home/nixos/bin/src/persistence/kuzu_py
+              echo "Running all tests..."
+              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_e2e.py
+            ''}/bin/test-all";
+          };
         };
       });
 }
