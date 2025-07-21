@@ -9,7 +9,7 @@ LLM-firstなエントリポイントとして、自然言語でシステムと�
 1. `nix run /full/path/to/flake` でシステムを起動
 2. デフォルト（引数なし）の場合、READMEを表示してインタラクティブモードへ
 3. `#run` サブコマンドで実行（JSONまたはスクリプトファイルを入力）
-4. `#test` サブコマンドでテスト実行（テストシナリオファイルを入力）
+4. `#test` サブコマンドでテスト実行（詳細は `/bin/docs/conventions/test_infrastructure.md` 参照）
 5. 自然言語による問い合わせを解釈し、適切なテンプレートを生成
 
 # 使用例
@@ -54,27 +54,6 @@ cat > create_requirements.json << 'EOF'
 EOF
 
 nix run /home/nixos/bin/src/requirement/graph#run < create_requirements.json
-```
-
-### テスト例
-```bash
-# test_scenario.json
-cat > test_scenario.json << 'EOF'
-{
-  "scenarios": [
-    {
-      "name": "要件作成と重複検出",
-      "steps": [
-        {"action": "create", "data": {"id": "req_001", "title": "ログイン機能"}},
-        {"action": "create", "data": {"id": "req_002", "title": "ログイン機能"}},
-        {"action": "assert", "condition": "duplicate_detected"}
-      ]
-    }
-  ]
-}
-EOF
-
-nix run /home/nixos/bin/src/requirement/graph#test < test_scenario.json
 ```
 
 ## poc/storage/r2の例
@@ -179,9 +158,9 @@ $ nix run /home/nixos/bin/src/requirement/graph
         data = json.load(sys.stdin)
         process_operations(data)
     elif len(sys.argv) > 1 and sys.argv[1] == "test":
-        # テストシナリオを実行
-        scenarios = json.load(sys.stdin)
-        run_test_scenarios(scenarios)
+        # テストシナリオ実行は test_infrastructure.md の規約に従う
+        import subprocess
+        subprocess.run(["nix", "run", ".#test"])
     else:
         # READMEを表示して対話モード
         show_readme()
