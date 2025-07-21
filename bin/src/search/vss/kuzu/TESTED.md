@@ -1,8 +1,8 @@
-# VSS Test and Application Integrity Analysis
+# VSS テストとアプリケーションの整合性分析
 
-## Test Coverage Analysis
+## 1. テスト＝仕様：何を担保しているか
 
-### What the Tests Guarantee
+### テストが保証する仕様
 
 1. **JSON Schema Validation**
    - ✓ Valid inputs pass validation
@@ -28,7 +28,7 @@
    - ✓ Result ordering by similarity
    - ✓ Proper error handling for missing indices
 
-### What the Tests DON'T Guarantee
+### テストが保証しない事項
 
 1. **Performance**
    - ❌ Query speed under load
@@ -45,7 +45,7 @@
    - ❌ Concurrent index updates
    - ❌ Race conditions
 
-## Application Integrity
+## 2. アプリ＝目的・要件：テストが不可欠か判定
 
 ### Contract Adherence
 
@@ -90,14 +90,14 @@ The application strictly follows the JSON Schema contracts:
    - Processing errors are caught and reported
    - No silent failures
 
-### Integration Points
+### 統合ポイント
 
-The application correctly integrates with:
+アプリケーションは以下と正しく統合されている：
 
-1. **POC Implementation**
-   - Reuses proven vector search logic
-   - Maintains compatibility with existing code
-   - Adds validation layer without breaking functionality
+1. **スタンドアロン実装**
+   - POC依存を排除した独立実装
+   - StandaloneEmbeddingServiceによる自己完結型
+   - 検証レイヤーを追加しつつ機能を維持
 
 2. **KuzuDB**
    - Properly initializes vector extension
@@ -109,20 +109,27 @@ The application correctly integrates with:
    - Manages dimension consistency
    - Handles encoding/decoding
 
-## Test Philosophy
+## 3. テスト哲学（/conventions）の遵守状況
 
-### What We Test
+### テスト対象
 - **Contracts**: Input/output conformance
 - **Behavior**: Expected functionality works
 - **Integration**: Components work together
 - **Edge Cases**: Invalid inputs, empty results
 
-### What We Don't Test
+### テスト対象外
 - **Implementation Details**: Internal POC logic
 - **External Dependencies**: KuzuDB, Ruri model
 - **Performance**: Speed, memory, scalability
 
-## Recommendations
+## 4. nix run .#test コマンドの状況
+
+❌ **現在エラーが発生**
+- PYTHONPATHの設定問題でインポートエラー
+- `persistence`モジュールが見つからない
+- flake.nixでPYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"の設定が必要
+
+## 5. 推奨事項
 
 1. **Add Integration Tests**
    - Test with real KuzuDB instance
@@ -144,7 +151,7 @@ The application correctly integrates with:
    - Test with known query-document pairs
    - Measure precision/recall
 
-## Conclusion
+## 総合評価
 
 The current tests provide strong guarantees for:
 - ✅ Contract compliance
@@ -158,4 +165,14 @@ But do not guarantee:
 - ❌ Production readiness
 - ❌ Concurrent operation safety
 
-The application is **functionally correct** according to its specification but requires additional testing for production deployment.
+アプリケーションは仕様に従って**機能的に正しい**が、本番環境展開には追加テストが必要。
+
+### 強み
+- **仕様の網羅性**: 主要機能は十分にテストされている
+- **テスト哲学の遵守**: 公開APIのみをテストする原則を守っている
+- **独立性の確保**: POC依存を排除し、スタンドアロン動作を保証
+
+### 改善点
+1. **テスト実行環境の修正**: nix run .#test が動作するよう修正必要
+2. **パフォーマンステストの追加**: 実用的な規模でのテスト
+3. **並行性テストの追加**: マルチスレッド環境での動作保証

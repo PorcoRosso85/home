@@ -4,28 +4,36 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    python-flake.url = "path:/home/nixos/bin/src/flakes/python";
+    kuzu-py-flake.url = "path:/home/nixos/bin/src/persistence/kuzu_py";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        pythonEnv = pkgs.python311.withPackages (ps: with ps; [
-          # Core dependencies
-          kuzu
-          numpy
-          
-          # JSON Schema validation
-          jsonschema
-          
-          # Testing
-          pytest
-          pytest-cov
-          
-          # Development
-          black
-          ruff
+        # Create Python environment extending the base from python-flake
+        # python-flake now only provides pytest
+        pythonEnv = pkgs.python312.withPackages (ps: with ps; [
+            # Base testing framework from python-flake
+            pytest
+            
+            # Core dependencies for VSS
+            kuzu
+            numpy
+            scipy  # Required by sentence-transformers
+            sentencepiece  # Required for tokenizer
+            sentence-transformers
+            torch
+            
+            # JSON Schema validation
+            jsonschema
+            
+            # Development tools
+            pytest-cov
+            black
+            ruff
         ]);
         
       in {
@@ -37,6 +45,8 @@
             black
             stdenv.cc.cc.lib
             zlib
+            blas
+            lapack
           ];
           
           shellHook = ''
@@ -50,19 +60,34 @@
             echo "  nix run .#validate  - Validate JSON schemas"
             echo ""
             
+            # Set PYTHONPATH to find persistence module
+            export PYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"
+            
             # Set LD_LIBRARY_PATH for NumPy C++ extensions
-            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH"
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.blas}/lib:${pkgs.lapack}/lib:$LD_LIBRARY_PATH"
           '';
         };
         
         apps = {
-          # Main VSS service
+          # LLM-first entry point (default)
           default = {
             type = "app";
-            program = "${pkgs.writeShellScript "vss-service" ''
+            program = "${pkgs.writeShellScript "vss-entry" ''
               cd ${./.}
-              export PYTHONPATH="${./.}:$PYTHONPATH"
-              exec ${pythonEnv}/bin/python -m vss_service "$@"
+              export PYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.blas}/lib:${pkgs.lapack}/lib:$LD_LIBRARY_PATH"
+              exec ${pythonEnv}/bin/python entry.py "$@"
+            ''}";
+          };
+          
+          # Run mode (JSON input)
+          run = {
+            type = "app";
+            program = "${pkgs.writeShellScript "vss-run" ''
+              cd ${./.}
+              export PYTHONPATH="/home/nixos/bin/src:${./.}:$PYTHONPATH"
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.blas}/lib:${pkgs.lapack}/lib:$LD_LIBRARY_PATH"
+              exec ${pythonEnv}/bin/python entry.py run "$@"
             ''}";
           };
           
@@ -70,11 +95,18 @@
           test = {
             type = "app";
             program = "${pkgs.writeShellScript "test" ''
-              cd ${./.}
-              export PYTHONPATH="${./.}:$PYTHONPATH"
-              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:$LD_LIBRARY_PATH"
+              # Run tests from the source directory, not from nix store
+              cd /home/nixos/bin/src/search/vss/kuzu
+              export PYTHONPATH="/home/nixos/bin/src:/home/nixos/bin/src/search/vss/kuzu:$PYTHONPATH"
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.blas}/lib:${pkgs.lapack}/lib:$LD_LIBRARY_PATH"
+              # Fix numpy import issue
+              export OPENBLAS_NUM_THREADS=1
+              export MKL_NUM_THREADS=1
+              export OMP_NUM_THREADS=1
+              # Workaround for scipy numpy version issue
+              export SCIPY_USE_PROPACK=1
               echo "Running VSS tests with JSON Schema validation..."
-              exec ${pythonEnv}/bin/pytest -v "$@"
+              exec ${pythonEnv}/bin/pytest -v tests/ "$@"
             ''}";
           };
           
