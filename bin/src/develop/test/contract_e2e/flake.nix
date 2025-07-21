@@ -4,16 +4,20 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    python-flake.url = "path:../../../flakes/python";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, python-flake }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        python = pkgs.python311;
+        # Python バージョンは環境変数や設定から取得可能にする
+        pythonVersion = "python312";
+        python = pkgs.${pythonVersion};
+        pythonPackages = pkgs.${pythonVersion + "Packages"};
         
         # contract_e2e パッケージ
-        contractE2e = pkgs.python311Packages.buildPythonPackage rec {
+        contractE2e = pythonPackages.buildPythonPackage rec {
           pname = "contract_e2e";
           version = "0.1.0";
           
@@ -27,7 +31,7 @@
           
           format = "setuptools";
           
-          propagatedBuildInputs = with pkgs.python311Packages; [
+          propagatedBuildInputs = with pythonPackages; [
             jsonschema
             hypothesis
           ];
