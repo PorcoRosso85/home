@@ -12,6 +12,8 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
+import sys
+sys.path.insert(0, '.')
 from vss_service import VSSService
 
 

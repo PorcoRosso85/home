@@ -5,12 +5,23 @@ This module provides the public interface for the VSS-KuzuDB library.
 All public classes, functions, and types should be imported from this module.
 """
 
-from vss_service import (
-    VSSService,
-    VectorSearchError,
-    VectorSearchResult,
-    VectorIndexResult,
-)
+try:
+    from vss_service import (
+        VSSService,
+        VectorSearchError,
+        VectorSearchResult,
+        VectorIndexResult,
+    )
+except ImportError:
+    # Fallback for direct execution
+    import sys
+    sys.path.insert(0, '.')
+    from vss_service import (
+        VSSService,
+        VectorSearchError,
+        VectorSearchResult,
+        VectorIndexResult,
+    )
 
 # Version information
 __version__ = "0.1.0"
