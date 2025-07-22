@@ -1,6 +1,6 @@
 # Contract E2E Testing Framework
 
-JSON Schemaベースの契約テストフレームワーク。プロパティベーステストで網羅的なE2Eテストを自動実行します。
+JSON Schemaベースの契約テストフレームワーク。JSON Schemaから自動的にテストデータを生成してE2Eテストを実行します。
 
 ## Usage
 
@@ -42,51 +42,30 @@ your-project/
 }
 ```
 
-### 2. flake.nixの設定
+### 2. Pythonコードから使用
 
-```nix
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    contract-e2e.url = "github:yourorg/contract_e2e";
-  };
+```python
+from contract_e2e import run_contract_tests, generate_sample_from_schema
 
-  outputs = { self, nixpkgs, contract-e2e, ... }: {
-    # あなたのアプリケーション
-    packages.default = pkgs.writeShellScriptBin "myapp" ''
-      # stdin/stdoutでJSON入出力するアプリケーション
-      python ${./src/main.py}
-    '';
+# スキーマからテストデータを自動生成
+input_schema = {...}  # JSON Schemaオブジェクト
+test_data = generate_sample_from_schema(input_schema)
 
-    # E2Eテストの定義
-    apps.test-e2e = contract-e2e.lib.mkContractE2ETest {
-      name = "myapp";
-      executable = self.packages.default;
-      inputSchema = ./schema/input.schema.json;
-      outputSchema = ./schema/output.schema.json;
-      # オプション設定
-      testCount = 200;        # デフォルト: 100
-      timeout = 5000;         # ミリ秒、デフォルト: 3000
-      verbose = true;         # デフォルト: false
-    };
-  };
-}
-```
-
-### 3. 実行
-
-```bash
 # E2Eテストを実行
-nix run .#test-e2e
+result = run_contract_tests(
+    executable="./myapp",  # 実行可能ファイルのパス
+    input_schema=input_schema,
+    output_schema=output_schema,
+    test_count=1  # テスト実行回数
+)
 
-# 特定のシードで再現
-nix run .#test-e2e -- --hypothesis-seed=12345
-
-# 詳細出力
-nix run .#test-e2e -- --verbose
+if result["ok"]:
+    print("Test passed!")
+else:
+    print(f"Test failed: {result}")
 ```
 
-## 実装要件
+### 3. 実装要件
 
 アプリケーションは以下を満たす必要があります：
 
@@ -128,51 +107,22 @@ except Exception as e:
     sys.exit(1)
 ```
 
-## 高度な設定
+## 実行例
 
-### カスタムバリデーション
+```bash
+# 開発環境で実行
+cd /home/nixos/bin/src/develop/test/contract_e2e
+nix develop
 
-```nix
-apps.test-e2e = contract-e2e.lib.mkContractE2ETest {
-  # ... 基本設定 ...
-  
-  # カスタムバリデータ（オプション）
-  customValidators = {
-    # 出力の追加検証
-    validateOutput = ''
-      def validate_output(output):
-          # カウントと結果数が一致することを確認
-          assert output["count"] == len(output["results"])
-    '';
-  };
-  
-  # 特定のテストケースを除外
-  excludePatterns = [
-    { "query": "" }  # 空クエリは除外
-  ];
-};
+# テストを実行
+python examples/calculator/test_e2e.py
 ```
 
-### CI/CD統合
+## 機能
 
-```yaml
-# .github/workflows/test.yml
-name: E2E Tests
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v22
-      - name: Run E2E tests
-        run: |
-          nix run .#test-e2e -- --junit-xml=test-results.xml
-      - uses: test-summary/action@v2
-        with:
-          paths: test-results.xml
-```
+- **JSON Schemaからの自動テストデータ生成**: スキーマ定義に基づいて適切なテストデータを生成
+- **プロセス実行とJSON検証**: 実際のプログラムを起動してJSON入出力を検証
+- **型付きエラーハンドリング**: ProcessError, ValidationError, ParseErrorを適切に処理
 
 ## トラブルシューティング
 
@@ -181,49 +131,24 @@ jobs:
 1. **JSON形式を確認**
    ```bash
    # 手動でテスト
-   echo '{"query": "test"}' | nix run .#default | jq .
+   echo '{"query": "test"}' | ./myapp | jq .
    ```
 
 2. **スキーマを検証**
-   ```bash
-   # スキーマの妥当性チェック
-   nix run .#test-e2e -- --validate-schemas-only
+   ```python
+   # スキーマが正しいか確認
+   import jsonschema
+   jsonschema.validate(test_data, schema)
    ```
 
-3. **詳細ログを確認**
-   ```bash
-   # デバッグ情報付きで実行
-   nix run .#test-e2e -- --verbose --show-inputs
+3. **生成されたテストデータを確認**
+   ```python
+   from contract_e2e import generate_sample_from_schema
+   print(generate_sample_from_schema(your_schema))
    ```
 
-### パフォーマンス改善
+## 制限事項
 
-```nix
-# 並列実行でテスト時間短縮
-apps.test-e2e = contract-e2e.lib.mkContractE2ETest {
-  # ...
-  parallel = true;        # 並列実行を有効化
-  workers = 4;           # ワーカー数
-};
-```
-
-## 最小構成例
-
-最もシンプルな設定：
-
-```nix
-# flake.nix
-{
-  inputs.contract-e2e.url = "github:yourorg/contract_e2e";
-  
-  outputs = { self, contract-e2e, ... }: {
-    apps.test-e2e = contract-e2e.lib.mkContractE2ETest {
-      executable = ./myapp;
-      inputSchema = ./input.schema.json;
-      outputSchema = ./output.schema.json;
-    };
-  };
-}
-```
-
-以上で、プロパティベーステストによる網羅的なE2Eテストが実行されます。
+- 現在はPythonライブラリとしてのみ使用可能
+- テストは1回ずつ実行（並列実行未対応）
+- 基本的なJSON Schema機能のみサポート（複雑なスキーマは未対応の場合あり）
