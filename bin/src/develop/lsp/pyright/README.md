@@ -4,70 +4,81 @@ This directory provides a minimal implementation of Pyright functionality based 
 
 ## Purpose
 
-The POC demonstrated that pyright-langserver can be used directly without LSMCP for full LSP capabilities. This implementation provides the essential Pyright features in a simplified flake structure.
+The POC demonstrated that pyright-langserver can be used directly without LSMCP for full LSP capabilities. This implementation provides the essential Pyright features in a simplified flake structure with an LLM-first interface.
 
 ## Features
 
 Based on the POC findings, this minimal implementation provides:
 
-1. **Direct Pyright diagnostics** - Static type checking using pyright CLI
-2. **Unified LSP API** - JSON-RPC interface for all LSP operations:
-   - Initialize LSP server
-   - Get diagnostics via LSP protocol
-   - Go to definition
-   - Find references
+1. **Direct Pyright CLI** (`#check`) - Fast type checking using pyright directly
+2. **LSP Protocol API** (`#lsp`) - Complete JSON-RPC interface for all LSP operations
 
 ## Usage
 
 ### Quick Start
 
 ```bash
-# Check Python file for type errors (direct CLI)
-nix run .#check -- test_example.py
+# Show available commands
+nix run /home/nixos/bin/src/develop/lsp/pyright
 
-# Use LSP API for all operations
-echo '{"method": "textDocument/diagnostics", "params": {"file": "test_example.py"}}' | nix run .#lsp
-echo '{"method": "textDocument/definition", "params": {"file": "test_example.py", "position": {"line": 7, "character": 10}}}' | nix run .#lsp
+# Fast type checking with pyright CLI
+nix run .#check -- example.py
+
+# LSP protocol operations
+echo '{"method": "textDocument/diagnostics", "params": {"file": "example.py"}}' | nix run .#lsp
+echo '{"method": "textDocument/definition", "params": {"file": "example.py", "position": {"line": 10, "character": 5}}}' | nix run .#lsp
+echo '{"method": "textDocument/references", "params": {"file": "example.py", "position": {"line": 10, "character": 5}}}' | nix run .#lsp
 ```
 
-### Available Commands
+### Available Entry Points
 
-1. **Pyright Check** (Direct CLI)
-   ```bash
-   nix run .#check -- <file.py>
-   ```
-   Runs pyright's type checker directly on a Python file.
+| Command | Purpose | Input/Output |
+|---------|---------|----------|
+| `nix run .` | Show available commands | Text |
+| `nix run .#check` | Direct pyright type checking | CLI args → Text |
+| `nix run .#lsp` | LSP protocol access | JSON → JSON |
+| `nix run .#test` | Run test suite | None → Test results |
+| `nix run .#readme` | Show README | None → Markdown |
 
-2. **LSP API**
-   ```bash
-   # Show usage and examples
-   nix run .#lsp
-   
-   # Initialize LSP server (shows capabilities)
-   echo '{"method": "initialize", "params": {"rootPath": "."}}' | nix run .#lsp
-   
-   # Get diagnostics
-   echo '{"method": "textDocument/diagnostics", "params": {"file": "test.py"}}' | nix run .#lsp
-   
-   # Go to definition
-   echo '{"method": "textDocument/definition", "params": {"file": "test.py", "position": {"line": 10, "character": 5}}}' | nix run .#lsp
-   
-   # Find all references
-   echo '{"method": "textDocument/references", "params": {"file": "test.py", "position": {"line": 10, "character": 5}}}' | nix run .#lsp
-   ```
+## LSP Protocol Examples
 
-## Test Example
-
-The included `test_example.py` contains intentional type errors to demonstrate Pyright's capabilities:
-
+### Get Diagnostics
 ```bash
-# This will show type errors
-nix run .#check -- test_example.py
+echo '{
+  "method": "textDocument/diagnostics",
+  "params": {"file": "app.py"}
+}' | nix run .#lsp
 ```
 
-Expected errors:
-- Line 25: `calc.addd` - no attribute 'addd' (typo)
-- Line 28: `calc.add("string", 10)` - type mismatch
+### Find Definition
+```bash
+echo '{
+  "method": "textDocument/definition",
+  "params": {
+    "file": "main.py",
+    "position": {"line": 20, "character": 15}
+  }
+}' | nix run .#lsp
+```
+
+### Find References
+```bash
+echo '{
+  "method": "textDocument/references",
+  "params": {
+    "file": "main.py",
+    "position": {"line": 20, "character": 15}
+  }
+}' | nix run .#lsp
+```
+
+### Initialize LSP Server
+```bash
+echo '{
+  "method": "initialize",
+  "params": {"rootPath": "."}
+}' | nix run .#lsp
+```
 
 ## Development Shell
 
@@ -98,44 +109,33 @@ Refer to the full POC implementation at `/home/nixos/bin/src/poc/develop/lsp/pyr
 3. **Pure Python LSP client** - Simple, readable implementation
 4. **Focus on diagnostics** - Primary use case for type checking
 
-## Practical Use Case: Function Renaming Workflow
+## Practical Use Case: Safe Refactoring
 
-When you need to rename a function (e.g., `calculate_average` → `compute_mean`):
+When refactoring code, use the LSP API to ensure safety:
 
-### Step 1: Find all references before renaming
+### 1. Find all references before changes
 ```bash
-# Find all usages of calculate_average (at line 2, character 8)
-echo '{"method": "textDocument/references", "params": {"file": "example_rename.py", "position": {"line": 2, "character": 8}}}' | nix run .#lsp
+echo '{
+  "method": "textDocument/references",
+  "params": {
+    "file": "example.py",
+    "position": {"line": 10, "character": 15}
+  }
+}' | nix run .#lsp
 ```
 
-This will show:
-- Line 2: Definition
-- Line 10: Usage in process_data
-- Line 20: Direct call
-- Line 23: Another direct call
-
-### Step 2: Verify definition location
+### 2. Verify changes with type checking
 ```bash
-# Confirm the definition location from a usage point
-echo '{"method": "textDocument/definition", "params": {"file": "example_rename.py", "position": {"line": 20, "character": 25}}}' | nix run .#lsp
+nix run .#check -- example.py
 ```
 
-### Step 3: Make your changes
-Manually edit the file to rename the function at all locations.
-
-### Step 4: Verify no type errors after rename
+### 3. Navigate to definitions as needed
 ```bash
-# Quick check
-nix run .#check -- example_rename.py
-
-# Or detailed diagnostics
-echo '{"method": "textDocument/diagnostics", "params": {"file": "example_rename.py"}}' | nix run .#lsp
+echo '{
+  "method": "textDocument/definition",
+  "params": {
+    "file": "example.py",
+    "position": {"line": 20, "character": 10}
+  }
+}' | nix run .#lsp
 ```
-
-If you missed any references, Pyright will report errors like:
-- "No attribute 'calculate_average' on type 'DataProcessor'"
-
-This workflow ensures safe refactoring by:
-1. Identifying all usage locations before changes
-2. Verifying changes don't introduce type errors
-3. Providing clear error messages if references were missed

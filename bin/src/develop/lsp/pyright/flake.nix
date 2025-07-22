@@ -85,7 +85,7 @@ EOF
       in
       {
         packages = {
-          default = pyrightLspApi;
+          default = pyrightLspApi;  # Main library package
           check = pyrightCheck;
           lsp = pyrightLspApi;
           test = testRunner;
@@ -95,21 +95,42 @@ EOF
           buildInputs = with pkgs; [
             pyright
             python3
+            jq
           ];
           
           shellHook = ''
             echo "Minimal Pyright LSP Environment"
             echo ""
-            echo "Available commands:"
-            echo "  nix run .#check -- <file.py>                   # Run pyright diagnostics"
-            echo "  nix run .#lsp                                  # Show LSP API usage"
-            echo "  nix run .#test                                 # Run test suite"
+            echo "Pyright LSP Development Shell"
+            echo ""
+            echo "利用可能なコマンド:"
+            echo "  nix run .         # アプリ一覧表示"
+            echo "  nix run .#check   # Pyright直接実行"
+            echo "  nix run .#lsp     # LSP APIアクセス"
+            echo "  nix run .#test    # テスト実行"
+            echo "  nix run .#readme  # README表示"
           '';
         };
         
-        apps = {
-          default = flake-utils.lib.mkApp {
-            drv = pyrightLspApi;
+        apps = rec {
+          default = {
+            type = "app";
+            program = let
+              appNames = builtins.attrNames (removeAttrs self.apps.${system} ["default"]);
+              sortedAppNames = builtins.sort (a: b: a < b) appNames;
+              helpText = ''
+                Pyright LSP - Minimal Implementation
+                
+                利用可能なコマンド:
+                ${builtins.concatStringsSep "\n" (map (name: "  nix run .#${name}") sortedAppNames)}
+                
+                詳細は README.md を参照してください。
+              '';
+            in "${pkgs.writeShellScript "show-apps" ''
+              cat << 'EOF'
+              ${helpText}
+              EOF
+            ''}";
           };
           
           check = flake-utils.lib.mkApp {
@@ -122,6 +143,11 @@ EOF
           
           test = flake-utils.lib.mkApp {
             drv = testRunner;
+          };
+          
+          readme = {
+            type = "app";
+            program = "${pkgs.writeShellScript "show-readme" ''cat ${./README.md}''}";
           };
         };
       }
