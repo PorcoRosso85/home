@@ -185,13 +185,14 @@ devShells.default = pkgs.mkShell {
 ```
 
 ### 必須コマンド
-- `nix run .` - デフォルトアプリケーション実行（必ずREADME.mdを表示）
+- `nix run .` - デフォルトアプリケーション実行（利用可能なアプリ一覧を動的に表示）
 - `nix run .#test` - テスト実行
+- `nix run .#readme` - README.mdを表示
 - `nix develop` - 開発シェル
 
 ### エラーハンドリング規約
-- 存在しないアプリケーション指定時：エラーメッセージとともにREADME.mdを表示
-- デフォルトアプリにオプション引数指定時：エラーメッセージとともにREADME.mdを表示
+- 存在しないアプリケーション指定時：エラーメッセージとともに利用可能なアプリ一覧を表示
+- デフォルトアプリにオプション引数指定時：エラーメッセージとともに利用可能なアプリ一覧を表示
 
 ### 推奨コマンド（言語別）
 #### Python
@@ -291,9 +292,43 @@ devShells.default = pkgs.mkShell {
 - ✅ 明確なエラーメッセージ
 - ✅ `nix run`をメインの実行方法として設計
 - ✅ 複数実装がある場合は`apps.default`で主要実装を指定
-- ✅ デフォルトコマンドは必ずREADME.mdを表示（エラー時も含む）
+- ✅ デフォルトコマンドは利用可能なアプリ一覧を動的に表示
 - ✅ 言語環境は親flakeから継承
 - ✅ バージョン管理は親flakeで一元化
+
+## デフォルトアプリの動的一覧表示
+
+BuildTime評価を使用して、利用可能なアプリを動的に表示：
+
+```nix
+apps = rec {
+  default = {
+    type = "app";
+    program = let
+      # ビルド時に利用可能なアプリ名を取得
+      appNames = builtins.attrNames (removeAttrs self.apps.${system} ["default"]);
+      helpText = ''
+        プロジェクト: <プロジェクト名>
+        
+        利用可能なコマンド:
+        ${builtins.concatStringsSep "\n" (map (name: "  nix run .#${name}") appNames)}
+      '';
+    in "${pkgs.writeShellScript "show-help" ''
+      cat << 'EOF'
+      ${helpText}
+      EOF
+    ''}";
+  };
+  
+  test = { ... };
+  readme = {
+    type = "app";
+    program = "${pkgs.writeShellScript "show-readme" ''
+      cat ${./README.md}
+    ''}";
+  };
+};
+```
 
 ## Nushellスクリプトの統合
 

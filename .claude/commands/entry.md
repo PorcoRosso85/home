@@ -3,151 +3,77 @@
 
 # 説明
 既存のエントリポイントを構造化し、自己説明的なインターフェースを提供する。
-オプション引数を廃止し、JSONベースの宣言的な操作方式に統一する。
+デフォルト実行時には利用可能なアプリ一覧を動的に表示し、探索可能性を高める。
 
 # 実装内容
 既存のflake.nixのエントリポイントを以下のように構造化：
 
 1. **デフォルトアプリ（引数なし）**
-   - プロジェクトの機能と使用方法を表示（自己説明）
-   - 利用可能な操作の例を提示
-   - 対話的ヘルプの提供
+   - 利用可能なアプリ一覧を動的に表示
+   - BuildTime評価で自動的にアプリを検出
+   - プロジェクト固有の使用例を提示
 
-2. **`#run` サブコマンド**
-   - JSON形式の操作を標準入力から受け付け
-   - 単一操作またはバッチ処理（配列）に対応
-
-3. **`#test` サブコマンド**
+2. **`#test` サブコマンド**
    - プロジェクトのテストスイートを実行
    - 詳細は `/bin/docs/conventions/test_infrastructure.md` に準拠
 
+3. **`#readme` サブコマンド**
+   - プロジェクトのREADME.mdを表示
+   - 詳細なドキュメントへのアクセスを提供
+
 # 使用例
 
-## requirement/graphの例
-
-### デフォルト（自己説明）
 ```bash
-nix run /home/nixos/bin/src/requirement/graph
-# → プロジェクトの機能説明と操作例を表示
-```
+# デフォルト（利用可能なアプリ一覧を動的表示）
+nix run .
+# → 利用可能なコマンド:
+#     nix run .#test
+#     nix run .#readme
+#     nix run .#format
+#     ...（BuildTimeで自動検出）
 
-### 実行例（JSON操作）
-```bash
-echo '{
-  "type": "template",
-  "template": "create_requirement",
-  "parameters": {
-    "id": "req_001",
-    "title": "ユーザー認証機能",
-    "description": "システムへのログイン機能を実装する"
-  }
-}' | nix run /home/nixos/bin/src/requirement/graph#run
-```
-
-### バッチ実行例
-```bash
-cat > requirements.json << 'EOF'
-[
-  {
-    "type": "template",
-    "template": "create_requirement",
-    "parameters": {"id": "req_001", "title": "認証機能"}
-  },
-  {
-    "type": "template",
-    "template": "create_requirement",
-    "parameters": {"id": "req_002", "title": "認可機能"}
-  }
-]
-EOF
-
-nix run /home/nixos/bin/src/requirement/graph#run < requirements.json
-```
-
-## poc/storage/r2の例
-
-### デフォルト（自己説明）
-```bash
-nix run /home/nixos/bin/src/poc/storage/r2
-# → R2ストレージ操作の説明と使用例を表示
-```
-
-### 操作例
-```bash
-echo '{
-  "operation": "create_bucket",
-  "bucket_name": "my-data-bucket",
-  "region": "auto"
-}' | nix run /home/nixos/bin/src/poc/storage/r2#run
+# 各サブコマンド
+nix run .#readme  # README.md表示
+nix run .#test    # テスト実行
 ```
 
 # 設計原則
-
-## 1. 自己説明的インターフェース
-- デフォルト実行時は必ず機能説明を表示
-- 具体的な使用例を含める
-- エラー時も次のアクションを示唆
-
-## 2. 宣言的な操作
-```bash
-# ❌ 従来の命令的CLI
-my-cli --create --id req_001 --title "認証機能"
-
-# ✅ 宣言的なJSON操作
-echo '{"template": "create_requirement", "parameters": {"id": "req_001", "title": "認証機能"}}' | nix run ...#run
-```
-
-## 3. 統一されたインターフェース
-- すべての操作をJSON形式で統一
-- 人間は例を見て理解し使用
-- プログラム（LLMを含む）は構造化されたデータとして処理
+- **自己説明的**: デフォルト実行で機能一覧を表示
+- **動的検出**: BuildTime評価で自動的にアプリを発見
+- **責務分離**: default(一覧)、test(テスト)、readme(ドキュメント)
 
 # 実装パターン（flake.nix）
 
 ```nix
-{
-  apps = {
-    default = {
-      type = "app";
-      program = "${pkgs.writeShellScript "show-help" ''
-        cat << 'EOF'
-        ====================================
-        プロジェクト名: XXXシステム
-        ====================================
+apps = rec {
+  default = {
+    type = "app";
+    program = let
+      appNames = builtins.attrNames (removeAttrs self.apps.${system} ["default"]);
+      helpText = ''
+        プロジェクト: <名前>
         
-        このシステムは...を提供します。
-        
-        使用方法:
-        1. 操作を確認: nix run .
-        2. 操作を実行: echo '<json>' | nix run .#run
-        3. テスト実行: nix run .#test
-        
-        操作例:
-        echo '{"operation": "example", "param": "value"}' | nix run .#run
-        
-        詳細はREADME.mdを参照してください。
-        EOF
-      ''}";
-    };
-    
-    run = {
-      type = "app";
-      program = "${self.packages.${system}.runner}/bin/run";
-    };
-    
-    test = {
-      type = "app";
-      program = "${self.packages.${system}.tester}/bin/test";
-    };
+        利用可能なコマンド:
+        ${builtins.concatStringsSep "\n" (map (name: "  nix run .#${name}") appNames)}
+      '';
+    in "${pkgs.writeShellScript "show-help" ''
+      cat << 'EOF'
+      ${helpText}
+      EOF
+    ''}";
   };
-}
+  
+  test = {
+    type = "app";
+    program = "${pkgs.writeShellScript "test" ''exec pytest -v''}";
+  };
+  
+  readme = {
+    type = "app";
+    program = "${pkgs.writeShellScript "show-readme" ''cat ${./README.md}''}";
+  };
+};
 ```
 
-# 移行戦略
-1. 既存のCLIインターフェースがある場合は、まずJSON操作を並列で追加
-2. 使用例とドキュメントを充実させる
-3. 十分な移行期間の後、旧インターフェースを削除
-
 # 関連ファイル
-- 各プロジェクトのREADME.md（詳細な使用方法）
-- /bin/docs/conventions/nix_flake.md（flake規約）
+- /bin/docs/conventions/nix_flake.md（必須コマンド、動的一覧表示の詳細）
