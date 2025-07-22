@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
-from application import VSSService  # ImportError: No module named 'application'
+from vss_kuzu import VSSService
 
 
 class TestApplication:

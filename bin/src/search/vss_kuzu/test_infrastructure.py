@@ -10,10 +10,7 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
-import sys
-sys.path.insert(0, '.')
-
-from infrastructure import (
+from vss_kuzu.infrastructure import (
     DatabaseConfig,
     create_kuzu_database,
     create_kuzu_connection,

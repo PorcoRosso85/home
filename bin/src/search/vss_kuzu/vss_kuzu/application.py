@@ -64,7 +64,7 @@ def create_vss_service(
             }
         
         # データベース接続を作成
-        from infrastructure import DatabaseConfig
+        from .infrastructure import DatabaseConfig
         db_config = DatabaseConfig(
             db_path=config.db_path,
             in_memory=config.in_memory,
@@ -178,7 +178,7 @@ def create_vss_service(
         limit = search_input.get("limit", config.default_limit)
         
         # データベース接続を作成
-        from infrastructure import DatabaseConfig
+        from .infrastructure import DatabaseConfig
         db_config = DatabaseConfig(
             db_path=config.db_path,
             in_memory=config.in_memory,
@@ -344,7 +344,7 @@ class VSSService:
         )
         
         # 依存関数をインポート
-        from infrastructure import (
+        from .infrastructure import (
             create_kuzu_database,
             create_kuzu_connection,
             check_vector_extension,
@@ -355,7 +355,7 @@ class VSSService:
             close_connection
         )
         
-        from domain import find_semantically_similar_documents
+        from .domain import find_semantically_similar_documents
         
         # 埋め込みサービスを作成
         embedding_func = create_embedding_service()

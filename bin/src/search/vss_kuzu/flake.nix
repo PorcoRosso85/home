@@ -16,33 +16,27 @@
         # Get kuzuPy package from kuzu-py-flake
         kuzuPyPackage = kuzu-py-flake.packages.${system}.kuzuPy;
         
-        # Create Python environment
-        pythonEnv = pkgs.python312.withPackages (ps: with ps; [
-            # Base testing framework
-            pytest
-            
-            # Core dependencies for VSS
-            kuzu  # Base kuzu package
-            kuzuPyPackage  # This provides kuzu_py module
-            numpy
-            scipy  # Required by sentence-transformers
-            sentencepiece  # Required for tokenizer
-            sentence-transformers
-            torch
-            
-            
-            # Development tools
-            pytest-cov
-            black
-            ruff
-        ]);
-        
-      in {
-        packages.default = pkgs.python312Packages.buildPythonPackage {
-          pname = "vss-kuzu";
+        # vss_kuzu パッケージ
+        vssKuzu = pkgs.python312Packages.buildPythonPackage rec {
+          pname = "vss_kuzu";
           version = "0.1.0";
-          src = ./.;
-          format = "pyproject";
+          
+          src = pkgs.lib.cleanSourceWith {
+            src = ./.;
+            filter = path: type: 
+              (pkgs.lib.hasSuffix ".py" path) ||
+              (pkgs.lib.hasSuffix "pyproject.toml" path) ||
+              (pkgs.lib.hasSuffix "setup.py" path) ||
+              (pkgs.lib.hasSuffix "README.md" path) ||
+              (type == "directory" && baseNameOf path == "vss_kuzu");
+          };
+          
+          # setuptools形式でビルド
+          pyproject = true;
+          build-system = with pkgs.python312Packages; [
+            setuptools
+            wheel
+          ];
           
           propagatedBuildInputs = with pkgs.python312Packages; [
             kuzuPyPackage
@@ -52,12 +46,41 @@
           ];
           
           pythonImportsCheck = [ "vss_kuzu" ];
+          doCheck = false;
           
           meta = with pkgs.lib; {
             description = "Vector Similarity Search with KuzuDB";
             homepage = "https://github.com/your-org/vss-kuzu";
             license = licenses.mit;
           };
+        };
+        
+        # Create Python environment
+        pythonEnv = pkgs.python312.withPackages (ps: with ps; [
+            # Base testing framework
+            pytest
+            
+            # Core dependencies for VSS
+            vssKuzu  # Our package
+            kuzuPyPackage  # This provides kuzu_py module
+            numpy
+            scipy  # Required by sentence-transformers
+            sentencepiece  # Required for tokenizer
+            sentence-transformers
+            torch
+            
+            # Development tools
+            pytest-cov
+            black
+            ruff
+        ]);
+        
+      in {
+        # パッケージ出力
+        packages = {
+          default = pythonEnv;
+          vssKuzu = vssKuzu;
+          pythonEnv = pythonEnv;
         };
         
         devShells.default = pkgs.mkShell {
@@ -76,9 +99,8 @@
             echo "  nix run .#test      - Run tests"
             echo "  nix run .#lint      - Run linter"
             echo "  nix run .#format    - Format code"
+            echo "  nix run .#e2e       - Run e2e tests for import capability"
             echo ""
-            
-            # No PYTHONPATH needed, testing pure flake input
           '';
         };
         
@@ -92,6 +114,26 @@
               echo "Running VSS tests..."
               # Run pytest with importlib import mode to avoid namespace conflicts
               PYTHONPATH=. exec ${pythonEnv}/bin/pytest -v --import-mode=importlib test_*.py "$@"
+            ''}";
+          };
+          
+          # E2E test runner
+          e2e = {
+            type = "app";
+            program = "${pkgs.writeShellScript "e2e" ''
+              cd /home/nixos/bin/src/search/vss_kuzu
+              echo "Running e2e tests for external import capability..."
+              ${pythonEnv}/bin/pytest -v test_e2e.py
+            ''}";
+          };
+          
+          # All tests
+          test-all = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test-all" ''
+              cd /home/nixos/bin/src/search/vss_kuzu
+              echo "Running all tests..."
+              PYTHONPATH=. ${pythonEnv}/bin/pytest -v test_*.py
             ''}";
           };
           

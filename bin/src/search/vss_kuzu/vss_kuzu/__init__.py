@@ -8,8 +8,8 @@ All public classes, functions, and types should be imported from this module.
 # Import from new modular architecture
 try:
     # New function-first architecture
-    from application import VSSService as NewVSSService, create_vss_service, create_embedding_service
-    from domain import (
+    from .application import VSSService as NewVSSService, create_vss_service, create_embedding_service
+    from .domain import (
         SearchResult,
         calculate_cosine_similarity,
         cosine_distance_to_similarity,
@@ -19,7 +19,7 @@ try:
         validate_embedding_dimension,
         group_documents_by_topic_similarity,
     )
-    from infrastructure import (
+    from .infrastructure import (
         DatabaseConfig,
         create_kuzu_database,
         create_kuzu_connection,
@@ -37,7 +37,7 @@ try:
 except ImportError:
     # Fallback to old implementation for compatibility
     try:
-        from vss_service import (
+        from .vss_service import (
             VSSService,
             VectorSearchError,
             VectorSearchResult,
@@ -56,7 +56,7 @@ except ImportError:
 
 # Import type definitions from old implementation for compatibility
 try:
-    from vss_service import (
+    from .vss_service import (
         VectorSearchError,
         VectorSearchResult,
         VectorIndexResult,
