@@ -9,20 +9,20 @@
 - 関数として提供（グローバル状態禁止）
 """
 import os
-from typing import Optional, Dict
-
-# エラー型定義
-class EnvironmentError(Exception):
-    """環境変数関連エラー"""
-    pass
+from typing import Optional, Dict, Union
+from domain.errors import EnvironmentConfigError
 
 # 必須環境変数チェック
-def _require_env(name: str) -> str:
-    """必須環境変数を取得（デフォルト値なし）"""
+def _require_env(name: str) -> Union[str, EnvironmentConfigError]:
+    """必須環境変数を取得（エラー値を返す）"""
     value = os.environ.get(name)
     if not value:
-        raise EnvironmentError(
-            f"{name} not set. Set {name}=<value> before running the application"
+        return EnvironmentConfigError(
+            type="EnvironmentConfigError",
+            message=f"{name} not set. Set {name}=<value> before running the application",
+            variable=name,
+            current_value=None,
+            expected_format="Non-empty string"
         )
     return value
 
@@ -37,36 +37,37 @@ def get_ld_library_path() -> Optional[str]:
     """LD_LIBRARY_PATH（オプション - Nixが管理）"""
     return _optional_env('LD_LIBRARY_PATH')
 
-def get_rgl_database_path() -> str:
+def get_rgl_database_path() -> Union[str, EnvironmentConfigError]:
     """RGL_DATABASE_PATH（必須）
     
     Returns:
-        str: データベースパス（':memory:' または実際のパス）
-        
-    Raises:
-        EnvironmentError: RGL_DATABASE_PATH未設定の場合
+        Union[str, EnvironmentConfigError]: データベースパスまたはエラー
     """
     return _require_env('RGL_DATABASE_PATH')
 
-def get_db_path() -> str:
-    """DBパスを取得（/orgモード対応、後方互換性）
+def get_db_path() -> Union[str, EnvironmentConfigError]:
+    """DBパスを取得（/orgモード対応）
     
     Returns:
-        str: データベースパス
+        Union[str, EnvironmentConfigError]: データベースパスまたはエラー
     """
     # 新しい環境変数を優先
-    try:
-        return get_rgl_database_path()
-    except EnvironmentError:
-        # 後方互換性（一時的）
-        try:
-            return _require_env('RGL_DB_PATH')
-        except EnvironmentError:
-            raise EnvironmentError(
-                "RGL_DATABASE_PATH not set. "
-                "Set RGL_DATABASE_PATH=:memory: for in-memory DB, "
-                "or RGL_DATABASE_PATH=/path/to/db for persistent DB"
-            )
+    result = get_rgl_database_path()
+    if not isinstance(result, EnvironmentConfigError):
+        return result
+    
+    # 後方互換性チェック
+    legacy_result = _require_env('RGL_DB_PATH')
+    if not isinstance(legacy_result, EnvironmentConfigError):
+        return legacy_result
+    
+    return EnvironmentConfigError(
+        type="EnvironmentConfigError",
+        message="RGL_DATABASE_PATH not set. Set RGL_DATABASE_PATH=:memory: for in-memory DB, or RGL_DATABASE_PATH=/path/to/db for persistent DB",
+        variable="RGL_DATABASE_PATH",
+        current_value=None,
+        expected_format="':memory:' or '/path/to/db'"
+    )
 
 def get_log_level() -> Optional[str]:
     """ログレベル（オプション）"""
@@ -103,12 +104,9 @@ def validate_environment() -> Dict[str, str]:
     errors = {}
 
     # 必須環境変数チェック
-    if not os.environ.get('RGL_DATABASE_PATH') and not os.environ.get('RGL_DB_PATH'):
-        errors['RGL_DATABASE_PATH'] = (
-            "RGL_DATABASE_PATH not set. "
-            "Set RGL_DATABASE_PATH=:memory: for in-memory DB, "
-            "or RGL_DATABASE_PATH=/path/to/db for persistent DB"
-        )
+    db_path = get_db_path()
+    if isinstance(db_path, EnvironmentConfigError):
+        errors['RGL_DATABASE_PATH'] = db_path["message"]
 
     # /orgモード設定の整合性チェック
     if is_org_mode() and not get_shared_db_path():

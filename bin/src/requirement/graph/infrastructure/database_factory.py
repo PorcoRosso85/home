@@ -6,15 +6,19 @@ requirement/graph内でKuzuDBに接続するための関数を提供します。
 """
 import os
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
+
+from domain.errors import DatabaseError
 
 # kuzu_pyパッケージのヘルパー関数を使用（Nixパッケージとしてインストール済み）
 try:
     from kuzu_py import create_database as kuzu_create_database
     from kuzu_py import create_connection as kuzu_create_connection
+    _kuzu_available = True
+    _import_error = None
 except ImportError as e:
-    # インポートエラーの詳細を提供
-    raise RuntimeError(f"Failed to import kuzu_py: {str(e)}")
+    _kuzu_available = False
+    _import_error = str(e)
 
 # データベースキャッシュ
 _database_cache: Dict[str, Any] = {}
@@ -25,9 +29,23 @@ def create_database(
     use_cache: bool = True,
     test_unique: bool = False,
     **kwargs
-):
-    """KuzuDBデータベースインスタンスを作成"""
+) -> Union[Any, DatabaseError]:
+    """KuzuDBデータベースインスタンスを作成
+    
+    Returns:
+        Union[Any, DatabaseError]: 成功時はDatabaseインスタンス、失敗時はDatabaseError
+    """
     cache_key = f"{path}:{in_memory}:{test_unique}"
+    
+    if not _kuzu_available:
+        return DatabaseError(
+            type="DatabaseError",
+            message=f"Failed to import kuzu_py: {_import_error}",
+            operation="import",
+            database_name="kuzu_py",
+            error_code="IMPORT_ERROR",
+            details={"import_error": _import_error}
+        )
     
     if use_cache and cache_key in _database_cache:
         return _database_cache[cache_key]
@@ -62,9 +80,14 @@ def create_database(
             # エラーの場合
             details = result.get('details', {})
             error_msg = result.get('error', 'Unknown error')
-            if 'exception' in details:
-                error_msg += f": {details['exception']}"
-            raise RuntimeError(f"Database creation failed: {error_msg}")
+            return DatabaseError(
+                type="DatabaseError",
+                message=f"Database creation failed: {error_msg}",
+                operation="create",
+                database_name=str(db_path),
+                error_code="CREATE_FAILED",
+                details=details
+            )
         else:
             # 成功の場合、resultは直接データベースインスタンス
             db = result
@@ -74,10 +97,31 @@ def create_database(
         
         return db
     except Exception as e:
-        raise RuntimeError(f"Failed to create database: {str(e)}")
+        return DatabaseError(
+            type="DatabaseError",
+            message=f"Failed to create database: {str(e)}",
+            operation="create",
+            database_name=str(path) if path else ":memory:",
+            error_code="EXCEPTION",
+            details={"exception": str(e), "type": type(e).__name__}
+        )
 
-def create_connection(db):
-    """データベース接続を作成"""
+def create_connection(db) -> Union[Any, DatabaseError]:
+    """データベース接続を作成
+    
+    Returns:
+        Union[Any, DatabaseError]: 成功時はConnectionインスタンス、失敗時はDatabaseError
+    """
+    if not _kuzu_available:
+        return DatabaseError(
+            type="DatabaseError",
+            message=f"Failed to import kuzu_py: {_import_error}",
+            operation="import",
+            database_name="kuzu_py",
+            error_code="IMPORT_ERROR",
+            details={"import_error": _import_error}
+        )
+    
     # persistence.kuzu_pyのcreate_connection関数を使用
     result = kuzu_create_connection(db)
     
@@ -86,7 +130,14 @@ def create_connection(db):
     # - エラー時: ErrorDict (ok=False)を返す
     if isinstance(result, dict) and result.get('ok', True) == False:
         # エラーの場合
-        raise RuntimeError(f"Connection creation failed: {result.get('error', 'Unknown error')}")
+        return DatabaseError(
+            type="DatabaseError",
+            message=f"Connection creation failed: {result.get('error', 'Unknown error')}",
+            operation="connect",
+            database_name="unknown",
+            error_code="CONNECT_FAILED",
+            details=result.get('details', {})
+        )
     else:
         # 成功の場合、resultは直接接続インスタンス
         return result
