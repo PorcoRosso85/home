@@ -8,7 +8,7 @@ import pytest
 import tempfile
 import shutil
 from pathlib import Path
-from vss_service import VSSService, ErrorDict, SearchResult, IndexResult
+from vss_service import VSSService, VectorSearchError, VectorSearchResult, VectorIndexResult
 
 
 class TestVSSCompliance:
@@ -43,7 +43,7 @@ class TestVSSCompliance:
             documents = [{"id": "1", "content": "テストドキュメント"}]
             result = service.index_documents(documents)
             
-            # ErrorDictが返されること
+            # VectorSearchErrorが返されること
             assert isinstance(result, dict)
             assert result["ok"] is False
             assert "VECTOR extension not available" in result["error"]
@@ -53,7 +53,7 @@ class TestVSSCompliance:
             # 検索時のエラー確認
             search_result = service.search({"query": "テスト"})
             
-            # ErrorDictが返されること
+            # VectorSearchErrorが返されること
             assert isinstance(search_result, dict)
             assert search_result["ok"] is False
             assert "VECTOR extension not available" in search_result["error"]
@@ -75,12 +75,12 @@ class TestVSSCompliance:
         
         # 成功またはエラーのいずれか
         if result.get("ok", False):
-            # IndexResultの場合
+            # VectorIndexResultの場合
             assert result["status"] == "success"
             assert result["indexed_count"] == 2
             assert "index_time_ms" in result
         else:
-            # ErrorDictの場合（VECTOR拡張が利用できない）
+            # VectorSearchErrorの場合（VECTOR拡張が利用できない）
             assert "VECTOR extension not available" in result["error"]
     
     def test_dimension_mismatch_error(self, vss_service):
@@ -120,7 +120,7 @@ class TestVSSCompliance:
         # 無効な入力でエラーを発生させる
         result = vss_service.search({})  # queryが必須
         
-        # ErrorDictが返されること
+        # VectorSearchErrorが返されること
         assert isinstance(result, dict)
         assert "ok" in result
         assert result["ok"] is False
@@ -153,7 +153,7 @@ class TestVSSCompliance:
             assert "ok" in search_result
             assert isinstance(search_result["ok"], bool)
             
-            # 両方ともErrorDictであること
+            # 両方ともVectorSearchErrorであること
             assert index_result["ok"] is False
             assert search_result["ok"] is False
         finally:

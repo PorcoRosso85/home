@@ -11,22 +11,30 @@ from typing import Dict, Any, List, Optional, Union, TypedDict
 import numpy as np
 import sys
 
+# Constants
+EMBEDDING_DIMENSION = 256
+VECTOR_EXTENSION_NAME = 'VECTOR'
+DEFAULT_MODEL_NAME = 'cl-nagoya/ruri-v3-30m'
+IN_MEMORY_DB_PATH = ':memory:'
+DOCUMENT_TABLE_NAME = 'Document'
+DOCUMENT_EMBEDDING_INDEX_NAME = 'doc_embedding_index'
 
-class ErrorDict(TypedDict):
+
+class VectorSearchError(TypedDict):
     """エラー情報を表す型"""
     ok: bool
     error: str
     details: Dict[str, Any]
 
 
-class SearchResult(TypedDict):
+class VectorSearchResult(TypedDict):
     """検索成功時の結果型"""
     ok: bool
     results: List[Dict[str, Any]]
     metadata: Dict[str, Any]
 
 
-class IndexResult(TypedDict):
+class VectorIndexResult(TypedDict):
     """インデックス操作の結果型"""
     ok: bool
     status: str
@@ -41,7 +49,7 @@ class VSSService:
     def __init__(self, db_path: str = "./kuzu_db", in_memory: bool = False):
         self.db_path = db_path
         self.in_memory = in_memory
-        self.dimension = 256  # Default dimension for ruri-v3-30m
+        self.dimension = EMBEDDING_DIMENSION  # Default dimension for ruri-v3-30m
         
         # Database and connection - always create fresh instances
         self._db = None
@@ -55,7 +63,7 @@ class VSSService:
             try:
                 from .vector_subprocess_wrapper import VectorSubprocessWrapper
                 self._subprocess_wrapper = VectorSubprocessWrapper(
-                    ":memory:" if in_memory else db_path
+                    IN_MEMORY_DB_PATH if in_memory else db_path
                 )
             except ImportError:
                 # Subprocess wrapper not available, continue without it
@@ -67,11 +75,11 @@ class VSSService:
             from kuzu_py import create_database, create_connection
             
             # For in-memory database, pass ":memory:" to kuzu
-            db_path = ":memory:" if self.in_memory else self.db_path
+            db_path = IN_MEMORY_DB_PATH if self.in_memory else self.db_path
             
             # Create database and connection using kuzu_py helper functions
             db_result = create_database(db_path)
-            # Check if it's an error (ErrorDict has 'ok' attribute set to False)
+            # Check if it's an error (VectorSearchError has 'ok' attribute set to False)
             if hasattr(db_result, 'get') and db_result.get("ok") is False:
                 error_msg = db_result.get("error", "Unknown error")
                 raise RuntimeError(f"Failed to create database: {error_msg}")
@@ -80,7 +88,7 @@ class VSSService:
             self._db = db_result
             
             conn_result = create_connection(self._db)
-            # Check if it's an error (ErrorDict has 'ok' attribute set to False)
+            # Check if it's an error (VectorSearchError has 'ok' attribute set to False)
             if hasattr(conn_result, 'get') and conn_result.get("ok") is False:
                 error_msg = conn_result.get("error", "Unknown error")
                 raise RuntimeError(f"Failed to create connection: {error_msg}")
@@ -102,7 +110,7 @@ class VSSService:
         # Create Document table if it doesn't exist
         try:
             conn.execute(f"""
-                CREATE NODE TABLE IF NOT EXISTS Document (
+                CREATE NODE TABLE IF NOT EXISTS {DOCUMENT_TABLE_NAME} (
                     id STRING,
                     content STRING,
                     embedding FLOAT[{self.dimension}],
@@ -113,7 +121,7 @@ class VSSService:
             # KuzuDB might not support IF NOT EXISTS, try without it
             try:
                 conn.execute(f"""
-                    CREATE NODE TABLE Document (
+                    CREATE NODE TABLE {DOCUMENT_TABLE_NAME} (
                         id STRING,
                         content STRING,
                         embedding FLOAT[{self.dimension}],
@@ -129,21 +137,21 @@ class VSSService:
         """Check if VECTOR extension is available"""
         # First, try to load the extension (it might already be installed)
         try:
-            conn.execute("LOAD EXTENSION VECTOR;")
+            conn.execute(f"LOAD EXTENSION {VECTOR_EXTENSION_NAME};")
             # Verify it works by checking if vector functions are available
             # Don't create test index here as table might not exist yet
             return True
         except Exception as load_error:
             # Extension not loaded, try to install it first
             try:
-                conn.execute("INSTALL VECTOR;")
+                conn.execute(f"INSTALL {VECTOR_EXTENSION_NAME};")
                 # Now try to load the newly installed extension
-                conn.execute("LOAD EXTENSION VECTOR;")
+                conn.execute(f"LOAD EXTENSION {VECTOR_EXTENSION_NAME};")
                 return True
             except Exception as install_error:
                 # Log detailed error for debugging
                 import sys
-                print(f"VECTOR extension not available: {install_error}", file=sys.stderr)
+                print(f"{VECTOR_EXTENSION_NAME} extension not available: {install_error}", file=sys.stderr)
                 return False
     
     def _get_embedding_service(self):
@@ -155,8 +163,8 @@ class VSSService:
             # Simple mock for StandaloneEmbeddingService
             class StandaloneEmbeddingService:
                 def __init__(self):
-                    self.model_name = "cl-nagoya/ruri-v3-30m"
-                    self.dimension = 256
+                    self.model_name = DEFAULT_MODEL_NAME
+                    self.dimension = EMBEDDING_DIMENSION
                     self._model = None
                 
                 def _get_model(self):
@@ -191,7 +199,7 @@ class VSSService:
                 
         return self._embedding_service
     
-    def search(self, input_data: Dict[str, Any]) -> Union[SearchResult, ErrorDict]:
+    def search(self, input_data: Dict[str, Any]) -> Union[VectorSearchResult, VectorSearchError]:
         """
         Perform vector similarity search
         
@@ -201,7 +209,7 @@ class VSSService:
             # Extract parameters
             query = input_data["query"]
             limit = input_data.get("limit", 10)
-            model = input_data.get("model", "ruri-v3-30m")
+            model = input_data.get("model", DEFAULT_MODEL_NAME.split('/')[-1])
             threshold = input_data.get("threshold")
             query_vector = input_data.get("query_vector")
             
@@ -213,12 +221,12 @@ class VSSService:
             
             # Check VECTOR extension availability
             if not self._vector_extension_available:
-                return ErrorDict(
+                return VectorSearchError(
                     ok=False,
-                    error="VECTOR extension not available",
+                    error=f"{VECTOR_EXTENSION_NAME} extension not available",
                     details={
-                        "extension": "VECTOR",
-                        "install_command": "INSTALL VECTOR; LOAD EXTENSION VECTOR;",
+                        "extension": VECTOR_EXTENSION_NAME,
+                        "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}; LOAD EXTENSION {VECTOR_EXTENSION_NAME};",
                         "reason": "Required for vector similarity search"
                     }
                 )
@@ -230,7 +238,7 @@ class VSSService:
                 # Use provided vector
                 query_embedding = query_vector
                 if len(query_embedding) != self.dimension:
-                    return ErrorDict(
+                    return VectorSearchError(
                         ok=False,
                         error=f"Query vector dimension mismatch",
                         details={
@@ -249,7 +257,7 @@ class VSSService:
             # Execute vector search using VECTOR extension
             results = []
             result = conn.execute(
-                "CALL QUERY_VECTOR_INDEX('Document', 'doc_embedding_index', $embedding, $k) RETURN *;",
+                f"CALL QUERY_VECTOR_INDEX('{DOCUMENT_TABLE_NAME}', '{DOCUMENT_EMBEDDING_INDEX_NAME}', $embedding, $k) RETURN *;",
                 {"embedding": query_embedding, "k": limit}
             )
             
@@ -277,7 +285,7 @@ class VSSService:
             results.sort(key=lambda x: x["score"], reverse=True)
             
             # Build output
-            return SearchResult(
+            return VectorSearchResult(
                 ok=True,
                 results=results,
                 metadata={
@@ -289,7 +297,7 @@ class VSSService:
             )
             
         except Exception as e:
-            return ErrorDict(
+            return VectorSearchError(
                 ok=False,
                 error=str(e),
                 details={
@@ -298,7 +306,7 @@ class VSSService:
                 }
             )
     
-    def index_documents(self, documents: List[Dict[str, str]]) -> Union[IndexResult, ErrorDict]:
+    def index_documents(self, documents: List[Dict[str, str]]) -> Union[VectorIndexResult, VectorSearchError]:
         """
         Index documents for vector search
         
@@ -312,12 +320,12 @@ class VSSService:
             
             # Check VECTOR extension availability
             if not self._vector_extension_available:
-                return ErrorDict(
+                return VectorSearchError(
                     ok=False,
-                    error="VECTOR extension not available",
+                    error=f"{VECTOR_EXTENSION_NAME} extension not available",
                     details={
-                        "extension": "VECTOR",
-                        "install_command": "INSTALL VECTOR; LOAD EXTENSION VECTOR;",
+                        "extension": VECTOR_EXTENSION_NAME,
+                        "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}; LOAD EXTENSION {VECTOR_EXTENSION_NAME};",
                         "reason": "Required for vector indexing"
                     }
                 )
@@ -343,8 +351,8 @@ class VSSService:
                     doc_id = str(doc_id)
                 
                 # Insert or update document
-                conn.execute("""
-                    MERGE (d:Document {id: $id})
+                conn.execute(f"""
+                    MERGE (d:{DOCUMENT_TABLE_NAME} {{id: $id}})
                     SET d.content = $content, d.embedding = $embedding
                 """, {
                     "id": doc_id,
@@ -358,7 +366,7 @@ class VSSService:
             
             index_time_ms = (time.time() - start_time) * 1000
             
-            return IndexResult(
+            return VectorIndexResult(
                 ok=True,
                 status="success",
                 indexed_count=indexed_count,
@@ -367,7 +375,7 @@ class VSSService:
             )
             
         except Exception as e:
-            return ErrorDict(
+            return VectorSearchError(
                 ok=False,
                 error=str(e),
                 details={
@@ -380,7 +388,7 @@ class VSSService:
         """Ensure vector index exists on Document.embedding"""
         try:
             # Create vector index if it doesn't exist
-            conn.execute("CALL CREATE_VECTOR_INDEX('Document', 'doc_embedding_index', 'embedding')")
+            conn.execute(f"CALL CREATE_VECTOR_INDEX('{DOCUMENT_TABLE_NAME}', '{DOCUMENT_EMBEDDING_INDEX_NAME}', 'embedding')")
         except Exception as e:
             # Index might already exist, which is fine
             if "already exists" not in str(e):

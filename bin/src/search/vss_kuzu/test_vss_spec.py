@@ -176,7 +176,7 @@ def test_vss_error_handling_compliance():
         assert "error" in result
         assert "details" in result
         
-        print("✓ 明示的なエラー型（ErrorDict）を使用")
+        print("✓ 明示的なエラー型（VectorSearchError）を使用")
     finally:
         # 元の状態に戻す
         service._vector_extension_available = original_available
