@@ -17,16 +17,20 @@
         projectDir = "/home/nixos/bin/src/requirement/graph";
         
         
-        # Python環境 - kuzu-pyの環境を基に拡張
-        basePythonEnv = kuzu-py.packages.${system}.pythonEnv;
+        # VSS/FTSパッケージの取得（flake経由）
+        vssKuzuPkg = vss-kuzu.packages.${system}.vssKuzu;
+        # ftsKuzuPkg = fts-kuzu.packages.${system}.ftsKuzu;  # 後で追加
         
-        # 追加の依存関係を含む環境を作成
+        # Python環境 - flake経由でパッケージを統合
         pythonEnv = pkgs.python312.withPackages (ps: with ps; [
           # kuzu本体とkuzu-pyパッケージ
           kuzu
           kuzu-py.packages.${system}.kuzuPy
+          # VSS/FTSパッケージ（flake経由）
+          vssKuzuPkg
+          # ftsKuzuPkg  # 後で追加
           pytest
-          # VSS/FTS用の依存関係
+          # 追加の依存関係
           numpy
           sentence-transformers
           torch
@@ -38,11 +42,6 @@
         mkRunner = name: script: pkgs.writeShellScript name ''
           cd ${projectDir}
           export PYTHONPATH="${projectDir}:$PYTHONPATH"
-          # kuzu_pyモジュールのパスを追加
-          export PYTHONPATH="${projectDir}/../../persistence:$PYTHONPATH"
-          # VSS/FTSモジュールのパスを追加（POC互換性のため）
-          export PYTHONPATH="${projectDir}/../../search/vss_kuzu:$PYTHONPATH"
-          export PYTHONPATH="${projectDir}/../../search/fts_kuzu:$PYTHONPATH"
           ${script}
         '';
         

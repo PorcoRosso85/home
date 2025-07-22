@@ -9,42 +9,18 @@ import os
 import math
 from typing import List, Dict, Any, Optional
 
-# Semantic searchモジュールへのパスを追加
-semantic_search_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../search/vss_kuzu"))
-if os.path.exists(semantic_search_path) and semantic_search_path not in sys.path:
-    sys.path.insert(0, semantic_search_path)
-
-# FTS searchモジュールへのパスも追加
-fts_search_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../search/fts_kuzu"))
-if os.path.exists(fts_search_path) and fts_search_path not in sys.path:
-    sys.path.insert(0, fts_search_path)
-
 # Try to import semantic search modules
 SEARCH_MODULES_AVAILABLE = False
 VSSService = None
 
 try:
-    # Try to import directly if available in PYTHONPATH
-    import vss_kuzu
+    # Try to import vss_kuzu if it's installed as a package
     from vss_kuzu.mod import VSSService, VectorSearchResult
     SEARCH_MODULES_AVAILABLE = True
     print(f"[INFO] VSS modules loaded successfully")
 except ImportError as e:
-    # Try loading from local path
-    try:
-        # Add parent directory to path for relative imports
-        parent_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        if parent_path not in sys.path:
-            sys.path.insert(0, parent_path)
-        
-        # Now try relative import
-        from ...search.vss_kuzu.mod import VSSService, VectorSearchResult
-        SEARCH_MODULES_AVAILABLE = True
-        print(f"[INFO] VSS modules loaded via relative import")
-    except ImportError as e2:
-        # Log the error but don't fail - we'll provide a fallback
-        print(f"[WARNING] VSS modules not available - using fallback search: {e}")
-        print(f"[DEBUG] Import paths tried: {sys.path[:5]}...")
+    # Log the error but don't fail - we'll provide a fallback
+    print(f"[WARNING] VSS modules not available - using fallback search: {e}")
 
 
 class FallbackSearchService:
