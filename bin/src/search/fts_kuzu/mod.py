@@ -11,92 +11,97 @@ try:
     from .application import (
         FTSService,
         VSSService,
+        create_embedding_service,
         create_fts_service,
         create_vss_service,
-        create_embedding_service,
     )
     from .domain import (
-        # Data classes
-        SearchResult,
-        FTSSearchResult,
-        IndexResult,
         FTSError,
         FTSErrorType,
+        FTSSearchResult,
+        IndexResult,
+        # Data classes
+        SearchResult,
         # Pure functions
         calculate_cosine_similarity,
         cosine_distance_to_similarity,
-        sort_results_by_similarity,
-        select_top_k_results,
         find_semantically_similar_documents,
-        validate_embedding_dimension,
         group_documents_by_topic_similarity,
+        select_top_k_results,
+        sort_results_by_similarity,
+        validate_embedding_dimension,
     )
     from .infrastructure import (
         DatabaseConfig,
-        create_kuzu_database,
-        create_kuzu_connection,
+        check_fts_extension,
         check_vector_extension,
+        close_connection,
+        count_documents,
+        create_fts_index,
+        create_kuzu_connection,
+        create_kuzu_database,
+        initialize_fts_schema,
         initialize_vector_schema,
         insert_documents_with_embeddings,
-        search_similar_vectors,
-        check_fts_extension,
         install_fts_extension,
-        initialize_fts_schema,
-        create_fts_index,
-        count_documents,
-        close_connection,
+        search_similar_vectors,
     )
-    
+
 except ImportError:
     # Fallback to old implementation for compatibility
     try:
         from .vss_service import (
-            VSSService,
+            VectorIndexResult,
             VectorSearchError,
             VectorSearchResult,
-            VectorIndexResult,
+            VSSService,
         )
     except ImportError:
         # Fallback for direct execution
         import sys
-        sys.path.insert(0, '.')
+
+        sys.path.insert(0, ".")
         from vss_service import (
-            VSSService,
+            VectorIndexResult,
             VectorSearchError,
             VectorSearchResult,
-            VectorIndexResult,
+            VSSService,
         )
 
 # Import type definitions from old implementation for compatibility
 try:
     from .vss_service import (
+        VectorIndexResult,
         VectorSearchError,
         VectorSearchResult,
-        VectorIndexResult,
     )
 except ImportError:
     # Define types if not available
-    from typing import TypedDict, List, Dict, Any, Optional
-    
+    from typing import Any, TypedDict
+
     class VectorSearchError(TypedDict):
         """エラー情報を表す型"""
+
         ok: bool
         error: str
-        details: Dict[str, Any]
-    
+        details: dict[str, Any]
+
     class VectorSearchResult(TypedDict):
         """検索成功時の結果型"""
+
         ok: bool
-        results: List[Dict[str, Any]]
-        metadata: Dict[str, Any]
-    
+        results: list[dict[str, Any]]
+        metadata: dict[str, Any]
+
     class VectorIndexResult(TypedDict):
         """インデックス操作の結果型"""
+
         ok: bool
         status: str
         indexed_count: int
         index_time_ms: float
-        error: Optional[str]
+        error: str | None
+
 
 # Version information
 __version__ = "0.2.0"  # Updated for FTS support
@@ -106,24 +111,20 @@ __all__ = [
     # Main service classes
     "FTSService",  # Primary FTS service
     "VSSService",  # Legacy VSS service (for compatibility)
-    
     # Type definitions (compatible with old API)
     "VectorSearchError",
     "VectorSearchResult",
     "VectorIndexResult",
-    
     # New function-first API
     "create_fts_service",
     "create_vss_service",
     "create_embedding_service",
-    
     # Domain data classes
     "SearchResult",
     "FTSSearchResult",
     "IndexResult",
     "FTSError",
     "FTSErrorType",
-    
     # Domain pure functions
     "calculate_cosine_similarity",
     "cosine_distance_to_similarity",
@@ -132,7 +133,6 @@ __all__ = [
     "find_semantically_similar_documents",
     "validate_embedding_dimension",
     "group_documents_by_topic_similarity",
-    
     # Infrastructure functions
     "DatabaseConfig",
     "create_kuzu_database",
@@ -147,7 +147,6 @@ __all__ = [
     "create_fts_index",
     "count_documents",
     "close_connection",
-    
     # Version
     "__version__",
 ]
@@ -163,17 +162,17 @@ Supports keyword search, BM25 scoring, phrase search, and highlighting.
 
 Example usage:
     from fts_kuzu import FTSService
-    
+
     # Create FTS service instance
     service = FTSService(in_memory=True)
-    
+
     # Index documents
     documents = [
         {"id": "doc1", "title": "Authentication Guide", "content": "How to implement user authentication"},
         {"id": "doc2", "title": "Login System", "content": "Building a secure login system"},
     ]
     result = service.index_documents(documents)
-    
+
     # Search documents
     search_result = service.search({"query": "authentication", "limit": 10})
     if search_result["ok"]:
@@ -191,7 +190,7 @@ Example usage:
         check_fts_extension,
         # ... other functions
     )
-    
+
     # Create FTS service with dependency injection
     fts_funcs = create_fts_service(
         create_db_func=create_kuzu_database,
@@ -199,7 +198,7 @@ Example usage:
         check_fts_func=check_fts_extension,
         # ... other dependencies
     )
-    
+
     # Use the functions
     result = fts_funcs["index_documents"](documents, config)
 """
