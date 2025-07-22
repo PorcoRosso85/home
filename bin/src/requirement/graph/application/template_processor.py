@@ -11,6 +11,7 @@ Template Processor - テンプレート入力をCypherクエリに変換
 from typing import Dict, Any, Optional
 from .search_adapter import SearchAdapter
 from ..query import execute_query
+from ..domain.errors import ValidationError, NotFoundError
 
 
 def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], search_factory=None) -> Dict[str, Any]:
@@ -71,12 +72,29 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
                     print(f"Search service error: {e}")
                     # エラー時は重複チェックをスキップ
 
-        # 要件作成（embeddingはNULLで作成）
+        # エンベディング生成
+        embedding = None
+        if search_factory and search_text.strip():
+            search_service = search_factory() if 'search_service' not in locals() else search_service
+            if search_service:
+                try:
+                    # SearchAdapterのgenerate_embeddingメソッドを使用
+                    if hasattr(search_service, 'generate_embedding'):
+                        print(f"[DEBUG] Generating embedding for: {search_text}")
+                        embedding = search_service.generate_embedding(search_text)
+                        if embedding:
+                            print(f"[DEBUG] Generated embedding with {len(embedding)} dimensions")
+                except Exception as e:
+                    print(f"[DEBUG] Failed to generate embedding: {e}")
+                    # エンベディング生成エラーは致命的ではない
+        
+        # 要件作成（エンベディング付き）
         query_params = {
             "id": params.get("id"),
             "title": params.get("title"),
             "description": params.get("description", ""),
-            "status": params.get("status", "proposed")
+            "status": params.get("status", "proposed"),
+            "embedding": embedding
         }
 
         # クエリローダーを使用して実行
@@ -177,7 +195,13 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
             query_params["updates"] = updates
             return execute_query(repository, "update_requirement", query_params, "dml")
         else:
-            return {"error": {"type": "ValidationError", "message": "No fields to update"}}
+            return ValidationError(
+                type="ValidationError",
+                message="No fields to update",
+                field="updates",
+                value=None,
+                constraint="at_least_one_field"
+            )
 
     elif template == "delete_requirement":
         # 要件削除
@@ -185,9 +209,10 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         return execute_query(repository, "delete_requirement", query_params, "dml")
 
     else:
-        return {
-            "error": {
-                "type": "TemplateNotFoundError",
-                "message": f"Unknown template: {template}"
-            }
-        }
+        return NotFoundError(
+            type="NotFoundError",
+            message=f"Unknown template: {template}",
+            resource_type="template",
+            resource_id=template,
+            search_criteria={"template": template}
+        )

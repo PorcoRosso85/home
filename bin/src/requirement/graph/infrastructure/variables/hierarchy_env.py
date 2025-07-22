@@ -8,7 +8,7 @@
 import json
 from typing import Optional, Dict, List, Union
 from .env import _optional_env
-from domain.errors import EnvironmentConfigError
+from ...domain.errors import EnvironmentConfigError
 
 def get_hierarchy_mode() -> Union[Optional[str], EnvironmentConfigError]:
     """階層モード（オプション）

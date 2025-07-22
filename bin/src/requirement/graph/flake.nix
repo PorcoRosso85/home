@@ -6,22 +6,43 @@
     flake-utils.url = "github:numtide/flake-utils";
     kuzu-py.url = "path:../../persistence/kuzu_py";
     python-flake.url = "path:../../flakes/python";
+    vss-kuzu.url = "path:../../search/vss_kuzu";
+    fts-kuzu.url = "path:../../search/fts_kuzu";
   };
 
-  outputs = { self, nixpkgs, flake-utils, kuzu-py, python-flake, ... }:
+  outputs = { self, nixpkgs, flake-utils, kuzu-py, python-flake, vss-kuzu, fts-kuzu, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         projectDir = "/home/nixos/bin/src/requirement/graph";
         
         
-        # Python環境 - flakes/pythonから取得し、kuzu_pyを含む環境を使用
-        pythonEnv = kuzu-py.packages.${system}.pythonEnv;
+        # Python環境 - kuzu-pyの環境を基に拡張
+        basePythonEnv = kuzu-py.packages.${system}.pythonEnv;
+        
+        # 追加の依存関係を含む環境を作成
+        pythonEnv = pkgs.python312.withPackages (ps: with ps; [
+          # kuzu本体とkuzu-pyパッケージ
+          kuzu
+          kuzu-py.packages.${system}.kuzuPy
+          pytest
+          # VSS/FTS用の依存関係
+          numpy
+          sentence-transformers
+          torch
+          scipy
+          sentencepiece
+        ]);
         
         # 共通の実行ラッパー
         mkRunner = name: script: pkgs.writeShellScript name ''
           cd ${projectDir}
           export PYTHONPATH="${projectDir}:$PYTHONPATH"
+          # kuzu_pyモジュールのパスを追加
+          export PYTHONPATH="${projectDir}/../../persistence:$PYTHONPATH"
+          # VSS/FTSモジュールのパスを追加（POC互換性のため）
+          export PYTHONPATH="${projectDir}/../../search/vss_kuzu:$PYTHONPATH"
+          export PYTHONPATH="${projectDir}/../../search/fts_kuzu:$PYTHONPATH"
           ${script}
         '';
         

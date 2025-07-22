@@ -7,7 +7,7 @@ import pytest
 from typing import Union, cast
 from unittest.mock import patch
 
-from domain.errors import EnvironmentConfigError
+from ...domain.errors import EnvironmentConfigError
 from .env import (
     get_db_path,
     get_rgl_database_path,

@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any, Union
 
-from domain.errors import DatabaseError
+from ..domain.errors import DatabaseError
 
 # kuzu_pyパッケージのヘルパー関数を使用（Nixパッケージとしてインストール済み）
 try:

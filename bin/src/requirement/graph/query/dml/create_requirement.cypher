@@ -6,6 +6,6 @@ CREATE (r:RequirementEntity {
     title: $title,
     description: $description,
     status: $status,
-    embedding: NULL
+    embedding: $embedding
 })
 RETURN r

@@ -10,7 +10,7 @@
 """
 import os
 from typing import Optional, Dict, Union
-from domain.errors import EnvironmentConfigError
+from ...domain.errors import EnvironmentConfigError
 
 # 必須環境変数チェック
 def _require_env(name: str) -> Union[str, EnvironmentConfigError]:
