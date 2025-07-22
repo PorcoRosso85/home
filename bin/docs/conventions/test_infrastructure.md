@@ -15,12 +15,25 @@
 
 | 言語 | テストファイル名 | 例 |
 |------|-----------------|-----|
-| Python | `test_<仕様>.py` | `test_user_authentication.py` ❌ ~~test_user_service.py~~ |
-| TypeScript | `<仕様>.test.ts` | `user-authentication.test.ts` |
-| Go | `<仕様>_test.go` | `user_authentication_test.go` |
+| Python | `test_<対象ファイル名>.py` | `test_vss_service.py` (vss_service.pyのテスト) |
+| TypeScript | `<対象ファイル名>.test.ts` | `vss-service.test.ts` |
+| Go | `<対象ファイル名>_test.go` | `vss_service_test.go` |
 | Rust | `mod.rs` 内の `#[cfg(test)]` | `tests/` ディレクトリ |
 
-> 💡 実装名でなく仕様名を使用 → [testing.md](./testing.md)
+> 💡 テスト対象ファイルとの1対1対応により、テストの発見性と保守性を向上
+
+### 関数命名規則
+
+テスト関数は、動くドキュメントとして仕様を説明する名前にする：
+
+| 言語 | テスト関数名 | 例 |
+|------|-------------|-----|
+| Python | `def test_<何を_どうすると_どうなる>()` | `def test_vector_search_with_similar_query_returns_relevant_documents()` |
+| TypeScript | `test('<仕様の説明>', ...)` | `test('vector search with similar query returns relevant documents', ...)` |
+| Go | `func Test<WhatWhenThen>(t *testing.T)` | `func TestVectorSearchWithSimilarQueryReturnsRelevantDocuments(t *testing.T)` |
+| Rust | `fn test_<what_when_then>()` | `fn test_vector_search_with_similar_query_returns_relevant_documents()` |
+
+> 💡 関数名で仕様を表現し、テストが何を保証するかを明確にする → [testing.md](./testing.md)
 
 ## テストランナー
 
