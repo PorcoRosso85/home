@@ -1,7 +1,7 @@
 """
-VSS (Vector Similarity Search) with KuzuDB - Public API
+FTS (Full-Text Search) with KuzuDB - Public API
 
-This module provides the public interface for the VSS-KuzuDB library.
+This module provides the public interface for the FTS-KuzuDB library.
 All public classes, functions, and types should be imported from this module.
 """
 
@@ -9,7 +9,9 @@ All public classes, functions, and types should be imported from this module.
 try:
     # New function-first architecture imports
     from .application import (
-        VSSService as NewVSSService,
+        FTSService,
+        VSSService,
+        create_fts_service,
         create_vss_service,
         create_embedding_service,
     )
@@ -37,12 +39,13 @@ try:
         initialize_vector_schema,
         insert_documents_with_embeddings,
         search_similar_vectors,
+        check_fts_extension,
+        install_fts_extension,
+        initialize_fts_schema,
+        create_fts_index,
         count_documents,
         close_connection,
     )
-    
-    # Use new implementation as default
-    VSSService = NewVSSService
     
 except ImportError:
     # Fallback to old implementation for compatibility
@@ -96,12 +99,13 @@ except ImportError:
         error: Optional[str]
 
 # Version information
-__version__ = "0.1.0"
+__version__ = "0.2.0"  # Updated for FTS support
 
 # Public API - everything that external users should import
 __all__ = [
-    # Main service class (compatible with old API)
-    "VSSService",
+    # Main service classes
+    "FTSService",  # Primary FTS service
+    "VSSService",  # Legacy VSS service (for compatibility)
     
     # Type definitions (compatible with old API)
     "VectorSearchError",
@@ -109,6 +113,7 @@ __all__ = [
     "VectorIndexResult",
     
     # New function-first API
+    "create_fts_service",
     "create_vss_service",
     "create_embedding_service",
     
@@ -136,6 +141,10 @@ __all__ = [
     "initialize_vector_schema",
     "insert_documents_with_embeddings",
     "search_similar_vectors",
+    "check_fts_extension",
+    "install_fts_extension",
+    "initialize_fts_schema",
+    "create_fts_index",
     "count_documents",
     "close_connection",
     
@@ -145,50 +154,52 @@ __all__ = [
 
 # Module metadata
 __doc__ = """
-VSS-KuzuDB: Vector Similarity Search with KuzuDB
+FTS-KuzuDB: Full-Text Search with KuzuDB
 
-A library for performing vector similarity search using KuzuDB's VECTOR extension.
-Supports Japanese text embeddings using the ruri-v3-30m model.
+A library for performing full-text search using KuzuDB's FTS extension.
+Supports keyword search, BM25 scoring, phrase search, and highlighting.
 
-## Object-Oriented API (Compatible with existing code)
+## Primary API - Full-Text Search
 
 Example usage:
-    from vss_kuzu import VSSService, VectorSearchResult
+    from fts_kuzu import FTSService
     
-    # Create service instance
-    service = VSSService(in_memory=True)
+    # Create FTS service instance
+    service = FTSService(in_memory=True)
     
     # Index documents
     documents = [
-        {"id": "doc1", "content": "ユーザー認証機能を実装する"},
-        {"id": "doc2", "content": "ログインシステムを構築する"},
+        {"id": "doc1", "title": "Authentication Guide", "content": "How to implement user authentication"},
+        {"id": "doc2", "title": "Login System", "content": "Building a secure login system"},
     ]
     result = service.index_documents(documents)
     
-    # Search similar documents
-    search_result: VectorSearchResult = service.search({"query": "認証システム", "limit": 5})
+    # Search documents
+    search_result = service.search({"query": "authentication", "limit": 10})
     if search_result["ok"]:
         for doc in search_result["results"]:
             print(f"{doc['id']}: {doc['content']} (score: {doc['score']})")
+            print(f"  Highlights: {doc['highlights']}")
 
-## Function-First API (New architecture)
+## Function-First API
 
 Example usage:
-    from vss_kuzu import (
-        create_vss_service,
-        create_embedding_service,
+    from fts_kuzu import (
+        create_fts_service,
         create_kuzu_database,
         create_kuzu_connection,
+        check_fts_extension,
         # ... other functions
     )
     
-    # Create services with dependency injection
-    embedding_func = create_embedding_service()
-    vss_funcs = create_vss_service(
+    # Create FTS service with dependency injection
+    fts_funcs = create_fts_service(
         create_db_func=create_kuzu_database,
+        create_conn_func=create_kuzu_connection,
+        check_fts_func=check_fts_extension,
         # ... other dependencies
     )
     
     # Use the functions
-    result = vss_funcs["index_documents"](documents, config)
+    result = fts_funcs["index_documents"](documents, config)
 """
