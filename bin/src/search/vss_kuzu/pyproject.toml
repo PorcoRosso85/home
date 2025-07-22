@@ -24,6 +24,10 @@ dependencies = [
     "kuzu>=0.1.0",
     "numpy>=1.24.0",
     "jsonschema>=4.17.0",
+    "sentence-transformers>=2.2.0",
+    "torch>=2.0.0",
+    "scipy>=1.10.0",
+    "sentencepiece>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -34,8 +38,7 @@ dev = [
     "ruff>=0.0.261",
 ]
 
-[project.scripts]
-vss-service = "vss_service:main"
+# No CLI scripts - this is a library only
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

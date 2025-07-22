@@ -38,6 +38,28 @@
         ]);
         
       in {
+        packages.default = pkgs.python312Packages.buildPythonPackage {
+          pname = "vss-kuzu";
+          version = "0.1.0";
+          src = ./.;
+          format = "pyproject";
+          
+          propagatedBuildInputs = with pkgs.python312Packages; [
+            kuzuPyPackage
+            numpy
+            sentence-transformers
+            jsonschema
+          ];
+          
+          pythonImportsCheck = [ "vss_kuzu" ];
+          
+          meta = with pkgs.lib; {
+            description = "Vector Similarity Search with KuzuDB";
+            homepage = "https://github.com/your-org/vss-kuzu";
+            license = licenses.mit;
+          };
+        };
+        
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             pythonEnv
@@ -61,24 +83,6 @@
         };
         
         apps = {
-          # LLM-first entry point (default)
-          default = {
-            type = "app";
-            program = "${pkgs.writeShellScript "vss-entry" ''
-              cd ${./.}
-              exec ${pythonEnv}/bin/python entry.py "$@"
-            ''}";
-          };
-          
-          # Run mode (JSON input)
-          run = {
-            type = "app";
-            program = "${pkgs.writeShellScript "vss-run" ''
-              cd ${./.}
-              exec ${pythonEnv}/bin/python entry.py run "$@"
-            ''}";
-          };
-          
           # Test runner
           test = {
             type = "app";
