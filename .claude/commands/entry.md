@@ -6,22 +6,22 @@
 デフォルト実行時には利用可能なアプリ一覧を動的に表示し、探索可能性を高める。
 
 # 実装内容
-エントリーポイントを以下の3層で構造化：
+プロジェクトタイプに応じた構造化：
 
+## ライブラリプロジェクト
 1. **Flakeレイヤー（flake.nix）**
-   - `default`: 利用可能なアプリ一覧を動的表示
-   - `test`: テストスイート実行
-   - `readme`: README.md表示
-   - 詳細は `/bin/docs/conventions/entry.md` に準拠
+   - `packages.default`: ライブラリパッケージ
+   - `devShells.default`: 開発環境
+   - `apps.test`: テスト実行
 
-2. **CLIレイヤー（main.{ext}）**
-   - 標準入力の判定とI/O制御
-   - エラーハンドリング
-   - 詳細は `/bin/docs/conventions/entry.md` に準拠
-
-3. **ライブラリレイヤー（mod.{ext}）**
+2. **ライブラリレイヤー（mod.{ext}）**
    - 型情報を含む公開API
    - 詳細は `/bin/docs/conventions/module_design.md` に準拠
+
+## CLIプロジェクト
+上記に加えて：
+- **CLIレイヤー（main.{ext}）**: I/O制御
+- **Flake追加要素**: `apps.default`（動的一覧）、`apps.readme`
 
 # 使用例
 

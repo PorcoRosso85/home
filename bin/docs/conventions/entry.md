@@ -1,28 +1,30 @@
 # エントリーポイント規約
 
-## 責務分離
+## プロジェクトタイプ別の構成
 
+### ライブラリプロジェクト
+| レイヤー | ファイル | 責務 |
+|:--|:--|:--|
+| Flake | `flake.nix` | パッケージ定義、開発環境 |
+| Library | `mod.{ext}` | 公開API、型定義 |
+
+### CLIプロジェクト
 | レイヤー | ファイル | 責務 |
 |:--|:--|:--|
 | Flake | `flake.nix` | アプリ定義（default, test, readme） |
-| CLI | `main.{ext}` | 引数解析、I/O制御、エラー表示 |
-| Library | `mod.{ext}` | 公開API、型定義 |
+| Library | `mod.{ext}` | コア機能の公開API |
+| CLI | `main.{ext}` | I/O制御、mod.{ext}の呼び出し |
 
-## 実装パターン
+## Flakeの必須要素
 
-### CLIエントリーポイント（main.{ext}）
-```python
-# 標準入力がある場合のみ処理、なければヘルプ表示
-if sys.stdin.isatty():
-    print_usage()
-else:
-    process_input()
-```
+### 共通（ライブラリ・CLI両方）
+- `packages.default`: メインパッケージ
+- `devShells.default`: 開発環境
+- `apps.test`: テスト実行
 
-### Flake連携
+### CLI専用
 - `apps.default`: 利用可能コマンド一覧（BuildTime評価）
-- `apps.test`: `nix run .#test`
-- `apps.readme`: `cat ${./README.md}`
+- `apps.readme`: README.md表示
 
 ## 関連規約
 - [nix_flake.md](./nix_flake.md) - Flakeレイヤーの詳細
