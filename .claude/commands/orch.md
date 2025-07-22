@@ -8,33 +8,25 @@ Split complex tasks into sequential steps, where each step can contain multiple 
 
 ## Process
 
-1. **Initial Analysis**
-   - First, analyze the entire task to understand scope and requirements
-   - Identify dependencies and execution order
-   - Plan sequential steps based on dependencies
+1. **Task Decomposition**
+   - Use `/phase` command to decompose task into Baby Steps
+   - Review generated phases and their dependencies
 
-2. **Step Planning**
-   - Break down into 2-4 sequential steps
-   - Each step can contain multiple parallel subtasks
-   - Define what context from previous steps is needed
-
-3. **Step-by-Step Execution**
+2. **Step-by-Step Execution**
    - Execute all subtasks within a step in parallel
    - Wait for all subtasks in current step to complete
    - Pass relevant results to next step
    - Request concise summaries (100-200 words) from each subtask
 
-4. **Step Review and Adaptation**
+3. **Step Review and Adaptation**
    - After each step completion, review results
    - Validate if remaining steps are still appropriate
    - Adjust next steps based on discoveries
-   - Add, remove, or modify subtasks as needed
 
-5. **Progressive Aggregation**
+4. **Progressive Aggregation**
    - Synthesize results from completed step
    - Use synthesized results as context for next step
    - Build comprehensive understanding progressively
-   - Maintain flexibility to adapt plan
 
 ## Example Usage
 
@@ -93,6 +85,7 @@ Adapted Plan: Step 1 → Step 2 → New Step 2.5 (analyze architecture) → Modi
 
 ## Integration with Other Commands
 
+- `/phase`: **必須** - タスクをBaby Stepsに分解（実行前に必ず使用）
 - `/tested`: For comprehensive test and lint checking
 - `/org`: For simple parallel task execution without dependencies
 - `/discuss`: For architectural discussions when issues are found

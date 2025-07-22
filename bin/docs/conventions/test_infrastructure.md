@@ -15,10 +15,12 @@
 
 | 言語 | テストファイル名 | 例 |
 |------|-----------------|-----|
-| Python | `test_<target>.py` | `test_user_service.py` |
-| TypeScript | `<target>.test.ts` | `user-service.test.ts` |
-| Go | `<target>_test.go` | `user_service_test.go` |
+| Python | `test_<仕様>.py` | `test_user_authentication.py` ❌ ~~test_user_service.py~~ |
+| TypeScript | `<仕様>.test.ts` | `user-authentication.test.ts` |
+| Go | `<仕様>_test.go` | `user_authentication_test.go` |
 | Rust | `mod.rs` 内の `#[cfg(test)]` | `tests/` ディレクトリ |
+
+> 💡 実装名でなく仕様名を使用 → [testing.md](./testing.md)
 
 ## テストランナー
 
