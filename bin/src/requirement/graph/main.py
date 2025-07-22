@@ -34,6 +34,9 @@ def safe_main():
         info("rgl.main", "Starting main function")
 
         db_path = get_db_path()
+        if isinstance(db_path, dict) and db_path.get("type") == "EnvironmentConfigError":
+            error("rgl.main", f"Environment configuration error: {db_path['message']}")
+            sys.exit(1)
 
         # 入力データの読み込み
         input_data = json.load(sys.stdin)

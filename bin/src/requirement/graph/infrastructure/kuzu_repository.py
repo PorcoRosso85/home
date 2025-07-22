@@ -34,6 +34,8 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     # db_pathが明示的に指定されていない場合、環境変数から取得
     if db_path is None:
         db_path = get_db_path()  # RGL_DATABASE_PATH または RGL_DB_PATH から取得
+        if isinstance(db_path, dict) and db_path.get("type") == "EnvironmentConfigError":
+            raise EnvironmentError(f"Environment configuration error: {db_path['message']}")
         info("rgl.repo", "Using database path from environment", db_path=db_path)
 
     debug("rgl.repo", "Using database path", path=str(db_path))
@@ -47,8 +49,16 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         db = create_database(in_memory=True, use_cache=False, test_unique=True)
     else:
         db = create_database(path=str(db_path))
+    
+    # エラーチェック
+    if isinstance(db, dict) and db.get("type") == "DatabaseError":
+        raise RuntimeError(f"Database creation failed: {db['message']}")
 
     conn = create_connection(db)
+    
+    # エラーチェック
+    if isinstance(conn, dict) and conn.get("type") == "DatabaseError":
+        raise RuntimeError(f"Connection creation failed: {conn['message']}")
 
     def init_schema():
         """スキーマ初期化 - graph/ddl/schema.cypherは事前適用済みと仮定"""

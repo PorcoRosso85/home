@@ -15,7 +15,6 @@ if not os.environ.get("SENTENCE_TRANSFORMERS_HOME"):
 
 # 新システムからインポート
 from .env import (
-    EnvironmentError,
     get_ld_library_path,
     get_rgl_database_path,
     get_db_path,
@@ -41,10 +40,11 @@ from .hierarchy_env import (
 # LD_LIBRARY_PATHはNixが管理するため、Noneの可能性がある
 LD_LIBRARY_PATH = get_ld_library_path()
 
-try:
-    RGL_DB_PATH = get_db_path()  # 後方互換性のため
-except EnvironmentError:
+result = get_db_path()  # 後方互換性のため
+if isinstance(result, dict) and result.get("type") == "EnvironmentConfigError":
     RGL_DB_PATH = None
+else:
+    RGL_DB_PATH = result
 
 # オプション環境変数（互換性のため）
 RGL_LOG_LEVEL = get_log_level()
@@ -67,8 +67,6 @@ from .constants import (
 # デフォルトパスは削除（規約違反のため）
 
 __all__ = [
-    # エラー型
-    'EnvironmentError',
     # 環境変数（互換性のため - 非推奨）
     'LD_LIBRARY_PATH',
     'RGL_DB_PATH',
@@ -85,6 +83,8 @@ __all__ = [
     'is_org_mode',
     'get_shared_db_path',
     'validate_environment',
+    'get_env',
+    'get_database_path',
     # 定数
     'MAX_GRAPH_DEPTH',
     'LOG_LEVELS',

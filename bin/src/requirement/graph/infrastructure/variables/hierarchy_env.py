@@ -134,15 +134,15 @@ def validate_hierarchy_env() -> Dict[str, str]:
     errors = {}
 
     mode = get_hierarchy_mode()
-    if isinstance(mode, EnvironmentConfigError):
+    if isinstance(mode, dict) and mode.get("type") == "EnvironmentConfigError":
         errors['RGL_HIERARCHY_MODE'] = mode["message"]
 
     max_h = get_max_hierarchy()
-    if isinstance(max_h, EnvironmentConfigError):
+    if isinstance(max_h, dict) and max_h.get("type") == "EnvironmentConfigError":
         errors['RGL_MAX_HIERARCHY'] = max_h["message"]
 
     keywords = get_hierarchy_keywords()
-    if isinstance(keywords, EnvironmentConfigError):
+    if isinstance(keywords, dict) and keywords.get("type") == "EnvironmentConfigError":
         errors['RGL_HIERARCHY_KEYWORDS'] = keywords["message"]
 
     return errors

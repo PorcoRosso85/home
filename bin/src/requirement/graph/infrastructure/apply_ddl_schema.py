@@ -48,26 +48,32 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
         return False
 
     # 接続を確立
-    try:
-        if db_path is None:
-            db_path = RGL_DB_PATH
+    if db_path is None:
+        db_path = RGL_DB_PATH
 
-        # インメモリDBの場合はディレクトリ作成をスキップ
-        if db_path == ":memory:":
-            debug("rgl.schema", "Using in-memory database")
-            db = create_database(in_memory=True, use_cache=False, test_unique=True)
-        else:
-            debug("rgl.schema", "Creating database directory", path=db_path)
-            os.makedirs(db_path, exist_ok=True)
-            db = create_database(path=db_path)
-
-        info("rgl.schema", "Connecting to database")
-        conn = create_connection(db)
-        debug("rgl.schema", "Database connection established")
-    except Exception as e:
-        error("rgl.schema", "Failed to connect to database", error=str(e))
-        # print文を削除（JSON出力を汚染しないため）
+    # インメモリDBの場合はディレクトリ作成をスキップ
+    if db_path == ":memory:":
+        debug("rgl.schema", "Using in-memory database")
+        db = create_database(in_memory=True, use_cache=False, test_unique=True)
+    else:
+        debug("rgl.schema", "Creating database directory", path=db_path)
+        os.makedirs(db_path, exist_ok=True)
+        db = create_database(path=db_path)
+    
+    # エラーチェック
+    if isinstance(db, dict) and db.get("type") == "DatabaseError":
+        error("rgl.schema", "Failed to create database", error=db.get("message", "Unknown error"))
         return False
+
+    info("rgl.schema", "Connecting to database")
+    conn = create_connection(db)
+    
+    # エラーチェック
+    if isinstance(conn, dict) and conn.get("type") == "DatabaseError":
+        error("rgl.schema", "Failed to connect to database", error=conn.get("message", "Unknown error"))
+        return False
+        
+    debug("rgl.schema", "Database connection established")
 
     manager = DDLSchemaManager(conn)
 

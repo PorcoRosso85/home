@@ -151,10 +151,16 @@ def clear_cache():
     """キャッシュをクリア（ダミー実装）"""
     pass
 
+# テスト用にKUZU_PY_AVAILABLEとKUZU_PY_IMPORT_ERRORもエクスポート
+KUZU_PY_AVAILABLE = _kuzu_available
+KUZU_PY_IMPORT_ERROR = _import_error
+
 # 後方互換性のため、すべての関数を公開
 __all__ = [
     'create_database',
     'create_connection', 
     'clear_database_cache',
-    'clear_cache'
+    'clear_cache',
+    'KUZU_PY_AVAILABLE',
+    'KUZU_PY_IMPORT_ERROR'
 ]

@@ -53,12 +53,12 @@ def get_db_path() -> Union[str, EnvironmentConfigError]:
     """
     # 新しい環境変数を優先
     result = get_rgl_database_path()
-    if not isinstance(result, EnvironmentConfigError):
+    if not (isinstance(result, dict) and result.get("type") == "EnvironmentConfigError"):
         return result
     
     # 後方互換性チェック
     legacy_result = _require_env('RGL_DB_PATH')
-    if not isinstance(legacy_result, EnvironmentConfigError):
+    if not (isinstance(legacy_result, dict) and legacy_result.get("type") == "EnvironmentConfigError"):
         return legacy_result
     
     return EnvironmentConfigError(
@@ -105,7 +105,7 @@ def validate_environment() -> Dict[str, str]:
 
     # 必須環境変数チェック
     db_path = get_db_path()
-    if isinstance(db_path, EnvironmentConfigError):
+    if isinstance(db_path, dict) and db_path.get("type") == "EnvironmentConfigError":
         errors['RGL_DATABASE_PATH'] = db_path["message"]
 
     # /orgモード設定の整合性チェック
