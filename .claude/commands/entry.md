@@ -2,27 +2,36 @@
 /entry
 
 # 説明
-LLM-firstなエントリポイントとして、自然言語でシステムと対話し、適切な実行パスを選択する。
-従来のCLIオプション引数を廃止し、JSONデータオブジェクトまたはスクリプトファイルを入力として受け付ける。
+既存のエントリポイントを構造化し、自己説明的なインターフェースを提供する。
+オプション引数を廃止し、JSONベースの宣言的な操作方式に統一する。
 
-# 実行内容
-1. `nix run /full/path/to/flake` でシステムを起動
-2. デフォルト（引数なし）の場合、READMEを表示してインタラクティブモードへ
-3. `#run` サブコマンドで実行（JSONまたはスクリプトファイルを入力）
-4. `#test` サブコマンドでテスト実行（詳細は `/bin/docs/conventions/test_infrastructure.md` 参照）
-5. 自然言語による問い合わせを解釈し、適切なテンプレートを生成
+# 実装内容
+既存のflake.nixのエントリポイントを以下のように構造化：
+
+1. **デフォルトアプリ（引数なし）**
+   - プロジェクトの機能と使用方法を表示（自己説明）
+   - 利用可能な操作の例を提示
+   - 対話的ヘルプの提供
+
+2. **`#run` サブコマンド**
+   - JSON形式の操作を標準入力から受け付け
+   - 単一操作またはバッチ処理（配列）に対応
+
+3. **`#test` サブコマンド**
+   - プロジェクトのテストスイートを実行
+   - 詳細は `/bin/docs/conventions/test_infrastructure.md` に準拠
 
 # 使用例
 
 ## requirement/graphの例
 
-### デフォルト（README表示）
+### デフォルト（自己説明）
 ```bash
 nix run /home/nixos/bin/src/requirement/graph
-# → READMEを表示し、対話モードへ
+# → プロジェクトの機能説明と操作例を表示
 ```
 
-### 実行例（JSONデータオブジェクト）
+### 実行例（JSON操作）
 ```bash
 echo '{
   "type": "template",
@@ -35,10 +44,9 @@ echo '{
 }' | nix run /home/nixos/bin/src/requirement/graph#run
 ```
 
-### 実行例（スクリプトファイル）
+### バッチ実行例
 ```bash
-# create_requirements.json
-cat > create_requirements.json << 'EOF'
+cat > requirements.json << 'EOF'
 [
   {
     "type": "template",
@@ -53,122 +61,93 @@ cat > create_requirements.json << 'EOF'
 ]
 EOF
 
-nix run /home/nixos/bin/src/requirement/graph#run < create_requirements.json
+nix run /home/nixos/bin/src/requirement/graph#run < requirements.json
 ```
 
 ## poc/storage/r2の例
 
-### デフォルト
+### デフォルト（自己説明）
 ```bash
 nix run /home/nixos/bin/src/poc/storage/r2
-# → R2操作ガイドを表示
+# → R2ストレージ操作の説明と使用例を表示
 ```
 
-### 実行例（バケット操作）
+### 操作例
 ```bash
 echo '{
   "operation": "create_bucket",
   "bucket_name": "my-data-bucket",
   "region": "auto"
 }' | nix run /home/nixos/bin/src/poc/storage/r2#run
-
-# または複数操作のスクリプト
-cat > r2_operations.json << 'EOF'
-[
-  {"operation": "create_bucket", "bucket_name": "test-bucket"},
-  {"operation": "upload", "bucket": "test-bucket", "key": "data.json", "content": "{}"},
-  {"operation": "list_objects", "bucket": "test-bucket"}
-]
-EOF
-
-nix run /home/nixos/bin/src/poc/storage/r2#run < r2_operations.json
 ```
 
 # 設計原則
 
-## 背景：LLMの動的生成能力の活用
-LLMは以下を動的に生成可能である：
-- 複雑なシェルスクリプト
-- 構造化されたJSONデータオブジェクト
-- テストシナリオ
-- 実行計画
+## 1. 自己説明的インターフェース
+- デフォルト実行時は必ず機能説明を表示
+- 具体的な使用例を含める
+- エラー時も次のアクションを示唆
 
-この能力を最大限活用するため、従来の固定的なCLIオプションを廃止し、
-LLMが状況に応じて最適な入力形式を生成できる設計とする。
-
-## 1. LLM-first
-- 自然言語での問い合わせを優先
-- 構造化データ（JSON）は二次的
-- エラーメッセージも自然言語で
-
-## 2. オプション引数の廃止
+## 2. 宣言的な操作
 ```bash
-# ❌ 従来のCLI（禁止）
+# ❌ 従来の命令的CLI
 my-cli --create --id req_001 --title "認証機能"
 
-# ✅ 新しい方式（推奨）
+# ✅ 宣言的なJSON操作
 echo '{"template": "create_requirement", "parameters": {"id": "req_001", "title": "認証機能"}}' | nix run ...#run
 ```
 
-## 3. 対話的インターフェース
-```
-$ nix run /home/nixos/bin/src/requirement/graph
-> 新しい要件を作成したい
-→ どのような要件ですか？タイトルと説明を教えてください。
-> ユーザー認証機能。メールアドレスとパスワードでログインできるようにする。
-→ 以下の内容で作成します：
-  {
-    "template": "create_requirement",
-    "parameters": {
-      "title": "ユーザー認証機能",
-      "description": "メールアドレスとパスワードでログインできるようにする"
-    }
-  }
-  実行しますか？ (y/n)
-```
+## 3. 統一されたインターフェース
+- すべての操作をJSON形式で統一
+- 人間は例を見て理解し使用
+- プログラム（LLMを含む）は構造化されたデータとして処理
 
-# 実装例（flake.nix）
+# 実装パターン（flake.nix）
 
 ```nix
 {
   apps = {
     default = {
       type = "app";
-      program = "${self.packages.${system}.entry}/bin/entry-readme";
+      program = "${pkgs.writeShellScript "show-help" ''
+        cat << 'EOF'
+        ====================================
+        プロジェクト名: XXXシステム
+        ====================================
+        
+        このシステムは...を提供します。
+        
+        使用方法:
+        1. 操作を確認: nix run .
+        2. 操作を実行: echo '<json>' | nix run .#run
+        3. テスト実行: nix run .#test
+        
+        操作例:
+        echo '{"operation": "example", "param": "value"}' | nix run .#run
+        
+        詳細はREADME.mdを参照してください。
+        EOF
+      ''}";
     };
     
     run = {
       type = "app";
-      program = "${self.packages.${system}.entry}/bin/entry-run";
+      program = "${self.packages.${system}.runner}/bin/run";
     };
     
     test = {
       type = "app";
-      program = "${self.packages.${system}.entry}/bin/entry-test";
+      program = "${self.packages.${system}.tester}/bin/test";
     };
   };
-  
-  packages.entry = pkgs.writeScriptBin "entry" ''
-    #!/usr/bin/env python3
-    import json
-    import sys
-    
-    if len(sys.argv) > 1 and sys.argv[1] == "run":
-        # JSONまたはスクリプトファイルを処理
-        data = json.load(sys.stdin)
-        process_operations(data)
-    elif len(sys.argv) > 1 and sys.argv[1] == "test":
-        # テストシナリオ実行は test_infrastructure.md の規約に従う
-        import subprocess
-        subprocess.run(["nix", "run", ".#test"])
-    else:
-        # READMEを表示して対話モード
-        show_readme()
-        interactive_mode()
-  '';
 }
 ```
 
+# 移行戦略
+1. 既存のCLIインターフェースがある場合は、まずJSON操作を並列で追加
+2. 使用例とドキュメントを充実させる
+3. 十分な移行期間の後、旧インターフェースを削除
+
 # 関連ファイル
-- ~/.claude/scripts/entry_process_template.py
-- ~/.claude/scripts/entry_interactive.py
+- 各プロジェクトのREADME.md（詳細な使用方法）
+- /bin/docs/conventions/nix_flake.md（flake規約）
