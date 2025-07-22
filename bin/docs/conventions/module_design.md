@@ -21,7 +21,7 @@ module/
 ├── application.{ext}    # ユースケース
 ├── domain.{ext}         # ビジネスロジック
 ├── infrastructure.{ext} # 外部接続
-└── mod.{ext}           # エクスポート
+└── mod.{ext}           # エクスポート（型情報を含む公開API）
 ```
 
 ### 成長時の分割
@@ -38,6 +38,11 @@ module/
 │   └── *.{ext}
 └── mod.{ext}
 ```
+
+## ライブラリとCLIの分離
+
+- **ライブラリ**: `mod.{ext}`で型情報と公開APIを確認
+- **CLI**: `main.{ext}`を別途作成（flakeのappsから起動）
 
 ## 設計に迷ったら
 

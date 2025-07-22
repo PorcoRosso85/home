@@ -6,20 +6,22 @@
 デフォルト実行時には利用可能なアプリ一覧を動的に表示し、探索可能性を高める。
 
 # 実装内容
-既存のflake.nixのエントリポイントを以下のように構造化：
+エントリーポイントを以下の3層で構造化：
 
-1. **デフォルトアプリ（引数なし）**
-   - 利用可能なアプリ一覧を動的に表示
-   - BuildTime評価で自動的にアプリを検出
-   - プロジェクト固有の使用例を提示
+1. **Flakeレイヤー（flake.nix）**
+   - `default`: 利用可能なアプリ一覧を動的表示
+   - `test`: テストスイート実行
+   - `readme`: README.md表示
+   - 詳細は `/bin/docs/conventions/entry.md` に準拠
 
-2. **`#test` サブコマンド**
-   - プロジェクトのテストスイートを実行
-   - 詳細は `/bin/docs/conventions/test_infrastructure.md` に準拠
+2. **CLIレイヤー（main.{ext}）**
+   - 標準入力の判定とI/O制御
+   - エラーハンドリング
+   - 詳細は `/bin/docs/conventions/entry.md` に準拠
 
-3. **`#readme` サブコマンド**
-   - プロジェクトのREADME.mdを表示
-   - 詳細なドキュメントへのアクセスを提供
+3. **ライブラリレイヤー（mod.{ext}）**
+   - 型情報を含む公開API
+   - 詳細は `/bin/docs/conventions/module_design.md` に準拠
 
 # 使用例
 
@@ -76,4 +78,6 @@ apps = rec {
 ```
 
 # 関連ファイル
-- /bin/docs/conventions/nix_flake.md（必須コマンド、動的一覧表示の詳細）
+- /bin/docs/conventions/nix_flake.md（Flakeレイヤーの詳細）
+- /bin/docs/conventions/entry.md（エントリーポイント規約）
+- /bin/docs/conventions/module_design.md（ライブラリ設計）
