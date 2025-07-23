@@ -19,12 +19,9 @@ except ImportError:
 
 
 # Constants
-VECTOR_EXTENSION_NAME = "VECTOR"
 FTS_EXTENSION_NAME = "FTS"
 DOCUMENT_TABLE_NAME = "Document"
-DOCUMENT_EMBEDDING_INDEX_NAME = "doc_embedding_index"
 IN_MEMORY_DB_PATH = ":memory:"
-EMBEDDING_DIMENSION = 256
 
 # FTS index registry (workaround for missing list functionality)
 # In production, this should be persisted in a metadata table
@@ -37,7 +34,6 @@ class DatabaseConfig:
 
     db_path: str
     in_memory: bool
-    embedding_dimension: int = EMBEDDING_DIMENSION
 
 
 def create_kuzu_database(config: DatabaseConfig) -> tuple[bool, Any | None, dict[str, Any] | None]:
@@ -135,262 +131,16 @@ def create_kuzu_connection(database: Any) -> tuple[bool, Any | None, dict[str, A
         )
 
 
-def check_vector_extension(connection: Any) -> tuple[bool, dict[str, Any] | None]:
-    """
-    VECTOR拡張が利用可能かチェックする
-
-    Args:
-        connection: KuzuDB接続オブジェクト
-
-    Returns:
-        (is_available, error_info)
-    """
-    try:
-        # Try to use VECTOR extension with CALL syntax
-        test_query = "CALL vector_dims([1.0, 2.0, 3.0]) RETURN *"
-        connection.execute(test_query)
-
-        # If we get here, VECTOR extension is available
-        return True, None
-
-    except Exception as e:
-        error_msg = str(e)
-        # Check for various error patterns that indicate missing VECTOR extension
-        if any(
-            pattern in error_msg
-            for pattern in ["Extension", "vector_dims", "does not exist", "unknown function"]
-        ):
-            return False, {
-                "error": "VECTOR extension not available",
-                "details": {
-                    "extension": VECTOR_EXTENSION_NAME,
-                    "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
-                    "raw_error": error_msg,
-                },
-            }
-        else:
-            # For other errors, assume VECTOR extension is not available
-            return False, {
-                "error": "VECTOR extension not available",
-                "details": {
-                    "extension": VECTOR_EXTENSION_NAME,
-                    "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
-                    "raw_error": error_msg,
-                },
-            }
+# check_vector_extension removed - VSS functionality deprecated
 
 
-def initialize_vector_schema(connection: Any, dimension: int) -> tuple[bool, dict[str, Any] | None]:
-    """
-    ベクトル検索用のスキーマを初期化する
-
-    Args:
-        connection: KuzuDB接続オブジェクト
-        dimension: 埋め込みベクトルの次元数
-
-    Returns:
-        (success, error_info)
-    """
-    try:
-        # Create Document node table with VECTOR type
-        create_table_query = f"""
-            CREATE NODE TABLE IF NOT EXISTS {DOCUMENT_TABLE_NAME} (
-                id STRING,
-                content STRING,
-                embedding DOUBLE[{dimension}],
-                PRIMARY KEY (id)
-            )
-        """
-        connection.execute(create_table_query)
-
-        # Create vector index
-        create_index_query = f"""
-            CREATE VECTOR INDEX IF NOT EXISTS {DOCUMENT_EMBEDDING_INDEX_NAME}
-            ON {DOCUMENT_TABLE_NAME}(embedding)
-        """
-        connection.execute(create_index_query)
-
-        return True, None
-
-    except Exception as e:
-        error_msg = str(e)
-        if "Extension" in error_msg and VECTOR_EXTENSION_NAME in error_msg:
-            return False, {
-                "error": "VECTOR extension not available",
-                "details": {
-                    "extension": VECTOR_EXTENSION_NAME,
-                    "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
-                    "raw_error": error_msg,
-                },
-            }
-        else:
-            return False, {
-                "error": f"Failed to initialize schema: {error_msg}",
-                "details": {"exception_type": type(e).__name__, "dimension": dimension},
-            }
+# initialize_vector_schema removed - VSS functionality deprecated
 
 
-def insert_documents_with_embeddings(
-    connection: Any, documents: list[tuple[str, str, list[float]]]
-) -> tuple[bool, int, dict[str, Any] | None]:
-    """
-    ドキュメントと埋め込みをデータベースに挿入する
-
-    Args:
-        connection: KuzuDB接続オブジェクト
-        documents: (id, content, embedding)のタプルリスト
-
-    Returns:
-        (success, inserted_count, error_info)
-    """
-    if not documents:
-        return False, 0, {"error": "No documents provided", "details": {"documents_count": 0}}
-
-    inserted_count = 0
-
-    try:
-        for doc_id, content, embedding in documents:
-            # Validate embedding dimension
-            if len(embedding) != EMBEDDING_DIMENSION:
-                return (
-                    False,
-                    inserted_count,
-                    {
-                        "error": "Invalid embedding dimension",
-                        "details": {
-                            "expected": EMBEDDING_DIMENSION,
-                            "got": len(embedding),
-                            "document_id": doc_id,
-                        },
-                    },
-                )
-
-            # Insert or update document
-            query = f"""
-                MERGE (d:{DOCUMENT_TABLE_NAME} {{id: $id}})
-                SET d.content = $content, d.embedding = $embedding
-            """
-
-            connection.execute(query, {"id": doc_id, "content": content, "embedding": embedding})
-
-            inserted_count += 1
-
-        return True, inserted_count, None
-
-    except Exception as e:
-        error_msg = str(e)
-        if "Extension" in error_msg and VECTOR_EXTENSION_NAME in error_msg:
-            return (
-                False,
-                inserted_count,
-                {
-                    "error": "VECTOR extension not available",
-                    "details": {
-                        "extension": VECTOR_EXTENSION_NAME,
-                        "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
-                        "inserted_before_error": inserted_count,
-                    },
-                },
-            )
-        else:
-            return (
-                False,
-                inserted_count,
-                {
-                    "error": f"Failed to insert documents: {error_msg}",
-                    "details": {
-                        "exception_type": type(e).__name__,
-                        "inserted_before_error": inserted_count,
-                    },
-                },
-            )
+# insert_documents_with_embeddings removed - VSS functionality deprecated
 
 
-def search_similar_vectors(
-    connection: Any, query_vector: list[float], limit: int = 10
-) -> tuple[bool, list[dict[str, Any]], dict[str, Any] | None]:
-    """
-    類似ベクトルを検索する
-
-    Args:
-        connection: KuzuDB接続オブジェクト
-        query_vector: クエリベクトル
-        limit: 返す結果の最大数
-
-    Returns:
-        (success, results, error_info)
-    """
-    try:
-        # Validate query vector dimension
-        if len(query_vector) != EMBEDDING_DIMENSION:
-            return (
-                False,
-                [],
-                {
-                    "error": "Invalid query vector dimension",
-                    "details": {"expected": EMBEDDING_DIMENSION, "got": len(query_vector)},
-                },
-            )
-
-        # Search using cosine similarity
-        search_query = f"""
-            MATCH (d:{DOCUMENT_TABLE_NAME})
-            WITH d, array_cosine_similarity(d.embedding, $query_vector) AS distance
-            WHERE distance IS NOT NULL
-            RETURN d.id AS id, d.content AS content, distance, d.embedding AS embedding
-            ORDER BY distance ASC
-            LIMIT $limit
-        """
-
-        result = connection.execute(search_query, {"query_vector": query_vector, "limit": limit})
-
-        # Process results
-        results = []
-        while result.has_next():
-            row = result.get_next()
-            results.append(
-                {"id": row[0], "content": row[1], "distance": float(row[2]), "embedding": row[3]}
-            )
-
-        return True, results, None
-
-    except Exception as e:
-        error_msg = str(e)
-        if "Extension" in error_msg and VECTOR_EXTENSION_NAME in error_msg:
-            return (
-                False,
-                [],
-                {
-                    "error": "VECTOR extension not available",
-                    "details": {
-                        "extension": VECTOR_EXTENSION_NAME,
-                        "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
-                        "raw_error": error_msg,
-                    },
-                },
-            )
-        elif "dimension" in error_msg.lower():
-            return (
-                False,
-                [],
-                {
-                    "error": "Vector dimension mismatch",
-                    "details": {
-                        "expected": EMBEDDING_DIMENSION,
-                        "got": len(query_vector),
-                        "raw_error": error_msg,
-                    },
-                },
-            )
-        else:
-            return (
-                False,
-                [],
-                {
-                    "error": f"Search failed: {error_msg}",
-                    "details": {"exception_type": type(e).__name__},
-                },
-            )
+# search_similar_vectors removed - VSS functionality deprecated
 
 
 def count_documents(connection: Any) -> tuple[bool, int, dict[str, Any] | None]:

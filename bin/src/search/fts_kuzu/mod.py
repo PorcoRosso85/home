@@ -10,97 +10,32 @@ try:
     # New function-first architecture imports
     from .application import (
         FTSService,
-        VSSService,
-        create_embedding_service,
         create_fts_service,
-        create_vss_service,
+        create_fts_connection,
+        index_fts_documents,
+        search_fts_documents,
     )
     from .domain import (
         FTSError,
         FTSErrorType,
         FTSSearchResult,
         IndexResult,
-        # Data classes
-        SearchResult,
-        # Pure functions
-        calculate_cosine_similarity,
-        cosine_distance_to_similarity,
-        find_semantically_similar_documents,
-        group_documents_by_topic_similarity,
-        select_top_k_results,
-        sort_results_by_similarity,
-        validate_embedding_dimension,
     )
     from .infrastructure import (
         DatabaseConfig,
         check_fts_extension,
-        check_vector_extension,
         close_connection,
         count_documents,
         create_fts_index,
         create_kuzu_connection,
         create_kuzu_database,
         initialize_fts_schema,
-        initialize_vector_schema,
-        insert_documents_with_embeddings,
         install_fts_extension,
-        search_similar_vectors,
     )
 
 except ImportError:
-    # Fallback to old implementation for compatibility
-    try:
-        from .vss_service import (
-            VectorIndexResult,
-            VectorSearchError,
-            VectorSearchResult,
-            VSSService,
-        )
-    except ImportError:
-        # Fallback for direct execution
-        import sys
-
-        sys.path.insert(0, ".")
-        from vss_service import (
-            VectorIndexResult,
-            VectorSearchError,
-            VectorSearchResult,
-            VSSService,
-        )
-
-# Import type definitions from old implementation for compatibility
-try:
-    from .vss_service import (
-        VectorIndexResult,
-        VectorSearchError,
-        VectorSearchResult,
-    )
-except ImportError:
-    # Define types if not available
-    from typing import Any, TypedDict
-
-    class VectorSearchError(TypedDict):
-        """エラー情報を表す型"""
-
-        ok: bool
-        error: str
-        details: dict[str, Any]
-
-    class VectorSearchResult(TypedDict):
-        """検索成功時の結果型"""
-
-        ok: bool
-        results: list[dict[str, Any]]
-        metadata: dict[str, Any]
-
-    class VectorIndexResult(TypedDict):
-        """インデックス操作の結果型"""
-
-        ok: bool
-        status: str
-        indexed_count: int
-        index_time_ms: float
-        error: str | None
+    # Handle import errors gracefully
+    pass
 
 
 # Version information
@@ -108,39 +43,22 @@ __version__ = "0.2.0"  # Updated for FTS support
 
 # Public API - everything that external users should import
 __all__ = [
-    # Main service classes
+    # Main service classes (for backward compatibility)
     "FTSService",  # Primary FTS service
-    "VSSService",  # Legacy VSS service (for compatibility)
-    # Type definitions (compatible with old API)
-    "VectorSearchError",
-    "VectorSearchResult",
-    "VectorIndexResult",
     # New function-first API
     "create_fts_service",
-    "create_vss_service",
-    "create_embedding_service",
+    "create_fts_connection",
+    "index_fts_documents",
+    "search_fts_documents",
     # Domain data classes
-    "SearchResult",
     "FTSSearchResult",
     "IndexResult",
     "FTSError",
     "FTSErrorType",
-    # Domain pure functions
-    "calculate_cosine_similarity",
-    "cosine_distance_to_similarity",
-    "sort_results_by_similarity",
-    "select_top_k_results",
-    "find_semantically_similar_documents",
-    "validate_embedding_dimension",
-    "group_documents_by_topic_similarity",
     # Infrastructure functions
     "DatabaseConfig",
     "create_kuzu_database",
     "create_kuzu_connection",
-    "check_vector_extension",
-    "initialize_vector_schema",
-    "insert_documents_with_embeddings",
-    "search_similar_vectors",
     "check_fts_extension",
     "install_fts_extension",
     "initialize_fts_schema",

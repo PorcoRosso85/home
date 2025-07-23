@@ -1,54 +1,38 @@
 """
-FTS/VSS (Full-Text Search / Vector Similarity Search) with KuzuDB
+FTS (Full-Text Search) with KuzuDB
 
-This package provides full-text search and vector similarity search functionality using KuzuDB.
+This package provides full-text search functionality using KuzuDB.
 For the complete public API, import from the mod module:
 
-    from fts_kuzu.mod import VSSService, VectorSearchResult, FTSSearchResult
+    from fts_kuzu.mod import FTSService, FTSSearchResult
 """
 
 # Re-export everything from mod.py for backward compatibility
 try:
     from .mod import (
-        # Service class
-        VSSService,
-        # Legacy type definitions
-        VectorSearchError,
-        VectorSearchResult,
-        VectorIndexResult,
-        # New domain types
-        SearchResult,
-        FTSSearchResult,
-        IndexResult,
         FTSError,
         FTSErrorType,
+        FTSSearchResult,
+        FTSService,
+        IndexResult,
         # Version
         __version__,
     )
 except ImportError:
     # Fallback for direct file execution
     from mod import (
-        VSSService,
-        VectorSearchError,
-        VectorSearchResult,
-        VectorIndexResult,
-        SearchResult,
-        FTSSearchResult,
-        IndexResult,
         FTSError,
         FTSErrorType,
+        FTSSearchResult,
+        FTSService,
+        IndexResult,
         __version__,
     )
 
 __all__ = [
     # Service class
-    "VSSService",
-    # Legacy type definitions
-    "VectorSearchError",
-    "VectorSearchResult",
-    "VectorIndexResult",
-    # New domain types
-    "SearchResult",
+    "FTSService",
+    # FTS types
     "FTSSearchResult",
     "IndexResult",
     "FTSError",
