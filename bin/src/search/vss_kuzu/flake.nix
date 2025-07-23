@@ -42,6 +42,7 @@
             kuzuPyPackage
             numpy
             sentence-transformers
+            sentencepiece  # Required by sentence-transformers tokenizer
             jsonschema
           ];
           
