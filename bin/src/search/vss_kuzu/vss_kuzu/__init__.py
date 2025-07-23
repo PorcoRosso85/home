@@ -8,7 +8,8 @@ All public classes, functions, and types should be imported from this module.
 from typing import List, Dict, Any, TypedDict, Optional
 
 # Import only what's needed for the public API
-from .application import create_vss, VSSServiceInterface
+from .application import create_vss
+from .protocols import VSSAlgebra
 
 # Type definitions
 class VectorSearchError(TypedDict):
@@ -40,7 +41,7 @@ __all__ = [
     "VectorSearchError",
     "VectorSearchResult",
     "VectorIndexResult",
-    "VSSServiceInterface",
+    "VSSAlgebra",
     
     # Unified API (Recommended)
     "create_vss",
@@ -68,10 +69,10 @@ Supports Japanese text embeddings using the ruri-v3-30m model.
         {"id": "doc1", "content": "ユーザー認証機能を実装する"},
         {"id": "doc2", "content": "ログインシステムを構築する"},
     ]
-    vss["index"](documents)
+    vss.index(documents)
     
     # Search similar documents
-    results = vss["search"]("認証システム", limit=5)
+    results = vss.search("認証システム", limit=5)
 
 ## Type Definitions
 

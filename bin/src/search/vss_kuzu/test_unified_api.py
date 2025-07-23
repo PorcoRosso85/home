@@ -28,15 +28,14 @@ class TestUnifiedAPI:
             assert "Details:" in error_msg
     
     def test_create_vss_returns_vss_instance(self):
-        """create_vss()がVSSServiceInterface準拠の辞書を返すこと"""
+        """create_vss()がVSSAlgebra Protocolを実装したオブジェクトを返すこと"""
         try:
             vss = create_vss(in_memory=True)
             # VECTOR拡張が利用可能な場合のテスト
-            assert isinstance(vss, dict)
-            assert 'index' in vss
-            assert 'search' in vss
-            assert callable(vss['index'])
-            assert callable(vss['search'])
+            assert hasattr(vss, 'index')
+            assert hasattr(vss, 'search')
+            assert callable(vss.index)
+            assert callable(vss.search)
         except RuntimeError as e:
             # VECTOR拡張が利用できない場合は RuntimeError が発生することを確認
             assert "VECTOR extension" in str(e)
@@ -59,7 +58,7 @@ class TestUnifiedAPI:
             {"id": "3", "content": "パスワードリセット機能を追加する"}
         ]
         
-        index_result = vss['index'](documents)
+        index_result = vss.index(documents)
         
         # VECTOR拡張が利用できない場合はスキップ
         if not index_result["ok"] and "VECTOR" in index_result.get("error", ""):
@@ -69,7 +68,7 @@ class TestUnifiedAPI:
         assert index_result["indexed_count"] == 3
         
         # 検索を実行
-        search_result = vss['search']("認証システム", limit=2)
+        search_result = vss.search("認証システム", limit=2)
         assert search_result["ok"] is True
         assert "results" in search_result
         assert len(search_result["results"]) <= 2
@@ -100,13 +99,13 @@ class TestUnifiedAPI:
         
         # インデックスと検索が動作すること
         documents = [{"id": "test1", "content": "テストドキュメント"}]
-        index_result = vss['index'](documents)
+        index_result = vss.index(documents)
         if not index_result["ok"] and "VECTOR" in index_result.get("error", ""):
             raise RuntimeError(f"VECTOR extension is required but not available: {index_result.get('error', 'Unknown error')}")
         assert index_result["ok"] is True
         
         # デフォルトのlimitが適用されること
-        search_result = vss['search']("テスト")
+        search_result = vss.search("テスト")
         assert search_result["ok"] is True
     
     def test_unified_api_search_with_kwargs(self):
@@ -122,12 +121,12 @@ class TestUnifiedAPI:
             {"id": f"doc{i}", "content": f"ドキュメント番号{i}"}
             for i in range(10)
         ]
-        index_result = vss['index'](documents)
+        index_result = vss.index(documents)
         if not index_result["ok"] and "VECTOR" in index_result.get("error", ""):
             raise RuntimeError(f"VECTOR extension is required but not available: {index_result.get('error', 'Unknown error')}")
         
         # efsパラメータを指定して検索
-        search_result = vss['search']("ドキュメント", limit=3, efs=400)
+        search_result = vss.search("ドキュメント", limit=3, efs=400)
         assert search_result["ok"] is True
         assert len(search_result["results"]) <= 3
     
@@ -140,7 +139,7 @@ class TestUnifiedAPI:
             raise
         
         # 空のドキュメントリストでインデックス
-        index_result = vss['index']([])
+        index_result = vss.index([])
         assert index_result["ok"] is False
         assert "error" in index_result
         assert "details" in index_result
@@ -173,10 +172,10 @@ class TestUnifiedAPI:
             # Let the test fail with the actual error since VECTOR is mandatory
             raise
         documents = [{"id": "1", "content": "テストコンテンツ"}]
-        unified_index = vss['index'](documents)
+        unified_index = vss.index(documents)
         if not unified_index["ok"] and "VECTOR" in unified_index.get("error", ""):
             raise RuntimeError(f"VECTOR extension is required but not available: {unified_index.get('error', 'Unknown error')}")
-        unified_search = vss['search']("テスト", limit=1)
+        unified_search = vss.search("テスト", limit=1)
         
         # 関数APIでも同じ操作
         config = create_config(in_memory=True)

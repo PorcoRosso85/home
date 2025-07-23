@@ -9,17 +9,11 @@
 import time
 from typing import Dict, Any, List, Optional, Callable, Tuple, TypedDict
 
+from .protocols import VSSAlgebra
+
 # Type aliases for clarity
 EmbeddingFunction = Callable[[str], List[float]]
 DatabaseFunction = Callable[..., Any]
-IndexFunction = Callable[[List[Dict[str, str]]], Dict[str, Any]]
-SearchFunction = Callable[[str, int], Dict[str, Any]]
-
-
-class VSSServiceInterface(TypedDict):
-    """VSS統一APIインターフェース"""
-    index: IndexFunction
-    search: SearchFunction
 
 
 class ApplicationConfig(TypedDict, total=False):
@@ -395,52 +389,28 @@ def create_embedding_service(model_name: str = "cl-nagoya/ruri-v3-30m") -> Embed
         return generate_embedding
 
 
-def create_vss_instance(config: Any, service_funcs: Dict[str, Callable]) -> VSSServiceInterface:
-    """
-    VSS統一APIインターフェースを作成
+class VSSInterpreter:
+    """VSS代数のインタープリター実装"""
     
-    Args:
-        config: アプリケーション設定
-        service_funcs: サービス関数の辞書
-        
-    Returns:
-        VSSServiceInterface準拠の辞書
-    """
+    def __init__(self, config: Any, service_funcs: Dict[str, Callable]):
+        self._config = config
+        self._service_funcs = service_funcs
     
-    def index(documents: List[Dict[str, str]]) -> Dict[str, Any]:
-        """
-        ドキュメントをインデックス
-        
-        Args:
-            documents: {"id": str, "content": str}のリスト
-            
-        Returns:
-            インデックス結果
-        """
-        return service_funcs["index_documents"](documents, config)
+    def index(self, documents: List[Dict[str, str]]) -> Dict[str, Any]:
+        """ドキュメントをインデックス"""
+        return self._service_funcs["index_documents"](documents, self._config)
     
-    def search(query: str, limit: int = 10, **kwargs) -> Dict[str, Any]:
-        """
-        類似ドキュメントを検索
-        
-        Args:
-            query: 検索クエリ
-            limit: 返す結果の最大数
-            **kwargs: その他のオプション（query_vector, efsなど）
-            
-        Returns:
-            検索結果
-        """
+    def search(self, query: str, limit: int = 10, **kwargs) -> Dict[str, Any]:
+        """類似ドキュメントを検索"""
         search_input = {"query": query, "limit": limit}
         search_input.update(kwargs)
-        return service_funcs["search"](search_input, config)
-    
-    # TypedDictインターフェースに準拠した辞書を返す
-    vss_service: VSSServiceInterface = {
-        "index": index,
-        "search": search
-    }
-    return vss_service
+        return self._service_funcs["search"](search_input, self._config)
+
+
+def create_vss_interpreter(config: Any, service_funcs: Dict[str, Callable]) -> VSSAlgebra:
+    """VSSインタープリターを作成"""
+    return VSSInterpreter(config, service_funcs)
+
 
 
 def create_vss(
@@ -448,7 +418,7 @@ def create_vss(
     in_memory: bool = False,
     model_name: str = "cl-nagoya/ruri-v3-30m",
     **kwargs
-) -> VSSServiceInterface:
+) -> VSSAlgebra:
     """
     VSS統一APIインスタンスを作成
     
@@ -465,12 +435,12 @@ def create_vss(
             - index_efc: HNSWインデックスのefCパラメータ
     
     Returns:
-        VSSServiceInterface準拠の辞書
+        VSSAlgebra protocol実装
     
     Example:
         vss = create_vss(in_memory=True)
-        vss["index"]([{"id": "1", "content": "テキスト"}])
-        results = vss["search"]("検索語")
+        vss.index([{"id": "1", "content": "テキスト"}])
+        results = vss.search("検索語")
     """
     # 埋め込みサービスを作成
     embedding_func = create_embedding_service(model_name)
@@ -565,28 +535,6 @@ def create_vss(
     finally:
         close_connection(connection)
     
-    return create_vss_instance(config, service_funcs)
+    return create_vss_interpreter(config, service_funcs)
 
 
-# SimpleNamespaceについて
-# ====================
-#
-# SimpleNamespaceは、Pythonの標準ライブラリ(types)に含まれるクラスで、
-# 属性へのドットアクセスを提供するシンプルなオブジェクトです。
-#
-# 特徴:
-# 1. 辞書のような柔軟性を持ちながら、obj.attributeの形式でアクセス可能
-# 2. 動的に属性を追加・変更可能
-# 3. クラス定義なしで構造化されたデータを表現できる
-#
-# 使用例:
-#   vss = create_vss()  # SimpleNamespaceを返す
-#   vss.index(documents)  # メソッドのようにアクセス
-#   vss.search(query)     # 同様にドット記法でアクセス
-#
-# なぜSimpleNamespaceを使うのか:
-# - 統一APIのインターフェースとして、クラスを定義せずに
-#   複数の関数をグループ化できる
-# - ユーザーにとって直感的なドット記法でのアクセスを提供
-# - 内部実装の詳細を隠蔽しながら、シンプルなAPIを提供
-# - 将来的に機能を追加する際も、後方互換性を保ちやすい
