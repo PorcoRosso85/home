@@ -5,8 +5,7 @@
 KuzuDBのデータベースと接続の作成・管理を担当
 """
 
-from typing import Dict, Any, Optional, Tuple
-from dataclasses import dataclass
+from typing import Dict, Any, Optional, Tuple, TypedDict
 
 try:
     from kuzu_py import create_database, create_connection
@@ -19,12 +18,11 @@ IN_MEMORY_DB_PATH = ':memory:'
 EMBEDDING_DIMENSION = 256
 
 
-@dataclass(frozen=True)
-class DatabaseConfig:
-    """データベース設定の不変データクラス"""
+class DatabaseConfig(TypedDict):
+    """データベース設定の型定義"""
     db_path: str
     in_memory: bool
-    embedding_dimension: int = EMBEDDING_DIMENSION
+    embedding_dimension: int
 
 
 def create_kuzu_database(config: DatabaseConfig) -> Tuple[bool, Optional[Any], Optional[Dict[str, Any]]]:
@@ -47,7 +45,7 @@ def create_kuzu_database(config: DatabaseConfig) -> Tuple[bool, Optional[Any], O
         }
     
     try:
-        db_path = IN_MEMORY_DB_PATH if config.in_memory else config.db_path
+        db_path = IN_MEMORY_DB_PATH if config['in_memory'] else config['db_path']
         db = create_database(db_path)
         
         if hasattr(db, 'get') and db.get("ok") is False:
@@ -63,7 +61,7 @@ def create_kuzu_database(config: DatabaseConfig) -> Tuple[bool, Optional[Any], O
             "error": f"Failed to create database: {str(e)}",
             "details": {
                 "exception_type": type(e).__name__,
-                "db_path": config.db_path
+                "db_path": config['db_path']
             }
         }
 

@@ -21,30 +21,33 @@ class TestE2EImportCapability:
         import vss_kuzu
         
         # Verify package has expected attributes
-        assert hasattr(vss_kuzu, 'create_config')
-        assert hasattr(vss_kuzu, 'create_vss_service')
+        assert hasattr(vss_kuzu, 'create_vss')
         assert hasattr(vss_kuzu, '__version__')
         assert vss_kuzu.__version__ == "0.1.0"
+        
+        # Check type definitions are exported
+        assert hasattr(vss_kuzu, 'VectorSearchError')
+        assert hasattr(vss_kuzu, 'VectorSearchResult')
+        assert hasattr(vss_kuzu, 'VectorIndexResult')
     
-    def test_function_based_api_creation(self):
-        """Test that function-based API can be created"""
-        from vss_kuzu import (
-            create_config,
-            create_kuzu_database,
-            create_kuzu_connection,
-            check_vector_extension,
-            initialize_vector_schema,
-            create_embedding_service,
-        )
+    def test_unified_api_creation(self):
+        """Test that unified API can be created"""
+        from vss_kuzu import create_vss
         
-        # Create configuration
-        config = create_config(in_memory=True)
-        assert config is not None
-        assert config.in_memory is True
+        # The unified API should be the main entry point
+        assert callable(create_vss)
         
-        # Verify functions are callable
-        assert callable(create_kuzu_database)
-        assert callable(create_embedding_service)
+        # Try creating an in-memory VSS instance
+        try:
+            vss = create_vss(in_memory=True)
+            # If successful, check it has the expected interface
+            assert hasattr(vss, 'index')
+            assert hasattr(vss, 'search')
+            assert callable(vss.index)
+            assert callable(vss.search)
+        except RuntimeError as e:
+            # VECTOR extension not available is acceptable in test environment
+            assert "VECTOR extension" in str(e)
     
     def test_type_definitions_available(self):
         """Test that type definitions are accessible"""
@@ -60,16 +63,20 @@ class TestE2EImportCapability:
         assert VectorIndexResult is not None
     
     def test_extended_function_api_available(self):
-        """Test that extended function-first API is available"""
-        from vss_kuzu import (
+        """Test that extended function-first API is available through submodules"""
+        from vss_kuzu.application import (
             create_vss_service,
             create_embedding_service,
-            calculate_cosine_similarity,
+        )
+        from vss_kuzu.domain import calculate_cosine_similarity
+        from vss_kuzu.infrastructure import (
             DatabaseConfig,
-            VSSConfig,
-            create_config,
             insert_documents_with_embeddings,
             search_similar_vectors,
+        )
+        from vss_kuzu.infrastructure.variables.config import (
+            VSSConfig,
+            create_config,
         )
         
         # Verify functions exist
@@ -84,9 +91,12 @@ class TestE2EImportCapability:
     
     def test_basic_functionality(self):
         """Test basic VSS functionality works after import"""
-        from vss_kuzu import (
+        from vss_kuzu.application import (
             create_vss_service,
             create_embedding_service,
+            ApplicationConfig,
+        )
+        from vss_kuzu.infrastructure import (
             create_kuzu_database,
             create_kuzu_connection,
             check_vector_extension,
@@ -95,11 +105,10 @@ class TestE2EImportCapability:
             search_similar_vectors,
             count_documents,
             close_connection,
-            find_semantically_similar_documents,
             DatabaseConfig,
-            create_config,
         )
-        from vss_kuzu.application import ApplicationConfig
+        from vss_kuzu.domain import find_semantically_similar_documents
+        from vss_kuzu.infrastructure.variables.config import create_config
         
         # Test using function-based API
         embedding_func = create_embedding_service()
@@ -116,7 +125,7 @@ class TestE2EImportCapability:
             calculate_similarity_func=find_semantically_similar_documents
         )
         
-        config = ApplicationConfig(in_memory=True)
+        config: ApplicationConfig = {'in_memory': True}
         search_func = vss_funcs["search"]
         result = search_func({"query": "test"}, config)
         assert isinstance(result, dict)
@@ -129,9 +138,11 @@ class TestE2EImportCapability:
         # Check __all__ exports
         assert hasattr(vss_kuzu, '__all__')
         assert isinstance(vss_kuzu.__all__, list)
-        assert 'create_config' in vss_kuzu.__all__
-        assert 'create_vss_service' in vss_kuzu.__all__
-        assert 'create_embedding_service' in vss_kuzu.__all__
+        assert 'create_vss' in vss_kuzu.__all__
+        assert 'VectorSearchError' in vss_kuzu.__all__
+        assert 'VectorSearchResult' in vss_kuzu.__all__
+        assert 'VectorIndexResult' in vss_kuzu.__all__
+        assert '__version__' in vss_kuzu.__all__
         
         # Check module docstring
         assert vss_kuzu.__doc__ is not None

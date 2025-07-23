@@ -6,13 +6,11 @@
 """
 
 import os
-from typing import Optional, Dict, Any
-from dataclasses import dataclass
+from typing import Optional, Dict, Any, TypedDict
 
 
-@dataclass(frozen=True)
-class EnvironmentVariables:
-    """環境変数の設定値を保持する不変データクラス"""
+class EnvironmentVariables(TypedDict):
+    """環境変数の設定値を保持する型定義"""
     vss_db_path: str
     vss_model_name: str
     vss_embedding_dimension: int
@@ -84,32 +82,32 @@ def get_env_bool(key: str, default: bool) -> bool:
 
 def load_environment_variables() -> EnvironmentVariables:
     """
-    環境変数を読み込んで設定オブジェクトを作成
+    環境変数を読み込んで設定辞書を作成
     
     Returns:
-        環境変数の設定オブジェクト
+        環境変数の設定辞書
     """
-    return EnvironmentVariables(
+    return {
         # データベース設定
-        vss_db_path=get_env_str('VSS_DB_PATH', './kuzu_db'),
-        vss_in_memory=get_env_bool('VSS_IN_MEMORY', False),
+        'vss_db_path': get_env_str('VSS_DB_PATH', './kuzu_db'),
+        'vss_in_memory': get_env_bool('VSS_IN_MEMORY', False),
         
         # 埋め込みモデル設定
-        vss_model_name=get_env_str('VSS_MODEL_NAME', 'cl-nagoya/ruri-v3-30m'),
-        vss_embedding_dimension=get_env_int('VSS_EMBEDDING_DIMENSION', 256),
+        'vss_model_name': get_env_str('VSS_MODEL_NAME', 'cl-nagoya/ruri-v3-30m'),
+        'vss_embedding_dimension': get_env_int('VSS_EMBEDDING_DIMENSION', 256),
         
         # VECTOR拡張設定
-        vss_vector_extension_timeout=get_env_int('VSS_VECTOR_EXTENSION_TIMEOUT', 30),
+        'vss_vector_extension_timeout': get_env_int('VSS_VECTOR_EXTENSION_TIMEOUT', 30),
         
         # HNSWインデックス設定
-        vss_index_mu=get_env_int('VSS_INDEX_MU', 30),
-        vss_index_ml=get_env_int('VSS_INDEX_ML', 60),
-        vss_index_metric=get_env_str('VSS_INDEX_METRIC', 'cosine'),
-        vss_index_efc=get_env_int('VSS_INDEX_EFC', 200),
+        'vss_index_mu': get_env_int('VSS_INDEX_MU', 30),
+        'vss_index_ml': get_env_int('VSS_INDEX_ML', 60),
+        'vss_index_metric': get_env_str('VSS_INDEX_METRIC', 'cosine'),
+        'vss_index_efc': get_env_int('VSS_INDEX_EFC', 200),
         
         # 検索設定
-        vss_search_efs=get_env_int('VSS_SEARCH_EFS', 200)
-    )
+        'vss_search_efs': get_env_int('VSS_SEARCH_EFS', 200)
+    }
 
 
 def get_current_environment() -> Dict[str, Any]:
@@ -121,14 +119,14 @@ def get_current_environment() -> Dict[str, Any]:
     """
     env_vars = load_environment_variables()
     return {
-        'db_path': env_vars.vss_db_path,
-        'in_memory': env_vars.vss_in_memory,
-        'model_name': env_vars.vss_model_name,
-        'embedding_dimension': env_vars.vss_embedding_dimension,
-        'vector_extension_timeout': env_vars.vss_vector_extension_timeout,
-        'index_mu': env_vars.vss_index_mu,
-        'index_ml': env_vars.vss_index_ml,
-        'index_metric': env_vars.vss_index_metric,
-        'index_efc': env_vars.vss_index_efc,
-        'search_efs': env_vars.vss_search_efs
+        'db_path': env_vars['vss_db_path'],
+        'in_memory': env_vars['vss_in_memory'],
+        'model_name': env_vars['vss_model_name'],
+        'embedding_dimension': env_vars['vss_embedding_dimension'],
+        'vector_extension_timeout': env_vars['vss_vector_extension_timeout'],
+        'index_mu': env_vars['vss_index_mu'],
+        'index_ml': env_vars['vss_index_ml'],
+        'index_metric': env_vars['vss_index_metric'],
+        'index_efc': env_vars['vss_index_efc'],
+        'search_efs': env_vars['vss_search_efs']
     }

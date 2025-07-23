@@ -21,15 +21,7 @@
           pname = "vss_kuzu";
           version = "0.1.0";
           
-          src = pkgs.lib.cleanSourceWith {
-            src = ./.;
-            filter = path: type: 
-              (pkgs.lib.hasSuffix ".py" path) ||
-              (pkgs.lib.hasSuffix "pyproject.toml" path) ||
-              (pkgs.lib.hasSuffix "setup.py" path) ||
-              (pkgs.lib.hasSuffix "README.md" path) ||
-              (type == "directory" && baseNameOf path == "vss_kuzu");
-          };
+          src = ./.;
           
           # setuptools形式でビルド
           pyproject = true;

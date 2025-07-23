@@ -7,7 +7,7 @@
 import pytest
 from typing import List, Tuple
 
-from vss_kuzu import (
+from vss_kuzu.domain import (
     calculate_cosine_similarity,
     cosine_distance_to_similarity,
     sort_results_by_similarity,
@@ -46,14 +46,14 @@ class TestDomain:
         assert len(results) == 3
         
         # 認証系のドキュメントが上位2件に含まれること
-        top_2_ids = [r.id for r in results[:2]]
+        top_2_ids = [r["id"] for r in results[:2]]
         assert set(top_2_ids) == {"REQ001", "REQ002"}
         
         # データベース系が最下位であること
-        assert results[-1].id == "REQ003"
+        assert results[-1]["id"] == "REQ003"
         
         # スコアが降順であること
-        scores = [r.score for r in results]
+        scores = [r["score"] for r in results]
         assert scores == sorted(scores, reverse=True)
     
     def test_search_converts_distance_to_score_correctly(self):
@@ -75,11 +75,11 @@ class TestDomain:
         """検索結果が類似度順で並ぶこと"""
         # 異なるスコアを持つ検索結果を作成
         results = [
-            SearchResult("1", "機械学習の基礎", 0.6, 0.4, []),
-            SearchResult("2", "機械学習とディープラーニング", 0.9, 0.1, []),
-            SearchResult("3", "Python プログラミング", 0.3, 0.7, []),
-            SearchResult("4", "機械学習の応用", 0.8, 0.2, []),
-            SearchResult("5", "データベース設計", 0.1, 0.9, [])
+            {"id": "1", "content": "機械学習の基礎", "score": 0.6, "distance": 0.4, "embedding": []},
+            {"id": "2", "content": "機械学習とディープラーニング", "score": 0.9, "distance": 0.1, "embedding": []},
+            {"id": "3", "content": "Python プログラミング", "score": 0.3, "distance": 0.7, "embedding": []},
+            {"id": "4", "content": "機械学習の応用", "score": 0.8, "distance": 0.2, "embedding": []},
+            {"id": "5", "content": "データベース設計", "score": 0.1, "distance": 0.9, "embedding": []}
         ]
         
         # ソート実行
@@ -89,23 +89,23 @@ class TestDomain:
         assert len(sorted_results) == 5
         
         # スコアが降順であること
-        scores = [r.score for r in sorted_results]
+        scores = [r["score"] for r in sorted_results]
         assert scores == sorted(scores, reverse=True)
         
         # 期待される順序
         expected_order = ["2", "4", "1", "3", "5"]
-        actual_order = [r.id for r in sorted_results]
+        actual_order = [r["id"] for r in sorted_results]
         assert actual_order == expected_order
     
     def test_search_returns_top_k_similar_documents(self):
         """検索が上位k件の類似ドキュメントを返すこと"""
         # テスト用の検索結果（既にソート済み）
         results = [
-            SearchResult("1", "最も類似", 0.9, 0.1, []),
-            SearchResult("2", "2番目に類似", 0.7, 0.3, []),
-            SearchResult("3", "3番目に類似", 0.5, 0.5, []),
-            SearchResult("4", "4番目に類似", 0.3, 0.7, []),
-            SearchResult("5", "最も類似度が低い", 0.1, 0.9, [])
+            {"id": "1", "content": "最も類似", "score": 0.9, "distance": 0.1, "embedding": []},
+            {"id": "2", "content": "2番目に類似", "score": 0.7, "distance": 0.3, "embedding": []},
+            {"id": "3", "content": "3番目に類似", "score": 0.5, "distance": 0.5, "embedding": []},
+            {"id": "4", "content": "4番目に類似", "score": 0.3, "distance": 0.7, "embedding": []},
+            {"id": "5", "content": "最も類似度が低い", "score": 0.1, "distance": 0.9, "embedding": []}
         ]
         
         # k=2で上位2件を取得
@@ -113,8 +113,8 @@ class TestDomain:
         
         # 検証
         assert len(top_2) == 2
-        assert top_2[0].id == "1"
-        assert top_2[1].id == "2"
+        assert top_2[0]["id"] == "1"
+        assert top_2[1]["id"] == "2"
         
         # k=0の場合は空リスト
         assert select_top_k_results(results, 0) == []

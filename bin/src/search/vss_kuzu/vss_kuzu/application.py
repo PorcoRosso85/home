@@ -7,25 +7,24 @@
 """
 
 import time
-from typing import Dict, Any, List, Optional, Callable, Tuple
-from dataclasses import dataclass
+from typing import Dict, Any, List, Optional, Callable, Tuple, TypedDict
+from types import SimpleNamespace
 
 # Type aliases for clarity
 EmbeddingFunction = Callable[[str], List[float]]
 DatabaseFunction = Callable[..., Any]
 
 
-@dataclass(frozen=True)
-class ApplicationConfig:
+class ApplicationConfig(TypedDict, total=False):
     """アプリケーション設定"""
-    db_path: str = "./kuzu_db"
-    in_memory: bool = False
-    embedding_dimension: int = 256
-    default_limit: int = 10
-    index_mu: int = 30
-    index_ml: int = 60
-    index_metric: str = 'cosine'
-    index_efc: int = 200
+    db_path: str
+    in_memory: bool
+    embedding_dimension: int
+    default_limit: int
+    index_mu: int
+    index_ml: int
+    index_metric: str
+    index_efc: int
 
 
 def create_vss_service(
@@ -46,7 +45,7 @@ def create_vss_service(
     各種の関数を受け取り、ユースケースを実装した関数群を返す
     """
     
-    def index_documents(documents: List[Dict[str, str]], config: ApplicationConfig) -> Dict[str, Any]:
+    def index_documents(documents: List[Dict[str, str]], config: Any) -> Dict[str, Any]:
         """
         ドキュメントをインデックスする
         
@@ -68,12 +67,25 @@ def create_vss_service(
             }
         
         # データベース接続を作成
-        from .infrastructure import DatabaseConfig
-        db_config = DatabaseConfig(
-            db_path=config.db_path,
-            in_memory=config.in_memory,
-            embedding_dimension=config.embedding_dimension
-        )
+        # DatabaseConfig is now a TypedDict, no need to import
+        
+        # Handle both dict and VSSConfig objects
+        if hasattr(config, '__dict__'):
+            # It's a dataclass/object, convert to dict-like access
+            db_path = getattr(config, 'db_path', './kuzu_db')
+            in_memory = getattr(config, 'in_memory', False)
+            embedding_dimension = getattr(config, 'embedding_dimension', 256)
+        else:
+            # It's a dict
+            db_path = config.get('db_path', './kuzu_db')
+            in_memory = config.get('in_memory', False)
+            embedding_dimension = config.get('embedding_dimension', 256)
+            
+        db_config = {
+            'db_path': db_path,
+            'in_memory': in_memory,
+            'embedding_dimension': embedding_dimension
+        }
         
         db_success, database, db_error = create_db_func(db_config)
         if not db_success:
@@ -102,14 +114,26 @@ def create_vss_service(
                 }
             
             # スキーマを初期化（HNSWパラメータを含む）
-            schema_success, schema_error = init_schema_func(
-                connection, 
-                config.embedding_dimension,
-                config.index_mu,
-                config.index_ml,
-                config.index_metric,
-                config.index_efc
-            )
+            if hasattr(config, '__dict__'):
+                # It's a dataclass/object
+                schema_success, schema_error = init_schema_func(
+                    connection, 
+                    getattr(config, 'embedding_dimension', 256),
+                    getattr(config, 'index_mu', 30),
+                    getattr(config, 'index_ml', 60),
+                    getattr(config, 'index_metric', 'cosine'),
+                    getattr(config, 'index_efc', 200)
+                )
+            else:
+                # It's a dict
+                schema_success, schema_error = init_schema_func(
+                    connection, 
+                    config.get('embedding_dimension', 256),
+                    config.get('index_mu', 30),
+                    config.get('index_ml', 60),
+                    config.get('index_metric', 'cosine'),
+                    config.get('index_efc', 200)
+                )
             if not schema_success:
                 return {
                     "ok": False,
@@ -161,7 +185,7 @@ def create_vss_service(
         finally:
             close_func(connection)
     
-    def search(search_input: Dict[str, Any], config: ApplicationConfig) -> Dict[str, Any]:
+    def search(search_input: Dict[str, Any], config: Any) -> Dict[str, Any]:
         """
         類似ドキュメントを検索する
         
@@ -186,16 +210,34 @@ def create_vss_service(
                 }
             }
         
-        limit = search_input.get("limit", config.default_limit)
+        # Handle both dict and VSSConfig objects for default_limit
+        if hasattr(config, '__dict__'):
+            default_limit = getattr(config, 'default_limit', 10)
+        else:
+            default_limit = config.get('default_limit', 10)
+        limit = search_input.get("limit", default_limit)
         efs = search_input.get("efs", 200)  # Default efs value
         
         # データベース接続を作成
-        from .infrastructure import DatabaseConfig
-        db_config = DatabaseConfig(
-            db_path=config.db_path,
-            in_memory=config.in_memory,
-            embedding_dimension=config.embedding_dimension
-        )
+        # DatabaseConfig is now a TypedDict, no need to import
+        
+        # Handle both dict and VSSConfig objects
+        if hasattr(config, '__dict__'):
+            # It's a dataclass/object, convert to dict-like access
+            db_path = getattr(config, 'db_path', './kuzu_db')
+            in_memory = getattr(config, 'in_memory', False)
+            embedding_dimension = getattr(config, 'embedding_dimension', 256)
+        else:
+            # It's a dict
+            db_path = config.get('db_path', './kuzu_db')
+            in_memory = config.get('in_memory', False)
+            embedding_dimension = config.get('embedding_dimension', 256)
+            
+        db_config = {
+            'db_path': db_path,
+            'in_memory': in_memory,
+            'embedding_dimension': embedding_dimension
+        }
         
         db_success, database, db_error = create_db_func(db_config)
         if not db_success:
@@ -346,211 +388,199 @@ def create_embedding_service(model_name: str = "cl-nagoya/ruri-v3-30m") -> Embed
         return generate_embedding
 
 
-class VSSService:
+def create_vss_instance(config: Any, service_funcs: Dict[str, Callable]) -> SimpleNamespace:
     """
-    VSSサービスクラス - アプリケーション層のファサード
+    VSS統一APIインターフェースをSimpleNamespaceとして作成
     
-    高階関数を使用して作成されたサービスを
-    オブジェクト指向インターフェースでラップ
+    Args:
+        config: アプリケーション設定
+        service_funcs: サービス関数の辞書
+        
+    Returns:
+        index()とsearch()メソッドを持つSimpleNamespaceオブジェクト
     """
     
-    def __init__(self, db_path: str = "./kuzu_db", in_memory: bool = False, model_name: str = "cl-nagoya/ruri-v3-30m"):
+    def index(documents: List[Dict[str, str]]) -> Dict[str, Any]:
         """
-        VSSサービスを初期化
+        ドキュメントをインデックス
         
         Args:
-            db_path: データベースパス
-            in_memory: インメモリデータベースを使用するか
-            model_name: 使用する埋め込みモデル名
-        """
-        embedding_func = create_embedding_service(model_name)
-        embedding_dimension = getattr(embedding_func, 'dimension', 256)
-        
-        self.config = ApplicationConfig(
-            db_path=db_path,
-            in_memory=in_memory,
-            embedding_dimension=embedding_dimension
-        )
-        
-        self._init_error: Optional[Dict[str, Any]] = None
-        self._is_initialized = False
-        self._vector_available = True
-        
-        from .infrastructure import (
-            create_kuzu_database,
-            create_kuzu_connection,
-            check_vector_extension,
-            initialize_vector_schema,
-            insert_documents_with_embeddings,
-            search_similar_vectors,
-            count_documents,
-            close_connection,
-            DatabaseConfig
-        )
-        
-        from .domain import find_semantically_similar_documents
-        
-        self._service_funcs = create_vss_service(
-            create_db_func=create_kuzu_database,
-            create_conn_func=create_kuzu_connection,
-            check_vector_func=check_vector_extension,
-            init_schema_func=initialize_vector_schema,
-            insert_docs_func=insert_documents_with_embeddings,
-            search_func=search_similar_vectors,
-            count_func=count_documents,
-            close_func=close_connection,
-            generate_embedding_func=embedding_func,
-            calculate_similarity_func=find_semantically_similar_documents
-        )
-        
-        self._test_initialization(
-            create_kuzu_database,
-            create_kuzu_connection,
-            check_vector_extension,
-            initialize_vector_schema,
-            close_connection,
-            DatabaseConfig
-        )
-    
-    def _test_initialization(
-        self,
-        create_db_func,
-        create_conn_func,
-        check_vector_func,
-        init_schema_func,
-        close_func,
-        DatabaseConfig
-    ):
-        """初期化時にデータベース接続とスキーマを確認"""
-        db_config = DatabaseConfig(
-            db_path=self.config.db_path,
-            in_memory=self.config.in_memory,
-            embedding_dimension=self.config.embedding_dimension
-        )
-        
-        db_success, database, db_error = create_db_func(db_config)
-        if not db_success:
-            self._init_error = {
-                "ok": False,
-                "error": db_error.get("error", "Database creation failed"),
-                "details": db_error.get("details", {})
-            }
-            return
-        
-        conn_success, connection, conn_error = create_conn_func(database)
-        if not conn_success:
-            self._init_error = {
-                "ok": False,
-                "error": conn_error.get("error", "Connection creation failed"),
-                "details": conn_error.get("details", {})
-            }
-            return
-        
-        try:
-            vector_available, vector_error = check_vector_func(connection)
-            if not vector_available:
-                error_msg = f"VECTOR extension not available: {vector_error.get('error', 'VECTOR extension not available')}"
-                self._init_error = {
-                    "ok": False,
-                    "error": error_msg,
-                    "details": vector_error.get("details", {})
-                }
-                # Don't raise exception - allow service to be created but operations will fail
-                self._vector_available = False
-                return
-            
-            # スキーマを初期化（HNSWパラメータを含む）
-            schema_success, schema_error = init_schema_func(
-                connection, 
-                self.config.embedding_dimension,
-                self.config.index_mu,
-                self.config.index_ml,
-                self.config.index_metric,
-                self.config.index_efc
-            )
-            if not schema_success:
-                self._init_error = {
-                    "ok": False,
-                    "error": schema_error.get("error", "Schema initialization failed"),
-                    "details": schema_error.get("details", {})
-                }
-                return
-            
-            self._is_initialized = True
-            
-        finally:
-            close_func(connection)
-    
-    def _check_initialized(self) -> Optional[Dict[str, Any]]:
-        """初期化状態を確認し、エラーがあれば返す"""
-        if self._init_error:
-            return self._init_error
-        if not self._is_initialized:
-            return {
-                "ok": False,
-                "error": "Service not properly initialized",
-                "details": {
-                    "reason": "Initialization was not completed",
-                    "db_path": self.config.db_path
-                }
-            }
-        return None
-    
-    def index_documents(self, documents: List[Dict[str, str]]) -> Dict[str, Any]:
-        """ドキュメントをインデックス"""
-        init_error = self._check_initialized()
-        if init_error:
-            return init_error
-        
-        return self._service_funcs["index_documents"](documents, self.config)
-    
-    def search(self, search_input: Dict[str, Any]) -> Dict[str, Any]:
-        """類似ドキュメントを検索"""
-        init_error = self._check_initialized()
-        if init_error:
-            return init_error
-        
-        return self._service_funcs["search"](search_input, self.config)
-    
-    # Legacy API compatibility methods
-    def add_document(self, document_id: str, content: str) -> Dict[str, Any]:
-        """
-        旧API互換メソッド: 単一ドキュメントを追加
-        
-        Args:
-            document_id: ドキュメントID
-            content: ドキュメント内容
+            documents: {"id": str, "content": str}のリスト
             
         Returns:
             インデックス結果
         """
-        documents = [{"id": document_id, "content": content}]
-        return self.index_documents(documents)
+        return service_funcs["index_documents"](documents, config)
     
-    def search_similar(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
+    def search(query: str, limit: int = 10, **kwargs) -> Dict[str, Any]:
         """
-        旧API互換メソッド: 類似検索
+        類似ドキュメントを検索
         
         Args:
             query: 検索クエリ
-            k: 返す結果の最大数
+            limit: 返す結果の最大数
+            **kwargs: その他のオプション（query_vector, efsなど）
             
         Returns:
-            検索結果のリスト
+            検索結果
         """
-        search_result = self.search({"query": query, "limit": k})
+        search_input = {"query": query, "limit": limit}
+        search_input.update(kwargs)
+        return service_funcs["search"](search_input, config)
+    
+    # SimpleNamespaceとして返す（ドット記法でアクセス可能）
+    return SimpleNamespace(
+        index=index,
+        search=search,
+        _config=config,
+        _service_funcs=service_funcs
+    )
+
+
+def create_vss(
+    db_path: str = "./kuzu_db",
+    in_memory: bool = False,
+    model_name: str = "cl-nagoya/ruri-v3-30m",
+    **kwargs
+) -> SimpleNamespace:
+    """
+    VSS統一APIインスタンスを作成
+    
+    Args:
+        db_path: データベースパス
+        in_memory: インメモリデータベースを使用するか
+        model_name: 使用する埋め込みモデル名
+        **kwargs: その他の設定パラメータ
+            - embedding_dimension: 埋め込み次元数
+            - default_limit: デフォルトの検索結果数
+            - index_mu: HNSWインデックスのmuパラメータ
+            - index_ml: HNSWインデックスのmlパラメータ
+            - index_metric: 距離メトリック ('cosine', 'l2')
+            - index_efc: HNSWインデックスのefCパラメータ
+    
+    Returns:
+        index()とsearch()メソッドを持つSimpleNamespaceオブジェクト
+    
+    Example:
+        vss = create_vss(in_memory=True)
+        vss.index([{"id": "1", "content": "テキスト"}])
+        results = vss.search("検索語")
+    """
+    # 埋め込みサービスを作成
+    embedding_func = create_embedding_service(model_name)
+    embedding_dimension = kwargs.get(
+        'embedding_dimension', 
+        getattr(embedding_func, 'dimension', 256)
+    )
+    
+    # ApplicationConfigを作成
+    config: ApplicationConfig = {
+        'db_path': db_path,
+        'in_memory': in_memory,
+        'embedding_dimension': embedding_dimension,
+        'default_limit': kwargs.get('default_limit', 10),
+        'index_mu': kwargs.get('index_mu', 30),
+        'index_ml': kwargs.get('index_ml', 60),
+        'index_metric': kwargs.get('index_metric', 'cosine'),
+        'index_efc': kwargs.get('index_efc', 200)
+    }
+    
+    # インフラストラクチャ関数をインポート
+    from .infrastructure import (
+        create_kuzu_database,
+        create_kuzu_connection,
+        check_vector_extension,
+        initialize_vector_schema,
+        insert_documents_with_embeddings,
+        search_similar_vectors,
+        count_documents,
+        close_connection,
+        DatabaseConfig
+    )
+    
+    from .domain import find_semantically_similar_documents
+    
+    # サービス関数を作成
+    service_funcs = create_vss_service(
+        create_db_func=create_kuzu_database,
+        create_conn_func=create_kuzu_connection,
+        check_vector_func=check_vector_extension,
+        init_schema_func=initialize_vector_schema,
+        insert_docs_func=insert_documents_with_embeddings,
+        search_func=search_similar_vectors,
+        count_func=count_documents,
+        close_func=close_connection,
+        generate_embedding_func=embedding_func,
+        calculate_similarity_func=find_semantically_similar_documents
+    )
+    
+    # 初期化テスト（データベース接続とVECTOR拡張の確認）
+    db_config = {
+        'db_path': config['db_path'],
+        'in_memory': config['in_memory'],
+        'embedding_dimension': config['embedding_dimension']
+    }
+    
+    db_success, database, db_error = create_kuzu_database(db_config)
+    if not db_success:
+        raise RuntimeError(f"Failed to create database: {db_error.get('error', 'Unknown error')}")
+    
+    conn_success, connection, conn_error = create_kuzu_connection(database)
+    if not conn_success:
+        raise RuntimeError(f"Failed to create connection: {conn_error.get('error', 'Unknown error')}")
+    
+    try:
+        vector_available, vector_error = check_vector_extension(connection)
+        if not vector_available:
+            # VECTOR拡張が利用できない場合は即座に失敗
+            error_msg = vector_error.get('error', 'VECTOR extension not available')
+            details = vector_error.get('details', {})
+            raise RuntimeError(
+                f"Failed to initialize VSS: {error_msg}. "
+                f"Details: {details}"
+            )
         
-        # エラーの場合は空リストを返す
-        if not search_result.get("ok", False):
-            return []
-        
-        # 結果を旧フォーマットに変換
-        results = []
-        for result in search_result.get("results", []):
-            results.append({
-                "document_id": result.get("id", ""),
-                "content": result.get("content", ""),
-                "score": result.get("score", 0.0)
-            })
-        
-        return results
+        # スキーマを初期化
+        schema_success, schema_error = initialize_vector_schema(
+            connection,
+            config['embedding_dimension'],
+            config['index_mu'],
+            config['index_ml'],
+            config['index_metric'],
+            config['index_efc']
+        )
+        if not schema_success:
+            error_msg = schema_error.get('error', 'Failed to initialize schema')
+            details = schema_error.get('details', {})
+            raise RuntimeError(
+                f"Failed to initialize VSS schema: {error_msg}. "
+                f"Details: {details}"
+            )
+    finally:
+        close_connection(connection)
+    
+    return create_vss_instance(config, service_funcs)
+
+
+# SimpleNamespaceについて
+# ====================
+#
+# SimpleNamespaceは、Pythonの標準ライブラリ(types)に含まれるクラスで、
+# 属性へのドットアクセスを提供するシンプルなオブジェクトです。
+#
+# 特徴:
+# 1. 辞書のような柔軟性を持ちながら、obj.attributeの形式でアクセス可能
+# 2. 動的に属性を追加・変更可能
+# 3. クラス定義なしで構造化されたデータを表現できる
+#
+# 使用例:
+#   vss = create_vss()  # SimpleNamespaceを返す
+#   vss.index(documents)  # メソッドのようにアクセス
+#   vss.search(query)     # 同様にドット記法でアクセス
+#
+# なぜSimpleNamespaceを使うのか:
+# - 統一APIのインターフェースとして、クラスを定義せずに
+#   複数の関数をグループ化できる
+# - ユーザーにとって直感的なドット記法でのアクセスを提供
+# - 内部実装の詳細を隠蔽しながら、シンプルなAPIを提供
+# - 将来的に機能を追加する際も、後方互換性を保ちやすい

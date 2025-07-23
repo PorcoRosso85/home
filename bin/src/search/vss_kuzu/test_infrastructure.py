@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
-from vss_kuzu import (
+from vss_kuzu.infrastructure import (
     DatabaseConfig,
     create_kuzu_database,
     create_kuzu_connection,
@@ -20,8 +20,8 @@ from vss_kuzu import (
     search_similar_vectors,
     count_documents,
     close_connection,
+    EMBEDDING_DIMENSION,
 )
-from vss_kuzu.infrastructure import EMBEDDING_DIMENSION
 
 
 class TestInfrastructure:
@@ -31,7 +31,7 @@ class TestInfrastructure:
     def db_config(self):
         """Temporary database configuration"""
         tmpdir = tempfile.mkdtemp()
-        config = DatabaseConfig(db_path=tmpdir, in_memory=False)
+        config = {'db_path': tmpdir, 'in_memory': False, 'embedding_dimension': EMBEDDING_DIMENSION}
         yield config
         # Cleanup
         shutil.rmtree(tmpdir)
@@ -39,7 +39,7 @@ class TestInfrastructure:
     @pytest.fixture
     def in_memory_config(self):
         """In-memory database configuration"""
-        return DatabaseConfig(db_path=":memory:", in_memory=True)
+        return {'db_path': ':memory:', 'in_memory': True, 'embedding_dimension': EMBEDDING_DIMENSION}
     
     def test_indexing_without_vector_extension_returns_informative_error(self, db_config):
         """VECTOR拡張なしでインデックスを作成すると、有用なエラー情報を返すこと"""
@@ -115,7 +115,7 @@ class TestInfrastructure:
         # 最初のセッション
         db_success1, database1, _ = create_kuzu_database(db_config)
         if not db_success1:
-            pytest.skip("KuzuDB not available in test environment")
+            raise RuntimeError("KuzuDB is required but not available in test environment")
         
         conn_success1, connection1, _ = create_kuzu_connection(database1)
         assert conn_success1 is True
@@ -124,7 +124,7 @@ class TestInfrastructure:
         vector_available, _ = check_vector_extension(connection1)
         if not vector_available:
             close_connection(connection1)
-            pytest.skip("VECTOR extension not available in test environment")
+            raise RuntimeError("VECTOR extension is required but not available in test environment")
         
         # スキーマ初期化
         schema_success, _ = initialize_vector_schema(connection1, EMBEDDING_DIMENSION)
@@ -168,7 +168,7 @@ class TestInfrastructure:
         # データベースと接続を作成
         db_success, database, _ = create_kuzu_database(in_memory_config)
         if not db_success:
-            pytest.skip("KuzuDB not available in test environment")
+            raise RuntimeError("KuzuDB is required but not available in test environment")
         
         conn_success, connection, _ = create_kuzu_connection(database)
         assert conn_success is True
@@ -202,7 +202,7 @@ class TestInfrastructure:
         # データベースと接続を作成
         db_success, database, _ = create_kuzu_database(in_memory_config)
         if not db_success:
-            pytest.skip("KuzuDB not available in test environment")
+            raise RuntimeError("KuzuDB is required but not available in test environment")
         
         conn_success, connection, _ = create_kuzu_connection(database)
         assert conn_success is True
@@ -211,7 +211,7 @@ class TestInfrastructure:
         vector_available, _ = check_vector_extension(connection)
         if not vector_available:
             close_connection(connection)
-            pytest.skip("VECTOR extension not available in test environment")
+            raise RuntimeError("VECTOR extension is required but not available in test environment")
         
         # スキーマ初期化
         schema_success, _ = initialize_vector_schema(connection, EMBEDDING_DIMENSION)

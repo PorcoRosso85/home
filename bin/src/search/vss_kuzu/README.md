@@ -32,31 +32,20 @@ nix run .#install-vector
 ### Quick Start
 
 ```python
-from vss_kuzu import (
-    create_vss_repository,
-    add_vector_node,
-    search_similar_nodes
-)
+from vss_kuzu import create_vss
 
-# Create repository
-repo = create_vss_repository(db_path="./my_database")
+# Create VSS instance
+vss = create_vss(db_path="./my_database")
 
-# Add documents with vectors
-node_id = add_vector_node(
-    repo,
-    table_name="documents",
-    vector=[0.1, 0.2, 0.3, ...],  # 256-dimensional vector
-    properties={"text": "ユーザー認証機能を実装する"}
-)
+# Index documents
+documents = [
+    {"id": "doc1", "content": "ユーザー認証機能を実装する"},
+    {"id": "doc2", "content": "ログインシステムを構築する"},
+]
+vss.index(documents)
 
 # Search for similar documents
-results = search_similar_nodes(
-    repo,
-    table_name="documents",
-    query_vector=[0.15, 0.25, 0.35, ...],
-    limit=5,
-    min_score=0.7
-)
+results = vss.search("認証システム", limit=5)
 
 for node, distance in results:
     print(f"{node['text']} (similarity: {1 - distance:.2f})")
@@ -102,7 +91,7 @@ delete_vector_node(
 
 ## Migration from Class API
 
-See [MIGRATION.md](./MIGRATION.md) for a complete guide on migrating from the legacy class-based API to the new function-first API.
+The library uses a function-first API design with a simple unified interface.
 
 ## Development
 
@@ -162,7 +151,7 @@ All functions return clear error types:
 from vss_kuzu import VSSError
 
 try:
-    results = search_similar_nodes(repo, ...)
+    results = vss.search(...)
 except VSSError as e:
     print(f"Search failed: {e}")
 ```

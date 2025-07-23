@@ -190,11 +190,11 @@ def initialize_vss_system(db_path: Optional[str] = None):
     config = create_config(db_path=db_path)
     
     # データベース設定を作成
-    db_config = DatabaseConfig(
-        db_path=config.db_path,
-        in_memory=config.in_memory,
-        embedding_dimension=config.embedding_dimension
-    )
+    db_config = {
+        'db_path': config.db_path,
+        'in_memory': config.in_memory,
+        'embedding_dimension': config.embedding_dimension
+    }
     
     # データベースを作成
     success, database, error = create_kuzu_database(db_config)

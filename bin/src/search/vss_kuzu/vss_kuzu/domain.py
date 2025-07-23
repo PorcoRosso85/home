@@ -9,14 +9,12 @@
 - 上位k件の選択
 """
 
-from typing import List, Dict, Tuple, Any, Optional
+from typing import List, Dict, Tuple, Any, Optional, TypedDict
 import numpy as np
-from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
-class SearchResult:
-    """検索結果の不変データクラス"""
+class SearchResult(TypedDict):
+    """検索結果の型定義"""
     id: str
     content: str
     score: float
@@ -80,7 +78,7 @@ def sort_results_by_similarity(results: List[SearchResult]) -> List[SearchResult
         ソート済みの検索結果リスト（新しいリスト）
     """
     # 元のリストを変更せず新しいリストを返す
-    return sorted(results, key=lambda r: r.score, reverse=True)
+    return sorted(results, key=lambda r: r["score"], reverse=True)
 
 
 def select_top_k_results(results: List[SearchResult], k: int) -> List[SearchResult]:
@@ -126,13 +124,13 @@ def find_semantically_similar_documents(
         # コサイン距離も計算（互換性のため）
         distance = 1.0 - similarity
         
-        result = SearchResult(
-            id=doc_id,
-            content=content,
-            score=similarity,
-            distance=distance,
-            embedding=doc_embedding
-        )
+        result: SearchResult = {
+            "id": doc_id,
+            "content": content,
+            "score": similarity,
+            "distance": distance,
+            "embedding": doc_embedding
+        }
         results.append(result)
     
     # 類似度でソートして上位k件を返す

@@ -12,11 +12,13 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
-from vss_kuzu import (
-    create_config,
+from vss_kuzu import create_vss
+from vss_kuzu.application import (
     create_vss_service,
     create_embedding_service,
-    # Infrastructure functions
+)
+from vss_kuzu.infrastructure.variables.config import create_config
+from vss_kuzu.infrastructure import (
     create_kuzu_database,
     create_kuzu_connection,
     check_vector_extension,
@@ -25,7 +27,8 @@ from vss_kuzu import (
     search_similar_vectors,
     count_documents,
     close_connection,
-    # Domain functions
+)
+from vss_kuzu.domain import (
     find_semantically_similar_documents,
 )
 

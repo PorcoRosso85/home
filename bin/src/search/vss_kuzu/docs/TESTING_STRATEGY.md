@@ -14,7 +14,7 @@ This document describes the testing strategy for vss_kuzu package, emphasizing t
 
 ### 2. Application Layer Tests ✅
 - **Status**: All tests passing (with automatic wrapper)
-- **Files**: `test_application.py`, `test_legacy_api.py`
+- **Files**: `test_application.py`, `test_unified_api.py`
 - **Focus**: Function behavior and use case orchestration
 - **Note**: Automatically uses subprocess wrapper when VECTOR extension unavailable
 

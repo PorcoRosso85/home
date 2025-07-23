@@ -10,15 +10,15 @@ from pathlib import Path
 
 import pytest
 
-from vss_kuzu import (
-    create_config,
+from vss_kuzu.application import create_embedding_service
+from vss_kuzu.infrastructure.variables.config import create_config
+from vss_kuzu.infrastructure import (
     create_kuzu_database,
     create_kuzu_connection,
     check_vector_extension,
     initialize_vector_schema,
     insert_documents_with_embeddings,
     search_similar_vectors,
-    create_embedding_service,
     DatabaseConfig,
 )
 
@@ -31,11 +31,11 @@ class TestInitializationErrors:
         with tempfile.TemporaryDirectory() as tmpdir:
             # ConfigとDatabaseConfigを作成
             config = create_config(db_path=tmpdir, in_memory=False)
-            db_config = DatabaseConfig(
-                db_path=config.db_path,
-                in_memory=config.in_memory,
-                embedding_dimension=config.embedding_dimension
-            )
+            db_config = {
+                'db_path': config['db_path'],
+                'in_memory': config['in_memory'],
+                'embedding_dimension': config['embedding_dimension']
+            }
             
             # データベース作成を試みる
             db_success, database, db_error = create_kuzu_database(db_config)
@@ -54,7 +54,7 @@ class TestInitializationErrors:
                         assert schema_success is True
                         
                         # 正常に動作することを確認
-                        embedding_func = create_embedding_service(config.model_name)
+                        embedding_func = create_embedding_service(config['model_name'])
                         embedding = embedding_func("test document")
                         docs = [("doc1", "test document", embedding)]
                         insert_success, count, insert_error = insert_documents_with_embeddings(connection, docs)
@@ -76,11 +76,11 @@ class TestInitializationErrors:
             try:
                 # ConfigとDatabaseConfigを作成
                 config = create_config(db_path=f"{tmpdir}/readonly_db", in_memory=False)
-                db_config = DatabaseConfig(
-                    db_path=config.db_path,
-                    in_memory=config.in_memory,
-                    embedding_dimension=config.embedding_dimension
-                )
+                db_config = {
+                    'db_path': config['db_path'],
+                    'in_memory': config['in_memory'],
+                    'embedding_dimension': config['embedding_dimension']
+                }
                 
                 # データベース作成を試みる
                 db_success, database, db_error = create_kuzu_database(db_config)
@@ -101,11 +101,11 @@ class TestInitializationErrors:
         
         # ConfigとDatabaseConfigを作成
         config = create_config(db_path=invalid_path, in_memory=False)
-        db_config = DatabaseConfig(
-            db_path=config.db_path,
-            in_memory=config.in_memory,
-            embedding_dimension=config.embedding_dimension
-        )
+        db_config = {
+            'db_path': config['db_path'],
+            'in_memory': config['in_memory'],
+            'embedding_dimension': config['embedding_dimension']
+        }
         
         # データベース作成を試みる
         db_success, database, db_error = create_kuzu_database(db_config)
@@ -119,11 +119,11 @@ class TestInitializationErrors:
         # 無効なパスでデータベースを作成
         invalid_path = "/nonexistent/path/\x00/db"
         config = create_config(db_path=invalid_path, in_memory=False)
-        db_config = DatabaseConfig(
-            db_path=config.db_path,
-            in_memory=config.in_memory,
-            embedding_dimension=config.embedding_dimension
-        )
+        db_config = {
+            'db_path': config['db_path'],
+            'in_memory': config['in_memory'],
+            'embedding_dimension': config['embedding_dimension']
+        }
         
         # データベース作成に失敗
         db_success, database, db_error = create_kuzu_database(db_config)
@@ -145,11 +145,11 @@ class TestInitializationErrors:
         """インメモリデータベースでVECTOR拡張の状態を適切に処理すること"""
         # ConfigとDatabaseConfigを作成
         config = create_config(db_path=":memory:", in_memory=True)
-        db_config = DatabaseConfig(
-            db_path=config.db_path,
-            in_memory=config.in_memory,
-            embedding_dimension=config.embedding_dimension
-        )
+        db_config = {
+            'db_path': config['db_path'],
+            'in_memory': config['in_memory'],
+            'embedding_dimension': config['embedding_dimension']
+        }
         
         # データベース作成
         db_success, database, db_error = create_kuzu_database(db_config)
@@ -169,7 +169,7 @@ class TestInitializationErrors:
             assert schema_success is True
             
             # 正常に動作することを確認
-            embedding_func = create_embedding_service(config.model_name)
+            embedding_func = create_embedding_service(config['model_name'])
             embedding = embedding_func("in-memory test")
             docs = [("doc1", "in-memory test", embedding)]
             insert_success, count, insert_error = insert_documents_with_embeddings(connection, docs)
@@ -184,11 +184,11 @@ class TestInitializationErrors:
         # 無効なパスでデータベースを作成
         invalid_path = "/root/no_permission_db"
         config = create_config(db_path=invalid_path, in_memory=False)
-        db_config = DatabaseConfig(
-            db_path=config.db_path,
-            in_memory=config.in_memory,
-            embedding_dimension=config.embedding_dimension
-        )
+        db_config = {
+            'db_path': config['db_path'],
+            'in_memory': config['in_memory'],
+            'embedding_dimension': config['embedding_dimension']
+        }
         
         # データベース作成を試みる
         db_success, database, db_error = create_kuzu_database(db_config)
@@ -206,11 +206,11 @@ class TestInitializationErrors:
         with tempfile.TemporaryDirectory() as tmpdir:
             # ConfigとDatabaseConfigを作成
             config = create_config(db_path=tmpdir, in_memory=False)
-            db_config = DatabaseConfig(
-                db_path=config.db_path,
-                in_memory=config.in_memory,
-                embedding_dimension=config.embedding_dimension
-            )
+            db_config = {
+                'db_path': config['db_path'],
+                'in_memory': config['in_memory'],
+                'embedding_dimension': config['embedding_dimension']
+            }
             
             # 最初のデータベースとコネクション
             db_success1, database1, db_error1 = create_kuzu_database(db_config)
@@ -242,7 +242,7 @@ class TestInitializationErrors:
                 assert schema_success2 is True
                 
                 # データ操作が可能
-                embedding_func = create_embedding_service(config.model_name)
+                embedding_func = create_embedding_service(config['model_name'])
                 
                 embedding1 = embedding_func("shared document")
                 docs1 = [("shared1", "shared document", embedding1)]

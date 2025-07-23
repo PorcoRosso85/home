@@ -5,17 +5,15 @@
 テキストから埋め込みベクトルを生成する機能を提供
 """
 
-from typing import List, Callable, Optional
-from dataclasses import dataclass
+from typing import List, Callable, Optional, TypedDict
 
 
 DEFAULT_MODEL_NAME = 'cl-nagoya/ruri-v3-30m'
 EMBEDDING_DIMENSION = 256
 
 
-@dataclass
-class EmbeddingResult:
-    """埋め込み結果を表すデータクラス"""
+class EmbeddingResult(TypedDict):
+    """埋め込み結果を表す型定義"""
     embeddings: List[float]
     model_name: str
     dimension: int
@@ -108,22 +106,22 @@ def create_standalone_embedding_service(model_name: str = DEFAULT_MODEL_NAME):
                 embeddings = model.encode(texts, normalize_embeddings=True)
                 results = []
                 for embedding in embeddings:
-                    result = EmbeddingResult(
-                        embeddings=embedding.tolist(),
-                        model_name=self.model_name,
-                        dimension=self.dimension
-                    )
+                    result: EmbeddingResult = {
+                        'embeddings': embedding.tolist(),
+                        'model_name': self.model_name,
+                        'dimension': self.dimension
+                    }
                     results.append(result)
                 return results
             
             def embed_query(self, text: str) -> EmbeddingResult:
                 model = self._get_model()
                 embedding = model.encode([text], normalize_embeddings=True)[0]
-                return EmbeddingResult(
-                    embeddings=embedding.tolist(),
-                    model_name=self.model_name,
-                    dimension=self.dimension
-                )
+                return {
+                    'embeddings': embedding.tolist(),
+                    'model_name': self.model_name,
+                    'dimension': self.dimension
+                }
         
         return StandaloneEmbeddingService()
         
@@ -156,19 +154,19 @@ def create_standalone_embedding_service(model_name: str = DEFAULT_MODEL_NAME):
             def embed_documents(self, texts: List[str]) -> List[EmbeddingResult]:
                 results = []
                 for text in texts:
-                    result = EmbeddingResult(
-                        embeddings=self._generate_embedding(text),
-                        model_name=self.model_name,
-                        dimension=self.dimension
-                    )
+                    result: EmbeddingResult = {
+                        'embeddings': self._generate_embedding(text),
+                        'model_name': self.model_name,
+                        'dimension': self.dimension
+                    }
                     results.append(result)
                 return results
             
             def embed_query(self, text: str) -> EmbeddingResult:
-                return EmbeddingResult(
-                    embeddings=self._generate_embedding(text),
-                    model_name=self.model_name,
-                    dimension=self.dimension
-                )
+                return {
+                    'embeddings': self._generate_embedding(text),
+                    'model_name': self.model_name,
+                    'dimension': self.dimension
+                }
         
         return FallbackEmbeddingService()

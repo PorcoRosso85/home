@@ -65,8 +65,11 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
             """)
             
             connection.execute(f"""
-                CREATE VECTOR INDEX IF NOT EXISTS {test_table}_idx 
-                ON {test_table}(embedding)
+                CALL CREATE_VECTOR_INDEX(
+                    '{test_table}',
+                    '{test_table}_idx',
+                    'embedding'
+                )
             """)
             
             connection.execute(f"DROP TABLE {test_table}")
