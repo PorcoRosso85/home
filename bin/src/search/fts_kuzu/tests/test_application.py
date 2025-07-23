@@ -10,7 +10,7 @@ import tempfile
 
 import pytest
 
-from fts_kuzu.application import (
+from fts_kuzu import (
     create_fts_connection,
     index_fts_documents,
     search_fts_documents,
@@ -29,7 +29,7 @@ class TestFTSApplication:
         yield conn_info
         # Cleanup
         if conn_info["ok"] and conn_info["connection"]:
-            from fts_kuzu.infrastructure import close_connection
+            from fts_kuzu import close_connection
             close_connection(conn_info["connection"])
         shutil.rmtree(tmpdir)
 
@@ -40,7 +40,7 @@ class TestFTSApplication:
         yield conn_info
         # Cleanup
         if conn_info["ok"] and conn_info["connection"]:
-            from fts_kuzu.infrastructure import close_connection
+            from fts_kuzu import close_connection
             close_connection(conn_info["connection"])
 
     def test_indexing_documents_with_distinct_ids_stores_separately(self, fts_connection):
@@ -212,7 +212,7 @@ class TestFTSFeatures:
 
         yield connection
         # Cleanup
-        from fts_kuzu.infrastructure import close_connection
+        from fts_kuzu import close_connection
         close_connection(connection)
 
     def test_keyword_search_returns_matching_documents(self, fts_connection_with_data):

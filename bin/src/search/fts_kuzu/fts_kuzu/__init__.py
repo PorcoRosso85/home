@@ -17,6 +17,7 @@ from .application import (
     create_fts_connection,
     index_fts_documents,
     search_fts_documents,
+    ApplicationConfig,
 )
 
 # Domain
@@ -36,6 +37,9 @@ from .infrastructure import (
     install_fts_extension,
     initialize_fts_schema,
     create_fts_index,
+    drop_fts_index,
+    list_fts_indexes,
+    get_fts_index_info,
     query_fts_index,
     count_documents,
     close_connection,
@@ -61,6 +65,7 @@ __all__ = [
     "create_fts_connection",
     "index_fts_documents",
     "search_fts_documents",
+    "ApplicationConfig",
     
     # Domain
     "FTSError",
@@ -76,6 +81,9 @@ __all__ = [
     "install_fts_extension",
     "initialize_fts_schema",
     "create_fts_index",
+    "drop_fts_index",
+    "list_fts_indexes",
+    "get_fts_index_info",
     "query_fts_index",
     "count_documents",
     "close_connection",

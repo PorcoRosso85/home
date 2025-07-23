@@ -10,13 +10,13 @@ import pytest
 
 sys.path.insert(0, ".")
 
-from fts_kuzu.domain import (
+from fts_kuzu import (
     FTSError,
     FTSErrorType,
     # FTS specific types
     FTSSearchResult,
-    IndexResult,
 )
+from fts_kuzu.domain import IndexResult
 
 
 # TestDomain class removed - VSS functionality deprecated

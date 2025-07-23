@@ -10,7 +10,7 @@ import os
 import shutil
 import tempfile
 import pytest
-from fts_kuzu.application import create_fts, FTS
+from fts_kuzu import create_fts, FTS
 
 
 class TestUnifiedAPI:

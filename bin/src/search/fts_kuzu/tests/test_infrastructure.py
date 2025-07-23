@@ -10,7 +10,7 @@ import tempfile
 
 import pytest
 
-from fts_kuzu.infrastructure import (
+from fts_kuzu import (
     DatabaseConfig,
     close_connection,
     create_fts_index,

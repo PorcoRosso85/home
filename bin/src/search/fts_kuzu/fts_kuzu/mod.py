@@ -6,45 +6,40 @@ All public classes, functions, and types should be imported from this module.
 """
 
 # Import from new modular architecture
-try:
-    # New function-first architecture imports
-    from .application import (
-        create_fts_service,
-        create_fts_connection,
-        index_fts_documents,
-        search_fts_documents,
-        create_fts,
-        FTS,
-    )
-    from .domain import (
-        FTSError,
-        FTSErrorType,
-        FTSSearchResult,
-        IndexResult,
-    )
-    from .infrastructure import (
-        DatabaseConfig,
-        check_fts_extension,
-        close_connection,
-        count_documents,
-        create_fts_index,
-        create_kuzu_connection,
-        create_kuzu_database,
-        initialize_fts_schema,
-        install_fts_extension,
-    )
-    # Import protocol and common types for unified API
-    from .protocols import SearchSystem
-    from .common_types import (
-        SearchResultItem,
-        SearchResults,
-        IndexResult as CommonIndexResult,
-        SearchConfig,
-    )
-
-except ImportError:
-    # Handle import errors gracefully
-    pass
+# New function-first architecture imports
+from .application import (
+    create_fts_service,
+    create_fts_connection,
+    index_fts_documents,
+    search_fts_documents,
+    create_fts,
+    FTS,
+)
+from .domain import (
+    FTSError,
+    FTSErrorType,
+    FTSSearchResult,
+    IndexResult,
+)
+from .infrastructure import (
+    DatabaseConfig,
+    check_fts_extension,
+    close_connection,
+    count_documents,
+    create_fts_index,
+    create_kuzu_connection,
+    create_kuzu_database,
+    initialize_fts_schema,
+    install_fts_extension,
+)
+# Import protocol and common types for unified API
+from .protocols import SearchSystem
+from .common_types import (
+    SearchResultItem,
+    SearchResults,
+    IndexResult as CommonIndexResult,
+    SearchConfig,
+)
 
 
 # Version information

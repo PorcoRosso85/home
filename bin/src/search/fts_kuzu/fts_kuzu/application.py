@@ -11,13 +11,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-try:
-    from .protocols import SearchSystem
-    from .common_types import SearchResults, IndexResult, SearchResultItem
-except ImportError:
-    # For standalone execution
-    from protocols import SearchSystem
-    from .common_types import SearchResults, IndexResult, SearchResultItem
+from .protocols import SearchSystem
+from .common_types import SearchResults, IndexResult, SearchResultItem
 
 # Type aliases for clarity
 EmbeddingFunction = Callable[[str], list[float]]

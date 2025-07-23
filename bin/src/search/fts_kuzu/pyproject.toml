@@ -37,7 +37,8 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["fts_kuzu*"]
+include = ["fts_kuzu", "fts_kuzu.*"]
+exclude = ["tests*", "test_*", "*.tests*", "*.tests"]
 
 [tool.setuptools.package-data]
 fts_kuzu = ["py.typed"]

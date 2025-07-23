@@ -2,3 +2,5 @@ include README.md
 include pyproject.toml
 recursive-include fts_kuzu *.py
 include fts_kuzu/py.typed
+exclude test_*.py
+recursive-exclude tests *
