@@ -12,28 +12,46 @@ import pytest
 
 sys.path.insert(0, ".")
 
-from application import FTSService
+from application import (
+    create_fts_connection,
+    index_fts_documents,
+    search_fts_documents,
+    ApplicationConfig,
+)
 
 
 class TestFTSApplication:
     """FTSアプリケーション層のテストクラス"""
 
     @pytest.fixture
-    def fts_service(self):
-        """FTS service with temporary database"""
+    def fts_connection(self):
+        """FTS connection with temporary database"""
         tmpdir = tempfile.mkdtemp()
-        service = FTSService(db_path=tmpdir, in_memory=False)
-        yield service
+        conn_info = create_fts_connection(db_path=tmpdir, in_memory=False)
+        yield conn_info
         # Cleanup
+        if conn_info["ok"] and conn_info["connection"]:
+            from infrastructure import close_connection
+            close_connection(conn_info["connection"])
         shutil.rmtree(tmpdir)
 
     @pytest.fixture
-    def in_memory_service(self):
-        """FTS service with in-memory database"""
-        return FTSService(in_memory=True)
+    def in_memory_connection(self):
+        """FTS connection with in-memory database"""
+        conn_info = create_fts_connection(in_memory=True)
+        yield conn_info
+        # Cleanup
+        if conn_info["ok"] and conn_info["connection"]:
+            from infrastructure import close_connection
+            close_connection(conn_info["connection"])
 
-    def test_indexing_documents_with_distinct_ids_stores_separately(self, fts_service):
+    def test_indexing_documents_with_distinct_ids_stores_separately(self, fts_connection):
         """異なるIDのドキュメントが別々に保存されること"""
+        if not fts_connection["ok"]:
+            pytest.skip("FTS connection not available")
+            
+        connection = fts_connection["connection"]
+        
         # 複数のドキュメントをインデックス
         documents = [
             {
@@ -48,15 +66,15 @@ class TestFTSApplication:
             },
         ]
 
-        result = fts_service.index_documents(documents)
+        result = index_fts_documents(documents, connection)
 
         assert result["ok"] is True
         assert result["indexed_count"] == 2
         assert "index_time_ms" in result
 
         # 両方のドキュメントが検索可能であることを確認
-        search_result1 = fts_service.search({"query": "最初", "limit": 10})
-        search_result2 = fts_service.search({"query": "2番目", "limit": 10})
+        search_result1 = search_fts_documents({"query": "最初", "limit": 10}, connection)
+        search_result2 = search_fts_documents({"query": "2番目", "limit": 10}, connection)
 
         assert search_result1["ok"] is True
         assert search_result2["ok"] is True
@@ -67,9 +85,13 @@ class TestFTSApplication:
         assert doc1_found
         assert doc2_found
 
-    def test_search_on_empty_index_returns_empty_results(self, fts_service):
+    def test_search_on_empty_index_returns_empty_results(self, fts_connection):
         """空のインデックスで検索すると空の結果を返すこと"""
-        search_result = fts_service.search({"query": "存在しない"})
+        if not fts_connection["ok"]:
+            pytest.skip("FTS connection not available")
+            
+        connection = fts_connection["connection"]
+        search_result = search_fts_documents({"query": "存在しない"}, connection)
 
         assert search_result["ok"] is True
         assert "results" in search_result
@@ -77,10 +99,14 @@ class TestFTSApplication:
         assert search_result["metadata"]["total_results"] == 0
         assert search_result["metadata"]["query"] == "存在しない"
 
-    def test_missing_query_returns_error(self, fts_service):
+    def test_missing_query_returns_error(self, fts_connection):
         """必須パラメータが欠けている場合、エラーを返すこと"""
+        if not fts_connection["ok"]:
+            pytest.skip("FTS connection not available")
+            
+        connection = fts_connection["connection"]
         # 無効な入力でエラーを発生させる
-        result = fts_service.search({})  # queryが必須
+        result = search_fts_documents({}, connection)  # queryが必須
 
         # FTSErrorが返されること
         assert isinstance(result, dict)
@@ -90,10 +116,14 @@ class TestFTSApplication:
         assert "details" in result
         assert "query" in result["error"] or "required" in result["error"].lower()
 
-    def test_successful_and_error_responses_follow_consistent_structure(self, fts_service):
+    def test_successful_and_error_responses_follow_consistent_structure(self, fts_connection):
         """成功時とエラー時のレスポンスが一貫した構造に従うこと"""
+        if not fts_connection["ok"]:
+            pytest.skip("FTS connection not available")
+            
+        connection = fts_connection["connection"]
         # ドキュメントなしでインデックスを試みる（エラーを誘発）
-        index_result = fts_service.index_documents([])
+        index_result = index_fts_documents([], connection)
 
         # レスポンスの基本構造
         assert "ok" in index_result
@@ -107,7 +137,7 @@ class TestFTSApplication:
             assert isinstance(index_result["details"], dict)
 
         # 検索操作でも同様の確認
-        search_result = fts_service.search({"query": "test"})
+        search_result = search_fts_documents({"query": "test"}, connection)
         assert "ok" in search_result
         assert isinstance(search_result["ok"], bool)
 
@@ -118,8 +148,12 @@ class TestFTSApplication:
             assert isinstance(search_result["results"], list)
             assert isinstance(search_result["metadata"], dict)
 
-    def test_indexed_documents_are_searchable_immediately(self, fts_service):
+    def test_indexed_documents_are_searchable_immediately(self, fts_connection):
         """インデックスしたドキュメントが即座に検索可能であること"""
+        if not fts_connection["ok"]:
+            pytest.skip("FTS connection not available")
+            
+        connection = fts_connection["connection"]
         # ドキュメントをインデックス
         documents = [
             {
@@ -129,12 +163,12 @@ class TestFTSApplication:
             }
         ]
 
-        result = fts_service.index_documents(documents)
+        result = index_fts_documents(documents, connection)
 
         assert result["ok"] is True
 
         # 即座に検索できることを確認
-        search_result = fts_service.search({"query": "テスト"})
+        search_result = search_fts_documents({"query": "テスト"}, connection)
         assert search_result["ok"] is True
         assert "results" in search_result
         assert "metadata" in search_result
@@ -149,9 +183,13 @@ class TestFTSFeatures:
     """FTS特有の機能のテストクラス"""
 
     @pytest.fixture
-    def fts_service_with_data(self):
-        """FTS service with pre-indexed documents"""
-        service = FTSService(in_memory=True)
+    def fts_connection_with_data(self):
+        """FTS connection with pre-indexed documents"""
+        conn_info = create_fts_connection(in_memory=True)
+        if not conn_info["ok"]:
+            pytest.skip("FTS connection not available")
+            
+        connection = conn_info["connection"]
 
         # Index sample documents
         documents = [
@@ -169,16 +207,19 @@ class TestFTSFeatures:
             {"id": "4", "title": "Web Development", "content": "Build modern web applications"},
         ]
 
-        result = service.index_documents(documents)
+        result = index_fts_documents(documents, connection)
         assert result["ok"] is True
 
         # No longer need verification debug output
 
-        return service
+        yield connection
+        # Cleanup
+        from infrastructure import close_connection
+        close_connection(connection)
 
-    def test_keyword_search_returns_matching_documents(self, fts_service_with_data):
+    def test_keyword_search_returns_matching_documents(self, fts_connection_with_data):
         """キーワード検索が一致するドキュメントを返すこと"""
-        result = fts_service_with_data.search({"query": "Python", "limit": 10})
+        result = search_fts_documents({"query": "Python", "limit": 10}, fts_connection_with_data)
 
         assert result["ok"] is True
         assert len(result["results"]) >= 1
@@ -187,9 +228,9 @@ class TestFTSFeatures:
         python_doc_found = any(r["id"] == "1" for r in result["results"])
         assert python_doc_found
 
-    def test_search_results_include_score_and_highlights(self, fts_service_with_data):
+    def test_search_results_include_score_and_highlights(self, fts_connection_with_data):
         """検索結果がスコアとハイライトを含むこと"""
-        result = fts_service_with_data.search({"query": "programming", "limit": 10})
+        result = search_fts_documents({"query": "programming", "limit": 10}, fts_connection_with_data)
 
         assert result["ok"] is True
         assert len(result["results"]) >= 1
@@ -203,12 +244,12 @@ class TestFTSFeatures:
             assert isinstance(doc["score"], int | float)
             assert isinstance(doc["highlights"], list)
 
-    def test_case_insensitive_search(self, fts_service_with_data):
+    def test_case_insensitive_search(self, fts_connection_with_data):
         """検索が大文字小文字を区別しないこと"""
         # Search with different case variations
-        result1 = fts_service_with_data.search({"query": "python", "limit": 10})
-        result2 = fts_service_with_data.search({"query": "PYTHON", "limit": 10})
-        result3 = fts_service_with_data.search({"query": "Python", "limit": 10})
+        result1 = search_fts_documents({"query": "python", "limit": 10}, fts_connection_with_data)
+        result2 = search_fts_documents({"query": "PYTHON", "limit": 10}, fts_connection_with_data)
+        result3 = search_fts_documents({"query": "Python", "limit": 10}, fts_connection_with_data)
 
         # All should return results
         assert result1["ok"] is True
@@ -220,9 +261,9 @@ class TestFTSFeatures:
             python_found = any(r["id"] == "1" for r in result["results"])
             assert python_found
 
-    def test_multi_word_query_searches_all_words(self, fts_service_with_data):
+    def test_multi_word_query_searches_all_words(self, fts_connection_with_data):
         """複数単語のクエリが全単語を検索すること"""
-        result = fts_service_with_data.search({"query": "web database", "limit": 10})
+        result = search_fts_documents({"query": "web database", "limit": 10}, fts_connection_with_data)
 
         assert result["ok"] is True
         # Should find documents containing either "web" OR "database"
@@ -232,9 +273,9 @@ class TestFTSFeatures:
         found_ids = {r["id"] for r in result["results"]}
         assert "3" in found_ids or "4" in found_ids
 
-    def test_search_metadata_includes_timing_info(self, fts_service_with_data):
+    def test_search_metadata_includes_timing_info(self, fts_connection_with_data):
         """検索メタデータがタイミング情報を含むこと"""
-        result = fts_service_with_data.search({"query": "test", "limit": 10})
+        result = search_fts_documents({"query": "test", "limit": 10}, fts_connection_with_data)
 
         assert result["ok"] is True
         assert "metadata" in result

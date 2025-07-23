@@ -9,7 +9,6 @@ All public classes, functions, and types should be imported from this module.
 try:
     # New function-first architecture imports
     from .application import (
-        FTSService,
         create_fts_service,
         create_fts_connection,
         index_fts_documents,
@@ -44,7 +43,8 @@ __version__ = "0.2.0"  # Updated for FTS support
 # Public API - everything that external users should import
 __all__ = [
     # Main service classes (for backward compatibility)
-    "FTSService",  # Primary FTS service
+    # Note: FTSService removed from exports to encourage function-first API usage
+    # The class-based approach is deprecated in favor of composable functions
     # New function-first API
     "create_fts_service",
     "create_fts_connection",
@@ -76,23 +76,32 @@ FTS-KuzuDB: Full-Text Search with KuzuDB
 A library for performing full-text search using KuzuDB's FTS extension.
 Supports keyword search, BM25 scoring, phrase search, and highlighting.
 
-## Primary API - Full-Text Search
+## Primary API - Function-First Approach
+
+Note: The class-based FTSService is deprecated. Use the function-first API for better composability and testability.
 
 Example usage:
-    from fts_kuzu import FTSService
+    from fts_kuzu import create_fts_service, DatabaseConfig
 
-    # Create FTS service instance
-    service = FTSService(in_memory=True)
+    # Create FTS service using function-first approach
+    config = DatabaseConfig(in_memory=True)
+    fts_funcs = create_fts_service()
+    
+    # Create connection
+    conn_result = fts_funcs["create_connection"](config)
+    if not conn_result["ok"]:
+        raise Exception(conn_result["error"])
+    conn = conn_result["value"]
 
     # Index documents
     documents = [
         {"id": "doc1", "title": "Authentication Guide", "content": "How to implement user authentication"},
         {"id": "doc2", "title": "Login System", "content": "Building a secure login system"},
     ]
-    result = service.index_documents(documents)
+    result = fts_funcs["index_documents"](documents, conn)
 
     # Search documents
-    search_result = service.search({"query": "authentication", "limit": 10})
+    search_result = fts_funcs["search_documents"]("authentication", conn, limit=10)
     if search_result["ok"]:
         for doc in search_result["results"]:
             print(f"{doc['id']}: {doc['content']} (score: {doc['score']})")

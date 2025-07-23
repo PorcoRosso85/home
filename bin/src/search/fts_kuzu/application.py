@@ -740,38 +740,4 @@ def _search_documents_with_connection(
         return {"ok": False, "error": f"Search failed: {str(e)}", "details": {"error": str(e)}}
 
 
-# Legacy FTSService class for backward compatibility
-class FTSService:
-    """
-    FTSサービスクラス - アプリケーション層のファサード
-
-    Full-Text Search機能を提供するサービス
-    """
-
-    def __init__(self, db_path: str = "./kuzu_db", in_memory: bool = False):
-        """
-        FTSサービスを初期化
-
-        Args:
-            db_path: データベースパス
-            in_memory: インメモリデータベースを使用するか
-        """
-        self.config = ApplicationConfig(db_path=db_path, in_memory=in_memory)
-        self._database = None
-        self._connection = None
-
-        if in_memory:
-            # インメモリの場合は事前に接続を作成して保持
-            conn_info = create_fts_connection(db_path, in_memory)
-            if conn_info["ok"]:
-                self._database = conn_info["database"]
-                self._connection = conn_info["connection"]
-
-    def index_documents(self, documents: list[dict[str, str]]) -> dict[str, Any]:
-        """ドキュメントをFTSインデックスに追加"""
-        return index_fts_documents(documents, self._connection, self.config)
-
-    def search(self, search_input: dict[str, Any]) -> dict[str, Any]:
-        """FTS検索を実行"""
-        return search_fts_documents(search_input, self._connection, self.config)
 
