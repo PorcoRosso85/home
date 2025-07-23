@@ -36,13 +36,13 @@ dev = [
 # No CLI scripts - this is a library only
 
 [tool.setuptools]
-py-modules = ["__init__", "application", "domain", "infrastructure", "common_types", "protocols", "mod"]
+packages = ["fts_kuzu"]
 
 [tool.setuptools.package-data]
-"*" = ["py.typed"]
+fts_kuzu = ["py.typed"]
 
 [tool.pytest.ini_options]
-testpaths = ["."]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

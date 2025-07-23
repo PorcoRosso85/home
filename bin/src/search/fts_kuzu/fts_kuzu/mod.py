@@ -7,7 +7,7 @@ All public classes, functions, and types should be imported from this module.
 
 # Import from new modular architecture
 # New function-first architecture imports
-from application import (
+from .application import (
     create_fts_service,
     create_fts_connection,
     index_fts_documents,
@@ -15,13 +15,13 @@ from application import (
     create_fts,
     FTS,
 )
-from domain import (
+from .domain import (
     FTSError,
     FTSErrorType,
     FTSSearchResult,
     IndexResult,
 )
-from infrastructure import (
+from .infrastructure import (
     DatabaseConfig,
     check_fts_extension,
     close_connection,
@@ -33,8 +33,8 @@ from infrastructure import (
     install_fts_extension,
 )
 # Import protocol and common types for unified API
-from protocols import SearchSystem
-from common_types import (
+from .protocols import SearchSystem
+from .common_types import (
     SearchResultItem,
     SearchResults,
     IndexResult as CommonIndexResult,

@@ -36,12 +36,21 @@
         packages.default = pkgs.python312Packages.buildPythonPackage {
           pname = "fts-kuzu";
           version = "0.2.0";
-          src = ./.;
+          src = pkgs.lib.fileset.toSource {
+            root = ./.;
+            fileset = pkgs.lib.fileset.unions [
+              ./pyproject.toml
+              ./README.md
+              ./MANIFEST.in
+              ./fts_kuzu
+            ];
+          };
           format = "pyproject";
           
           nativeBuildInputs = with pkgs.python312Packages; [
             setuptools
             wheel
+            build  # Add the build package
           ];
           
           propagatedBuildInputs = with pkgs.python312Packages; [
@@ -90,7 +99,7 @@
               cd /home/nixos/bin/src/search/fts_kuzu
               echo "Running FTS tests..."
               # Run pytest with importlib import mode to avoid namespace conflicts
-              PYTHONPATH=. exec ${pythonEnv}/bin/pytest -v --import-mode=importlib test_*.py "$@"
+              PYTHONPATH=. exec ${pythonEnv}/bin/pytest -v --import-mode=importlib tests/ "$@"
             ''}";
           };
           
