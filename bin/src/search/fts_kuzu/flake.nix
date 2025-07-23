@@ -90,7 +90,7 @@
               cd /home/nixos/bin/src/search/fts_kuzu
               echo "Running FTS tests..."
               # Run pytest with importlib import mode to avoid namespace conflicts
-              PYTHONPATH=. exec ${pythonEnv}/bin/pytest -v --import-mode=importlib tests/ "$@"
+              PYTHONPATH=. exec ${pythonEnv}/bin/pytest -v --import-mode=importlib test_*.py "$@"
             ''}";
           };
           

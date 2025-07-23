@@ -11,8 +11,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from .protocols import SearchSystem
-from .common_types import SearchResults, IndexResult, SearchResultItem
+from protocols import SearchSystem
+from common_types import SearchResults, IndexResult, SearchResultItem
 
 # Type aliases for clarity
 EmbeddingFunction = Callable[[str], list[float]]
@@ -72,7 +72,7 @@ def create_fts_service(
             }
 
         # データベース接続を作成
-        from .infrastructure import DatabaseConfig
+        from infrastructure import DatabaseConfig
 
         db_config = DatabaseConfig(
             db_path=config.db_path,
@@ -258,7 +258,7 @@ def create_fts_service(
         limit = search_input.get("limit", config.default_limit)
 
         # データベース接続を作成
-        from .infrastructure import DatabaseConfig
+        from infrastructure import DatabaseConfig
 
         db_config = DatabaseConfig(
             db_path=config.db_path,
@@ -317,7 +317,7 @@ def create_fts_service(
                     pass
             else:
                 # FTS検索を実行
-                from .domain import create_highlight_info
+                from domain import create_highlight_info
 
                 # query_fts_index関数を使ってFTS検索
                 index_name = "doc_fts_idx"
@@ -445,7 +445,7 @@ class FTS:
         データベース接続を閉じる
         """
         if self._connection is not None:
-            from .infrastructure import close_connection
+            from infrastructure import close_connection
             close_connection(self._connection)
             self._connection = None
             self._database = None
@@ -481,7 +481,7 @@ def create_fts(
     )
     
     # インフラストラクチャ関数をインポート
-    from .infrastructure import (
+    from infrastructure import (
         DatabaseConfig,
         create_kuzu_database,
         create_kuzu_connection,
@@ -613,7 +613,7 @@ def create_fts_connection(db_path: str = "./kuzu_db", in_memory: bool = False) -
     Returns:
         接続情報の辞書
     """
-    from .infrastructure import (
+    from infrastructure import (
         DatabaseConfig,
         check_fts_extension,
         close_connection,
@@ -695,7 +695,7 @@ def index_fts_documents(
         return _index_documents_with_connection(documents, connection)
     
     # 接続がない場合は新規作成
-    from .infrastructure import (
+    from infrastructure import (
         check_fts_extension,
         close_connection,
         count_documents,
@@ -749,7 +749,7 @@ def search_fts_documents(
         return _search_documents_with_connection(search_input, connection, config)
     
     # 接続がない場合は新規作成
-    from .infrastructure import (
+    from infrastructure import (
         check_fts_extension,
         close_connection,
         count_documents,
@@ -847,8 +847,8 @@ def _search_documents_with_connection(
 ) -> dict[str, Any]:
     """永続的な接続を使用して検索"""
     import time
-    from .domain import create_highlight_info
-    from .infrastructure import query_fts_index
+    from domain import create_highlight_info
+    from infrastructure import query_fts_index
     
     start_time = time.time()
     
