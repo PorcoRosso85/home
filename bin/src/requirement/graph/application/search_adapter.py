@@ -23,54 +23,6 @@ except ImportError as e:
     print(f"[WARNING] VSS modules not available - using fallback search: {e}")
 
 
-class FallbackSearchService:
-    """Fallback search service when VSS modules are not available"""
-    
-    def __init__(self, db_path: Optional[str] = None, existing_connection=None):
-        self.db_path = db_path
-        self._conn = existing_connection
-        print("[WARNING] Using fallback search service - VSS modules not available")
-    
-    def add_requirement(self, id: str, title: str, content: str) -> None:
-        """No-op in fallback mode"""
-        print(f"[WARNING] Cannot add requirement {id} to search index - VSS not available")
-    
-    def search_similar(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
-        """Return empty results in fallback mode"""
-        return []
-    
-    def search_keyword(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
-        """Simple keyword search using database directly"""
-        if not self._conn:
-            return []
-        
-        try:
-            # Simple CONTAINS search
-            result = self._conn.execute("""
-                MATCH (r:RequirementEntity)
-                WHERE r.title CONTAINS $query OR r.description CONTAINS $query
-                RETURN r.id, r.title, r.description
-                LIMIT $k
-            """, {"query": query, "k": k})
-            
-            results = []
-            while result.has_next():
-                row = result.get_next()
-                results.append({
-                    "id": row[0],
-                    "title": row[1],
-                    "content": row[2],
-                    "score": 1.0,
-                    "source": "fts"
-                })
-            return results
-        except Exception as e:
-            print(f"[WARNING] Keyword search failed: {e}")
-            return []
-    
-    def search_hybrid(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
-        """In fallback mode, just do keyword search"""
-        return self.search_keyword(query, k)
 
 
 class VSSSearchAdapter:
@@ -128,7 +80,32 @@ class VSSSearchAdapter:
     
     def search_keyword(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """Keyword search - use database directly"""
-        return FallbackSearchService(self.db_path, self._conn).search_keyword(query, k)
+        if not self._conn:
+            return []
+        
+        try:
+            # Simple CONTAINS search
+            result = self._conn.execute("""
+                MATCH (r:RequirementEntity)
+                WHERE r.title CONTAINS $query OR r.description CONTAINS $query
+                RETURN r.id, r.title, r.description
+                LIMIT $k
+            """, {"query": query, "k": k})
+            
+            results = []
+            while result.has_next():
+                row = result.get_next()
+                results.append({
+                    "id": row[0],
+                    "title": row[1],
+                    "content": row[2],
+                    "score": 1.0,
+                    "source": "fts"
+                })
+            return results
+        except Exception as e:
+            print(f"[WARNING] Keyword search failed: {e}")
+            return []
     
     def search_hybrid(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """Hybrid search combining VSS and keyword search"""
@@ -164,12 +141,21 @@ class SearchAdapter:
         """
         self.db_path = db_path
         self.is_available = SEARCH_MODULES_AVAILABLE
+        self._service = None
+        self._error = None
         
         # Initialize appropriate service based on availability
         if SEARCH_MODULES_AVAILABLE:
             self._service = VSSSearchAdapter(db_path, repository_connection)
         else:
-            self._service = FallbackSearchService(db_path, repository_connection)
+            self._error = {
+                "type": "ModuleNotFoundError",
+                "message": "VSS modules are not available",
+                "details": {
+                    "module": "vss_kuzu",
+                    "install_hint": "VSS functionality requires the vss_kuzu module to be installed"
+                }
+            }
     
     def check_duplicates(self, text: str, k: int = 5, threshold: float = 0.5) -> List[Dict[str, Any]]:
         """
@@ -181,8 +167,11 @@ class SearchAdapter:
             threshold: 類似度の閾値（0.0-1.0）
             
         Returns:
-            重複候補のリスト（スコア順）
+            重複候補のリスト（スコア順）またはエラー
         """
+        if self._error:
+            return [{"error": self._error}]
+            
         # Use hybrid search for best results
         search_results = self._service.search_hybrid(text, k=k)
         
@@ -210,6 +199,10 @@ class SearchAdapter:
         Returns:
             成功時True
         """
+        if self._error:
+            print(f"Cannot add to index: {self._error['message']}")
+            return False
+            
         try:
             self._service.add_requirement(
                 id=requirement["id"],
@@ -223,14 +216,20 @@ class SearchAdapter:
     
     def search_similar(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """類似検索（VSS）を実行"""
+        if self._error:
+            return [{"error": self._error}]
         return self._service.search_similar(query, k=k)
     
     def search_keyword(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """キーワード検索（FTS）を実行"""
+        if self._error:
+            return [{"error": self._error}]
         return self._service.search_keyword(query, k=k)
     
     def search_hybrid(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """ハイブリッド検索（VSS + FTS）を実行"""
+        if self._error:
+            return [{"error": self._error}]
         return self._service.search_hybrid(query, k=k)
     
     def generate_embedding(self, text: str) -> Optional[List[float]]:
