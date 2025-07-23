@@ -3,7 +3,7 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vss-kuzu"
+name = "vss_kuzu"
 version = "0.1.0"
 description = "Vector Similarity Search with KuzuDB - JSON Schema based implementation"
 readme = "README.md"
