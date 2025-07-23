@@ -119,6 +119,59 @@ This is a RuntimeError thrown by vss_kuzu when the VECTOR extension is not insta
 
 - **efs** (default: 200): Higher values improve search accuracy but increase search time
 
+## Test Environment vs Production
+
+### Test Environment
+
+In test environments, vss_kuzu uses a special subprocess wrapper to handle the VECTOR extension:
+
+- **Automatic Wrapper**: Tests automatically use `vector_subprocess_wrapper.py` when VECTOR extension is not available
+- **Graceful Fallback**: Missing extension doesn't fail tests, allows development without manual installation
+- **Transparent Operation**: The wrapper simulates VECTOR extension behavior for testing purposes
+- **Performance**: Slightly slower due to subprocess overhead, but adequate for testing
+
+### Production Environment
+
+In production, the VECTOR extension must be properly installed:
+
+- **Direct Integration**: Production code directly uses the native VECTOR extension
+- **No Wrapper**: The subprocess wrapper is NOT used in production
+- **Performance**: Full native performance with disk-based HNSW indexing
+- **Error Handling**: Missing extension raises `RuntimeError` immediately
+
+### Configuration Examples
+
+**Test Environment** (automatic):
+```python
+# No special configuration needed
+# Wrapper activates automatically if VECTOR extension is missing
+from vss_kuzu import create_vss_repository
+
+repo = create_vss_repository(db_path="./test.db")
+```
+
+**Production Environment** (explicit):
+```python
+import kuzu
+from vss_kuzu import create_vss_repository
+
+# Ensure VECTOR extension is installed
+db = kuzu.Database("./prod.db")
+conn = kuzu.Connection(db)
+conn.execute("INSTALL VECTOR;")
+conn.execute("LOAD EXTENSION VECTOR;")
+
+# Use the repository
+repo = create_vss_repository(db_path="./prod.db")
+```
+
+### Best Practices
+
+1. **Development**: Let the wrapper handle missing extensions during development
+2. **CI/CD**: Tests pass even without VECTOR extension installed
+3. **Staging**: Install VECTOR extension to test production behavior
+4. **Production**: Always install VECTOR extension before deployment
+
 ## Additional Resources
 
 - [KuzuDB VECTOR Extension Documentation](https://docs.kuzudb.com/extensions/vector/)

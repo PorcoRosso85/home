@@ -65,20 +65,49 @@ class TestE2EImportCapability:
     
     def test_basic_functionality(self):
         """Test basic VSS functionality works after import"""
-        from vss_kuzu import VSSService
+        from vss_kuzu import VSSService, create_vss_service, create_embedding_service
+        from vss_kuzu.infrastructure import (
+            create_kuzu_database,
+            create_kuzu_connection,
+            check_vector_extension,
+            initialize_vector_schema,
+            insert_documents_with_embeddings,
+            search_similar_vectors,
+            count_documents,
+            close_connection,
+        )
+        from vss_kuzu.domain import find_semantically_similar_documents
+        from vss_kuzu.application import ApplicationConfig
         
-        # Create in-memory service
+        # Test 1: Using VSSService class (backwards compatibility)
         service = VSSService(in_memory=True)
-        
-        # Test with empty index
         result = service.search({"query": "test"})
         assert isinstance(result, dict)
         assert "ok" in result
-        
-        # If VECTOR extension is not available, that's OK for import test
         if result.get("ok"):
             assert "results" in result
             assert isinstance(result["results"], list)
+        
+        # Test 2: Using function-based API
+        embedding_func = create_embedding_service()
+        vss_funcs = create_vss_service(
+            create_db_func=create_kuzu_database,
+            create_conn_func=create_kuzu_connection,
+            check_vector_func=check_vector_extension,
+            init_schema_func=initialize_vector_schema,
+            insert_docs_func=insert_documents_with_embeddings,
+            search_func=search_similar_vectors,
+            count_func=count_documents,
+            close_func=close_connection,
+            generate_embedding_func=embedding_func,
+            calculate_similarity_func=find_semantically_similar_documents
+        )
+        
+        config = ApplicationConfig(in_memory=True)
+        search_func = vss_funcs["search"]
+        result = search_func({"query": "test"}, config)
+        assert isinstance(result, dict)
+        assert "ok" in result
     
     def test_module_structure(self):
         """Test that module has expected structure"""

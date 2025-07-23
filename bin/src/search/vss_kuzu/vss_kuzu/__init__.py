@@ -5,6 +5,8 @@ This module provides the public interface for the VSS-KuzuDB library.
 All public classes, functions, and types should be imported from this module.
 """
 
+from typing import List, Dict, Any
+
 # Import from new modular architecture
 try:
     # New function-first architecture
@@ -125,7 +127,44 @@ __all__ = [
     
     # Version
     "__version__",
+    
+    # Module-level convenience functions (backwards compatibility)
+    "index_documents",
+    "search_similar",
 ]
+
+# Module-level convenience functions for backwards compatibility
+def index_documents(documents: List[Dict[str, str]], db_path: str = "./kuzu_db", in_memory: bool = False) -> Dict[str, Any]:
+    """
+    便利関数: ドキュメントをインデックスする
+    
+    Args:
+        documents: インデックスするドキュメントのリスト
+        db_path: データベースパス（デフォルト: "./kuzu_db"）
+        in_memory: インメモリデータベースを使用するか（デフォルト: False）
+    
+    Returns:
+        インデックス結果を含む辞書
+    """
+    service = VSSService(db_path=db_path, in_memory=in_memory)
+    return service.index_documents(documents)
+
+
+def search_similar(query: str, k: int = 10, db_path: str = "./kuzu_db", in_memory: bool = False) -> List[Dict[str, Any]]:
+    """
+    便利関数: 類似ドキュメントを検索する
+    
+    Args:
+        query: 検索クエリ
+        k: 返す結果の最大数（デフォルト: 10）
+        db_path: データベースパス（デフォルト: "./kuzu_db"）
+        in_memory: インメモリデータベースを使用するか（デフォルト: False）
+    
+    Returns:
+        検索結果のリスト
+    """
+    service = VSSService(db_path=db_path, in_memory=in_memory)
+    return service.search_similar(query, k)
 
 # Module metadata
 __doc__ = """

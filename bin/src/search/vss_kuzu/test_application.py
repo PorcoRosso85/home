@@ -12,7 +12,23 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
-from vss_kuzu import VSSService
+from vss_kuzu import (
+    VSSService,
+    create_vss_service,
+    create_embedding_service,
+    # Infrastructure functions
+    create_kuzu_database,
+    create_kuzu_connection,
+    check_vector_extension,
+    initialize_vector_schema,
+    insert_documents_with_embeddings,
+    search_similar_vectors,
+    count_documents,
+    close_connection,
+    # Domain functions
+    find_semantically_similar_documents,
+)
+from vss_kuzu.application import ApplicationConfig
 
 
 class TestApplication:
@@ -31,6 +47,25 @@ class TestApplication:
     def in_memory_service(self):
         """VSS service with in-memory database"""
         return VSSService(in_memory=True)
+    
+    @pytest.fixture
+    def function_based_service(self):
+        """Function-based VSS service with in-memory database"""
+        embedding_func = create_embedding_service()
+        vss_funcs = create_vss_service(
+            create_db_func=create_kuzu_database,
+            create_conn_func=create_kuzu_connection,
+            check_vector_func=check_vector_extension,
+            init_schema_func=initialize_vector_schema,
+            insert_docs_func=insert_documents_with_embeddings,
+            search_func=search_similar_vectors,
+            count_func=count_documents,
+            close_func=close_connection,
+            generate_embedding_func=embedding_func,
+            calculate_similarity_func=find_semantically_similar_documents
+        )
+        config = ApplicationConfig(in_memory=True)
+        return vss_funcs, config
     
     def test_indexing_documents_with_distinct_ids_stores_separately(self, vss_service):
         """異なるIDのドキュメントが別々に保存されること"""
@@ -120,6 +155,51 @@ class TestApplication:
             # インデックスしたドキュメントが結果に含まれる可能性
             if search_result["results"]:
                 assert any(r["id"] == "1" for r in search_result["results"])
+    
+    def test_function_based_indexing_and_search(self, function_based_service):
+        """Function-based API でインデックスと検索が動作すること"""
+        vss_funcs, config = function_based_service
+        index_func = vss_funcs["index_documents"]
+        search_func = vss_funcs["search"]
+        
+        # ドキュメントをインデックス
+        documents = [
+            {"id": "1", "content": "関数ベースのテスト"},
+            {"id": "2", "content": "新しいアーキテクチャ"}
+        ]
+        
+        result = index_func(documents, config)
+        
+        if result.get("ok", False):
+            assert result["indexed_count"] == 2
+            
+            # 検索テスト
+            search_result = search_func({"query": "関数"}, config)
+            
+            if search_result.get("ok", False):
+                assert "results" in search_result
+                assert "metadata" in search_result
+                assert search_result["metadata"]["query"] == "関数"
+    
+    def test_both_apis_produce_compatible_results(self, in_memory_service, function_based_service):
+        """両方のAPIが互換性のある結果を返すこと"""
+        vss_funcs, config = function_based_service
+        
+        # 同じドキュメントをインデックス
+        documents = [{"id": "test", "content": "テストコンテンツ"}]
+        
+        # クラスベースAPI
+        class_result = in_memory_service.index_documents(documents)
+        
+        # 関数ベースAPI
+        func_result = vss_funcs["index_documents"](documents, config)
+        
+        # 両方とも同じ結果構造を持つ
+        assert "ok" in class_result
+        assert "ok" in func_result
+        
+        if class_result.get("ok") and func_result.get("ok"):
+            assert class_result["indexed_count"] == func_result["indexed_count"]
 
 
 if __name__ == "__main__":

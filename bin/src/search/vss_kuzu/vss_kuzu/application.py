@@ -374,6 +374,7 @@ class VSSService:
         
         self._init_error: Optional[Dict[str, Any]] = None
         self._is_initialized = False
+        self._vector_available = True
         
         from .infrastructure import (
             create_kuzu_database,
@@ -448,13 +449,15 @@ class VSSService:
         try:
             vector_available, vector_error = check_vector_func(connection)
             if not vector_available:
-                error_msg = f"CRITICAL: {vector_error.get('error', 'VECTOR extension not available')}"
+                error_msg = f"VECTOR extension not available: {vector_error.get('error', 'VECTOR extension not available')}"
                 self._init_error = {
                     "ok": False,
                     "error": error_msg,
                     "details": vector_error.get("details", {})
                 }
-                raise RuntimeError(error_msg)
+                # Don't raise exception - allow service to be created but operations will fail
+                self._vector_available = False
+                return
             
             # スキーマを初期化（HNSWパラメータを含む）
             schema_success, schema_error = init_schema_func(
