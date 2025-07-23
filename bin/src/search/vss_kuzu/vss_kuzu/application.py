@@ -22,11 +22,10 @@ class ApplicationConfig:
     in_memory: bool = False
     embedding_dimension: int = 256
     default_limit: int = 10
-    # HNSW インデックスパラメータ
-    index_mu: int = 30  # 上位グラフの最大次数
-    index_ml: int = 60  # 下位グラフの最大次数
-    index_metric: str = 'cosine'  # 距離計算関数
-    index_efc: int = 200  # インデックス構築時の候補頂点数
+    index_mu: int = 30
+    index_ml: int = 60
+    index_metric: str = 'cosine'
+    index_efc: int = 200
 
 
 def create_vss_service(
@@ -259,7 +258,6 @@ def create_vss_service(
                     "details": search_error["details"]
                 }
             
-            # 結果を変換（distanceをscoreに）
             results = []
             for row in db_results:
                 score = 1.0 - row["distance"]
@@ -285,7 +283,6 @@ def create_vss_service(
         finally:
             close_func(connection)
     
-    # 返す関数群
     return {
         "index_documents": index_documents,
         "search": search
@@ -302,59 +299,48 @@ def create_embedding_service(model_name: str = "cl-nagoya/ruri-v3-30m") -> Embed
     Returns:
         埋め込み生成関数
     """
-    # Try to use sentence-transformers if available
     try:
         from sentence_transformers import SentenceTransformer
         model = SentenceTransformer(model_name)
         
-        # Get the embedding dimension from the model
         embedding_dim = model.get_sentence_embedding_dimension()
         
         def generate_embedding_with_model(text: str) -> List[float]:
             """
             sentence-transformersを使用して埋め込みを生成
             """
-            # Generate embedding
             embedding = model.encode(text, convert_to_numpy=True)
             return embedding.tolist()
         
-        # Set the embedding dimension as an attribute of the function
         generate_embedding_with_model.dimension = embedding_dim
         
         return generate_embedding_with_model
         
     except ImportError:
-        # Fallback to deterministic dummy implementation
         def generate_embedding(text: str) -> List[float]:
             """
             テキストから埋め込みベクトルを生成する（フォールバック実装）
             
             sentence-transformersが利用できない場合のダミー実装
             """
-            # ダミー実装：256次元のランダムベクトル
             import hashlib
             import struct
             
-            # テキストのハッシュからシードを生成
             hash_obj = hashlib.sha256(text.encode('utf-8'))
             hash_bytes = hash_obj.digest()
             
-            # ハッシュから浮動小数点数を生成
             embedding = []
             for i in range(0, min(len(hash_bytes), 256 * 4), 4):
                 if i + 4 <= len(hash_bytes):
-                    # 4バイトを符号なし整数として解釈し、正規化
                     value = struct.unpack('I', hash_bytes[i:i+4])[0]
-                    normalized = (value / (2**32 - 1)) * 2 - 1  # -1 to 1
+                    normalized = (value / (2**32 - 1)) * 2 - 1
                     embedding.append(normalized)
             
-            # 256次元に調整
             while len(embedding) < 256:
                 embedding.append(0.0)
             
             return embedding[:256]
         
-        # Set default dimension for fallback
         generate_embedding.dimension = 256
         
         return generate_embedding
@@ -377,7 +363,6 @@ class VSSService:
             in_memory: インメモリデータベースを使用するか
             model_name: 使用する埋め込みモデル名
         """
-        # 埋め込みサービスを作成し、次元数を取得
         embedding_func = create_embedding_service(model_name)
         embedding_dimension = getattr(embedding_func, 'dimension', 256)
         
@@ -387,11 +372,9 @@ class VSSService:
             embedding_dimension=embedding_dimension
         )
         
-        # 初期化エラーを保持
         self._init_error: Optional[Dict[str, Any]] = None
         self._is_initialized = False
         
-        # 依存関数をインポート
         from .infrastructure import (
             create_kuzu_database,
             create_kuzu_connection,
@@ -406,7 +389,6 @@ class VSSService:
         
         from .domain import find_semantically_similar_documents
         
-        # VSSサービスを作成
         self._service_funcs = create_vss_service(
             create_db_func=create_kuzu_database,
             create_conn_func=create_kuzu_connection,
@@ -420,7 +402,6 @@ class VSSService:
             calculate_similarity_func=find_semantically_similar_documents
         )
         
-        # 初期化時にデータベース接続とスキーマをテスト
         self._test_initialization(
             create_kuzu_database,
             create_kuzu_connection,
@@ -446,7 +427,6 @@ class VSSService:
             embedding_dimension=self.config.embedding_dimension
         )
         
-        # データベース作成を試みる
         db_success, database, db_error = create_db_func(db_config)
         if not db_success:
             self._init_error = {
@@ -456,7 +436,6 @@ class VSSService:
             }
             return
         
-        # 接続を作成
         conn_success, connection, conn_error = create_conn_func(database)
         if not conn_success:
             self._init_error = {
@@ -467,7 +446,6 @@ class VSSService:
             return
         
         try:
-            # VECTOR拡張を確認
             vector_available, vector_error = check_vector_func(connection)
             if not vector_available:
                 error_msg = f"CRITICAL: {vector_error.get('error', 'VECTOR extension not available')}"
@@ -476,7 +454,6 @@ class VSSService:
                     "error": error_msg,
                     "details": vector_error.get("details", {})
                 }
-                # VSSのコア機能なので、RuntimeErrorを投げる
                 raise RuntimeError(error_msg)
             
             # スキーマを初期化（HNSWパラメータを含む）
@@ -496,11 +473,9 @@ class VSSService:
                 }
                 return
             
-            # 初期化成功
             self._is_initialized = True
             
         finally:
-            # 接続をクローズ
             close_func(connection)
     
     def _check_initialized(self) -> Optional[Dict[str, Any]]:
@@ -520,7 +495,6 @@ class VSSService:
     
     def index_documents(self, documents: List[Dict[str, str]]) -> Dict[str, Any]:
         """ドキュメントをインデックス"""
-        # 初期化チェック
         init_error = self._check_initialized()
         if init_error:
             return init_error
@@ -529,7 +503,6 @@ class VSSService:
     
     def search(self, search_input: Dict[str, Any]) -> Dict[str, Any]:
         """類似ドキュメントを検索"""
-        # 初期化チェック
         init_error = self._check_initialized()
         if init_error:
             return init_error

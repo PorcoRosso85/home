@@ -11,16 +11,13 @@ import time
 from pathlib import Path
 from dataclasses import dataclass
 
-# KuzuDB imports
 try:
     from kuzu_py import create_database, create_connection
 except ImportError:
-    # For testing without actual kuzu_py
     create_database = None
     create_connection = None
 
 
-# Constants
 VECTOR_EXTENSION_NAME = 'VECTOR'
 DOCUMENT_TABLE_NAME = 'Document'
 DOCUMENT_EMBEDDING_INDEX_NAME = 'doc_embedding_index'
@@ -59,7 +56,6 @@ def create_kuzu_database(config: DatabaseConfig) -> Tuple[bool, Optional[Any], O
         db_path = IN_MEMORY_DB_PATH if config.in_memory else config.db_path
         db = create_database(db_path)
         
-        # Check if it's an error response
         if hasattr(db, 'get') and db.get("ok") is False:
             return False, None, {
                 "error": db.get("error", "Unknown error"),
@@ -100,7 +96,6 @@ def create_kuzu_connection(database: Any) -> Tuple[bool, Optional[Any], Optional
     try:
         conn = create_connection(database)
         
-        # Check if it's an error response
         if hasattr(conn, 'get') and conn.get("ok") is False:
             return False, None, {
                 "error": conn.get("error", "Unknown error"),
@@ -157,11 +152,8 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
         (is_available, error_info)
     """
     try:
-        # First try to check if extension is already loaded
-        # by attempting to create a temporary vector index
         test_table = "_vector_test_" + str(int(time.time() * 1000))
         try:
-            # Create a temporary table with vector
             connection.execute(f"""
                 CREATE NODE TABLE IF NOT EXISTS {test_table} (
                     id INT64,
@@ -170,20 +162,16 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
                 )
             """)
             
-            # Try to create a vector index
             connection.execute(f"""
                 CREATE VECTOR INDEX IF NOT EXISTS {test_table}_idx 
                 ON {test_table}(embedding)
             """)
             
-            # Clean up
             connection.execute(f"DROP TABLE {test_table}")
             
-            # If we get here, VECTOR extension is available
             return True, None
             
         except Exception:
-            # Try to clean up if table was created
             try:
                 connection.execute(f"DROP TABLE IF EXISTS {test_table}")
             except:
@@ -192,13 +180,10 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
         
     except Exception as e:
         error_msg = str(e)
-        # Check for various error patterns that indicate missing VECTOR extension
         if any(pattern in error_msg for pattern in ["Extension", "CREATE VECTOR INDEX", "does not exist", "unknown function"]):
-            # Try to install the extension
             install_success, install_error = install_vector_extension(connection)
             
             if install_success:
-                # Verify the extension works now
                 return check_vector_extension(connection)
             else:
                 return False, {
@@ -255,7 +240,6 @@ def initialize_vector_schema(
         """
         connection.execute(create_table_query)
         
-        # Create vector index with HNSW parameters
         create_index_query = f"""
             CALL CREATE_VECTOR_INDEX(
                 '{DOCUMENT_TABLE_NAME}',
@@ -316,7 +300,6 @@ def insert_documents_with_embeddings(
     
     try:
         for doc_id, content, embedding in documents:
-            # Validate embedding dimension
             if len(embedding) != EMBEDDING_DIMENSION:
                 return False, inserted_count, {
                     "error": f"Invalid embedding dimension",
@@ -327,7 +310,6 @@ def insert_documents_with_embeddings(
                     }
                 }
             
-            # Insert or update document
             query = f"""
                 MERGE (d:{DOCUMENT_TABLE_NAME} {{id: $id}})
                 SET d.content = $content, d.embedding = $embedding
@@ -383,7 +365,6 @@ def search_similar_vectors(
         (success, results, error_info)
     """
     try:
-        # Validate query vector dimension
         if len(query_vector) != EMBEDDING_DIMENSION:
             return False, [], {
                 "error": "Invalid query vector dimension",
@@ -393,8 +374,6 @@ def search_similar_vectors(
                 }
             }
         
-        # Search using VECTOR extension's QUERY_VECTOR_INDEX
-        # Use QUERY_VECTOR_INDEX function with efs parameter
         result = connection.execute(f"""
             CALL QUERY_VECTOR_INDEX(
                 '{DOCUMENT_TABLE_NAME}',
@@ -416,7 +395,6 @@ def search_similar_vectors(
             node = row[0]  # node object
             distance = row[1]  # distance value
             
-            # Extract node properties
             results.append({
                 "id": node.get("id"),
                 "content": node.get("content"),
@@ -507,5 +485,4 @@ def close_connection(connection: Any) -> None:
         try:
             connection.close()
         except Exception:
-            # Ignore errors when closing
             pass
