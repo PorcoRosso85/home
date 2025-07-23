@@ -22,6 +22,14 @@
       "description": "Caller location (file:line)",
       "pattern": "^.+:[0-9]+$"
     },
+    "uri": {
+      "type": "string",
+      "description": "Resource URI"
+    },
+    "module": {
+      "type": "string",
+      "description": "Module name"
+    },
     "type": {
       "type": "string",
       "enum": ["result", "error", "info", "warning", "log"],

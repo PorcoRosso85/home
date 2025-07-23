@@ -5,7 +5,7 @@
 """
 from typing import Dict, Any
 from datetime import datetime
-from domain.error_types import UserFriendlyError, ErrorExample, RecoveryGuidance
+from ..domain.error_types import UserFriendlyError, ErrorExample, RecoveryGuidance
 
 
 def create_error_handler() -> Dict[str, Any]:

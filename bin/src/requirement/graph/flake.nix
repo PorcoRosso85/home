@@ -19,15 +19,15 @@
         
         # VSS/FTSパッケージの取得（flake経由）
         vssKuzuPkg = vss-kuzu.packages.${system}.vssKuzu;
-        # ftsKuzuPkg = fts-kuzu.packages.${system}.ftsKuzu;  # 後で追加
+        ftsKuzuPkg = fts-kuzu.packages.${system}.default;  # FTSパッケージを有効化
         
         # Python環境 - flake経由でパッケージを統合
         pythonEnv = pkgs.python312.withPackages (ps: [
           # kuzu本体
           ps.kuzu
           # VSS/FTSパッケージ（flake経由）- kuzu_pyを含む
-          vssKuzuPkg
-          # ftsKuzuPkg  # 後で追加
+          # vssKuzuPkg  # 一時的に無効化（ビルドエラー回避）
+          ftsKuzuPkg  # FTSパッケージを追加
           ps.pytest
           # 追加の依存関係
           ps.numpy

@@ -11,16 +11,27 @@ from typing import List, Dict, Any, Optional
 
 # Try to import semantic search modules
 SEARCH_MODULES_AVAILABLE = False
-VSSService = None
 
 try:
-    # Try to import vss_kuzu if it's installed as a package
-    from vss_kuzu import VSSService, VectorSearchResult
+    # Try to import vss_kuzu function-based API
+    from vss_kuzu import (
+        create_config,
+        create_kuzu_database,
+        create_kuzu_connection,
+        check_vector_extension,
+        initialize_vector_schema,
+        insert_documents_with_embeddings,
+        search_similar_vectors,
+        create_embedding_service,
+        close_connection,
+        DatabaseConfig,
+        VectorSearchResult
+    )
     SEARCH_MODULES_AVAILABLE = True
     print(f"[INFO] VSS modules loaded successfully")
 except ImportError as e:
-    # Log the error but don't fail - we'll provide a fallback
-    print(f"[WARNING] VSS modules not available - using fallback search: {e}")
+    # Log the error but don't fail - we'll provide an error
+    print(f"[WARNING] VSS modules not available: {e}")
 
 
 
@@ -31,49 +42,119 @@ class VSSSearchAdapter:
     def __init__(self, db_path: str, existing_connection=None):
         self.db_path = db_path
         self._conn = existing_connection
-        self._vss_service = None
+        self._vss_db = None
+        self._vss_conn = None
+        self._embedding_func = None
+        self._is_initialized = False
         
-        if SEARCH_MODULES_AVAILABLE and VSSService:
+        if SEARCH_MODULES_AVAILABLE:
             try:
-                # Initialize VSS service
-                self._vss_service = VSSService(db_path=db_path)
+                # Initialize VSS with function-based API
+                config = create_config(db_path=db_path, in_memory=False)
+                db_config = DatabaseConfig(
+                    db_path=config.db_path,
+                    in_memory=config.in_memory,
+                    embedding_dimension=config.embedding_dimension
+                )
+                
+                # Create database connection
+                success, self._vss_db, error = create_kuzu_database(db_config)
+                if not success:
+                    print(f"[WARNING] Failed to create VSS database: {error}")
+                    return
+                
+                success, self._vss_conn, error = create_kuzu_connection(self._vss_db)
+                if not success:
+                    print(f"[WARNING] Failed to create VSS connection: {error}")
+                    return
+                
+                # Check vector extension
+                vector_available, error = check_vector_extension(self._vss_conn)
+                if not vector_available:
+                    print(f"[WARNING] VECTOR extension not available: {error}")
+                    return
+                
+                # Initialize schema
+                success, error = initialize_vector_schema(
+                    self._vss_conn,
+                    config.embedding_dimension
+                )
+                if not success:
+                    print(f"[WARNING] Failed to initialize VSS schema: {error}")
+                    return
+                
+                # Create embedding service
+                self._embedding_func = create_embedding_service(config.model_name)
+                self._is_initialized = True
                 print("[INFO] VSS service initialized successfully")
             except Exception as e:
                 print(f"[WARNING] Failed to initialize VSS service: {e}")
     
     def add_requirement(self, id: str, title: str, content: str) -> None:
         """Add requirement to VSS index"""
-        if not self._vss_service:
+        if not self._is_initialized:
             print(f"[WARNING] Cannot add requirement {id} - VSS not initialized")
             return
         
         try:
             # Combine title and content for indexing
             full_text = f"{title} {content}"
-            # VSS service expects document_id and content
-            self._vss_service.add_document(document_id=id, content=full_text)
-            print(f"[DEBUG] Added requirement {id} to VSS index")
+            # Generate embedding
+            embedding = self._embedding_func(full_text)
+            
+            # Insert document with embedding
+            success, count, error = insert_documents_with_embeddings(
+                self._vss_conn,
+                [(id, full_text, embedding)]
+            )
+            
+            if success:
+                print(f"[DEBUG] Added requirement {id} to VSS index")
+            else:
+                print(f"[WARNING] Failed to add to VSS index: {error}")
         except Exception as e:
             print(f"[WARNING] Failed to add to VSS index: {e}")
     
+    def __del__(self):
+        """Cleanup VSS connection on deletion"""
+        if self._vss_conn:
+            try:
+                close_connection(self._vss_conn)
+            except:
+                pass
+    
     def search_similar(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """Vector similarity search"""
-        if not self._vss_service:
+        if not self._is_initialized:
             return []
         
         try:
-            results = self._vss_service.search_similar(query=query, k=k)
-            # Convert VectorSearchResult to our format
-            return [
-                {
-                    "id": r.document_id,
+            # Generate query embedding
+            query_embedding = self._embedding_func(query)
+            
+            # Search similar vectors
+            success, results, error = search_similar_vectors(
+                self._vss_conn,
+                query_embedding,
+                limit=k
+            )
+            
+            if not success:
+                print(f"[WARNING] VSS search failed: {error}")
+                return []
+            
+            # Convert results to our format
+            formatted_results = []
+            for r in results:
+                formatted_results.append({
+                    "id": r["id"],
                     "title": "",  # VSS doesn't store title separately
-                    "content": r.content,
-                    "score": r.score,
+                    "content": r["content"],
+                    "score": 1.0 - r["distance"],  # Convert distance to similarity
                     "source": "vss"
-                }
-                for r in results
-            ]
+                })
+            
+            return formatted_results
         except Exception as e:
             print(f"[WARNING] VSS search failed: {e}")
             return []

@@ -2,21 +2,16 @@
 KuzuDB Repository - グラフデータベース永続化
 依存: domain, application
 外部依存: kuzu
-
-TODO: リポジトリ層のクエリ管理改善
-- 現在: クエリが関数内に直接記述されている
-- 理想: query/dml, query/dqlからクエリを読み込む
-- 例: query_loader.load("dql/get_requirement_history.cypher")
-- 利点: クエリの再利用性向上、テスト容易性向上
 """
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 
 # 相対インポートのみ使用
 from .variables import get_db_path, should_skip_schema_check
 from .logger import debug, info
+from ..domain.errors import DatabaseError, EnvironmentConfigError, ValidationError, NotFoundError
 
 
-def create_kuzu_repository(db_path: str = None) -> Dict:
+def create_kuzu_repository(db_path: str = None) -> Union[Dict, Dict[str, Any]]:
     """
     KuzuDBベースのリポジトリを作成
 
@@ -35,7 +30,8 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     if db_path is None:
         db_path = get_db_path()  # RGL_DATABASE_PATH または RGL_DB_PATH から取得
         if isinstance(db_path, dict) and db_path.get("type") == "EnvironmentConfigError":
-            raise EnvironmentError(f"Environment configuration error: {db_path['message']}")
+            # エラーを呼び出し元に返す
+            return db_path
         info("rgl.repo", "Using database path from environment", db_path=db_path)
 
     debug("rgl.repo", "Using database path", path=str(db_path))
@@ -52,13 +48,15 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
     
     # エラーチェック
     if isinstance(db, dict) and db.get("type") == "DatabaseError":
-        raise RuntimeError(f"Database creation failed: {db['message']}")
+        # エラーを呼び出し元に返す
+        return db
 
     conn = create_connection(db)
     
     # エラーチェック
     if isinstance(conn, dict) and conn.get("type") == "DatabaseError":
-        raise RuntimeError(f"Connection creation failed: {conn['message']}")
+        # エラーを呼び出し元に返す
+        return conn
 
     def init_schema():
         """スキーマ初期化 - graph/ddl/schema.cypherは事前適用済みと仮定"""
@@ -66,12 +64,23 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         # 必要に応じて存在確認のみ実施
         try:
             conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
-        except:
-            raise RuntimeError("Schema not initialized. Run apply_ddl_schema.py first")
+            return None  # 成功
+        except Exception as e:
+            return DatabaseError(
+                type="DatabaseError",
+                message="Schema not initialized. Run apply_ddl_schema.py first",
+                operation="schema_check",
+                database_name=str(db_path),
+                error_code="SCHEMA_NOT_INITIALIZED",
+                details={"error": str(e)}
+            )
 
     # 初回はスキーマ作成（テスト時はスキップ可能）
     if not should_skip_schema_check():
-        init_schema()
+        schema_result = init_schema()
+        if schema_result is not None:
+            # スキーマ初期化エラー
+            return schema_result
 
     # 階層処理用UDFを登録（削除済み）
     # from .hierarchy_udfs import register_hierarchy_udfs
@@ -154,8 +163,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                             })
 
             # バージョン番号を計算
-            # TODO: HAS_VERSION削除後の修正が必要
-            # 新方式: MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l:LocationURI {id: CONCAT('req://', $id)})
             if is_new:
                 version_num = 1
             else:
@@ -182,11 +189,13 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 """, {"parent_id": parent_id})
 
                 if not parent_check.has_next() or not parent_check.get_next()[0]:
-                    return {
-                        "type": "DecisionNotFoundError",
-                        "message": f"Parent requirement {parent_id} not found",
-                        "decision_id": parent_id
-                    }
+                    return ValidationError(
+                        type="ValidationError",
+                        message=f"Parent requirement {parent_id} not found",
+                        field="parent_id",
+                        value=parent_id,
+                        constraint="parent_exists"
+                    )
 
                 # 親のLocationURIを取得して階層関係を作成
                 parent_uri = location_uri.rsplit('/', 1)[0]  # 親パスを推定
@@ -213,11 +222,14 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             return decision
 
         except Exception as e:
-            return {
-                "type": "DatabaseError",
-                "message": f"Failed to save requirement: {str(e)}",
-                "decision_id": decision["id"]
-            }
+            return DatabaseError(
+                type="DatabaseError",
+                message=f"Failed to save requirement: {str(e)}",
+                operation="save",
+                database_name=str(db_path),
+                error_code="SAVE_FAILED",
+                details={"decision_id": decision["id"], "error": str(e)}
+            )
 
     def find(requirement_id: str) -> Dict[str, Any]:
         """IDで要件を検索（最新バージョンを返す）"""
@@ -252,18 +264,23 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                     "status": node["status"]
                 }
 
-            return {
-                "type": "DecisionNotFoundError",
-                "message": f"Requirement {requirement_id} not found",
-                "decision_id": requirement_id
-            }
+            return NotFoundError(
+                type="NotFoundError",
+                message=f"Requirement {requirement_id} not found",
+                resource_type="requirement",
+                resource_id=requirement_id,
+                search_criteria={"id": requirement_id}
+            )
 
         except Exception as e:
-            return {
-                "type": "DatabaseError",
-                "message": f"Failed to find requirement: {str(e)}",
-                "decision_id": requirement_id
-            }
+            return DatabaseError(
+                type="DatabaseError",
+                message=f"Failed to find requirement: {str(e)}",
+                operation="find",
+                database_name=str(db_path),
+                error_code="FIND_FAILED",
+                details={"requirement_id": requirement_id, "error": str(e)}
+            )
 
     def find_all() -> List[Dict[str, Any]]:
         """全要件を取得"""
@@ -296,11 +313,13 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         try:
             # 自己依存チェック
             if from_id == to_id:
-                return {
-                    "type": "ConstraintViolationError",
-                    "message": f"Self dependency not allowed: {from_id} -> {to_id}",
-                    "constraint": "no_circular_dependency"
-                }
+                return ValidationError(
+                    type="ValidationError",
+                    message=f"Self dependency not allowed: {from_id} -> {to_id}",
+                    field="dependency",
+                    value=f"{from_id} -> {to_id}",
+                    constraint="no_self_dependency"
+                )
 
             # 循環依存チェック
             # from_id → to_id を追加すると、to_id → ... → from_id のパスがあれば循環
@@ -310,11 +329,13 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             """, {"from_id": from_id, "to_id": to_id})
 
             if cycle_check.has_next() and cycle_check.get_next()[0]:
-                return {
-                    "type": "ConstraintViolationError",
-                    "message": f"Circular dependency detected: {from_id} -> {to_id}",
-                    "constraint": "no_circular_dependency"
-                }
+                return ValidationError(
+                    type="ValidationError",
+                    message=f"Circular dependency detected: {from_id} -> {to_id}",
+                    field="dependency",
+                    value=f"{from_id} -> {to_id}",
+                    constraint="no_circular_dependency"
+                )
 
             # 既存の依存関係を確認
             existing_dep = conn.execute("""
@@ -342,12 +363,14 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
             return {"success": True, "from": from_id, "to": to_id}
 
         except Exception as e:
-            return {
-                "type": "DatabaseError",
-                "message": f"Failed to add dependency: {str(e)}",
-                "from_id": from_id,
-                "to_id": to_id
-            }
+            return DatabaseError(
+                type="DatabaseError",
+                message=f"Failed to add dependency: {str(e)}",
+                operation="add_dependency",
+                database_name=str(db_path),
+                error_code="DEPENDENCY_FAILED",
+                details={"from_id": from_id, "to_id": to_id, "error": str(e)}
+            )
 
     def find_dependencies(requirement_id: str, depth: int = 1) -> List[Dict]:
         """依存関係を検索"""
@@ -384,7 +407,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
 
     def search(query: str, threshold: float = 0.7) -> List[Dict[str, Any]]:
         """埋め込みベクトルを使った類似検索"""
-        # TODO: ベクトル検索の実装
         # 簡易実装: タイトルと説明文で部分一致検索
         try:
             result = conn.execute("""
@@ -498,11 +520,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         Returns:
             変更履歴のリスト
         """
-        # TODO: HAS_VERSION削除後の修正が必要
-        # 新方式:
-        # MATCH (l:LocationURI {id: CONCAT('req://', $req_id)})
-        # MATCH (v:VersionState)-[:TRACKS_STATE_OF]->(l)
-        # MATCH (l)-[:LOCATES]->(r:RequirementEntity)
         try:
             result = conn.execute("""
                 MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)
@@ -553,8 +570,6 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
         Returns:
             その時点での要件状態
         """
-        # TODO: HAS_VERSION削除後の修正が必要
-        # 新方式: VersionState → LocationURI → RequirementEntity
         try:
             result = conn.execute("""
                 MATCH (r:RequirementEntity {id: $req_id})-[:HAS_VERSION]->(v:VersionState)
@@ -592,7 +607,14 @@ def create_kuzu_repository(db_path: str = None) -> Dict:
                 data.append(result.get_next())
             return {"data": data, "status": "success"}
         except Exception as e:
-            return {"error": {"type": "ExecutionError", "message": str(e)}, "status": "error"}
+            return DatabaseError(
+                type="DatabaseError",
+                message=f"Query execution failed: {str(e)}",
+                operation="execute",
+                database_name=str(db_path),
+                error_code="QUERY_FAILED",
+                details={"query": query[:200], "error": str(e)}
+            )
 
     return {
         "save": save,

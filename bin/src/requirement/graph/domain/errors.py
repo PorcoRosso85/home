@@ -47,3 +47,35 @@ class ImportError(TypedDict):
     import_path: Optional[str]
     available_modules: Optional[List[str]]
     suggestion: Optional[str]
+
+
+# Validation Error
+class ValidationError(TypedDict):
+    """Validation error for input data"""
+    type: Literal["ValidationError"]
+    message: str
+    field: str
+    value: Any
+    constraint: str  # e.g., "required", "max_length", "format"
+    expected: Optional[str]
+
+
+# Not Found Error
+class NotFoundError(TypedDict):
+    """Resource not found error"""
+    type: Literal["NotFoundError"]
+    message: str
+    resource_type: str  # e.g., "requirement", "dependency", "version"
+    resource_id: str
+    search_criteria: Optional[Dict[str, Any]]
+
+
+# Constraint Violation Error
+class ConstraintViolationError(TypedDict):
+    """Constraint violation error"""
+    type: Literal["ConstraintViolationError"]
+    message: str
+    constraint: str  # e.g., "unique", "foreign_key", "check"
+    table: Optional[str]
+    field: Optional[str]
+    value: Optional[Any]

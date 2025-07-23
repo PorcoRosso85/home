@@ -3,4 +3,17 @@
 # from . import scoring_rules
 # from . import friction_rules
 
-__all__ = []
+from .errors import (
+    EnvironmentConfigError,
+    DatabaseError,
+    FileOperationError,
+    ImportError
+)
+
+__all__ = [
+    # Error types
+    "EnvironmentConfigError",
+    "DatabaseError", 
+    "FileOperationError",
+    "ImportError"
+]

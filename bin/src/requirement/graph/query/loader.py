@@ -6,8 +6,9 @@
 - module_design.md: 1ファイル1機能、純粋関数優先
 - layered_architecture.md: インフラストラクチャ層のデータアクセス
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from pathlib import Path
+from ..domain.errors import FileOperationError, ValidationError, NotFoundError
 
 
 class QueryLoader:
@@ -28,7 +29,7 @@ class QueryLoader:
         self.dml_dir = self.query_dir / "dml"
         self.dql_dir = self.query_dir / "dql"
 
-    def load_query(self, query_name: str, query_type: str = "auto") -> str:
+    def load_query(self, query_name: str, query_type: str = "auto") -> Union[str, FileOperationError, ValidationError, NotFoundError]:
         """
         クエリファイルを読み込み
         
@@ -49,21 +50,40 @@ class QueryLoader:
                 if query_path.exists():
                     return self._read_query_file(query_path)
 
-            raise FileNotFoundError(f"Query '{query_name}' not found in dml or dql directories")
+            return NotFoundError(
+                type="NotFoundError",
+                message=f"Query '{query_name}' not found in dml or dql directories",
+                resource_type="query",
+                resource_id=query_name,
+                search_criteria={"directories": [str(self.dml_dir), str(self.dql_dir)]}
+            )
 
         elif query_type == "dml":
             query_path = self.dml_dir / f"{query_name}.cypher"
         elif query_type == "dql":
             query_path = self.dql_dir / f"{query_name}.cypher"
         else:
-            raise ValueError(f"Invalid query_type: {query_type}. Use 'dml', 'dql', or 'auto'")
+            return ValidationError(
+                type="ValidationError",
+                message=f"Invalid query_type: {query_type}. Use 'dml', 'dql', or 'auto'",
+                field="query_type",
+                value=query_type,
+                constraint="valid_type",
+                expected="dml, dql, or auto"
+            )
 
         if not query_path.exists():
-            raise FileNotFoundError(f"Query file not found: {query_path}")
+            return FileOperationError(
+                type="FileOperationError",
+                message=f"Query file not found: {query_path}",
+                operation="read",
+                file_path=str(query_path),
+                exists=False
+            )
 
         return self._read_query_file(query_path)
 
-    def _read_query_file(self, query_path: Path) -> str:
+    def _read_query_file(self, query_path: Path) -> Union[str, FileOperationError, ValidationError]:
         """
         クエリファイルを安全に読み込み
         
@@ -88,15 +108,27 @@ class QueryLoader:
             query = '\n'.join(query_lines).strip()
 
             if not query:
-                raise ValueError(f"Empty query file: {query_path}")
+                return ValidationError(
+                    type="ValidationError",
+                    message=f"Empty query file: {query_path}",
+                    field="query_content",
+                    value="",
+                    constraint="non_empty"
+                )
 
             return query
 
         except Exception as e:
-            raise RuntimeError(f"Failed to read query file {query_path}: {e}")
+            return FileOperationError(
+                type="FileOperationError",
+                message=f"Failed to read query file {query_path}: {e}",
+                operation="read",
+                file_path=str(query_path),
+                permission_issue=False
+            )
 
     def execute_query(self, repository: Dict[str, Any], query_name: str,
-                     params: Dict[str, Any], query_type: str = "auto") -> Dict[str, Any]:
+                     params: Dict[str, Any], query_type: str = "auto") -> Union[Dict[str, Any], FileOperationError, ValidationError, NotFoundError]:
         """
         クエリを読み込んで実行（推奨インターフェース）
         
@@ -109,8 +141,13 @@ class QueryLoader:
         Returns:
             実行結果
         """
-        query = self.load_query(query_name, query_type)
-        return repository["execute"](query, params)
+        query_result = self.load_query(query_name, query_type)
+        
+        # Check if query loading returned an error
+        if isinstance(query_result, dict) and query_result.get("type") in ["FileOperationError", "ValidationError", "NotFoundError"]:
+            return query_result
+            
+        return repository["execute"](query_result, params)
 
 
 # インスタンス生成用のファクトリ関数（conventions準拠）
@@ -130,12 +167,12 @@ def get_default_loader() -> QueryLoader:
     return _default_loader
 
 
-def load_query(query_name: str, query_type: str = "auto") -> str:
+def load_query(query_name: str, query_type: str = "auto") -> Union[str, FileOperationError, ValidationError, NotFoundError]:
     """便利関数: デフォルトローダーでクエリを読み込み"""
     return get_default_loader().load_query(query_name, query_type)
 
 
 def execute_query(repository: Dict[str, Any], query_name: str,
-                 params: Dict[str, Any], query_type: str = "auto") -> Dict[str, Any]:
+                 params: Dict[str, Any], query_type: str = "auto") -> Union[Dict[str, Any], FileOperationError, ValidationError, NotFoundError]:
     """便利関数: デフォルトローダーでクエリを実行"""
     return get_default_loader().execute_query(repository, query_name, params, query_type)

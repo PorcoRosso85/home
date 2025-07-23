@@ -179,33 +179,24 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         return execute_query(repository, "find_dependencies", query_params, "dql")
 
     elif template == "update_requirement":
-        # 要件更新
-        query_params = {"id": params.get("id")}
-        updates = {}
-
-        if "title" in params:
-            updates["title"] = params["title"]
-        if "description" in params:
-            updates["description"] = params["description"]
-        if "status" in params:
-            updates["status"] = params["status"]
-
-        if updates:
-            query_params["updates"] = updates
-            return execute_query(repository, "update_requirement", query_params, "dml")
-        else:
-            return ValidationError(
-                type="ValidationError",
-                message="No fields to update",
-                field="updates",
-                value=None,
-                constraint="at_least_one_field"
-            )
+        # Append-Only設計のため、更新は許可されていません
+        return NotFoundError(
+            type="NotFoundError",
+            message="Update operations are not supported in this Append-Only system. Create a new version instead.",
+            resource_type="template",
+            resource_id=template,
+            search_criteria={"template": template}
+        )
 
     elif template == "delete_requirement":
-        # 要件削除
-        query_params = {"id": params.get("id")}
-        return execute_query(repository, "delete_requirement", query_params, "dml")
+        # Append-Only設計のため、削除は許可されていません
+        return NotFoundError(
+            type="NotFoundError",
+            message="Delete operations are not supported in this Append-Only system. Requirements are immutable.",
+            resource_type="template",
+            resource_id=template,
+            search_criteria={"template": template}
+        )
 
     else:
         return NotFoundError(
