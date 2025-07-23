@@ -22,20 +22,19 @@
         # ftsKuzuPkg = fts-kuzu.packages.${system}.ftsKuzu;  # 後で追加
         
         # Python環境 - flake経由でパッケージを統合
-        pythonEnv = pkgs.python312.withPackages (ps: with ps; [
-          # kuzu本体とkuzu-pyパッケージ
-          kuzu
-          kuzu-py.packages.${system}.kuzuPy
-          # VSS/FTSパッケージ（flake経由）
+        pythonEnv = pkgs.python312.withPackages (ps: [
+          # kuzu本体
+          ps.kuzu
+          # VSS/FTSパッケージ（flake経由）- kuzu_pyを含む
           vssKuzuPkg
           # ftsKuzuPkg  # 後で追加
-          pytest
+          ps.pytest
           # 追加の依存関係
-          numpy
-          sentence-transformers
-          torch
-          scipy
-          sentencepiece
+          ps.numpy
+          ps.sentence-transformers
+          ps.torch
+          ps.scipy
+          ps.sentencepiece
         ]);
         
         # 共通の実行ラッパー

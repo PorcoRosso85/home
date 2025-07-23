@@ -15,7 +15,7 @@ VSSService = None
 
 try:
     # Try to import vss_kuzu if it's installed as a package
-    from vss_kuzu.mod import VSSService, VectorSearchResult
+    from vss_kuzu import VSSService, VectorSearchResult
     SEARCH_MODULES_AVAILABLE = True
     print(f"[INFO] VSS modules loaded successfully")
 except ImportError as e:
@@ -166,14 +166,10 @@ class SearchAdapter:
         self.is_available = SEARCH_MODULES_AVAILABLE
         
         # Initialize appropriate service based on availability
-        # For now, always use fallback to avoid import issues
-        self._service = FallbackSearchService(db_path, repository_connection)
-        
-        # TODO: Re-enable VSS when import issues are resolved
-        # if SEARCH_MODULES_AVAILABLE:
-        #     self._service = VSSSearchAdapter(db_path, repository_connection)
-        # else:
-        #     self._service = FallbackSearchService(db_path, repository_connection)
+        if SEARCH_MODULES_AVAILABLE:
+            self._service = VSSSearchAdapter(db_path, repository_connection)
+        else:
+            self._service = FallbackSearchService(db_path, repository_connection)
     
     def check_duplicates(self, text: str, k: int = 5, threshold: float = 0.5) -> List[Dict[str, Any]]:
         """
