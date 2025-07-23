@@ -11,6 +11,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+try:
+    from .protocols import SearchSystem
+    from .common_types import SearchResults, IndexResult, SearchResultItem
+except ImportError:
+    # For standalone execution
+    from protocols import SearchSystem
+    from common_types import SearchResults, IndexResult, SearchResultItem
+
 # Type aliases for clarity
 EmbeddingFunction = Callable[[str], list[float]]
 DatabaseFunction = Callable[..., Any]
@@ -390,6 +398,212 @@ def create_fts_service(
 
     # 返す関数群
     return {"index_documents": index_documents, "search": search}
+
+
+class FTS:
+    """
+    FTS統一APIインターフェース
+    
+    create_fts()で作成し、index()とsearch()メソッドを提供
+    SearchSystemプロトコルを実装
+    """
+    
+    def __init__(self, config: ApplicationConfig, service_funcs: dict[str, Callable]):
+        """内部使用のみ - create_fts()を使用してください"""
+        self.config = config
+        self._service_funcs = service_funcs
+        self._database = None
+        self._connection = None
+    
+    def index(self, documents: list[dict[str, str]]) -> dict[str, Any]:
+        """
+        ドキュメントをインデックス
+        
+        Args:
+            documents: {"id": str, "title": str, "content": str}のリスト
+            
+        Returns:
+            インデックス結果
+        """
+        return self._service_funcs["index_documents"](documents, self.config)
+    
+    def search(self, query: str, limit: int = 10, **kwargs) -> dict[str, Any]:
+        """
+        ドキュメントを検索
+        
+        Args:
+            query: 検索クエリ
+            limit: 返す結果の最大数
+            **kwargs: その他のオプション
+            
+        Returns:
+            検索結果
+        """
+        search_input = {"query": query, "limit": limit}
+        search_input.update(kwargs)
+        return self._service_funcs["search"](search_input, self.config)
+    
+    def close(self) -> None:
+        """
+        リソースをクリーンアップ
+        
+        データベース接続を閉じる
+        """
+        if self._connection is not None:
+            from infrastructure import close_connection
+            close_connection(self._connection)
+            self._connection = None
+            self._database = None
+
+
+def create_fts(
+    db_path: str = "./kuzu_db",
+    in_memory: bool = False,
+    **kwargs
+) -> FTS:
+    """
+    FTS統一APIインスタンスを作成
+    
+    Args:
+        db_path: データベースパス
+        in_memory: インメモリデータベースを使用するか
+        **kwargs: その他の設定パラメータ
+            - default_limit: デフォルトの検索結果数
+    
+    Returns:
+        FTSインスタンス
+    
+    Example:
+        fts = create_fts(in_memory=True)
+        fts.index([{"id": "1", "title": "Title", "content": "テキスト"}])
+        results = fts.search("検索語")
+    """
+    # ApplicationConfigを作成
+    config = ApplicationConfig(
+        db_path=db_path,
+        in_memory=in_memory,
+        default_limit=kwargs.get('default_limit', 10)
+    )
+    
+    # インフラストラクチャ関数をインポート
+    from infrastructure import (
+        DatabaseConfig,
+        create_kuzu_database,
+        create_kuzu_connection,
+        check_fts_extension,
+        install_fts_extension,
+        initialize_fts_schema,
+        create_fts_index,
+        query_fts_index,
+        count_documents,
+        close_connection
+    )
+    
+    # サービス関数を作成
+    service_funcs = create_fts_service(
+        create_db_func=create_kuzu_database,
+        create_conn_func=create_kuzu_connection,
+        check_fts_func=check_fts_extension,
+        install_fts_func=install_fts_extension,
+        init_schema_func=initialize_fts_schema,
+        create_index_func=create_fts_index,
+        insert_docs_func=None,  # FTSでは使用しない
+        search_func=query_fts_index,
+        count_func=count_documents,
+        close_func=close_connection,
+    )
+    
+    # 初期化テスト（データベース接続とFTS拡張の確認）
+    db_config = DatabaseConfig(
+        db_path=config.db_path,
+        in_memory=config.in_memory,
+    )
+    
+    db_success, database, db_error = create_kuzu_database(db_config)
+    if not db_success:
+        raise RuntimeError(f"Failed to create database: {db_error.get('error', 'Unknown error')}")
+    
+    conn_success, connection, conn_error = create_kuzu_connection(database)
+    if not conn_success:
+        raise RuntimeError(f"Failed to create connection: {conn_error.get('error', 'Unknown error')}")
+    
+    try:
+        # FTS拡張をインストール/ロード
+        install_result = install_fts_extension(connection)
+        if isinstance(install_result, tuple):
+            install_success, install_error = install_result
+        else:
+            install_success = install_result.get("ok", False)
+            install_error = install_result if not install_success else None
+        
+        if not install_success:
+            # FTS拡張のインストールに失敗した場合でも、FTS instanceは作成する
+            # ただし、実際の操作は失敗する可能性がある
+            pass
+        
+        # FTS拡張をチェック
+        check_result = check_fts_extension(connection)
+        if isinstance(check_result, tuple):
+            fts_available, fts_error = check_result
+        elif isinstance(check_result, bool):
+            fts_available = check_result
+            fts_error = None
+        else:
+            fts_available = check_result.get("ok", False)
+            fts_error = check_result if not fts_available else None
+        
+        if not fts_available:
+            # FTS拡張が利用できない場合でも、FTS instanceは作成する
+            # ただし、実際の操作は単純な文字列検索にフォールバックする
+            pass
+        else:
+            # スキーマを初期化
+            schema_result = initialize_fts_schema(connection)
+            if isinstance(schema_result, tuple):
+                schema_success, schema_error = schema_result
+            else:
+                schema_success = schema_result.get("ok", False)
+                schema_error = schema_result if not schema_success else None
+            
+            if not schema_success:
+                # スキーマ初期化に失敗してもFTS instanceは作成する
+                pass
+            
+            # FTSインデックスを作成
+            index_config = {
+                "table_name": "Document",
+                "property_name": "content",
+                "index_name": "doc_fts_idx",
+            }
+            index_result = create_fts_index(connection, index_config)
+            if isinstance(index_result, tuple):
+                index_success, index_error = index_result
+            else:
+                index_success = index_result.get("ok", False)
+                index_error = index_result if not index_success else None
+            
+            if not index_success:
+                # インデックスが既に存在する場合は続行
+                error_msg = (
+                    index_error.get("error", "")
+                    if isinstance(index_error, dict)
+                    else str(index_error) if index_error else ""
+                )
+                if "already exists" not in error_msg.lower():
+                    # インデックス作成に失敗してもFTS instanceは作成する
+                    pass
+    except Exception as e:
+        # エラー時のみ接続を閉じる
+        close_connection(connection)
+        raise RuntimeError(f"Failed to initialize FTS: {str(e)}")
+    
+    # FTSインスタンスを作成し、データベースとコネクションを保持
+    # 接続は開いたままにして、FTSインスタンスのclose()メソッドで閉じる
+    fts = FTS(config, service_funcs)
+    fts._database = database
+    fts._connection = connection
+    
+    return fts
 
 
 # Standalone function for creating FTS connection

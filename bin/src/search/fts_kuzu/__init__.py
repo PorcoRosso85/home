@@ -1,53 +1,85 @@
 """
-FTS (Full-Text Search) with KuzuDB
+FTS KuzuDB Package
 
-This package provides full-text search functionality using KuzuDB.
-For the complete public API, import from the mod module:
-
-    from fts_kuzu.mod import create_fts_connection, index_fts_documents, search_fts_documents
+Full-Text Search implementation with KuzuDB
 """
 
-# Re-export everything from mod.py for backward compatibility
-try:
-    from .mod import (
-        FTSError,
-        FTSErrorType,
-        FTSSearchResult,
-        IndexResult,
-        # Function-first API
-        create_fts_service,
-        create_fts_connection,
-        index_fts_documents,
-        search_fts_documents,
-        # Version
-        __version__,
-    )
-except ImportError:
-    # Fallback for direct file execution
-    from mod import (
-        FTSError,
-        FTSErrorType,
-        FTSSearchResult,
-        IndexResult,
-        # Function-first API
-        create_fts_service,
-        create_fts_connection,
-        index_fts_documents,
-        search_fts_documents,
-        __version__,
-    )
+# Unified API
+from .application import create_fts, FTS
+
+# Protocols and types
+from .protocols import SearchSystem
+from .common_types import SearchResults, IndexResult, SearchResultItem, SearchConfig
+
+# Function-first API
+from .application import (
+    create_fts_service,
+    create_fts_connection,
+    index_fts_documents,
+    search_fts_documents,
+)
+
+# Domain
+from .domain import (
+    FTSError,
+    FTSErrorType,
+    FTSSearchResult,
+    create_highlight_info,
+)
+
+# Infrastructure
+from .infrastructure import (
+    DatabaseConfig,
+    create_kuzu_database,
+    create_kuzu_connection,
+    check_fts_extension,
+    install_fts_extension,
+    initialize_fts_schema,
+    create_fts_index,
+    query_fts_index,
+    count_documents,
+    close_connection,
+)
+
+# Version
+from .mod import __version__
 
 __all__ = [
+    # Unified API (Recommended)
+    "create_fts",
+    "FTS",
+    
+    # Protocols and types
+    "SearchSystem",
+    "SearchResults",
+    "IndexResult",
+    "SearchResultItem",
+    "SearchConfig",
+    
     # Function-first API
     "create_fts_service",
     "create_fts_connection",
     "index_fts_documents",
     "search_fts_documents",
-    # FTS types
-    "FTSSearchResult",
-    "IndexResult",
+    
+    # Domain
     "FTSError",
     "FTSErrorType",
+    "FTSSearchResult",
+    "create_highlight_info",
+    
+    # Infrastructure
+    "DatabaseConfig",
+    "create_kuzu_database",
+    "create_kuzu_connection",
+    "check_fts_extension",
+    "install_fts_extension",
+    "initialize_fts_schema",
+    "create_fts_index",
+    "query_fts_index",
+    "count_documents",
+    "close_connection",
+    
     # Version
     "__version__",
 ]

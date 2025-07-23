@@ -13,6 +13,8 @@ try:
         create_fts_connection,
         index_fts_documents,
         search_fts_documents,
+        create_fts,
+        FTS,
     )
     from .domain import (
         FTSError,
@@ -31,6 +33,14 @@ try:
         initialize_fts_schema,
         install_fts_extension,
     )
+    # Import protocol and common types for unified API
+    from .protocols import SearchSystem
+    from .common_types import (
+        SearchResultItem,
+        SearchResults,
+        IndexResult as CommonIndexResult,
+        SearchConfig,
+    )
 
 except ImportError:
     # Handle import errors gracefully
@@ -42,19 +52,28 @@ __version__ = "0.2.0"  # Updated for FTS support
 
 # Public API - everything that external users should import
 __all__ = [
-    # Main service classes (for backward compatibility)
-    # Note: FTSService removed from exports to encourage function-first API usage
-    # The class-based approach is deprecated in favor of composable functions
-    # New function-first API
+    # Unified API (Recommended)
+    "create_fts",
+    "FTS",
+    
+    # Protocol and common types
+    "SearchSystem",
+    "SearchResultItem",
+    "SearchResults",
+    "SearchConfig",
+    
+    # Function-first API
     "create_fts_service",
     "create_fts_connection",
     "index_fts_documents",
     "search_fts_documents",
+    
     # Domain data classes
     "FTSSearchResult",
     "IndexResult",
     "FTSError",
     "FTSErrorType",
+    
     # Infrastructure functions
     "DatabaseConfig",
     "create_kuzu_database",
@@ -65,6 +84,7 @@ __all__ = [
     "create_fts_index",
     "count_documents",
     "close_connection",
+    
     # Version
     "__version__",
 ]
@@ -76,36 +96,30 @@ FTS-KuzuDB: Full-Text Search with KuzuDB
 A library for performing full-text search using KuzuDB's FTS extension.
 Supports keyword search, BM25 scoring, phrase search, and highlighting.
 
-## Primary API - Function-First Approach
-
-Note: The class-based FTSService is deprecated. Use the function-first API for better composability and testability.
+## Unified API (Recommended)
 
 Example usage:
-    from fts_kuzu import create_fts_service, DatabaseConfig
-
-    # Create FTS service using function-first approach
-    config = DatabaseConfig(in_memory=True)
-    fts_funcs = create_fts_service()
+    from fts_kuzu import create_fts
     
-    # Create connection
-    conn_result = fts_funcs["create_connection"](config)
-    if not conn_result["ok"]:
-        raise Exception(conn_result["error"])
-    conn = conn_result["value"]
-
+    # Create FTS instance
+    fts = create_fts(in_memory=True)
+    
     # Index documents
     documents = [
         {"id": "doc1", "title": "Authentication Guide", "content": "How to implement user authentication"},
         {"id": "doc2", "title": "Login System", "content": "Building a secure login system"},
     ]
-    result = fts_funcs["index_documents"](documents, conn)
-
+    result = fts.index(documents)
+    
     # Search documents
-    search_result = fts_funcs["search_documents"]("authentication", conn, limit=10)
+    search_result = fts.search("authentication", limit=10)
     if search_result["ok"]:
         for doc in search_result["results"]:
             print(f"{doc['id']}: {doc['content']} (score: {doc['score']})")
             print(f"  Highlights: {doc['highlights']}")
+    
+    # Clean up
+    fts.close()
 
 ## Function-First API
 
