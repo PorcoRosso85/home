@@ -195,7 +195,7 @@ class SearchAdapter:
                     "title": result.get("title", ""),
                     "description": result.get("content", ""),
                     "score": result.get("score", 0),
-                    "type": "hybrid"
+                    "type": "vss"  # VSS-only implementation (FTS integration pending)
                 })
         
         return duplicates
