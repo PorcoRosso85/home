@@ -42,50 +42,34 @@ documents = [
     {"id": "doc1", "content": "ユーザー認証機能を実装する"},
     {"id": "doc2", "content": "ログインシステムを構築する"},
 ]
-vss.index(documents)
+vss["index"](documents)
 
 # Search for similar documents
-results = vss.search("認証システム", limit=5)
+results = vss["search"]("認証システム", limit=5)
 
-for node, distance in results:
-    print(f"{node['text']} (similarity: {1 - distance:.2f})")
+for result in results["results"]:
+    print(f"{result['content']} (similarity: {result['score']:.2f})")
 ```
 
 ### Advanced Usage
 
 ```python
-from vss_kuzu import (
-    create_vss_repository,
-    rebuild_vector_index,
-    update_node_vector,
-    delete_vector_node
-)
+from vss_kuzu import create_vss
 
 # Custom index parameters
-rebuild_vector_index(
-    repo,
-    table_name="documents",
-    index_params={
-        "mu": 40,        # Max upper graph degree
-        "ml": 80,        # Max lower graph degree
-        "metric": "cosine",
-        "efc": 300       # Construction candidate count
-    }
+vss = create_vss(
+    db_path="./my_database",
+    index_mu=40,        # Max upper graph degree
+    index_ml=80,        # Max lower graph degree
+    index_metric="l2",  # Distance metric (cosine or l2)
+    index_efc=300       # Construction candidate count
 )
 
-# Update vectors
-update_node_vector(
-    repo,
-    table_name="documents",
-    node_id=node_id,
-    vector=new_vector
-)
-
-# Delete nodes
-delete_vector_node(
-    repo,
-    table_name="documents",
-    node_id=node_id
+# Search with custom parameters
+results = vss["search"](
+    query="検索クエリ",
+    limit=10,
+    efs=400  # Search-time parameter
 )
 ```
 

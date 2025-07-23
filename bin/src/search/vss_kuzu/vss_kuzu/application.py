@@ -8,11 +8,18 @@
 
 import time
 from typing import Dict, Any, List, Optional, Callable, Tuple, TypedDict
-from types import SimpleNamespace
 
 # Type aliases for clarity
 EmbeddingFunction = Callable[[str], List[float]]
 DatabaseFunction = Callable[..., Any]
+IndexFunction = Callable[[List[Dict[str, str]]], Dict[str, Any]]
+SearchFunction = Callable[[str, int], Dict[str, Any]]
+
+
+class VSSServiceInterface(TypedDict):
+    """VSS統一APIインターフェース"""
+    index: IndexFunction
+    search: SearchFunction
 
 
 class ApplicationConfig(TypedDict, total=False):
@@ -388,16 +395,16 @@ def create_embedding_service(model_name: str = "cl-nagoya/ruri-v3-30m") -> Embed
         return generate_embedding
 
 
-def create_vss_instance(config: Any, service_funcs: Dict[str, Callable]) -> SimpleNamespace:
+def create_vss_instance(config: Any, service_funcs: Dict[str, Callable]) -> VSSServiceInterface:
     """
-    VSS統一APIインターフェースをSimpleNamespaceとして作成
+    VSS統一APIインターフェースを作成
     
     Args:
         config: アプリケーション設定
         service_funcs: サービス関数の辞書
         
     Returns:
-        index()とsearch()メソッドを持つSimpleNamespaceオブジェクト
+        VSSServiceInterface準拠の辞書
     """
     
     def index(documents: List[Dict[str, str]]) -> Dict[str, Any]:
@@ -428,13 +435,12 @@ def create_vss_instance(config: Any, service_funcs: Dict[str, Callable]) -> Simp
         search_input.update(kwargs)
         return service_funcs["search"](search_input, config)
     
-    # SimpleNamespaceとして返す（ドット記法でアクセス可能）
-    return SimpleNamespace(
-        index=index,
-        search=search,
-        _config=config,
-        _service_funcs=service_funcs
-    )
+    # TypedDictインターフェースに準拠した辞書を返す
+    vss_service: VSSServiceInterface = {
+        "index": index,
+        "search": search
+    }
+    return vss_service
 
 
 def create_vss(
@@ -442,7 +448,7 @@ def create_vss(
     in_memory: bool = False,
     model_name: str = "cl-nagoya/ruri-v3-30m",
     **kwargs
-) -> SimpleNamespace:
+) -> VSSServiceInterface:
     """
     VSS統一APIインスタンスを作成
     
@@ -459,12 +465,12 @@ def create_vss(
             - index_efc: HNSWインデックスのefCパラメータ
     
     Returns:
-        index()とsearch()メソッドを持つSimpleNamespaceオブジェクト
+        VSSServiceInterface準拠の辞書
     
     Example:
         vss = create_vss(in_memory=True)
-        vss.index([{"id": "1", "content": "テキスト"}])
-        results = vss.search("検索語")
+        vss["index"]([{"id": "1", "content": "テキスト"}])
+        results = vss["search"]("検索語")
     """
     # 埋め込みサービスを作成
     embedding_func = create_embedding_service(model_name)
