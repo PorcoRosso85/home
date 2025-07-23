@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 from vss_kuzu import (
-    VSSService,
+    create_config,
     create_vss_service,
     create_embedding_service,
     # Infrastructure functions
@@ -28,7 +28,6 @@ from vss_kuzu import (
     # Domain functions
     find_semantically_similar_documents,
 )
-from vss_kuzu.application import ApplicationConfig
 
 
 class TestApplication:
@@ -38,19 +37,7 @@ class TestApplication:
     def vss_service(self):
         """VSS service with temporary database"""
         tmpdir = tempfile.mkdtemp()
-        service = VSSService(db_path=tmpdir, in_memory=False)
-        yield service
-        # Cleanup
-        shutil.rmtree(tmpdir)
-    
-    @pytest.fixture
-    def in_memory_service(self):
-        """VSS service with in-memory database"""
-        return VSSService(in_memory=True)
-    
-    @pytest.fixture
-    def function_based_service(self):
-        """Function-based VSS service with in-memory database"""
+        config = create_config(db_path=tmpdir, in_memory=False)
         embedding_func = create_embedding_service()
         vss_funcs = create_vss_service(
             create_db_func=create_kuzu_database,
@@ -64,25 +51,50 @@ class TestApplication:
             generate_embedding_func=embedding_func,
             calculate_similarity_func=find_semantically_similar_documents
         )
-        config = ApplicationConfig(in_memory=True)
+        yield vss_funcs, config
+        # Cleanup
+        shutil.rmtree(tmpdir)
+    
+    @pytest.fixture
+    def in_memory_service(self):
+        """VSS service with in-memory database"""
+        config = create_config(in_memory=True)
+        embedding_func = create_embedding_service()
+        vss_funcs = create_vss_service(
+            create_db_func=create_kuzu_database,
+            create_conn_func=create_kuzu_connection,
+            check_vector_func=check_vector_extension,
+            init_schema_func=initialize_vector_schema,
+            insert_docs_func=insert_documents_with_embeddings,
+            search_func=search_similar_vectors,
+            count_func=count_documents,
+            close_func=close_connection,
+            generate_embedding_func=embedding_func,
+            calculate_similarity_func=find_semantically_similar_documents
+        )
         return vss_funcs, config
+    
     
     def test_indexing_documents_with_distinct_ids_stores_separately(self, vss_service):
         """異なるIDのドキュメントが別々に保存されること"""
+        vss_funcs, config = vss_service
+        index_func = vss_funcs["index_documents"]
+        search_func = vss_funcs["search"]
+        
         # 複数のドキュメントをインデックス
         documents = [
             {"id": "1", "content": "最初のドキュメント"},
             {"id": "2", "content": "2番目のドキュメント"}
         ]
         
-        result = vss_service.index_documents(documents)
+        result = index_func(documents, config)
         
         if result.get("ok", False):
             assert result["indexed_count"] == 2
             
             # 両方のドキュメントが検索可能であることを確認
-            search_result1 = vss_service.search({"query": "最初"})
-            search_result2 = vss_service.search({"query": "2番目"})
+            search_result1 = search_func({"query": "最初"}, config)
+            search_result2 = search_func({"query": "2番目"}, config)
             
             if search_result1.get("ok", False) and search_result2.get("ok", False):
                 # それぞれのドキュメントが検索できること
@@ -92,7 +104,10 @@ class TestApplication:
     
     def test_search_on_empty_index_returns_empty_results(self, vss_service):
         """空のインデックスで検索すると空の結果を返すこと"""
-        search_result = vss_service.search({"query": "存在しない"})
+        vss_funcs, config = vss_service
+        search_func = vss_funcs["search"]
+        
+        search_result = search_func({"query": "存在しない"}, config)
         
         # VECTOR拡張が利用可能な場合は空の結果
         # 利用できない場合はエラー
@@ -105,8 +120,11 @@ class TestApplication:
     
     def test_missing_query_returns_error(self, vss_service):
         """必須パラメータが欠けている場合、エラーを返すこと"""
+        vss_funcs, config = vss_service
+        search_func = vss_funcs["search"]
+        
         # 無効な入力でエラーを発生させる
-        result = vss_service.search({})  # queryが必須
+        result = search_func({}, config)  # queryが必須
         
         # VectorSearchErrorが返されること
         assert isinstance(result, dict)
@@ -117,8 +135,12 @@ class TestApplication:
     
     def test_successful_and_error_responses_follow_consistent_structure(self, vss_service):
         """成功時とエラー時のレスポンスが一貫した構造に従うこと"""
+        vss_funcs, config = vss_service
+        index_func = vss_funcs["index_documents"]
+        search_func = vss_funcs["search"]
+        
         # ドキュメントなしでインデックスを試みる（エラーを誘発）
-        index_result = vss_service.index_documents([])
+        index_result = index_func([], config)
         
         # レスポンスの基本構造
         assert "ok" in index_result
@@ -132,23 +154,27 @@ class TestApplication:
             assert isinstance(index_result["details"], dict)
         
         # 検索操作でも同様の確認
-        search_result = vss_service.search({"query": "test"})
+        search_result = search_func({"query": "test"}, config)
         assert "ok" in search_result
         assert isinstance(search_result["ok"], bool)
     
     def test_indexed_documents_are_searchable_immediately(self, vss_service):
         """インデックスしたドキュメントが即座に検索可能であること"""
+        vss_funcs, config = vss_service
+        index_func = vss_funcs["index_documents"]
+        search_func = vss_funcs["search"]
+        
         # ドキュメントをインデックス
         documents = [
             {"id": "1", "content": "テストドキュメント"}
         ]
         
-        result = vss_service.index_documents(documents)
+        result = index_func(documents, config)
         
         # インデックスが成功した場合
         if result.get("ok", False):
             # 即座に検索できることを確認
-            search_result = vss_service.search({"query": "テスト"})
+            search_result = search_func({"query": "テスト"}, config)
             assert search_result.get("ok", False) is True
             assert "results" in search_result
             assert "metadata" in search_result
@@ -156,9 +182,9 @@ class TestApplication:
             if search_result["results"]:
                 assert any(r["id"] == "1" for r in search_result["results"])
     
-    def test_function_based_indexing_and_search(self, function_based_service):
+    def test_function_based_indexing_and_search(self, in_memory_service):
         """Function-based API でインデックスと検索が動作すること"""
-        vss_funcs, config = function_based_service
+        vss_funcs, config = in_memory_service
         index_func = vss_funcs["index_documents"]
         search_func = vss_funcs["search"]
         
@@ -181,25 +207,24 @@ class TestApplication:
                 assert "metadata" in search_result
                 assert search_result["metadata"]["query"] == "関数"
     
-    def test_both_apis_produce_compatible_results(self, in_memory_service, function_based_service):
-        """両方のAPIが互換性のある結果を返すこと"""
-        vss_funcs, config = function_based_service
+    def test_both_services_produce_compatible_results(self, vss_service, in_memory_service):
+        """両方のサービスが互換性のある結果を返すこと"""
+        vss_funcs1, config1 = vss_service
+        vss_funcs2, config2 = in_memory_service
         
         # 同じドキュメントをインデックス
         documents = [{"id": "test", "content": "テストコンテンツ"}]
         
-        # クラスベースAPI
-        class_result = in_memory_service.index_documents(documents)
-        
-        # 関数ベースAPI
-        func_result = vss_funcs["index_documents"](documents, config)
+        # 両方のサービスでインデックス
+        result1 = vss_funcs1["index_documents"](documents, config1)
+        result2 = vss_funcs2["index_documents"](documents, config2)
         
         # 両方とも同じ結果構造を持つ
-        assert "ok" in class_result
-        assert "ok" in func_result
+        assert "ok" in result1
+        assert "ok" in result2
         
-        if class_result.get("ok") and func_result.get("ok"):
-            assert class_result["indexed_count"] == func_result["indexed_count"]
+        if result1.get("ok") and result2.get("ok"):
+            assert result1["indexed_count"] == result2["indexed_count"]
 
 
 if __name__ == "__main__":

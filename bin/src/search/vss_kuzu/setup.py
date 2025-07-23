@@ -3,7 +3,9 @@ from setuptools import setup, find_packages
 setup(
     name="vss_kuzu",
     version="0.1.0",
-    packages=find_packages(),
+    packages=find_packages(where=".", include=["vss_kuzu", "vss_kuzu.*"]),
+    package_dir={"": "."},
+    include_package_data=True,
     install_requires=[],  # Dependencies are provided by Nix
     python_requires=">=3.11",
     description="Vector Similarity Search with KuzuDB",

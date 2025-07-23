@@ -10,179 +10,253 @@ from pathlib import Path
 
 import pytest
 
-from vss_kuzu import VSSService
+from vss_kuzu import (
+    create_config,
+    create_kuzu_database,
+    create_kuzu_connection,
+    check_vector_extension,
+    initialize_vector_schema,
+    insert_documents_with_embeddings,
+    search_similar_vectors,
+    create_embedding_service,
+    DatabaseConfig,
+)
 
 
 class TestInitializationErrors:
     """初期化エラーハンドリングのテストクラス"""
     
-    def test_service_with_valid_database_handles_vector_extension(self):
+    def test_database_with_valid_path_handles_vector_extension(self):
         """データベースでVECTOR拡張の状態を適切に処理すること"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            service = VSSService(db_path=tmpdir, in_memory=False)
+            # ConfigとDatabaseConfigを作成
+            config = create_config(db_path=tmpdir, in_memory=False)
+            db_config = DatabaseConfig(
+                db_path=config.db_path,
+                in_memory=config.in_memory,
+                embedding_dimension=config.embedding_dimension
+            )
             
-            # 初期化が完了していること（成功または適切なエラー）
-            if service._is_initialized:
-                # VECTOR拡張が利用可能な場合
-                assert service._init_error is None
+            # データベース作成を試みる
+            db_success, database, db_error = create_kuzu_database(db_config)
+            
+            if db_success:
+                # コネクション作成
+                conn_success, connection, conn_error = create_kuzu_connection(database)
                 
-                # 正常に動作することを確認
-                result = service.index_documents([
-                    {"id": "doc1", "content": "test document"}
-                ])
-                assert result["ok"] is True
+                if conn_success:
+                    # VECTOR拡張のチェック
+                    vec_success, vec_error = check_vector_extension(connection)
+                    
+                    if vec_success:
+                        # スキーマ初期化
+                        schema_success, schema_error = initialize_vector_schema(connection)
+                        assert schema_success is True
+                        
+                        # 正常に動作することを確認
+                        embedding_func = create_embedding_service(config.model_name)
+                        embedding = embedding_func("test document")
+                        docs = [("doc1", "test document", embedding)]
+                        insert_success, count, insert_error = insert_documents_with_embeddings(connection, docs)
+                        assert insert_success is True
+                        assert count == 1
+                    else:
+                        # VECTOR拡張が利用できない場合
+                        assert vec_error is not None
             else:
-                # VECTOR拡張が利用できない場合
-                assert service._init_error is not None
-                assert service._init_error["ok"] is False
-                assert "error" in service._init_error
-                
-                # 操作を試みるとエラーが返ること
-                result = service.index_documents([
-                    {"id": "doc1", "content": "test document"}
-                ])
-                assert result["ok"] is False
+                # データベース作成に失敗した場合
+                assert db_error is not None
     
-    def test_service_with_readonly_path_returns_error(self):
+    def test_database_with_readonly_path_returns_error(self):
         """読み取り専用パスでエラーが適切に処理されること"""
         with tempfile.TemporaryDirectory() as tmpdir:
             # ディレクトリを読み取り専用にする
             Path(tmpdir).chmod(0o444)
             
             try:
-                service = VSSService(db_path=f"{tmpdir}/readonly_db", in_memory=False)
+                # ConfigとDatabaseConfigを作成
+                config = create_config(db_path=f"{tmpdir}/readonly_db", in_memory=False)
+                db_config = DatabaseConfig(
+                    db_path=config.db_path,
+                    in_memory=config.in_memory,
+                    embedding_dimension=config.embedding_dimension
+                )
                 
-                # 初期化エラーが記録されていること
-                assert service._is_initialized is False
-                assert service._init_error is not None
-                assert service._init_error["ok"] is False
-                assert "error" in service._init_error
+                # データベース作成を試みる
+                db_success, database, db_error = create_kuzu_database(db_config)
                 
-                # 操作を試みるとエラーが返ること
-                result = service.index_documents([
-                    {"id": "doc1", "content": "test"}
-                ])
-                assert result["ok"] is False
-                assert "error" in result
+                # 初期化エラーが発生すること
+                assert db_success is False
+                assert db_error is not None
+                assert "Permission denied" in str(db_error) or "Read-only" in str(db_error)
                 
             finally:
                 # 権限を戻す
                 Path(tmpdir).chmod(0o755)
     
-    def test_service_with_invalid_path_characters_returns_error(self):
+    def test_database_with_invalid_path_characters_returns_error(self):
         """無効なパス文字でエラーが適切に処理されること"""
         # NUL文字を含む無効なパス
         invalid_path = "/tmp/test\x00db"
         
-        service = VSSService(db_path=invalid_path, in_memory=False)
+        # ConfigとDatabaseConfigを作成
+        config = create_config(db_path=invalid_path, in_memory=False)
+        db_config = DatabaseConfig(
+            db_path=config.db_path,
+            in_memory=config.in_memory,
+            embedding_dimension=config.embedding_dimension
+        )
         
-        # 初期化エラーが記録されていること
-        assert service._is_initialized is False
-        assert service._init_error is not None
+        # データベース作成を試みる
+        db_success, database, db_error = create_kuzu_database(db_config)
         
-        # 操作を試みるとエラーが返ること
-        result = service.search({"query": "test"})
-        assert result["ok"] is False
+        # 初期化エラーが発生すること
+        assert db_success is False
+        assert db_error is not None
     
-    def test_service_operations_fail_gracefully_when_not_initialized(self):
+    def test_database_operations_fail_gracefully_when_not_initialized(self):
         """初期化失敗時にすべての操作が適切にエラーを返すこと"""
-        # 無効なパスでサービスを作成
-        service = VSSService(db_path="/nonexistent/path/\x00/db", in_memory=False)
+        # 無効なパスでデータベースを作成
+        invalid_path = "/nonexistent/path/\x00/db"
+        config = create_config(db_path=invalid_path, in_memory=False)
+        db_config = DatabaseConfig(
+            db_path=config.db_path,
+            in_memory=config.in_memory,
+            embedding_dimension=config.embedding_dimension
+        )
         
-        # index_documents
-        index_result = service.index_documents([
-            {"id": "doc1", "content": "test"}
-        ])
-        assert index_result["ok"] is False
-        assert "error" in index_result
-        assert "details" in index_result
+        # データベース作成に失敗
+        db_success, database, db_error = create_kuzu_database(db_config)
+        assert db_success is False
+        assert db_error is not None
         
-        # search
-        search_result = service.search({"query": "test"})
-        assert search_result["ok"] is False
-        assert "error" in search_result
-        assert "details" in search_result
+        # データベースがないため、コネクション作成も失敗する
+        if database is None:
+            # データベースが作成されなかった場合
+            # 以降の操作は実行できない
+            return
         
-        # Legacy API - add_document
-        add_result = service.add_document("doc1", "test content")
-        assert add_result["ok"] is False
-        assert "error" in add_result
-        
-        # Legacy API - search_similar
-        similar_results = service.search_similar("test query")
-        assert similar_results == []  # Legacy APIは空リストを返す
+        # コネクション作成を試みる
+        conn_success, connection, conn_error = create_kuzu_connection(database)
+        if not conn_success:
+            assert conn_error is not None
     
     def test_in_memory_database_handles_vector_extension(self):
         """インメモリデータベースでVECTOR拡張の状態を適切に処理すること"""
-        service = VSSService(db_path=":memory:", in_memory=True)
+        # ConfigとDatabaseConfigを作成
+        config = create_config(db_path=":memory:", in_memory=True)
+        db_config = DatabaseConfig(
+            db_path=config.db_path,
+            in_memory=config.in_memory,
+            embedding_dimension=config.embedding_dimension
+        )
         
-        # 初期化が完了していること（成功または適切なエラー）
-        if service._is_initialized:
+        # データベース作成
+        db_success, database, db_error = create_kuzu_database(db_config)
+        assert db_success is True
+        
+        # コネクション作成
+        conn_success, connection, conn_error = create_kuzu_connection(database)
+        assert conn_success is True
+        
+        # VECTOR拡張のチェック
+        vec_success, vec_error = check_vector_extension(connection)
+        
+        if vec_success:
             # VECTOR拡張が利用可能な場合
-            assert service._init_error is None
+            # スキーマ初期化
+            schema_success, schema_error = initialize_vector_schema(connection)
+            assert schema_success is True
             
             # 正常に動作することを確認
-            result = service.index_documents([
-                {"id": "doc1", "content": "in-memory test"}
-            ])
-            assert result["ok"] is True
-            assert result["indexed_count"] == 1
+            embedding_func = create_embedding_service(config.model_name)
+            embedding = embedding_func("in-memory test")
+            docs = [("doc1", "in-memory test", embedding)]
+            insert_success, count, insert_error = insert_documents_with_embeddings(connection, docs)
+            assert insert_success is True
+            assert count == 1
         else:
             # VECTOR拡張が利用できない場合
-            assert service._init_error is not None
-            assert service._init_error["ok"] is False
-            assert "error" in service._init_error
+            assert vec_error is not None
     
     def test_initialization_error_details_contain_useful_information(self):
         """初期化エラーの詳細に有用な情報が含まれること"""
-        # 無効なパスでサービスを作成
+        # 無効なパスでデータベースを作成
         invalid_path = "/root/no_permission_db"
-        service = VSSService(db_path=invalid_path, in_memory=False)
+        config = create_config(db_path=invalid_path, in_memory=False)
+        db_config = DatabaseConfig(
+            db_path=config.db_path,
+            in_memory=config.in_memory,
+            embedding_dimension=config.embedding_dimension
+        )
         
-        if service._init_error:
+        # データベース作成を試みる
+        db_success, database, db_error = create_kuzu_database(db_config)
+        
+        if not db_success:
             # エラーに必要な情報が含まれていること
-            assert service._init_error["ok"] is False
-            assert "error" in service._init_error
-            assert "details" in service._init_error
-            assert isinstance(service._init_error["details"], dict)
+            assert db_error is not None
             
             # パス情報が含まれていること（デバッグに有用）
-            error_str = str(service._init_error)
-            assert "db_path" in error_str or invalid_path in error_str
+            error_str = str(db_error)
+            assert invalid_path in error_str or "Permission" in error_str
     
-    def test_multiple_services_handle_vector_extension_consistently(self):
-        """複数のサービスインスタンスがVECTOR拡張を一貫して処理すること"""
+    def test_multiple_connections_handle_vector_extension_consistently(self):
+        """複数のコネクションがVECTOR拡張を一貫して処理すること"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # 最初のサービス
-            service1 = VSSService(db_path=tmpdir, in_memory=False)
+            # ConfigとDatabaseConfigを作成
+            config = create_config(db_path=tmpdir, in_memory=False)
+            db_config = DatabaseConfig(
+                db_path=config.db_path,
+                in_memory=config.in_memory,
+                embedding_dimension=config.embedding_dimension
+            )
             
-            # 2番目のサービスで同じデータベースにアクセス
-            service2 = VSSService(db_path=tmpdir, in_memory=False)
+            # 最初のデータベースとコネクション
+            db_success1, database1, db_error1 = create_kuzu_database(db_config)
+            assert db_success1 is True
             
-            # 両サービスの初期化状態が一致すること
-            assert service1._is_initialized == service2._is_initialized
+            conn_success1, connection1, conn_error1 = create_kuzu_connection(database1)
+            assert conn_success1 is True
             
-            if service1._is_initialized:
-                # 両方とも初期化成功
-                assert service1._init_error is None
-                assert service2._init_error is None
+            # 2番目のデータベースとコネクション（同じパス）
+            db_success2, database2, db_error2 = create_kuzu_database(db_config)
+            assert db_success2 is True
+            
+            conn_success2, connection2, conn_error2 = create_kuzu_connection(database2)
+            assert conn_success2 is True
+            
+            # 両コネクションでVECTOR拡張の状態をチェック
+            vec_success1, vec_error1 = check_vector_extension(connection1)
+            vec_success2, vec_error2 = check_vector_extension(connection2)
+            
+            # 両コネクションの初期化状態が一致すること
+            assert vec_success1 == vec_success2
+            
+            if vec_success1:
+                # 両方ともVECTOR拡張が利用可能
+                # スキーマ初期化
+                schema_success1, schema_error1 = initialize_vector_schema(connection1)
+                schema_success2, schema_error2 = initialize_vector_schema(connection2)
+                assert schema_success1 is True
+                assert schema_success2 is True
                 
                 # データ操作が可能
-                result1 = service1.index_documents([
-                    {"id": "shared1", "content": "shared document"}
-                ])
-                assert result1["ok"] is True
+                embedding_func = create_embedding_service(config.model_name)
                 
-                result2 = service2.index_documents([
-                    {"id": "shared2", "content": "another shared document"}
-                ])
-                assert result2["ok"] is True
+                embedding1 = embedding_func("shared document")
+                docs1 = [("shared1", "shared document", embedding1)]
+                insert_success1, count1, insert_error1 = insert_documents_with_embeddings(connection1, docs1)
+                assert insert_success1 is True
+                
+                embedding2 = embedding_func("another shared document")
+                docs2 = [("shared2", "another shared document", embedding2)]
+                insert_success2, count2, insert_error2 = insert_documents_with_embeddings(connection2, docs2)
+                assert insert_success2 is True
             else:
-                # 両方とも初期化失敗（VECTOR拡張なし）
-                assert service1._init_error is not None
-                assert service2._init_error is not None
-                assert service1._init_error["ok"] is False
-                assert service2._init_error["ok"] is False
+                # 両方ともVECTOR拡張が利用不可
+                assert vec_error1 is not None
+                assert vec_error2 is not None
 
 
 if __name__ == "__main__":
