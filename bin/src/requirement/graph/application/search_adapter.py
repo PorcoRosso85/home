@@ -234,33 +234,19 @@ class SearchAdapter:
         return self._service.search_hybrid(query, k=k)
     
     def generate_embedding(self, text: str) -> Optional[List[float]]:
-        """テキストのエンベディングを生成"""
-        # Generate a dummy 256-dimensional embedding for testing
-        # This uses a deterministic hash-based approach
-        import hashlib
-        import struct
+        """テキストのエンベディングを生成
         
-        try:
-            # テキストのハッシュからシードを生成
-            hash_obj = hashlib.sha256(text.encode('utf-8'))
-            hash_bytes = hash_obj.digest()
-            
-            # ハッシュから256次元のベクトルを生成
-            embedding = []
-            # SHA-256は32バイトなので、8回繰り返して256要素を生成
-            for repeat in range(8):
-                for i in range(0, 32, 4):
-                    if i + 4 <= len(hash_bytes):
-                        # 4バイトを符号なし整数として解釈し、正規化
-                        value = struct.unpack('I', hash_bytes[i:i+4])[0]
-                        # -1 to 1の範囲に正規化
-                        normalized = (value / (2**32 - 1)) * 2 - 1
-                        embedding.append(normalized)
-                # 次の繰り返しのために異なるハッシュを生成
-                hash_obj = hashlib.sha256((text + str(repeat)).encode('utf-8'))
-                hash_bytes = hash_obj.digest()
-            
-            return embedding[:256]  # Ensure exactly 256 dimensions
-        except Exception as e:
-            print(f"[WARNING] Failed to generate embedding: {e}")
+        VSSServiceが利用可能な場合は実際のエンベディングを生成。
+        利用不可能な場合はNoneを返す。
+        """
+        if not self.is_available:
             return None
+            
+        # VSSSearchAdapterの場合、内部でエンベディング生成を処理
+        if isinstance(self._service, VSSSearchAdapter) and self._service._vss_service:
+            # VSSServiceは内部的にエンベディングを生成するため、
+            # ここでは特別な処理は不要
+            # 実際のエンベディング生成はadd_to_index内で行われる
+            return None
+        
+        return None

@@ -88,13 +88,12 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
                     print(f"[DEBUG] Failed to generate embedding: {e}")
                     # エンベディング生成エラーは致命的ではない
         
-        # 要件作成（エンベディング付き）
+        # 要件作成（エンベディングはVSSServiceが後から更新）
         query_params = {
             "id": params.get("id"),
             "title": params.get("title"),
             "description": params.get("description", ""),
-            "status": params.get("status", "proposed"),
-            "embedding": embedding
+            "status": params.get("status", "proposed")
         }
 
         # クエリローダーを使用して実行

@@ -18,9 +18,11 @@ class TestLoggerWrapper:
         # テスト時は全レベルのログを出力
         monkeypatch.setenv('LOG_LEVEL', '*:TRACE')
         # 毎回モジュールを再インポート
-        if 'infrastructure.logger_wrapper' in sys.modules:
-            del sys.modules['infrastructure.logger_wrapper']
-        from infrastructure.logger_wrapper import log, info, error, result
+        # モジュールキャッシュをクリア
+        for module_name in list(sys.modules.keys()):
+            if 'logger_wrapper' in module_name:
+                del sys.modules[module_name]
+        from .logger_wrapper import log, info, error, result
         self.log = log
         self.info = info  
         self.error = error

@@ -67,7 +67,8 @@ def safe_main():
                 try:
                     repo_connection = repository.get("connection")
                     search_service = SearchAdapter(db_path, repository_connection=repo_connection)
-                    info("rgl.main", "Search adapter initialized with shared connection")
+                    info("rgl.main", "Search adapter initialized with shared connection",
+                         is_available=search_service.is_available)
                     return search_service
                 except Exception as e:
                     warn("rgl.main", f"Search service initialization failed: {e}")
