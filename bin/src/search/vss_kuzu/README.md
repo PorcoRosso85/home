@@ -6,6 +6,8 @@ Implementation of Vector Similarity Search using KuzuDB.
 
 This implementation provides vector similarity search functionality leveraging KuzuDB's VECTOR extension and Japanese language embeddings.
 
+> **⚠️ IMPORTANT: This package requires the KuzuDB VECTOR extension to be installed. See [VECTOR Extension Setup Guide](docs/VECTOR_EXTENSION.md) for installation instructions.**
+
 ## Features
 
 - **Vector Similarity Search**: Semantic search using Ruri v3 embeddings (256 dimensions)

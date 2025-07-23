@@ -7,7 +7,7 @@
 import pytest
 from typing import List, Tuple
 
-from vss_kuzu.domain import (
+from vss_kuzu import (
     calculate_cosine_similarity,
     cosine_distance_to_similarity,
     sort_results_by_similarity,

@@ -22,6 +22,11 @@ class ApplicationConfig:
     in_memory: bool = False
     embedding_dimension: int = 256
     default_limit: int = 10
+    # HNSW インデックスパラメータ
+    index_mu: int = 30  # 上位グラフの最大次数
+    index_ml: int = 60  # 下位グラフの最大次数
+    index_metric: str = 'cosine'  # 距離計算関数
+    index_efc: int = 200  # インデックス構築時の候補頂点数
 
 
 def create_vss_service(
@@ -97,8 +102,15 @@ def create_vss_service(
                     "details": vector_error["details"]
                 }
             
-            # スキーマを初期化
-            schema_success, schema_error = init_schema_func(connection, config.embedding_dimension)
+            # スキーマを初期化（HNSWパラメータを含む）
+            schema_success, schema_error = init_schema_func(
+                connection, 
+                config.embedding_dimension,
+                config.index_mu,
+                config.index_ml,
+                config.index_metric,
+                config.index_efc
+            )
             if not schema_success:
                 return {
                     "ok": False,
@@ -155,7 +167,7 @@ def create_vss_service(
         類似ドキュメントを検索する
         
         Args:
-            search_input: {"query": str, "limit": int, "query_vector": List[float] (optional)}
+            search_input: {"query": str, "limit": int, "query_vector": List[float] (optional), "efs": int (optional)}
             config: アプリケーション設定
             
         Returns:
@@ -171,11 +183,12 @@ def create_vss_service(
                 "error": "Missing required parameter: query or query_vector",
                 "details": {
                     "required": ["query"],
-                    "optional": ["limit", "query_vector"]
+                    "optional": ["limit", "query_vector", "efs"]
                 }
             }
         
         limit = search_input.get("limit", config.default_limit)
+        efs = search_input.get("efs", 200)  # Default efs value
         
         # データベース接続を作成
         from .infrastructure import DatabaseConfig
@@ -234,9 +247,9 @@ def create_vss_service(
             else:
                 query_vector = generate_embedding_func(query)
             
-            # 検索を実行
+            # 検索を実行（efsパラメータを含む）
             search_success, db_results, search_error = search_func(
-                connection, query_vector, limit
+                connection, query_vector, limit, efs
             )
             
             if not search_success:
@@ -466,8 +479,15 @@ class VSSService:
                 # VSSのコア機能なので、RuntimeErrorを投げる
                 raise RuntimeError(error_msg)
             
-            # スキーマを初期化
-            schema_success, schema_error = init_schema_func(connection, self.config.embedding_dimension)
+            # スキーマを初期化（HNSWパラメータを含む）
+            schema_success, schema_error = init_schema_func(
+                connection, 
+                self.config.embedding_dimension,
+                self.config.index_mu,
+                self.config.index_ml,
+                self.config.index_metric,
+                self.config.index_efc
+            )
             if not schema_success:
                 self._init_error = {
                     "ok": False,

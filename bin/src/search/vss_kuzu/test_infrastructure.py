@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
-from vss_kuzu.infrastructure import (
+from vss_kuzu import (
     DatabaseConfig,
     create_kuzu_database,
     create_kuzu_connection,
@@ -20,8 +20,8 @@ from vss_kuzu.infrastructure import (
     search_similar_vectors,
     count_documents,
     close_connection,
-    EMBEDDING_DIMENSION
 )
+from vss_kuzu.infrastructure import EMBEDDING_DIMENSION
 
 
 class TestInfrastructure:

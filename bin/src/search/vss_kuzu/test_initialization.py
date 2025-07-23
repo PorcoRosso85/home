@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from vss_kuzu.application import VSSService
+from vss_kuzu import VSSService
 
 
 class TestInitializationErrors:

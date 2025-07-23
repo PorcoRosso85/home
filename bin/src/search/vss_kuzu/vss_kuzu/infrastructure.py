@@ -193,24 +193,13 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
     except Exception as e:
         error_msg = str(e)
         # Check for various error patterns that indicate missing VECTOR extension
-        if any(pattern in error_msg for pattern in ["Extension", "vector_dims", "does not exist", "unknown function"]):
+        if any(pattern in error_msg for pattern in ["Extension", "CREATE VECTOR INDEX", "does not exist", "unknown function"]):
             # Try to install the extension
             install_success, install_error = install_vector_extension(connection)
             
             if install_success:
-                # Try the test query again
-                try:
-                    connection.execute(test_query)
-                    return True, None
-                except Exception as e2:
-                    return False, {
-                        "error": "VECTOR extension installed but still not working",
-                        "details": {
-                            "extension": VECTOR_EXTENSION_NAME,
-                            "install_error": str(e2),
-                            "original_error": error_msg
-                        }
-                    }
+                # Verify the extension works now
+                return check_vector_extension(connection)
             else:
                 return False, {
                     "error": "VECTOR extension not available and failed to install",
@@ -232,13 +221,24 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
             }
 
 
-def initialize_vector_schema(connection: Any, dimension: int) -> Tuple[bool, Optional[Dict[str, Any]]]:
+def initialize_vector_schema(
+    connection: Any, 
+    dimension: int,
+    mu: int = 30,
+    ml: int = 60,
+    metric: str = 'cosine',
+    efc: int = 200
+) -> Tuple[bool, Optional[Dict[str, Any]]]:
     """
     ベクトル検索用のスキーマを初期化する
     
     Args:
         connection: KuzuDB接続オブジェクト
         dimension: 埋め込みベクトルの次元数
+        mu: 上位グラフのノード最大次数 (default: 30)
+        ml: 下位グラフのノード最大次数 (default: 60)
+        metric: 距離計算関数 ('cosine', 'l2', 'l2sq', 'dotproduct') (default: 'cosine')
+        efc: インデックス構築時の候補頂点数 (default: 200)
         
     Returns:
         (success, error_info)
@@ -255,10 +255,17 @@ def initialize_vector_schema(connection: Any, dimension: int) -> Tuple[bool, Opt
         """
         connection.execute(create_table_query)
         
-        # Create vector index
+        # Create vector index with HNSW parameters
         create_index_query = f"""
-            CREATE VECTOR INDEX IF NOT EXISTS {DOCUMENT_EMBEDDING_INDEX_NAME} 
-            ON {DOCUMENT_TABLE_NAME}(embedding)
+            CALL CREATE_VECTOR_INDEX(
+                '{DOCUMENT_TABLE_NAME}',
+                '{DOCUMENT_EMBEDDING_INDEX_NAME}',
+                'embedding',
+                mu := {mu},
+                ml := {ml},
+                metric := '{metric}',
+                efc := {efc}
+            )
         """
         connection.execute(create_index_query)
         
@@ -360,7 +367,8 @@ def insert_documents_with_embeddings(
 def search_similar_vectors(
     connection: Any,
     query_vector: List[float],
-    limit: int = 10
+    limit: int = 10,
+    efs: int = 200
 ) -> Tuple[bool, List[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """
     類似ベクトルを検索する
@@ -369,6 +377,7 @@ def search_similar_vectors(
         connection: KuzuDB接続オブジェクト
         query_vector: クエリベクトル
         limit: 返す結果の最大数
+        efs: 検索時の候補頂点数 (default: 200)
         
     Returns:
         (success, results, error_info)
@@ -385,13 +394,14 @@ def search_similar_vectors(
             }
         
         # Search using VECTOR extension's QUERY_VECTOR_INDEX
-        # Use QUERY_VECTOR_INDEX function
+        # Use QUERY_VECTOR_INDEX function with efs parameter
         result = connection.execute(f"""
             CALL QUERY_VECTOR_INDEX(
                 '{DOCUMENT_TABLE_NAME}',
                 '{DOCUMENT_EMBEDDING_INDEX_NAME}',
                 $query_vector,
-                $limit
+                $limit,
+                efs := {efs}
             )
             RETURN node, distance
         """, {
