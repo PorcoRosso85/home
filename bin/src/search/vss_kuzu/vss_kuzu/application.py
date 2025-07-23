@@ -457,12 +457,14 @@ class VSSService:
             # VECTOR拡張を確認
             vector_available, vector_error = check_vector_func(connection)
             if not vector_available:
+                error_msg = f"CRITICAL: {vector_error.get('error', 'VECTOR extension not available')}"
                 self._init_error = {
                     "ok": False,
-                    "error": vector_error.get("error", "VECTOR extension not available"),
+                    "error": error_msg,
                     "details": vector_error.get("details", {})
                 }
-                return
+                # VSSのコア機能なので、RuntimeErrorを投げる
+                raise RuntimeError(error_msg)
             
             # スキーマを初期化
             schema_success, schema_error = init_schema_func(connection, self.config.embedding_dimension)

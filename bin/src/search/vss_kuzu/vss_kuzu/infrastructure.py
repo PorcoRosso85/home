@@ -157,12 +157,38 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
         (is_available, error_info)
     """
     try:
-        # Try to use VECTOR extension with CALL syntax
-        test_query = "CALL vector_dims([1.0, 2.0, 3.0]) RETURN *"
-        result = connection.execute(test_query)
-        
-        # If we get here, VECTOR extension is available
-        return True, None
+        # First try to check if extension is already loaded
+        # by attempting to create a temporary vector index
+        test_table = "_vector_test_" + str(int(time.time() * 1000))
+        try:
+            # Create a temporary table with vector
+            connection.execute(f"""
+                CREATE NODE TABLE IF NOT EXISTS {test_table} (
+                    id INT64,
+                    embedding DOUBLE[3],
+                    PRIMARY KEY (id)
+                )
+            """)
+            
+            # Try to create a vector index
+            connection.execute(f"""
+                CREATE VECTOR INDEX IF NOT EXISTS {test_table}_idx 
+                ON {test_table}(embedding)
+            """)
+            
+            # Clean up
+            connection.execute(f"DROP TABLE {test_table}")
+            
+            # If we get here, VECTOR extension is available
+            return True, None
+            
+        except Exception:
+            # Try to clean up if table was created
+            try:
+                connection.execute(f"DROP TABLE IF EXISTS {test_table}")
+            except:
+                pass
+            raise
         
     except Exception as e:
         error_msg = str(e)
@@ -358,17 +384,17 @@ def search_similar_vectors(
                 }
             }
         
-        # Search using cosine similarity
-        search_query = f"""
-            MATCH (d:{DOCUMENT_TABLE_NAME})
-            WITH d, array_cosine_similarity(d.embedding, $query_vector) AS distance
-            WHERE distance IS NOT NULL
-            RETURN d.id AS id, d.content AS content, distance, d.embedding AS embedding
-            ORDER BY distance ASC
-            LIMIT $limit
-        """
-        
-        result = connection.execute(search_query, {
+        # Search using VECTOR extension's QUERY_VECTOR_INDEX
+        # Use QUERY_VECTOR_INDEX function
+        result = connection.execute(f"""
+            CALL QUERY_VECTOR_INDEX(
+                '{DOCUMENT_TABLE_NAME}',
+                '{DOCUMENT_EMBEDDING_INDEX_NAME}',
+                $query_vector,
+                $limit
+            )
+            RETURN node, distance
+        """, {
             "query_vector": query_vector,
             "limit": limit
         })
@@ -377,11 +403,15 @@ def search_similar_vectors(
         results = []
         while result.has_next():
             row = result.get_next()
+            node = row[0]  # node object
+            distance = row[1]  # distance value
+            
+            # Extract node properties
             results.append({
-                "id": row[0],
-                "content": row[1],
-                "distance": float(row[2]),
-                "embedding": row[3]
+                "id": node.get("id"),
+                "content": node.get("content"),
+                "distance": float(distance),
+                "embedding": node.get("embedding")
             })
         
         return True, results, None
@@ -406,11 +436,23 @@ def search_similar_vectors(
                     "raw_error": error_msg
                 }
             }
+        elif "QUERY_VECTOR_INDEX" in error_msg or "does not exist" in error_msg:
+            return False, [], {
+                "error": "VECTOR extension not available or index not created",
+                "details": {
+                    "extension": VECTOR_EXTENSION_NAME,
+                    "function": "QUERY_VECTOR_INDEX",
+                    "index_name": DOCUMENT_EMBEDDING_INDEX_NAME,
+                    "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
+                    "raw_error": error_msg
+                }
+            }
         else:
             return False, [], {
                 "error": f"Search failed: {error_msg}",
                 "details": {
-                    "exception_type": type(e).__name__
+                    "exception_type": type(e).__name__,
+                    "raw_error": error_msg
                 }
             }
 
