@@ -118,9 +118,37 @@ def create_kuzu_connection(database: Any) -> Tuple[bool, Optional[Any], Optional
         }
 
 
+def install_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    """
+    VECTOR拡張をインストールしてロードする
+    
+    Args:
+        connection: KuzuDB接続オブジェクト
+        
+    Returns:
+        (success, error_info)
+    """
+    try:
+        # Install VECTOR extension
+        connection.execute(f"INSTALL {VECTOR_EXTENSION_NAME}")
+        # Load VECTOR extension
+        connection.execute(f"LOAD EXTENSION {VECTOR_EXTENSION_NAME}")
+        return True, None
+        
+    except Exception as e:
+        error_msg = str(e)
+        return False, {
+            "error": f"Failed to install/load VECTOR extension: {str(e)}",
+            "details": {
+                "extension": VECTOR_EXTENSION_NAME,
+                "raw_error": error_msg
+            }
+        }
+
+
 def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, Any]]]:
     """
-    VECTOR拡張が利用可能かチェックする
+    VECTOR拡張が利用可能かチェックし、必要ならインストールする
     
     Args:
         connection: KuzuDB接続オブジェクト
@@ -140,21 +168,39 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
         error_msg = str(e)
         # Check for various error patterns that indicate missing VECTOR extension
         if any(pattern in error_msg for pattern in ["Extension", "vector_dims", "does not exist", "unknown function"]):
-            return False, {
-                "error": "VECTOR extension not available",
-                "details": {
-                    "extension": VECTOR_EXTENSION_NAME,
-                    "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
-                    "raw_error": error_msg
+            # Try to install the extension
+            install_success, install_error = install_vector_extension(connection)
+            
+            if install_success:
+                # Try the test query again
+                try:
+                    connection.execute(test_query)
+                    return True, None
+                except Exception as e2:
+                    return False, {
+                        "error": "VECTOR extension installed but still not working",
+                        "details": {
+                            "extension": VECTOR_EXTENSION_NAME,
+                            "install_error": str(e2),
+                            "original_error": error_msg
+                        }
+                    }
+            else:
+                return False, {
+                    "error": "VECTOR extension not available and failed to install",
+                    "details": {
+                        "extension": VECTOR_EXTENSION_NAME,
+                        "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
+                        "install_error": install_error,
+                        "original_error": error_msg
+                    }
                 }
-            }
         else:
             # For other errors, assume VECTOR extension is not available
             return False, {
-                "error": "VECTOR extension not available",
+                "error": "VECTOR extension check failed",
                 "details": {
                     "extension": VECTOR_EXTENSION_NAME,
-                    "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
                     "raw_error": error_msg
                 }
             }

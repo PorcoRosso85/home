@@ -289,37 +289,62 @@ def create_embedding_service(model_name: str = "cl-nagoya/ruri-v3-30m") -> Embed
     Returns:
         埋め込み生成関数
     """
-    def generate_embedding(text: str) -> List[float]:
-        """
-        テキストから埋め込みベクトルを生成する
+    # Try to use sentence-transformers if available
+    try:
+        from sentence_transformers import SentenceTransformer
+        model = SentenceTransformer(model_name)
         
-        実際の実装では sentence-transformers などを使用
-        ここではダミー実装
-        """
-        # ダミー実装：256次元のランダムベクトル
-        import hashlib
-        import struct
+        # Get the embedding dimension from the model
+        embedding_dim = model.get_sentence_embedding_dimension()
         
-        # テキストのハッシュからシードを生成
-        hash_obj = hashlib.sha256(text.encode('utf-8'))
-        hash_bytes = hash_obj.digest()
+        def generate_embedding_with_model(text: str) -> List[float]:
+            """
+            sentence-transformersを使用して埋め込みを生成
+            """
+            # Generate embedding
+            embedding = model.encode(text, convert_to_numpy=True)
+            return embedding.tolist()
         
-        # ハッシュから浮動小数点数を生成
-        embedding = []
-        for i in range(0, min(len(hash_bytes), 256 * 4), 4):
-            if i + 4 <= len(hash_bytes):
-                # 4バイトを符号なし整数として解釈し、正規化
-                value = struct.unpack('I', hash_bytes[i:i+4])[0]
-                normalized = (value / (2**32 - 1)) * 2 - 1  # -1 to 1
-                embedding.append(normalized)
+        # Set the embedding dimension as an attribute of the function
+        generate_embedding_with_model.dimension = embedding_dim
         
-        # 256次元に調整
-        while len(embedding) < 256:
-            embedding.append(0.0)
+        return generate_embedding_with_model
         
-        return embedding[:256]
-    
-    return generate_embedding
+    except ImportError:
+        # Fallback to deterministic dummy implementation
+        def generate_embedding(text: str) -> List[float]:
+            """
+            テキストから埋め込みベクトルを生成する（フォールバック実装）
+            
+            sentence-transformersが利用できない場合のダミー実装
+            """
+            # ダミー実装：256次元のランダムベクトル
+            import hashlib
+            import struct
+            
+            # テキストのハッシュからシードを生成
+            hash_obj = hashlib.sha256(text.encode('utf-8'))
+            hash_bytes = hash_obj.digest()
+            
+            # ハッシュから浮動小数点数を生成
+            embedding = []
+            for i in range(0, min(len(hash_bytes), 256 * 4), 4):
+                if i + 4 <= len(hash_bytes):
+                    # 4バイトを符号なし整数として解釈し、正規化
+                    value = struct.unpack('I', hash_bytes[i:i+4])[0]
+                    normalized = (value / (2**32 - 1)) * 2 - 1  # -1 to 1
+                    embedding.append(normalized)
+            
+            # 256次元に調整
+            while len(embedding) < 256:
+                embedding.append(0.0)
+            
+            return embedding[:256]
+        
+        # Set default dimension for fallback
+        generate_embedding.dimension = 256
+        
+        return generate_embedding
 
 
 class VSSService:
@@ -330,17 +355,23 @@ class VSSService:
     オブジェクト指向インターフェースでラップ
     """
     
-    def __init__(self, db_path: str = "./kuzu_db", in_memory: bool = False):
+    def __init__(self, db_path: str = "./kuzu_db", in_memory: bool = False, model_name: str = "cl-nagoya/ruri-v3-30m"):
         """
         VSSサービスを初期化
         
         Args:
             db_path: データベースパス
             in_memory: インメモリデータベースを使用するか
+            model_name: 使用する埋め込みモデル名
         """
+        # 埋め込みサービスを作成し、次元数を取得
+        embedding_func = create_embedding_service(model_name)
+        embedding_dimension = getattr(embedding_func, 'dimension', 256)
+        
         self.config = ApplicationConfig(
             db_path=db_path,
-            in_memory=in_memory
+            in_memory=in_memory,
+            embedding_dimension=embedding_dimension
         )
         
         # 初期化エラーを保持
@@ -361,9 +392,6 @@ class VSSService:
         )
         
         from .domain import find_semantically_similar_documents
-        
-        # 埋め込みサービスを作成
-        embedding_func = create_embedding_service()
         
         # VSSサービスを作成
         self._service_funcs = create_vss_service(
@@ -408,26 +436,42 @@ class VSSService:
         # データベース作成を試みる
         db_success, database, db_error = create_db_func(db_config)
         if not db_success:
-            self._init_error = db_error
+            self._init_error = {
+                "ok": False,
+                "error": db_error.get("error", "Database creation failed"),
+                "details": db_error.get("details", {})
+            }
             return
         
         # 接続を作成
         conn_success, connection, conn_error = create_conn_func(database)
         if not conn_success:
-            self._init_error = conn_error
+            self._init_error = {
+                "ok": False,
+                "error": conn_error.get("error", "Connection creation failed"),
+                "details": conn_error.get("details", {})
+            }
             return
         
         try:
             # VECTOR拡張を確認
             vector_available, vector_error = check_vector_func(connection)
             if not vector_available:
-                self._init_error = vector_error
+                self._init_error = {
+                    "ok": False,
+                    "error": vector_error.get("error", "VECTOR extension not available"),
+                    "details": vector_error.get("details", {})
+                }
                 return
             
             # スキーマを初期化
             schema_success, schema_error = init_schema_func(connection, self.config.embedding_dimension)
             if not schema_success:
-                self._init_error = schema_error
+                self._init_error = {
+                    "ok": False,
+                    "error": schema_error.get("error", "Schema initialization failed"),
+                    "details": schema_error.get("details", {})
+                }
                 return
             
             # 初期化成功
