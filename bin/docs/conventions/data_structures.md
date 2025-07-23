@@ -11,7 +11,7 @@
 | 言語 | 許可される形式 |
 | :--- | :--- |
 | **TypeScript** | `type` （`interface`は禁止）, `enum` |
-| **Python** | `TypedDict`, `dataclass(frozen=True)` |
+| **Python** | `TypedDict` |
 | **Go** | `struct` |
 | **Rust** | `struct`, `enum` |
 | **Zig** | `struct`, `enum` |
