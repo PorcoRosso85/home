@@ -35,6 +35,13 @@ dev = [
 
 # No CLI scripts - this is a library only
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["fts_kuzu*"]
+
+[tool.setuptools.package-data]
+fts_kuzu = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
