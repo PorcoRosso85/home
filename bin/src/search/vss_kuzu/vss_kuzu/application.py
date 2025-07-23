@@ -343,6 +343,10 @@ class VSSService:
             in_memory=in_memory
         )
         
+        # 初期化エラーを保持
+        self._init_error: Optional[Dict[str, Any]] = None
+        self._is_initialized = False
+        
         # 依存関数をインポート
         from .infrastructure import (
             create_kuzu_database,
@@ -352,7 +356,8 @@ class VSSService:
             insert_documents_with_embeddings,
             search_similar_vectors,
             count_documents,
-            close_connection
+            close_connection,
+            DatabaseConfig
         )
         
         from .domain import find_semantically_similar_documents
@@ -373,11 +378,137 @@ class VSSService:
             generate_embedding_func=embedding_func,
             calculate_similarity_func=find_semantically_similar_documents
         )
+        
+        # 初期化時にデータベース接続とスキーマをテスト
+        self._test_initialization(
+            create_kuzu_database,
+            create_kuzu_connection,
+            check_vector_extension,
+            initialize_vector_schema,
+            close_connection,
+            DatabaseConfig
+        )
+    
+    def _test_initialization(
+        self,
+        create_db_func,
+        create_conn_func,
+        check_vector_func,
+        init_schema_func,
+        close_func,
+        DatabaseConfig
+    ):
+        """初期化時にデータベース接続とスキーマを確認"""
+        db_config = DatabaseConfig(
+            db_path=self.config.db_path,
+            in_memory=self.config.in_memory,
+            embedding_dimension=self.config.embedding_dimension
+        )
+        
+        # データベース作成を試みる
+        db_success, database, db_error = create_db_func(db_config)
+        if not db_success:
+            self._init_error = db_error
+            return
+        
+        # 接続を作成
+        conn_success, connection, conn_error = create_conn_func(database)
+        if not conn_success:
+            self._init_error = conn_error
+            return
+        
+        try:
+            # VECTOR拡張を確認
+            vector_available, vector_error = check_vector_func(connection)
+            if not vector_available:
+                self._init_error = vector_error
+                return
+            
+            # スキーマを初期化
+            schema_success, schema_error = init_schema_func(connection, self.config.embedding_dimension)
+            if not schema_success:
+                self._init_error = schema_error
+                return
+            
+            # 初期化成功
+            self._is_initialized = True
+            
+        finally:
+            # 接続をクローズ
+            close_func(connection)
+    
+    def _check_initialized(self) -> Optional[Dict[str, Any]]:
+        """初期化状態を確認し、エラーがあれば返す"""
+        if self._init_error:
+            return self._init_error
+        if not self._is_initialized:
+            return {
+                "ok": False,
+                "error": "Service not properly initialized",
+                "details": {
+                    "reason": "Initialization was not completed",
+                    "db_path": self.config.db_path
+                }
+            }
+        return None
     
     def index_documents(self, documents: List[Dict[str, str]]) -> Dict[str, Any]:
         """ドキュメントをインデックス"""
+        # 初期化チェック
+        init_error = self._check_initialized()
+        if init_error:
+            return init_error
+        
         return self._service_funcs["index_documents"](documents, self.config)
     
     def search(self, search_input: Dict[str, Any]) -> Dict[str, Any]:
         """類似ドキュメントを検索"""
+        # 初期化チェック
+        init_error = self._check_initialized()
+        if init_error:
+            return init_error
+        
         return self._service_funcs["search"](search_input, self.config)
+    
+    # Legacy API compatibility methods
+    def add_document(self, document_id: str, content: str) -> Dict[str, Any]:
+        """
+        旧API互換メソッド: 単一ドキュメントを追加
+        
+        Args:
+            document_id: ドキュメントID
+            content: ドキュメント内容
+            
+        Returns:
+            インデックス結果
+        """
+        documents = [{"id": document_id, "content": content}]
+        return self.index_documents(documents)
+    
+    def search_similar(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
+        """
+        旧API互換メソッド: 類似検索
+        
+        Args:
+            query: 検索クエリ
+            k: 返す結果の最大数
+            
+        Returns:
+            検索結果のリスト
+        """
+        search_result = self.search({"query": query, "limit": k})
+        
+        # エラーの場合は空リストを返す
+        if not search_result.get("ok", False):
+            return []
+        
+        # 結果を旧フォーマットに変換
+        results = []
+        for result in search_result.get("results", []):
+            results.append({
+                "document_id": result.get("id", ""),
+                "content": result.get("content", ""),
+                "score": result.get("score", 0.0)
+            })
+        
+        return results
