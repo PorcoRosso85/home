@@ -22,6 +22,7 @@ class SyncClient:
         self.ws = None
         self.received_events: List[Dict[str, Any]] = []
         self.connected = False
+        self.history_events: List[Dict[str, Any]] = []  # 履歴イベント用
         
     async def connect(self, url: str = "ws://localhost:8080"):
         """WebSocketサーバーに接続"""
@@ -44,6 +45,9 @@ class SyncClient:
                     self.received_events.append(data["payload"])
                 elif data["type"] == "connected":
                     print(f"Client {self.client_id} connected")
+                elif data["type"] == "history":
+                    # 履歴メッセージを受信
+                    self.history_events = data.get("events", [])
         except websockets.exceptions.ConnectionClosed:
             self.connected = False
             
@@ -68,7 +72,7 @@ class SyncClient:
         return self.received_events.copy()
 
 
-class TestWebSocketServer:
+class WebSocketServerFixture:
     """WebSocketサーバーのテストヘルパー"""
     
     def __init__(self):
@@ -103,7 +107,7 @@ class TestWebSocketServer:
 @pytest.fixture(scope="module")
 def websocket_server():
     """WebSocketサーバーのフィクスチャ"""
-    server = TestWebSocketServer()
+    server = WebSocketServerFixture()
     server.start_server()
     yield server
     server.stop_server()
@@ -245,20 +249,18 @@ async def test_history_sync(websocket_server):
             "fromPosition": 0
         }))
         
-        # 履歴受信を待つ
-        await asyncio.sleep(0.5)
-        
-        # WebSocketから直接履歴メッセージを受信
+        # 履歴受信を待つ（タイムアウト付き）
         history_received = False
-        async for message in client2.ws:
-            data = json.loads(message)
-            if data["type"] == "history":
-                history_events = data.get("events", [])
-                assert len(history_events) >= 3
+        
+        # 最大5秒間、履歴イベントの受信を待つ
+        for _ in range(50):  # 0.1秒 × 50回 = 5秒
+            await asyncio.sleep(0.1)
+            if len(client2.history_events) >= 3:
                 history_received = True
                 break
                 
-        assert history_received, "History was not received"
+        assert history_received, "History was not received within timeout"
+        assert len(client2.history_events) >= 3, f"Expected at least 3 history events, got {len(client2.history_events)}"
         
         await client2.disconnect()
         

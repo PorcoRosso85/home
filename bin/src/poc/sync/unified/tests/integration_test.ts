@@ -22,6 +22,8 @@ async function getServerState(): Promise<ServerState> {
 // テスト用のWebSocketサーバー管理
 class TestServer {
   private process: Deno.ChildProcess | null = null;
+  private stdout: ReadableStream<Uint8Array> | null = null;
+  private stderr: ReadableStream<Uint8Array> | null = null;
   
   async start(port: number = 8080): Promise<void> {
     const denoPath = Deno.env.get("DENO_PATH") || "deno";
@@ -32,14 +34,59 @@ class TestServer {
     });
     
     this.process = command.spawn();
+    this.stdout = this.process.stdout;
+    this.stderr = this.process.stderr;
+    
+    // stdout/stderrの読み取りを開始（バッファに溜まらないように）
+    this.consumeStream(this.stdout);
+    this.consumeStream(this.stderr);
     
     // サーバーの起動を待つ
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
   
+  private async consumeStream(stream: ReadableStream<Uint8Array>): Promise<void> {
+    const reader = stream.getReader();
+    try {
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+    } catch (error) {
+      // ストリームが閉じられた場合のエラーは無視
+      if (!(error instanceof TypeError && error.message.includes("closed"))) {
+        console.error("Stream consumption error:", error);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  
   async stop(): Promise<void> {
     if (this.process) {
+      // プロセスを終了
       this.process.kill("SIGTERM");
+      
+      // ストリームを適切にキャンセル
+      if (this.stdout) {
+        try {
+          await this.stdout.cancel();
+        } catch (error) {
+          // 既にキャンセル済みの場合は無視
+        }
+        this.stdout = null;
+      }
+      
+      if (this.stderr) {
+        try {
+          await this.stderr.cancel();
+        } catch (error) {
+          // 既にキャンセル済みの場合は無視
+        }
+        this.stderr = null;
+      }
+      
+      // プロセスの終了を待つ
       await this.process.status;
       this.process = null;
     }
@@ -90,6 +137,9 @@ Deno.test("Event sending and history", async () => {
     };
     
     await client.sendEvent(testEvent);
+    
+    // イベントが処理されるのを待つ
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // 履歴を確認
     const history = await client.requestHistory({ fromPosition: 0 });
@@ -216,7 +266,12 @@ Deno.test("History pagination", async () => {
         clientId: "pagination-client",
         timestamp: Date.now()
       });
+      // 各イベント送信後に短い遅延を追加
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
+    
+    // すべてのイベントが処理されるのを待つ
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // ページネーションテスト
     const page1 = await client.requestHistoryPage({ fromPosition: 0, limit: 5 });
