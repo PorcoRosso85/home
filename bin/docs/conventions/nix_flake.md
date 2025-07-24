@@ -34,6 +34,58 @@
 }
 ```
 
+## パッケージとOverlayの提供
+
+### 基本方針
+- **パッケージ提供を基本とする**: `packages.default`で直接利用可能なパッケージを提供
+- **Overlayは補助的に提供**: 以下のケースではoverlayの提供を検討
+
+### Overlayが適切なケース
+1. **複数パッケージの統合利用**
+   - 関連する複数のパッケージを一括で提供する場合
+   - 例: Pythonパッケージと関連ツールのセット
+
+2. **既存パッケージの拡張**
+   - nixpkgsの既存パッケージを拡張・修正する場合
+   - 例: `pythonPackagesExtensions`による拡張
+
+3. **ライブラリとしての提供**
+   - 他のflakeから再利用されることを前提とした汎用ライブラリ
+   - 例: ログライブラリ、共通ユーティリティ
+
+### 実装例
+```nix
+{
+  outputs = { self, nixpkgs, flake-utils }:
+    let
+      # Overlay定義（必要な場合のみ）
+      overlay = final: prev: {
+        myPackage = final.callPackage ./. {};
+        # Pythonパッケージの場合
+        pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+          (python-final: python-prev: {
+            myPythonLib = python-final.buildPythonPackage { ... };
+          })
+        ];
+      };
+    in
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ overlay ];  # 自身のoverlayを適用
+        };
+      in
+      {
+        # パッケージ提供（基本）
+        packages.default = pkgs.myPackage;
+        
+        # Overlay提供（適切な場合のみ）
+        overlays.default = overlay;
+      });
+}
+```
+
 ## 環境の継承
 
 ### 親flakeの利用
