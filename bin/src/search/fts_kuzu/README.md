@@ -165,40 +165,9 @@ Automatic generation of text snippets highlighting matched terms.
 
 ## Logging
 
-The FTS library outputs structured logs in JSONL (JSON Lines) format to stdout for easy parsing and monitoring:
+The FTS library uses the `log_py` package for structured logging. Logs are output in JSONL (JSON Lines) format to stdout.
 
-### Log Levels
-
-- **INFO**: Main operations (initialization, indexing, search)
-- **DEBUG**: Detailed operations (connection handling, internal state)
-- **WARN**: Fallback scenarios (e.g., FTS extension not available)
-- **ERROR**: Error conditions with full context
-- **METRIC**: Performance measurements (timing, throughput)
-
-### Example Log Output
-
-```jsonl
-{"timestamp":"2025-07-24T10:15:05.743143+00:00","level":"INFO","uri":"fts.create_fts","message":"Creating FTS instance","db_path":"./kuzu_db","in_memory":true,"existing_connection":false,"default_limit":10}
-{"timestamp":"2025-07-24T10:15:05.984260+00:00","level":"INFO","uri":"fts.index","message":"Starting document indexing","doc_count":2}
-{"timestamp":"2025-07-24T10:15:06.239814+00:00","level":"METRIC","uri":"fts.index_documents.performance","message":"Indexing completed","operation":"index_documents","doc_count":2,"indexed_count":2,"elapsed_ms":255.54,"docs_per_second":7.83}
-{"timestamp":"2025-07-24T10:15:22.315806+00:00","level":"INFO","uri":"fts.search","message":"Starting search","query":"Python","limit":5}
-{"timestamp":"2025-07-24T10:15:22.357464+00:00","level":"METRIC","uri":"fts.search.performance","message":"Search completed","operation":"search","query":"Python","result_count":2,"elapsed_ms":41.63,"results_per_second":48.04,"search_type":"fts"}
-```
-
-### Parsing Logs
-
-Since logs are in JSONL format, they can be easily parsed:
-
-```python
-import json
-
-# Read and parse logs
-with open("app.log") as f:
-    for line in f:
-        log_entry = json.loads(line)
-        if log_entry["level"] == "METRIC":
-            print(f"Operation: {log_entry['operation']}, Time: {log_entry['elapsed_ms']}ms")
-```
+For details on log format and parsing, see the [log_py documentation](../../telemetry/log_py/README.md).
 
 ### Performance Metrics
 

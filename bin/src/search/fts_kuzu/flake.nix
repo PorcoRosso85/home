@@ -6,12 +6,17 @@
     flake-utils.url = "github:numtide/flake-utils";
     python-flake.url = "path:/home/nixos/bin/src/flakes/python";
     kuzu-py-flake.url = "path:/home/nixos/bin/src/persistence/kuzu_py";
+    log-py.url = "path:/home/nixos/bin/src/telemetry/log_py";
   };
 
-  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, log-py }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        # Apply log_py overlay to get the log_py python package
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ log-py.overlays.default ];
+        };
         
         # Get kuzuPy package from kuzu-py-flake
         kuzuPyPackage = kuzu-py-flake.packages.${system}.kuzuPy;
@@ -25,6 +30,9 @@
             kuzu  # Base kuzu package
             kuzuPyPackage  # This provides kuzu_py module
             numpy
+            
+            # Telemetry
+            log_py  # stdout logging from log_py (available via overlay)
             
             # Development tools
             pytest-cov
@@ -56,6 +64,7 @@
           propagatedBuildInputs = with pkgs.python312Packages; [
             kuzuPyPackage
             numpy
+            log_py
           ];
           
           # Disable import check as it fails in build environment but works at runtime

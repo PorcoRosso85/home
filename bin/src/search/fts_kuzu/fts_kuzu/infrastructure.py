@@ -7,7 +7,17 @@
 """
 
 from typing import Any, TypedDict
-from .logging import error, warn, debug
+from log_py import log
+
+# Wrapper functions to match previous API
+def error(uri: str, message: str, **context):
+    log("ERROR", {"uri": uri, "message": message, **context})
+
+def warn(uri: str, message: str, **context):
+    log("WARN", {"uri": uri, "message": message, **context})
+
+def debug(uri: str, message: str, **context):
+    log("DEBUG", {"uri": uri, "message": message, **context})
 
 # KuzuDB imports
 try:

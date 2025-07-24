@@ -12,7 +12,23 @@ from typing import Any, TypedDict
 
 from .protocols import SearchSystem, FTSAlgebra
 from .common_types import SearchResults, IndexResult, SearchResultItem
-from .logging import info, debug, warn, error, metric
+from log_py import log
+
+# Wrapper functions to match previous API
+def info(uri: str, message: str, **context):
+    log("INFO", {"uri": uri, "message": message, **context})
+
+def debug(uri: str, message: str, **context):
+    log("DEBUG", {"uri": uri, "message": message, **context})
+
+def warn(uri: str, message: str, **context):
+    log("WARN", {"uri": uri, "message": message, **context})
+
+def error(uri: str, message: str, **context):
+    log("ERROR", {"uri": uri, "message": message, **context})
+
+def metric(uri: str, message: str, **context):
+    log("METRIC", {"uri": uri, "message": message, **context})
 
 # Type aliases for clarity
 EmbeddingFunction = Callable[[str], list[float]]
