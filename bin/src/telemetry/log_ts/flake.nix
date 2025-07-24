@@ -122,6 +122,14 @@
             ''}/bin/log-ts-repl";
           };
           
+          # Display README.md
+          readme = {
+            type = "app";
+            program = "${pkgs.writeShellScript "show-readme" ''
+              cat ${./README.md}
+            ''}";
+          };
+          
           default = self.apps.${system}.test;
         };
       })
