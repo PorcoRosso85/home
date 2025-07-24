@@ -11,28 +11,21 @@
   - 例: `websocketSync.ts`, `conflictResolver.ts`, `metricsCollector.ts`
 - **クラス/コンポーネント**: `PascalCase.ts` （主要エクスポートがクラスの場合）
   - 例: `UserService.ts`, `DatabaseConnection.ts`
-- **テストファイル**: `<対象ファイル名>.test.ts`
-  - 例: `websocketSync.test.ts`, `conflictResolver.test.ts`
 - **型定義ファイル**: `types.ts` または `<機能名>Types.ts`
   - 例: `types.ts`, `userTypes.ts`
 
 ### Python
 - **通常ファイル**: `snake_case.py`
   - 例: `websocket_sync.py`, `conflict_resolver.py`, `metrics_collector.py`
-- **テストファイル**: `test_<対象ファイル名>.py`
-  - 例: `test_websocket_sync.py`, `test_conflict_resolver.py`
 - **定数ファイル**: `constants.py` または `<機能名>_constants.py`
 
 ### Go
 - **通常ファイル**: `snake_case.go`
   - 例: `websocket_sync.go`, `conflict_resolver.go`
-- **テストファイル**: `<対象ファイル名>_test.go`
-  - 例: `websocket_sync_test.go`
 
 ### Rust
 - **通常ファイル**: `snake_case.rs`
   - 例: `websocket_sync.rs`, `conflict_resolver.rs`
-- **テストファイル**: `mod.rs` 内の `#[cfg(test)]` または `tests/` ディレクトリ
 
 ## 特殊ケース
 
@@ -45,11 +38,6 @@
   - `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`
   - `deno.json`, `tsconfig.json`, `.prettierrc`
 
-### 共通モジュールファイル
-- `mod.{ext}` - モジュールのメインエクスポート
-- `variables.{ext}` - 環境変数・設定値
-- `index.{ext}` - ディレクトリのエントリーポイント（使用は最小限に）
-
 ## 言語混在プロジェクトでの扱い
 
 同一ディレクトリに複数言語のファイルが存在する場合：
@@ -59,7 +47,7 @@ unified/
 ├── websocketSync.ts      # TypeScript: camelCase
 ├── websocket_sync.py     # Python: snake_case
 ├── websocket_sync.go     # Go: snake_case
-└── websocket-sync.rs     # Rust: kebab-case (慣習により)
+└── websocket_sync.rs     # Rust: snake_case
 ```
 
 **重要**: 同じ機能でも、各言語の慣習に従った命名を使用する
@@ -83,4 +71,4 @@ unified/
 
 - [パッケージ命名規約](./package_naming.md) - パッケージレベルの命名
 - [モジュール設計](./module_design.md) - ディレクトリ構造とファイル配置
-- [テストインフラ](./test_infrastructure.md) - テストファイルの詳細規則
+- [テストインフラ](./test_infrastructure.md) - テストファイルの組織化とベストプラクティス
