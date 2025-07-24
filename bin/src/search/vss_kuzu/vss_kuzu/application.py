@@ -286,7 +286,8 @@ def create_vss_service(
                 }
             
             # ドキュメント数を取得
-            count_success, total_count, count_error = count_func(connection)
+            from .infrastructure import DOCUMENT_TABLE_NAME
+            count_success, total_count, count_error = count_func(connection, DOCUMENT_TABLE_NAME)
             if not count_success:
                 total_count = 0
             

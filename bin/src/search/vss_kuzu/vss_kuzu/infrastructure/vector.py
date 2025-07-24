@@ -54,38 +54,33 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
         (is_available, error_info)
     """
     try:
+        # Simple check - try to call VECTOR extension function
+        # This will fail immediately if VECTOR is not available
         test_table = "_vector_test_" + str(int(time.time() * 1000))
         try:
-            connection.execute(f"""
-                CREATE NODE TABLE IF NOT EXISTS {test_table} (
-                    id INT64,
-                    embedding DOUBLE[3],
-                    PRIMARY KEY (id)
-                )
-            """)
-            
+            # Just check if CREATE_VECTOR_INDEX function exists
+            # Use a table that doesn't exist - it will fail but in a different way
             connection.execute(f"""
                 CALL CREATE_VECTOR_INDEX(
-                    '{test_table}',
-                    '{test_table}_idx',
+                    'nonexistent_table_{test_table}',
+                    'test_idx',
                     'embedding'
                 )
             """)
-            
-            connection.execute(f"DROP TABLE {test_table}")
-            
+        except Exception as e:
+            error_msg = str(e)
+            # If error is about the table not existing, VECTOR is available
+            if "does not exist" in error_msg and "nonexistent_table" in error_msg:
+                return True, None
+            # If error is about CREATE_VECTOR_INDEX not being defined, VECTOR is missing
+            if "CREATE_VECTOR_INDEX" in error_msg and ("not defined" in error_msg or "unknown" in error_msg):
+                raise
+            # For other errors, assume VECTOR is available
             return True, None
-            
-        except Exception:
-            try:
-                connection.execute(f"DROP TABLE IF EXISTS {test_table}")
-            except:
-                pass
-            raise
         
     except Exception as e:
         error_msg = str(e)
-        if any(pattern in error_msg for pattern in ["Extension", "CREATE VECTOR INDEX", "does not exist", "unknown function"]):
+        if any(pattern in error_msg for pattern in ["Extension", "CREATE_VECTOR_INDEX", "does not exist", "unknown function", "not defined"]):
             install_success, install_error = install_vector_extension(connection)
             
             if install_success:
@@ -145,6 +140,27 @@ def initialize_vector_schema(
         """
         connection.execute(create_table_query)
         
+        # Check if vector index already exists
+        try:
+            # Query system tables to check index existence
+            check_index_query = """
+                MATCH (idx:_kuzu_internal_tables) 
+                WHERE idx.name = $index_name 
+                RETURN idx.name
+            """
+            result = connection.execute(check_index_query, {
+                "index_name": DOCUMENT_EMBEDDING_INDEX_NAME
+            })
+            
+            # If we get a result, index exists
+            if result.has_next():
+                return True, None
+                
+        except Exception:
+            # If query fails, assume index doesn't exist and proceed to create
+            pass
+        
+        # Create vector index if it doesn't exist
         create_index_query = f"""
             CALL CREATE_VECTOR_INDEX(
                 '{DOCUMENT_TABLE_NAME}',
@@ -215,9 +231,24 @@ def insert_documents_with_embeddings(
                     }
                 }
             
+            # Check if document exists first
+            check_query = f"""
+                MATCH (d:{DOCUMENT_TABLE_NAME} {{id: $id}})
+                RETURN d.id
+            """
+            check_result = connection.execute(check_query, {"id": doc_id})
+            
+            if check_result.has_next():
+                # Document exists - delete and re-insert due to index constraints
+                delete_query = f"""
+                    MATCH (d:{DOCUMENT_TABLE_NAME} {{id: $id}})
+                    DELETE d
+                """
+                connection.execute(delete_query, {"id": doc_id})
+            
+            # Insert new document
             query = f"""
-                MERGE (d:{DOCUMENT_TABLE_NAME} {{id: $id}})
-                SET d.content = $content, d.embedding = $embedding
+                CREATE (d:{DOCUMENT_TABLE_NAME} {{id: $id, content: $content, embedding: $embedding}})
             """
             
             connection.execute(query, {

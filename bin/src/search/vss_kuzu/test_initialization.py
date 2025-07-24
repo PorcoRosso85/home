@@ -50,7 +50,7 @@ class TestInitializationErrors:
                     
                     if vec_success:
                         # スキーマ初期化
-                        schema_success, schema_error = initialize_vector_schema(connection)
+                        schema_success, schema_error = initialize_vector_schema(connection, dimension=256)
                         assert schema_success is True
                         
                         # 正常に動作することを確認
@@ -165,7 +165,7 @@ class TestInitializationErrors:
         if vec_success:
             # VECTOR拡張が利用可能な場合
             # スキーマ初期化
-            schema_success, schema_error = initialize_vector_schema(connection)
+            schema_success, schema_error = initialize_vector_schema(connection, dimension=256)
             assert schema_success is True
             
             # 正常に動作することを確認
@@ -236,8 +236,8 @@ class TestInitializationErrors:
             if vec_success1:
                 # 両方ともVECTOR拡張が利用可能
                 # スキーマ初期化
-                schema_success1, schema_error1 = initialize_vector_schema(connection1)
-                schema_success2, schema_error2 = initialize_vector_schema(connection2)
+                schema_success1, schema_error1 = initialize_vector_schema(connection1, dimension=256)
+                schema_success2, schema_error2 = initialize_vector_schema(connection2, dimension=256)
                 assert schema_success1 is True
                 assert schema_success2 is True
                 
