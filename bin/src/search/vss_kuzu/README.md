@@ -22,9 +22,13 @@ This library provides high-performance vector similarity search functionality th
 pip install vss-kuzu
 ```
 
-For production use, install the VECTOR extension:
+For production use, install the VECTOR extension for your database:
 ```bash
-nix run .#install-vector
+# Install for a specific database
+nix run .#vss-extension ./my_database
+
+# The extension must be installed for each database separately
+nix run .#vss-extension /path/to/another/db
 ```
 
 ## Usage
@@ -42,10 +46,10 @@ documents = [
     {"id": "doc1", "content": "ユーザー認証機能を実装する"},
     {"id": "doc2", "content": "ログインシステムを構築する"},
 ]
-vss["index"](documents)
+vss.index(documents)
 
 # Search for similar documents
-results = vss["search"]("認証システム", limit=5)
+results = vss.search("認証システム", limit=5)
 
 for result in results["results"]:
     print(f"{result['content']} (similarity: {result['score']:.2f})")
@@ -66,7 +70,7 @@ vss = create_vss(
 )
 
 # Search with custom parameters
-results = vss["search"](
+results = vss.search(
     query="検索クエリ",
     limit=10,
     efs=400  # Search-time parameter

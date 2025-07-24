@@ -26,6 +26,9 @@ class TestUnifiedAPI:
             assert "Failed to initialize VSS" in error_msg
             # The error should contain details about the extension
             assert "Details:" in error_msg
+            # Verify helpful guidance is provided
+            assert "See README.md" in error_msg
+            assert "nix flake show" in error_msg
     
     def test_create_vss_returns_vss_instance(self):
         """create_vss()がVSSAlgebra Protocolを実装したオブジェクトを返すこと"""

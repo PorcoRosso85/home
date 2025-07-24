@@ -513,6 +513,7 @@ def create_vss(
             details = vector_error.get('details', {})
             raise RuntimeError(
                 f"Failed to initialize VSS: {error_msg}. "
+                f"See README.md or run 'nix flake show' for setup instructions. "
                 f"Details: {details}"
             )
         
