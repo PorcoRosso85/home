@@ -12,6 +12,7 @@ from typing import Any, TypedDict
 
 from .protocols import SearchSystem, FTSAlgebra
 from .common_types import SearchResults, IndexResult, SearchResultItem
+from .logging import info, debug, warn
 
 # Type aliases for clarity
 EmbeddingFunction = Callable[[str], list[float]]
@@ -60,6 +61,7 @@ def create_fts_service(
             インデックス結果
         """
         start_time = time.time()
+        debug("fts.index_documents", "Index documents called", doc_count=len(documents))
 
         # 入力検証
         if not documents:
@@ -75,9 +77,11 @@ def create_fts_service(
         # 既存接続があれば使用、なければ新規作成
         existing_conn = config.get('existing_connection')
         if existing_conn:
+            debug("fts.index_documents", "Using existing connection")
             connection = existing_conn
             should_close = False
         else:
+            debug("fts.index_documents", "Creating new connection")
             db_config: DatabaseConfig = {
                 'db_path': config.get('db_path', './kuzu_db'),
                 'in_memory': config.get('in_memory', False),
@@ -252,9 +256,10 @@ def create_fts_service(
             検索結果
         """
         start_time = time.time()
+        query = search_input.get("query")
+        debug("fts.search", "Search function called", query=query, limit=search_input.get("limit"))
 
         # 入力検証
-        query = search_input.get("query")
         if not query:
             return {
                 "ok": False,
@@ -302,6 +307,7 @@ def create_fts_service(
             if not fts_available:
                 # 拡張がない場合は単純な文字列検索にフォールバック
                 # （規約に従い、エラーとして扱うべきかもしれない）
+                warn("fts.search", "FTS extension not available, falling back to simple string search")
                 results = []
                 try:
                     # 単純な文字列マッチング
@@ -449,7 +455,18 @@ class FTSInterpreter:
             - error: str - エラーメッセージ（失敗時のみ）
             - details: dict - 追加の詳細情報
         """
-        return self._service_funcs["index_documents"](documents, self._config)
+        start_time = time.time()
+        info("fts.index", "Starting document indexing", doc_count=len(documents))
+        
+        result = self._service_funcs["index_documents"](documents, self._config)
+        
+        elapsed_ms = (time.time() - start_time) * 1000
+        if result.get("ok"):
+            info("fts.index", "Indexing completed", 
+                 indexed_count=result.get("indexed_count", 0),
+                 elapsed_ms=round(elapsed_ms, 2))
+        
+        return result
     
     def search(self, query: str, limit: int = 10, **kwargs) -> dict[str, Any]:
         """
@@ -468,9 +485,21 @@ class FTSInterpreter:
             - error: str - エラーメッセージ（失敗時のみ）
             - details: dict - 追加の詳細情報
         """
+        start_time = time.time()
+        info("fts.search", "Starting search", query=query, limit=limit)
+        
         search_input = {"query": query, "limit": limit}
         search_input.update(kwargs)
-        return self._service_funcs["search"](search_input, self._config)
+        result = self._service_funcs["search"](search_input, self._config)
+        
+        elapsed_ms = (time.time() - start_time) * 1000
+        if result.get("ok"):
+            info("fts.search", "Search completed", 
+                 query=query,
+                 result_count=len(result.get("results", [])),
+                 elapsed_ms=round(elapsed_ms, 2))
+        
+        return result
     
     def close(self) -> None:
         """
@@ -527,6 +556,13 @@ def create_fts(
         fts.index([{"id": "1", "title": "Title", "content": "テキスト"}])
         results = fts.search("検索語")
     """
+    # Log initialization
+    info("fts.create_fts", "Creating FTS instance", 
+         db_path=db_path, 
+         in_memory=in_memory, 
+         existing_connection=existing_connection is not None,
+         default_limit=kwargs.get('default_limit', 10))
+    
     # ApplicationConfigを作成
     config: ApplicationConfig = {
         'db_path': db_path,
