@@ -36,8 +36,6 @@ class TestExistingConnection:
             # 実際にインデックスと検索が動作することを確認
             documents = [{"id": "1", "content": "テストドキュメント"}]
             result = vss.index(documents)
-            if not result["ok"]:
-                print(f"Index failed: {result}")
             assert result["ok"], f"Index failed: {result}"
             
             search_result = vss.search("テスト")

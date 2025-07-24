@@ -8,6 +8,7 @@
 
 import time
 from typing import Dict, Any, List, Optional, Callable, Tuple, TypedDict
+from log_py import log
 
 from .protocols import VSSAlgebra
 
@@ -60,8 +61,21 @@ def create_vss_service(
         """
         start_time = time.time()
         
+        log("info", {
+            "message": "Starting document indexing",
+            "component": "vss.application",
+            "operation": "index_documents",
+            "document_count": len(documents)
+        })
+        
         # 入力検証
         if not documents:
+            log("warning", {
+                "message": "No documents provided for indexing",
+                "component": "vss.application",
+                "operation": "index_documents",
+                "document_count": 0
+            })
             return {
                 "ok": False,
                 "error": "No documents provided",
@@ -98,6 +112,13 @@ def create_vss_service(
             
             db_success, database, db_error = create_db_func(db_config)
             if not db_success:
+                log("error", {
+                    "message": "Failed to create database",
+                    "component": "vss.application",
+                    "operation": "index_documents",
+                    "error": db_error["error"],
+                    "details": db_error["details"]
+                })
                 return {
                     "ok": False,
                     "error": db_error["error"],
@@ -106,6 +127,13 @@ def create_vss_service(
             
             conn_success, connection, conn_error = create_conn_func(database)
             if not conn_success:
+                log("error", {
+                    "message": "Failed to create connection",
+                    "component": "vss.application",
+                    "operation": "index_documents",
+                    "error": conn_error["error"],
+                    "details": conn_error["details"]
+                })
                 return {
                     "ok": False,
                     "error": conn_error["error"],
@@ -117,6 +145,13 @@ def create_vss_service(
             # VECTOR拡張をチェック
             vector_available, vector_error = check_vector_func(connection)
             if not vector_available:
+                log("error", {
+                    "message": "VECTOR extension not available",
+                    "component": "vss.application",
+                    "operation": "index_documents",
+                    "error": vector_error["error"],
+                    "details": vector_error["details"]
+                })
                 return {
                     "ok": False,
                     "error": vector_error["error"],
@@ -145,6 +180,13 @@ def create_vss_service(
                     config.get('index_efc', 200)
                 )
             if not schema_success:
+                log("error", {
+                    "message": "Failed to initialize schema",
+                    "component": "vss.application",
+                    "operation": "index_documents",
+                    "error": schema_error["error"],
+                    "details": schema_error["details"]
+                })
                 return {
                     "ok": False,
                     "error": schema_error["error"],
@@ -158,6 +200,12 @@ def create_vss_service(
                 content = doc.get("content")
                 
                 if not doc_id or not content:
+                    log("error", {
+                        "message": "Invalid document format",
+                        "component": "vss.application",
+                        "operation": "index_documents",
+                        "document": doc
+                    })
                     return {
                         "ok": False,
                         "error": "Invalid document format",
@@ -177,6 +225,13 @@ def create_vss_service(
             )
             
             if not insert_success:
+                log("error", {
+                    "message": "Failed to insert documents",
+                    "component": "vss.application",
+                    "operation": "index_documents",
+                    "error": insert_error["error"],
+                    "details": insert_error["details"]
+                })
                 return {
                     "ok": False,
                     "error": insert_error["error"],
@@ -184,6 +239,14 @@ def create_vss_service(
                 }
             
             elapsed_ms = (time.time() - start_time) * 1000
+            
+            log("info", {
+                "message": "Successfully indexed documents",
+                "component": "vss.application",
+                "operation": "index_documents",
+                "indexed_count": inserted_count,
+                "index_time_ms": elapsed_ms
+            })
             
             return {
                 "ok": True,
@@ -213,6 +276,13 @@ def create_vss_service(
         # 入力検証
         query = search_input.get("query")
         if not query and "query_vector" not in search_input:
+            log("error", {
+                "message": "Missing required search parameter",
+                "component": "vss.application",
+                "operation": "search",
+                "error": "Missing required parameter: query or query_vector",
+                "search_input_keys": list(search_input.keys())
+            })
             return {
                 "ok": False,
                 "error": "Missing required parameter: query or query_vector",
@@ -229,6 +299,17 @@ def create_vss_service(
             default_limit = config.get('default_limit', 10)
         limit = search_input.get("limit", default_limit)
         efs = search_input.get("efs", 200)  # Default efs value
+        
+        # Log search query received (without exposing sensitive data)
+        log("info", {
+            "message": "Search query received",
+            "component": "vss.application",
+            "operation": "search",
+            "has_query": bool(query),
+            "has_query_vector": "query_vector" in search_input,
+            "limit": limit,
+            "efs": efs
+        })
         
         # データベース接続を作成
         # DatabaseConfig is now a TypedDict, no need to import
@@ -260,6 +341,13 @@ def create_vss_service(
             
             db_success, database, db_error = create_db_func(db_config)
             if not db_success:
+                log("error", {
+                    "message": "Failed to create database for search",
+                    "component": "vss.application",
+                    "operation": "search",
+                    "error": db_error.get("error", "Unknown error"),
+                    "details": db_error.get("details", {})
+                })
                 return {
                     "ok": False,
                     "error": db_error["error"],
@@ -268,6 +356,13 @@ def create_vss_service(
             
             conn_success, connection, conn_error = create_conn_func(database)
             if not conn_success:
+                log("error", {
+                    "message": "Failed to create connection for search",
+                    "component": "vss.application",
+                    "operation": "search",
+                    "error": conn_error.get("error", "Unknown error"),
+                    "details": conn_error.get("details", {})
+                })
                 return {
                     "ok": False,
                     "error": conn_error["error"],
@@ -279,6 +374,13 @@ def create_vss_service(
             # VECTOR拡張をチェック
             vector_available, vector_error = check_vector_func(connection)
             if not vector_available:
+                log("error", {
+                    "message": "VECTOR extension not available for search",
+                    "component": "vss.application",
+                    "operation": "search",
+                    "error": vector_error.get("error", "Unknown error"),
+                    "details": vector_error.get("details", {})
+                })
                 return {
                     "ok": False,
                     "error": vector_error["error"],
@@ -293,6 +395,12 @@ def create_vss_service(
             
             # 空のインデックスの場合
             if total_count == 0:
+                log("info", {
+                    "message": "Search on empty index",
+                    "component": "vss.application",
+                    "operation": "search",
+                    "total_documents": 0
+                })
                 return {
                     "ok": True,
                     "results": [],
@@ -310,11 +418,27 @@ def create_vss_service(
                 query_vector = generate_embedding_func(query)
             
             # 検索を実行（efsパラメータを含む）
+            log("info", {
+                "message": "Executing vector search",
+                "component": "vss.application",
+                "operation": "search",
+                "limit": limit,
+                "efs": efs,
+                "vector_dimension": len(query_vector) if query_vector else 0
+            })
+            
             search_success, db_results, search_error = search_func(
                 connection, query_vector, limit, efs
             )
             
             if not search_success:
+                log("error", {
+                    "message": "Search execution failed",
+                    "component": "vss.application",
+                    "operation": "search",
+                    "error": search_error.get("error", "Unknown error"),
+                    "details": search_error.get("details", {})
+                })
                 return {
                     "ok": False,
                     "error": search_error["error"],
@@ -332,6 +456,18 @@ def create_vss_service(
                 })
             
             elapsed_ms = (time.time() - start_time) * 1000
+            
+            # Log successful search completion
+            log("info", {
+                "message": "Search completed successfully",
+                "component": "vss.application",
+                "operation": "search",
+                "results_count": len(results),
+                "search_time_ms": elapsed_ms,
+                "has_query": bool(query),
+                "limit_requested": limit,
+                "efs": efs
+            })
             
             return {
                 "ok": True,
@@ -466,6 +602,17 @@ def create_vss(
         vss.index([{"id": "1", "content": "テキスト"}])
         results = vss.search("検索語")
     """
+    # VSS initialization start
+    log("info", {
+        "message": "Starting VSS initialization",
+        "component": "vss.application",
+        "operation": "create_vss",
+        "db_path": db_path,
+        "in_memory": in_memory,
+        "model_name": model_name,
+        "has_existing_connection": existing_connection is not None
+    })
+    
     # 埋め込みサービスを作成
     embedding_func = create_embedding_service(model_name)
     embedding_dimension = kwargs.get(
@@ -485,6 +632,19 @@ def create_vss(
         'index_efc': kwargs.get('index_efc', 200),
         'existing_connection': existing_connection  # 既存接続を設定に追加
     }
+    
+    # Log configuration parameters (non-sensitive)
+    log("info", {
+        "message": "VSS configuration parameters",
+        "component": "vss.application",
+        "operation": "create_vss",
+        "embedding_dimension": config['embedding_dimension'],
+        "default_limit": config['default_limit'],
+        "index_mu": config['index_mu'],
+        "index_ml": config['index_ml'],
+        "index_metric": config['index_metric'],
+        "index_efc": config['index_efc']
+    })
     
     # インフラストラクチャ関数をインポート
     from .infrastructure import (
@@ -530,11 +690,27 @@ def create_vss(
         
         db_success, database, db_error = create_kuzu_database(db_config)
         if not db_success:
-            raise RuntimeError(f"Failed to create database: {db_error.get('error', 'Unknown error')}")
+            error_msg = db_error.get('error', 'Unknown error')
+            log("error", {
+                "message": "Failed to create database during VSS initialization",
+                "component": "vss.application",
+                "operation": "create_vss",
+                "error": error_msg,
+                "details": db_error.get('details', {})
+            })
+            raise RuntimeError(f"Failed to create database: {error_msg}")
         
         conn_success, connection, conn_error = create_kuzu_connection(database)
         if not conn_success:
-            raise RuntimeError(f"Failed to create connection: {conn_error.get('error', 'Unknown error')}")
+            error_msg = conn_error.get('error', 'Unknown error')
+            log("error", {
+                "message": "Failed to create connection during VSS initialization",
+                "component": "vss.application",
+                "operation": "create_vss",
+                "error": error_msg,
+                "details": conn_error.get('details', {})
+            })
+            raise RuntimeError(f"Failed to create connection: {error_msg}")
         
         should_close_connection = True
     
@@ -544,6 +720,13 @@ def create_vss(
             # VECTOR拡張が利用できない場合は即座に失敗
             error_msg = vector_error.get('error', 'VECTOR extension not available')
             details = vector_error.get('details', {})
+            log("error", {
+                "message": "VECTOR extension not available",
+                "component": "vss.application",
+                "operation": "create_vss",
+                "error": error_msg,
+                "details": details
+            })
             raise RuntimeError(
                 f"Failed to initialize VSS: {error_msg}. "
                 f"See README.md or run 'nix flake show' for setup instructions. "
@@ -562,6 +745,13 @@ def create_vss(
         if not schema_success:
             error_msg = schema_error.get('error', 'Failed to initialize schema')
             details = schema_error.get('details', {})
+            log("error", {
+                "message": "Failed to initialize VSS schema",
+                "component": "vss.application",
+                "operation": "create_vss",
+                "error": error_msg,
+                "details": details
+            })
             raise RuntimeError(
                 f"Failed to initialize VSS schema: {error_msg}. "
                 f"Details: {details}"
@@ -570,6 +760,16 @@ def create_vss(
         # 自分で作成した接続のみクローズ
         if should_close_connection:
             close_connection(connection)
+    
+    # Log successful initialization
+    log("info", {
+        "message": "VSS initialization completed successfully",
+        "component": "vss.application",
+        "operation": "create_vss",
+        "db_path": config['db_path'],
+        "in_memory": config['in_memory'],
+        "embedding_dimension": config['embedding_dimension']
+    })
     
     return create_vss_interpreter(config, service_funcs)
 

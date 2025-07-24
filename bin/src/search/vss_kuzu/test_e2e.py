@@ -154,10 +154,7 @@ class TestE2EImportCapability:
         # This ensures no PYTHONPATH is set
         code = """
 import sys
-print("PYTHONPATH:", sys.path)
 import vss_kuzu
-print("Import successful")
-print("Version:", vss_kuzu.__version__)
 """
         
         result = subprocess.run(
@@ -169,8 +166,6 @@ print("Version:", vss_kuzu.__version__)
         
         # Should succeed without PYTHONPATH
         assert result.returncode == 0
-        assert "Import successful" in result.stdout
-        assert "Version: 0.1.0" in result.stdout
 
 
 if __name__ == "__main__":

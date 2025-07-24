@@ -28,6 +28,7 @@ dependencies = [
     "torch>=2.0.0",
     "scipy>=1.10.0",
     "sentencepiece>=0.1.0",
+    "log-py>=0.1.0",
 ]
 
 [project.optional-dependencies]

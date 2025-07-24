@@ -143,3 +143,11 @@ try:
 except VSSError as e:
     print(f"Search failed: {e}")
 ```
+
+## Logging
+
+VSS uses structured JSONL logging via `log_py` following the "log = stdout" philosophy. All logs are written to stdout with structured metadata:
+
+- **Components**: `vss.infrastructure.db`, `vss.infrastructure.vector`, `vss.application`
+- **Format**: JSONL with timestamp, level, component, and contextual data
+- **Example**: `{"timestamp":"2024-01-01T00:00:00Z","level":"INFO","component":"vss.infrastructure.db","message":"Database initialized","db_path":"./my_database"}`
