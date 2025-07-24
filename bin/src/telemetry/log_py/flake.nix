@@ -4,9 +4,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    python-flake.url = "path:../../flakes/python";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, python-flake }:
     let
       # Overlay that provides the log_py package
       overlay = final: prev: {
@@ -43,9 +44,11 @@
           overlays = [ overlay ];
         };
         
-        pythonEnv = pkgs.python3.withPackages (ps: with ps; [
+        # Use the same Python version as parent flake (python312)
+        # and include the packages from parent flake plus log_py
+        pythonEnv = pkgs.python312.withPackages (ps: with ps; [
           log_py
-          pytest
+          pytest  # This comes from parent flake's environment
         ]);
       in
       {
@@ -103,6 +106,22 @@
               echo "Starting Python REPL with log_py module..."
               ${pythonEnv}/bin/python
             ''}/bin/log-py-repl";
+          };
+          
+          # Display README
+          readme = {
+            type = "app";
+            program = let
+              readmeFile = ./README.md;
+              showReadme = pkgs.writeShellScriptBin "show-readme" ''
+                #!/usr/bin/env bash
+                if [ -f "${readmeFile}" ]; then
+                  cat "${readmeFile}"
+                else
+                  echo "README.md not found at ${readmeFile}"
+                fi
+              '';
+            in "${showReadme}/bin/show-readme";
           };
           
           default = self.apps.${system}.test;
