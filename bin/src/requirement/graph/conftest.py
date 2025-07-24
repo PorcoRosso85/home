@@ -73,3 +73,41 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "slow" in item.keywords:
                 item.add_marker(skip_slow)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_memory_files(request):
+    """
+    セッションレベルのクリーンアップフィクスチャ
+    
+    全テスト実行後に:memory:*ファイルを自動的に削除する。
+    KuzuDBなどのインメモリデータベースがファイルシステムに
+    作成する一時ファイルをクリーンアップする。
+    """
+    # テスト実行前は何もしない
+    yield
+    
+    # テスト実行後のクリーンアップ
+    import glob
+    import shutil
+    
+    try:
+        # カレントディレクトリから:memory:*パターンのファイルを検索
+        memory_files = glob.glob(":memory:*")
+        
+        if memory_files:
+            print(f"\nCleaning up {len(memory_files)} :memory:* files...")
+            for file_path in memory_files:
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                        print(f"  Removed: {file_path}")
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                        print(f"  Removed directory: {file_path}")
+                except Exception as e:
+                    print(f"  Warning: Failed to remove {file_path}: {e}")
+        
+    except Exception as e:
+        # クリーンアップ中のエラーはテスト結果に影響しないよう静かに処理
+        print(f"\nWarning: Cleanup failed with error: {e}")
