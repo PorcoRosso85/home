@@ -70,7 +70,36 @@ app | to_syslog
 app | to_cloudwatch
 ```
 
-## 実装
+## 実装構造
+
+### モジュール構成（DDD）
+
+```
+log/
+├── domain/          # ビジネスロジック・型定義
+├── application/     # API実装・ユースケース
+├── infrastructure/  # 出力実装（stdout）
+└── __init__.py等    # 公開API
+```
+
+### 各層の責務
+
+**Domain層**
+- ログレベル・データ型の定義
+- ビジネスルールの表現
+- 言語固有の型システム活用
+
+**Application層**
+- `log(level, data)` APIの実装
+- Domain型の検証・変換
+- Infrastructure層への委譲
+
+**Infrastructure層**
+- stdout への JSONL 出力
+- シリアライゼーション
+- 出力の技術的詳細
+
+### 実装言語
 
 各言語で同一の振る舞いを実装：
 - Python: `__init__.py`
