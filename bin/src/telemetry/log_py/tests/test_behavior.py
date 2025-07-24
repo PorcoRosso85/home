@@ -53,8 +53,7 @@ class TestLogAPISpecification:
         """Python実装を実行"""
         script = f"""
 import sys
-sys.path.insert(0, '.')
-from __init__ import log
+from log_py import log
 log("{level}", {data})
 """
         result = subprocess.run(
@@ -267,8 +266,7 @@ log("{level}", {json.dumps(data)});
         # Python実装のみテスト（他言語も同様の関数を提供すべき）
         script = """
 import sys
-sys.path.insert(0, '.')
-from __init__ import to_jsonl
+from log_py import to_jsonl
 
 # 各種データ型のテスト
 test_data = {
