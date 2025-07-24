@@ -39,12 +39,14 @@
 
 ### 標準テストランナー
 
-| 言語 | ランナー | 実行コマンド |
-|------|---------|-------------|
-| Python | pytest | `pytest` |
-| TypeScript | node:test / deno test | `npm test` / `deno test` |
-| Go | go test | `go test ./...` |
-| Rust | cargo test | `cargo test` |
+| 言語 | ランナー | 実行コマンド | 使用場面 |
+|------|---------|-------------|----------|
+| Python | pytest | `pytest` | E2Eテスト（全言語共通）、Python実装の単体・統合テスト |
+| TypeScript | node:test / deno test | `npm test` / `deno test` | TypeScript実装の単体・統合テスト |
+| Go | go test | `go test ./...` | Go実装の単体・統合テスト |
+| Rust | cargo test | `cargo test` | Rust実装の単体・統合テスト |
+
+> 💡 E2Eテストは言語を問わずpytestで統一。統合・単体テストは実装言語と同じものを使用。
 
 ### Nix統合
 
