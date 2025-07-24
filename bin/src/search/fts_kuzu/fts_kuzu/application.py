@@ -23,6 +23,7 @@ class ApplicationConfig(TypedDict, total=False):
     db_path: str
     in_memory: bool
     default_limit: int
+    existing_connection: Any | None
 
 
 
@@ -71,18 +72,25 @@ def create_fts_service(
         # データベース接続を作成
         from .infrastructure import DatabaseConfig
 
-        db_config: DatabaseConfig = {
-            'db_path': config.get('db_path', './kuzu_db'),
-            'in_memory': config.get('in_memory', False),
-        }
+        # 既存接続があれば使用、なければ新規作成
+        existing_conn = config.get('existing_connection')
+        if existing_conn:
+            connection = existing_conn
+            should_close = False
+        else:
+            db_config: DatabaseConfig = {
+                'db_path': config.get('db_path', './kuzu_db'),
+                'in_memory': config.get('in_memory', False),
+            }
 
-        db_success, database, db_error = create_db_func(db_config)
-        if not db_success:
-            return {"ok": False, "error": db_error["error"], "details": db_error["details"]}
+            db_success, database, db_error = create_db_func(db_config)
+            if not db_success:
+                return {"ok": False, "error": db_error["error"], "details": db_error["details"]}
 
-        conn_success, connection, conn_error = create_conn_func(database)
-        if not conn_success:
-            return {"ok": False, "error": conn_error["error"], "details": conn_error["details"]}
+            conn_success, connection, conn_error = create_conn_func(database)
+            if not conn_success:
+                return {"ok": False, "error": conn_error["error"], "details": conn_error["details"]}
+            should_close = True
 
         try:
             # FTS拡張をインストール/ロード
@@ -228,7 +236,9 @@ def create_fts_service(
             }
 
         finally:
-            close_func(connection)
+            # 自分で作成した接続のみクローズ
+            if should_close:
+                close_func(connection)
 
     def search(search_input: dict[str, Any], config: ApplicationConfig) -> dict[str, Any]:
         """
@@ -257,18 +267,25 @@ def create_fts_service(
         # データベース接続を作成
         from .infrastructure import DatabaseConfig
 
-        db_config: DatabaseConfig = {
-            'db_path': config.get('db_path', './kuzu_db'),
-            'in_memory': config.get('in_memory', False),
-        }
+        # 既存接続があれば使用、なければ新規作成
+        existing_conn = config.get('existing_connection')
+        if existing_conn:
+            connection = existing_conn
+            should_close = False
+        else:
+            db_config: DatabaseConfig = {
+                'db_path': config.get('db_path', './kuzu_db'),
+                'in_memory': config.get('in_memory', False),
+            }
 
-        db_success, database, db_error = create_db_func(db_config)
-        if not db_success:
-            return {"ok": False, "error": db_error["error"], "details": db_error["details"]}
+            db_success, database, db_error = create_db_func(db_config)
+            if not db_success:
+                return {"ok": False, "error": db_error["error"], "details": db_error["details"]}
 
-        conn_success, connection, conn_error = create_conn_func(database)
-        if not conn_success:
-            return {"ok": False, "error": conn_error["error"], "details": conn_error["details"]}
+            conn_success, connection, conn_error = create_conn_func(database)
+            if not conn_success:
+                return {"ok": False, "error": conn_error["error"], "details": conn_error["details"]}
+            should_close = True
 
         try:
             # FTS拡張をチェック
@@ -386,7 +403,9 @@ def create_fts_service(
             }
 
         finally:
-            close_func(connection)
+            # 自分で作成した接続のみクローズ
+            if should_close:
+                close_func(connection)
 
     # 返す関数群
     return {"index_documents": index_documents, "search": search}
@@ -412,6 +431,7 @@ class FTSInterpreter:
         self._service_funcs = service_funcs
         self._database = None
         self._connection = None
+        self._should_close_connection = True  # デフォルトでは接続を閉じる
     
     def index(self, documents: list[dict[str, str]]) -> dict[str, Any]:
         """
@@ -458,7 +478,7 @@ class FTSInterpreter:
         
         データベース接続やその他のリソースを解放
         """
-        if self._connection is not None:
+        if self._connection is not None and self._should_close_connection:
             from .infrastructure import close_connection
             close_connection(self._connection)
             self._connection = None
@@ -483,6 +503,7 @@ class FTS(FTSInterpreter):
 def create_fts(
     db_path: str = "./kuzu_db",
     in_memory: bool = False,
+    existing_connection: Any | None = None,
     **kwargs
 ) -> FTSAlgebra:
     """
@@ -494,6 +515,7 @@ def create_fts(
     Args:
         db_path: データベースパス
         in_memory: インメモリデータベースを使用するか
+        existing_connection: 既存のKuzuDB接続（オプション）
         **kwargs: その他の設定パラメータ
             - default_limit: デフォルトの検索結果数
     
@@ -509,7 +531,8 @@ def create_fts(
     config: ApplicationConfig = {
         'db_path': db_path,
         'in_memory': in_memory,
-        'default_limit': kwargs.get('default_limit', 10)
+        'default_limit': kwargs.get('default_limit', 10),
+        'existing_connection': existing_connection  # 既存接続を設定に追加
     }
     
     # インフラストラクチャ関数をインポート
@@ -541,18 +564,27 @@ def create_fts(
     )
     
     # 初期化テスト（データベース接続とFTS拡張の確認）
-    db_config: DatabaseConfig = {
-        'db_path': config['db_path'],
-        'in_memory': config['in_memory'],
-    }
-    
-    db_success, database, db_error = create_kuzu_database(db_config)
-    if not db_success:
-        raise RuntimeError(f"Failed to create database: {db_error.get('error', 'Unknown error')}")
-    
-    conn_success, connection, conn_error = create_kuzu_connection(database)
-    if not conn_success:
-        raise RuntimeError(f"Failed to create connection: {conn_error.get('error', 'Unknown error')}")
+    if existing_connection:
+        # 既存の接続を使用
+        connection = existing_connection
+        should_close_connection = False
+        database = None  # 既存接続使用時はdatabaseオブジェクトは不要
+    else:
+        # 新しい接続を作成
+        db_config: DatabaseConfig = {
+            'db_path': config['db_path'],
+            'in_memory': config['in_memory'],
+        }
+        
+        db_success, database, db_error = create_kuzu_database(db_config)
+        if not db_success:
+            raise RuntimeError(f"Failed to create database: {db_error.get('error', 'Unknown error')}")
+        
+        conn_success, connection, conn_error = create_kuzu_connection(database)
+        if not conn_success:
+            raise RuntimeError(f"Failed to create connection: {conn_error.get('error', 'Unknown error')}")
+        
+        should_close_connection = True
     
     try:
         # FTS拡張をインストール/ロード
@@ -620,8 +652,9 @@ def create_fts(
                     # インデックス作成に失敗してもFTS instanceは作成する
                     pass
     except Exception as e:
-        # エラー時のみ接続を閉じる
-        close_connection(connection)
+        # エラー時のみ自分で作成した接続を閉じる
+        if should_close_connection:
+            close_connection(connection)
         raise RuntimeError(f"Failed to initialize FTS: {str(e)}")
     
     # FTSインタープリターを作成し、データベースとコネクションを保持
@@ -629,6 +662,7 @@ def create_fts(
     fts = FTSInterpreter(config, service_funcs)
     fts._database = database
     fts._connection = connection
+    fts._should_close_connection = should_close_connection  # 既存接続使用時はFalse
     
     return fts
 
