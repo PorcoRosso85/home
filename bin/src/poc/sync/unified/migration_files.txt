@@ -1,0 +1,35 @@
+# unified_sync 移行ファイルリスト
+
+## 優先度1: 必須コアファイル
+types.ts
+mod.ts
+browser_kuzu_client_clean.ts
+websocket_sync.ts
+server_event_store.ts
+conflict_resolver.ts
+metrics_collector.ts
+
+## 優先度2: サーバー実装
+websocket-server.ts
+websocket-client.ts
+
+## 優先度3: 設定ファイル
+package.json
+deno.json
+flake.nix
+
+## 優先度4: オプション/テスト関連
+browser_client_refactored.ts
+kuzu_storage_factory.ts
+nodejs_kuzu_client.ts
+e2e/
+
+## 外部依存関係
+../event_sourcing/types.ts
+../event_sourcing/core.ts
+../event_sourcing/template_event_store.ts
+
+## 注意事項
+- event_sourcingディレクトリへの依存を先に解決する必要がある
+- kuzu-wasm (0.10.0) のセットアップが必要
+- Deno/Node.js両対応のため環境に応じた調整が必要
