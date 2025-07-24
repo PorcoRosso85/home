@@ -6,6 +6,7 @@ KuzuDBのデータベースと接続の作成・管理を担当
 """
 
 from typing import Dict, Any, Optional, Tuple, TypedDict
+from log_py import log
 
 try:
     from kuzu_py import create_database, create_connection
@@ -46,24 +47,54 @@ def create_kuzu_database(config: DatabaseConfig) -> Tuple[bool, Optional[Any], O
     
     try:
         db_path = IN_MEMORY_DB_PATH if config['in_memory'] else config['db_path']
+        log("info", {
+            "message": "Creating KuzuDB database",
+            "component": "vss.infrastructure.db",
+            "operation": "create_database",
+            "db_path": db_path,
+            "in_memory": config['in_memory']
+        })
+        
         db = create_database(db_path)
         
         if hasattr(db, 'get') and db.get("ok") is False:
-            return False, None, {
+            error_info = {
                 "error": db.get("error", "Unknown error"),
                 "details": db.get("details", {})
             }
+            log("error", {
+                "message": "Database creation failed",
+                "component": "vss.infrastructure.db",
+                "operation": "create_database",
+                "error": error_info
+            })
+            return False, None, error_info
         
+        log("info", {
+            "message": "Database created successfully",
+            "component": "vss.infrastructure.db",
+            "operation": "create_database",
+            "db_path": db_path
+        })
         return True, db, None
         
     except Exception as e:
-        return False, None, {
+        error_info = {
             "error": f"Failed to create database: {str(e)}",
             "details": {
                 "exception_type": type(e).__name__,
                 "db_path": config['db_path']
             }
         }
+        log("error", {
+            "message": "Database creation exception",
+            "component": "vss.infrastructure.db",
+            "operation": "create_database",
+            "exception_type": type(e).__name__,
+            "exception": str(e),
+            "db_path": config['db_path']
+        })
+        return False, None, error_info
 
 
 def create_kuzu_connection(database: Any) -> Tuple[bool, Optional[Any], Optional[Dict[str, Any]]]:
@@ -86,23 +117,49 @@ def create_kuzu_connection(database: Any) -> Tuple[bool, Optional[Any], Optional
         }
     
     try:
+        log("info", {
+            "message": "Creating database connection",
+            "component": "vss.infrastructure.db",
+            "operation": "create_connection"
+        })
+        
         conn = create_connection(database)
         
         if hasattr(conn, 'get') and conn.get("ok") is False:
-            return False, None, {
+            error_info = {
                 "error": conn.get("error", "Unknown error"),
                 "details": conn.get("details", {})
             }
+            log("error", {
+                "message": "Connection creation failed",
+                "component": "vss.infrastructure.db",
+                "operation": "create_connection",
+                "error": error_info
+            })
+            return False, None, error_info
         
+        log("info", {
+            "message": "Connection created successfully",
+            "component": "vss.infrastructure.db",
+            "operation": "create_connection"
+        })
         return True, conn, None
         
     except Exception as e:
-        return False, None, {
+        error_info = {
             "error": f"Failed to create connection: {str(e)}",
             "details": {
                 "exception_type": type(e).__name__
             }
         }
+        log("error", {
+            "message": "Connection creation exception",
+            "component": "vss.infrastructure.db",
+            "operation": "create_connection",
+            "exception_type": type(e).__name__,
+            "exception": str(e)
+        })
+        return False, None, error_info
 
 
 def close_connection(connection: Any) -> None:

@@ -7,6 +7,7 @@ KuzuDBのVECTOR拡張の管理とベクトル検索機能を提供
 
 from typing import Dict, Any, List, Optional, Tuple
 import time
+from log_py import log
 
 
 VECTOR_EXTENSION_NAME = 'VECTOR'
@@ -26,21 +27,53 @@ def install_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, 
         (success, error_info)
     """
     try:
+        log("info", {
+            "message": "Installing VECTOR extension",
+            "component": "vss.infrastructure.vector",
+            "operation": "install_vector_extension",
+            "extension": VECTOR_EXTENSION_NAME
+        })
+        
         # Install VECTOR extension
         connection.execute(f"INSTALL {VECTOR_EXTENSION_NAME}")
+        
+        log("info", {
+            "message": "Loading VECTOR extension",
+            "component": "vss.infrastructure.vector",
+            "operation": "install_vector_extension",
+            "extension": VECTOR_EXTENSION_NAME
+        })
+        
         # Load VECTOR extension
         connection.execute(f"LOAD EXTENSION {VECTOR_EXTENSION_NAME}")
+        
+        log("info", {
+            "message": "VECTOR extension installed and loaded successfully",
+            "component": "vss.infrastructure.vector",
+            "operation": "install_vector_extension",
+            "extension": VECTOR_EXTENSION_NAME
+        })
+        
         return True, None
         
     except Exception as e:
         error_msg = str(e)
-        return False, {
+        error_info = {
             "error": f"Failed to install/load VECTOR extension: {str(e)}",
             "details": {
                 "extension": VECTOR_EXTENSION_NAME,
                 "raw_error": error_msg
             }
         }
+        log("error", {
+            "message": "VECTOR extension installation failed",
+            "component": "vss.infrastructure.vector",
+            "operation": "install_vector_extension",
+            "exception_type": type(e).__name__,
+            "exception": str(e),
+            "extension": VECTOR_EXTENSION_NAME
+        })
+        return False, error_info
 
 
 def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, Any]]]:
@@ -290,6 +323,13 @@ def search_similar_vectors(
     """
     try:
         if len(query_vector) != EMBEDDING_DIMENSION:
+            log("warning", {
+                "message": "Invalid query vector dimension",
+                "component": "vss.infrastructure.vector",
+                "operation": "search_similar_vectors",
+                "expected_dimension": EMBEDDING_DIMENSION,
+                "actual_dimension": len(query_vector)
+            })
             return False, [], {
                 "error": "Invalid query vector dimension",
                 "details": {
@@ -297,6 +337,16 @@ def search_similar_vectors(
                     "got": len(query_vector)
                 }
             }
+        
+        log("info", {
+            "message": "Executing vector similarity search",
+            "component": "vss.infrastructure.vector",
+            "operation": "search_similar_vectors",
+            "limit": limit,
+            "efs": efs,
+            "table": DOCUMENT_TABLE_NAME,
+            "index": DOCUMENT_EMBEDDING_INDEX_NAME
+        })
         
         result = connection.execute(f"""
             CALL QUERY_VECTOR_INDEX(
@@ -325,6 +375,14 @@ def search_similar_vectors(
                 "distance": float(distance),
                 "embedding": node.get("embedding")
             })
+        
+        log("info", {
+            "message": "Vector search completed successfully",
+            "component": "vss.infrastructure.vector",
+            "operation": "search_similar_vectors",
+            "results_count": len(results),
+            "limit": limit
+        })
         
         return True, results, None
         

@@ -6,15 +6,23 @@
     flake-utils.url = "github:numtide/flake-utils";
     python-flake.url = "path:/home/nixos/bin/src/flakes/python";
     kuzu-py-flake.url = "path:/home/nixos/bin/src/persistence/kuzu_py";
+    log-py-flake.url = "path:../../telemetry/log_py";
   };
 
-  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, log-py-flake }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        # Apply log_py overlay to get python312Packages with log_py
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ log-py-flake.overlays.default ];
+        };
         
         # Get kuzuPy package from kuzu-py-flake
         kuzuPyPackage = kuzu-py-flake.packages.${system}.kuzuPy;
+        
+        # Get log_py package from the overlayed python312Packages
+        logPyPackage = pkgs.python312Packages.log_py;
         
         # vss_kuzu パッケージ
         vssKuzu = pkgs.python312Packages.buildPythonPackage rec {
@@ -32,6 +40,7 @@
           
           propagatedBuildInputs = with pkgs.python312Packages; [
             kuzuPyPackage
+            logPyPackage
             numpy
             sentence-transformers
             sentencepiece  # Required by sentence-transformers tokenizer
@@ -56,6 +65,7 @@
             # Core dependencies for VSS
             vssKuzu  # Our package
             kuzuPyPackage  # This provides kuzu_py module
+            logPyPackage  # This provides log_py module
             numpy
             scipy  # Required by sentence-transformers
             sentencepiece  # Required for tokenizer
