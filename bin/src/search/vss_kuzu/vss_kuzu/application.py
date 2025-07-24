@@ -26,6 +26,7 @@ class ApplicationConfig(TypedDict, total=False):
     index_ml: int
     index_metric: str
     index_efc: int
+    existing_connection: Optional[Any]
 
 
 def create_vss_service(
@@ -76,33 +77,41 @@ def create_vss_service(
             db_path = getattr(config, 'db_path', './kuzu_db')
             in_memory = getattr(config, 'in_memory', False)
             embedding_dimension = getattr(config, 'embedding_dimension', 256)
+            existing_conn = getattr(config, 'existing_connection', None)
         else:
             # It's a dict
             db_path = config.get('db_path', './kuzu_db')
             in_memory = config.get('in_memory', False)
             embedding_dimension = config.get('embedding_dimension', 256)
+            existing_conn = config.get('existing_connection')
+        
+        # 既存接続があれば使用、なければ新規作成
+        if existing_conn:
+            connection = existing_conn
+            should_close = False
+        else:
+            db_config = {
+                'db_path': db_path,
+                'in_memory': in_memory,
+                'embedding_dimension': embedding_dimension
+            }
             
-        db_config = {
-            'db_path': db_path,
-            'in_memory': in_memory,
-            'embedding_dimension': embedding_dimension
-        }
-        
-        db_success, database, db_error = create_db_func(db_config)
-        if not db_success:
-            return {
-                "ok": False,
-                "error": db_error["error"],
-                "details": db_error["details"]
-            }
-        
-        conn_success, connection, conn_error = create_conn_func(database)
-        if not conn_success:
-            return {
-                "ok": False,
-                "error": conn_error["error"],
-                "details": conn_error["details"]
-            }
+            db_success, database, db_error = create_db_func(db_config)
+            if not db_success:
+                return {
+                    "ok": False,
+                    "error": db_error["error"],
+                    "details": db_error["details"]
+                }
+            
+            conn_success, connection, conn_error = create_conn_func(database)
+            if not conn_success:
+                return {
+                    "ok": False,
+                    "error": conn_error["error"],
+                    "details": conn_error["details"]
+                }
+            should_close = True
         
         try:
             # VECTOR拡張をチェック
@@ -184,7 +193,9 @@ def create_vss_service(
             }
             
         finally:
-            close_func(connection)
+            # 自分で作成した接続のみクローズ
+            if should_close:
+                close_func(connection)
     
     def search(search_input: Dict[str, Any], config: Any) -> Dict[str, Any]:
         """
@@ -228,33 +239,41 @@ def create_vss_service(
             db_path = getattr(config, 'db_path', './kuzu_db')
             in_memory = getattr(config, 'in_memory', False)
             embedding_dimension = getattr(config, 'embedding_dimension', 256)
+            existing_conn = getattr(config, 'existing_connection', None)
         else:
             # It's a dict
             db_path = config.get('db_path', './kuzu_db')
             in_memory = config.get('in_memory', False)
             embedding_dimension = config.get('embedding_dimension', 256)
+            existing_conn = config.get('existing_connection')
+        
+        # 既存接続があれば使用、なければ新規作成
+        if existing_conn:
+            connection = existing_conn
+            should_close = False
+        else:
+            db_config = {
+                'db_path': db_path,
+                'in_memory': in_memory,
+                'embedding_dimension': embedding_dimension
+            }
             
-        db_config = {
-            'db_path': db_path,
-            'in_memory': in_memory,
-            'embedding_dimension': embedding_dimension
-        }
-        
-        db_success, database, db_error = create_db_func(db_config)
-        if not db_success:
-            return {
-                "ok": False,
-                "error": db_error["error"],
-                "details": db_error["details"]
-            }
-        
-        conn_success, connection, conn_error = create_conn_func(database)
-        if not conn_success:
-            return {
-                "ok": False,
-                "error": conn_error["error"],
-                "details": conn_error["details"]
-            }
+            db_success, database, db_error = create_db_func(db_config)
+            if not db_success:
+                return {
+                    "ok": False,
+                    "error": db_error["error"],
+                    "details": db_error["details"]
+                }
+            
+            conn_success, connection, conn_error = create_conn_func(database)
+            if not conn_success:
+                return {
+                    "ok": False,
+                    "error": conn_error["error"],
+                    "details": conn_error["details"]
+                }
+            should_close = True
         
         try:
             # VECTOR拡張をチェック
@@ -324,7 +343,9 @@ def create_vss_service(
             }
             
         finally:
-            close_func(connection)
+            # 自分で作成した接続のみクローズ
+            if should_close:
+                close_func(connection)
     
     return {
         "index_documents": index_documents,
@@ -417,6 +438,7 @@ def create_vss(
     db_path: str = "./kuzu_db",
     in_memory: bool = False,
     model_name: str = "cl-nagoya/ruri-v3-30m",
+    existing_connection: Optional[Any] = None,
     **kwargs
 ) -> VSSAlgebra:
     """
@@ -426,6 +448,7 @@ def create_vss(
         db_path: データベースパス
         in_memory: インメモリデータベースを使用するか
         model_name: 使用する埋め込みモデル名
+        existing_connection: 既存のKuzuDB接続（オプション）
         **kwargs: その他の設定パラメータ
             - embedding_dimension: 埋め込み次元数
             - default_limit: デフォルトの検索結果数
@@ -458,7 +481,8 @@ def create_vss(
         'index_mu': kwargs.get('index_mu', 30),
         'index_ml': kwargs.get('index_ml', 60),
         'index_metric': kwargs.get('index_metric', 'cosine'),
-        'index_efc': kwargs.get('index_efc', 200)
+        'index_efc': kwargs.get('index_efc', 200),
+        'existing_connection': existing_connection  # 既存接続を設定に追加
     }
     
     # インフラストラクチャ関数をインポート
@@ -491,19 +515,27 @@ def create_vss(
     )
     
     # 初期化テスト（データベース接続とVECTOR拡張の確認）
-    db_config = {
-        'db_path': config['db_path'],
-        'in_memory': config['in_memory'],
-        'embedding_dimension': config['embedding_dimension']
-    }
-    
-    db_success, database, db_error = create_kuzu_database(db_config)
-    if not db_success:
-        raise RuntimeError(f"Failed to create database: {db_error.get('error', 'Unknown error')}")
-    
-    conn_success, connection, conn_error = create_kuzu_connection(database)
-    if not conn_success:
-        raise RuntimeError(f"Failed to create connection: {conn_error.get('error', 'Unknown error')}")
+    if existing_connection:
+        # 既存の接続を使用
+        connection = existing_connection
+        should_close_connection = False
+    else:
+        # 新しい接続を作成
+        db_config = {
+            'db_path': config['db_path'],
+            'in_memory': config['in_memory'],
+            'embedding_dimension': config['embedding_dimension']
+        }
+        
+        db_success, database, db_error = create_kuzu_database(db_config)
+        if not db_success:
+            raise RuntimeError(f"Failed to create database: {db_error.get('error', 'Unknown error')}")
+        
+        conn_success, connection, conn_error = create_kuzu_connection(database)
+        if not conn_success:
+            raise RuntimeError(f"Failed to create connection: {conn_error.get('error', 'Unknown error')}")
+        
+        should_close_connection = True
     
     try:
         vector_available, vector_error = check_vector_extension(connection)
@@ -534,7 +566,9 @@ def create_vss(
                 f"Details: {details}"
             )
     finally:
-        close_connection(connection)
+        # 自分で作成した接続のみクローズ
+        if should_close_connection:
+            close_connection(connection)
     
     return create_vss_interpreter(config, service_funcs)
 

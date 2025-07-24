@@ -41,10 +41,10 @@ class TestE2EImportCapability:
         try:
             vss = create_vss(in_memory=True)
             # If successful, check it has the expected interface
-            assert 'index' in vss
-            assert 'search' in vss
-            assert callable(vss['index'])
-            assert callable(vss['search'])
+            assert hasattr(vss, 'index')
+            assert hasattr(vss, 'search')
+            assert callable(vss.index)
+            assert callable(vss.search)
         except RuntimeError as e:
             # VECTOR extension not available is acceptable in test environment
             assert "VECTOR extension" in str(e)
