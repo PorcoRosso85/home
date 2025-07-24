@@ -6,16 +6,16 @@
     flake-utils.url = "github:numtide/flake-utils";
     python-flake.url = "path:/home/nixos/bin/src/flakes/python";
     kuzu-py-flake.url = "path:/home/nixos/bin/src/persistence/kuzu_py";
-    log-py-flake.url = "path:../../telemetry/log_py";
+    log_py_flake.url = "path:../../telemetry/log_py";
   };
 
-  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, log-py-flake }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, log_py_flake }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         # Apply log_py overlay to get python312Packages with log_py
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ log-py-flake.overlays.default ];
+          overlays = [ log_py_flake.overlays.default ];
         };
         
         # Get kuzuPy package from kuzu-py-flake
