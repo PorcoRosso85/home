@@ -83,7 +83,12 @@
             # 統合テスト (TypeScript)
             echo ""
             echo "📦 Running integration tests with Deno..."
-            ${pkgs.deno}/bin/deno test ./tests/integration_test.ts --no-check --allow-env --allow-net --allow-run || INTEGRATION_EXIT=$?
+            ${pkgs.deno}/bin/deno test ./tests/integration.test.ts --no-check --allow-env --allow-net --allow-run || INTEGRATION_EXIT=$?
+            
+            # 再接続テスト (TypeScript)
+            echo ""
+            echo "🔄 Running reconnection tests with Deno..."
+            ${pkgs.deno}/bin/deno test ./tests/reconnection.test.ts --no-check --allow-env --allow-net --allow-run || INTEGRATION_EXIT=$?
             
             # 結果サマリー
             echo ""
