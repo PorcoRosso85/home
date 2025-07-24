@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from application.templates import process_search_template
-from infrastructure import create_kuzu_repository
+from infrastructure.kuzu_repository import create_kuzu_repository
 from application.search_adapter import SearchAdapter
 from main import create_search_service
 
