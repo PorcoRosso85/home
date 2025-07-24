@@ -7,6 +7,7 @@
 """
 
 from typing import Any, TypedDict
+from .logging import error, warn, debug
 
 # KuzuDB imports
 try:
@@ -45,17 +46,18 @@ def create_kuzu_database(config: DatabaseConfig) -> tuple[bool, Any | None, dict
         (success, database_object, error_info)
     """
     if create_database is None:
-        return (
-            False,
-            None,
-            {
-                "error": "KuzuDB not available",
-                "details": {
-                    "message": "kuzu_py module is not installed",
-                    "install_command": "pip install kuzu",
-                },
+        error_info = {
+            "error": "KuzuDB not available",
+            "details": {
+                "message": "kuzu_py module is not installed",
+                "install_command": "pip install kuzu",
             },
-        )
+        }
+        error("fts.infrastructure.db_create", "KuzuDB module not available",
+              error_type="module_not_found",
+              error_msg="kuzu_py module is not installed",
+              install_command="pip install kuzu")
+        return (False, None, error_info)
 
     try:
         db_path = IN_MEMORY_DB_PATH if config["in_memory"] else config["db_path"]
@@ -72,14 +74,17 @@ def create_kuzu_database(config: DatabaseConfig) -> tuple[bool, Any | None, dict
         return True, db, None
 
     except Exception as e:
-        return (
-            False,
-            None,
-            {
-                "error": f"Failed to create database: {str(e)}",
-                "details": {"exception_type": type(e).__name__, "db_path": config["db_path"]},
-            },
-        )
+        error_info = {
+            "error": f"Failed to create database: {str(e)}",
+            "details": {"exception_type": type(e).__name__, "db_path": config["db_path"]},
+        }
+        error("fts.infrastructure.db_create", "Database creation failed",
+              error_type="database_creation_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__,
+              db_path=config["db_path"],
+              in_memory=config.get("in_memory", False))
+        return (False, None, error_info)
 
 
 def create_kuzu_connection(database: Any) -> tuple[bool, Any | None, dict[str, Any] | None]:
@@ -93,17 +98,18 @@ def create_kuzu_connection(database: Any) -> tuple[bool, Any | None, dict[str, A
         (success, connection_object, error_info)
     """
     if create_connection is None:
-        return (
-            False,
-            None,
-            {
-                "error": "KuzuDB not available",
-                "details": {
-                    "message": "kuzu_py module is not installed",
-                    "install_command": "pip install kuzu",
-                },
+        error_info = {
+            "error": "KuzuDB not available",
+            "details": {
+                "message": "kuzu_py module is not installed",
+                "install_command": "pip install kuzu",
             },
-        )
+        }
+        error("fts.infrastructure.conn_create", "KuzuDB module not available for connection",
+              error_type="module_not_found",
+              error_msg="kuzu_py module is not installed",
+              install_command="pip install kuzu")
+        return (False, None, error_info)
 
     try:
         conn = create_connection(database)
@@ -119,14 +125,15 @@ def create_kuzu_connection(database: Any) -> tuple[bool, Any | None, dict[str, A
         return True, conn, None
 
     except Exception as e:
-        return (
-            False,
-            None,
-            {
-                "error": f"Failed to create connection: {str(e)}",
-                "details": {"exception_type": type(e).__name__},
-            },
-        )
+        error_info = {
+            "error": f"Failed to create connection: {str(e)}",
+            "details": {"exception_type": type(e).__name__},
+        }
+        error("fts.infrastructure.conn_create", "Connection creation failed",
+              error_type="connection_creation_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__)
+        return (False, None, error_info)
 
 
 # check_vector_extension removed - VSS functionality deprecated
@@ -162,14 +169,15 @@ def count_documents(connection: Any) -> tuple[bool, int, dict[str, Any] | None]:
             return True, 0, None
 
     except Exception as e:
-        return (
-            False,
-            0,
-            {
-                "error": f"Failed to count documents: {str(e)}",
-                "details": {"exception_type": type(e).__name__},
-            },
-        )
+        error_info = {
+            "error": f"Failed to count documents: {str(e)}",
+            "details": {"exception_type": type(e).__name__},
+        }
+        error("fts.infrastructure.count_docs", "Document count failed",
+              error_type="query_execution_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__)
+        return (False, 0, error_info)
 
 
 def close_connection(connection: Any) -> None:
@@ -221,10 +229,16 @@ def install_fts_extension(connection: Any) -> tuple[bool, dict[str, Any] | None]
         return True, None
 
     except Exception as e:
-        return False, {
+        error_info = {
             "error": f"Failed to install FTS extension: {str(e)}",
             "details": {"extension": FTS_EXTENSION_NAME, "exception_type": type(e).__name__},
         }
+        error("fts.infrastructure.fts_install", "FTS extension installation failed",
+              error_type="extension_installation_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__,
+              extension=FTS_EXTENSION_NAME)
+        return False, error_info
 
 
 def check_fts_extension(connection: Any) -> tuple[bool, dict[str, Any] | None]:
@@ -277,7 +291,7 @@ def check_fts_extension(connection: Any) -> tuple[bool, dict[str, Any] | None]:
             pattern in error_msg.lower()
             for pattern in ["does not exist", "unknown function", "create_fts_index"]
         ):
-            return False, {
+            error_info = {
                 "error": "FTS extension not available",
                 "details": {
                     "extension": FTS_EXTENSION_NAME,
@@ -285,8 +299,16 @@ def check_fts_extension(connection: Any) -> tuple[bool, dict[str, Any] | None]:
                     "raw_error": error_msg,
                 },
             }
+            error("fts.infrastructure.fts_check", "FTS extension not available",
+                  error_type="extension_not_available",
+                  error_msg=error_msg,
+                  extension=FTS_EXTENSION_NAME)
+            return False, error_info
         else:
             # For other errors, assume FTS extension is available but something else went wrong
+            warn("fts.infrastructure.fts_check", "FTS check failed with unexpected error, assuming available",
+                 error_msg=error_msg,
+                 exception_type=type(e).__name__)
             return True, None
 
 
@@ -326,10 +348,16 @@ def initialize_fts_schema(connection: Any) -> tuple[bool, dict[str, Any] | None]
         return True, None
 
     except Exception as e:
-        return False, {
+        error_info = {
             "error": f"Failed to initialize FTS schema: {str(e)}",
             "details": {"exception_type": type(e).__name__, "table_name": DOCUMENT_TABLE_NAME},
         }
+        error("fts.infrastructure.schema_init", "FTS schema initialization failed",
+              error_type="schema_initialization_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__,
+              table_name=DOCUMENT_TABLE_NAME)
+        return False, error_info
 
 
 def create_fts_index(connection: Any, config: dict[str, Any]) -> tuple[bool, dict[str, Any] | None]:
@@ -361,6 +389,12 @@ def create_fts_index(connection: Any, config: dict[str, Any]) -> tuple[bool, dic
     index_name = config.get("index_name")
 
     if not all([table_name, property_name, index_name]):
+        error("fts.infrastructure.index_create", "Missing required parameters for index creation",
+              error_type="validation_error",
+              error_msg="Missing required parameters",
+              table_name=table_name,
+              property_name=property_name,
+              index_name=index_name)
         return False, {
             "error": "Missing required parameters",
             "details": {
@@ -396,7 +430,7 @@ def create_fts_index(connection: Any, config: dict[str, Any]) -> tuple[bool, dic
         return True, None
 
     except Exception as e:
-        return False, {
+        error_info = {
             "error": f"Failed to create FTS index: {str(e)}",
             "details": {
                 "exception_type": type(e).__name__,
@@ -404,6 +438,14 @@ def create_fts_index(connection: Any, config: dict[str, Any]) -> tuple[bool, dic
                 "table_name": table_name,
             },
         }
+        error("fts.infrastructure.index_create", "FTS index creation failed",
+              error_type="index_creation_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__,
+              index_name=index_name,
+              table_name=table_name,
+              property_name=property_name)
+        return False, error_info
 
 
 def drop_fts_index(connection: Any, index_name: str) -> tuple[bool, dict[str, Any] | None]:
@@ -424,6 +466,10 @@ def drop_fts_index(connection: Any, index_name: str) -> tuple[bool, dict[str, An
         }
 
     if not index_name:
+        error("fts.infrastructure.index_drop", "Index name is required",
+              error_type="validation_error",
+              error_msg="Index name is required",
+              index_name=index_name)
         return False, {"error": "Index name is required", "details": {"index_name": index_name}}
 
     try:
@@ -442,15 +488,26 @@ def drop_fts_index(connection: Any, index_name: str) -> tuple[bool, dict[str, An
     except Exception as e:
         error_msg = str(e)
         if "does not exist" in error_msg.lower() or "not found" in error_msg.lower():
-            return False, {
+            error_info = {
                 "error": f"FTS index '{index_name}' does not exist",
                 "details": {"index_name": index_name},
             }
+            error("fts.infrastructure.index_drop", "FTS index does not exist",
+                  error_type="index_not_found",
+                  error_msg=error_msg,
+                  index_name=index_name)
+            return False, error_info
         else:
-            return False, {
+            error_info = {
                 "error": f"Failed to drop FTS index: {error_msg}",
                 "details": {"exception_type": type(e).__name__, "index_name": index_name},
             }
+            error("fts.infrastructure.index_drop", "FTS index drop failed",
+                  error_type="index_drop_failure",
+                  error_msg=error_msg,
+                  exception_type=type(e).__name__,
+                  index_name=index_name)
+            return False, error_info
 
 
 def list_fts_indexes(connection: Any) -> tuple[bool, list[dict[str, Any]], dict[str, Any] | None]:
@@ -481,14 +538,15 @@ def list_fts_indexes(connection: Any) -> tuple[bool, list[dict[str, Any]], dict[
         return True, indexes, None
 
     except Exception as e:
-        return (
-            False,
-            [],
-            {
-                "error": f"Failed to list FTS indexes: {str(e)}",
-                "details": {"exception_type": type(e).__name__},
-            },
-        )
+        error_info = {
+            "error": f"Failed to list FTS indexes: {str(e)}",
+            "details": {"exception_type": type(e).__name__},
+        }
+        error("fts.infrastructure.index_list", "Failed to list FTS indexes",
+              error_type="index_list_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__)
+        return (False, [], error_info)
 
 
 def get_fts_index_info(
@@ -543,14 +601,16 @@ def get_fts_index_info(
             return True, index_info, None
 
     except Exception as e:
-        return (
-            False,
-            None,
-            {
-                "error": f"Failed to get FTS index info: {str(e)}",
-                "details": {"exception_type": type(e).__name__, "index_name": index_name},
-            },
-        )
+        error_info = {
+            "error": f"Failed to get FTS index info: {str(e)}",
+            "details": {"exception_type": type(e).__name__, "index_name": index_name},
+        }
+        error("fts.infrastructure.index_info", "Failed to get FTS index info",
+              error_type="index_info_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__,
+              index_name=index_name)
+        return (False, None, error_info)
 
 
 def query_fts_index(
@@ -579,6 +639,11 @@ def query_fts_index(
         )
 
     if not index_name or not query:
+        error("fts.infrastructure.query_fts", "Missing required parameters for FTS query",
+              error_type="validation_error",
+              error_msg="Missing required parameters",
+              index_name=index_name,
+              query=query)
         return (
             False,
             [],
@@ -622,15 +687,19 @@ def query_fts_index(
     except Exception as e:
         error_msg = str(e)
         # If FTS extension is not available or query fails
-        return (
-            False,
-            [],
-            {
-                "error": f"FTS query failed: {error_msg}",
-                "details": {
-                    "exception_type": type(e).__name__,
-                    "index_name": index_name,
-                    "query": query,
-                },
+        error_info = {
+            "error": f"FTS query failed: {error_msg}",
+            "details": {
+                "exception_type": type(e).__name__,
+                "index_name": index_name,
+                "query": query,
             },
-        )
+        }
+        error("fts.infrastructure.query_fts", "FTS query execution failed",
+              error_type="fts_query_failure",
+              error_msg=error_msg,
+              exception_type=type(e).__name__,
+              index_name=index_name,
+              query=query,
+              limit=limit)
+        return (False, [], error_info)

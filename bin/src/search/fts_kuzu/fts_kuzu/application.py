@@ -12,7 +12,7 @@ from typing import Any, TypedDict
 
 from .protocols import SearchSystem, FTSAlgebra
 from .common_types import SearchResults, IndexResult, SearchResultItem
-from .logging import info, debug, warn
+from .logging import info, debug, warn, error, metric
 
 # Type aliases for clarity
 EmbeddingFunction = Callable[[str], list[float]]
@@ -89,10 +89,18 @@ def create_fts_service(
 
             db_success, database, db_error = create_db_func(db_config)
             if not db_success:
+                error("fts.index_documents.db_create", "Database creation failed", 
+                      error_type="database_connection_failure",
+                      error_msg=db_error.get("error", "Unknown error"),
+                      details=db_error.get("details", {}))
                 return {"ok": False, "error": db_error["error"], "details": db_error["details"]}
 
             conn_success, connection, conn_error = create_conn_func(database)
             if not conn_success:
+                error("fts.index_documents.conn_create", "Connection creation failed",
+                      error_type="database_connection_failure", 
+                      error_msg=conn_error.get("error", "Unknown error"),
+                      details=conn_error.get("details", {}))
                 return {"ok": False, "error": conn_error["error"], "details": conn_error["details"]}
             should_close = True
 
@@ -106,13 +114,18 @@ def create_fts_service(
                 install_error = install_result if not install_success else None
 
             if not install_success:
+                error_msg = (
+                    install_error.get("error", "Failed to install FTS extension")
+                    if isinstance(install_error, dict)
+                    else str(install_error)
+                )
+                error("fts.index_documents.fts_install", "FTS extension installation failed",
+                      error_type="fts_extension_failure",
+                      error_msg=error_msg,
+                      details=install_error.get("details", {}) if isinstance(install_error, dict) else {})
                 return {
                     "ok": False,
-                    "error": (
-                        install_error.get("error", "Failed to install FTS extension")
-                        if isinstance(install_error, dict)
-                        else str(install_error)
-                    ),
+                    "error": error_msg,
                     "details": (
                         install_error.get("details", {}) if isinstance(install_error, dict) else {}
                     ),
@@ -130,13 +143,18 @@ def create_fts_service(
                 fts_error = check_result if not fts_available else None
 
             if not fts_available:
+                error_msg = (
+                    fts_error.get("error", "FTS extension not available")
+                    if isinstance(fts_error, dict)
+                    else str(fts_error) if fts_error else "FTS extension not available"
+                )
+                error("fts.index_documents.fts_check", "FTS extension not available",
+                      error_type="fts_extension_failure",
+                      error_msg=error_msg,
+                      details=fts_error.get("details", {}) if isinstance(fts_error, dict) else {})
                 return {
                     "ok": False,
-                    "error": (
-                        fts_error.get("error", "FTS extension not available")
-                        if isinstance(fts_error, dict)
-                        else str(fts_error) if fts_error else "FTS extension not available"
-                    ),
+                    "error": error_msg,
                     "details": fts_error.get("details", {}) if isinstance(fts_error, dict) else {},
                 }
 
@@ -149,13 +167,18 @@ def create_fts_service(
                 schema_error = schema_result if not schema_success else None
 
             if not schema_success:
+                error_msg = (
+                    schema_error.get("error", "Failed to initialize schema")
+                    if isinstance(schema_error, dict)
+                    else str(schema_error) if schema_error else "Failed to initialize schema"
+                )
+                error("fts.index_documents.schema_init", "Schema initialization failed",
+                      error_type="schema_initialization_failure",
+                      error_msg=error_msg,
+                      details=schema_error.get("details", {}) if isinstance(schema_error, dict) else {})
                 return {
                     "ok": False,
-                    "error": (
-                        schema_error.get("error", "Failed to initialize schema")
-                        if isinstance(schema_error, dict)
-                        else str(schema_error) if schema_error else "Failed to initialize schema"
-                    ),
+                    "error": error_msg,
                     "details": (
                         schema_error.get("details", {}) if isinstance(schema_error, dict) else {}
                     ),
@@ -184,6 +207,12 @@ def create_fts_service(
                     else str(index_error) if index_error else ""
                 )
                 if "already exists" not in error_msg.lower():
+                    error("fts.index_documents.index_create", "FTS index creation failed",
+                          error_type="index_creation_failure",
+                          error_msg=error_msg or "Failed to create FTS index",
+                          index_name=index_config["index_name"],
+                          table_name=index_config["table_name"],
+                          details=index_error.get("details", {}) if isinstance(index_error, dict) else {})
                     return {
                         "ok": False,
                         "error": error_msg or "Failed to create FTS index",
@@ -224,6 +253,11 @@ def create_fts_service(
                     )
                     indexed_count += 1
                 except Exception as e:
+                    error("fts.index_documents.doc_insert", "Document insertion failed",
+                          error_type="document_insertion_failure",
+                          error_msg=str(e),
+                          exception_type=type(e).__name__,
+                          document_id=doc_id)
                     return {
                         "ok": False,
                         "error": f"Failed to insert document: {str(e)}",
@@ -231,6 +265,14 @@ def create_fts_service(
                     }
 
             elapsed_ms = (time.time() - start_time) * 1000
+            
+            # Log performance metrics
+            metric("fts.index_documents.performance", "Indexing completed",
+                   operation="index_documents",
+                   doc_count=len(documents),
+                   indexed_count=indexed_count,
+                   elapsed_ms=round(elapsed_ms, 2),
+                   docs_per_second=round(indexed_count / (elapsed_ms / 1000), 2) if elapsed_ms > 0 else 0)
 
             return {
                 "ok": True,
@@ -285,10 +327,18 @@ def create_fts_service(
 
             db_success, database, db_error = create_db_func(db_config)
             if not db_success:
+                error("fts.search.db_create", "Database creation failed", 
+                      error_type="database_connection_failure",
+                      error_msg=db_error.get("error", "Unknown error"),
+                      details=db_error.get("details", {}))
                 return {"ok": False, "error": db_error["error"], "details": db_error["details"]}
 
             conn_success, connection, conn_error = create_conn_func(database)
             if not conn_success:
+                error("fts.search.conn_create", "Connection creation failed",
+                      error_type="database_connection_failure", 
+                      error_msg=conn_error.get("error", "Unknown error"),
+                      details=conn_error.get("details", {}))
                 return {"ok": False, "error": conn_error["error"], "details": conn_error["details"]}
             should_close = True
 
@@ -332,8 +382,13 @@ def create_fts_service(
                                 "highlights": [],
                             }
                         )
-                except Exception:
+                except Exception as e:
                     # テーブルが存在しない場合
+                    error("fts.search.fallback_query", "Fallback search query failed",
+                          error_type="query_execution_failure",
+                          error_msg=str(e),
+                          exception_type=type(e).__name__,
+                          query=query)
                     pass
             else:
                 # FTS検索を実行
@@ -353,6 +408,18 @@ def create_fts_service(
 
                 if not fts_success:
                     # FTS検索が失敗した場合、フォールバックとして単純な文字列検索
+                    error_msg = (
+                        fts_error.get("error", "FTS query failed")
+                        if isinstance(fts_error, dict)
+                        else str(fts_error) if fts_error else "FTS query failed"
+                    )
+                    error("fts.search.fts_query", "FTS query execution failed",
+                          error_type="fts_query_failure",
+                          error_msg=error_msg,
+                          query=query,
+                          index_name=index_name,
+                          details=fts_error.get("details", {}) if isinstance(fts_error, dict) else {})
+                    warn("fts.search", "FTS query failed, falling back to simple string search")
                     results = []
                     try:
                         # 単純な文字列マッチング
@@ -377,8 +444,14 @@ def create_fts_service(
                                     "highlights": [],
                                 }
                             )
-                    except Exception:
+                    except Exception as e:
                         # テーブルが存在しない場合
+                        error("fts.search.fallback_after_fts_fail", "Fallback search after FTS failure",
+                              error_type="query_execution_failure",
+                              error_msg=str(e),
+                              exception_type=type(e).__name__,
+                              query=query,
+                              original_error=fts_error)
                         pass
                 else:
                     # FTS結果を整形
@@ -397,6 +470,15 @@ def create_fts_service(
                         )
 
             elapsed_ms = (time.time() - start_time) * 1000
+            
+            # Log performance metrics
+            metric("fts.search.performance", "Search completed",
+                   operation="search",
+                   query=query,
+                   result_count=len(results),
+                   elapsed_ms=round(elapsed_ms, 2),
+                   results_per_second=round(len(results) / (elapsed_ms / 1000), 2) if elapsed_ms > 0 else 0,
+                   search_type="fts" if fts_available else "fallback")
 
             return {
                 "ok": True,
@@ -614,10 +696,18 @@ def create_fts(
         
         db_success, database, db_error = create_kuzu_database(db_config)
         if not db_success:
+            error("fts.create_fts.db_create", "Database creation failed during initialization",
+                  error_type="database_connection_failure",
+                  error_msg=db_error.get('error', 'Unknown error'),
+                  details=db_error.get('details', {}))
             raise RuntimeError(f"Failed to create database: {db_error.get('error', 'Unknown error')}")
         
         conn_success, connection, conn_error = create_kuzu_connection(database)
         if not conn_success:
+            error("fts.create_fts.conn_create", "Connection creation failed during initialization",
+                  error_type="database_connection_failure",
+                  error_msg=conn_error.get('error', 'Unknown error'),
+                  details=conn_error.get('details', {}))
             raise RuntimeError(f"Failed to create connection: {conn_error.get('error', 'Unknown error')}")
         
         should_close_connection = True
@@ -634,6 +724,15 @@ def create_fts(
         if not install_success:
             # FTS拡張のインストールに失敗した場合でも、FTS instanceは作成する
             # ただし、実際の操作は失敗する可能性がある
+            error_msg = (
+                install_error.get("error", "Failed to install FTS extension")
+                if isinstance(install_error, dict)
+                else str(install_error) if install_error else "Failed to install FTS extension"
+            )
+            error("fts.create_fts.fts_install", "FTS extension installation failed during initialization",
+                  error_type="fts_extension_failure",
+                  error_msg=error_msg,
+                  details=install_error.get("details", {}) if isinstance(install_error, dict) else {})
             pass
         
         # FTS拡張をチェック
@@ -689,6 +788,10 @@ def create_fts(
                     pass
     except Exception as e:
         # エラー時のみ自分で作成した接続を閉じる
+        error("fts.create_fts.init_error", "FTS initialization failed",
+              error_type="initialization_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__)
         if should_close_connection:
             close_connection(connection)
         raise RuntimeError(f"Failed to initialize FTS: {str(e)}")
@@ -940,6 +1043,14 @@ def _index_documents_with_connection(documents: list[dict[str, str]], connection
         
         elapsed_ms = (time.time() - start_time) * 1000
         
+        # Log performance metrics
+        metric("fts.index_helper.performance", "Indexing completed",
+               operation="index_fts_documents_helper",
+               doc_count=len(documents),
+               indexed_count=indexed_count,
+               elapsed_ms=round(elapsed_ms, 2),
+               docs_per_second=round(indexed_count / (elapsed_ms / 1000), 2) if elapsed_ms > 0 else 0)
+        
         return {
             "ok": True,
             "status": "success",
@@ -948,6 +1059,11 @@ def _index_documents_with_connection(documents: list[dict[str, str]], connection
         }
     
     except Exception as e:
+        error("fts.standalone.index_documents", "Standalone indexing failed",
+              error_type="indexing_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__,
+              doc_count=len(documents))
         return {
             "ok": False,
             "error": f"Failed to index documents: {str(e)}",
@@ -1051,6 +1167,15 @@ def _search_documents_with_connection(
         
         elapsed_ms = (time.time() - start_time) * 1000
         
+        # Log performance metrics
+        metric("fts.search_helper.performance", "Search completed",
+               operation="search_fts_documents_helper",
+               query=query,
+               result_count=len(results),
+               elapsed_ms=round(elapsed_ms, 2),
+               results_per_second=round(len(results) / (elapsed_ms / 1000), 2) if elapsed_ms > 0 else 0,
+               search_type="simple")
+        
         return {
             "ok": True,
             "results": results,
@@ -1062,6 +1187,11 @@ def _search_documents_with_connection(
         }
     
     except Exception as e:
+        error("fts.standalone.search", "Standalone search failed",
+              error_type="search_failure",
+              error_msg=str(e),
+              exception_type=type(e).__name__,
+              query=query)
         return {"ok": False, "error": f"Search failed: {str(e)}", "details": {"error": str(e)}}
 
 
