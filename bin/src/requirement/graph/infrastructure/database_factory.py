@@ -36,7 +36,7 @@ def create_database(
         Union[Any, DatabaseError]: 成功時はDatabaseインスタンス、失敗時はDatabaseError
     """
     cache_key = f"{path}:{in_memory}:{test_unique}"
-    
+
     if not _kuzu_available:
         return DatabaseError(
             type="DatabaseError",
@@ -46,10 +46,10 @@ def create_database(
             error_code="IMPORT_ERROR",
             details={"import_error": _import_error}
         )
-    
+
     if use_cache and cache_key in _database_cache:
         return _database_cache[cache_key]
-    
+
     try:
         if in_memory:
             import uuid
@@ -58,21 +58,21 @@ def create_database(
         else:
             if not path:
                 path = os.environ.get('RGL_DATABASE_PATH', './kuzu_db')
-            
+
             db_path = Path(path)
             db_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             if db_path.is_dir():
                 db_path = db_path / "db.kuzu"
             else:
                 db_path = Path(path)
-        
+
         # persistence.kuzu_pyのcreate_database関数を使用
         if in_memory:
             result = kuzu_create_database(db_path)  # ":memory:xxx"形式のパスを渡す
         else:
             result = kuzu_create_database(str(db_path))
-        
+
         # persistence.kuzu_pyのcreate_databaseは:
         # - 成功時: kuzu.Databaseインスタンスを直接返す
         # - エラー時: ErrorDict (ok=False)を返す
@@ -91,10 +91,10 @@ def create_database(
         else:
             # 成功の場合、resultは直接データベースインスタンス
             db = result
-        
+
         if use_cache:
             _database_cache[cache_key] = db
-        
+
         return db
     except Exception as e:
         return DatabaseError(
@@ -121,10 +121,10 @@ def create_connection(db) -> Union[Any, DatabaseError]:
             error_code="IMPORT_ERROR",
             details={"import_error": _import_error}
         )
-    
+
     # persistence.kuzu_pyのcreate_connection関数を使用
     result = kuzu_create_connection(db)
-    
+
     # persistence.kuzu_pyのcreate_connectionは:
     # - 成功時: kuzu.Connectionインスタンスを直接返す
     # - エラー時: ErrorDict (ok=False)を返す
@@ -158,7 +158,7 @@ KUZU_PY_IMPORT_ERROR = _import_error
 # 後方互換性のため、すべての関数を公開
 __all__ = [
     'create_database',
-    'create_connection', 
+    'create_connection',
     'clear_database_cache',
     'clear_cache',
     'KUZU_PY_AVAILABLE',

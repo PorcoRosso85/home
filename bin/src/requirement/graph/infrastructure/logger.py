@@ -17,15 +17,12 @@ from .logger_wrapper import (
     info,
     warn,
     log_error,
-    # 内部関数も互換性のため
-    _should_log,
-    _inject_metadata,
 )
 
 # 既存のコードとの互換性のため、これらも公開
 __all__ = [
     "log",
-    "result", 
+    "result",
     "error",
     "score",
     "trace",

@@ -142,11 +142,11 @@ class QueryLoader:
             実行結果
         """
         query_result = self.load_query(query_name, query_type)
-        
+
         # Check if query loading returned an error
         if isinstance(query_result, dict) and query_result.get("type") in ["FileOperationError", "ValidationError", "NotFoundError"]:
             return query_result
-            
+
         return repository["execute"](query_result, params)
 
 

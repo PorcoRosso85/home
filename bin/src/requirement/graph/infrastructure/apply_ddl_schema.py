@@ -59,7 +59,7 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
         debug("rgl.schema", "Creating database directory", path=db_path)
         os.makedirs(db_path, exist_ok=True)
         db = create_database(path=db_path)
-    
+
     # エラーチェック
     if isinstance(db, dict) and db.get("type") == "DatabaseError":
         error("rgl.schema", "Failed to create database", error=db.get("message", "Unknown error"))
@@ -67,12 +67,12 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
 
     info("rgl.schema", "Connecting to database")
     conn = create_connection(db)
-    
+
     # エラーチェック
     if isinstance(conn, dict) and conn.get("type") == "DatabaseError":
         error("rgl.schema", "Failed to connect to database", error=conn.get("message", "Unknown error"))
         return False
-        
+
     debug("rgl.schema", "Database connection established")
 
     manager = DDLSchemaManager(conn)

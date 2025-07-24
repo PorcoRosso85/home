@@ -8,10 +8,9 @@ Template Processor - テンプレート入力をCypherクエリに変換
 - security.md: パラメータ化クエリによるSQLインジェクション完全防止
 - layered_architecture.md: アプリケーション層からインフラ層への適切な依存
 """
-from typing import Dict, Any, Optional
-from .search_adapter import SearchAdapter
+from typing import Dict, Any
 from ..query import execute_query
-from ..domain.errors import ValidationError, NotFoundError
+from ..domain.errors import NotFoundError
 
 
 def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], search_factory=None) -> Dict[str, Any]:
@@ -87,7 +86,7 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
                 except Exception as e:
                     print(f"[DEBUG] Failed to generate embedding: {e}")
                     # エンベディング生成エラーは致命的ではない
-        
+
         # 要件作成（エンベディングはVSSServiceが後から更新）
         query_params = {
             "id": params.get("id"),

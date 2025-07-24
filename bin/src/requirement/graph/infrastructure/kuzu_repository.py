@@ -8,7 +8,7 @@ from typing import List, Dict, Optional, Any, Union
 # 相対インポートのみ使用
 from .variables import get_db_path, should_skip_schema_check
 from .logger import debug, info
-from ..domain.errors import DatabaseError, EnvironmentConfigError, ValidationError, NotFoundError
+from ..domain.errors import DatabaseError, ValidationError, NotFoundError
 
 
 def create_kuzu_repository(db_path: str = None) -> Union[Dict, Dict[str, Any]]:
@@ -45,14 +45,14 @@ def create_kuzu_repository(db_path: str = None) -> Union[Dict, Dict[str, Any]]:
         db = create_database(in_memory=True, use_cache=False, test_unique=True)
     else:
         db = create_database(path=str(db_path))
-    
+
     # エラーチェック
     if isinstance(db, dict) and db.get("type") == "DatabaseError":
         # エラーを呼び出し元に返す
         return db
 
     conn = create_connection(db)
-    
+
     # エラーチェック
     if isinstance(conn, dict) and conn.get("type") == "DatabaseError":
         # エラーを呼び出し元に返す

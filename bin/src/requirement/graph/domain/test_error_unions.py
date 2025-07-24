@@ -33,21 +33,21 @@ def test_config_result_usage():
         "config": {"debug": True},
         "source": "env"
     }
-    
+
     # Error case
     error_result: ConfigResult = {
         "type": "EnvironmentConfigError",
         "message": "DATABASE_URL not set",
         "missing_var": "DATABASE_URL"
     }
-    
+
     # Pattern matching
     def handle_config(result: ConfigResult) -> str:
         if result["type"] == "ConfigSuccess":
             return f"Config loaded from {result['source']}"
         else:  # EnvironmentConfigError
             return f"Config error: {result['message']}"
-    
+
     assert handle_config(success_result) == "Config loaded from env"
     assert handle_config(error_result) == "Config error: DATABASE_URL not set"
 
@@ -56,7 +56,7 @@ def test_db_operation_result():
     """Test using database operation result"""
     # Success case - returning data
     success_result: DbOperationResult = {"id": 1, "name": "test"}
-    
+
     # Error case
     error_result: DbOperationResult = {
         "type": "DatabaseError",
@@ -64,10 +64,10 @@ def test_db_operation_result():
         "operation": "connect",
         "database_name": "test_db"
     }
-    
+
     def is_db_error(result: DbOperationResult) -> bool:
         return isinstance(result, dict) and result.get("type") == "DatabaseError"
-    
+
     assert not is_db_error(success_result)
     assert is_db_error(error_result)
 
@@ -76,7 +76,7 @@ def test_file_result():
     """Test using file operation result"""
     # Success case
     success_result: FileResult = "file contents here"
-    
+
     # Error case
     error_result: FileResult = {
         "type": "FileOperationError",
@@ -85,13 +85,13 @@ def test_file_result():
         "file_path": "/tmp/missing.txt",
         "exists": False
     }
-    
+
     def handle_file_read(result: FileResult) -> str:
         if isinstance(result, str):
             return f"Read {len(result)} characters"
         else:
             return f"Failed to {result['operation']} {result['file_path']}"
-    
+
     assert handle_file_read(success_result) == "Read 18 characters"
     assert handle_file_read(error_result) == "Failed to read /tmp/missing.txt"
 
@@ -101,9 +101,9 @@ def test_module_import_result():
     # Success case - some module object
     class MockModule:
         version = "1.0.0"
-    
+
     success_result: ModuleResult = MockModule()
-    
+
     # Error case
     error_result: ModuleResult = {
         "type": "ImportError",
@@ -111,7 +111,7 @@ def test_module_import_result():
         "module_name": "missing",
         "suggestion": "Check if the module is installed"
     }
-    
+
     def handle_import(result: ModuleResult) -> str:
         if hasattr(result, "__dict__") and not isinstance(result, dict):
             return "Module imported successfully"
@@ -119,7 +119,7 @@ def test_module_import_result():
             return f"Import failed: {result['module_name']}"
         else:
             return "Unknown result"
-    
+
     assert handle_import(success_result) == "Module imported successfully"
     assert handle_import(error_result) == "Import failed: missing"
 

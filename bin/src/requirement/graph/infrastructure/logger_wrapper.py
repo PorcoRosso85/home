@@ -13,7 +13,7 @@ sys.path.insert(0, "/home/nixos/bin/src")
 from log import log as base_log
 
 from .variables.constants import LOG_LEVELS
-from .variables import get_log_level, get_log_format
+from .variables import get_log_level
 
 # 環境変数の取得（動的に取得するため関数化）
 def _get_current_log_level():
@@ -29,7 +29,7 @@ def _should_log(level: str, module: str) -> bool:
     # 環境変数からモジュール別設定を解析
     module_levels = {}
     default_level = 3  # WARN
-    
+
     # 動的に現在のログレベルを取得
     log_level = _get_current_log_level()
 
@@ -60,12 +60,12 @@ def _inject_metadata(data: Dict[str, Any]) -> Dict[str, Any]:
     # タイムスタンプの追加（なければ）
     if "timestamp" not in data:
         data["timestamp"] = datetime.now(timezone.utc).isoformat()
-    
+
     # プロセス情報の追加（必要に応じて）
     if os.environ.get("RGL_LOG_PROCESS_INFO") == "true":
         data["pid"] = os.getpid()
         data["hostname"] = os.uname().nodename
-    
+
     return data
 
 
@@ -86,10 +86,10 @@ def log(level: str, module: str, message: str, **kwargs) -> None:
         "type": "log",
         **kwargs
     }
-    
+
     # メタデータ注入（timestampなど）
     data = _inject_metadata(data)
-    
+
     # bin/src/logを使用（levelはbin/src/logが設定するので、dataには含めない）
     base_log(level.upper(), data)
 
@@ -104,7 +104,7 @@ def result(data: Any, level: str = "info", **kwargs) -> None:
         "data": data,
         **kwargs
     }
-    
+
     log_data = _inject_metadata(log_data)
     base_log(level.upper(), log_data)
 
@@ -119,13 +119,13 @@ def error(message: str, details: Optional[Dict[str, Any]] = None,
         "module": "rgl.error",  # 後方互換性
         **kwargs
     }
-    
+
     if details is not None:
         log_data["details"] = details
-    
+
     if score is not None:
         log_data["score"] = score
-    
+
     log_data = _inject_metadata(log_data)
     base_log("ERROR", log_data)
 
@@ -140,7 +140,7 @@ def score(friction_analysis: Dict[str, Any], level: str = "info", **kwargs) -> N
         "data": friction_analysis,
         **kwargs
     }
-    
+
     log_data = _inject_metadata(log_data)
     base_log(level.upper(), log_data)
 
@@ -151,7 +151,7 @@ def trace(module: str, message: str, **kwargs) -> None:
     """TRACEレベルのログ（bin/src/logにはないのでDEBUGにマッピング）"""
     if not _should_log("TRACE", module):
         return
-    
+
     data = {
         "uri": f"/rgl/{module}",  # bin/src/logの必須フィールド
         "message": message,
@@ -160,7 +160,7 @@ def trace(module: str, message: str, **kwargs) -> None:
         "original_level": "trace",  # 元のレベルを記録
         **kwargs
     }
-    
+
     data = _inject_metadata(data)
     base_log("DEBUG", data)  # bin/src/logではDEBUGとして出力
 

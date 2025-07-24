@@ -1,7 +1,6 @@
 """
 Test for error type definitions
 """
-from typing import get_type_hints
 from .errors import (
     EnvironmentConfigError,
     DatabaseError,
@@ -19,7 +18,7 @@ def test_environment_config_error_structure():
         "current_value": None,
         "expected_format": "postgresql://user:pass@host:port/db"
     }
-    
+
     assert error["type"] == "EnvironmentConfigError"
     assert error["message"] == "Missing required environment variable"
     assert error["missing_var"] == "DATABASE_URL"
@@ -37,7 +36,7 @@ def test_database_error_structure():
         "error_code": "P0001",
         "details": {"host": "localhost", "port": 5432}
     }
-    
+
     assert error["type"] == "DatabaseError"
     assert error["message"] == "Failed to connect to database"
     assert error["operation"] == "connect"
@@ -56,7 +55,7 @@ def test_file_operation_error_structure():
         "permission_issue": True,
         "exists": True
     }
-    
+
     assert error["type"] == "FileOperationError"
     assert error["message"] == "Permission denied"
     assert error["operation"] == "write"
@@ -75,7 +74,7 @@ def test_import_error_structure():
         "available_modules": ["module1", "module2"],
         "suggestion": "Did you mean 'module1'?"
     }
-    
+
     assert error["type"] == "ImportError"
     assert error["message"] == "Module not found"
     assert error["module_name"] == "nonexistent_module"
@@ -92,7 +91,7 @@ def test_optional_fields():
         "message": "Config error"
     }
     assert env_error["type"] == "EnvironmentConfigError"
-    
+
     # Minimal DatabaseError
     db_error: DatabaseError = {
         "type": "DatabaseError",
@@ -100,7 +99,7 @@ def test_optional_fields():
         "operation": "query"
     }
     assert db_error["operation"] == "query"
-    
+
     # Minimal FileOperationError
     file_error: FileOperationError = {
         "type": "FileOperationError",
@@ -109,7 +108,7 @@ def test_optional_fields():
         "file_path": "/tmp/test.txt"
     }
     assert file_error["file_path"] == "/tmp/test.txt"
-    
+
     # Minimal ImportError
     import_error: ImportError = {
         "type": "ImportError",

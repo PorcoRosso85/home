@@ -55,12 +55,12 @@ def get_db_path() -> Union[str, EnvironmentConfigError]:
     result = get_rgl_database_path()
     if not (isinstance(result, dict) and result.get("type") == "EnvironmentConfigError"):
         return result
-    
+
     # 後方互換性チェック
     legacy_result = _require_env('RGL_DB_PATH')
     if not (isinstance(legacy_result, dict) and legacy_result.get("type") == "EnvironmentConfigError"):
         return legacy_result
-    
+
     return EnvironmentConfigError(
         type="EnvironmentConfigError",
         message="RGL_DATABASE_PATH not set. Set RGL_DATABASE_PATH=:memory: for in-memory DB, or RGL_DATABASE_PATH=/path/to/db for persistent DB",

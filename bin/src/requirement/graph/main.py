@@ -76,7 +76,7 @@ def safe_main():
 
             template_name = input_data.get("template")
             info("rgl.main", "Processing template", template=template_name)
-            
+
             # 依存関係管理系のテンプレートではsearch serviceは不要
             if template_name in ["add_dependency", "find_dependencies", "remove_dependency"]:
                 query_result = process_template(input_data, repository, None)

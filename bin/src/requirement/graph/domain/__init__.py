@@ -13,7 +13,7 @@ from .errors import (
 __all__ = [
     # Error types
     "EnvironmentConfigError",
-    "DatabaseError", 
+    "DatabaseError",
     "FileOperationError",
     "ImportError"
 ]

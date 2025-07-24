@@ -78,6 +78,14 @@
             ''}/bin/test-log";
           };
           
+          # README表示
+          readme = {
+            type = "app";
+            program = "${pkgs.writeShellScript "show-readme" ''
+              cat ${./README.md}
+            ''}";
+          };
+          
           default = self.apps.${system}.test;
         };
       });

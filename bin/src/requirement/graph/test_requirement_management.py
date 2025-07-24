@@ -309,7 +309,7 @@ class TestEndToEndScenarios:
         # 要件は作成される（重複検出はオプショナル）
         assert "error" not in result
         assert result.get("data", {}).get("status") == "success"
-        
+
         # 重複警告がある場合の確認（オプショナル）
         if "warning" in result or "duplicate" in str(result).lower():
             # VSS有効時は警告が出る可能性がある

@@ -3,14 +3,10 @@ Test env.py error handling with error-as-value pattern
 Testing error cases for environment variable management
 """
 import os
-import pytest
-from typing import Union, cast
 from unittest.mock import patch
 
-from ...domain.errors import EnvironmentConfigError
 from .env import (
     get_db_path,
-    get_rgl_database_path,
     get_log_level,
     validate_environment,
 )

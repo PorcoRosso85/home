@@ -90,7 +90,7 @@ class TestVSSSearchSpec:
         # Then: 要件は作成されるが、重複検出はオプショナル
         assert "error" not in duplicate_result
         assert duplicate_result.get("data", {}).get("status") == "success"
-        
+
         # 重複検出がある場合の確認（オプショナル）
         warning = duplicate_result.get("warning") or duplicate_result.get("data", {}).get("warning")
         if warning:
@@ -179,14 +179,14 @@ class TestVSSSearchSpec:
         # Then: 要件は作成される（重複検出はオプショナル）
         assert "error" not in search_result
         assert search_result.get("data", {}).get("status") == "success"
-        
+
         # 重複検出がある場合の確認（オプショナル）
         warning = search_result.get("warning") or search_result.get("data", {}).get("warning")
         if warning:
             # VSSが有効な場合は類似要件が検出される
             duplicates = warning.get("duplicates", [])
             assert len(duplicates) >= 1  # 少なくとも1つは見つかる
-            
+
             # スコア順にソートされている
             scores = [d["score"] for d in duplicates]
             assert scores == sorted(scores, reverse=True)

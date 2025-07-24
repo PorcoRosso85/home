@@ -26,7 +26,7 @@
           # kuzu本体
           ps.kuzu
           # VSS/FTSパッケージ（flake経由）- kuzu_pyを含む
-          # vssKuzuPkg  # 一時的に無効化（ビルドエラー回避）
+          vssKuzuPkg  # VSS機能を有効化
           ftsKuzuPkg  # FTSパッケージを追加
           ps.pytest
           # 追加の依存関係
