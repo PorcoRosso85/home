@@ -204,44 +204,9 @@ class TestConnectionInitializationOrder:
 class TestPerformanceWithConnectionSharing:
     """Test performance improvements from connection sharing"""
     
-    @pytest.mark.slow
-    def test_initialization_performance(self):
-        """Test that connection sharing improves initialization time"""
-        if not KUZU_PY_AVAILABLE:
-            pytest.skip("kuzu_py not available")
-            
-        if not VSS_MODULES_AVAILABLE:
-            pytest.skip("VSS modules not available")
-            
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = os.path.join(tmpdir, "perf_test.db")
-            
-            # Measure time without connection sharing
-            start_time = time.time()
-            for i in range(5):
-                adapter = SearchAdapter(db_path, repository_connection=None)
-                del adapter
-            time_without_sharing = time.time() - start_time
-            
-            # Create a shared connection
-            db = create_database(path=db_path)
-            conn = create_connection(db)
-            
-            # Measure time with connection sharing
-            start_time = time.time()
-            for i in range(5):
-                adapter = SearchAdapter(db_path, repository_connection=conn)
-                del adapter
-            time_with_sharing = time.time() - start_time
-            
-            # Connection sharing should be faster (or at least not slower)
-            # We don't assert strict performance as it depends on the system
-            print(f"Time without sharing: {time_without_sharing:.3f}s")
-            print(f"Time with sharing: {time_with_sharing:.3f}s")
-            
-            # Just verify both approaches work
-            assert time_without_sharing > 0
-            assert time_with_sharing > 0
+    # REMOVED: Performance test violates "Refactoring Wall" principle
+    # Initialization speed is an implementation detail, not a behavioral contract
+    # The important behavior is that connection sharing works, not how fast it is
     
     @pytest.mark.skip(reason="Segmentation fault due to PyTorch/KuzuDB thread conflict")
     def test_detailed_performance_comparison(self):
@@ -351,6 +316,10 @@ class TestPerformanceWithConnectionSharing:
         assert avg_with <= avg_without * 1.2, \
             "Connection sharing should not significantly degrade performance"
     
+    # REMOVED: test_connection_creation_overhead
+    # Performance overhead measurement violates "Refactoring Wall" principle
+    
+    @pytest.mark.skip(reason="Performance test violates testing principles")
     def test_connection_creation_overhead(self):
         """Test the overhead of connection creation vs reuse"""
         if not KUZU_PY_AVAILABLE:

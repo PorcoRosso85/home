@@ -182,11 +182,8 @@ class TestDuplicateDetection:
         # エンベディングの生成は内部実装の詳細であり、
         # 公開APIレベルでは検証しない（リファクタリングの壁の原則）
 
-    @pytest.mark.skip(reason="パフォーマンステストは必要時に実行")
-    def test_performance_with_many_requirements(self, temp_db):
-        """大量データでの性能 - 非機能要件のテスト"""
-        # 100件の要件を作成して重複検出の性能を確認
-        pass
+    # REMOVED: Performance test violates "Refactoring Wall" principle
+    # Performance is an implementation detail, not a behavioral contract
 
 
 def test_schema_migration_readiness():

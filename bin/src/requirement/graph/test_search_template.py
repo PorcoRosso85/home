@@ -22,46 +22,14 @@ def test_search_template_validation():
     assert result["error"]["type"] == "ServiceNotAvailable"
 
 
-def test_search_template_with_mock_adapter():
-    """Test with a mock search adapter"""
-    class MockSearchAdapter:
-        def search_hybrid(self, query, k=10):
-            return [
-                {
-                    "id": "req_001",
-                    "title": "Test Requirement",
-                    "content": "This is a test requirement",
-                    "score": 0.95,
-                    "source": "hybrid"
-                }
-            ]
-    
-    result = process_search_template(
-        {"query": "test requirement", "limit": 5},
-        lambda: MockSearchAdapter()
-    )
-    
-    assert result["status"] == "success"
-    assert result["query"] == "test requirement"
-    assert result["count"] == 1
-    assert len(result["results"]) == 1
-    assert result["results"][0]["id"] == "req_001"
-    assert result["results"][0]["score"] == 0.95
+# REMOVED: Mock test violates "Refactoring Wall" principle
+# This test has been replaced with test_search_template_integration_real.py
+# which uses actual database and search service instead of mocks
 
 
-def test_search_template_with_error():
-    """Test error handling"""
-    class ErrorSearchAdapter:
-        def search_hybrid(self, query, k=10):
-            return [{"error": {"type": "SearchError", "message": "Search failed"}}]
-    
-    result = process_search_template(
-        {"query": "test"},
-        lambda: ErrorSearchAdapter()
-    )
-    
-    assert result["status"] == "error"
-    assert result["error"]["type"] == "SearchError"
+# REMOVED: Mock test violates "Refactoring Wall" principle
+# Error handling is tested in test_search_template_integration_real.py
+# using real error scenarios instead of mocked errors
 
 
 if __name__ == "__main__":
