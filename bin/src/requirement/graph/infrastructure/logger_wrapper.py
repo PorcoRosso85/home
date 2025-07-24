@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 
 # bin/src/logのインポート
 sys.path.insert(0, "/home/nixos/bin/src")
-from log import log as base_log
+from log_py import log as base_log
 
 from .variables.constants import LOG_LEVELS
 from .variables import get_log_level

@@ -197,6 +197,11 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
             search_criteria={"template": template}
         )
 
+    elif template == "search_requirements":
+        # Semantic search for requirements
+        from .templates import process_search_template
+        return process_search_template(params, search_factory)
+
     else:
         return NotFoundError(
             type="NotFoundError",

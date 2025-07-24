@@ -42,6 +42,7 @@ Phase 5.11完了により、以下の機能を提供：
 - `list_requirements`: 要件一覧
 - `add_dependency`: 依存関係追加（循環検出付き）
 - `find_dependencies`: 依存関係検索
+- `search_requirements`: 意味的類似検索（VSS）による要件探索
 
 ## 実装状況と将来対応
 
@@ -140,7 +141,21 @@ echo '{"type": "template", "template": "list_requirements", "parameters": {"limi
 
 # 依存関係の検索
 echo '{"type": "template", "template": "find_dependencies", "parameters": {"requirement_id": "req_002", "depth": 2}}' | nix run .#run
+
+# 意味的類似検索による要件探索
+echo '{"type": "template", "template": "search_requirements", "parameters": {"query": "認証機能", "limit": 5}}' | nix run .#run
 ```
+
+### 検索機能について
+
+RGLは高度な検索機能を搭載しています：
+
+- **ハイブリッド検索**: Vector Similarity Search (VSS) と Full-Text Search (FTS) を組み合わせた高精度検索
+- **256次元embedding**: OpenAI text-embedding-3-smallモデルによる意味的類似性の計算
+- **重複検出**: 類似度0.98以上の要件を自動的に検出し、重複を防止
+- **柔軟な検索**: `search_requirements`テンプレートで自然言語クエリによる要件探索が可能
+
+例：「ユーザー認証」で検索すると、「ログイン機能」「二要素認証」「パスワード管理」など意味的に関連する要件がランク付けされて返されます。
 
 ### デバッグ/トレース
 
