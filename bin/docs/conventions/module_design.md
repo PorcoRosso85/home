@@ -21,6 +21,7 @@ module/
 ├── application.{ext}    # ユースケース
 ├── domain.{ext}         # ビジネスロジック
 ├── infrastructure.{ext} # 外部接続
+├── variables.{ext}      # 環境変数・設定値（必須）
 └── mod.{ext}           # エクスポート（型情報を含む公開API）
 ```
 
@@ -35,7 +36,10 @@ module/
 ├── domain/
 │   └── *.{ext}
 ├── infrastructure/
-│   └── *.{ext}
+│   ├── *.{ext}
+│   └── variables/        # 大規模時は専用ディレクトリ
+│       └── *.{ext}
+├── variables.{ext}       # 小規模時は単一ファイル
 └── mod.{ext}
 ```
 
@@ -71,6 +75,17 @@ module/
 └── public/            # 公開型定義
     └── types.{ext}
 ```
+
+## 環境変数・設定値管理
+
+### 必須ファイル
+- **小規模**: `variables.{ext}` - 単一ファイルですべての環境変数を管理
+- **大規模**: `infrastructure/variables/*.{ext}` - 機能別に分割
+
+### 実装原則
+- グローバル状態の禁止（関数として提供）
+- デフォルト値の禁止（必須変数は明示的にエラー）
+- 型安全性の確保（TypedDict/type/structで定義）
 
 ## 設計に迷ったら
 
