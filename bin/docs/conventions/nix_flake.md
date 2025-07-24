@@ -238,7 +238,7 @@ devShells.default = pkgs.mkShell {
 
 ### 必須コマンド
 - `nix run .` - デフォルトアプリケーション実行（利用可能なアプリ一覧を動的に表示）
-- `nix run .#test` - テスト実行
+- `nix run .#test` - テスト実行（単体・統合・E2E統合実行）
 - `nix run .#readme` - README.mdを表示
 - `nix develop` - 開発シェル
 

@@ -16,7 +16,7 @@
 | 言語 | テストファイル名 | 例 |
 |------|-----------------|-----|
 | Python | `test_<対象ファイル名>.py` | `test_vss_service.py` (vss_service.pyのテスト) |
-| TypeScript | `<対象ファイル名>.test.ts` | `vss-service.test.ts` |
+| TypeScript | `<対象ファイル名>.test.ts` | `vssService.test.ts` |
 | Go | `<対象ファイル名>_test.go` | `vss_service_test.go` |
 | Rust | `mod.rs` 内の `#[cfg(test)]` | `tests/` ディレクトリ |
 
@@ -93,6 +93,100 @@
 - すべてのテストがパスすること
 - カバレッジが閾値を満たすこと（新規コード80%以上）
 - テスト実行時間が妥当であること
+
+## E2Eテスト構造
+
+### ディレクトリ構成
+E2Eテストは、テスト対象の範囲に応じて`e2e/`ディレクトリ内で構造化する：
+
+```
+e2e/
+├── internal/      # 内部E2Eテスト
+│   └── test_e2e_*.py
+└── external/      # 外部パッケージテスト
+    ├── flake.nix
+    └── test_e2e_*.py
+```
+
+### internal（内部E2Eテスト）
+- **対象**: 同一flake内でのエンドツーエンド動作
+- **内容**: CLIコマンド実行、API呼び出し、エラーハンドリング
+- **実行**: メインのテストスイートの一部として実行
+- **例**: ユーザーワークフロー、コマンドチェーン、設定ファイル処理
+
+### external（外部パッケージテスト）
+- **対象**: 他のflakeから依存パッケージとして利用される場合の動作
+- **内容**: パッケージのimport、公開APIの契約、型情報の正確性
+- **実行**: 独立したflakeとして別プロセスで実行
+- **例**: `from package import PublicAPI`の動作確認
+
+### テスト実装例
+
+#### Internal E2Eテスト
+```python
+# e2e/internal/test_e2e_search_workflow.py
+def test_e2e_vector_search_complete_workflow():
+    """ベクトル検索の完全なワークフローをテスト"""
+    # 1. データベース初期化
+    result = subprocess.run(["nix", "run", ".#init-db"], ...)
+    
+    # 2. データ投入
+    result = subprocess.run(["nix", "run", ".#load-data"], ...)
+    
+    # 3. 検索実行
+    result = subprocess.run(["nix", "run", ".#search", "--query", "test"], ...)
+    
+    # 4. 結果検証
+    assert "expected_result" in result.stdout
+```
+
+#### External E2Eテスト
+```nix
+# e2e/external/flake.nix
+{
+  inputs.target-package.url = "path:../..";
+  
+  outputs = { self, target-package, ... }: {
+    apps.test = {
+      type = "app";
+      program = "${pkgs.writeShellScript "test-external" ''
+        ${pythonEnv}/bin/pytest -v test_e2e_*.py
+      ''}";
+    };
+  };
+}
+```
+
+```python
+# e2e/external/test_e2e_import.py
+def test_e2e_package_can_be_imported():
+    """パッケージが外部から正しくimportできることを確認"""
+    import vss_kuzu
+    assert hasattr(vss_kuzu, '__version__')
+    assert callable(vss_kuzu.search)
+```
+
+### 実行コマンドの統合
+```nix
+# flake.nix
+apps.test = {
+  type = "app";
+  program = "${pkgs.writeShellScript "test" ''
+    # ユニット・統合テスト
+    ${pythonEnv}/bin/pytest -v src/
+    
+    # 内部E2Eテスト
+    [ -d "e2e/internal" ] && ${pythonEnv}/bin/pytest -v e2e/internal/
+    
+    # 外部E2Eテスト
+    [ -f "e2e/external/flake.nix" ] && (cd e2e/external && nix run .#test)
+    
+    # 警告表示
+    [ ! -d "e2e/internal" ] && echo "⚠️  WARNING: No internal E2E tests"
+    [ ! -d "e2e/external" ] && echo "⚠️  WARNING: No external E2E tests"
+  ''}";
+};
+```
 
 ## テストデータ管理
 
