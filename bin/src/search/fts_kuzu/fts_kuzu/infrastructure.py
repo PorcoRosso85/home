@@ -6,8 +6,7 @@
 外部システム（KuzuDB）との接続を担当
 """
 
-from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypedDict
 
 # KuzuDB imports
 try:
@@ -28,9 +27,8 @@ IN_MEMORY_DB_PATH = ":memory:"
 _FTS_INDEX_REGISTRY = {}
 
 
-@dataclass(frozen=True)
-class DatabaseConfig:
-    """データベース設定の不変データクラス"""
+class DatabaseConfig(TypedDict):
+    """データベース設定の型定義"""
 
     db_path: str
     in_memory: bool
@@ -60,7 +58,7 @@ def create_kuzu_database(config: DatabaseConfig) -> tuple[bool, Any | None, dict
         )
 
     try:
-        db_path = IN_MEMORY_DB_PATH if config.in_memory else config.db_path
+        db_path = IN_MEMORY_DB_PATH if config["in_memory"] else config["db_path"]
         db = create_database(db_path)
 
         # Check if it's an error response
@@ -79,7 +77,7 @@ def create_kuzu_database(config: DatabaseConfig) -> tuple[bool, Any | None, dict
             None,
             {
                 "error": f"Failed to create database: {str(e)}",
-                "details": {"exception_type": type(e).__name__, "db_path": config.db_path},
+                "details": {"exception_type": type(e).__name__, "db_path": config["db_path"]},
             },
         )
 

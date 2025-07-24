@@ -18,13 +18,13 @@ This library provides full-text search functionality leveraging KuzuDB's FTS ext
 
 ## Usage
 
-### Python API
+### Python API (Protocol-Based Design)
 
 ```python
-from fts_kuzu import FTSService
+from fts_kuzu import create_fts, FTSAlgebra
 
-# Initialize service
-service = FTSService(in_memory=True)
+# Create FTS instance (returns FTSAlgebra protocol implementation)
+fts: FTSAlgebra = create_fts(in_memory=True)
 
 # Index documents
 documents = [
@@ -39,19 +39,19 @@ documents = [
         "content": "Design efficient databases with SQL"
     }
 ]
-result = service.index_documents(documents)
+result = fts.index(documents)
 
 # Search documents
-search_result = service.search({
-    "query": "python programming",
-    "limit": 10
-})
+search_result = fts.search("python programming", limit=10)
 
 # Display results
 if search_result["ok"]:
     for doc in search_result["results"]:
         print(f"{doc['id']}: {doc['content']} (score: {doc['score']})")
         print(f"  Highlights: {doc['highlights']}")
+
+# Clean up resources
+fts.close()
 ```
 
 ### Function-First API
@@ -121,20 +121,25 @@ nix run .#test -- -v
 
 ## Architecture
 
-The library follows a three-layer architecture:
+The library follows a Protocol-based algebraic design with three-layer architecture:
 
-1. **Domain Layer** (`domain.py`): Pure functions for search logic
+1. **Protocol Layer** (`protocols.py`): Type-safe interfaces
+   - `FTSAlgebra`: Protocol defining FTS operations
+   - Runtime checkable for type safety
+   - Enables multiple implementations
+
+2. **Domain Layer** (`domain.py`): Pure functions for search logic
    - BM25 scoring algorithm
    - Highlight generation
-   - Search result types
+   - All data structures use TypedDict
 
-2. **Infrastructure Layer** (`infrastructure.py`): KuzuDB integration
+3. **Infrastructure Layer** (`infrastructure.py`): KuzuDB integration
    - FTS extension management
    - Database operations
    - Index creation
 
-3. **Application Layer** (`application.py`): Service implementation
-   - FTSService class for easy usage
+4. **Application Layer** (`application.py`): Protocol implementation
+   - `FTSInterpreter`: Implements FTSAlgebra protocol
    - Function-first API for flexibility
    - Error handling and validation
 
@@ -158,30 +163,42 @@ Documents are ranked by relevance using the BM25 algorithm, considering:
 ### Search Highlights
 Automatic generation of text snippets highlighting matched terms.
 
+## Protocol Design
+
+This library follows a Protocol-based algebraic design pattern inspired by functional programming's Tagless Final pattern:
+
+- **Type Safety**: The `FTSAlgebra` protocol provides compile-time interface checking
+- **Multiple Implementations**: Different implementations can satisfy the same protocol
+- **No Classes for Data**: All data structures use `TypedDict` instead of classes
+- **Structural Subtyping**: Duck typing with runtime protocol checking
+
 ## API Reference
 
-### FTSService
+### FTSAlgebra Protocol
 
-#### `__init__(db_path: str = "./kuzu_db", in_memory: bool = False)`
-Initialize the FTS service.
+The main interface for FTS operations:
 
-#### `index_documents(documents: List[Dict[str, str]]) -> Dict[str, Any]`
-Index documents for full-text search.
+```python
+@runtime_checkable
+class FTSAlgebra(Protocol):
+    def index(self, documents: List[Dict[str, str]]) -> Dict[str, Any]: ...
+    def search(self, query: str, limit: int = 10, **kwargs) -> Dict[str, Any]: ...
+```
+
+### create_fts Function
+
+```python
+def create_fts(db_path: str = "./kuzu_db", in_memory: bool = False) -> FTSAlgebra
+```
+
+Creates an FTS instance that implements the `FTSAlgebra` protocol.
 
 **Parameters:**
-- `documents`: List of documents with `id`, `title`, and `content` fields
+- `db_path`: Path to the database (default: "./kuzu_db")
+- `in_memory`: Use in-memory database (default: False)
 
 **Returns:**
-- Result dictionary with `ok`, `indexed_count`, and `index_time_ms`
-
-#### `search(search_input: Dict[str, Any]) -> Dict[str, Any]`
-Perform full-text search.
-
-**Parameters:**
-- `search_input`: Dictionary with `query` (required) and `limit` (optional)
-
-**Returns:**
-- Result dictionary with `ok`, `results`, and `metadata`
+- An instance implementing `FTSAlgebra` protocol
 
 ## Dependencies
 

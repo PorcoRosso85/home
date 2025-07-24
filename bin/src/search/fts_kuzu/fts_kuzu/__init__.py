@@ -8,7 +8,7 @@ Full-Text Search implementation with KuzuDB
 from .application import create_fts, FTS
 
 # Protocols and types
-from .protocols import SearchSystem
+from .protocols import SearchSystem, FTSAlgebra
 from .common_types import SearchResults, IndexResult, SearchResultItem, SearchConfig
 
 # Function-first API
@@ -51,9 +51,10 @@ from .mod import __version__
 __all__ = [
     # Unified API (Recommended)
     "create_fts",
-    "FTS",
+    "FTS",  # Deprecated: for backward compatibility
     
     # Protocols and types
+    "FTSAlgebra",  # New: Protocol-based interface
     "SearchSystem",
     "SearchResults",
     "IndexResult",

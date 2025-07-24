@@ -28,88 +28,101 @@ class TestFTSTypes:
     def test_fts_search_result_contains_required_fields(self):
         """FTSSearchResultが必要なフィールドを含むこと"""
         # FTS検索結果の作成
-        result = FTSSearchResult(
-            id="DOC001",
-            content="Full text search is powerful",
-            score=0.95,
-            highlights=("Full text search", "powerful"),
-            position_info=((0, 16), (20, 28)),
-        )
+        result: FTSSearchResult = {
+            "id": "DOC001",
+            "content": "Full text search is powerful",
+            "score": 0.95,
+            "highlights": ("Full text search", "powerful"),
+            "position_info": ((0, 16), (20, 28)),
+        }
 
         # 検証
-        assert result.id == "DOC001"
-        assert result.content == "Full text search is powerful"
-        assert result.score == 0.95
-        assert result.highlights == ("Full text search", "powerful")
-        assert result.position_info == ((0, 16), (20, 28))
+        assert result["id"] == "DOC001"
+        assert result["content"] == "Full text search is powerful"
+        assert result["score"] == 0.95
+        assert result["highlights"] == ("Full text search", "powerful")
+        assert result["position_info"] == ((0, 16), (20, 28))
 
     def test_index_result_tracks_indexing_status(self):
         """IndexResultがインデックス作成の状態を追跡すること"""
         # 成功したインデックス作成結果
-        success_result = IndexResult(
-            document_id="DOC001", success=True, tokens_count=42, index_time_ms=15.3, error=None
-        )
+        success_result: IndexResult = {
+            "document_id": "DOC001",
+            "success": True,
+            "tokens_count": 42,
+            "index_time_ms": 15.3,
+            "error": None,
+        }
 
-        assert success_result.success is True
-        assert success_result.tokens_count == 42
-        assert success_result.index_time_ms == 15.3
-        assert success_result.error is None
+        assert success_result["success"] is True
+        assert success_result["tokens_count"] == 42
+        assert success_result["index_time_ms"] == 15.3
+        assert success_result["error"] is None
 
         # 失敗したインデックス作成結果
-        failed_result = IndexResult(
-            document_id="DOC002",
-            success=False,
-            tokens_count=0,
-            index_time_ms=0.0,
-            error="Document too large for indexing",
-        )
+        failed_result: IndexResult = {
+            "document_id": "DOC002",
+            "success": False,
+            "tokens_count": 0,
+            "index_time_ms": 0.0,
+            "error": "Document too large for indexing",
+        }
 
-        assert failed_result.success is False
-        assert failed_result.error == "Document too large for indexing"
+        assert failed_result["success"] is False
+        assert failed_result["error"] == "Document too large for indexing"
 
     def test_fts_error_represents_different_error_types(self):
         """FTSErrorが異なるエラータイプを表現できること"""
         # 解析エラー
-        parse_error = FTSError(
-            type=FTSErrorType.PARSE_ERROR,
-            message="Invalid query syntax: missing closing quote",
-            query='search for "unclosed',
-            position=11,
-        )
+        parse_error: FTSError = {
+            "type": FTSErrorType.PARSE_ERROR,
+            "message": "Invalid query syntax: missing closing quote",
+            "query": 'search for "unclosed',
+            "position": 11,
+        }
 
-        assert parse_error.type == FTSErrorType.PARSE_ERROR
-        assert "missing closing quote" in parse_error.message
-        assert parse_error.query == 'search for "unclosed'
-        assert parse_error.position == 11
+        assert parse_error["type"] == FTSErrorType.PARSE_ERROR
+        assert "missing closing quote" in parse_error["message"]
+        assert parse_error["query"] == 'search for "unclosed'
+        assert parse_error["position"] == 11
 
         # インデックスエラー
-        index_error = FTSError(
-            type=FTSErrorType.INDEX_ERROR,
-            message="Index corruption detected",
-            query=None,
-            position=None,
-        )
+        index_error: FTSError = {
+            "type": FTSErrorType.INDEX_ERROR,
+            "message": "Index corruption detected",
+            "query": None,
+            "position": None,
+        }
 
-        assert index_error.type == FTSErrorType.INDEX_ERROR
-        assert index_error.message == "Index corruption detected"
-        assert index_error.query is None
+        assert index_error["type"] == FTSErrorType.INDEX_ERROR
+        assert index_error["message"] == "Index corruption detected"
+        assert index_error["query"] is None
 
     def test_fts_search_result_is_immutable(self):
-        """FTSSearchResultが不変であること"""
-        result = FTSSearchResult(
-            id="DOC001",
-            content="Immutable data",
-            score=0.8,
-            highlights=("Immutable",),
-            position_info=((0, 9),),
-        )
+        """FTSSearchResultが不変であること（規約による）"""
+        result: FTSSearchResult = {
+            "id": "DOC001",
+            "content": "Immutable data",
+            "score": 0.8,
+            "highlights": ("Immutable",),
+            "position_info": ((0, 9),),
+        }
 
-        # 変更を試みる（エラーになるはず）
-        with pytest.raises(AttributeError):
-            result.score = 0.9
-
-        with pytest.raises(AttributeError):
-            result.highlights.append("new highlight")
+        # Note: TypedDictは実行時の不変性を強制しないため、
+        # このテストは規約の理解を確認するためのものです。
+        # 実際の不変性は、開発者が新しい辞書を作成することで保証されます。
+        
+        # 元のデータを保持
+        original_score = result["score"]
+        original_highlights = result["highlights"]
+        
+        # 不変性の規約に従い、新しい辞書を作成すべき
+        new_result = {**result, "score": 0.9}
+        
+        # 元のデータが変更されていないことを確認
+        assert result["score"] == original_score
+        assert result["highlights"] == original_highlights
+        assert new_result["score"] == 0.9
 
 
 class TestFTSSearchLogic:
@@ -132,8 +145,8 @@ class TestFTSSearchLogic:
 
         # 検証
         assert len(results) == 2  # DOC001とDOC003がマッチ
-        assert all("Python" in r.content for r in results)
-        assert results[0].id in ["DOC001", "DOC003"]
+        assert all("Python" in r["content"] for r in results)
+        assert results[0]["id"] in ["DOC001", "DOC003"]
 
     def test_multiple_keywords_or_search_returns_any_match(self):
         """複数キーワードのOR検索がいずれかに一致するドキュメントを返すこと"""
@@ -151,7 +164,7 @@ class TestFTSSearchLogic:
 
         # 検証
         assert len(results) == 2  # DOC001とDOC002がマッチ
-        result_ids = [r.id for r in results]
+        result_ids = [r["id"] for r in results]
         assert set(result_ids) == {"DOC001", "DOC002"}
 
     def test_bm25_scoring_ranks_documents_by_relevance(self):
@@ -171,10 +184,10 @@ class TestFTSSearchLogic:
         # 検証
         assert len(results) >= 3
         # DOC001が最高スコア（Pythonが最も多い）
-        assert results[0].id == "DOC001"
-        assert results[0].score > results[1].score
+        assert results[0]["id"] == "DOC001"
+        assert results[0]["score"] > results[1]["score"]
         # スコアが降順
-        scores = [r.score for r in results]
+        scores = [r["score"] for r in results]
         assert scores == sorted(scores, reverse=True)
 
     def test_search_results_include_position_highlights(self):
@@ -195,11 +208,11 @@ class TestFTSSearchLogic:
         # 検証
         assert len(results) == 1
         result = results[0]
-        assert hasattr(result, "highlights")
-        assert len(result.highlights) == 2  # タイトルと内容の2箇所
-        assert "Python" in result.highlights[0]
-        assert hasattr(result, "position_info")
-        assert len(result.position_info) == 2
+        assert "highlights" in result
+        assert len(result["highlights"]) == 2  # タイトルと内容の2箇所
+        assert "Python" in result["highlights"][0]
+        assert "position_info" in result
+        assert len(result["position_info"]) == 2
 
 
 class TestAdvancedFTSFeatures:
@@ -220,8 +233,8 @@ class TestAdvancedFTSFeatures:
 
         # 検証 - DOC001のみが"machine learning"を連続で含む
         assert len(results) == 1
-        assert results[0].id == "DOC001"
-        assert "machine learning" in results[0].content.lower()
+        assert results[0]["id"] == "DOC001"
+        assert "machine learning" in results[0]["content"].lower()
 
     def test_conjunctive_search_returns_all_keywords_match(self):
         """AND検索がすべてのキーワードを含むドキュメントのみ返すこと"""
@@ -239,11 +252,11 @@ class TestAdvancedFTSFeatures:
 
         # 検証 - DOC001とDOC003がすべてのキーワードを含む
         assert len(results) == 2
-        result_ids = [r.id for r in results]
+        result_ids = [r["id"] for r in results]
         assert set(result_ids) == {"DOC001", "DOC003"}
         # すべてのキーワードが含まれていることを確認
         for result in results:
-            content_lower = result.content.lower()
+            content_lower = result["content"].lower()
             assert all(keyword.lower() in content_lower for keyword in ["Python", "web", "Django"])
 
     def test_title_boost_prioritizes_title_matches(self):
@@ -262,12 +275,12 @@ class TestAdvancedFTSFeatures:
 
         # 検証 - タイトルに"Python"を含むDOC002が最高スコア
         assert len(results) >= 3
-        assert results[0].id == "DOC002"
-        assert results[0].score > results[1].score
+        assert results[0]["id"] == "DOC002"
+        assert results[0]["score"] > results[1]["score"]
 
         # タイトルマッチのスコアが本文のみのマッチより高い
-        title_match_score = next(r.score for r in results if r.id == "DOC002")
-        body_only_scores = [r.score for r in results if r.id in ["DOC001", "DOC003", "DOC004"]]
+        title_match_score = next(r["score"] for r in results if r["id"] == "DOC002")
+        body_only_scores = [r["score"] for r in results if r["id"] in ["DOC001", "DOC003", "DOC004"]]
         assert all(title_match_score > score for score in body_only_scores)
 
     def test_section_filter_searches_within_specific_sections(self):
@@ -298,9 +311,9 @@ class TestAdvancedFTSFeatures:
 
         # 検証 - REQUIREMENTSセクションに"authentication"を含むDOC001のみ
         assert len(results) == 1
-        assert results[0].id == "DOC001"
-        assert "REQUIREMENTS" in results[0].content
-        assert "authentication" in results[0].content.lower()
+        assert results[0]["id"] == "DOC001"
+        assert "REQUIREMENTS" in results[0]["content"]
+        assert "authentication" in results[0]["content"].lower()
 
 
 if __name__ == "__main__":

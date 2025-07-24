@@ -31,7 +31,7 @@ class TestInfrastructure:
     def db_config(self):
         """Temporary database configuration"""
         tmpdir = tempfile.mkdtemp()
-        config = DatabaseConfig(db_path=tmpdir, in_memory=False)
+        config: DatabaseConfig = {'db_path': tmpdir, 'in_memory': False}
         yield config
         # Cleanup
         shutil.rmtree(tmpdir)
@@ -39,7 +39,7 @@ class TestInfrastructure:
     @pytest.fixture
     def in_memory_config(self):
         """In-memory database configuration"""
-        return DatabaseConfig(db_path=":memory:", in_memory=True)
+        return {'db_path': ":memory:", 'in_memory': True}
 
     # VSS-related tests removed
 

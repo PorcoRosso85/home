@@ -3,15 +3,13 @@
 Common Result Types
 
 FTSとVSSで共通の結果型定義
-不変データ構造として実装
+TypedDictで型安全な辞書として実装
 """
 
-from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TypedDict
 
 
-@dataclass(frozen=True)
-class SearchResultItem:
+class SearchResultItem(TypedDict, total=False):
     """
     個別の検索結果アイテム
     
@@ -22,28 +20,14 @@ class SearchResultItem:
         highlights: ハイライト情報（FTS用、オプション）
         distance: 距離（VSS用、オプション）
     """
-    id: str
-    content: str
-    score: float
-    highlights: List[str] = None
-    distance: Optional[float] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """辞書形式に変換"""
-        result = {
-            "id": self.id,
-            "content": self.content,
-            "score": self.score
-        }
-        if self.highlights is not None:
-            result["highlights"] = self.highlights
-        if self.distance is not None:
-            result["distance"] = self.distance
-        return result
+    id: str  # required
+    content: str  # required
+    score: float  # required
+    highlights: List[str]  # optional
+    distance: float  # optional
 
 
-@dataclass(frozen=True)
-class SearchResults:
+class SearchResults(TypedDict, total=False):
     """
     検索結果のコンテナ
     
@@ -54,28 +38,14 @@ class SearchResults:
         error: エラーメッセージ（失敗時のみ）
         details: 追加の詳細情報
     """
-    ok: bool
-    results: List[SearchResultItem]
-    metadata: Dict[str, Any]
-    error: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """辞書形式に変換"""
-        result = {
-            "ok": self.ok,
-            "results": [item.to_dict() for item in self.results],
-            "metadata": self.metadata
-        }
-        if self.error:
-            result["error"] = self.error
-        if self.details:
-            result["details"] = self.details
-        return result
+    ok: bool  # required
+    results: List[SearchResultItem]  # required
+    metadata: Dict[str, Any]  # required
+    error: str  # optional
+    details: Dict[str, Any]  # optional
 
 
-@dataclass(frozen=True)
-class IndexResult:
+class IndexResult(TypedDict, total=False):
     """
     インデックス操作の結果
     
@@ -87,30 +57,15 @@ class IndexResult:
         error: エラーメッセージ（失敗時のみ）
         details: 追加の詳細情報
     """
-    ok: bool
-    indexed_count: int
-    index_time_ms: float
-    status: str = "success"
-    error: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """辞書形式に変換"""
-        result = {
-            "ok": self.ok,
-            "indexed_count": self.indexed_count,
-            "index_time_ms": self.index_time_ms,
-            "status": self.status
-        }
-        if self.error:
-            result["error"] = self.error
-        if self.details:
-            result["details"] = self.details
-        return result
+    ok: bool  # required
+    indexed_count: int  # required
+    index_time_ms: float  # required
+    status: str  # required (with default "success")
+    error: str  # optional
+    details: Dict[str, Any]  # optional
 
 
-@dataclass(frozen=True)
-class SearchConfig:
+class SearchConfig(TypedDict, total=False):
     """
     検索システムの設定
     
@@ -119,6 +74,6 @@ class SearchConfig:
         in_memory: インメモリデータベースを使用するか
         default_limit: デフォルトの検索結果数
     """
-    db_path: str = "./kuzu_db"
-    in_memory: bool = False
-    default_limit: int = 10
+    db_path: str  # optional (with default "./kuzu_db")
+    in_memory: bool  # optional (with default False)
+    default_limit: int  # optional (with default 10)

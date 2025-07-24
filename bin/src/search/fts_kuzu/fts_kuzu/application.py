@@ -8,10 +8,9 @@
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypedDict
 
-from .protocols import SearchSystem
+from .protocols import SearchSystem, FTSAlgebra
 from .common_types import SearchResults, IndexResult, SearchResultItem
 
 # Type aliases for clarity
@@ -19,13 +18,11 @@ EmbeddingFunction = Callable[[str], list[float]]
 DatabaseFunction = Callable[..., Any]
 
 
-@dataclass(frozen=True)
-class ApplicationConfig:
+class ApplicationConfig(TypedDict, total=False):
     """アプリケーション設定"""
-
-    db_path: str = "./kuzu_db"
-    in_memory: bool = False
-    default_limit: int = 10
+    db_path: str
+    in_memory: bool
+    default_limit: int
 
 
 
@@ -74,10 +71,10 @@ def create_fts_service(
         # データベース接続を作成
         from .infrastructure import DatabaseConfig
 
-        db_config = DatabaseConfig(
-            db_path=config.db_path,
-            in_memory=config.in_memory,
-        )
+        db_config: DatabaseConfig = {
+            'db_path': config.get('db_path', './kuzu_db'),
+            'in_memory': config.get('in_memory', False),
+        }
 
         db_success, database, db_error = create_db_func(db_config)
         if not db_success:
@@ -255,15 +252,15 @@ def create_fts_service(
                 "details": {"required": ["query"], "optional": ["limit"]},
             }
 
-        limit = search_input.get("limit", config.default_limit)
+        limit = search_input.get("limit", config.get('default_limit', 10))
 
         # データベース接続を作成
         from .infrastructure import DatabaseConfig
 
-        db_config = DatabaseConfig(
-            db_path=config.db_path,
-            in_memory=config.in_memory,
-        )
+        db_config: DatabaseConfig = {
+            'db_path': config.get('db_path', './kuzu_db'),
+            'in_memory': config.get('in_memory', False),
+        }
 
         db_success, database, db_error = create_db_func(db_config)
         if not db_success:
@@ -395,17 +392,23 @@ def create_fts_service(
     return {"index_documents": index_documents, "search": search}
 
 
-class FTS:
+class FTSInterpreter:
     """
-    FTS統一APIインターフェース
+    FTS代数のインタープリター実装
     
-    create_fts()で作成し、index()とsearch()メソッドを提供
-    SearchSystemプロトコルを実装
+    FTSAlgebraプロトコルを実装し、create_fts()で作成される
+    Protocol-based algebraic design following Tagless Final pattern.
     """
     
     def __init__(self, config: ApplicationConfig, service_funcs: dict[str, Callable]):
-        """内部使用のみ - create_fts()を使用してください"""
-        self.config = config
+        """
+        内部使用のみ - create_fts()を使用してください
+        
+        Args:
+            config: アプリケーション設定
+            service_funcs: サービス関数の辞書
+        """
+        self._config = config
         self._service_funcs = service_funcs
         self._database = None
         self._connection = None
@@ -416,48 +419,77 @@ class FTS:
         
         Args:
             documents: {"id": str, "title": str, "content": str}のリスト
+                      titleフィールドはオプション（VSS互換性のため）
             
         Returns:
-            インデックス結果
+            インデックス結果を含む辞書:
+            - ok: bool - 成功/失敗
+            - indexed_count: int - インデックスされたドキュメント数
+            - index_time_ms: float - 処理時間（ミリ秒）
+            - error: str - エラーメッセージ（失敗時のみ）
+            - details: dict - 追加の詳細情報
         """
-        return self._service_funcs["index_documents"](documents, self.config)
+        return self._service_funcs["index_documents"](documents, self._config)
     
     def search(self, query: str, limit: int = 10, **kwargs) -> dict[str, Any]:
         """
         ドキュメントを検索
         
         Args:
-            query: 検索クエリ
+            query: 検索クエリ文字列
             limit: 返す結果の最大数
-            **kwargs: その他のオプション
+            **kwargs: 実装固有の追加パラメータ
             
         Returns:
-            検索結果
+            検索結果を含む辞書:
+            - ok: bool - 成功/失敗
+            - results: List[Dict] - 検索結果のリスト
+            - metadata: Dict - メタデータ（total_results, query, search_time_ms など）
+            - error: str - エラーメッセージ（失敗時のみ）
+            - details: dict - 追加の詳細情報
         """
         search_input = {"query": query, "limit": limit}
         search_input.update(kwargs)
-        return self._service_funcs["search"](search_input, self.config)
+        return self._service_funcs["search"](search_input, self._config)
     
     def close(self) -> None:
         """
         リソースをクリーンアップ
         
-        データベース接続を閉じる
+        データベース接続やその他のリソースを解放
         """
         if self._connection is not None:
             from .infrastructure import close_connection
             close_connection(self._connection)
             self._connection = None
             self._database = None
+    
+    # For backward compatibility - maintain config attribute
+    @property
+    def config(self) -> ApplicationConfig:
+        """設定へのアクセスを提供（後方互換性のため）"""
+        return self._config
+
+
+class FTS(FTSInterpreter):
+    """
+    FTS統一APIインターフェース（後方互換性のため）
+    
+    Deprecated: 新規コードではcreate_ftsがFTSAlgebraを返すことを期待してください
+    """
+    pass
 
 
 def create_fts(
     db_path: str = "./kuzu_db",
     in_memory: bool = False,
     **kwargs
-) -> FTS:
+) -> FTSAlgebra:
     """
     FTS統一APIインスタンスを作成
+    
+    Protocol-based algebraic design following Tagless Final pattern.
+    Returns FTSAlgebra protocol implementation for type-safe usage.
     
     Args:
         db_path: データベースパス
@@ -466,7 +498,7 @@ def create_fts(
             - default_limit: デフォルトの検索結果数
     
     Returns:
-        FTSインスタンス
+        FTSAlgebra protocol実装
     
     Example:
         fts = create_fts(in_memory=True)
@@ -474,11 +506,11 @@ def create_fts(
         results = fts.search("検索語")
     """
     # ApplicationConfigを作成
-    config = ApplicationConfig(
-        db_path=db_path,
-        in_memory=in_memory,
-        default_limit=kwargs.get('default_limit', 10)
-    )
+    config: ApplicationConfig = {
+        'db_path': db_path,
+        'in_memory': in_memory,
+        'default_limit': kwargs.get('default_limit', 10)
+    }
     
     # インフラストラクチャ関数をインポート
     from .infrastructure import (
@@ -509,10 +541,10 @@ def create_fts(
     )
     
     # 初期化テスト（データベース接続とFTS拡張の確認）
-    db_config = DatabaseConfig(
-        db_path=config.db_path,
-        in_memory=config.in_memory,
-    )
+    db_config: DatabaseConfig = {
+        'db_path': config['db_path'],
+        'in_memory': config['in_memory'],
+    }
     
     db_success, database, db_error = create_kuzu_database(db_config)
     if not db_success:
@@ -592,13 +624,27 @@ def create_fts(
         close_connection(connection)
         raise RuntimeError(f"Failed to initialize FTS: {str(e)}")
     
-    # FTSインスタンスを作成し、データベースとコネクションを保持
+    # FTSインタープリターを作成し、データベースとコネクションを保持
     # 接続は開いたままにして、FTSインスタンスのclose()メソッドで閉じる
-    fts = FTS(config, service_funcs)
+    fts = FTSInterpreter(config, service_funcs)
     fts._database = database
     fts._connection = connection
     
     return fts
+
+
+def create_fts_interpreter(config: ApplicationConfig, service_funcs: dict[str, Callable]) -> FTSAlgebra:
+    """
+    FTSインタープリターを作成（内部使用）
+    
+    Args:
+        config: アプリケーション設定
+        service_funcs: サービス関数の辞書
+        
+    Returns:
+        FTSAlgebra protocol実装
+    """
+    return FTSInterpreter(config, service_funcs)
 
 
 # Standalone function for creating FTS connection
@@ -624,7 +670,7 @@ def create_fts_connection(db_path: str = "./kuzu_db", in_memory: bool = False) -
         install_fts_extension,
     )
     
-    db_config = DatabaseConfig(db_path=db_path, in_memory=in_memory)
+    db_config: DatabaseConfig = {'db_path': db_path, 'in_memory': in_memory}
     
     # データベースを作成
     db_success, database, db_error = create_kuzu_database(db_config)
@@ -666,7 +712,7 @@ def create_fts_connection(db_path: str = "./kuzu_db", in_memory: bool = False) -
         "ok": True,
         "database": database,
         "connection": connection,
-        "config": ApplicationConfig(db_path=db_path, in_memory=in_memory)
+        "config": {'db_path': db_path, 'in_memory': in_memory, 'default_limit': 10}
     }
 
 
@@ -688,7 +734,7 @@ def index_fts_documents(
         インデックス結果
     """
     if config is None:
-        config = ApplicationConfig()
+        config = {'db_path': './kuzu_db', 'in_memory': False, 'default_limit': 10}
     
     # 既存の接続がある場合はそれを使用
     if connection:
@@ -742,7 +788,7 @@ def search_fts_documents(
         検索結果
     """
     if config is None:
-        config = ApplicationConfig()
+        config = {'db_path': './kuzu_db', 'in_memory': False, 'default_limit': 10}
     
     # 既存の接続がある場合はそれを使用
     if connection:
@@ -860,7 +906,7 @@ def _search_documents_with_connection(
             "details": {"required": ["query"], "optional": ["limit"]},
         }
     
-    limit = search_input.get("limit", config.default_limit)
+    limit = search_input.get("limit", config.get('default_limit', 10))
     
     try:
         # Try FTS search

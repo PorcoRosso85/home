@@ -9,22 +9,25 @@
 - 上位k件の選択
 """
 
-from dataclasses import dataclass
 from enum import Enum
+from typing import TypedDict
 
 import numpy as np
 
 # ============================================================================
-# Data Classes - Immutable domain entities
+# TypedDict - Immutable domain entities
 # ============================================================================
 
 
 # VSS SearchResult class removed - VSS functionality deprecated
 
 
-@dataclass(frozen=True)
-class FTSSearchResult:
-    """全文検索結果の不変データクラス
+class FTSSearchResult(TypedDict):
+    """全文検索結果の不変データ型
+
+    Note: この型は不変データとして扱われるべきです。
+    新しいインスタンスを作成する際は、既存のデータを変更せずに
+    新しい辞書を作成してください。
 
     Attributes:
         id: ドキュメントの一意識別子
@@ -41,9 +44,12 @@ class FTSSearchResult:
     position_info: tuple[tuple[int, int], ...]
 
 
-@dataclass(frozen=True)
-class IndexResult:
-    """インデックス作成結果の不変データクラス
+class IndexResult(TypedDict):
+    """インデックス作成結果の不変データ型
+
+    Note: この型は不変データとして扱われるべきです。
+    新しいインスタンスを作成する際は、既存のデータを変更せずに
+    新しい辞書を作成してください。
 
     Attributes:
         document_id: インデックスされたドキュメントのID
@@ -81,9 +87,12 @@ class FTSErrorType(Enum):
     SYSTEM_ERROR = "system_error"
 
 
-@dataclass(frozen=True)
-class FTSError:
-    """FTSエラーの不変データクラス
+class FTSError(TypedDict):
+    """FTSエラーの不変データ型
+
+    Note: この型は不変データとして扱われるべきです。
+    新しいインスタンスを作成する際は、既存のデータを変更せずに
+    新しい辞書を作成してください。
 
     Attributes:
         type: エラータイプ
@@ -162,13 +171,13 @@ def search_documents_by_keyword(
                 highlights.append(content)
                 positions.append((len(title) + 1, len(title) + 1 + len(content)))
 
-            result = FTSSearchResult(
-                id=doc_id,
-                content=full_text,
-                score=1.0,  # 単純なキーワードマッチなので固定スコア
-                highlights=tuple(highlights),
-                position_info=tuple(positions),
-            )
+            result: FTSSearchResult = {
+                "id": doc_id,
+                "content": full_text,
+                "score": 1.0,  # 単純なキーワードマッチなので固定スコア
+                "highlights": tuple(highlights),
+                "position_info": tuple(positions),
+            }
             results.append(result)
 
     return results
@@ -203,13 +212,13 @@ def search_documents_with_or_logic(
 
         if matched and doc_id not in seen_ids:
             seen_ids.add(doc_id)
-            result = FTSSearchResult(
-                id=doc_id,
-                content=full_text,
-                score=1.0,
-                highlights=(full_text,),
-                position_info=((0, len(full_text)),),
-            )
+            result: FTSSearchResult = {
+                "id": doc_id,
+                "content": full_text,
+                "score": 1.0,
+                "highlights": (full_text,),
+                "position_info": ((0, len(full_text)),),
+            }
             results.append(result)
 
     return results
@@ -305,17 +314,17 @@ def search_with_bm25_scoring(
                 docs_with_term=docs_with_term,
             )
 
-            result = FTSSearchResult(
-                id=doc_id,
-                content=full_text,
-                score=score,
-                highlights=(full_text,),
-                position_info=((0, len(full_text)),),
-            )
+            result: FTSSearchResult = {
+                "id": doc_id,
+                "content": full_text,
+                "score": score,
+                "highlights": (full_text,),
+                "position_info": ((0, len(full_text)),),
+            }
             results.append(result)
 
     # スコアで降順ソート
-    return sorted(results, key=lambda r: r.score, reverse=True)
+    return sorted(results, key=lambda r: r["score"], reverse=True)
 
 
 def create_highlight_info(text: str, keyword: str) -> tuple[list[str], list[tuple[int, int]]]:
@@ -390,13 +399,13 @@ def search_with_highlights(
                 all_highlights.append(highlight)
                 all_positions.append((title_offset + start, title_offset + end))
 
-            result = FTSSearchResult(
-                id=doc_id,
-                content=f"{title} {content}",
-                score=len(all_highlights),  # 出現回数をスコアとする
-                highlights=tuple(all_highlights),
-                position_info=tuple(all_positions),
-            )
+            result: FTSSearchResult = {
+                "id": doc_id,
+                "content": f"{title} {content}",
+                "score": len(all_highlights),  # 出現回数をスコアとする
+                "highlights": tuple(all_highlights),
+                "position_info": tuple(all_positions),
+            }
             results.append(result)
 
     return results
@@ -432,13 +441,13 @@ def search_phrase(documents: list[tuple[str, str, str]], phrase: str) -> list[FT
                 start = pos + 1
 
             if positions:
-                result = FTSSearchResult(
-                    id=doc_id,
-                    content=full_text,
-                    score=len(positions),  # 出現回数をスコアとする
-                    highlights=(phrase,) * len(positions),
-                    position_info=tuple(positions),
-                )
+                result: FTSSearchResult = {
+                    "id": doc_id,
+                    "content": full_text,
+                    "score": len(positions),  # 出現回数をスコアとする
+                    "highlights": (phrase,) * len(positions),
+                    "position_info": tuple(positions),
+                }
                 results.append(result)
 
     return results
@@ -471,13 +480,13 @@ def validate_conjunctive_results(
             # 各キーワードの出現回数を合計してスコアとする
             total_occurrences = sum(full_text_lower.count(k) for k in keywords_lower)
 
-            result = FTSSearchResult(
-                id=doc_id,
-                content=full_text,
-                score=total_occurrences,
-                highlights=(full_text,),
-                position_info=((0, len(full_text)),),
-            )
+            result: FTSSearchResult = {
+                "id": doc_id,
+                "content": full_text,
+                "score": total_occurrences,
+                "highlights": (full_text,),
+                "position_info": ((0, len(full_text)),),
+            }
             results.append(result)
 
     return results
@@ -511,17 +520,17 @@ def boost_title_matches(
             # タイトルマッチにブーストを適用
             score = (title_count * title_boost) + content_count
 
-            result = FTSSearchResult(
-                id=doc_id,
-                content=f"{title} {content}",
-                score=score,
-                highlights=(f"{title} {content}",),
-                position_info=((0, len(title) + len(content) + 1),),
-            )
+            result: FTSSearchResult = {
+                "id": doc_id,
+                "content": f"{title} {content}",
+                "score": score,
+                "highlights": (f"{title} {content}",),
+                "position_info": ((0, len(title) + len(content) + 1),),
+            }
             results.append(result)
 
     # スコアで降順ソート
-    return sorted(results, key=lambda r: r.score, reverse=True)
+    return sorted(results, key=lambda r: r["score"], reverse=True)
 
 
 def filter_by_section(
@@ -574,13 +583,13 @@ def filter_by_section(
 
             # セクション内でキーワードを検索
             if keyword_lower in section_text.lower():
-                result = FTSSearchResult(
-                    id=doc_id,
-                    content=f"{title} {content}",
-                    score=1.0,
-                    highlights=(section_text,),
-                    position_info=((section_start, section_end),),
-                )
+                result: FTSSearchResult = {
+                    "id": doc_id,
+                    "content": f"{title} {content}",
+                    "score": 1.0,
+                    "highlights": (section_text,),
+                    "position_info": ((section_start, section_end),),
+                }
                 results.append(result)
 
     return results
