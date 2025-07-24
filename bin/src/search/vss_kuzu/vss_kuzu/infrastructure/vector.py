@@ -140,39 +140,27 @@ def initialize_vector_schema(
         """
         connection.execute(create_table_query)
         
-        # Check if vector index already exists
+        # Try to create the index
         try:
-            # Query system tables to check index existence
-            check_index_query = """
-                MATCH (idx:_kuzu_internal_tables) 
-                WHERE idx.name = $index_name 
-                RETURN idx.name
+            create_index_query = f"""
+                CALL CREATE_VECTOR_INDEX(
+                    '{DOCUMENT_TABLE_NAME}',
+                    '{DOCUMENT_EMBEDDING_INDEX_NAME}',
+                    'embedding',
+                    mu := {mu},
+                    ml := {ml},
+                    metric := '{metric}',
+                    efc := {efc}
+                )
             """
-            result = connection.execute(check_index_query, {
-                "index_name": DOCUMENT_EMBEDDING_INDEX_NAME
-            })
-            
-            # If we get a result, index exists
-            if result.has_next():
+            connection.execute(create_index_query)
+        except Exception as e:
+            error_msg = str(e)
+            # If index already exists, that's OK - schema is already initialized
+            if "already exists" in error_msg:
                 return True, None
-                
-        except Exception:
-            # If query fails, assume index doesn't exist and proceed to create
-            pass
-        
-        # Create vector index if it doesn't exist
-        create_index_query = f"""
-            CALL CREATE_VECTOR_INDEX(
-                '{DOCUMENT_TABLE_NAME}',
-                '{DOCUMENT_EMBEDDING_INDEX_NAME}',
-                'embedding',
-                mu := {mu},
-                ml := {ml},
-                metric := '{metric}',
-                efc := {efc}
-            )
-        """
-        connection.execute(create_index_query)
+            # Otherwise, re-raise the exception
+            raise
         
         return True, None
         
