@@ -171,3 +171,105 @@ function generateHelp(): HelpResult {
     ]
   };
 }
+
+/**
+ * S3 Storage Application class
+ * Provides a class-based interface for S3 operations
+ */
+export class S3StorageApplication {
+  private adapter: StorageAdapter;
+  private config: StorageConfig;
+
+  constructor(config: StorageConfig) {
+    this.config = config;
+    this.adapter = createStorageAdapter(config);
+  }
+
+  /**
+   * Execute a command using the simplified command structure
+   */
+  async execute(command: Omit<S3Command, 'action'> & { type: string }): Promise<S3Result> {
+    try {
+      switch (command.type) {
+        case 'list':
+          const listOptions = command as any;
+          const listResult = await this.adapter.list({
+            prefix: listOptions.prefix,
+            maxKeys: listOptions.maxKeys,
+            continuationToken: listOptions.continuationToken
+          });
+          return {
+            type: 'list',
+            objects: listResult.objects,
+            continuationToken: listResult.continuationToken,
+            isTruncated: listResult.isTruncated
+          };
+        
+        case 'upload':
+          const uploadCmd = command as any;
+          const uploadResult = await this.adapter.upload(
+            uploadCmd.key,
+            uploadCmd.content,
+            {
+              contentType: uploadCmd.contentType,
+              metadata: uploadCmd.metadata
+            }
+          );
+          return {
+            type: 'upload',
+            key: uploadResult.key,
+            etag: uploadResult.etag,
+            versionId: uploadResult.versionId
+          };
+          
+        case 'download':
+          const downloadCmd = command as any;
+          const downloadResult = await this.adapter.download(downloadCmd.key);
+          return {
+            type: 'download',
+            key: downloadResult.key,
+            content: downloadResult.content,
+            contentType: downloadResult.contentType,
+            metadata: downloadResult.metadata
+          };
+          
+        case 'delete':
+          const deleteCmd = command as any;
+          const deleteResult = await this.adapter.delete(deleteCmd.keys);
+          return {
+            type: 'delete',
+            deleted: deleteResult.deleted,
+            errors: deleteResult.errors
+          };
+          
+        case 'info':
+          const infoCmd = command as any;
+          const infoResult = await this.adapter.info(infoCmd.key);
+          return {
+            type: 'info',
+            key: infoResult.key,
+            exists: infoResult.exists,
+            size: infoResult.size,
+            lastModified: infoResult.lastModified,
+            contentType: infoResult.contentType,
+            metadata: infoResult.metadata
+          };
+          
+        case 'help':
+          return generateHelp();
+          
+        default:
+          return {
+            type: 'error',
+            message: `Unknown command type: ${command.type}`
+          };
+      }
+    } catch (error) {
+      return {
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        details: error
+      };
+    }
+  }
+}

@@ -39,6 +39,8 @@ export function createStorageAdapter(config: Partial<StorageConfig> | {}): Stora
   }
   
   switch (typedConfig.type) {
+    case "in-memory":
+      return new InMemoryStorageAdapter();
     case "filesystem":
       const fsConfig = typedConfig as { type: "filesystem"; basePath?: string };
       return new FilesystemStorageAdapter(fsConfig.basePath || "/tmp/storage");

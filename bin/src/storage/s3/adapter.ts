@@ -7,6 +7,7 @@
 // Storage configuration types
 export type StorageConfig = 
   | { type: "auto"; endpoint?: string; region?: string; accessKeyId?: string; secretAccessKey?: string; bucket?: string }
+  | { type: "in-memory" }
   | { type: "filesystem"; basePath: string }
   | { type: "s3"; endpoint: string; region: string; accessKeyId: string; secretAccessKey: string; bucket: string }
   | { type: "r2"; accountId: string; accessKeyId: string; secretAccessKey: string; bucket: string };
