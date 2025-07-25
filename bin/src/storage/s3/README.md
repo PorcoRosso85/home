@@ -13,7 +13,7 @@ A TypeScript/Deno implementation providing a unified interface for S3-compatible
 
 - AWS S3
 - MinIO
-- Cloudflare R2
+- Cloudflare R2 (S3-compatible with zero egress fees)
 - Backblaze B2
 - Filesystem (local development)
 
@@ -48,6 +48,12 @@ nix run . -- upload --bucket my-bucket --key file.txt --file ./local.txt
 
 # Download file
 nix run . -- download --bucket my-bucket --key file.txt --output ./downloaded.txt
+
+# Using with Cloudflare R2 (set environment variables)
+export S3_ENDPOINT="https://<account-id>.r2.cloudflarestorage.com"
+export AWS_ACCESS_KEY_ID="your-r2-access-key"
+export AWS_SECRET_ACCESS_KEY="your-r2-secret-key"
+nix run . -- list --bucket my-r2-bucket
 ```
 
 ### Programmatic Usage
@@ -56,6 +62,7 @@ nix run . -- download --bucket my-bucket --key file.txt --output ./downloaded.tx
 import { createS3Adapter } from "./mod.ts";
 import { AWSProvider } from "./providers/aws-s3.ts";
 import { MinIOProvider } from "./providers/minio.ts";
+import { CloudflareR2Provider } from "./providers/cloudflare-r2.ts";
 
 // Auto-detect provider from environment
 const adapter = await createS3Adapter();
@@ -68,6 +75,18 @@ const awsAdapter = await createS3Adapter({
     credentials: {
       accessKeyId: "your-key",
       secretAccessKey: "your-secret",
+    },
+  }),
+});
+
+// Cloudflare R2 example (S3-compatible with zero egress fees)
+const r2Adapter = await createS3Adapter({
+  provider: new CloudflareR2Provider({
+    endpoint: "https://<account-id>.r2.cloudflarestorage.com",
+    region: "auto",
+    credentials: {
+      accessKeyId: "your-r2-access-key",
+      secretAccessKey: "your-r2-secret-key",
     },
   }),
 });

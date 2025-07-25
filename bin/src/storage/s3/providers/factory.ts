@@ -6,6 +6,7 @@
 import { InMemoryStorageAdapter } from "./in-memory.ts";
 import { S3CompatibleAdapter } from "./aws.ts";
 import { FilesystemStorageAdapter } from "./filesystem.ts";
+import { R2StorageAdapter } from "./r2.ts";
 import type { StorageAdapter, StorageConfig } from "../adapter.ts";
 
 // Factory function to create appropriate adapter
@@ -51,6 +52,14 @@ export function createStorageAdapter(config: Partial<StorageConfig> | {}): Stora
         accessKeyId: s3Config.accessKeyId || "",
         secretAccessKey: s3Config.secretAccessKey || "",
         bucket: s3Config.bucket || "default-bucket"  // Provide a default that will be validated
+      });
+    case "r2":
+      const r2Config = typedConfig as Partial<Extract<StorageConfig, { type: "r2" }>>;
+      return new R2StorageAdapter({
+        accountId: r2Config.accountId || "",
+        accessKeyId: r2Config.accessKeyId || "",
+        secretAccessKey: r2Config.secretAccessKey || "",
+        bucket: r2Config.bucket || "default-bucket"
       });
     default:
       throw new Error(`Unknown storage type: ${(typedConfig as any).type}`);

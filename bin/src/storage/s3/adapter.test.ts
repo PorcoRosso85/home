@@ -160,6 +160,16 @@ Deno.test("createStorageAdapter creates correct adapter based on configuration",
     bucket: "bucket"
   });
   assertEquals(minioAdapter.getType(), "minio");
+  
+  // Test 5: R2 type = R2 adapter
+  const r2Adapter = createStorageAdapter({
+    type: "r2",
+    accountId: "test-account-id",
+    accessKeyId: "key",
+    secretAccessKey: "secret",
+    bucket: "bucket"
+  });
+  assertEquals(r2Adapter.getType(), "r2");
 });
 
 // Test: All adapters must implement consistent behavior (Liskov Substitution Principle)

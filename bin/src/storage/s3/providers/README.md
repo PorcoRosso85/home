@@ -17,4 +17,29 @@ S3互換ストレージサービスの具体的な実装を提供するプロバ
 - **aws**: Amazon S3の公式実装
 - **in-memory**: テスト用のインメモリ実装
 - **minio**: MinIOサーバー向け実装
-- **r2**: Cloudflare R2向け実装
+
+## Cloudflare R2プロバイダー
+
+### 特徴
+- **低コスト**: Amazon S3と比較して大幅に安価な料金体系
+- **エグレス料金無料**: データ転送（ダウンロード）に対する課金なし
+- **S3互換API**: 既存のS3クライアント/SDKをそのまま利用可能
+
+### 実装詳細
+R2プロバイダーはS3互換性を最大限活用した実装となります：
+
+```typescript
+// 必要な設定項目
+interface R2Config {
+  accountId: string;      // CloudflareアカウントID
+  accessKeyId: string;    // R2 APIトークン
+  secretAccessKey: string;// R2 APIシークレット
+  bucketName: string;     // バケット名
+  endpoint?: string;      // カスタムエンドポイント（オプション）
+}
+```
+
+### 利点
+- グローバルなエッジネットワークによる低レイテンシ
+- 自動レプリケーションによる高可用性
+- Cloudflare Workersとの統合による柔軟な処理
