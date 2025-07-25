@@ -7,3 +7,7 @@
 
 export { executeS3Command } from './application.ts';
 export type { S3Command, S3Result, S3Config } from './domain.ts';
+
+// Export adapter types and factory
+export type { StorageAdapter, StorageConfig } from './adapter.ts';
+export { createStorageAdapter } from './adapter.ts';

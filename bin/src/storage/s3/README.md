@@ -17,6 +17,8 @@ A TypeScript/Deno implementation providing a unified interface for S3-compatible
 - Backblaze B2
 - Filesystem (local development)
 
+Each provider is implemented as a separate module in the `providers/` directory.
+
 ## Usage
 
 ### As a Nix Flake
@@ -48,6 +50,33 @@ nix run . -- upload --bucket my-bucket --key file.txt --file ./local.txt
 nix run . -- download --bucket my-bucket --key file.txt --output ./downloaded.txt
 ```
 
+### Programmatic Usage
+
+```typescript
+import { createS3Adapter } from "./mod.ts";
+import { AWSProvider } from "./providers/aws-s3.ts";
+import { MinIOProvider } from "./providers/minio.ts";
+
+// Auto-detect provider from environment
+const adapter = await createS3Adapter();
+
+// Or specify a provider explicitly
+const awsAdapter = await createS3Adapter({
+  provider: new AWSProvider({
+    endpoint: "https://s3.amazonaws.com",
+    region: "us-east-1",
+    credentials: {
+      accessKeyId: "your-key",
+      secretAccessKey: "your-secret",
+    },
+  }),
+});
+
+// Use the adapter
+const objects = await adapter.listObjects("my-bucket");
+await adapter.putObject("my-bucket", "file.txt", new TextEncoder().encode("Hello World"));
+```
+
 ### Environment Variables
 
 - `S3_ENDPOINT`: S3-compatible endpoint URL
@@ -75,12 +104,19 @@ nix run .#lint
 ## Architecture
 
 ```
-├── domain.ts       # Core types and interfaces
-├── adapter.ts      # Storage adapter implementations
-├── application.ts  # Use cases and business logic
-├── infrastructure.ts # AWS SDK integration
-├── main.ts         # CLI entry point
-└── mod.ts          # Public API exports
+├── domain.ts               # Core types and interfaces
+├── adapter.ts              # Storage adapter implementations
+├── application.ts          # Use cases and business logic
+├── infrastructure.ts       # AWS SDK integration
+├── providers/              # Provider-specific implementations
+│   ├── mod.ts             # Provider exports
+│   ├── aws-s3.ts          # AWS S3 provider
+│   ├── minio.ts           # MinIO provider
+│   ├── cloudflare-r2.ts   # Cloudflare R2 provider
+│   ├── backblaze-b2.ts    # Backblaze B2 provider
+│   └── filesystem.ts      # Local filesystem provider
+├── main.ts                 # CLI entry point
+└── mod.ts                  # Public API exports
 ```
 
 ## Migration from Python
