@@ -3,8 +3,8 @@
  * メトリクス収集実装
  */
 
-import type { MetricsCollector, MetricsStats, BrowserKuzuClient } from "./types.ts";
-import type { TemplateEvent } from "./event_sourcing/types.ts";
+import type { MetricsCollector, MetricsStats, BrowserKuzuClient } from "../types.ts";
+import type { TemplateEvent } from "../event_sourcing/types.ts";
 
 export class MetricsCollectorImpl implements MetricsCollector {
   private totalEvents = 0;

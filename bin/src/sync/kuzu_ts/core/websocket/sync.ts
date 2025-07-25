@@ -4,7 +4,7 @@
  */
 
 import type { WebSocketSync, WebSocketMessage } from "./types.ts";
-import type { TemplateEvent } from "./event_sourcing/types.ts";
+import type { TemplateEvent } from "../../event_sourcing/types.ts";
 
 export class WebSocketSyncImpl implements WebSocketSync {
   private ws?: WebSocket;

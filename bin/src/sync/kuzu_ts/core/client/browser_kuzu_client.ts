@@ -3,10 +3,10 @@
  * ブラウザ環境専用（ESM版KuzuDB WASM使用）
  */
 
-import type { BrowserKuzuClient, LocalState, EventSnapshot } from "./types.ts";
-import type { TemplateEvent } from "./event_sourcing/types.ts";
-import { createTemplateEvent, validateParams } from "./event_sourcing/core.ts";
-import { TemplateRegistry } from "./event_sourcing/template_event_store.ts";
+import type { BrowserKuzuClient, LocalState, EventSnapshot } from "../../types.ts";
+import type { TemplateEvent } from "../../event_sourcing/types.ts";
+import { createTemplateEvent, validateParams } from "../../event_sourcing/core.ts";
+import { TemplateRegistry } from "../../event_sourcing/template_event_store.ts";
 
 export class BrowserKuzuClientImpl implements BrowserKuzuClient {
   private db?: any;

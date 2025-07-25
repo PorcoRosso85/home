@@ -18,8 +18,8 @@ export type {
 } from "./types.ts";
 
 // Re-export implementations
-export { BrowserKuzuClientImpl } from "./browser_kuzu_client_clean.ts";
+export { BrowserKuzuClientImpl } from "./core/client/browser_kuzu_client.ts";
 export { WebSocketSyncImpl } from "./core/websocket/sync.ts";
-export { ServerEventStoreImpl } from "./server_event_store.ts";
-export { ConflictResolverImpl } from "./conflict_resolver.ts";
-export { MetricsCollectorImpl } from "./metrics_collector.ts";
+export { ServerEventStoreImpl } from "./storage/server_event_store.ts";
+export { ConflictResolverImpl } from "./core/sync/conflict_resolver.ts";
+export { MetricsCollectorImpl } from "./operations/metrics_collector.ts";
