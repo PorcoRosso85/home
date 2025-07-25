@@ -81,7 +81,7 @@ class WebSocketServerFixture:
     def start_server(self, port: int = 8080):
         """WebSocketサーバーを起動"""
         # サーバーファイルのパスを取得
-        server_path = os.path.join(os.path.dirname(__file__), "..", "websocket-server.ts")
+        server_path = os.path.join(os.path.dirname(__file__), "..", "websocketServer.ts")
         
         # サーバーを起動
         deno_path = os.environ.get("DENO_PATH", "deno")

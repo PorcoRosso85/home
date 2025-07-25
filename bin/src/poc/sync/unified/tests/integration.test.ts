@@ -4,7 +4,7 @@
  */
 
 import { assertEquals, assert } from "jsr:@std/assert@^1.0.0";
-import { SyncClient } from "../websocket-client.ts";
+import { SyncClient } from "../websocketClient.ts";
 
 // WebSocketサーバーの型定義をインポート
 interface ServerState {
@@ -28,7 +28,7 @@ class TestServer {
   async start(port: number = 8080): Promise<void> {
     const denoPath = Deno.env.get("DENO_PATH") || "deno";
     const command = new Deno.Command(denoPath, {
-      args: ["run", "--allow-net", "./websocket-server.ts"],
+      args: ["run", "--allow-net", "./websocketServer.ts"],
       stdout: "piped",
       stderr: "piped",
     });
