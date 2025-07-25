@@ -182,7 +182,7 @@ class InMemoryStorageAdapter implements StorageAdapter {
           errors.push({ key, error: "Object not found" });
         }
       } catch (error) {
-        errors.push({ key, error: error.message });
+        errors.push({ key, error: error instanceof Error ? error.message : String(error) });
       }
     }
     

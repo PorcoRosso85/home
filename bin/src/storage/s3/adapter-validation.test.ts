@@ -3,7 +3,7 @@
  * Ensures domain validation rules are enforced at the adapter level
  */
 
-import { assertEquals, assertRejects } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { assert, assertEquals, assertRejects } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { createStorageAdapter } from "./adapter.ts";
 
 Deno.test("In-memory adapter validates S3 key constraints", async () => {
@@ -66,11 +66,11 @@ Deno.test("In-memory adapter validates keys on all operations", async () => {
     "invalid characters"
   );
   
-  await assertRejects(
-    async () => await adapter.delete([invalidKey]),
-    Error,
-    "invalid characters"
-  );
+  const deleteResult = await adapter.delete([invalidKey]);
+  assertEquals(deleteResult.deleted.length, 0);
+  assertEquals(deleteResult.errors.length, 1);
+  assertEquals(deleteResult.errors[0].key, invalidKey);
+  assert(deleteResult.errors[0].error.includes("invalid characters"));
 });
 
 Deno.test("S3 adapter validates bucket name", async () => {
