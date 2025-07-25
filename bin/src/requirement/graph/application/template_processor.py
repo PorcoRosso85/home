@@ -32,7 +32,7 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
     required_params = {
         "create_requirement": ["id", "title"],
         "find_requirement": ["id"],
-        "add_dependency": ["child_id", "parent_id"],
+        "add_dependency": ["from_id", "to_id"],
         "find_dependencies": ["requirement_id"],
         "update_requirement": ["id"],
         "delete_requirement": ["id"],
@@ -136,8 +136,10 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
 
     elif template == "add_dependency":
         # 依存関係追加の前に循環検証
-        child_id = params.get("child_id")
-        parent_id = params.get("parent_id")
+        from_id = params.get("from_id")
+        to_id = params.get("to_id")
+        dependency_type = params.get("dependency_type", "depends_on")
+        reason = params.get("reason", "")
 
         # 循環依存チェック
         from ..domain.constraints import validate_no_circular_dependency
@@ -148,14 +150,14 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         all_deps = {}
         if dep_result.get("status") == "success":
             for row in dep_result.get("data", []):
-                from_id = row[0]
-                to_id = row[1]
-                if from_id not in all_deps:
-                    all_deps[from_id] = []
-                all_deps[from_id].append(to_id)
+                dep_from_id = row[0]
+                dep_to_id = row[1]
+                if dep_from_id not in all_deps:
+                    all_deps[dep_from_id] = []
+                all_deps[dep_from_id].append(dep_to_id)
 
         # 新しい依存関係で循環が発生するかチェック
-        validation_result = validate_no_circular_dependency(child_id, [parent_id], all_deps)
+        validation_result = validate_no_circular_dependency(from_id, [to_id], all_deps)
 
         if isinstance(validation_result, dict) and validation_result.get("type") == "ConstraintViolationError":
             return {
@@ -164,19 +166,22 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
             }
 
         # 循環がなければ依存関係を追加
+        # Note: The query uses child_id/parent_id parameters
         query_params = {
-            "child_id": child_id,
-            "parent_id": parent_id
+            "child_id": from_id,  # Map from_id to child_id for compatibility
+            "parent_id": to_id,   # Map to_id to parent_id for compatibility
+            "dependency_type": dependency_type,
+            "reason": reason
         }
-        return execute_query(repository, "add_dependency", query_params, "dml")
+        return execute_query(repository, "add_dependency_template", query_params, "dml")
 
     elif template == "find_dependencies":
         # 依存関係検索
         query_params = {
-            "id": params.get("requirement_id"),
-            "depth": params.get("depth", 1)
+            "id": params.get("requirement_id")
         }
-        return execute_query(repository, "find_dependencies", query_params, "dql")
+        # Use simple version for KuzuDB compatibility (ignores depth parameter)
+        return execute_query(repository, "find_dependencies_simple", query_params, "dql")
 
     elif template == "update_requirement":
         # Append-Only設計: 新しいバージョンを作成
