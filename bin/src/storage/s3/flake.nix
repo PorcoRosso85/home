@@ -1,5 +1,5 @@
 {
-  description = "S3 client abstraction library";
+  description = "S3 client abstraction library (TypeScript/Deno)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -11,45 +11,61 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        pythonEnv = pkgs.python3.withPackages (ps: with ps; [
-          boto3
-          pytest
-          pytest-asyncio
-          moto
-        ]);
+        # Deno environment
+        deno = pkgs.deno;
       in
       {
-        packages.default = pkgs.python3Packages.buildPythonPackage {
-          pname = "s3-client";
-          version = "0.1.0";
-          src = ./.;
-          
-          propagatedBuildInputs = with pkgs.python3Packages; [
-            boto3
-          ];
-          
-          pythonImportsCheck = [ "s3_client" ];
-          
-          # Disable tests during build to avoid circular dependency
-          doCheck = false;
-        };
+        packages.default = pkgs.writeShellScriptBin "s3-client" ''
+          exec ${deno}/bin/deno run \
+            --allow-read \
+            --allow-write \
+            --allow-env \
+            --allow-net \
+            ${./main.ts} "$@"
+        '';
 
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pythonEnv ];
+          buildInputs = [ deno ];
           
           shellHook = ''
-            echo "S3 Client Development Environment"
+            echo "S3 Client Development Environment (Deno)"
             echo "Available commands:"
-            echo "  nix run .#test  - Run tests"
+            echo "  deno test --allow-all    - Run tests"
+            echo "  deno run --allow-all main.ts - Run CLI"
+            echo "  deno fmt                 - Format code"
+            echo "  deno lint                - Lint code"
           '';
         };
 
-        apps.test = {
-          type = "app";
-          program = "${pkgs.writeShellScript "run-tests" ''
-            export PYTHONPATH="${./.}:$PYTHONPATH"
-            exec ${pythonEnv}/bin/pytest s3_client/ -v
-          ''}";
+        apps = rec {
+          default = {
+            type = "app";
+            program = "${self.packages.${system}.default}/bin/s3-client";
+          };
+          
+          test = {
+            type = "app";
+            program = "${pkgs.writeShellScript "run-tests" ''
+              cd ${./.}
+              exec ${deno}/bin/deno test --allow-all
+            ''}";
+          };
+          
+          fmt = {
+            type = "app";
+            program = "${pkgs.writeShellScript "format" ''
+              cd ${./.}
+              exec ${deno}/bin/deno fmt
+            ''}";
+          };
+          
+          lint = {
+            type = "app";
+            program = "${pkgs.writeShellScript "lint" ''
+              cd ${./.}
+              exec ${deno}/bin/deno lint
+            ''}";
+          };
         };
       });
 }

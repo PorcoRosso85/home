@@ -1,210 +1,88 @@
-# S3 Storage Module
+# S3 Storage Adapter
 
-An LLM-first interface for S3 operations with interactive JSON-based commands.
+A TypeScript/Deno implementation providing a unified interface for S3-compatible storage services.
 
 ## Features
 
-- **LLM-Optimized**: JSON-based interface designed for easy interaction with language models
-- **Interactive Mode**: User-friendly CLI with examples and help
-- **Full S3 Support**: List, upload, download, delete, and get info operations
-- **S3-Compatible**: Works with AWS S3, MinIO, and other S3-compatible services
-- **Type-Safe**: Written in TypeScript with comprehensive type definitions
+- **Protocol-based design**: Unified interface for multiple storage backends
+- **Provider auto-detection**: Automatically detects AWS S3, MinIO, Cloudflare R2, Backblaze B2
+- **LLM-first CLI**: JSON-based interface optimized for AI interaction
+- **Type-safe**: Full TypeScript support with comprehensive type definitions
 
-## Installation
+## Supported Providers
 
-```bash
-# Using Nix
-nix run
-
-# Using Deno directly
-deno run --allow-all main.ts
-```
-
-## Configuration
-
-Set the following environment variables:
-
-```bash
-export S3_REGION="us-east-1"
-export S3_ACCESS_KEY_ID="your-access-key"
-export S3_SECRET_ACCESS_KEY="your-secret-key"
-export S3_BUCKET="your-bucket-name"
-
-# Optional: For S3-compatible services like MinIO
-export S3_ENDPOINT="http://localhost:9000"
-```
+- AWS S3
+- MinIO
+- Cloudflare R2
+- Backblaze B2
+- Filesystem (local development)
 
 ## Usage
 
-### Interactive Mode
+### As a Nix Flake
 
-```bash
-nix run
-# or
-deno run --allow-all main.ts
+```nix
+{
+  inputs.s3-client.url = "path:/path/to/storage/s3";
+  
+  # Use the CLI
+  packages.default = pkgs.writeShellScriptBin "my-app" ''
+    ${s3-client.packages.${system}.default}/bin/s3-client "$@"
+  '';
+}
 ```
 
-### Direct Command Mode
+### CLI Usage
 
 ```bash
+# Interactive mode
+nix run .
+
 # List objects
-nix run . '{"action": "list", "prefix": "photos/"}'
+nix run . -- list --bucket my-bucket
 
-# Upload a file
-nix run . '{"action": "upload", "key": "test.txt", "content": "Hello, S3!"}'
+# Upload file
+nix run . -- upload --bucket my-bucket --key file.txt --file ./local.txt
 
-# Download a file
-nix run . '{"action": "download", "key": "test.txt"}'
-
-# Get object info
-nix run . '{"action": "info", "key": "test.txt"}'
-
-# Delete objects
-nix run . '{"action": "delete", "keys": ["test.txt"]}'
+# Download file
+nix run . -- download --bucket my-bucket --key file.txt --output ./downloaded.txt
 ```
 
-### Pipe Mode
+### Environment Variables
 
-```bash
-echo '{"action": "list"}' | nix run
-```
-
-## Command Reference
-
-### List Objects
-```json
-{
-  "action": "list",
-  "prefix": "photos/",      // Optional: Filter by prefix
-  "maxKeys": 100,           // Optional: Limit results
-  "continuationToken": "..."// Optional: For pagination
-}
-```
-
-### Upload Object
-```json
-{
-  "action": "upload",
-  "key": "documents/report.pdf",
-  "content": "base64-encoded-content",
-  "contentType": "application/pdf",    // Optional
-  "metadata": {                        // Optional
-    "author": "John Doe"
-  }
-}
-```
-
-### Download Object
-```json
-{
-  "action": "download",
-  "key": "documents/report.pdf",
-  "outputPath": "./report.pdf"  // Optional: Save to file
-}
-```
-
-### Delete Objects
-```json
-{
-  "action": "delete",
-  "keys": ["temp/file1.txt", "temp/file2.txt"]
-}
-```
-
-### Get Object Info
-```json
-{
-  "action": "info",
-  "key": "documents/report.pdf"
-}
-```
-
-### Help
-```json
-{
-  "action": "help"
-}
-```
-
-## Examples
-
-### Upload and verify a file
-```bash
-# Upload
-echo '{"action": "upload", "key": "test.txt", "content": "Hello, World!"}' | nix run
-
-# Verify
-echo '{"action": "info", "key": "test.txt"}' | nix run
-
-# Download
-echo '{"action": "download", "key": "test.txt"}' | nix run
-```
-
-### List and delete old files
-```bash
-# List files with prefix
-echo '{"action": "list", "prefix": "temp/"}' | nix run
-
-# Delete specific files
-echo '{"action": "delete", "keys": ["temp/old1.txt", "temp/old2.txt"]}' | nix run
-```
+- `S3_ENDPOINT`: S3-compatible endpoint URL
+- `AWS_ACCESS_KEY_ID`: Access key
+- `AWS_SECRET_ACCESS_KEY`: Secret key
+- `AWS_REGION`: AWS region (default: us-east-1)
+- `S3_BUCKET`: Default bucket name
 
 ## Development
 
 ```bash
+# Enter development shell
+nix develop
+
 # Run tests
-deno task test
+nix run .#test
 
 # Format code
-deno task fmt
+nix run .#fmt
 
 # Lint code
-deno task lint
-
-# Development mode with auto-reload
-deno task dev
+nix run .#lint
 ```
 
 ## Architecture
 
-The module follows a clean architecture pattern:
-
-- `main.ts` - CLI entry point with interactive mode
-- `mod.ts` - Public API exports
-- `domain.ts` - Type definitions and business logic
-- `application.ts` - Use cases and command execution
-- `infrastructure.ts` - AWS SDK integration
-- `variables.ts` - Environment configuration
-
-## Error Handling
-
-All errors are returned as JSON for easy parsing:
-
-```json
-{
-  "type": "error",
-  "message": "Object not found",
-  "details": {
-    "key": "missing-file.txt"
-  }
-}
+```
+├── domain.ts       # Core types and interfaces
+├── adapter.ts      # Storage adapter implementations
+├── application.ts  # Use cases and business logic
+├── infrastructure.ts # AWS SDK integration
+├── main.ts         # CLI entry point
+└── mod.ts          # Public API exports
 ```
 
-## Testing with MinIO
+## Migration from Python
 
-For local development, you can use MinIO:
-
-```bash
-# Start MinIO
-docker run -p 9000:9000 -p 9001:9001 \
-  -e MINIO_ROOT_USER=minioadmin \
-  -e MINIO_ROOT_PASSWORD=minioadmin \
-  minio/minio server /data --console-address :9001
-
-# Configure for MinIO
-export S3_ENDPOINT="http://localhost:9000"
-export S3_REGION="us-east-1"
-export S3_ACCESS_KEY_ID="minioadmin"
-export S3_SECRET_ACCESS_KEY="minioadmin"
-export S3_BUCKET="test-bucket"
-```
+This module previously included a Python implementation that has been removed to maintain a single-language codebase. The TypeScript implementation provides equivalent functionality with better type safety and integration with Deno's built-in tooling.

@@ -5,6 +5,7 @@
  */
 
 import { S3Client } from "./infrastructure.ts";
+import { validateS3Key, validateS3ObjectSize, validateS3BucketName } from "./domain.ts";
 
 // Storage configuration types
 export type StorageConfig = 
@@ -118,9 +119,15 @@ class InMemoryStorageAdapter implements StorageAdapter {
   }
   
   async upload(key: string, content: string | Uint8Array, options?: StorageUploadOptions): Promise<StorageUploadResult> {
+    // Validate key before upload
+    validateS3Key(key);
+    
     const bytes = typeof content === "string" 
       ? new TextEncoder().encode(content)
       : content;
+    
+    // Validate object size
+    validateS3ObjectSize(bytes.length);
     
     const etag = `"${await this.generateEtag(bytes)}"`;
     
@@ -138,6 +145,9 @@ class InMemoryStorageAdapter implements StorageAdapter {
   }
   
   async download(key: string, options?: StorageDownloadOptions): Promise<StorageDownloadResult> {
+    // Validate key before download
+    validateS3Key(key);
+    
     const item = this.storage.get(key);
     if (!item) {
       throw new Error(`Object not found: ${key}`);
@@ -161,11 +171,18 @@ class InMemoryStorageAdapter implements StorageAdapter {
     const errors: Array<{ key: string; error: string }> = [];
     
     for (const key of keys) {
-      if (this.storage.has(key)) {
-        this.storage.delete(key);
-        deleted.push(key);
-      } else {
-        errors.push({ key, error: "Object not found" });
+      try {
+        // Validate key before attempting delete
+        validateS3Key(key);
+        
+        if (this.storage.has(key)) {
+          this.storage.delete(key);
+          deleted.push(key);
+        } else {
+          errors.push({ key, error: "Object not found" });
+        }
+      } catch (error) {
+        errors.push({ key, error: error.message });
       }
     }
     
@@ -173,6 +190,9 @@ class InMemoryStorageAdapter implements StorageAdapter {
   }
   
   async info(key: string): Promise<StorageInfoResult> {
+    // Validate key before getting info
+    validateS3Key(key);
+    
     const item = this.storage.get(key);
     
     if (!item) {
@@ -251,6 +271,9 @@ class S3StorageAdapter implements StorageAdapter {
   private s3Client: S3Client;
   
   constructor(private config: Extract<StorageConfig, { type: "s3" }>) {
+    // Validate bucket name before creating client
+    validateS3BucketName(config.bucket);
+    
     // Import and use the existing S3Client
     this.s3Client = new S3Client({
       endpoint: config.endpoint,
@@ -282,6 +305,15 @@ class S3StorageAdapter implements StorageAdapter {
   }
   
   async upload(key: string, content: string | Uint8Array, options?: StorageUploadOptions): Promise<StorageUploadResult> {
+    // Validate key before upload
+    validateS3Key(key);
+    
+    // Calculate content size and validate
+    const contentBytes = typeof content === "string" 
+      ? new TextEncoder().encode(content)
+      : content;
+    validateS3ObjectSize(contentBytes.length);
+    
     const result = await this.s3Client.uploadObject({
       action: 'upload',
       key,
@@ -298,6 +330,9 @@ class S3StorageAdapter implements StorageAdapter {
   }
   
   async download(key: string, options?: StorageDownloadOptions): Promise<StorageDownloadResult> {
+    // Validate key before download
+    validateS3Key(key);
+    
     const result = await this.s3Client.downloadObject({
       action: 'download',
       key,
@@ -318,6 +353,11 @@ class S3StorageAdapter implements StorageAdapter {
   }
   
   async delete(keys: string[]): Promise<StorageDeleteResult> {
+    // Validate all keys before delete
+    for (const key of keys) {
+      validateS3Key(key);
+    }
+    
     const result = await this.s3Client.deleteObjects({
       action: 'delete',
       keys
@@ -330,6 +370,9 @@ class S3StorageAdapter implements StorageAdapter {
   }
   
   async info(key: string): Promise<StorageInfoResult> {
+    // Validate key before getting info
+    validateS3Key(key);
+    
     const result = await this.s3Client.getObjectInfo({
       action: 'info',
       key
@@ -387,13 +430,14 @@ export function createStorageAdapter(config: Partial<StorageConfig> | {}): Stora
       return new InMemoryStorageAdapter();
     }
     // If endpoint is specified, use S3 adapter
+    // Note: bucket validation will happen in S3StorageAdapter constructor
     return new S3StorageAdapter({
       type: "s3",
       endpoint: s3Config.endpoint,
       region: s3Config.region || "us-east-1",
       accessKeyId: s3Config.accessKeyId || "",
       secretAccessKey: s3Config.secretAccessKey || "",
-      bucket: s3Config.bucket || ""
+      bucket: s3Config.bucket || "default-bucket"  // Provide a default that will be validated
     });
   }
   
@@ -403,13 +447,14 @@ export function createStorageAdapter(config: Partial<StorageConfig> | {}): Stora
       return new FilesystemStorageAdapter(fsConfig.basePath || "/tmp/storage");
     case "s3":
       const s3Config = typedConfig as Partial<Extract<StorageConfig, { type: "s3" }>>;
+      // Note: bucket validation will happen in S3StorageAdapter constructor
       return new S3StorageAdapter({
         type: "s3",
         endpoint: s3Config.endpoint || "",
         region: s3Config.region || "us-east-1",
         accessKeyId: s3Config.accessKeyId || "",
         secretAccessKey: s3Config.secretAccessKey || "",
-        bucket: s3Config.bucket || ""
+        bucket: s3Config.bucket || "default-bucket"  // Provide a default that will be validated
       });
     default:
       throw new Error(`Unknown storage type: ${(typedConfig as any).type}`);
