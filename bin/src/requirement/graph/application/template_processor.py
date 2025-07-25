@@ -35,7 +35,8 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         "add_dependency": ["child_id", "parent_id"],
         "find_dependencies": ["requirement_id"],
         "update_requirement": ["id"],
-        "delete_requirement": ["id"]
+        "delete_requirement": ["id"],
+        "get_requirement_history": ["id"]
     }
 
     # 必須パラメータチェック
@@ -249,6 +250,69 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         # Semantic search for requirements
         from .templates import process_search_template
         return process_search_template(params, search_factory)
+
+    elif template == "get_requirement_history":
+        # 要件の全バージョン履歴を取得
+        req_id = params.get("id")
+        
+        # バージョン番号を除いたベースIDを抽出
+        import re
+        match = re.search(r'(.+?)(?:_v\d+)?$', req_id)
+        base_id = match.group(1) if match else req_id
+        
+        # 全バージョンを取得
+        result = execute_query(repository, "get_requirement_versions", {"base_id": base_id}, "dql")
+        
+        if result.get("status") == "success":
+            versions = result.get("data", [])
+            
+            # 履歴データとして整形
+            history_data = {
+                "requirement_id": base_id,
+                "current_version": f"v{len(versions)}" if versions else "v0",
+                "total_versions": len(versions),
+                "history": []
+            }
+            
+            # 各バージョンの情報を履歴に追加
+            for i, version_data in enumerate(versions):
+                # バージョン番号を抽出
+                version_id = version_data[0]
+                if version_id == base_id:
+                    version_num = 1
+                else:
+                    match = re.search(r'_v(\d+)$', version_id)
+                    version_num = int(match.group(1)) if match else i + 1
+                
+                version_info = {
+                    "version": f"v{version_num}",
+                    "version_id": version_data[0],      # version_id
+                    "title": version_data[1],           # title
+                    "description": version_data[2],     # description
+                    "status": version_data[3],          # status
+                    "operation": "CREATE" if version_num == 1 else "UPDATE"
+                }
+                
+                # 変更点を特定（前バージョンとの比較）
+                if i > 0:
+                    prev = versions[i-1]
+                    changes = []
+                    if prev[1] != version_data[1]:  # title
+                        changes.append("title")
+                    if prev[2] != version_data[2]:  # description
+                        changes.append("description")
+                    if prev[3] != version_data[3]:  # status
+                        changes.append("status")
+                    version_info["changes"] = changes
+                
+                history_data["history"].append(version_info)
+            
+            return {
+                "status": "success",
+                "data": history_data
+            }
+        
+        return result
 
     else:
         return NotFoundError(

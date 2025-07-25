@@ -239,12 +239,12 @@ class TestCompleteHistoryTracking:
             }
         }, db_path)
         
-        # バージョン3（説明追加）
+        # バージョン3（説明追加）- v2から更新
         run_system({
             "type": "template",
             "template": "update_requirement",
             "parameters": {
-                "id": "req_evolving_001",
+                "id": "req_evolving_001_v2",  # v2を指定して更新
                 "title": "進化する要件（改善版）",
                 "description": "詳細な説明を追加：この要件は継続的な改善を目的とする",
                 "status": "active",
@@ -301,7 +301,39 @@ class TestCompleteHistoryTracking:
         #     }
         # }
         
-        pytest.skip("Complete history tracking not yet implemented - feature planned for future release")
+        # pytest.skip("Complete history tracking not yet implemented - feature planned for future release")
+        
+        # 現在の実装では要件IDのみで履歴を取得
+        assert result.get("status") == "success", f"Failed to get history: {result}"
+        history_data = result.get("data", {})
+        
+        assert history_data.get("requirement_id") == "req_evolving_001"
+        assert history_data.get("total_versions") == 3
+        assert len(history_data.get("history", [])) == 3
+        
+        # 各バージョンの基本情報を確認
+        history = history_data.get("history", [])
+        
+        # v1: 初期作成
+        assert history[0]["version"] == "v1"
+        assert history[0]["title"] == "進化する要件"
+        assert history[0]["description"] == "最初のバージョン"
+        assert history[0]["status"] == "proposed"
+        assert history[0]["operation"] == "CREATE"
+        
+        # v2: タイトル変更
+        assert history[1]["version"] == "v2"
+        assert history[1]["title"] == "進化する要件（改善版）"
+        assert history[1]["status"] == "active"
+        assert history[1]["operation"] == "UPDATE"
+        assert "title" in history[1].get("changes", [])
+        assert "status" in history[1].get("changes", [])
+        
+        # v3: 説明追加
+        assert history[2]["version"] == "v3"
+        assert history[2]["description"] == "詳細な説明を追加：この要件は継続的な改善を目的とする"
+        assert history[2]["operation"] == "UPDATE"
+        assert "description" in history[2].get("changes", [])
     
     def test_point_in_time_query(self, temp_db):
         """特定時点の状態を再現する仕様
