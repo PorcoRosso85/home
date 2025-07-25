@@ -1,6 +1,6 @@
 """Storage adapter interface for S3-compatible storage backends."""
 
-from typing import Protocol, Optional, Dict, Any, List
+from typing import Protocol, Optional, Dict, Any, List, runtime_checkable
 from dataclasses import dataclass
 
 
@@ -14,6 +14,7 @@ class StorageObject:
     metadata: Optional[Dict[str, str]] = None
 
 
+@runtime_checkable
 class StorageAdapter(Protocol):
     """Protocol for storage adapters supporting multiple backends."""
     

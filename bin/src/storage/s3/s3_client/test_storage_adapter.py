@@ -10,7 +10,8 @@ class TestStorageAdapterInterface:
     
     def test_storage_adapter_is_protocol(self):
         """Test that StorageAdapter is a Protocol."""
-        assert hasattr(StorageAdapter, '__protocol__')
+        assert hasattr(StorageAdapter, '_is_protocol')
+        assert StorageAdapter._is_protocol is True
     
     def test_storage_adapter_has_required_methods(self):
         """Test that StorageAdapter defines all required methods."""

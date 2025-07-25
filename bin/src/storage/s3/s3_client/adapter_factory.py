@@ -4,7 +4,7 @@ import os
 from typing import Optional
 import boto3
 from .storage_adapter import StorageAdapter
-from .in_memory_adapter import InMemoryStorageAdapter
+from .stdout_adapter import StdoutStorageAdapter
 from .s3_compatible_adapter import S3CompatibleAdapter
 
 
@@ -13,7 +13,7 @@ def create_storage_adapter(adapter_type: Optional[str] = None) -> StorageAdapter
     Create a storage adapter based on environment configuration.
     
     Args:
-        adapter_type: Explicit adapter type ("in-memory", "s3", or None for auto-detect)
+        adapter_type: Explicit adapter type ("stdout", "s3", or None for auto-detect)
     
     Returns:
         StorageAdapter implementation
@@ -25,8 +25,8 @@ def create_storage_adapter(adapter_type: Optional[str] = None) -> StorageAdapter
         S3_BUCKET: Bucket name for S3 operations
     """
     # Force specific adapter type if requested
-    if adapter_type == "in-memory":
-        return InMemoryStorageAdapter()
+    if adapter_type == "stdout":
+        return StdoutStorageAdapter()
     
     # Check for S3 configuration
     access_key = os.environ.get('AWS_ACCESS_KEY_ID')
@@ -34,9 +34,9 @@ def create_storage_adapter(adapter_type: Optional[str] = None) -> StorageAdapter
     endpoint_url = os.environ.get('S3_ENDPOINT')
     bucket_name = os.environ.get('S3_BUCKET')
     
-    # Use in-memory if no S3 credentials provided
-    if not access_key or adapter_type == "in-memory":
-        return InMemoryStorageAdapter()
+    # Use stdout if no S3 credentials provided
+    if not access_key or adapter_type == "stdout":
+        return StdoutStorageAdapter()
     
     # Validate S3 configuration
     if not bucket_name:

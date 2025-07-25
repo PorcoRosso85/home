@@ -26,7 +26,7 @@ def detect_provider(endpoint_url: Optional[str]) -> str:
 class S3CompatibleAdapter:
     """Adapter for S3-compatible storage using boto3."""
     
-    def __init__(self, client: Any, bucket_name: str, endpoint_url: Optional[str] = None):
+    def __init__(self, client: Any, bucket_name: str, endpoint_url: Optional[str] = None) -> None:
         self.client = client
         self.bucket_name = bucket_name
         self.endpoint_url = endpoint_url

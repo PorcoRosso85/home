@@ -6,7 +6,7 @@ allowing easy switching between different client implementations.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable, List
 
 
 @dataclass
@@ -35,6 +35,6 @@ class S3Client(Protocol):
         """Delete an object from S3."""
         ...
     
-    def list_objects(self, prefix: str = "") -> list[str]:
+    def list_objects(self, prefix: str = "") -> List[str]:
         """List objects with the given prefix."""
         ...

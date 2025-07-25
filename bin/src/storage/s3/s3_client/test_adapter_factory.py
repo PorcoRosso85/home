@@ -9,11 +9,11 @@ from s3_client.adapter_factory import create_storage_adapter
 class TestAdapterFactory:
     """Test the storage adapter factory function."""
     
-    def test_create_in_memory_adapter_by_default(self):
-        """Test that in-memory adapter is created when no S3 config."""
+    def test_create_stdout_adapter_by_default(self):
+        """Test that stdout adapter is created when no S3 config."""
         with patch.dict(os.environ, {}, clear=True):
             adapter = create_storage_adapter()
-            assert adapter.get_provider_name() == "in-memory"
+            assert adapter.get_provider_name() == "stdout"
     
     def test_create_s3_adapter_with_aws_credentials(self):
         """Test S3 adapter creation with AWS credentials."""
@@ -62,13 +62,13 @@ class TestAdapterFactory:
     
     def test_create_adapter_with_explicit_type(self):
         """Test creating adapter with explicit type parameter."""
-        # Force in-memory even with S3 credentials
+        # Force stdout even with S3 credentials
         with patch.dict(os.environ, {
             'AWS_ACCESS_KEY_ID': 'test-key',
             'S3_BUCKET': 'test-bucket'
         }):
-            adapter = create_storage_adapter(adapter_type="in-memory")
-            assert adapter.get_provider_name() == "in-memory"
+            adapter = create_storage_adapter(adapter_type="stdout")
+            assert adapter.get_provider_name() == "stdout"
     
     def test_missing_bucket_raises_error(self):
         """Test that missing bucket config raises error for S3."""

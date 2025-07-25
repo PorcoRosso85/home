@@ -16,7 +16,6 @@
           pytest
           pytest-asyncio
           moto
-          types-boto3
         ]);
       in
       {
@@ -49,7 +48,7 @@
           type = "app";
           program = "${pkgs.writeShellScript "run-tests" ''
             export PYTHONPATH="${./.}:$PYTHONPATH"
-            exec ${pythonEnv}/bin/pytest tests/ -v
+            exec ${pythonEnv}/bin/pytest s3_client/ -v
           ''}";
         };
       });
