@@ -14,7 +14,6 @@
         
         graph-cli = pkgs.writeShellScriptBin "graph-cli" ''
           export DENO_DIR="$(mktemp -d)"
-          export DENO_IMPORT_MAP="${self}/import_map.json"
           export KUZU_TS_PATH="${kuzu-ts-persistence.lib.importPath}"
           ${pkgs.deno}/bin/deno run \
             --allow-read \
@@ -38,7 +37,6 @@
           ];
           
           shellHook = ''
-            export DENO_IMPORT_MAP="${self}/import_map.json"
             export KUZU_TS_PATH="${kuzu-ts-persistence.lib.importPath}"
             echo "Graph CLI development environment"
             echo "Run 'deno task dev' to start development"

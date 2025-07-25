@@ -1,6 +1,0 @@
-{
-  "imports": {
-    "kuzu-ts": "file:///home/nixos/bin/src/persistence/kuzu_ts/mod.ts",
-    "kuzu": "npm:kuzu@0.10.0"
-  }
-}
