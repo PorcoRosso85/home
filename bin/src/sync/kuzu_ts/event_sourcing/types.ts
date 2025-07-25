@@ -18,7 +18,7 @@ export type StoredEvent = TemplateEvent & {
   position: number;
 };
 
-export type EventImpact = "CREATE_NODE" | "UPDATE_NODE" | "DELETE_NODE" | "CREATE_EDGE" | "UPDATE_EDGE" | "DELETE_EDGE";
+export type EventImpact = "CREATE_NODE" | "UPDATE_NODE" | "DELETE_NODE" | "CREATE_EDGE" | "UPDATE_EDGE" | "DELETE_EDGE" | "LOGICAL_DELETE";
 
 export type TemplateMetadata = {
   requiredParams: string[];

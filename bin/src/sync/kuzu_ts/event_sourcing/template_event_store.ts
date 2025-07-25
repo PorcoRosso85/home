@@ -11,7 +11,7 @@ import { ensureDir } from "jsr:@std/fs@^1.0.0";
 export interface TemplateMetadata {
   requiredParams: string[];
   paramTypes?: Record<string, string>;
-  impact: "CREATE_NODE" | "UPDATE_NODE" | "DELETE_NODE" | "CREATE_EDGE" | "UPDATE_EDGE" | "DELETE_EDGE";
+  impact: "CREATE_NODE" | "UPDATE_NODE" | "DELETE_NODE" | "CREATE_EDGE" | "UPDATE_EDGE" | "DELETE_EDGE" | "LOGICAL_DELETE";
   validation?: Record<string, any>;
 }
 
@@ -84,6 +84,15 @@ export class TemplateRegistry {
     DELETE_OLD_POSTS: {
       requiredParams: ["beforeDate"],
       impact: "DELETE_NODE"
+    },
+    DELETE_USER_DATA: {
+      requiredParams: ["userId", "reason"],
+      impact: "LOGICAL_DELETE",
+      paramTypes: {
+        userId: "string",
+        reason: "string",
+        cascade: "boolean"
+      }
     }
   };
 
@@ -327,6 +336,11 @@ export class ImpactPredictor {
         // For delete operations, we can't know exact count without querying
         impact.deletedNodes = 1; // Minimum
         impact.warning = "Actual count may vary (estimated)";
+        break;
+      case "LOGICAL_DELETE":
+        // Logical delete doesn't physically remove nodes
+        impact.deletedNodes = 0;
+        impact.warning = "Logical deletion - data marked as deleted but not physically removed";
         break;
     }
 

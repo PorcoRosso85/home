@@ -7,6 +7,7 @@ import type { BrowserKuzuClient, LocalState, EventSnapshot } from "../../types.t
 import type { TemplateEvent } from "../../event_sourcing/types.ts";
 import { createTemplateEvent, validateParams } from "../../event_sourcing/core.ts";
 import { TemplateRegistry } from "../../event_sourcing/template_event_store.ts";
+import { StateCache } from "../cache/state_cache.ts";
 
 export class BrowserKuzuClientImpl implements BrowserKuzuClient {
   private db?: any;
@@ -15,6 +16,7 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
   private remoteEventHandlers: Array<(event: TemplateEvent) => void> = [];
   private registry = new TemplateRegistry();
   private clientId = `browser_${crypto.randomUUID()}`;
+  private stateCache = new StateCache();
 
   async initialize(): Promise<void> {
     // ブラウザ環境でのみ実行（ESM版）
@@ -41,6 +43,9 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
 
   async initializeFromSnapshot(snapshot: EventSnapshot): Promise<void> {
     await this.initialize();
+    
+    // Clear cache before replaying events
+    this.stateCache.clear();
     
     // Replay events from snapshot
     for (const event of snapshot.events) {
@@ -75,12 +80,21 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
     // Store event
     this.events.push(event);
     
+    // Invalidate cache after applying new event
+    this.stateCache.invalidateOnEvent(event);
+    
     return event;
   }
 
   async getLocalState(): Promise<LocalState> {
     if (!this.conn) {
       return { users: [], posts: [], follows: [] };
+    }
+    
+    // Check cache first for O(1) access
+    const cachedState = this.stateCache.getCachedState();
+    if (cachedState) {
+      return cachedState;
     }
     
     try {
@@ -107,7 +121,12 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
       `);
       const follows = followResult.getAllObjects ? followResult.getAllObjects() : [];
       
-      return { users, posts, follows };
+      const state = { users, posts, follows };
+      
+      // Cache the computed state
+      this.stateCache.setCachedState(state);
+      
+      return state;
     } catch (error) {
       console.error("Error getting local state:", error);
       return { users: [], posts: [], follows: [] };
@@ -174,6 +193,9 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
     const query = templates[event.template];
     if (query && this.conn) {
       await this.conn.query(query, event.params);
+      
+      // Invalidate cache since state has changed
+      this.stateCache.invalidateOnEvent(event);
       
       // Notify handlers
       this.remoteEventHandlers.forEach(handler => handler(event));

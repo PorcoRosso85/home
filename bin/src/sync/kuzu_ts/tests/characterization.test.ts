@@ -70,6 +70,7 @@ Deno.test("Public API - All implementation classes are exported", () => {
   assertEquals(typeof mod.BrowserKuzuClientImpl, "function");
   assertEquals(typeof mod.WebSocketSyncImpl, "function");
   assertEquals(typeof mod.ServerEventStoreImpl, "function");
+  assertEquals(typeof mod.CompressedEventStore, "function");
   assertEquals(typeof mod.ConflictResolverImpl, "function");
   assertEquals(typeof mod.MetricsCollectorImpl, "function");
 });
@@ -79,6 +80,7 @@ Deno.test("Public API - Implementation classes can be instantiated", () => {
   assertEquals(mod.BrowserKuzuClientImpl.name, "BrowserKuzuClientImpl");
   assertEquals(mod.WebSocketSyncImpl.name, "WebSocketSyncImpl");
   assertEquals(mod.ServerEventStoreImpl.name, "ServerEventStoreImpl");
+  assertEquals(mod.CompressedEventStore.name, "CompressedEventStore");
   assertEquals(mod.ConflictResolverImpl.name, "ConflictResolverImpl");
   assertEquals(mod.MetricsCollectorImpl.name, "MetricsCollectorImpl");
 });
@@ -104,6 +106,12 @@ Deno.test("Public API - Classes implement expected interfaces", () => {
   assertEquals(typeof storeInstance.appendEvent, "function");
   assertEquals(typeof storeInstance.getEventsSince, "function");
   assertEquals(typeof storeInstance.getSnapshot, "function");
+  
+  // CompressedEventStore should also implement ServerEventStore interface
+  const compressedStoreInstance = new mod.CompressedEventStore();
+  assertEquals(typeof compressedStoreInstance.appendEvent, "function");
+  assertEquals(typeof compressedStoreInstance.getEventsSince, "function");
+  assertEquals(typeof compressedStoreInstance.getSnapshot, "function");
   
   // ConflictResolverImpl should be constructible
   const resolverInstance = new mod.ConflictResolverImpl();
