@@ -19,6 +19,7 @@ export type BrowserKuzuClient = {
   executeTemplate(template: string, params: Record<string, any>): Promise<TemplateEvent>;
   getLocalState(): Promise<LocalState>;
   onRemoteEvent(handler: (event: TemplateEvent) => void): void;
+  executeQuery(cypher: string, params?: Record<string, any>): Promise<any>;
 };
 
 export type LocalState = {

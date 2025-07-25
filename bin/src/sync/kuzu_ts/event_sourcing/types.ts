@@ -56,3 +56,14 @@ export type ConflictResolver = (a: TemplateEvent, b: TemplateEvent) => TemplateE
 export type EventFilter = (event: TemplateEvent) => boolean;
 
 export type EventHandler = (event: TemplateEvent) => void | Promise<void>;
+
+// ========== Transaction Types ==========
+
+export type EventGroupStatus = 'pending' | 'committed' | 'rolled_back';
+
+export type EventGroup = {
+  id: string;
+  events: TemplateEvent[];
+  timestamp: number;
+  status: EventGroupStatus;
+};

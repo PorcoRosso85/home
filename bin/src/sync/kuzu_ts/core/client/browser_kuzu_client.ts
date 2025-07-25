@@ -19,15 +19,11 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
   private stateCache = new StateCache();
 
   async initialize(): Promise<void> {
-    // ブラウザ環境でのみ実行（ESM版）
-    const kuzu = await import("kuzu-wasm");
+    // Use sync version for Deno which doesn't support classic workers
+    const kuzuModule = await import("kuzu-wasm/sync");
+    const kuzu = kuzuModule.default || kuzuModule;
     
-    // Worker pathを設定（必要に応じて）
-    if (typeof kuzu.setWorkerPath === 'function' && this.getWorkerPath) {
-      kuzu.setWorkerPath(this.getWorkerPath());
-    }
-    
-    // 初期化（非同期版）
+    // Initialize the WASM module
     await kuzu.init();
     
     // Database と Connection を作成
@@ -135,6 +131,14 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
 
   onRemoteEvent(handler: (event: TemplateEvent) => void): void {
     this.remoteEventHandlers.push(handler);
+  }
+
+  // Public method to execute raw queries (for transaction support)
+  async executeQuery(cypher: string, params?: Record<string, any>): Promise<any> {
+    if (!this.conn) {
+      throw new Error("Client not initialized");
+    }
+    return await this.conn.query(cypher, params);
   }
 
   // Private methods

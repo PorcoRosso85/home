@@ -20,6 +20,7 @@ export type {
 // Re-export implementations
 export { BrowserKuzuClientImpl } from "./core/client/browser_kuzu_client.ts";
 export { WebSocketSyncImpl } from "./core/websocket/sync.ts";
+export { TransactionalSyncAdapter } from "./core/sync/transactional_sync_adapter.ts";
 export { ServerEventStoreImpl } from "./storage/server_event_store.ts";
 export { CompressedEventStore } from "./storage/compressed_event_store.ts";
 export { ConflictResolverImpl } from "./core/sync/conflict_resolver.ts";
@@ -41,3 +42,34 @@ export {
   type DeletionInfo,
   type DeletionResult
 } from "./event_sourcing/delete_templates.ts";
+
+// Re-export distributed components
+export { 
+  VectorClock,
+  type ClockSnapshot
+} from "./distributed/vector_clock.ts";
+
+// Re-export transaction components
+export { KuzuTransactionManager } from "./transaction/kuzu_transaction_manager.ts";
+export { 
+  type Transaction,
+  type TransactionManager,
+  type TransactionContext,
+  type TransactionOptions,
+  type TransactionResult,
+  type TransactionStatus,
+  TransactionError,
+  TransactionErrorCode
+} from "./transaction/types.ts";
+
+// Re-export event group components
+export {
+  EventGroupManager
+} from "./event_sourcing/event_group_manager.ts";
+
+// Re-export event sourcing types
+export type {
+  TemplateEvent,
+  EventGroup,
+  EventGroupStatus
+} from "./event_sourcing/types.ts";
