@@ -3,7 +3,10 @@
  * 統合同期の型定義
  */
 
-import type { TemplateEvent } from "../event_sourcing/types.ts";
+import type { TemplateEvent } from "./event_sourcing/types.ts";
+
+// Re-export WebSocket types for backward compatibility
+export type { WebSocketSync, WebSocketMessage } from "./core/websocket/types.ts";
 
 // ========== Client Types ==========
 
@@ -21,22 +24,6 @@ export type LocalState = {
   follows: Array<{ followerId: string; targetId: string }>;
 };
 
-// ========== WebSocket Types ==========
-
-export type WebSocketSync = {
-  connect(url: string): Promise<void>;
-  sendEvent(event: TemplateEvent): Promise<void>;
-  onEvent(handler: (event: TemplateEvent) => void): void;
-  disconnect(): void;
-  isConnected(): boolean;
-  getPendingEvents(): Promise<TemplateEvent[]>;
-};
-
-export type WebSocketMessage = {
-  type: "event" | "sync" | "error" | "connected";
-  payload?: any;
-  error?: string;
-};
 
 // ========== Server Types ==========
 

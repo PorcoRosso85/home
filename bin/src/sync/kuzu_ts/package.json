@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "serve": "deno run --allow-net --allow-read serve.ts",
-    "websocket": "deno run --allow-net websocketServer.ts",
+    "websocket": "deno run --allow-net core/websocket/server.ts",
     "test:e2e": "npm run websocket & npm run serve & playwright test",
     "test:real": "node --loader tsx test_real_kuzu.ts",
     "test:kuzu": "deno test --allow-all test_kuzu_real.ts",

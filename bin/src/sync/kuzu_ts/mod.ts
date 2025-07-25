@@ -19,7 +19,7 @@ export type {
 
 // Re-export implementations
 export { BrowserKuzuClientImpl } from "./browser_kuzu_client_clean.ts";
-export { WebSocketSyncImpl } from "./websocket_sync.ts";
+export { WebSocketSyncImpl } from "./core/websocket/sync.ts";
 export { ServerEventStoreImpl } from "./server_event_store.ts";
 export { ConflictResolverImpl } from "./conflict_resolver.ts";
 export { MetricsCollectorImpl } from "./metrics_collector.ts";

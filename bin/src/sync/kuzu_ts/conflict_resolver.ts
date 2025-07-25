@@ -4,7 +4,7 @@
  */
 
 import type { ConflictResolver, ConflictResolution } from "./types.ts";
-import type { TemplateEvent } from "../event_sourcing/types.ts";
+import type { TemplateEvent } from "./event_sourcing/types.ts";
 
 export class ConflictResolverImpl implements ConflictResolver {
   resolve(events: TemplateEvent[]): ConflictResolution {

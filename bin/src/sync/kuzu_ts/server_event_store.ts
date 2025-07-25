@@ -4,8 +4,8 @@
  */
 
 import type { ServerEventStore, EventSnapshot } from "./types.ts";
-import type { TemplateEvent } from "../event_sourcing/types.ts";
-import { validateChecksum } from "../event_sourcing/core.ts";
+import type { TemplateEvent } from "./event_sourcing/types.ts";
+import { validateChecksum } from "./event_sourcing/core.ts";
 
 export class ServerEventStoreImpl implements ServerEventStore {
   private events: TemplateEvent[] = [];
