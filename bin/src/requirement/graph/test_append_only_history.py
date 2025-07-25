@@ -47,7 +47,11 @@ def run_system(input_data, db_path=None):
         for line in reversed(lines):
             if line.strip():
                 try:
-                    return json.loads(line)
+                    parsed = json.loads(line)
+                    # ロギング形式のレスポンスの場合、dataフィールドを返す
+                    if parsed.get("type") == "result" and "data" in parsed:
+                        return parsed["data"]
+                    return parsed
                 except json.JSONDecodeError:
                     continue
 
@@ -90,13 +94,12 @@ class TestRequirementImmutability:
             }
         }, db_path)
         
-        assert result1.get("data", {}).get("status") == "success", f"Failed to create requirement: {result1}"
+        assert result1.get("status") == "success", f"Failed to create requirement: {result1}"
         
         # Then: 同じIDで更新を試みた場合、新しいバージョンが作成されるべき
-        # 将来実装では update_requirement ではなく create_requirement_version のようなAPIになる想定
         result2 = run_system({
             "type": "template", 
-            "template": "update_requirement",  # または "create_requirement_version"
+            "template": "update_requirement",  # または将来的には "create_requirement_version"
             "parameters": {
                 "id": "req_auth_001",
                 "title": "ユーザー認証機能（改訂版）",
@@ -112,16 +115,37 @@ class TestRequirementImmutability:
         # - 元のバージョン（req_auth_001_v1）は変更されない
         # - 両方のバージョンが履歴として存在する
         
-        # expected_result = {
-        #     "data": {
-        #         "status": "success",
-        #         "version_id": "req_auth_001_v2",
-        #         "previous_version": "req_auth_001_v1",
-        #         "message": "New version created"
-        #     }
-        # }
+        # template_processor.pyからの実際のレスポンス構造に合わせて修正
+        assert result2.get("status") == "success", f"Update should create new version: {result2}"
+        assert result2.get("data", {}).get("version_id") == "req_auth_001_v2", "Should return new version ID"
+        assert result2.get("data", {}).get("previous_version") == "req_auth_001", "Should reference previous version"
         
-        pytest.skip("Requirement immutability not yet implemented - feature planned for future release")
+        # 両方のバージョンが存在することを確認
+        # 元のバージョンを確認（バージョン番号なしのオリジナル）
+        original_check = run_system({
+            "type": "template",
+            "template": "find_requirement",
+            "parameters": {
+                "id": "req_auth_001"
+            }
+        }, db_path)
+        
+        assert original_check.get("status") == "success", "Original should still exist"
+        assert original_check.get("data")[0][1] == "ユーザー認証機能", "Original title should be unchanged"
+        assert original_check.get("data")[0][3] == "proposed", "Original status should be unchanged"
+        
+        # 新しいバージョンを確認
+        new_check = run_system({
+            "type": "template",
+            "template": "find_requirement",
+            "parameters": {
+                "id": "req_auth_001_v2"
+            }
+        }, db_path)
+        
+        assert new_check.get("status") == "success", "New version should exist"
+        assert new_check.get("data")[0][1] == "ユーザー認証機能（改訂版）", "New version should have updated title"
+        assert new_check.get("data")[0][3] == "active", "New version should have updated status"
     
     def test_requirement_deletion_is_soft_delete(self, temp_db):
         """要件の削除は論理削除（ソフトデリート）として実装される仕様

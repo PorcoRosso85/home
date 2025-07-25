@@ -178,14 +178,62 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         return execute_query(repository, "find_dependencies", query_params, "dql")
 
     elif template == "update_requirement":
-        # Append-Only設計のため、更新は許可されていません
-        return NotFoundError(
-            type="NotFoundError",
-            message="Update operations are not supported in this Append-Only system. Create a new version instead.",
-            resource_type="template",
-            resource_id=template,
-            search_criteria={"template": template}
-        )
+        # Append-Only設計: 新しいバージョンを作成
+        req_id = params.get("id")
+        
+        # 既存の要件を取得して最新状態を確認
+        existing = execute_query(repository, "find_requirement", {"id": req_id}, "dql")
+        if existing.get("status") != "success" or not existing.get("data"):
+            return {
+                "error": {
+                    "type": "NotFoundError",
+                    "message": f"Requirement {req_id} not found",
+                    "resource_type": "requirement",
+                    "resource_id": req_id
+                }
+            }
+        
+        # 既存の要件データを取得
+        current_data = existing["data"][0]
+        
+        # バージョン番号を抽出して次のバージョンを計算
+        import re
+        match = re.search(r'_v(\d+)$', req_id)
+        if match:
+            base_id = req_id[:match.start()]
+            current_version = int(match.group(1))
+            new_version = current_version + 1
+        else:
+            base_id = req_id
+            new_version = 2
+        
+        # 新しいバージョンのIDを生成
+        new_id = f"{base_id}_v{new_version}"
+        
+        # 更新パラメータを既存データとマージ
+        # find_requirementクエリは r.id, r.title, r.description, r.status を返す
+        new_params = {
+            "id": new_id,
+            "title": params.get("title", current_data[1]),  # current title
+            "description": params.get("description", current_data[2]),  # current description
+            "status": params.get("status", current_data[3])  # current status
+        }
+        
+        # create_requirementテンプレートを内部的に呼び出し
+        input_data["template"] = "create_requirement"
+        input_data["parameters"] = new_params
+        
+        result = process_template(input_data, repository, search_factory)
+        
+        # 成功時にversion_idとprevious_versionを追加
+        if result.get("status") == "success":
+            result["data"] = {
+                "status": "success",
+                "version_id": new_id,
+                "previous_version": req_id
+            }
+        
+        return result
 
     elif template == "delete_requirement":
         # Append-Only設計のため、削除は許可されていません
