@@ -8,6 +8,9 @@ import type { TemplateEvent } from "./event_sourcing/types.ts";
 // Re-export WebSocket types for backward compatibility
 export type { WebSocketSync, WebSocketMessage } from "./core/websocket/types.ts";
 
+// Re-export event sourcing types
+export type { TemplateEvent } from "./event_sourcing/types.ts";
+
 // ========== Client Types ==========
 
 export type BrowserKuzuClient = {
