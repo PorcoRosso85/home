@@ -39,15 +39,11 @@ def create_database(path: Optional[str] = None) -> DatabaseResult:
         )
     
     try:
-        # Check if path starts with :memory: (including :memory:UUID pattern)
-        if path is None or path == ":memory:" or (isinstance(path, str) and path.startswith(":memory:")):
+        if path is None or path == ":memory:":
             log("INFO", {
                 "uri": "kuzu_py.database",
-                "message": "Creating in-memory database",
-                "path": path if path else ":memory:"
+                "message": "Creating in-memory database"
             })
-            # KuzuDB uses :memory: for in-memory databases
-            # Any :memory:suffix pattern should use just :memory:
             db = kuzu.Database(":memory:")
         else:
             # ディレクトリ作成

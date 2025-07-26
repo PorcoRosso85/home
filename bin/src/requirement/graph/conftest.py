@@ -9,6 +9,7 @@ import json
 import sys
 import os
 from typing import Dict, Any, Optional
+import uuid
 
 
 def run_system_optimized(input_data: Dict[str, Any], db_path: Optional[str] = None, timeout: int = 30) -> Dict[str, Any]:
@@ -71,8 +72,9 @@ def run_system_optimized(input_data: Dict[str, Any], db_path: Optional[str] = No
 @pytest.fixture
 def inmemory_db():
     """インメモリデータベースを使用するフィクスチャ"""
-    # KuzuDBは":memory:"のみサポート（サフィックスなし）
-    db_path = ":memory:"
+    # ユニークなインメモリDB識別子を生成
+    db_id = str(uuid.uuid4())
+    db_path = f":memory:{db_id}"
     
     # スキーマ初期化
     result = run_system_optimized({"type": "schema", "action": "apply"}, db_path)
