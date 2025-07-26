@@ -15,8 +15,12 @@ const clients = new Map<string, ClientConnection>();
 const eventHistory: StoredEvent[] = [];
 let eventSequence = 0;
 
-// In-memory counter storage (simple implementation for testing)
-const counters = new Map<string, number>();
+// Import ServerKuzuClient for persistent storage
+import { ServerKuzuClient } from "../server/server_kuzu_client.ts";
+
+// Initialize ServerKuzuClient
+const kuzuClient = new ServerKuzuClient();
+let kuzuInitialized = false;
 
 // ========== 型定義 ==========
 
@@ -121,6 +125,17 @@ function broadcastEvent(event: StoredEvent, sourceClientId: string): void {
 
 console.log(`WebSocket server starting on ws://localhost:${port}`);
 
+// Initialize KuzuClient on server startup
+(async () => {
+  try {
+    await kuzuClient.initialize();
+    kuzuInitialized = true;
+    console.log("KuzuDB initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize KuzuDB:", error);
+  }
+})();
+
 Deno.serve({ port }, async (req) => {
   const url = new URL(req.url);
   
@@ -218,36 +233,60 @@ Deno.serve({ port }, async (req) => {
           
           // Check if it's a query event
           if (message.payload.template === "QUERY_COUNTER") {
-            const counterId = message.payload.params.counterId;
-            const value = counters.get(counterId) || 0;
+            if (!kuzuInitialized) {
+              socket.send(JSON.stringify({
+                type: "error",
+                payload: { message: "KuzuDB not initialized" }
+              }));
+              break;
+            }
             
-            // Send result back to the requesting client
-            socket.send(JSON.stringify({
-              type: "event",
-              payload: {
-                id: message.payload.id,
-                template: "COUNTER_VALUE",
-                params: {
-                  counterId: counterId,
-                  value: value
-                },
-                clientId: clientId,
-                timestamp: Date.now()
-              }
-            }));
+            const counterId = message.payload.params.counterId;
+            
+            try {
+              // Query counter value from KuzuDB
+              const result = await kuzuClient.executeQuery(`
+                MATCH (c:Counter {id: $counterId})
+                RETURN c.value as value
+              `, { counterId });
+              
+              const value = result.length > 0 ? (result[0].value ?? 0) : 0;
+              
+              // Send result back to the requesting client
+              socket.send(JSON.stringify({
+                type: "event",
+                payload: {
+                  id: message.payload.id,
+                  template: "COUNTER_VALUE",
+                  params: {
+                    counterId: counterId,
+                    value: value
+                  },
+                  clientId: clientId,
+                  timestamp: Date.now()
+                }
+              }));
+            } catch (error) {
+              console.error(`Failed to query counter ${counterId}:`, error);
+              socket.send(JSON.stringify({
+                type: "error",
+                payload: { message: "Failed to query counter" }
+              }));
+            }
             break;
           }
           
           // イベント保存
           const storedEvent = storeEvent(message.payload);
           
-          // Apply event to in-memory state
-          if (storedEvent.template === "INCREMENT_COUNTER") {
-            const counterId = storedEvent.params.counterId;
-            const amount = storedEvent.params.amount || 1;
-            const currentValue = counters.get(counterId) || 0;
-            counters.set(counterId, currentValue + amount);
-            console.log(`Counter ${counterId} incremented to ${currentValue + amount}`);
+          // Apply event to KuzuDB
+          if (storedEvent.template === "INCREMENT_COUNTER" && kuzuInitialized) {
+            try {
+              await kuzuClient.applyEvent(storedEvent);
+              console.log(`Counter ${storedEvent.params.counterId} incremented in KuzuDB`);
+            } catch (error) {
+              console.error(`Failed to apply INCREMENT_COUNTER event:`, error);
+            }
           }
           
           // 他のクライアントにブロードキャスト
