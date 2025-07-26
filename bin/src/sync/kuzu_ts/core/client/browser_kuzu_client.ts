@@ -5,9 +5,13 @@
 
 import type { BrowserKuzuClient, LocalState, EventSnapshot } from "../../types.ts";
 import type { TemplateEvent } from "../../event_sourcing/types.ts";
+import type { DDLTemplateEvent } from "../../event_sourcing/ddl_types.ts";
+import { isDDLEvent, DDLOperationType } from "../../event_sourcing/ddl_types.ts";
 import { createTemplateEvent, validateParams } from "../../event_sourcing/core.ts";
 import { TemplateRegistry } from "../../event_sourcing/template_event_store.ts";
 import { StateCache } from "../cache/state_cache.ts";
+import { SchemaManager } from "../schema_manager.ts";
+import { ExtendedTemplateRegistry } from "../../event_sourcing/ddl_event_handler.ts";
 
 export class BrowserKuzuClientImpl implements BrowserKuzuClient {
   private db?: any;
@@ -15,8 +19,14 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
   private events: TemplateEvent[] = [];
   private remoteEventHandlers: Array<(event: TemplateEvent) => void> = [];
   private registry = new TemplateRegistry();
+  private extendedRegistry = new ExtendedTemplateRegistry();
   private clientId = `browser_${crypto.randomUUID()}`;
   private stateCache = new StateCache();
+  private schemaManager: SchemaManager;
+
+  constructor() {
+    this.schemaManager = new SchemaManager(this.clientId);
+  }
 
   async initialize(): Promise<void> {
     // Use sync version for Deno which doesn't support classic workers
@@ -40,13 +50,21 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
   async initializeFromSnapshot(snapshot: EventSnapshot): Promise<void> {
     await this.initialize();
     
-    // Clear cache before replaying events
+    // Clear existing state
+    this.events = [];
     this.stateCache.clear();
     
-    // Replay events from snapshot
+    // Initialize schema manager from snapshot
+    await this.schemaManager.initializeFromSnapshot(
+      snapshot.events,
+      (query: string) => this.conn.query(query)
+    );
+    
+    // Replay all events from snapshot
+    console.log(`Replaying ${snapshot.events.length} events from snapshot`);
     for (const event of snapshot.events) {
-      this.events.push(event);
       await this.applyEvent(event);
+      this.events.push(event);
     }
   }
 
@@ -55,8 +73,25 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
       throw new Error("Client not initialized");
     }
     
-    // Validate template and parameters
-    const metadata = this.registry.getTemplateMetadata(template);
+    // Check if this is a DDL template
+    if (this.extendedRegistry.isDDLTemplate(template)) {
+      // Create DDL event
+      const ddlEvent = this.schemaManager.createDDLEvent(
+        template as DDLOperationType,
+        params
+      );
+      
+      // Apply DDL event
+      await this.applyEvent(ddlEvent);
+      
+      // Store event
+      this.events.push(ddlEvent);
+      
+      return ddlEvent;
+    }
+    
+    // For DML templates, use extended registry for validation
+    const metadata = this.extendedRegistry.getTemplateMetadata(template);
     const sanitizedParams = validateParams(params, metadata);
     
     // Check for injection attempts
@@ -159,41 +194,164 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
     return 0; // Default if counter doesn't exist
   }
 
+  // Schema query methods
+
+  getSchemaVersion(): number {
+    return this.schemaManager.getSchemaVersion();
+  }
+
+  getSchemaState() {
+    return this.schemaManager.getCurrentSchema();
+  }
+
+  hasTable(tableName: string): boolean {
+    return this.schemaManager.hasTable(tableName);
+  }
+
+  hasColumn(tableName: string, columnName: string): boolean {
+    return this.schemaManager.hasColumn(tableName, columnName);
+  }
+
+  getTableSchema(tableName: string) {
+    return this.schemaManager.getTableSchema(tableName);
+  }
+
+  getSchemaSyncState() {
+    return this.schemaManager.getSyncState();
+  }
+
+  async resolveSchemaConflict(
+    conflictId: string,
+    resolution: "APPLY_FIRST" | "APPLY_LAST" | "MANUAL"
+  ): Promise<void> {
+    await this.schemaManager.resolveConflict(
+      conflictId,
+      resolution,
+      (query: string) => this.conn.query(query)
+    );
+  }
+
+  // DDL Event Creation
+
+  createDDLEvent(
+    ddlType: DDLOperationType,
+    params: Record<string, any>
+  ): DDLTemplateEvent {
+    return this.schemaManager.createDDLEvent(ddlType, params);
+  }
+
+  async applyDDLEvent(event: DDLTemplateEvent): Promise<void> {
+    await this.applyEvent(event);
+  }
+
+  getAppliedDDLs(): DDLTemplateEvent[] {
+    return this.schemaManager.getAppliedDDLs();
+  }
+
+  getPendingDDLs(): DDLTemplateEvent[] {
+    return this.schemaManager.getPendingDDLs();
+  }
+
+  validateDDL(event: DDLTemplateEvent): { valid: boolean; errors: string[] } {
+    return this.schemaManager.validateDDL(event);
+  }
+
+  // Template Support
+
+  hasTemplate(template: string): boolean {
+    return this.extendedRegistry.hasTemplate(template);
+  }
+
+  isDDLTemplate(template: string): boolean {
+    return this.extendedRegistry.isDDLTemplate(template);
+  }
+
+  isDMLTemplate(template: string): boolean {
+    return this.extendedRegistry.isDMLTemplate(template);
+  }
+
+  getTemplateMetadata(template: string): any {
+    return this.extendedRegistry.getTemplateMetadata(template);
+  }
+
   // Private methods
 
   private async createSchema(): Promise<void> {
-    await this.conn.query(`
-      CREATE NODE TABLE IF NOT EXISTS User(
-        id STRING, 
-        name STRING, 
-        email STRING, 
-        PRIMARY KEY(id)
-      )
-    `);
+    // Check current schema state
+    const schemaState = this.schemaManager.getCurrentSchema();
     
-    await this.conn.query(`
-      CREATE NODE TABLE IF NOT EXISTS Post(
-        id STRING,
-        content STRING,
-        authorId STRING,
-        PRIMARY KEY(id)
-      )
-    `);
-    
-    await this.conn.query(`
-      CREATE NODE TABLE IF NOT EXISTS Counter(
-        id STRING,
-        value INT64,
-        PRIMARY KEY(id)
-      )
-    `);
-    
-    await this.conn.query(`
-      CREATE REL TABLE IF NOT EXISTS FOLLOWS(FROM User TO User)
-    `);
+    // Create default schema if no tables exist
+    if (Object.keys(schemaState.nodeTables).length === 0) {
+      // Create User node table
+      if (!this.schemaManager.hasTable("User")) {
+        await this.conn.query(`
+          CREATE NODE TABLE IF NOT EXISTS User(
+            id STRING, 
+            name STRING, 
+            email STRING, 
+            PRIMARY KEY(id)
+          )
+        `);
+      }
+      
+      // Create Post node table
+      if (!this.schemaManager.hasTable("Post")) {
+        await this.conn.query(`
+          CREATE NODE TABLE IF NOT EXISTS Post(
+            id STRING,
+            content STRING,
+            authorId STRING,
+            PRIMARY KEY(id)
+          )
+        `);
+      }
+      
+      // Create FOLLOWS relationship table
+      if (!this.schemaManager.hasTable("FOLLOWS")) {
+        await this.conn.query(`
+          CREATE REL TABLE IF NOT EXISTS FOLLOWS(FROM User TO User)
+        `);
+      }
+      
+      // Create Counter node table
+      if (!this.schemaManager.hasTable("Counter")) {
+        await this.conn.query(`
+          CREATE NODE TABLE IF NOT EXISTS Counter(
+            id STRING,
+            value INT64,
+            PRIMARY KEY(id)
+          )
+        `);
+      }
+      
+      console.log("Default database schema created");
+    } else {
+      console.log(`Schema already exists with ${Object.keys(schemaState.nodeTables).length} node tables and ${Object.keys(schemaState.edgeTables).length} edge tables`);
+    }
   }
 
-  private async applyEvent(event: TemplateEvent): Promise<void> {
+  private async applyEvent(event: TemplateEvent | DDLTemplateEvent): Promise<void> {
+    if (!this.conn) {
+      throw new Error("Client not initialized");
+    }
+
+    // Check if it's a DDL event
+    if (isDDLEvent(event)) {
+      try {
+        await this.schemaManager.applyDDLEvent(
+          event,
+          (query: string) => this.conn.query(query)
+        );
+        // Notify handlers
+        this.remoteEventHandlers.forEach(handler => handler(event));
+      } catch (error) {
+        console.error(`Failed to apply DDL event ${event.id}:`, error);
+        throw error; // DDL errors should propagate
+      }
+      return;
+    }
+
+    // Handle DML events
     const templates: Record<string, string> = {
       CREATE_USER: `
         CREATE (u:User {
@@ -230,26 +388,35 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
     };
     
     const query = templates[event.template];
-    if (query && this.conn) {
-      const result = await this.conn.query(query, event.params);
-      
-      // Special handling for QUERY_COUNTER
-      if (event.template === "QUERY_COUNTER") {
-        // For query events, we need to return the result somehow
-        // We'll store it in the event params for now
-        const table = result.getAll();
-        if (table.length > 0) {
-          event.params._result = table[0][0]; // The value
+    if (query) {
+      try {
+        // Validate parameters using extended registry
+        const metadata = this.extendedRegistry.getTemplateMetadata(event.template);
+        const sanitizedParams = validateParams(event.params, metadata);
+        
+        const result = await this.conn.query(query, sanitizedParams);
+        
+        // Special handling for QUERY_COUNTER
+        if (event.template === "QUERY_COUNTER") {
+          // For query events, we need to return the result somehow
+          // We'll store it in the event params for now
+          const table = result.getAll();
+          if (table.length > 0) {
+            event.params._result = table[0][0]; // The value
+          } else {
+            event.params._result = 0; // Default if counter doesn't exist
+          }
         } else {
-          event.params._result = 0; // Default if counter doesn't exist
+          // Invalidate cache since state has changed (not for queries)
+          this.stateCache.invalidateOnEvent(event);
         }
-      } else {
-        // Invalidate cache since state has changed (not for queries)
-        this.stateCache.invalidateOnEvent(event);
+        
+        // Notify handlers
+        this.remoteEventHandlers.forEach(handler => handler(event));
+      } catch (error) {
+        console.error(`Failed to apply event ${event.id}:`, error);
+        // Continue processing other events
       }
-      
-      // Notify handlers
-      this.remoteEventHandlers.forEach(handler => handler(event));
     }
   }
 }

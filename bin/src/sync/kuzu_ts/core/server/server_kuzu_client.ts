@@ -10,17 +10,30 @@
 
 import type { TemplateEvent } from "../../event_sourcing/types.ts";
 import type { LocalState, EventSnapshot } from "../../types.ts";
+import type { DDLTemplateEvent } from "../../event_sourcing/ddl_types.ts";
+import { isDDLEvent } from "../../event_sourcing/ddl_types.ts";
 import { validateParams } from "../../event_sourcing/core.ts";
 import { TemplateRegistry } from "../../event_sourcing/template_event_store.ts";
 import { StateCache } from "../cache/state_cache.ts";
+import { SchemaManager } from "../schema_manager.ts";
+import { DDLOperationType } from "../../event_sourcing/ddl_types.ts";
+import { ExtendedTemplateRegistry } from "../../event_sourcing/ddl_event_handler.ts";
 
 export class ServerKuzuClient {
   private db?: any;
   private conn?: any;
   private events: TemplateEvent[] = [];
   private registry = new TemplateRegistry();
+  private extendedRegistry = new ExtendedTemplateRegistry();
   private stateCache = new StateCache();
+  private schemaManager: SchemaManager;
   private initialized = false;
+  private clientId: string;
+
+  constructor(clientId?: string) {
+    this.clientId = clientId || `server_${crypto.randomUUID()}`;
+    this.schemaManager = new SchemaManager(this.clientId);
+  }
 
   async initialize(): Promise<void> {
     if (this.initialized) {
@@ -58,6 +71,12 @@ export class ServerKuzuClient {
     this.events = [];
     this.stateCache.clear();
     
+    // Initialize schema manager from snapshot
+    await this.schemaManager.initializeFromSnapshot(
+      snapshot.events,
+      (query: string) => this.conn.query(query)
+    );
+    
     // Replay all events from snapshot
     console.log(`Replaying ${snapshot.events.length} events from snapshot`);
     for (const event of snapshot.events) {
@@ -66,11 +85,28 @@ export class ServerKuzuClient {
     }
   }
 
-  async applyEvent(event: TemplateEvent): Promise<void> {
+  async applyEvent(event: TemplateEvent | DDLTemplateEvent): Promise<void> {
     if (!this.conn) {
       throw new Error("ServerKuzuClient not initialized");
     }
 
+    // Check if it's a DDL event
+    if (isDDLEvent(event)) {
+      try {
+        await this.schemaManager.applyDDLEvent(
+          event,
+          (query: string) => this.conn.query(query)
+        );
+        // Store event
+        this.events.push(event);
+      } catch (error) {
+        console.error(`Failed to apply DDL event ${event.id}:`, error);
+        throw error; // DDL errors should propagate
+      }
+      return;
+    }
+
+    // Handle DML events
     const templates: Record<string, string> = {
       CREATE_USER: `
         CREATE (u:User {
@@ -109,8 +145,8 @@ export class ServerKuzuClient {
     }
 
     try {
-      // Validate parameters
-      const metadata = this.registry.getTemplateMetadata(event.template);
+      // Validate parameters using extended registry
+      const metadata = this.extendedRegistry.getTemplateMetadata(event.template);
       const sanitizedParams = validateParams(event.params, metadata);
       
       // Execute query
@@ -211,43 +247,139 @@ export class ServerKuzuClient {
     return this.initialized;
   }
 
+  // Schema-related methods
+
+  getSchemaVersion(): number {
+    return this.schemaManager.getSchemaVersion();
+  }
+
+  getSchemaState() {
+    return this.schemaManager.getCurrentSchema();
+  }
+
+  hasTable(tableName: string): boolean {
+    return this.schemaManager.hasTable(tableName);
+  }
+
+  hasColumn(tableName: string, columnName: string): boolean {
+    return this.schemaManager.hasColumn(tableName, columnName);
+  }
+
+  getTableSchema(tableName: string) {
+    return this.schemaManager.getTableSchema(tableName);
+  }
+
+  getSchemaSyncState() {
+    return this.schemaManager.getSyncState();
+  }
+
+  async resolveSchemaConflict(
+    conflictId: string,
+    resolution: "APPLY_FIRST" | "APPLY_LAST" | "MANUAL"
+  ): Promise<void> {
+    await this.schemaManager.resolveConflict(
+      conflictId,
+      resolution,
+      (query: string) => this.conn.query(query)
+    );
+  }
+
+  // DDL Event Creation
+
+  createDDLEvent(
+    ddlType: DDLOperationType,
+    params: Record<string, any>
+  ): DDLTemplateEvent {
+    return this.schemaManager.createDDLEvent(ddlType, params);
+  }
+
+  async applyDDLEvent(event: DDLTemplateEvent): Promise<void> {
+    await this.applyEvent(event);
+  }
+
+  getAppliedDDLs(): DDLTemplateEvent[] {
+    return this.schemaManager.getAppliedDDLs();
+  }
+
+  getPendingDDLs(): DDLTemplateEvent[] {
+    return this.schemaManager.getPendingDDLs();
+  }
+
+  validateDDL(event: DDLTemplateEvent): { valid: boolean; errors: string[] } {
+    return this.schemaManager.validateDDL(event);
+  }
+
+  // Template Support
+
+  hasTemplate(template: string): boolean {
+    return this.extendedRegistry.hasTemplate(template);
+  }
+
+  isDDLTemplate(template: string): boolean {
+    return this.extendedRegistry.isDDLTemplate(template);
+  }
+
+  isDMLTemplate(template: string): boolean {
+    return this.extendedRegistry.isDMLTemplate(template);
+  }
+
+  getTemplateMetadata(template: string): any {
+    return this.extendedRegistry.getTemplateMetadata(template);
+  }
+
   // Private methods
 
   private async createSchema(): Promise<void> {
-    // Create User node table
-    await this.conn.query(`
-      CREATE NODE TABLE IF NOT EXISTS User(
-        id STRING, 
-        name STRING, 
-        email STRING, 
-        PRIMARY KEY(id)
-      )
-    `);
+    // Check current schema state
+    const schemaState = this.schemaManager.getCurrentSchema();
     
-    // Create Post node table
-    await this.conn.query(`
-      CREATE NODE TABLE IF NOT EXISTS Post(
-        id STRING,
-        content STRING,
-        authorId STRING,
-        PRIMARY KEY(id)
-      )
-    `);
-    
-    // Create FOLLOWS relationship table
-    await this.conn.query(`
-      CREATE REL TABLE IF NOT EXISTS FOLLOWS(FROM User TO User)
-    `);
-    
-    // Create Counter node table
-    await this.conn.query(`
-      CREATE NODE TABLE IF NOT EXISTS Counter(
-        id STRING,
-        value INT64,
-        PRIMARY KEY(id)
-      )
-    `);
-    
-    console.log("Database schema created");
+    // Create default schema if no tables exist
+    if (Object.keys(schemaState.nodeTables).length === 0) {
+      // Create User node table
+      if (!this.schemaManager.hasTable("User")) {
+        await this.conn.query(`
+          CREATE NODE TABLE IF NOT EXISTS User(
+            id STRING, 
+            name STRING, 
+            email STRING, 
+            PRIMARY KEY(id)
+          )
+        `);
+      }
+      
+      // Create Post node table
+      if (!this.schemaManager.hasTable("Post")) {
+        await this.conn.query(`
+          CREATE NODE TABLE IF NOT EXISTS Post(
+            id STRING,
+            content STRING,
+            authorId STRING,
+            PRIMARY KEY(id)
+          )
+        `);
+      }
+      
+      // Create FOLLOWS relationship table
+      if (!this.schemaManager.hasTable("FOLLOWS")) {
+        await this.conn.query(`
+          CREATE REL TABLE IF NOT EXISTS FOLLOWS(FROM User TO User)
+        `);
+      }
+      
+      // Create Counter node table
+      if (!this.schemaManager.hasTable("Counter")) {
+        await this.conn.query(`
+          CREATE NODE TABLE IF NOT EXISTS Counter(
+            id STRING,
+            value INT64,
+            PRIMARY KEY(id)
+          )
+        `);
+      }
+      
+      console.log("Default database schema created");
+    } else {
+      console.log(`Schema already exists with ${Object.keys(schemaState.nodeTables).length} node tables and ${Object.keys(schemaState.edgeTables).length} edge tables`);
+    }
   }
 }
