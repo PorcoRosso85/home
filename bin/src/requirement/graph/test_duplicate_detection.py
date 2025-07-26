@@ -2,11 +2,45 @@
 重複検出機能の振る舞いテスト
 規約に従い、公開APIの振る舞いのみを検証する統合テスト
 """
+import subprocess
 import json
 import os
+import sys
 import tempfile
 import pytest
-from test_helpers import run_system
+
+
+def run_system(input_data, db_path=None):
+    """requirement/graphシステムの公開APIを実行"""
+    env = os.environ.copy()
+    if db_path:
+        env["RGL_DATABASE_PATH"] = db_path
+
+    # 公開API（main.py）を通じて実行
+    # プロジェクトルートから実行
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # 現在のPython（venv内）を使用
+    python_cmd = sys.executable
+
+    result = subprocess.run(
+        [python_cmd, "-m", "requirement.graph"],
+        input=json.dumps(input_data),
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=project_root
+    )
+
+    if result.stdout:
+        lines = result.stdout.strip().split('\n')
+        for line in reversed(lines):
+            if line.strip():
+                try:
+                    return json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+    return {"error": "No valid JSON output", "stderr": result.stderr}
 
 
 class TestDuplicateDetection:

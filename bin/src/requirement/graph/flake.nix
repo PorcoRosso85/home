@@ -93,7 +93,7 @@
               # テスト用スキーマの適用
               echo "📊 Applying test schema..."
               export RGL_SKIP_SCHEMA_CHECK="true"
-              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python ${projectDir}/run.py
+              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python main.py
               
               echo "✅ Test environment is ready!"
               echo "   DB Path: $RGL_DB_PATH"
@@ -141,24 +141,7 @@
             type = "app";
             program = "${mkRunner "run" ''
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              exec ${pythonEnv}/bin/python ${projectDir}/run.py "$@"
-            ''}";
-          };
-          
-          # E2Eテスト用のエントリーポイント
-          # python main.py と同じインターフェースを提供
-          "test-e2e-runner" = {
-            type = "app";
-            program = "${mkRunner "test-e2e-runner" ''
-              # E2Eテストから呼ばれる際の環境変数対応
-              # RGL_DATABASE_PATHが設定されていればRGL_DB_PATHに変換
-              if [ -n "''${RGL_DATABASE_PATH:-}" ]; then
-                export RGL_DB_PATH="$RGL_DATABASE_PATH"
-              fi
-              
-              # 通常のrunと同じ動作
-              export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              exec ${pythonEnv}/bin/python ${projectDir}/run.py "$@"
+              exec ${pythonEnv}/bin/python -m requirement.graph "$@"
             ''}";
           };
           
@@ -176,7 +159,7 @@
               fi
               
               # 初期化実行
-              echo '{"type": "init", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python ${projectDir}/run.py
+              echo '{"type": "init", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python -m requirement.graph
             ''}";
           };
           

@@ -3,11 +3,44 @@ VSS検索仕様テスト
 ベクトル検索（VSS）単独での検索機能の仕様テスト
 注: FTS統合は将来的な拡張として保留中
 """
+import subprocess
 import json
 import os
+import sys
 import tempfile
 import pytest
-from test_helpers import run_system
+
+
+def run_system(input_data, db_path=None):
+    """requirement/graphシステムの公開APIを実行"""
+    env = os.environ.copy()
+    if db_path:
+        env["RGL_DATABASE_PATH"] = db_path
+
+    # 現在のPython（venv内）を使用
+    python_cmd = sys.executable
+
+    # プロジェクトルートから実行
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    result = subprocess.run(
+        [python_cmd, "-m", "requirement.graph"],
+        input=json.dumps(input_data),
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=project_root
+    )
+
+    if result.stdout:
+        lines = result.stdout.strip().split('\n')
+        for line in reversed(lines):
+            if line.strip():
+                try:
+                    return json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+    return {"error": "No valid JSON output", "stderr": result.stderr}
 
 
 class TestVSSSearchSpec:
