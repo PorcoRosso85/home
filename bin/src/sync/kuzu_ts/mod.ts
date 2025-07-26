@@ -73,3 +73,13 @@ export type {
   EventGroup,
   EventGroupStatus
 } from "./event_sourcing/types.ts";
+
+// Re-export cache components
+export { StateCache } from "./core/cache/state_cache.ts";
+export { 
+  AggregateCache,
+  type AggregateType,
+  type AggregateDefinition,
+  type AggregateStats,
+  type AggregateMemoryStats
+} from "./core/cache/aggregate_cache.ts";
