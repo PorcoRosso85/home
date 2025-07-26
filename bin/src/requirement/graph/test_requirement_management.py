@@ -2,7 +2,6 @@
 要件管理システムの統合テスト
 規約に従い、公開APIの振る舞いのみを検証する
 """
-import subprocess
 import json
 import os
 import sys
@@ -11,43 +10,11 @@ import pytest
 import time
 
 
-def run_system(input_data, db_path=None):
-    """requirement/graphシステムの公開APIを実行"""
-    env = os.environ.copy()
-    if db_path:
-        env["RGL_DATABASE_PATH"] = db_path
-
-    # 現在のPython（venv内）を使用
-    python_cmd = sys.executable
-
-    # プロジェクトルートから実行
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    result = subprocess.run(
-        [python_cmd, "-m", "requirement.graph"],
-        input=json.dumps(input_data),
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=project_root
-    )
-
-    if result.stdout:
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if line.strip():
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-    return {"error": "No valid JSON output", "stderr": result.stderr}
-
-
 class TestDuplicateDetectionIntegration:
     """重複検出機能の統合テスト"""
 
     @pytest.fixture
-    def temp_db(self):
+    def temp_db(self, run_system):
         """一時的なデータベース環境"""
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマ初期化
@@ -55,7 +22,7 @@ class TestDuplicateDetectionIntegration:
             yield db_dir
 
     @pytest.mark.skip(reason="Future implementation: duplicate detection threshold adjustment needed")
-    def test_duplicate_detection_works(self, temp_db):
+    def test_duplicate_detection_works(self, temp_db, run_system):
         """重複検出が正しく動作する - Phase 5.8の完了基準"""
         # Given: 要件を作成
         create_result1 = run_system({
@@ -107,7 +74,7 @@ class TestDuplicateDetectionIntegration:
         # 警告があっても要件は作成される（append-only）
         assert "error" not in create_result2
 
-    def test_embedding_field_properly_stored(self, temp_db):
+    def test_embedding_field_properly_stored(self, temp_db, run_system):
         """embeddingフィールドが正しく保存される"""
         # Given: 要件を作成
         create_result = run_system({
@@ -139,7 +106,7 @@ class TestDependencyManagement:
     """依存関係管理機能のテスト"""
 
     @pytest.fixture
-    def temp_db_with_requirements(self):
+    def temp_db_with_requirements(self, run_system):
         """要件が事前に作成されたDB"""
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマとテストデータ
@@ -155,15 +122,15 @@ class TestDependencyManagement:
 
             yield db_dir
 
-    def test_add_dependency_success(self, temp_db_with_requirements):
+    def test_add_dependency_success(self, temp_db_with_requirements, run_system):
         """依存関係の追加が成功する"""
         # When: req_002はreq_001に依存
         result = run_system({
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "req_002",
-                "parent_id": "req_001"
+                "from_id": "req_002",
+                "to_id": "req_001"
             }
         }, temp_db_with_requirements)
 
@@ -171,7 +138,7 @@ class TestDependencyManagement:
         assert "error" not in result
         assert result.get("data", {}).get("status") == "success" or "success" in str(result)
 
-    def test_circular_dependency_detected(self, temp_db_with_requirements):
+    def test_circular_dependency_detected(self, temp_db_with_requirements, run_system):
         """循環依存が検出される"""
         # Given: req_002→req_001の依存関係
         run_system({
@@ -190,7 +157,7 @@ class TestDependencyManagement:
         # Then: エラーまたは警告が発生
         assert "error" in result or "circular" in str(result).lower()
 
-    def test_find_dependencies_works(self, temp_db_with_requirements):
+    def test_find_dependencies_works(self, temp_db_with_requirements, run_system):
         """依存関係の検索が動作する"""
         # Given: 依存関係チェーン req_003→req_002→req_001
         run_system({
@@ -221,12 +188,12 @@ class TestEndToEndScenarios:
     """エンドツーエンドシナリオの統合テスト"""
 
     @pytest.fixture
-    def temp_db(self):
+    def temp_db(self, run_system):
         with tempfile.TemporaryDirectory() as db_dir:
             run_system({"type": "schema", "action": "apply"}, db_dir)
             yield db_dir
 
-    def test_complete_requirement_workflow(self, temp_db):
+    def test_complete_requirement_workflow(self, temp_db, run_system):
         """完全な要件管理ワークフロー"""
         # 1. 要件作成
         create_result = run_system({
@@ -280,7 +247,7 @@ class TestEndToEndScenarios:
         assert "error" not in find_result
         assert find_result.get("data") is not None
 
-    def test_duplicate_detection_in_workflow(self, temp_db):
+    def test_duplicate_detection_in_workflow(self, temp_db, run_system):
         """ワークフロー内での重複検出（オプショナル機能）"""
         # 初期要件
         run_system({

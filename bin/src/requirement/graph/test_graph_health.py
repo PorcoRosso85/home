@@ -11,42 +11,11 @@ Tests for graph health features including:
 Following the testing philosophy: no mocks, test actual behavior through real instances
 """
 import pytest
-import subprocess
 import json
 import os
 import tempfile
 import time
-
-
-def run_system(input_data, db_path=None):
-    """requirement/graphシステムの公開APIを実行"""
-    env = os.environ.copy()
-    if db_path:
-        env["RGL_DATABASE_PATH"] = db_path
-
-    # venvのPythonを使用
-    import sys
-    python_cmd = sys.executable  # 現在のPython（venv内）を使用
-
-    result = subprocess.run(
-        [python_cmd, "-m", "requirement.graph"],
-        input=json.dumps(input_data),
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    )
-
-    if result.stdout:
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if line.strip():
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-    return {"error": "No valid JSON output", "stderr": result.stderr}
+from test_helpers import run_system
 
 
 class TestDepthLimitEnforcement:

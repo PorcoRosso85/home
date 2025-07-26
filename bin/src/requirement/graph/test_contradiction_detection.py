@@ -9,42 +9,8 @@
 import pytest
 import tempfile
 import os
-import sys
-import subprocess
 import json
-
-# プロジェクトルートから実行
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
-def run_system(input_data, db_path=None):
-    """requirement/graphシステムの公開APIを実行"""
-    env = os.environ.copy()
-    if db_path:
-        env["RGL_DATABASE_PATH"] = db_path
-
-    # 現在のPython（venv内）を使用
-    python_cmd = sys.executable
-
-    result = subprocess.run(
-        [python_cmd, "-m", "requirement.graph"],
-        input=json.dumps(input_data),
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=project_root
-    )
-
-    if result.stdout:
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if line.strip():
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-    return {"error": "No valid JSON output", "stderr": result.stderr}
+from test_helpers import run_system
 
 
 class TestContradictionDetection:

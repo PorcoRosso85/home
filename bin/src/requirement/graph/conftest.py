@@ -16,13 +16,15 @@ def run_system_optimized(input_data: Dict[str, Any], db_path: Optional[str] = No
     """最適化されたrun_system関数（タイムアウトとクリーンアップ付き）"""
     env = os.environ.copy()
     if db_path:
-        env["RGL_DATABASE_PATH"] = db_path
+        env["RGL_DB_PATH"] = db_path
 
     python_cmd = sys.executable
+    # run.pyの絶対パスを計算
+    run_py_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "run.py")
     
     # プロセスを作成
     process = subprocess.Popen(
-        [python_cmd, "-m", "requirement.graph"],
+        [python_cmd, run_py_path],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
