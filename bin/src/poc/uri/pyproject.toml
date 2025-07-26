@@ -22,6 +22,8 @@ classifiers = [
 
 dependencies = [
     "kuzu_py @ file://../../persistence/kuzu_py",
+    "pyyaml>=6.0",
+    "jinja2>=3.0",
 ]
 
 [project.optional-dependencies]
@@ -36,7 +38,7 @@ dev = [
 uri-poc = "main:main"
 
 [tool.setuptools]
-py-modules = ["mod", "main", "test_mod"]
+py-modules = ["mod", "main", "test_mod", "asvs_loader", "test_asvs_loader", "reference_guardrails"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]

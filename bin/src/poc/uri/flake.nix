@@ -13,13 +13,15 @@
         
         python = pkgs.python312;
         
-        # PythonX¢Â
+        # Python dependencies
         pythonDeps = with python.pkgs; [
           pytest
           pytest-cov
+          pyyaml
+          jinja2
         ];
         
-        # íü«ëXpersistence/kuzu_py	
+        # ï¿½ï¿½ï¿½ï¿½Xpersistence/kuzu_py	
         kuzuPy = python.pkgs.buildPythonPackage {
           pname = "kuzu_py";
           version = "0.1.0";
@@ -37,7 +39,7 @@
           ];
         };
         
-        # ,ÑÃ±ü¸
+        # ,ï¿½Ã±ï¿½ï¿½
         uriPoc = python.pkgs.buildPythonPackage {
           pname = "uri-poc";
           version = "0.1.0";
@@ -55,7 +57,7 @@
           ];
         };
         
-        # ‹z°ƒ
+        # ï¿½zï¿½ï¿½
         devEnv = python.withPackages (ps: [
           kuzuPy
         ] ++ pythonDeps);
@@ -74,10 +76,11 @@
           shellHook = ''
             echo "LocationURI Dataset Management POC Development Environment"
             echo "Available commands:"
-            echo "  nix run .       - Show available apps"
-            echo "  nix run .#test  - Run tests"
-            echo "  nix run .#cli   - Run interactive CLI"
-            echo "  nix run .#demo  - Run demo scenario"
+            echo "  nix run .             - Show available apps"
+            echo "  nix run .#test        - Run tests"
+            echo "  nix run .#cli         - Run interactive CLI"
+            echo "  nix run .#demo        - Run demo scenario"
+            echo "  nix run .#guardrails  - Run reference guardrails demo"
           '';
         };
         
@@ -87,14 +90,14 @@
             program = let
               appNames = builtins.attrNames (removeAttrs self.apps.${system} ["default"]);
               helpText = ''
-                ×í¸§¯È: LocationURI Dataset Management POC
+                ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: LocationURI Dataset Management POC
                 
-                ¬Ù:
-                - requirement/graph ¹­üŞ’(W_LocationURI¡
-                - persistence/kuzu_py kˆ‹Çü¿Ùü¹Í\
-                - ‹Mš©UŒ_Çü¿»ÃÈK‰nÎüÉ\’1ï
+                ï¿½ï¿½:
+                - requirement/graph ï¿½ï¿½ï¿½Ş’(W_LocationURIï¿½
+                - persistence/kuzu_py kï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½\
+                - ï¿½Mï¿½ï¿½Uï¿½_ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Kï¿½nï¿½ï¿½ï¿½\ï¿½1ï¿½
                 
-                )(ïıj³ŞóÉ:
+                )(ï¿½ï¿½jï¿½ï¿½ï¿½ï¿½:
                 ${builtins.concatStringsSep "\n" (map (name: "  nix run .#${name}") appNames)}
               '';
             in "${pkgs.writeShellScript "show-help" ''
@@ -109,7 +112,7 @@
             program = "${pkgs.writeShellScript "test" ''
               cd ${self}
               export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
-              exec ${devEnv}/bin/pytest test_mod.py -v
+              exec ${devEnv}/bin/pytest test_mod.py test_asvs_loader.py -v
             ''}";
           };
           
@@ -193,6 +196,27 @@ PYTHON_EOF
               else
                 echo "README.md not found"
               fi
+            ''}";
+          };
+          
+          guardrails = {
+            type = "app";
+            program = "${pkgs.writeShellScript "guardrails" ''
+              cd ${self}
+              export PYTHONPATH="${self}:../../persistence/kuzu_py:../../requirement/graph:$PYTHONPATH"
+              exec ${devEnv}/bin/python demo_enforced_guardrails.py
+            ''}";
+          };
+          
+          asvs = {
+            type = "app";
+            program = "${pkgs.writeShellScript "asvs" ''
+              echo "ASVS Data Loader Demo"
+              echo "===================="
+              echo ""
+              cd ${self}
+              export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+              exec ${devEnv}/bin/python asvs_loader.py
             ''}";
           };
         };
