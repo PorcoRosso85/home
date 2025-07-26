@@ -3,6 +3,67 @@
 ## 概要
 営業力がない組織でも顧客が自然に増える、合法的な多段階契約管理システム
 
+## クイックスタート
+
+### 開発環境のセットアップ
+```bash
+# 開発シェルに入る
+nix develop
+
+# 利用可能なコマンドを確認
+nix run .
+```
+
+### テストの実行
+```bash
+# すべてのテストを実行
+nix run .#test
+
+# 特定のテストを実行
+nix run .#test -- tests/test_imports.py
+
+# カバレッジ付きでテストを実行
+nix run .#test -- --cov=auto_scale_contract
+```
+
+### ドキュメントの確認
+```bash
+# README表示
+nix run .#readme
+
+# 仕様書表示
+nix run .#spec
+
+# 議論内容表示
+nix run .#discussion
+```
+
+## プロジェクト構造
+
+```
+auto_scale/
+├── README.md                    # プロジェクト概要（このファイル）
+├── flake.nix                    # Nix開発環境定義
+├── flake.lock                   # Nix依存関係ロック
+├── pyproject.toml               # Pythonプロジェクト設定
+├── auto_scale_contract/         # メインパッケージ
+│   ├── __init__.py
+│   └── contract_management/     # 契約管理ドメイン
+│       ├── __init__.py
+│       ├── application.py       # アプリケーション層
+│       ├── domain.py            # ドメインモデル
+│       ├── infrastructure.py    # インフラストラクチャ層
+│       └── schema.sql           # データベーススキーマ
+├── tests/                       # テストディレクトリ
+│   ├── __init__.py
+│   ├── conftest.py              # pytest設定
+│   ├── test_graphdb.py          # GraphDBテスト
+│   └── test_imports.py          # インポートテスト
+└── docs/                        # ドキュメント
+    ├── discussion.md            # システム構想の議論内容
+    └── spec.md                  # 詳細仕様書
+```
+
 ## システムの意義
 1. **客が客を呼びたくなる仕組みの具現化**
 2. **自社営業力がないときに取れる戦略の提供**
@@ -109,3 +170,4 @@ POC段階 - 最初のパターン選定と要件定義を実施中
 
 ## 関連ドキュメント
 - [議論の経緯](./docs/discussion.md) - システム構想に至るまでの議論内容
+- [POC結果](./POC_RESULT.md) - POC実施結果とその評価

@@ -1,0 +1,11 @@
+"""Contract Management module for Auto-Scale Contract system.
+
+This module follows Domain-Driven Design principles with clear separation of:
+- domain: Core business logic and entities
+- application: Use cases and application services
+- infrastructure: External integrations and repositories
+"""
+
+from . import domain, application, infrastructure
+
+__all__ = ["domain", "application", "infrastructure"]
