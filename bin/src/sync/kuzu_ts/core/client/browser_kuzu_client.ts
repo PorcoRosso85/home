@@ -141,6 +141,24 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
     return await this.conn.query(cypher, params);
   }
 
+  // Query counter value
+  async queryCounter(counterId: string): Promise<number> {
+    if (!this.conn) {
+      throw new Error("Client not initialized");
+    }
+    
+    const result = await this.conn.query(`
+      MATCH (c:Counter {id: $counterId})
+      RETURN c.value as value
+    `, { counterId });
+    
+    const table = result.getAll();
+    if (table.length > 0 && table[0][0] !== null) {
+      return table[0][0];
+    }
+    return 0; // Default if counter doesn't exist
+  }
+
   // Private methods
 
   private async createSchema(): Promise<void> {
@@ -158,6 +176,14 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
         id STRING,
         content STRING,
         authorId STRING,
+        PRIMARY KEY(id)
+      )
+    `);
+    
+    await this.conn.query(`
+      CREATE NODE TABLE IF NOT EXISTS Counter(
+        id STRING,
+        value INT64,
         PRIMARY KEY(id)
       )
     `);
@@ -191,15 +217,36 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
         MATCH (follower:User {id: $followerId})
         MATCH (target:User {id: $targetId})
         CREATE (follower)-[:FOLLOWS]->(target)
+      `,
+      INCREMENT_COUNTER: `
+        MERGE (c:Counter {id: $counterId})
+        ON CREATE SET c.value = COALESCE($amount, 1)
+        ON MATCH SET c.value = c.value + COALESCE($amount, 1)
+      `,
+      QUERY_COUNTER: `
+        MATCH (c:Counter {id: $counterId})
+        RETURN c.value as value
       `
     };
     
     const query = templates[event.template];
     if (query && this.conn) {
-      await this.conn.query(query, event.params);
+      const result = await this.conn.query(query, event.params);
       
-      // Invalidate cache since state has changed
-      this.stateCache.invalidateOnEvent(event);
+      // Special handling for QUERY_COUNTER
+      if (event.template === "QUERY_COUNTER") {
+        // For query events, we need to return the result somehow
+        // We'll store it in the event params for now
+        const table = result.getAll();
+        if (table.length > 0) {
+          event.params._result = table[0][0]; // The value
+        } else {
+          event.params._result = 0; // Default if counter doesn't exist
+        }
+      } else {
+        // Invalidate cache since state has changed (not for queries)
+        this.stateCache.invalidateOnEvent(event);
+      }
       
       // Notify handlers
       this.remoteEventHandlers.forEach(handler => handler(event));
