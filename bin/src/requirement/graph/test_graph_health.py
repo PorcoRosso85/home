@@ -55,13 +55,13 @@ class TestDepthLimitEnforcement:
             ("layer2", "layer1")
         ]
         
-        for child_id, parent_id in dependencies:
+        for from_id, to_id in dependencies:
             result = run_system({
                 "type": "template", 
                 "template": "add_dependency",
                 "parameters": {
-                    "child_id": child_id,
-                    "parent_id": parent_id
+                    "from_id": from_id,
+                    "to_id": to_id
                 }
             }, temp_db)
             assert result.get("data", {}).get("status") == "success"
@@ -96,8 +96,8 @@ class TestDepthLimitEnforcement:
                 "type": "template",
                 "template": "add_dependency",
                 "parameters": {
-                    "child_id": f"deep_{i+1}",
-                    "parent_id": f"deep_{i}"
+                    "from_id": f"deep_{i+1}",
+                    "to_id": f"deep_{i}"
                 }
             }, temp_db)
             
@@ -140,8 +140,8 @@ class TestCircularDependencyPrevention:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "circular_a",
-                "parent_id": "circular_b"
+                "from_id": "circular_a",
+                "to_id": "circular_b"
             }
         }, temp_db)
         assert result.get("data", {}).get("status") == "success"
@@ -151,21 +151,17 @@ class TestCircularDependencyPrevention:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "circular_b",
-                "parent_id": "circular_a"
+                "from_id": "circular_b",
+                "to_id": "circular_a"
             }
         }, temp_db)
         
         # 循環依存が検出されることを確認
-        # レスポンスは {'type': 'result', 'data': {'error': {...}, 'status': 'error'}} の形式
-        if result.get("type") == "result" and result.get("data"):
-            data = result["data"]
-            assert data.get("status") == "error"
-            error_message = str(data.get("error", ""))
-        else:
-            assert result.get("type") == "error" or result.get("error") is not None
-            error_message = str(result.get("error", "")) or str(result.get("message", ""))
-        assert "circular" in error_message.lower() or "cycle" in error_message.lower()
+        assert result.get("data", {}).get("status") == "error"
+        error_info = result.get("data", {}).get("error", {})
+        assert error_info.get("type") == "ConstraintViolationError"
+        assert error_info.get("constraint") == "no_circular_dependency"
+        assert "circular" in error_info.get("message", "").lower()
     
     def test_self_dependency_prevented(self, temp_db):
         """自己依存（A->A）が防止される"""
@@ -186,20 +182,17 @@ class TestCircularDependencyPrevention:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "self_ref",
-                "parent_id": "self_ref"
+                "from_id": "self_ref",
+                "to_id": "self_ref"
             }
         }, temp_db)
         
-        # レスポンスは {'type': 'result', 'data': {'error': {...}, 'status': 'error'}} の形式
-        if result.get("type") == "result" and result.get("data"):
-            data = result["data"]
-            assert data.get("status") == "error"
-            error_message = str(data.get("error", ""))
-        else:
-            assert result.get("type") == "error" or result.get("error") is not None
-            error_message = str(result.get("error", "")) or str(result.get("message", ""))
-        assert "self" in error_message.lower() or "circular" in error_message.lower()
+        # 自己依存が検出されることを確認
+        assert result.get("data", {}).get("status") == "error"
+        error_info = result.get("data", {}).get("error", {})
+        assert error_info.get("type") == "ConstraintViolationError"
+        assert error_info.get("constraint") == "no_self_dependency"
+        assert "self" in error_info.get("message", "").lower()
     
     def test_indirect_circular_dependency_prevented(self, temp_db):
         """間接的な循環依存（A->B->C->A）が防止される"""
@@ -224,13 +217,13 @@ class TestCircularDependencyPrevention:
             ("chain_b", "chain_c")
         ]
         
-        for child_id, parent_id in dependencies:
+        for from_id, to_id in dependencies:
             result = run_system({
                 "type": "template",
                 "template": "add_dependency",
                 "parameters": {
-                    "child_id": child_id,
-                    "parent_id": parent_id
+                    "from_id": from_id,
+                    "to_id": to_id
                 }
             }, temp_db)
             assert result.get("data", {}).get("status") == "success"
@@ -240,20 +233,17 @@ class TestCircularDependencyPrevention:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "chain_c",
-                "parent_id": "chain_a"
+                "from_id": "chain_c",
+                "to_id": "chain_a"
             }
         }, temp_db)
         
-        # レスポンスは {'type': 'result', 'data': {'error': {...}, 'status': 'error'}} の形式
-        if result.get("type") == "result" and result.get("data"):
-            data = result["data"]
-            assert data.get("status") == "error"
-            error_message = str(data.get("error", ""))
-        else:
-            assert result.get("type") == "error" or result.get("error") is not None
-            error_message = str(result.get("error", "")) or str(result.get("message", ""))
-        assert "circular" in error_message.lower() or "cycle" in error_message.lower()
+        # 循環依存が検出されることを確認
+        assert result.get("data", {}).get("status") == "error"
+        error_info = result.get("data", {}).get("error", {})
+        assert error_info.get("type") == "ConstraintViolationError"
+        assert error_info.get("constraint") == "no_circular_dependency"
+        assert "circular" in error_info.get("message", "").lower() or "cycle" in str(error_info).lower()
 
 
 if __name__ == "__main__":

@@ -52,9 +52,9 @@ def create_database(
 
     try:
         if in_memory:
-            import uuid
-            unique_id = str(uuid.uuid4()) if test_unique else "test"
-            db_path = f":memory:{unique_id}"
+            # KuzuDB only supports ":memory:" for in-memory databases
+            # The UUID suffix was causing files to be created
+            db_path = ":memory:"
         else:
             if not path:
                 path = os.environ.get('RGL_DATABASE_PATH', './kuzu_db')
