@@ -6,6 +6,7 @@ testpaths = [
 ]
 pythonpath = ["."]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.pytest]
 # E2Eテストのマーカー定義

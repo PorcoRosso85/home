@@ -233,21 +233,25 @@ class SyncClient:
         
         # 暫定的にHTTP経由でクエリを実行
         import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                'http://localhost:8080/query',
-                json={"cypher": cypher, "params": params or {}},
-                headers={"Content-Type": "application/json"}
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise Exception(f"Query failed with status {response.status}: {error_text}")
-                
-                result = await response.json()
-                if not result.get("success"):
-                    raise Exception(f"Query failed: {result.get('error', 'Unknown error')}")
-                
-                return result.get("data", {})
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    'http://localhost:8080/query',
+                    json={"cypher": cypher, "params": params or {}},
+                    headers={"Content-Type": "application/json"}
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise Exception(f"Query failed with status {response.status}: {error_text}")
+                    
+                    result = await response.json()
+                    if not result.get("success"):
+                        raise Exception(f"Query failed: {result.get('error', 'Unknown error')}")
+                    
+                    return result.get("data", {})
+        except aiohttp.ClientError as e:
+            # HTTPエンドポイントが未実装の場合
+            raise Exception(f"Query endpoint not available: {str(e)}")
 
 
 class WebSocketServerFixture:

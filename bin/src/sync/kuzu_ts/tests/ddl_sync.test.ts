@@ -4,10 +4,11 @@
  */
 
 import { assertEquals, assertExists } from "jsr:@std/assert";
+import { ServerKuzuClient } from "../core/server/server_kuzu_client.ts";
 
 Deno.test({
   name: "should synchronize CREATE NODE TABLE across instances",
-  ignore: true, // Not implemented yet
+  ignore: false, // Testing DDL sync implementation
   fn: async () => {
     // 将来の実装イメージ
     const client1 = new ServerKuzuClient();
@@ -17,7 +18,7 @@ Deno.test({
     await client2.initialize();
     
     // Client1でテーブル作成
-    const ddlEvent = await client1.executeTemplate("CREATE_NODE_TABLE", {
+    const ddlEvent = await client1.createDDLEvent("CREATE_NODE_TABLE", {
       tableName: "Product",
       columns: [
         { name: "id", type: "STRING" },
@@ -45,7 +46,7 @@ Deno.test({
     await client.initialize();
     
     // 既存テーブルにカラム追加
-    await client.executeTemplate("ALTER_TABLE_ADD_COLUMN", {
+    await client.createDDLEvent("ADD_COLUMN", {
       tableName: "User",
       columnName: "age",
       columnType: "INT32"
@@ -53,7 +54,7 @@ Deno.test({
     
     // カラムが追加されたことを確認
     const userInfo = await client.executeQuery("CALL table_info('User')");
-    const ageColumn = userInfo.find(col => col.name === "age");
+    const ageColumn = userInfo.find((col: any) => col.name === "age");
     assertExists(ageColumn);
   }
 });

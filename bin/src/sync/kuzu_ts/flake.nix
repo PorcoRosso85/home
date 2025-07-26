@@ -23,6 +23,7 @@
           pytest-asyncio
           websockets
           httpx
+          aiohttp
         ]);
         
       in

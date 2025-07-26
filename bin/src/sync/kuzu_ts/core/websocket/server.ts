@@ -14,13 +14,18 @@ const port = 8080;
 const clients = new Map<string, ClientConnection>();
 const eventHistory: StoredEvent[] = [];
 let eventSequence = 0;
+const serverStartTime = Date.now();
 
 // Import ServerKuzuClient for persistent storage
 import { ServerKuzuClient } from "../server/server_kuzu_client.ts";
+import { MetricsCollectorImpl } from "../../operations/metrics_collector.ts";
 
 // Initialize ServerKuzuClient
 const kuzuClient = new ServerKuzuClient();
 let kuzuInitialized = false;
+
+// Initialize global metrics collector
+const metricsCollector = new MetricsCollectorImpl();
 
 // ========== 型定義 ==========
 
@@ -138,6 +143,37 @@ console.log(`WebSocket server starting on ws://localhost:${port}`);
 
 Deno.serve({ port }, async (req) => {
   const url = new URL(req.url);
+  
+  // Handle HTTP GET request to /health endpoint
+  if (req.method === "GET" && url.pathname === "/health") {
+    const startTime = Date.now();
+    const state = getServerState();
+    const metrics = metricsCollector.getStats();
+    const health = {
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor((Date.now() - serverStartTime) / 1000),
+      connections: state.activeConnections,
+      totalEvents: state.totalEvents,
+      checks: {
+        database: db ? "connected" : "disconnected",
+        websocket: "operational"
+      },
+      metrics: {
+        eventsPerMinute: metrics.eventsPerMinute || 0,
+        averageLatency: Math.round(metrics.averageLatency * 100) / 100,
+        compressionRatio: Math.round(metrics.compressionRatio * 100) / 100,
+        errors: metrics.errors
+      }
+    };
+    
+    return new Response(JSON.stringify(health), {
+      headers: { 
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      }
+    });
+  }
   
   // Handle HTTP GET request to /state endpoint
   if (req.method === "GET" && url.pathname === "/state") {
