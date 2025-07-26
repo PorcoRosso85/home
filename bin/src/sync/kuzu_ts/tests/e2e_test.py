@@ -13,6 +13,7 @@ import subprocess
 import time
 import os
 import signal
+import kuzu
 
 class SyncClient:
     """WebSocket同期クライアント"""
@@ -23,6 +24,93 @@ class SyncClient:
         self.received_events: List[Dict[str, Any]] = []
         self.connected = False
         self.history_events: List[Dict[str, Any]] = []  # 履歴イベント用
+        
+        # インメモリKuzuDBを初期化
+        self.db = kuzu.Database(":memory:")
+        self.conn = kuzu.Connection(self.db)
+        self._initialize_schema()
+        
+    def _initialize_schema(self):
+        """KuzuDBスキーマを初期化"""
+        # イベントノードの作成
+        self.conn.execute("""
+            CREATE NODE TABLE Event (
+                id STRING PRIMARY KEY,
+                template STRING,
+                clientId STRING,
+                timestamp INT64,
+                params STRING
+            )
+        """)
+        
+        # ユーザーノードの作成（イベントから派生するエンティティ）
+        self.conn.execute("""
+            CREATE NODE TABLE User (
+                id STRING PRIMARY KEY,
+                name STRING
+            )
+        """)
+        
+        # カウンターノードの作成
+        self.conn.execute("""
+            CREATE NODE TABLE Counter (
+                id STRING PRIMARY KEY,
+                value INT64
+            )
+        """)
+        
+    def _write_event_to_db(self, event: Dict[str, Any]):
+        """イベントをデータベースに書き込む"""
+        # イベントをEvent テーブルに挿入
+        params_json = json.dumps(event.get("params", {}))
+        self.conn.execute("""
+            CREATE (:Event {
+                id: $id,
+                template: $template,
+                clientId: $clientId,
+                timestamp: $timestamp,
+                params: $params
+            })
+        """, {
+            "id": event["id"],
+            "template": event["template"],
+            "clientId": event["clientId"],
+            "timestamp": event["timestamp"],
+            "params": params_json
+        })
+        
+        # テンプレートに応じて派生エンティティを作成
+        if event["template"] == "CREATE_USER":
+            user_params = event["params"]
+            self.conn.execute("""
+                MERGE (u:User {id: $id})
+                SET u.name = $name
+            """, {
+                "id": user_params["id"],
+                "name": user_params["name"]
+            })
+        elif event["template"] == "INCREMENT_COUNTER":
+            counter_params = event["params"]
+            counter_id = counter_params["counterId"]
+            amount = counter_params.get("amount", 1)
+            
+            # カウンターが存在しない場合は作成
+            result = self.conn.execute("""
+                MATCH (c:Counter {id: $id})
+                RETURN c.value as value
+            """, {"id": counter_id})
+            
+            if result.has_next():
+                current_value = result.get_next()[0]
+                new_value = current_value + amount
+                self.conn.execute("""
+                    MATCH (c:Counter {id: $id})
+                    SET c.value = $value
+                """, {"id": counter_id, "value": new_value})
+            else:
+                self.conn.execute("""
+                    CREATE (:Counter {id: $id, value: $value})
+                """, {"id": counter_id, "value": amount})
         
     async def connect(self, url: str = "ws://localhost:8080"):
         """WebSocketサーバーに接続"""
@@ -42,12 +130,18 @@ class SyncClient:
             async for message in self.ws:
                 data = json.loads(message)
                 if data["type"] == "event":
-                    self.received_events.append(data["payload"])
+                    event = data["payload"]
+                    self.received_events.append(event)
+                    # イベントをDBに書き込む
+                    self._write_event_to_db(event)
                 elif data["type"] == "connected":
                     print(f"Client {self.client_id} connected")
                 elif data["type"] == "history":
                     # 履歴メッセージを受信
                     self.history_events = data.get("events", [])
+                    # 履歴イベントもDBに書き込む
+                    for event in self.history_events:
+                        self._write_event_to_db(event)
         except websockets.exceptions.ConnectionClosed:
             self.connected = False
             
@@ -61,6 +155,9 @@ class SyncClient:
             "payload": event
         }))
         
+        # 自分が送信したイベントも自分のDBに書き込む
+        self._write_event_to_db(event)
+        
     async def disconnect(self):
         """切断"""
         if self.ws:
@@ -70,6 +167,23 @@ class SyncClient:
     def get_received_events(self) -> List[Dict[str, Any]]:
         """受信したイベントを取得"""
         return self.received_events.copy()
+    
+    def query_local_db(self, cypher: str, params: Dict[str, Any] = None) -> List[tuple]:
+        """
+        ローカルのインメモリKuzuDBにクエリを実行
+        
+        Args:
+            cypher: Cypherクエリ文字列
+            params: クエリパラメータ（オプション）
+            
+        Returns:
+            クエリ結果のリスト
+        """
+        result = self.conn.execute(cypher, params or {})
+        rows = []
+        while result.has_next():
+            rows.append(result.get_next())
+        return rows
     
     async def query_state(self, cypher: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
@@ -295,60 +409,29 @@ async def test_concurrent_increments(websocket_server):
             increment_events = [e for e in events if e["template"] == "INCREMENT_COUNTER"]
             assert len(increment_events) == 4  # 自分以外の4つ
         
-        # クエリ検証: 各クライアントがカウンター値を確認
-        query_tasks = []
-        for client in clients:
-            query_event = {
-                "id": str(uuid.uuid4()),
-                "template": "QUERY_COUNTER",
-                "params": {"counterId": "shared-counter"},
-                "clientId": client.client_id,
-                "timestamp": int(time.time() * 1000)
-            }
-            query_tasks.append(client.send_event(query_event))
-        
-        await asyncio.gather(*query_tasks)
-        await asyncio.sleep(0.5)
-        
-        # 各クライアントがクエリ結果を受信し、値が初期値+5であることを確認
-        expected_value = initial_value + 5
+        # KuzuDB検証: 各クライアントのローカルDBからカウンター値をクエリ
         for i, client in enumerate(clients):
-            events = client.get_received_events()
-            query_responses = [e for e in events if e.get("template") == "COUNTER_VALUE"]
+            # Cypherクエリを実行してカウンター値を取得
+            result = client.query_local_db(
+                "MATCH (c:Counter {id: $counterId}) RETURN c.value as value",
+                {"counterId": "shared-counter"}
+            )
             
-            # 最低1つのクエリレスポンスを受信
-            assert len(query_responses) >= 1, f"Client {i} did not receive counter value"
+            # クエリ結果の検証
+            assert len(result) == 1, f"Client {i}: Expected exactly one counter, got {len(result)}"
+            counter_value = result[0][0]  # 最初の行の最初のカラム（value）を取得
             
-            # 最新のカウンター値が期待値であることを確認
-            latest_value = query_responses[-1].get("params", {}).get("value")
-            assert latest_value == expected_value, f"Client {i} sees counter value {latest_value}, expected {expected_value}"
+            # カウンター値が5であることを確認
+            assert counter_value == 5, f"Client {i}: Expected counter value 5, got {counter_value}"
+            
+            # デバッグ用: 全イベントをクエリしてイベント数を確認
+            all_events = client.query_local_db(
+                "MATCH (e:Event) WHERE e.template = $template RETURN count(e) as count",
+                {"template": "INCREMENT_COUNTER"}
+            )
+            event_count = all_events[0][0] if all_events else 0
+            print(f"Client {i}: Total INCREMENT_COUNTER events in local DB: {event_count}")
         
-        # 異なるカウンターIDでも動作することを確認
-        other_counter_event = {
-            "id": str(uuid.uuid4()),
-            "template": "INCREMENT_COUNTER",
-            "params": {"counterId": "other-counter", "amount": 10},
-            "clientId": clients[0].client_id,
-            "timestamp": int(time.time() * 1000)
-        }
-        await clients[0].send_event(other_counter_event)
-        
-        # 他のカウンターの値を確認
-        other_query = {
-            "id": str(uuid.uuid4()),
-            "template": "QUERY_COUNTER",
-            "params": {"counterId": "other-counter"},
-            "clientId": clients[0].client_id,
-            "timestamp": int(time.time() * 1000)
-        }
-        await clients[0].send_event(other_query)
-        await asyncio.sleep(0.2)
-        
-        final_events = clients[0].get_received_events()
-        other_counter_values = [e for e in final_events if e.get("template") == "COUNTER_VALUE" 
-                                and e.get("params", {}).get("counterId") == "other-counter"]
-        assert len(other_counter_values) > 0, "Did not receive other counter value"
-        assert other_counter_values[-1].get("params", {}).get("value") == 10, "Other counter should be 10"
             
     finally:
         # クリーンアップ

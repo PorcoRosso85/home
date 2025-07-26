@@ -5,15 +5,20 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     storage-s3.url = "path:../../storage/s3";
+    kuzu-py.url = "path:../../persistence/kuzu_py";
   };
 
-  outputs = { self, nixpkgs, flake-utils, storage-s3 }:
+  outputs = { self, nixpkgs, flake-utils, storage-s3, kuzu-py }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # Python環境
-        pythonEnv = pkgs.python311.withPackages (ps: with ps; [
+        # Python環境 - kuzu-pyを含めた統合環境
+        # kuzu-pyはkuzuPyパッケージとして提供される
+        pythonEnv = pkgs.python312.withPackages (ps: with ps; [
+          # kuzu-pyからのパッケージ
+          kuzu-py.packages.${system}.kuzuPy
+          # 既存のテスト用パッケージ
           pytest
           pytest-asyncio
           websockets
@@ -131,12 +136,21 @@
             echo "  - Deno ${pkgs.deno.version}"
             echo "  - Python ${pkgs.python311.version} with pytest"
             echo "  - websocat (WebSocket testing)"
+            echo "  - KuzuDB (Python bindings)"
             echo ""
             echo "🧪 Test commands:"
             echo "  nix run .#test              - Run all tests"
             echo "  pytest tests/e2e_test.py    - Run E2E tests only"
             echo "  deno test tests/            - Run integration tests"
             echo ""
+            echo "🗄️ KuzuDB usage:"
+            echo "  - Python: import kuzu"
+            echo "  - TypeScript: import from 'kuzu-wasm'"
+            echo ""
+            
+            # Set environment variables for KuzuDB
+            export KUZU_STORAGE_PATH="./kuzu_storage"
+            export NODE_PATH="${pkgs.nodejs}/lib/node_modules:$NODE_PATH"
           '';
         };
       });
