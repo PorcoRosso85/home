@@ -6,6 +6,7 @@
 import type { ServerEventStore, EventSnapshot } from "../types.ts";
 import type { TemplateEvent } from "../event_sourcing/types.ts";
 import { validateChecksum } from "../event_sourcing/core.ts";
+import { shouldArchive } from "./archive_policy.ts";
 
 export class ServerEventStoreImpl implements ServerEventStore {
   private events: TemplateEvent[] = [];
@@ -44,5 +45,19 @@ export class ServerEventStoreImpl implements ServerEventStore {
 
   validateChecksum(event: TemplateEvent): boolean {
     return validateChecksum(event);
+  }
+
+  async getArchivableEvents(): Promise<TemplateEvent[]> {
+    const currentTime = Date.now();
+    
+    // Filter events that should be archived
+    const archivableEvents = this.events.filter(event => 
+      shouldArchive(event, currentTime)
+    );
+    
+    // Sort by timestamp (oldest first)
+    archivableEvents.sort((a, b) => a.timestamp - b.timestamp);
+    
+    return archivableEvents;
   }
 }
