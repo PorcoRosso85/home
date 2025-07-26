@@ -86,3 +86,70 @@ export {
 
 // Re-export server components
 export { ServerKuzuClient } from "./core/server/server_kuzu_client.ts";
+
+// Re-export DDL components
+export {
+  DDLTemplateRegistry,
+  buildDDLQuery,
+  validateDDLParams,
+  generateCreateNodeTableQuery,
+  generateCreateEdgeTableQuery,
+  generateAddColumnQuery,
+  generateDropColumnQuery,
+  generateRenameColumnQuery,
+  generateRenameTableQuery,
+  generateDropTableQuery,
+  generateCreateIndexQuery,
+  generateDropIndexQuery,
+  generateCommentQuery,
+  validateTableName,
+  validateColumnName,
+  validateDataType
+} from "./event_sourcing/ddl_templates.ts";
+
+export {
+  DDLEventHandler,
+  ExtendedTemplateRegistry,
+  createUnifiedEvent
+} from "./event_sourcing/ddl_event_handler.ts";
+
+// Re-export DDL types
+export type {
+  DDLTemplateEvent,
+  DDLPayload,
+  DDLOperationType,
+  DDLMetadata,
+  DDLTemplateMetadata,
+  SchemaVersion,
+  SchemaState,
+  NodeTableSchema,
+  EdgeTableSchema,
+  ColumnSchema,
+  IndexSchema,
+  KuzuDataType,
+  CreateNodeTableParams,
+  CreateEdgeTableParams,
+  AddColumnParams,
+  DropColumnParams,
+  RenameColumnParams,
+  RenameTableParams,
+  DropTableParams,
+  CreateIndexParams,
+  DropIndexParams,
+  CommentParams,
+  DDLEventImpact,
+  SchemaMigrationEvent
+} from "./event_sourcing/ddl_types.ts";
+
+export {
+  isDDLEvent,
+  isSchemaModifyingOperation
+} from "./event_sourcing/ddl_types.ts";
+
+// Re-export SchemaManager
+export { 
+  SchemaManager,
+  createSchemaManager,
+  type SchemaSyncState,
+  type SchemaConflict
+} from "./core/schema_manager.ts";

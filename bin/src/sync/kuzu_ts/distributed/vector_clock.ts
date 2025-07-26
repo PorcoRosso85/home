@@ -138,4 +138,15 @@ export class VectorClock {
     }
     return clock;
   }
+
+  /**
+   * Create a copy of this vector clock
+   */
+  copy(): VectorClock {
+    const newClock = new VectorClock(this.nodeId);
+    for (const [nodeId, value] of this.clocks) {
+      newClock.update(nodeId, value);
+    }
+    return newClock;
+  }
 }
