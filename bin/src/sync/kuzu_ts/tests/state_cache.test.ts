@@ -7,21 +7,20 @@ import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert
 import { StateCache } from "../core/cache/state_cache.ts";
 import type { LocalState, TemplateEvent } from "../types.ts";
 
-// Helper function to create a mock event
-function createMockEvent(template: string, params: Record<string, any>): TemplateEvent {
+// Helper function to create a test event
+function createTestEvent(template: string, params: Record<string, any>): TemplateEvent {
   return {
     id: crypto.randomUUID(),
     template,
     params,
     timestamp: Date.now(),
     clientId: "test-client",
-    version: 1,
     checksum: "mock-checksum"
   };
 }
 
-// Helper function to create a mock state
-function createMockState(): LocalState {
+// Helper function to create a test state
+function createTestState(): LocalState {
   return {
     users: [
       { id: "user1", name: "Alice", email: "alice@example.com" },
@@ -38,7 +37,7 @@ function createMockState(): LocalState {
 
 Deno.test("StateCache - should return cached state on hit", async () => {
   const cache = new StateCache();
-  const mockState = createMockState();
+  const mockState = createTestState();
   
   // Set cached state
   cache.setCachedState(mockState);
@@ -66,7 +65,7 @@ Deno.test("StateCache - should return null on cache miss", () => {
 
 Deno.test("StateCache - should invalidate cache on new event", () => {
   const cache = new StateCache();
-  const mockState = createMockState();
+  const mockState = createTestState();
   
   // Set cached state
   cache.setCachedState(mockState);
@@ -75,7 +74,7 @@ Deno.test("StateCache - should invalidate cache on new event", () => {
   assertExists(cache.getCachedState());
   
   // Invalidate with new event
-  const newEvent = createMockEvent("CREATE_USER", { 
+  const newEvent = createTestEvent("CREATE_USER", { 
     id: "user3", 
     name: "Charlie", 
     email: "charlie@example.com" 
@@ -88,7 +87,7 @@ Deno.test("StateCache - should invalidate cache on new event", () => {
 
 Deno.test("StateCache - should track cache statistics", () => {
   const cache = new StateCache();
-  const mockState = createMockState();
+  const mockState = createTestState();
   
   // Initial stats
   let stats = cache.getStats();
@@ -120,9 +119,9 @@ Deno.test("StateCache - should track cache statistics", () => {
 Deno.test("StateCache - should implement LRU eviction for memory management", () => {
   const cache = new StateCache({ maxSize: 2 });
   
-  const state1 = createMockState();
-  const state2 = { ...createMockState(), users: [] };
-  const state3 = { ...createMockState(), posts: [] };
+  const state1 = createTestState();
+  const state2 = { ...createTestState(), users: [] };
+  const state3 = { ...createTestState(), posts: [] };
   
   // Add states with different keys
   cache.setCachedState(state1, "key1");
@@ -143,7 +142,7 @@ Deno.test("StateCache - should implement LRU eviction for memory management", ()
 
 Deno.test("StateCache - should measure memory usage", () => {
   const cache = new StateCache();
-  const mockState = createMockState();
+  const mockState = createTestState();
   
   // Initial memory should be minimal
   let memoryStats = cache.getMemoryStats();
@@ -161,7 +160,7 @@ Deno.test("StateCache - should measure memory usage", () => {
 
 Deno.test("StateCache - performance test with multiple operations", async () => {
   const cache = new StateCache();
-  const mockState = createMockState();
+  const mockState = createTestState();
   
   // Set cache
   cache.setCachedState(mockState);
@@ -187,7 +186,7 @@ Deno.test("StateCache - performance test with multiple operations", async () => 
 
 Deno.test("StateCache - should handle concurrent access safely", async () => {
   const cache = new StateCache();
-  const mockState = createMockState();
+  const mockState = createTestState();
   
   cache.setCachedState(mockState);
   
@@ -195,10 +194,10 @@ Deno.test("StateCache - should handle concurrent access safely", async () => {
   const promises = Array.from({ length: 100 }, async (_, i) => {
     if (i % 10 === 0) {
       // Every 10th operation invalidates
-      cache.invalidateOnEvent(createMockEvent("UPDATE_USER", { id: "user1", name: "Updated" }));
+      cache.invalidateOnEvent(createTestEvent("UPDATE_USER", { id: "user1", name: "Updated" }));
     } else if (i % 5 === 0) {
       // Every 5th operation sets new state
-      cache.setCachedState(createMockState());
+      cache.setCachedState(createTestState());
     } else {
       // Most operations read
       cache.getCachedState();

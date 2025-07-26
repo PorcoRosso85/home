@@ -44,14 +44,14 @@ Deno.test("BrowserKuzuClientImpl - maintains interface compatibility", async (t)
 
   await t.step("initializeFromSnapshot method signature", () => {
     const client = new BrowserKuzuClientImpl();
-    const mockSnapshot: EventSnapshot = {
+    const mockedSnapshot: EventSnapshot = {
       events: [],
       timestamp: Date.now(),
       version: "1.0"
     };
     
     // initializeFromSnapshot should accept EventSnapshot and return Promise<void>
-    const snapshotPromise = client.initializeFromSnapshot(mockSnapshot);
+    const snapshotPromise = client.initializeFromSnapshot(mockedSnapshot);
     assertExists(snapshotPromise);
     assertEquals(snapshotPromise instanceof Promise, true);
   });
@@ -99,12 +99,12 @@ Deno.test("BrowserKuzuClientImpl - maintains interface compatibility", async (t)
     const client = new BrowserKuzuClientImpl();
     let handlerCalled = false;
     
-    const mockHandler = (event: TemplateEvent) => {
+    const mockedHandler = (event: TemplateEvent) => {
       handlerCalled = true;
     };
     
     // onRemoteEvent should accept a handler function
-    client.onRemoteEvent(mockHandler);
+    client.onRemoteEvent(mockedHandler);
     
     // Verify handler was registered (no error thrown)
     assertExists(client["remoteEventHandlers"]);

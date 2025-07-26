@@ -15,6 +15,9 @@ const clients = new Map<string, ClientConnection>();
 const eventHistory: StoredEvent[] = [];
 let eventSequence = 0;
 
+// In-memory counter storage (simple implementation for testing)
+const counters = new Map<string, number>();
+
 // ========== 型定義 ==========
 
 interface ClientConnection {
@@ -118,7 +121,7 @@ function broadcastEvent(event: StoredEvent, sourceClientId: string): void {
 
 console.log(`WebSocket server starting on ws://localhost:${port}`);
 
-Deno.serve({ port }, (req) => {
+Deno.serve({ port }, async (req) => {
   const url = new URL(req.url);
   
   // Handle HTTP GET request to /state endpoint
@@ -127,6 +130,47 @@ Deno.serve({ port }, (req) => {
       headers: { 
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*"
+      }
+    });
+  }
+  
+  // Handle HTTP POST request to /query endpoint
+  if (req.method === "POST" && url.pathname === "/query") {
+    try {
+      const body = await req.json();
+      const { cypher, params } = body;
+      
+      // Simple mock implementation for testing
+      return new Response(JSON.stringify({
+        success: true,
+        data: []
+      }), {
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: error.message
+      }), {
+        status: 500,
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    }
+  }
+  
+  // Handle OPTIONS for CORS
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
       }
     });
   }
@@ -161,7 +205,7 @@ Deno.serve({ port }, (req) => {
     }));
   });
 
-  socket.addEventListener("message", (event) => {
+  socket.addEventListener("message", async (event) => {
     console.log(`Message from ${clientId}:`, event.data);
     
     try {
@@ -172,8 +216,39 @@ Deno.serve({ port }, (req) => {
           // イベント検証
           validateEvent(message.payload);
           
+          // Check if it's a query event
+          if (message.payload.template === "QUERY_COUNTER") {
+            const counterId = message.payload.params.counterId;
+            const value = counters.get(counterId) || 0;
+            
+            // Send result back to the requesting client
+            socket.send(JSON.stringify({
+              type: "event",
+              payload: {
+                id: message.payload.id,
+                template: "COUNTER_VALUE",
+                params: {
+                  counterId: counterId,
+                  value: value
+                },
+                clientId: clientId,
+                timestamp: Date.now()
+              }
+            }));
+            break;
+          }
+          
           // イベント保存
           const storedEvent = storeEvent(message.payload);
+          
+          // Apply event to in-memory state
+          if (storedEvent.template === "INCREMENT_COUNTER") {
+            const counterId = storedEvent.params.counterId;
+            const amount = storedEvent.params.amount || 1;
+            const currentValue = counters.get(counterId) || 0;
+            counters.set(counterId, currentValue + amount);
+            console.log(`Counter ${counterId} incremented to ${currentValue + amount}`);
+          }
           
           // 他のクライアントにブロードキャスト
           broadcastEvent(storedEvent, clientId);

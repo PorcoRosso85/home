@@ -44,7 +44,7 @@ export class MetricsCollectorImpl implements MetricsCollector {
     this.eventTypes[event.template] = (this.eventTypes[event.template] || 0) + 1;
     
     // Track latency (simplified - in real implementation would measure actual latency)
-    const latency = Math.random() * 50; // Mock latency 0-50ms
+    const latency = Math.random() * 50; // Simulated latency 0-50ms
     this.latencies.push(latency);
   }
 

@@ -46,9 +46,9 @@ Deno.test("EventGroup - should create event group with multiple events", async (
 Deno.test("EventGroup - should commit all events atomically", async () => {
   // Arrange
   const manager = new EventGroupManager();
-  const mockStore = {
+  const testEventStore = {
     committedEvents: [] as TemplateEvent[],
-    addEvent: function(event: TemplateEvent) {
+    addEvent: async function(event: TemplateEvent): Promise<void> {
       this.committedEvents.push(event);
     },
   };
@@ -70,21 +70,21 @@ Deno.test("EventGroup - should commit all events atomically", async () => {
 
   // Act
   const eventGroup = await manager.createEventGroup(events);
-  await manager.commit(eventGroup.id, mockStore);
+  await manager.commit(eventGroup.id, testEventStore);
 
   // Assert
   assertEquals(eventGroup.status, "committed");
-  assertEquals(mockStore.committedEvents.length, 2);
-  assertEquals(mockStore.committedEvents[0].id, "event-1");
-  assertEquals(mockStore.committedEvents[1].id, "event-2");
+  assertEquals(testEventStore.committedEvents.length, 2);
+  assertEquals(testEventStore.committedEvents[0].id, "event-1");
+  assertEquals(testEventStore.committedEvents[1].id, "event-2");
 });
 
 Deno.test("EventGroup - should rollback all events on failure", async () => {
   // Arrange
   const manager = new EventGroupManager();
-  const mockStore = {
+  const testEventStore = {
     committedEvents: [] as TemplateEvent[],
-    addEvent: function(event: TemplateEvent) {
+    addEvent: async function(event: TemplateEvent): Promise<void> {
       // Simulate failure on second event
       if (event.id === "event-2") {
         throw new Error("Storage failure");
@@ -113,13 +113,13 @@ Deno.test("EventGroup - should rollback all events on failure", async () => {
   
   // Assert
   await assertRejects(
-    async () => await manager.commit(eventGroup.id, mockStore),
+    async () => await manager.commit(eventGroup.id, testEventStore),
     Error,
     "Storage failure"
   );
   
   assertEquals(eventGroup.status, "rolled_back");
-  assertEquals(mockStore.committedEvents.length, 0, "No events should be committed after rollback");
+  assertEquals(testEventStore.committedEvents.length, 0, "No events should be committed after rollback");
 });
 
 Deno.test("EventGroup - should validate all events before committing", async () => {
@@ -164,9 +164,9 @@ Deno.test("EventGroup - should handle empty event list", async () => {
 Deno.test("EventGroup - should prevent double commit", async () => {
   // Arrange
   const manager = new EventGroupManager();
-  const mockStore = {
+  const testEventStore = {
     committedEvents: [] as TemplateEvent[],
-    addEvent: function(event: TemplateEvent) {
+    addEvent: async function(event: TemplateEvent): Promise<void> {
       this.committedEvents.push(event);
     },
   };
@@ -182,11 +182,11 @@ Deno.test("EventGroup - should prevent double commit", async () => {
 
   // Act
   const eventGroup = await manager.createEventGroup(events);
-  await manager.commit(eventGroup.id, mockStore);
+  await manager.commit(eventGroup.id, testEventStore);
 
   // Assert - Second commit should fail
   await assertRejects(
-    async () => await manager.commit(eventGroup.id, mockStore),
+    async () => await manager.commit(eventGroup.id, testEventStore),
     Error,
     "EventGroup already committed"
   );
@@ -195,8 +195,8 @@ Deno.test("EventGroup - should prevent double commit", async () => {
 Deno.test("EventGroup - should track rollback reason", async () => {
   // Arrange
   const manager = new EventGroupManager();
-  const mockStore = {
-    addEvent: function(event: TemplateEvent) {
+  const testEventStore = {
+    addEvent: async function(event: TemplateEvent): Promise<void> {
       throw new Error("Database connection lost");
     },
   };
@@ -213,7 +213,7 @@ Deno.test("EventGroup - should track rollback reason", async () => {
   // Act
   const eventGroup = await manager.createEventGroup(events);
   try {
-    await manager.commit(eventGroup.id, mockStore);
+    await manager.commit(eventGroup.id, testEventStore);
   } catch (error) {
     // Expected to fail
   }

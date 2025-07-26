@@ -70,6 +70,70 @@ class SyncClient:
     def get_received_events(self) -> List[Dict[str, Any]]:
         """受信したイベントを取得"""
         return self.received_events.copy()
+    
+    async def query_state(self, cypher: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        KuzuDBにクエリを送信してステートを照会
+        
+        Args:
+            cypher: Cypherクエリ文字列
+            params: クエリパラメータ（オプション）
+            
+        Returns:
+            クエリ結果を含む辞書
+            
+        Raises:
+            RuntimeError: 接続されていない場合
+            Exception: クエリ実行エラー
+        """
+        if not self.ws or not self.connected:
+            raise RuntimeError("Not connected")
+        
+        # 一意のリクエストIDを生成
+        request_id = str(uuid.uuid4())
+        
+        # クエリメッセージを送信
+        await self.ws.send(json.dumps({
+            "type": "query",
+            "requestId": request_id,
+            "cypher": cypher,
+            "params": params or {}
+        }))
+        
+        # レスポンスを待機（タイムアウト付き）
+        timeout = 5.0  # 5秒のタイムアウト
+        start_time = asyncio.get_event_loop().time()
+        
+        while True:
+            # タイムアウトチェック
+            if asyncio.get_event_loop().time() - start_time > timeout:
+                raise TimeoutError(f"Query timeout after {timeout} seconds")
+            
+            # 少し待機
+            await asyncio.sleep(0.1)
+            
+            # TODO: WebSocketサーバーがqueryレスポンスを実装したら、
+            # ここで適切なレスポンスを待機する処理を追加
+            # 現在はHTTP経由でクエリを実行
+            break
+        
+        # 暫定的にHTTP経由でクエリを実行
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                'http://localhost:8080/query',
+                json={"cypher": cypher, "params": params or {}},
+                headers={"Content-Type": "application/json"}
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"Query failed with status {response.status}: {error_text}")
+                
+                result = await response.json()
+                if not result.get("success"):
+                    raise Exception(f"Query failed: {result.get('error', 'Unknown error')}")
+                
+                return result.get("data", {})
 
 
 class WebSocketServerFixture:
@@ -84,9 +148,13 @@ class WebSocketServerFixture:
         server_path = os.path.join(os.path.dirname(__file__), "..", "core", "websocket", "server.ts")
         
         # サーバーを起動
-        deno_path = os.environ.get("DENO_PATH", "deno")
+        import shutil
+        deno_path = shutil.which("deno")
+        if not deno_path:
+            raise RuntimeError("Deno not found in PATH")
+            
         self.server_process = subprocess.Popen(
-            [deno_path, "run", "--allow-net", server_path],
+            [deno_path, "run", "--allow-net", "--allow-read", server_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             preexec_fn=os.setsid  # プロセスグループを作成
@@ -188,6 +256,24 @@ async def test_concurrent_increments(websocket_server):
             await client.connect()
             clients.append(client)
         
+        # 初期状態を確認（カウンターが存在しない場合は0）
+        initial_query = {
+            "id": str(uuid.uuid4()),
+            "template": "QUERY_COUNTER",
+            "params": {"counterId": "shared-counter"},
+            "clientId": clients[0].client_id,
+            "timestamp": int(time.time() * 1000)
+        }
+        await clients[0].send_event(initial_query)
+        await asyncio.sleep(0.2)
+        
+        initial_events = clients[0].get_received_events()
+        initial_value_events = [e for e in initial_events if e.get("template") == "COUNTER_VALUE"]
+        if initial_value_events:
+            initial_value = initial_value_events[0].get("params", {}).get("value", 0)
+        else:
+            initial_value = 0
+        
         # 全クライアントが同時にインクリメント
         tasks = []
         for i, client in enumerate(clients):
@@ -208,6 +294,61 @@ async def test_concurrent_increments(websocket_server):
             events = client.get_received_events()
             increment_events = [e for e in events if e["template"] == "INCREMENT_COUNTER"]
             assert len(increment_events) == 4  # 自分以外の4つ
+        
+        # クエリ検証: 各クライアントがカウンター値を確認
+        query_tasks = []
+        for client in clients:
+            query_event = {
+                "id": str(uuid.uuid4()),
+                "template": "QUERY_COUNTER",
+                "params": {"counterId": "shared-counter"},
+                "clientId": client.client_id,
+                "timestamp": int(time.time() * 1000)
+            }
+            query_tasks.append(client.send_event(query_event))
+        
+        await asyncio.gather(*query_tasks)
+        await asyncio.sleep(0.5)
+        
+        # 各クライアントがクエリ結果を受信し、値が初期値+5であることを確認
+        expected_value = initial_value + 5
+        for i, client in enumerate(clients):
+            events = client.get_received_events()
+            query_responses = [e for e in events if e.get("template") == "COUNTER_VALUE"]
+            
+            # 最低1つのクエリレスポンスを受信
+            assert len(query_responses) >= 1, f"Client {i} did not receive counter value"
+            
+            # 最新のカウンター値が期待値であることを確認
+            latest_value = query_responses[-1].get("params", {}).get("value")
+            assert latest_value == expected_value, f"Client {i} sees counter value {latest_value}, expected {expected_value}"
+        
+        # 異なるカウンターIDでも動作することを確認
+        other_counter_event = {
+            "id": str(uuid.uuid4()),
+            "template": "INCREMENT_COUNTER",
+            "params": {"counterId": "other-counter", "amount": 10},
+            "clientId": clients[0].client_id,
+            "timestamp": int(time.time() * 1000)
+        }
+        await clients[0].send_event(other_counter_event)
+        
+        # 他のカウンターの値を確認
+        other_query = {
+            "id": str(uuid.uuid4()),
+            "template": "QUERY_COUNTER",
+            "params": {"counterId": "other-counter"},
+            "clientId": clients[0].client_id,
+            "timestamp": int(time.time() * 1000)
+        }
+        await clients[0].send_event(other_query)
+        await asyncio.sleep(0.2)
+        
+        final_events = clients[0].get_received_events()
+        other_counter_values = [e for e in final_events if e.get("template") == "COUNTER_VALUE" 
+                                and e.get("params", {}).get("counterId") == "other-counter"]
+        assert len(other_counter_values) > 0, "Did not receive other counter value"
+        assert other_counter_values[-1].get("params", {}).get("value") == 10, "Other counter should be 10"
             
     finally:
         # クリーンアップ
@@ -327,6 +468,84 @@ async def test_broadcast_filtering(websocket_server):
         await sender.disconnect()
         await receiver1.disconnect()
         await receiver2.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_query_state(websocket_server):
+    """KuzuDBクエリ機能のテスト"""
+    client = SyncClient("query-test-client")
+    
+    try:
+        await client.connect()
+        
+        # イベントを送信してステートを作成
+        user_event = {
+            "id": str(uuid.uuid4()),
+            "template": "CREATE_USER",
+            "params": {"id": "test-user-123", "name": "Test User"},
+            "clientId": client.client_id,
+            "timestamp": int(time.time() * 1000)
+        }
+        await client.send_event(user_event)
+        
+        # イベントが処理されるまで待機
+        await asyncio.sleep(0.5)
+        
+        # KuzuDBにクエリを送信
+        # ユーザーを検索するクエリ
+        result = await client.query_state(
+            "MATCH (u:User {id: $userId}) RETURN u.name as name",
+            {"userId": "test-user-123"}
+        )
+        
+        # 結果を検証
+        assert result is not None
+        # 注: 実際の結果の構造は、ServerKuzuClientの実装に依存
+        
+        # 全ユーザーを取得するクエリ
+        all_users = await client.query_state(
+            "MATCH (u:User) RETURN u.id as id, u.name as name"
+        )
+        
+        assert all_users is not None
+        
+    except Exception as e:
+        # エラーの詳細を出力
+        print(f"Query test failed: {e}")
+        raise
+    finally:
+        await client.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_query_state_error_handling(websocket_server):
+    """クエリエラーハンドリングのテスト"""
+    client = SyncClient("query-error-client")
+    
+    try:
+        await client.connect()
+        
+        # 無効なクエリを送信
+        with pytest.raises(Exception) as exc_info:
+            await client.query_state("INVALID CYPHER QUERY")
+        
+        # エラーメッセージを確認
+        assert "error" in str(exc_info.value).lower()
+        
+    finally:
+        await client.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_query_state_without_connection(websocket_server):
+    """接続なしでのクエリテスト"""
+    client = SyncClient("no-connection-client")
+    
+    # 接続せずにクエリを実行
+    with pytest.raises(RuntimeError) as exc_info:
+        await client.query_state("MATCH (n) RETURN n")
+    
+    assert "Not connected" in str(exc_info.value)
 
 
 if __name__ == "__main__":

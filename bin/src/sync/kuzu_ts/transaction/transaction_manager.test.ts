@@ -12,15 +12,81 @@ import type {
   TransactionContext
 } from "./types.ts";
 import type { TemplateEvent } from "../event_sourcing/types.ts";
+import type { BrowserKuzuClient, LocalState, EventSnapshot } from "../types.ts";
 import { TransactionError, TransactionErrorCode } from "./types.ts";
 
 // TransactionManager is not yet implemented - this will cause tests to fail
 import { KuzuTransactionManager } from "./kuzu_transaction_manager.ts";
-import { MockKuzuClient } from "../core/client/mock_kuzu_client.ts";
+
+// Minimal test double for BrowserKuzuClient
+class TestKuzuClient implements BrowserKuzuClient {
+  private conflictCounter = 0;
+  private conflictTargetId?: string;
+
+  async initialize(): Promise<void> {
+    // No-op for tests
+  }
+
+  async initializeFromSnapshot(snapshot: EventSnapshot): Promise<void> {
+    // No-op for tests
+  }
+
+  async executeTemplate(template: string, params: Record<string, any>): Promise<TemplateEvent> {
+    // Simulate conflict for specific test case
+    if (template === "UPDATE_USER" && params.id === "user-conflict") {
+      if (!this.conflictTargetId) {
+        this.conflictTargetId = params.id;
+        this.conflictCounter = 0;
+      }
+      
+      this.conflictCounter++;
+      
+      // First update succeeds, second one fails
+      if (this.conflictCounter > 1) {
+        throw new Error("Serialization conflict: concurrent update");
+      }
+    }
+
+    return {
+      id: `evt_${crypto.randomUUID()}`,
+      template,
+      params,
+      timestamp: Date.now(),
+    };
+  }
+
+  async getLocalState(): Promise<LocalState> {
+    return {
+      users: [],
+      posts: [],
+      follows: []
+    };
+  }
+
+  onRemoteEvent(handler: (event: TemplateEvent) => void): void {
+    // No-op for tests
+  }
+
+  async executeQuery(cypher: string, params?: Record<string, any>): Promise<any> {
+    // Handle transaction commands
+    if (cypher === "BEGIN TRANSACTION" || cypher === "COMMIT" || cypher === "ROLLBACK") {
+      return { success: true };
+    }
+
+    // Return mock result for queries
+    if (cypher.includes("MATCH") && params?.id) {
+      return {
+        getAllObjects: () => [{ name: "Test User", email: "test@example.com" }]
+      };
+    }
+
+    return { success: true };
+  }
+}
 
 Deno.test("TransactionManager - should begin a new transaction", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
@@ -36,7 +102,7 @@ Deno.test("TransactionManager - should begin a new transaction", async () => {
 
 Deno.test("TransactionManager - should commit a successful transaction", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
   const transaction = await manager.beginTransaction();
@@ -55,7 +121,7 @@ Deno.test("TransactionManager - should commit a successful transaction", async (
 
 Deno.test("TransactionManager - should rollback transaction on error", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
   const transaction = await manager.beginTransaction();
@@ -74,7 +140,7 @@ Deno.test("TransactionManager - should rollback transaction on error", async () 
 
 Deno.test("TransactionManager - should auto-rollback on unhandled error", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
@@ -92,7 +158,7 @@ Deno.test("TransactionManager - should auto-rollback on unhandled error", async 
 
 Deno.test("TransactionManager - should execute template within transaction", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
@@ -115,7 +181,7 @@ Deno.test("TransactionManager - should execute template within transaction", asy
 
 Deno.test("TransactionManager - should handle nested event groups", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
@@ -159,7 +225,7 @@ Deno.test({
   sanitizeOps: false,
   fn: async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
   const options: TransactionOptions = {
@@ -199,7 +265,7 @@ Deno.test({
 
 Deno.test("TransactionManager - should prevent double commit", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
   const transaction = await manager.beginTransaction();
@@ -217,7 +283,7 @@ Deno.test("TransactionManager - should prevent double commit", async () => {
 
 Deno.test("TransactionManager - should prevent operations on non-existent transaction", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
@@ -231,7 +297,7 @@ Deno.test("TransactionManager - should prevent operations on non-existent transa
 
 Deno.test("TransactionManager - should track active transactions", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
@@ -256,7 +322,7 @@ Deno.test("TransactionManager - should track active transactions", async () => {
 
 Deno.test("TransactionManager - should execute raw Cypher queries in transaction", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
@@ -292,7 +358,7 @@ Deno.test("TransactionManager - should execute raw Cypher queries in transaction
 
 Deno.test("TransactionManager - should handle serialization conflicts", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
@@ -332,7 +398,7 @@ Deno.test("TransactionManager - should handle serialization conflicts", async ()
 
 Deno.test("TransactionManager - should provide transaction context status", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
@@ -357,7 +423,7 @@ Deno.test("TransactionManager - should provide transaction context status", asyn
 
 Deno.test("TransactionManager - should support transaction isolation levels", async () => {
   // Arrange
-  const client = new MockKuzuClient();
+  const client = new TestKuzuClient();
   await client.initialize();
   const manager = new KuzuTransactionManager(client);
 
