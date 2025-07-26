@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "test": "deno test --allow-all --no-check",
+    "test": "deno test --allow-all",
     "test:watch": "deno test --allow-all --no-check --watch",
     "test:red": "deno test --allow-all --no-check test_*.ts",
     "server": "deno run --allow-all server.ts",
@@ -9,6 +9,7 @@
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.0",
     "@std/async": "jsr:@std/async@^1.0.0",
-    "kuzu-wasm": "npm:kuzu-wasm@latest"
+    "kuzu-wasm": "npm:kuzu-wasm@latest",
+    "kuzu-wasm/sync": "npm:kuzu-wasm@latest/sync"
   }
 }

@@ -3,9 +3,9 @@
 ## 優先度1: 必須コアファイル
 types.ts
 mod.ts
-browser_kuzu_client_clean.ts
+core/client/browser_kuzu_client.ts
 websocket_sync.ts
-server_event_store.ts
+storage/server_event_store.ts
 conflict_resolver.ts
 metrics_collector.ts
 

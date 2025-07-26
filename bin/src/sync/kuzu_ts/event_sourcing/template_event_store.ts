@@ -93,6 +93,21 @@ export class TemplateRegistry {
         reason: "string",
         cascade: "boolean"
       }
+    },
+    INCREMENT_COUNTER: {
+      requiredParams: ["counterId"],
+      impact: "UPDATE_NODE",
+      paramTypes: {
+        counterId: "string",
+        amount: "number"
+      }
+    },
+    QUERY_COUNTER: {
+      requiredParams: ["counterId"],
+      impact: "UPDATE_NODE", // Read-only but using UPDATE_NODE for compatibility
+      paramTypes: {
+        counterId: "string"
+      }
     }
   };
 

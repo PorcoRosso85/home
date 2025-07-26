@@ -83,3 +83,6 @@ export {
   type AggregateStats,
   type AggregateMemoryStats
 } from "./core/cache/aggregate_cache.ts";
+
+// Re-export server components
+export { ServerKuzuClient } from "./core/server/server_kuzu_client.ts";
