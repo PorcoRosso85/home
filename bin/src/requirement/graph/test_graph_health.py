@@ -188,8 +188,14 @@ class TestCircularDependencyPrevention:
         }, temp_db)
         
         # 循環依存が検出されることを確認
-        assert result.get("type") == "error" or result.get("error") is not None
-        error_message = str(result.get("error", "")) or str(result.get("message", ""))
+        # レスポンスは {'type': 'result', 'data': {'error': {...}, 'status': 'error'}} の形式
+        if result.get("type") == "result" and result.get("data"):
+            data = result["data"]
+            assert data.get("status") == "error"
+            error_message = str(data.get("error", ""))
+        else:
+            assert result.get("type") == "error" or result.get("error") is not None
+            error_message = str(result.get("error", "")) or str(result.get("message", ""))
         assert "circular" in error_message.lower() or "cycle" in error_message.lower()
     
     def test_self_dependency_prevented(self, temp_db):
@@ -216,8 +222,14 @@ class TestCircularDependencyPrevention:
             }
         }, temp_db)
         
-        assert result.get("type") == "error" or result.get("error") is not None
-        error_message = str(result.get("error", "")) or str(result.get("message", ""))
+        # レスポンスは {'type': 'result', 'data': {'error': {...}, 'status': 'error'}} の形式
+        if result.get("type") == "result" and result.get("data"):
+            data = result["data"]
+            assert data.get("status") == "error"
+            error_message = str(data.get("error", ""))
+        else:
+            assert result.get("type") == "error" or result.get("error") is not None
+            error_message = str(result.get("error", "")) or str(result.get("message", ""))
         assert "self" in error_message.lower() or "circular" in error_message.lower()
     
     def test_indirect_circular_dependency_prevented(self, temp_db):
@@ -264,8 +276,14 @@ class TestCircularDependencyPrevention:
             }
         }, temp_db)
         
-        assert result.get("type") == "error" or result.get("error") is not None
-        error_message = str(result.get("error", "")) or str(result.get("message", ""))
+        # レスポンスは {'type': 'result', 'data': {'error': {...}, 'status': 'error'}} の形式
+        if result.get("type") == "result" and result.get("data"):
+            data = result["data"]
+            assert data.get("status") == "error"
+            error_message = str(data.get("error", ""))
+        else:
+            assert result.get("type") == "error" or result.get("error") is not None
+            error_message = str(result.get("error", "")) or str(result.get("message", ""))
         assert "circular" in error_message.lower() or "cycle" in error_message.lower()
 
 
