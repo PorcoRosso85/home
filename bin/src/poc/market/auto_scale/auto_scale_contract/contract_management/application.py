@@ -17,6 +17,8 @@ from .domain import (
     ContractRepository, ContractSpecification,
     ActiveContractSpecification, HighValueContractSpecification
 )
+from .infrastructure.functions.growth import metrics as growth_metrics
+from .infrastructure.functions.commission.calculate import CommissionCalculator
 
 
 # Data Transfer Objects (DTOs)
@@ -372,20 +374,60 @@ class ContractAnalyticsService:
     
     def calculate_network_metrics(self, days_back: int = 30) -> NetworkMetricsResponse:
         """Calculate network growth metrics including viral coefficient"""
-        # In a real implementation with GraphDB, this would:
-        # 1. Load and execute the calculate_growth_metrics.cypher query
-        # 2. Parse the results into the response DTO
-        # For now, return mock data to demonstrate the interface
+        # Get user statistics from repository (would be from GraphDB in real impl)
+        # For demonstration, using reasonable values
+        total_users = 100
+        referring_users = 45
+        referred_users = 38
+        new_users_30d = 28
+        previous_month_users = 72
+        
+        # Calculate average invites per user
+        avg_invites_per_user = referred_users / referring_users if referring_users > 0 else 0
+        conversion_rate = referred_users / (referring_users * 2) if referring_users > 0 else 0  # Assume 2 invites per referrer
+        
+        # Calculate K-factor using real function
+        k_factor_result = growth_metrics.calculate_k_factor(
+            invites_sent=int(avg_invites_per_user * 2),  # Average invites
+            conversion_rate=conversion_rate,
+            metadata={"days_back": str(days_back)}
+        )
+        
+        k_factor = k_factor_result["metrics"]["value"] if k_factor_result["ok"] else 0.0
+        
+        # Calculate network value using Metcalfe's Law
+        network_value_result = growth_metrics.calculate_network_value(
+            user_count=total_users,
+            value_per_connection=1.0,
+            metadata={"calculation_type": "metcalfe"}
+        )
+        
+        network_value = int(network_value_result["metrics"]["value"]) if network_value_result["ok"] else 0
+        
+        # Calculate growth rate
+        growth_rate_result = growth_metrics.calculate_growth_rate(
+            current_value=float(total_users),
+            previous_value=float(previous_month_users),
+            time_period="month",
+            metadata={"metric": "user_count"}
+        )
+        
+        monthly_growth_rate = growth_rate_result["metrics"]["value"] if growth_rate_result["ok"] else 0.0
+        
+        # Calculate critical mass distance (simplified)
+        critical_mass_threshold = 500  # Example threshold
+        critical_mass_distance = max(0, critical_mass_threshold - total_users)
+        
         return NetworkMetricsResponse(
-            k_factor=0.85,
-            monthly_growth_rate=23.5,
-            network_value=10000,
-            total_users=100,
-            referring_users=45,
-            referred_users=38,
-            new_users_30d=28,
-            critical_mass_distance=18,
-            is_viral=False
+            k_factor=k_factor,
+            monthly_growth_rate=monthly_growth_rate,
+            network_value=network_value,
+            total_users=total_users,
+            referring_users=referring_users,
+            referred_users=referred_users,
+            new_users_30d=new_users_30d,
+            critical_mass_distance=critical_mass_distance,
+            is_viral=k_factor > 1.0
         )
     
     def predict_growth(self, days_ahead: int = 90) -> GrowthPredictionResponse:
@@ -415,16 +457,41 @@ class ContractAnalyticsService:
     def calculate_referral_rewards(self, contract_id: str, 
                                    base_amount: Decimal) -> List[ReferralRewardResponse]:
         """Calculate multi-level referral rewards"""
-        # Would execute calculate_referral_chain_rewards.cypher
-        return [
-            ReferralRewardResponse(
-                referrer_id="ref-001",
-                referred_id="buyer-001",
-                level=1,
-                commission_rate=0.15,
-                commission_amount=f"{base_amount * Decimal('0.15'):.2f}"
-            )
+        # Initialize commission calculator
+        calculator = CommissionCalculator()
+        
+        # In real implementation, would fetch referral chain from GraphDB
+        # For now, simulate a multi-level referral chain
+        referral_chain = [
+            {"agent_id": "ref-001", "referred_id": "buyer-001", "level": 1, "percentage": Decimal("0.15")},
+            {"agent_id": "ref-002", "referred_id": "ref-001", "level": 2, "percentage": Decimal("0.10")},
+            {"agent_id": "ref-003", "referred_id": "ref-002", "level": 3, "percentage": Decimal("0.05")}
         ]
+        
+        # Calculate base commission (e.g., 20% of contract value)
+        base_commission = calculator.calculate(base_amount, Decimal("0.20"))
+        
+        # Distribute commission across referral chain
+        distribution = calculator.distribute_referral_commission(
+            base_commission=base_commission,
+            referral_chain=referral_chain
+        )
+        
+        # Build response list
+        responses = []
+        for agent in referral_chain:
+            agent_id = agent["agent_id"]
+            commission_amount = distribution.get(agent_id, Decimal("0"))
+            
+            responses.append(ReferralRewardResponse(
+                referrer_id=agent_id,
+                referred_id=agent["referred_id"],
+                level=agent["level"],
+                commission_rate=float(agent["percentage"]),
+                commission_amount=f"{commission_amount:.2f}"
+            ))
+        
+        return responses
 
 
 # Import timedelta for the analytics service
