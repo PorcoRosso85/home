@@ -96,3 +96,76 @@ def load_query_from_file(path: Path, force_reload: bool = False) -> Union[str, E
             error=f"Failed to read query file: {str(e)}",
             details={"path": str(path), "exception": str(e)}
         )
+
+
+def load_structured_query(
+    query_name: str,
+    query_type: str = "auto",
+    base_dir: str = "."
+) -> Union[str, ErrorDict]:
+    """
+    構造化されたディレクトリからクエリを読み込む
+    
+    Args:
+        query_name: クエリ名（拡張子なし）
+        query_type: "dml", "dql", "auto"（自動検出）
+        base_dir: クエリディレクトリのベースパス
+        
+    Returns:
+        成功時: クエリ文字列
+        失敗時: ErrorDict
+    """
+    base_path = Path(base_dir)
+    
+    # query_typeの検証
+    valid_types = ["dml", "dql", "auto"]
+    if query_type not in valid_types:
+        return ErrorDict(
+            ok=False,
+            error=f"Invalid query_type: {query_type}",
+            details={"valid_types": valid_types}
+        )
+    
+    # ファイル名
+    filename = f"{query_name}.cypher"
+    
+    # autoの場合、両方のディレクトリを検索
+    if query_type == "auto":
+        for type_dir in ["dml", "dql"]:
+            query_path = base_path / type_dir / filename
+            if query_path.exists():
+                return load_query_from_file(query_path)
+        
+        # 見つからない場合
+        return ErrorDict(
+            ok=False,
+            error="Query file not found",
+            details={
+                "query_name": query_name,
+                "searched_paths": [
+                    str(base_path / "dml" / filename),
+                    str(base_path / "dql" / filename)
+                ]
+            }
+        )
+    
+    # 特定のタイプが指定された場合
+    query_path = base_path / query_type / filename
+    
+    # ディレクトリが存在しない場合もエラーとして扱う
+    if not query_path.parent.exists():
+        return ErrorDict(
+            ok=False,
+            error=f"{query_type} directory not found",
+            details={"expected_dir": str(query_path.parent)}
+        )
+    
+    # ファイルの読み込み
+    result = load_query_from_file(query_path)
+    
+    # エラーの場合、詳細情報を追加
+    if isinstance(result, dict) and not result.get("ok", True):
+        result["details"]["query_name"] = query_name
+        result["details"]["query_type"] = query_type
+    
+    return result

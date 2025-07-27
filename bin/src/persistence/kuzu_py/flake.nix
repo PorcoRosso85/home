@@ -74,7 +74,7 @@
               cd /home/nixos/bin/src/persistence/kuzu_py
               
               # ユニット・統合テスト
-              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_query_loader.py
+              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_query_loader.py test_structured_query.py
               
               # 内部E2Eテスト
               if [ -d "e2e/internal" ]; then
@@ -96,7 +96,7 @@
               echo "Running all tests..."
               
               # ユニット・統合テスト
-              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_query_loader.py
+              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_query_loader.py test_structured_query.py
               
               # 内部E2Eテスト
               if [ -d "e2e/internal" ]; then

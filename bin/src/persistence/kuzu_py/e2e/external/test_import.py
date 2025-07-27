@@ -34,11 +34,12 @@ def test_result_types_available():
 
 def test_query_loader_functions_available():
     """Test that query loader functions are available."""
-    from kuzu_py import load_query_from_file, clear_query_cache
+    from kuzu_py import load_query_from_file, clear_query_cache, load_structured_query
     
     # Just verify the functions exist
     assert callable(load_query_from_file)
     assert callable(clear_query_cache)
+    assert callable(load_structured_query)
 
 
 def test_kuzu_re_exported():
