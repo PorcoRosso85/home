@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Union
 import time
 
-from kuzu_py.result_types import ErrorDict
-from kuzu_py.query_loader import load_query_from_file, clear_query_cache
+from result_types import ErrorDict
+from query_loader import load_query_from_file, clear_query_cache
 
 
 def test_load_query_from_file():
