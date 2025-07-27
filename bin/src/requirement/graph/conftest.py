@@ -10,6 +10,10 @@ import sys
 import os
 from typing import Dict, Any, Optional
 import uuid
+from pathlib import Path
+
+# パフォーマンス計測用
+from test_utils.performance import PerformanceCollector, measure_time
 
 
 def run_system_optimized(input_data: Dict[str, Any], db_path: Optional[str] = None, timeout: int = 30) -> Dict[str, Any]:
@@ -117,3 +121,62 @@ def pytest_collection_modifyitems(items):
             except (OSError, TypeError):
                 # ソースコードが取得できない場合はスキップ
                 pass
+
+
+# パフォーマンス計測フィクスチャ
+@pytest.fixture(scope="session")
+def perf_collector():
+    """
+    セッション全体のパフォーマンス計測
+    
+    使用例:
+        def test_slow_operation(perf_collector):
+            with perf_collector.measure("database_query", threshold=1.0):
+                result = expensive_operation()
+    """
+    collector = PerformanceCollector("test_session")
+    yield collector
+    
+    # セッション終了時にレポート出力
+    report_path = Path("test_performance_report.json")
+    report = collector.report(report_path)
+    print(f"\nPerformance Report saved to: {report_path}")
+    print(f"Total measurements: {report['total_measurements']}")
+    
+    # 遅いテストの警告
+    slow_tests = []
+    for name, stats in report["statistics"].items():
+        if stats["max"] > 5.0:  # 5秒以上
+            slow_tests.append((name, stats["max"]))
+    
+    if slow_tests:
+        print("\n⚠️  Slow tests detected:")
+        for name, duration in sorted(slow_tests, key=lambda x: x[1], reverse=True):
+            print(f"  - {name}: {duration:.2f}s")
+
+
+@pytest.fixture
+def measure():
+    """
+    個別テスト用の計測ヘルパー
+    
+    使用例:
+        def test_something(measure):
+            with measure("setup", threshold=0.5):
+                prepare_data()
+                
+            with measure("main_operation", threshold=2.0):
+                result = process_data()
+    """
+    collector = PerformanceCollector("single_test")
+    
+    def _measure(name: str, threshold: Optional[float] = None, **metadata):
+        return collector.measure(name, threshold, **metadata)
+    
+    yield _measure
+    
+    # テスト終了時に統計を出力（verbose時のみ）
+    if collector.measurements:
+        print(f"\nTest performance summary:")
+        for name, stats in collector.get_statistics().items():
+            print(f"  {name}: {stats['mean']:.3f}s (n={stats['count']})")
