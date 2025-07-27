@@ -16,7 +16,7 @@ class TestGapAnalysis:
     @pytest.fixture
     def db_with_comprehensive_data(self, tmp_path):
         """Create database with comprehensive test data"""
-        db = kuzu.Database(str(tmp_path))
+        db = kuzu.Database(str(tmp_path / "test.db"))
         conn = kuzu.Connection(db)
         
         # Create schema

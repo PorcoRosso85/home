@@ -17,7 +17,7 @@ class TestComplianceMapping:
     @pytest.fixture
     def db_with_schema(self, tmp_path):
         """Create database with full schema"""
-        db = kuzu.Database(str(tmp_path))
+        db = kuzu.Database(str(tmp_path / "test.db"))
         conn = kuzu.Connection(db)
         
         # Create RequirementEntity table

@@ -81,7 +81,8 @@ class EnforcedRequirementWorkflow:
         # Create reference repository
         repo_result = create_reference_repository(db_path, existing_db)
         if isinstance(repo_result, dict) and repo_result.get("type") == "DatabaseError":
-            raise Exception(f"Failed to create repository: {repo_result['message']}")
+            self.initialization_error = {"error": "DatabaseError", "details": f"Failed to create repository: {repo_result['message']}"}
+            return
         
         self.repo = repo_result
         self.conn = self.repo["connection"]
@@ -108,6 +109,9 @@ class EnforcedRequirementWorkflow:
         
         # Minimum justification length
         self.min_justification_length = 50
+        
+        # No initialization error
+        self.initialization_error = None
     
     def _init_workflow_schema(self):
         """Initialize workflow-specific schema"""

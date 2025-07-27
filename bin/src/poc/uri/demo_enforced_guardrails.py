@@ -27,6 +27,7 @@ class GuardrailsDemo:
     def __init__(self):
         """Initialize demo with in-memory database"""
         self.db_path = ":memory:"
+        self.setup_error = None
         self._setup_system()
         
     def _setup_system(self):
@@ -37,7 +38,8 @@ class GuardrailsDemo:
         # Create repository
         repo_result = create_reference_repository(self.db_path)
         if repo_result["type"] != "Success":
-            raise Exception(f"Failed to create repository: {repo_result}")
+            self.setup_error = {"error": "DatabaseError", "details": f"Failed to create repository: {repo_result}"}
+            return
         self.repo = repo_result["value"]
         
         # Load ASVS references
@@ -45,7 +47,8 @@ class GuardrailsDemo:
         loader = ASVSLoader(self.repo)
         asvs_result = loader.load_asvs_data()
         if asvs_result["type"] != "Success":
-            raise Exception(f"Failed to load ASVS: {asvs_result}")
+            self.setup_error = {"error": "LoadError", "details": f"Failed to load ASVS: {asvs_result}"}
+            return
         print(f"✅ Loaded {asvs_result['value']['loaded_count']} ASVS references")
         
         # Initialize enforced workflow
@@ -56,6 +59,7 @@ class GuardrailsDemo:
         self.analyzer = TestCompletenessAnalyzer(conn)
         
         print("\n✅ System initialized successfully!")
+        self.setup_error = None
     
     def demo_mandatory_reference_selection(self):
         """Demonstrate mandatory reference selection"""
@@ -389,7 +393,10 @@ class GuardrailsDemo:
 def main():
     """Run the complete demonstration"""
     demo = GuardrailsDemo()
-    demo.run_all_demos()
+    if demo.setup_error:
+        print(f"\n❌ Setup failed: {demo.setup_error}")
+        return demo.setup_error
+    return demo.run_all_demos()
 
 
 if __name__ == "__main__":

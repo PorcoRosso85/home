@@ -20,6 +20,7 @@ class MandatoryReferenceConfig:
     def __init__(self, config_path: Optional[str] = None):
         """Initialize with configuration file or defaults"""
         self.rules = self._load_default_rules()
+        self.error = None
         
         if config_path:
             config_file = Path(config_path)
@@ -31,7 +32,8 @@ class MandatoryReferenceConfig:
                     with open(config_file, 'r') as f:
                         custom_rules = json.load(f)
                 else:
-                    raise ValueError(f"Unsupported config format: {config_file.suffix}")
+                    self.error = {"error": "ValueError", "details": f"Unsupported config format: {config_file.suffix}"}
+                    return
                 
                 # Merge custom rules with defaults
                 self._merge_rules(custom_rules)
