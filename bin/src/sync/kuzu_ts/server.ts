@@ -41,15 +41,8 @@ const metrics = {
   startTime: Date.now()
 };
 
-// Check if telemetry is available
-const telemetryAvailable = await telemetry.isAvailable();
-
-if (!telemetryAvailable) {
-  throw new Error("Telemetry is not available. Please set LOG_TS_PATH environment variable.");
-}
-
 // Log server start
-await telemetry.info(`Server starting on ws://localhost:${port}`, {
+telemetry.info(`Server starting on ws://localhost:${port}`, {
   port,
   telemetry: "enabled"
 });
@@ -64,11 +57,11 @@ Deno.serve({ port }, (req) => {
     const clientId = url.searchParams.get("clientId") || 
       `client_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     
-    socket.addEventListener("open", async () => {
+    socket.addEventListener("open", () => {
       metrics.totalConnections++;
       clients.set(clientId, socket);
       
-      await telemetry.info(`Client connected: ${clientId}`, {
+      telemetry.info(`Client connected: ${clientId}`, {
         clientId,
         activeConnections: clients.size
       });
@@ -80,7 +73,7 @@ Deno.serve({ port }, (req) => {
       }));
     });
     
-    socket.addEventListener("message", async (event) => {
+    socket.addEventListener("message", (event) => {
       try {
         const message = JSON.parse(event.data);
         
@@ -94,7 +87,7 @@ Deno.serve({ port }, (req) => {
             eventHistory.push(storedEvent);
             
             // Log received event
-            await telemetry.info(`Event received: ${storedEvent.template}`, {
+            telemetry.info(`Event received: ${storedEvent.template}`, {
               eventId: storedEvent.id,
               template: storedEvent.template,
               clientId: storedEvent.clientId,
@@ -108,7 +101,7 @@ Deno.serve({ port }, (req) => {
               const amount = storedEvent.params.amount || 1;
               const current = state.counters.get(counterId) || 0;
               state.counters.set(counterId, current + amount);
-              await telemetry.info(`Counter incremented: ${counterId}`, {
+              telemetry.info(`Counter incremented: ${counterId}`, {
                 counterId,
                 previousValue: current,
                 increment: amount,
@@ -117,7 +110,7 @@ Deno.serve({ port }, (req) => {
             } else if (storedEvent.template === "QUERY_COUNTER") {
               const counterId = storedEvent.params.counterId;
               const value = state.counters.get(counterId) || 0;
-              await telemetry.info(`Counter queried: ${counterId}`, {
+              telemetry.info(`Counter queried: ${counterId}`, {
                 counterId,
                 value,
                 requestingClient: clientId
@@ -150,7 +143,7 @@ Deno.serve({ port }, (req) => {
                 }
               }
               if (broadcastCount > 0) {
-                await telemetry.info(`Event broadcasted to ${broadcastCount} clients`, {
+                telemetry.info(`Event broadcasted to ${broadcastCount} clients`, {
                   eventId: storedEvent.id,
                   template: storedEvent.template,
                   sourceClient: storedEvent.clientId,
@@ -164,7 +157,7 @@ Deno.serve({ port }, (req) => {
             const fromPosition = message.fromPosition || 0;
             const historyEvents = eventHistory.slice(fromPosition);
             
-            await telemetry.info(`History requested`, {
+            telemetry.info(`History requested`, {
               clientId,
               fromPosition,
               eventCount: historyEvents.length,
@@ -179,17 +172,17 @@ Deno.serve({ port }, (req) => {
         }
       } catch (error) {
         metrics.errors++;
-        await telemetry.error("Message processing error", {
+        telemetry.error("Message processing error", {
           clientId,
           error: error instanceof Error ? error.message : String(error)
         });
       }
     });
     
-    socket.addEventListener("close", async () => {
+    socket.addEventListener("close", () => {
       clients.delete(clientId);
       
-      await telemetry.info(`Client disconnected: ${clientId}`, {
+      telemetry.info(`Client disconnected: ${clientId}`, {
         clientId,
         activeConnections: clients.size
       });
@@ -217,7 +210,7 @@ Deno.serve({ port }, (req) => {
       metrics: {
         eventsPerMinute,
         errors: metrics.errors,
-        telemetry: telemetryAvailable ? "enabled" : "disabled"
+        telemetry: "enabled"
       }
     };
     

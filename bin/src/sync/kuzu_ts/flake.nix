@@ -51,7 +51,6 @@
         apps.server = {
           type = "app";
           program = "${pkgs.writeShellScript "start-server" ''
-            export LOG_TS_PATH="${log-ts}/lib/mod.ts"
             export PATH="${pkgs.deno}/bin:$PATH"
             echo "🚀 Starting KuzuDB sync server..."
             exec ${pkgs.deno}/bin/deno run --allow-net --allow-read --allow-env ./server.ts

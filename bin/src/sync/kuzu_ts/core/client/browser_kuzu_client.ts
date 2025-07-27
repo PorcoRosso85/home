@@ -62,7 +62,7 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
     );
     
     // Replay all events from snapshot
-    await telemetry.info("Replaying events from snapshot", { count: snapshot.events.length });
+    telemetry.info("Replaying events from snapshot", { count: snapshot.events.length });
     for (const event of snapshot.events) {
       await this.applyEvent(event);
       this.events.push(event);
@@ -325,9 +325,9 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
         `);
       }
       
-      await telemetry.info("Default database schema created");
+      telemetry.info("Default database schema created");
     } else {
-      await telemetry.info("Schema already exists", {
+      telemetry.info("Schema already exists", {
         nodeTables: Object.keys(schemaState.nodeTables).length,
         edgeTables: Object.keys(schemaState.edgeTables).length
       });

@@ -23,8 +23,8 @@ export class WebSocketSyncImpl implements WebSocketSync {
       try {
         this.ws = new WebSocket(url);
         
-        this.ws.onopen = async () => {
-          await telemetry.info("WebSocket connected", { url: this.url });
+        this.ws.onopen = () => {
+          telemetry.info("WebSocket connected", { url: this.url });
           this.reconnectAttempts = 0;
           
           // Send pending events
@@ -38,16 +38,16 @@ export class WebSocketSyncImpl implements WebSocketSync {
             const message: WebSocketMessage = JSON.parse(event.data);
             this.handleMessage(message);
           } catch (error) {
-            await telemetry.error("Failed to parse WebSocket message", { error: error.message });
+            telemetry.error("Failed to parse WebSocket message", { error: error.message });
           }
         };
         
-        this.ws.onerror = async (error) => {
-          await telemetry.error("WebSocket error", { error: error.toString() });
+        this.ws.onerror = (error) => {
+          telemetry.error("WebSocket error", { error: error.toString() });
         };
         
-        this.ws.onclose = async () => {
-          await telemetry.info("WebSocket disconnected", { url: this.url });
+        this.ws.onclose = () => {
+          telemetry.info("WebSocket disconnected", { url: this.url });
           this.attemptReconnect();
         };
         
@@ -116,7 +116,7 @@ export class WebSocketSyncImpl implements WebSocketSync {
 
   private async sendPendingEvents(): Promise<void> {
     if (this.pendingEvents.length > 0) {
-      await telemetry.info("Sending pending events", { count: this.pendingEvents.length });
+      telemetry.info("Sending pending events", { count: this.pendingEvents.length });
       
       for (const event of this.pendingEvents) {
         await this.sendEvent(event);
@@ -134,8 +134,8 @@ export class WebSocketSyncImpl implements WebSocketSync {
     
     this.reconnectAttempts++;
     
-    setTimeout(async () => {
-      await telemetry.info("Attempting reconnect", { 
+    setTimeout(() => {
+      telemetry.info("Attempting reconnect", { 
         attempt: this.reconnectAttempts, 
         maxAttempts: this.maxReconnectAttempts 
       });
