@@ -5,52 +5,9 @@
 
 import { assertEquals, assert } from "jsr:@std/assert@^1.0.0";
 import { SyncClient } from "../core/websocket/client.ts";
+import { TestServer } from "./test_utils.ts";
 
-// WebSocketサーバーの起動を待つ
-class TestServer {
-  private process: Deno.ChildProcess | null = null;
-  
-  async start(): Promise<void> {
-    const denoPath = Deno.env.get("DENO_PATH") || "deno";
-    const command = new Deno.Command(denoPath, {
-      args: ["run", "--allow-net", "--allow-read", "--allow-env", "./server.ts"],
-      stdout: "piped",
-      stderr: "piped",
-    });
-    
-    this.process = command.spawn();
-    
-    // stdout/stderrを消費（リーク防止）
-    this.consumeStream(this.process.stdout);
-    this.consumeStream(this.process.stderr);
-    
-    // サーバー起動を待つ
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  }
-  
-  private async consumeStream(stream: ReadableStream<Uint8Array>): Promise<void> {
-    const reader = stream.getReader();
-    (async () => {
-      try {
-        while (true) {
-          const { done } = await reader.read();
-          if (done) break;
-        }
-      } catch (error) {
-        // Stream was cancelled
-      } finally {
-        reader.releaseLock();
-      }
-    })();
-  }
-  
-  async stop(): Promise<void> {
-    if (this.process) {
-      this.process.kill();
-      await this.process.status;
-    }
-  }
-}
+// WebSocketサーバーの起動を待つ中間クラスはtest_utils.tsから使用
 
 Deno.test("WebSocket auto-reconnection after disconnection", async () => {
   const server = new TestServer();

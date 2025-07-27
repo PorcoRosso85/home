@@ -7,7 +7,7 @@
  * - DDL操作の追跡と適用
  * - クライアント間のスキーマ同期
  * - 現在のスキーマ状態の照会
- * - ServerKuzuClientとBrowserKuzuClientとの統合
+ * - BrowserKuzuClientとの統合
  */
 
 import { 

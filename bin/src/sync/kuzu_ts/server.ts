@@ -10,7 +10,7 @@
  * - Telemetry logging support (optional)
  */
 
-// import * as telemetry from "./telemetry_log.ts";
+import * as telemetry from "./telemetry_log.ts";
 
 const port = parseInt(Deno.env.get("PORT") || "8080");
 const clients = new Map<string, WebSocket>();
@@ -42,10 +42,17 @@ const metrics = {
 };
 
 // Check if telemetry is available
-const telemetryAvailable = false; // await telemetry.isAvailable().catch(() => false);
+const telemetryAvailable = await telemetry.isAvailable();
+
+if (!telemetryAvailable) {
+  throw new Error("Telemetry is not available. Please set LOG_TS_PATH environment variable.");
+}
 
 // Log server start
-console.log(`🚀 Server starting on ws://localhost:${port}`);
+await telemetry.info(`Server starting on ws://localhost:${port}`, {
+  port,
+  telemetry: "enabled"
+});
 
 // Start server
 Deno.serve({ port }, (req) => {
@@ -61,7 +68,10 @@ Deno.serve({ port }, (req) => {
       metrics.totalConnections++;
       clients.set(clientId, socket);
       
-      console.log(`✅ Client connected: ${clientId}`);
+      await telemetry.info(`Client connected: ${clientId}`, {
+        clientId,
+        activeConnections: clients.size
+      });
       
       socket.send(JSON.stringify({
         type: "connected",
@@ -84,7 +94,13 @@ Deno.serve({ port }, (req) => {
             eventHistory.push(storedEvent);
             
             // Log received event
-            console.log(`📨 Event received: ${storedEvent.template} from ${storedEvent.clientId}`);
+            await telemetry.info(`Event received: ${storedEvent.template}`, {
+              eventId: storedEvent.id,
+              template: storedEvent.template,
+              clientId: storedEvent.clientId,
+              sequence: storedEvent.sequence,
+              params: storedEvent.params
+            });
             
             // Apply to in-memory state
             if (storedEvent.template === "INCREMENT_COUNTER") {
@@ -92,11 +108,20 @@ Deno.serve({ port }, (req) => {
               const amount = storedEvent.params.amount || 1;
               const current = state.counters.get(counterId) || 0;
               state.counters.set(counterId, current + amount);
-              console.log(`🔢 Counter ${counterId}: ${current} + ${amount} = ${current + amount}`);
+              await telemetry.info(`Counter incremented: ${counterId}`, {
+                counterId,
+                previousValue: current,
+                increment: amount,
+                newValue: current + amount
+              });
             } else if (storedEvent.template === "QUERY_COUNTER") {
               const counterId = storedEvent.params.counterId;
               const value = state.counters.get(counterId) || 0;
-              console.log(`🔍 Query counter ${counterId}: value = ${value}`);
+              await telemetry.info(`Counter queried: ${counterId}`, {
+                counterId,
+                value,
+                requestingClient: clientId
+              });
               
               // Send counter value back
               socket.send(JSON.stringify({
@@ -125,28 +150,49 @@ Deno.serve({ port }, (req) => {
                 }
               }
               if (broadcastCount > 0) {
-                console.log(`📡 Broadcasted ${storedEvent.template} to ${broadcastCount} clients`);
+                await telemetry.info(`Event broadcasted to ${broadcastCount} clients`, {
+                  eventId: storedEvent.id,
+                  template: storedEvent.template,
+                  sourceClient: storedEvent.clientId,
+                  recipientCount: broadcastCount
+                });
               }
             }
             break;
             
           case "requestHistory":
+            const fromPosition = message.fromPosition || 0;
+            const historyEvents = eventHistory.slice(fromPosition);
+            
+            await telemetry.info(`History requested`, {
+              clientId,
+              fromPosition,
+              eventCount: historyEvents.length,
+              totalEvents: eventHistory.length
+            });
+            
             socket.send(JSON.stringify({
               type: "history",
-              events: eventHistory.slice(message.fromPosition || 0)
+              events: historyEvents
             }));
             break;
         }
       } catch (error) {
         metrics.errors++;
-        console.error("Message error:", error);
+        await telemetry.error("Message processing error", {
+          clientId,
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     });
     
     socket.addEventListener("close", async () => {
       clients.delete(clientId);
       
-      console.log(`❌ Client disconnected: ${clientId}`);
+      await telemetry.info(`Client disconnected: ${clientId}`, {
+        clientId,
+        activeConnections: clients.size
+      });
     });
     
     return response;

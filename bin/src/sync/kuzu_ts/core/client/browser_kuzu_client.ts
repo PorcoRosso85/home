@@ -12,6 +12,7 @@ import { TemplateRegistry } from "../../event_sourcing/template_event_store.ts";
 import { StateCache } from "../cache/state_cache.ts";
 import { SchemaManager } from "../schema_manager.ts";
 import { ExtendedTemplateRegistry } from "../../event_sourcing/ddl_event_handler.ts";
+import * as telemetry from "../../telemetry_log.ts";
 
 export class BrowserKuzuClientImpl implements BrowserKuzuClient {
   private db?: any;
@@ -61,7 +62,7 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
     );
     
     // Replay all events from snapshot
-    console.log(`Replaying ${snapshot.events.length} events from snapshot`);
+    await telemetry.info("Replaying events from snapshot", { count: snapshot.events.length });
     for (const event of snapshot.events) {
       await this.applyEvent(event);
       this.events.push(event);
@@ -324,9 +325,12 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
         `);
       }
       
-      console.log("Default database schema created");
+      await telemetry.info("Default database schema created");
     } else {
-      console.log(`Schema already exists with ${Object.keys(schemaState.nodeTables).length} node tables and ${Object.keys(schemaState.edgeTables).length} edge tables`);
+      await telemetry.info("Schema already exists", {
+        nodeTables: Object.keys(schemaState.nodeTables).length,
+        edgeTables: Object.keys(schemaState.edgeTables).length
+      });
     }
   }
 

@@ -5,6 +5,7 @@
 
 import type { WebSocketSync, WebSocketMessage } from "./types.ts";
 import type { TemplateEvent } from "../../event_sourcing/types.ts";
+import * as telemetry from "../../telemetry_log.ts";
 
 export class WebSocketSyncImpl implements WebSocketSync {
   private ws?: WebSocket;
@@ -22,8 +23,8 @@ export class WebSocketSyncImpl implements WebSocketSync {
       try {
         this.ws = new WebSocket(url);
         
-        this.ws.onopen = () => {
-          console.log("WebSocket connected");
+        this.ws.onopen = async () => {
+          await telemetry.info("WebSocket connected", { url: this.url });
           this.reconnectAttempts = 0;
           
           // Send pending events
@@ -37,16 +38,16 @@ export class WebSocketSyncImpl implements WebSocketSync {
             const message: WebSocketMessage = JSON.parse(event.data);
             this.handleMessage(message);
           } catch (error) {
-            console.error("Failed to parse WebSocket message:", error);
+            await telemetry.error("Failed to parse WebSocket message", { error: error.message });
           }
         };
         
-        this.ws.onerror = (error) => {
-          console.error("WebSocket error:", error);
+        this.ws.onerror = async (error) => {
+          await telemetry.error("WebSocket error", { error: error.toString() });
         };
         
-        this.ws.onclose = () => {
-          console.log("WebSocket disconnected");
+        this.ws.onclose = async () => {
+          await telemetry.info("WebSocket disconnected", { url: this.url });
           this.attemptReconnect();
         };
         
@@ -104,18 +105,18 @@ export class WebSocketSyncImpl implements WebSocketSync {
         break;
         
       case "error":
-        console.error("Server error:", message.error);
+        telemetry.error("Server error", { error: message.error });
         break;
         
       case "connected":
-        console.log("Server acknowledged connection");
+        telemetry.info("Server acknowledged connection", { clientId: (message.payload as any)?.clientId });
         break;
     }
   }
 
   private async sendPendingEvents(): Promise<void> {
     if (this.pendingEvents.length > 0) {
-      console.log(`Sending ${this.pendingEvents.length} pending events`);
+      await telemetry.info("Sending pending events", { count: this.pendingEvents.length });
       
       for (const event of this.pendingEvents) {
         await this.sendEvent(event);
@@ -127,16 +128,19 @@ export class WebSocketSyncImpl implements WebSocketSync {
 
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("Max reconnection attempts reached");
+      telemetry.error("Max reconnection attempts reached", { maxAttempts: this.maxReconnectAttempts });
       return;
     }
     
     this.reconnectAttempts++;
     
-    setTimeout(() => {
-      console.log(`Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+    setTimeout(async () => {
+      await telemetry.info("Attempting reconnect", { 
+        attempt: this.reconnectAttempts, 
+        maxAttempts: this.maxReconnectAttempts 
+      });
       if (this.url) {
-        this.connect(this.url).catch(console.error);
+        this.connect(this.url).catch(error => telemetry.error("Reconnect failed", { error: error.message }));
       }
     }, this.reconnectDelay * this.reconnectAttempts);
   }

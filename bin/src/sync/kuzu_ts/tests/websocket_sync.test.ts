@@ -5,6 +5,7 @@
 
 import { assertEquals, assert } from "jsr:@std/assert@^1.0.0";
 import { SyncClient } from "../core/websocket/client.ts";
+import { TestServer } from "./test_utils.ts";
 
 // WebSocketサーバーの型定義をインポート
 interface ServerState {
@@ -19,79 +20,7 @@ async function getServerState(): Promise<ServerState> {
   return await response.json();
 }
 
-// テスト用のWebSocketサーバー管理
-class TestServer {
-  private process: Deno.ChildProcess | null = null;
-  private stdout: ReadableStream<Uint8Array> | null = null;
-  private stderr: ReadableStream<Uint8Array> | null = null;
-  
-  async start(port: number = 8080): Promise<void> {
-    const denoPath = Deno.env.get("DENO_PATH") || "deno";
-    const command = new Deno.Command(denoPath, {
-      args: ["run", "--allow-net", "--allow-read", "--allow-env", "./server.ts"],
-      stdout: "piped",
-      stderr: "piped",
-    });
-    
-    this.process = command.spawn();
-    this.stdout = this.process.stdout;
-    this.stderr = this.process.stderr;
-    
-    // stdout/stderrの読み取りを開始（バッファに溜まらないように）
-    this.consumeStream(this.stdout);
-    this.consumeStream(this.stderr);
-    
-    // サーバーの起動を待つ
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  }
-  
-  private async consumeStream(stream: ReadableStream<Uint8Array>): Promise<void> {
-    const reader = stream.getReader();
-    try {
-      while (true) {
-        const { done } = await reader.read();
-        if (done) break;
-      }
-    } catch (error) {
-      // ストリームが閉じられた場合のエラーは無視
-      if (!(error instanceof TypeError && error.message.includes("closed"))) {
-        console.error("Stream consumption error:", error);
-      }
-    } finally {
-      reader.releaseLock();
-    }
-  }
-  
-  async stop(): Promise<void> {
-    if (this.process) {
-      // プロセスを終了
-      this.process.kill("SIGTERM");
-      
-      // ストリームを適切にキャンセル
-      if (this.stdout) {
-        try {
-          await this.stdout.cancel();
-        } catch (error) {
-          // 既にキャンセル済みの場合は無視
-        }
-        this.stdout = null;
-      }
-      
-      if (this.stderr) {
-        try {
-          await this.stderr.cancel();
-        } catch (error) {
-          // 既にキャンセル済みの場合は無視
-        }
-        this.stderr = null;
-      }
-      
-      // プロセスの終了を待つ
-      await this.process.status;
-      this.process = null;
-    }
-  }
-}
+// テスト用のWebSocketサーバー管理はtest_utils.tsから使用
 
 // テストケース
 Deno.test("WebSocket client connection and disconnection", async () => {

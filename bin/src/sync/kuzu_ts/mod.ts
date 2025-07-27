@@ -84,8 +84,7 @@ export {
   type AggregateMemoryStats
 } from "./core/cache/aggregate_cache.ts";
 
-// Re-export server components
-export { ServerKuzuClient } from "./core/server/server_kuzu_client.ts";
+// ServerKuzuClient has been deprecated and removed
 
 // Re-export DDL components
 export {

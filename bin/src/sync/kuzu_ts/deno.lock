@@ -8,11 +8,7 @@
     "jsr:@std/internal@^1.0.6": "1.0.10",
     "jsr:@std/internal@^1.0.9": "1.0.10",
     "jsr:@std/path@1": "1.1.1",
-    "jsr:@std/path@^1.1.1": "1.1.1",
-    "npm:@playwright/test@^1.40.0": "1.54.1",
-    "npm:kuzu-wasm@0.10": "0.10.1",
-    "npm:kuzu-wasm@latest": "0.11.0",
-    "npm:tsx@4": "4.20.3"
+    "jsr:@std/path@^1.1.1": "1.1.1"
   },
   "jsr": {
     "@std/assert@1.0.13": {
@@ -172,58 +168,6 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
-    "@playwright/test@1.54.1": {
-      "integrity": "sha512-FS8hQ12acieG2dYSksmLOF7BNxnVf2afRJdCuM1eMSxj6QTSE6G4InGF7oApGgDb65MX7AwMVlIkpru0yZA4Xw==",
-      "dependencies": [
-        "playwright"
-      ],
-      "bin": true
-    },
-    "callsites@3.1.0": {
-      "integrity": "sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ=="
-    },
-    "debug@4.4.1": {
-      "integrity": "sha512-KcKCqiftBJcZr++7ykoDIEwSa3XWowTfNPo92BYxjXiyYEVrUQh2aLyhxBCwww+heortUFxEJYcRzosstTEBYQ==",
-      "dependencies": [
-        "ms"
-      ]
-    },
-    "esbuild@0.25.8": {
-      "integrity": "sha512-vVC0USHGtMi8+R4Kz8rt6JhEWLxsv9Rnu/lGYbPR8u47B+DCBksq9JarW0zOO7bs37hyOK1l2/oqtbciutL5+Q==",
-      "optionalDependencies": [
-        "@esbuild/aix-ppc64",
-        "@esbuild/android-arm",
-        "@esbuild/android-arm64",
-        "@esbuild/android-x64",
-        "@esbuild/darwin-arm64",
-        "@esbuild/darwin-x64",
-        "@esbuild/freebsd-arm64",
-        "@esbuild/freebsd-x64",
-        "@esbuild/linux-arm",
-        "@esbuild/linux-arm64",
-        "@esbuild/linux-ia32",
-        "@esbuild/linux-loong64",
-        "@esbuild/linux-mips64el",
-        "@esbuild/linux-ppc64",
-        "@esbuild/linux-riscv64",
-        "@esbuild/linux-s390x",
-        "@esbuild/linux-x64",
-        "@esbuild/netbsd-arm64",
-        "@esbuild/netbsd-x64",
-        "@esbuild/openbsd-arm64",
-        "@esbuild/openbsd-x64",
-        "@esbuild/openharmony-arm64",
-        "@esbuild/sunos-x64",
-        "@esbuild/win32-arm64",
-        "@esbuild/win32-ia32",
-        "@esbuild/win32-x64"
-      ],
-      "scripts": true,
-      "bin": true
-    },
-    "esm@3.2.25": {
-      "integrity": "sha512-U1suiZ2oDVWv4zPO56S0NcR5QriEahGtdN2OR6FiOG4WJvcjBVFB0qI4+eKoWFH483PKGuLuu6V8Z4T5g63UVA=="
-    },
     "fsevents@2.3.2": {
       "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
       "os": ["darwin"],
@@ -233,87 +177,6 @@
       "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
       "os": ["darwin"],
       "scripts": true
-    },
-    "get-tsconfig@4.10.1": {
-      "integrity": "sha512-auHyJ4AgMz7vgS8Hp3N6HXSmlMdUyhSUrfBF16w153rxtLIEOE+HGqaBppczZvnHLqQJfiHotCYpNhl0lUROFQ==",
-      "dependencies": [
-        "resolve-pkg-maps"
-      ]
-    },
-    "is-observable@2.1.0": {
-      "integrity": "sha512-DailKdLb0WU+xX8K5w7VsJhapwHLZ9jjmazqCJq4X12CTgqq73TKnbRcnSLuXYPOoLQgV5IrD7ePiX/h1vnkBw=="
-    },
-    "kuzu-wasm@0.10.1": {
-      "integrity": "sha512-5lsOae7N2tr6ks6isfX43b9JVxW8jsPZ5BHXGnj2mWsOkzGpZZaGiUoG521Cwi3vnIo7gyodxACQ429P8B3M3Q==",
-      "dependencies": [
-        "threads",
-        "tiny-worker",
-        "uuid"
-      ]
-    },
-    "kuzu-wasm@0.11.0": {
-      "integrity": "sha512-V+e9KoipART7hXFLv7AwBdW/0Wp2ujpfdnccx1xRDQK9WifdHvGNKJuo/B2WTh2/DTV6SMRmjld9lXmH3WSd0Q==",
-      "dependencies": [
-        "threads",
-        "tiny-worker",
-        "uuid"
-      ]
-    },
-    "ms@2.1.3": {
-      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="
-    },
-    "observable-fns@0.6.1": {
-      "integrity": "sha512-9gRK4+sRWzeN6AOewNBTLXir7Zl/i3GB6Yl26gK4flxz8BXVpD3kt8amREmWNb0mxYOGDotvE5a4N+PtGGKdkg=="
-    },
-    "playwright-core@1.54.1": {
-      "integrity": "sha512-Nbjs2zjj0htNhzgiy5wu+3w09YetDx5pkrpI/kZotDlDUaYk0HVA5xrBVPdow4SAUIlhgKcJeJg4GRKW6xHusA==",
-      "bin": true
-    },
-    "playwright@1.54.1": {
-      "integrity": "sha512-peWpSwIBmSLi6aW2auvrUtf2DqY16YYcCMO8rTVx486jKmDTJg7UAhyrraP98GB8BoPURZP8+nxO7TSd4cPr5g==",
-      "dependencies": [
-        "playwright-core"
-      ],
-      "optionalDependencies": [
-        "fsevents@2.3.2"
-      ],
-      "bin": true
-    },
-    "resolve-pkg-maps@1.0.0": {
-      "integrity": "sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw=="
-    },
-    "threads@1.7.0": {
-      "integrity": "sha512-Mx5NBSHX3sQYR6iI9VYbgHKBLisyB+xROCBGjjWm1O9wb9vfLxdaGtmT/KCjUqMsSNW6nERzCW3T6H43LqjDZQ==",
-      "dependencies": [
-        "callsites",
-        "debug",
-        "is-observable",
-        "observable-fns"
-      ],
-      "optionalDependencies": [
-        "tiny-worker"
-      ]
-    },
-    "tiny-worker@2.3.0": {
-      "integrity": "sha512-pJ70wq5EAqTAEl9IkGzA+fN0836rycEuz2Cn6yeZ6FRzlVS5IDOkFHpIoEsksPRQV34GDqXm65+OlnZqUSyK2g==",
-      "dependencies": [
-        "esm"
-      ]
-    },
-    "tsx@4.20.3": {
-      "integrity": "sha512-qjbnuR9Tr+FJOMBqJCW5ehvIo/buZq7vH7qD7JziU98h6l3qGy0a/yPFjwO+y0/T7GFpNgNAvEcPPVfyT8rrPQ==",
-      "dependencies": [
-        "esbuild",
-        "get-tsconfig"
-      ],
-      "optionalDependencies": [
-        "fsevents@2.3.3"
-      ],
-      "bin": true
-    },
-    "uuid@11.1.0": {
-      "integrity": "sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==",
-      "bin": true
     }
   },
   "redirects": {
@@ -552,13 +415,6 @@
       "jsr:@std/assert@1",
       "jsr:@std/async@1",
       "npm:kuzu-wasm@latest"
-    ],
-    "packageJson": {
-      "dependencies": [
-        "npm:@playwright/test@^1.40.0",
-        "npm:kuzu-wasm@0.10",
-        "npm:tsx@4"
-      ]
-    }
+    ]
   }
 }

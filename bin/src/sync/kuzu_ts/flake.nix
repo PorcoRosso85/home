@@ -51,7 +51,7 @@
         apps.server = {
           type = "app";
           program = "${pkgs.writeShellScript "start-server" ''
-            export LOG_TS_PATH="${log-ts.lib.importPath}"
+            export LOG_TS_PATH="${log-ts}/lib/mod.ts"
             export PATH="${pkgs.deno}/bin:$PATH"
             echo "🚀 Starting KuzuDB sync server..."
             exec ${pkgs.deno}/bin/deno run --allow-net --allow-read --allow-env ./server.ts
@@ -94,7 +94,7 @@
             # E2Eテスト (Python pytest)
             echo ""
             echo "🐍 Running E2E tests with pytest..."
-            ${pythonEnv}/bin/pytest ./tests/e2e_test.py -v || E2E_EXIT=$?
+            ${pythonEnv}/bin/pytest ./e2e/ -v || E2E_EXIT=$?
             
             # 統合テスト (TypeScript)
             echo ""
@@ -158,7 +158,7 @@
             export NODE_PATH="${pkgs.nodejs}/lib/node_modules:$NODE_PATH"
             
             # Set environment variable for log_ts module
-            export LOG_TS_PATH="${log-ts.lib.importPath}"
+            export LOG_TS_PATH="${log-ts}/lib/mod.ts"
           '';
         };
       });
