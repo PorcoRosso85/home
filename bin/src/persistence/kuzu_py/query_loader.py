@@ -59,12 +59,20 @@ def load_query_from_file(path: Path, force_reload: bool = False) -> Union[str, E
                 details={"path": str(path)}
             )
         
-        # コメント行を除去
+        # コメント行を除去 (// と -- の両方をサポート)
         lines = content.split('\n')
-        query_lines = [
-            line for line in lines 
-            if not line.strip().startswith('//')
-        ]
+        query_lines = []
+        for line in lines:
+            stripped = line.strip()
+            # Skip lines that start with // or --
+            if stripped.startswith('//') or stripped.startswith('--'):
+                continue
+            # Remove inline -- comments
+            if '--' in line:
+                line = line[:line.index('--')]
+            # Add non-empty lines
+            if line.strip():
+                query_lines.append(line)
         
         query = '\n'.join(query_lines).strip()
         

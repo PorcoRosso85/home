@@ -4,3 +4,4 @@ exclude setup.py
 exclude __pycache__
 prune e2e
 prune test_queries
+prune kuzu_py
