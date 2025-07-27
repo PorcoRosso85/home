@@ -12,8 +12,8 @@ When the user says "commit", "/commit", or mentions "git commit":
 3. Stage ONLY those files you edited
 4. Create a commit with a descriptive message
 5. Ensure no other files are accidentally included
-6. After commit, check for remaining uncommitted files in working directory
-7. If uncommitted files exist, explain why they weren't included
+6. After commit, check for remaining uncommitted files in current directory (pwd) only
+7. If uncommitted files exist in pwd, explain why they weren't included
 
 ## Important Rules
 - NEVER commit files you didn't edit
@@ -43,8 +43,8 @@ git commit -m "feat: implement new feature
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
-# 6. Check for remaining changes in working directory
-git status
+# 6. Check for remaining changes in current directory only
+git status .
 
 # 7. If uncommitted files exist, explain each:
 # - .claude/projects/*.jsonl → Session tracking files (not my edits)
@@ -53,7 +53,12 @@ git status
 ```
 
 ## Post-Commit Analysis
-After committing, always analyze remaining uncommitted files:
+After committing, analyze remaining uncommitted files in the current directory (pwd) only:
+
+### Check scope:
+- Use `git status .` to check only files in current directory and subdirectories
+- Ignore files outside of pwd to focus on relevant changes
+- This prevents unnecessary analysis of unrelated project files
 
 ### Common reasons for uncommitted files:
 1. **Session tracking files** (`.claude/projects/*.jsonl`) - Automatic session logs
@@ -62,9 +67,10 @@ After committing, always analyze remaining uncommitted files:
 4. **Unrelated changes** - Files outside current task scope
 5. **Incomplete work** - Files requiring further modifications
 
-### Working directory scope:
-- Focus on files within the current working directory and its subdirectories
-- Explain status of files in the same module/package being worked on
+### Working directory focus:
+- Only analyze files within pwd and its subdirectories
+- Example: If pwd is `/home/nixos/bin/src/poc/`, only check that path
+- Skip global repository status to maintain focused analysis
 
 ## Key Principle
 "Commit only your files except for others" - This ensures clean commit history and prevents accidental inclusion of work done by other developers or tools.
