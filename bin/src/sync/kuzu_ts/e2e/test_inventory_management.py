@@ -11,6 +11,8 @@ import json
 import pytest
 import uuid
 import time
+import tempfile
+import shutil
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import kuzu
@@ -23,9 +25,24 @@ class InventoryNode:
         self.node_id = node_id
         self.node_type = node_type  # 'warehouse' or 'store'
         self.location = location
-        self.db = kuzu.Database(':memory:')
+        # 一時ディレクトリを作成
+        self.temp_dir = tempfile.mkdtemp(prefix=f"kuzu_inv_{node_id}_")
+        db_path = f"{self.temp_dir}/inventory.db"
+        self.db = kuzu.Database(db_path)
         self.conn = kuzu.Connection(self.db)
         self._initialize_schema()
+        
+    def __del__(self):
+        """クリーンアップ"""
+        if hasattr(self, 'conn'):
+            del self.conn
+        if hasattr(self, 'db'):
+            del self.db
+        if hasattr(self, 'temp_dir'):
+            try:
+                shutil.rmtree(self.temp_dir)
+            except:
+                pass
         
     def _initialize_schema(self):
         """在庫管理スキーマを初期化"""
@@ -281,9 +298,10 @@ class InventoryNode:
     def get_pending_movements(self) -> List[Dict[str, Any]]:
         """保留中の在庫移動を取得"""
         result = self.conn.execute("""
-            MATCH (m:StockMovement {status: 'pending'})
-            WHERE EXISTS { (m)-[:FROM_NODE]->(:InventoryNode {id: $node_id}) }
-               OR EXISTS { (m)-[:TO_NODE]->(:InventoryNode {id: $node_id}) }
+            MATCH (m:StockMovement)
+            WHERE m.status = 'pending'
+            AND (EXISTS { MATCH (m)-[:FROM_NODE]->(n:InventoryNode) WHERE n.id = $node_id }
+                 OR EXISTS { MATCH (m)-[:TO_NODE]->(n:InventoryNode) WHERE n.id = $node_id })
             MATCH (m)-[:MOVES_PRODUCT]->(p:Product)
             RETURN m.id as id,
                    m.type as type,

@@ -12,6 +12,8 @@ import pytest
 import uuid
 import time
 import random
+import tempfile
+import shutil
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import kuzu
@@ -24,11 +26,26 @@ class IoTDevice:
         self.device_id = device_id
         self.device_type = device_type
         self.location = location
-        self.db = kuzu.Database(':memory:')
+        # 一時ディレクトリを作成
+        self.temp_dir = tempfile.mkdtemp(prefix=f"kuzu_iot_{device_id}_")
+        db_path = f"{self.temp_dir}/iot.db"
+        self.db = kuzu.Database(db_path)
         self.conn = kuzu.Connection(self.db)
         self.is_online = True
         self.battery_level = 100.0
         self._initialize_schema()
+        
+    def __del__(self):
+        """クリーンアップ"""
+        if hasattr(self, 'conn'):
+            del self.conn
+        if hasattr(self, 'db'):
+            del self.db
+        if hasattr(self, 'temp_dir'):
+            try:
+                shutil.rmtree(self.temp_dir)
+            except:
+                pass
         
     def _initialize_schema(self):
         """IoTデータスキーマを初期化"""
@@ -266,6 +283,18 @@ class IoTDevice:
                 MERGE (d:Device {id: $device_id})
             """, {"device_id": measurement["device_id"]})
             
+            # センサーとの関連付け（sensor_typeから推測）
+            if "sensor_type" in measurement:
+                sensor_id = f"sensor-{measurement['device_id']}-{measurement['sensor_type']}"
+                self.conn.execute("""
+                    MATCH (m:Measurement {id: $measurement_id})
+                    MATCH (s:Sensor {id: $sensor_id})
+                    CREATE (m)-[:MEASURED_BY]->(s)
+                """, {
+                    "measurement_id": measurement["id"],
+                    "sensor_id": sensor_id
+                })
+            
     def get_recent_measurements(self, sensor_type: str, minutes: int = 60) -> List[Dict[str, Any]]:
         """最近の測定値を取得"""
         sensor_id = f"sensor-{self.device_id}-{sensor_type}"
@@ -308,9 +337,24 @@ class IoTGateway:
     
     def __init__(self, gateway_id: str):
         self.gateway_id = gateway_id
-        self.db = kuzu.Database(':memory:')
+        # 一時ディレクトリを作成
+        self.temp_dir = tempfile.mkdtemp(prefix=f"kuzu_gateway_{gateway_id}_")
+        db_path = f"{self.temp_dir}/gateway.db"
+        self.db = kuzu.Database(db_path)
         self.conn = kuzu.Connection(self.db)
         self._initialize_schema()
+        
+    def __del__(self):
+        """クリーンアップ"""
+        if hasattr(self, 'conn'):
+            del self.conn
+        if hasattr(self, 'db'):
+            del self.db
+        if hasattr(self, 'temp_dir'):
+            try:
+                shutil.rmtree(self.temp_dir)
+            except:
+                pass
         
     def _initialize_schema(self):
         """ゲートウェイのスキーマを初期化（デバイスと同じ）"""
@@ -344,6 +388,53 @@ class IoTGateway:
         self.conn.execute("CREATE REL TABLE HAS_SENSOR (FROM Device TO Sensor)")
         self.conn.execute("CREATE REL TABLE MEASURED_BY (FROM Measurement TO Sensor)")
         self.conn.execute("CREATE REL TABLE TRIGGERED_BY (FROM Alert TO Device)")
+        
+    def sync_measurement(self, measurement: Dict[str, Any]):
+        """測定データを同期（IoTDeviceと同じメソッドを提供）"""
+        # 測定値が既に存在するかチェック
+        result = self.conn.execute(
+            "MATCH (m:Measurement {id: $id}) RETURN m",
+            {"id": measurement["id"]}
+        )
+        
+        if not result.has_next():
+            # 新しい測定値を保存
+            self.conn.execute("""
+                CREATE (m:Measurement {
+                    id: $id,
+                    timestamp: $timestamp,
+                    value: $value,
+                    quality: $quality
+                })
+            """, {
+                "id": measurement["id"],
+                "timestamp": measurement["timestamp"],
+                "value": measurement["value"],
+                "quality": measurement["quality"]
+            })
+            
+            # デバイスが存在しない場合は作成
+            self.conn.execute("""
+                MERGE (d:Device {id: $device_id})
+            """, {"device_id": measurement["device_id"]})
+            
+            # センサーとの関連付け（sensor_typeから推測）
+            if "sensor_type" in measurement:
+                sensor_id = f"sensor-{measurement['device_id']}-{measurement['sensor_type']}"
+                # センサーが存在するか確認
+                sensor_result = self.conn.execute(
+                    "MATCH (s:Sensor {id: $sensor_id}) RETURN s",
+                    {"sensor_id": sensor_id}
+                )
+                if sensor_result.has_next():
+                    self.conn.execute("""
+                        MATCH (m:Measurement {id: $measurement_id})
+                        MATCH (s:Sensor {id: $sensor_id})
+                        CREATE (m)-[:MEASURED_BY]->(s)
+                    """, {
+                        "measurement_id": measurement["id"],
+                        "sensor_id": sensor_id
+                    })
         
     def aggregate_device_data(self, device_id: str) -> Dict[str, Any]:
         """デバイスのデータを集約"""
@@ -589,6 +680,55 @@ async def test_industrial_iot_predictive_maintenance():
     
     print("産業機器のセンサーネットワークを初期化")
     
+    # ゲートウェイにもセンサー情報を同期
+    for machine in machines:
+        # デバイス情報を同期
+        gateway.conn.execute("""
+            MERGE (d:Device {id: $device_id})
+            SET d.type = $type,
+                d.location = $location,
+                d.status = 'online',
+                d.battery_level = $battery,
+                d.last_seen = $timestamp
+        """, {
+            "device_id": machine.device_id,
+            "type": machine.device_type,
+            "location": machine.location,
+            "battery": machine.battery_level,
+            "timestamp": int(time.time() * 1000)
+        })
+        
+        # センサー情報を同期
+        sensor_configs = {
+            "cnc_machine": [("spindle_speed", "rpm"), ("vibration", "mm/s"), ("temperature", "°C")],
+            "pump": [("flow_rate", "L/min"), ("pressure", "bar"), ("vibration", "mm/s")],
+            "motor": [("current", "A"), ("temperature", "°C"), ("rpm", "rpm")]
+        }
+        
+        for sensor_type, unit in sensor_configs[machine.device_type]:
+            sensor_id = f"sensor-{machine.device_id}-{sensor_type}"
+            gateway.conn.execute("""
+                MERGE (s:Sensor {id: $sensor_id})
+                SET s.device_id = $device_id,
+                    s.sensor_type = $sensor_type,
+                    s.unit = $unit
+            """, {
+                "sensor_id": sensor_id,
+                "device_id": machine.device_id,
+                "sensor_type": sensor_type,
+                "unit": unit
+            })
+            
+            # リレーションシップも作成
+            gateway.conn.execute("""
+                MATCH (d:Device {id: $device_id})
+                MATCH (s:Sensor {id: $sensor_id})
+                MERGE (d)-[:HAS_SENSOR]->(s)
+            """, {
+                "device_id": machine.device_id,
+                "sensor_id": sensor_id
+            })
+    
     # === シナリオ1: 正常運転データの収集 ===
     print("\n=== シナリオ1: 正常運転パターン ===")
     
@@ -624,14 +764,23 @@ async def test_industrial_iot_predictive_maintenance():
                 measurements.append(meas)
                 
                 # ゲートウェイに同期
+                gateway.sync_measurement(meas)
+                
+                # デバイス情報も同期
                 gateway.conn.execute("""
-                    CREATE (m:Measurement {
-                        id: $id,
-                        timestamp: $timestamp,
-                        value: $value,
-                        quality: $quality
-                    })
-                """, meas)
+                    MERGE (d:Device {id: $device_id})
+                    SET d.type = $type,
+                        d.location = $location,
+                        d.status = 'online',
+                        d.battery_level = $battery,
+                        d.last_seen = $timestamp
+                """, {
+                    "device_id": machine.device_id,
+                    "type": machine.device_type,
+                    "location": machine.location,
+                    "battery": machine.battery_level,
+                    "timestamp": meas["timestamp"]
+                })
             
             print(f"{machine.location}: 正常運転中")
         
@@ -768,10 +917,74 @@ async def test_smart_city_traffic_monitoring():
             speed_meas = sensor.collect_measurement("avg_speed", avg_speed)
             occ_meas = sensor.collect_measurement("occupancy", occupancy)
             
+            # ゲートウェイに同期
+            for meas in [count_meas, speed_meas, occ_meas]:
+                gateway.sync_measurement(meas)
+                
+            # デバイス情報も同期
+            gateway.conn.execute("""
+                MERGE (d:Device {id: $device_id})
+                SET d.type = $type,
+                    d.location = $location,
+                    d.status = 'online',
+                    d.battery_level = $battery,
+                    d.last_seen = $timestamp
+            """, {
+                "device_id": sensor.device_id,
+                "type": sensor.device_type,
+                "location": sensor.location,
+                "battery": sensor.battery_level,
+                "timestamp": count_meas["timestamp"]
+            })
+            
+            # センサー情報も同期
+            for sensor_type_name in ["vehicle_count", "avg_speed", "occupancy"]:
+                sensor_id = f"sensor-{sensor.device_id}-{sensor_type_name}"
+                gateway.conn.execute("""
+                    MERGE (s:Sensor {id: $sensor_id})
+                    SET s.device_id = $device_id,
+                        s.sensor_type = $sensor_type
+                """, {
+                    "sensor_id": sensor_id,
+                    "device_id": sensor.device_id,
+                    "sensor_type": sensor_type_name
+                })
+                
+                # リレーションシップも作成
+                gateway.conn.execute("""
+                    MATCH (d:Device {id: $device_id})
+                    MATCH (s:Sensor {id: $sensor_id})
+                    MERGE (d)-[:HAS_SENSOR]->(s)
+                """, {
+                    "device_id": sensor.device_id,
+                    "sensor_id": sensor_id
+                })
+            
             # 交差点の場合は待ち時間も
             if sensor.device_type == "intersection":
                 wait_time = occupancy * 2  # 占有率に比例
                 wait_meas = sensor.collect_measurement("wait_time", wait_time)
+                gateway.sync_measurement(wait_meas)
+                
+                # 待ち時間センサーも同期
+                wait_sensor_id = f"sensor-{sensor.device_id}-wait_time"
+                gateway.conn.execute("""
+                    MERGE (s:Sensor {id: $sensor_id})
+                    SET s.device_id = $device_id,
+                        s.sensor_type = 'wait_time'
+                """, {
+                    "sensor_id": wait_sensor_id,
+                    "device_id": sensor.device_id
+                })
+                
+                gateway.conn.execute("""
+                    MATCH (d:Device {id: $device_id})
+                    MATCH (s:Sensor {id: $sensor_id})
+                    MERGE (d)-[:HAS_SENSOR]->(s)
+                """, {
+                    "device_id": sensor.device_id,
+                    "sensor_id": wait_sensor_id
+                })
                 
             print(f"  {sensor.location}: {vehicle_count:.0f}台/分, {avg_speed:.0f}km/h, 占有率{occupancy:.0f}%")
     
@@ -846,9 +1059,12 @@ async def test_smart_city_traffic_monitoring():
     if result.has_next():
         row = result.get_next()
         print(f"\n過去1時間の交通流量統計:")
-        print(f"  平均: {row[0]:.0f}台/分")
-        print(f"  最大: {row[1]:.0f}台/分")
-        print(f"  最小: {row[2]:.0f}台/分")
+        if row[0] is not None:
+            print(f"  平均: {row[0]:.0f}台/分")
+            print(f"  最大: {row[1]:.0f}台/分")
+            print(f"  最小: {row[2]:.0f}台/分")
+        else:
+            print("  データが不足しています")
     
     print("\n✅ スマートシティ交通監視シナリオ完了")
 

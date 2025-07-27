@@ -11,6 +11,8 @@ import json
 import pytest
 import uuid
 import time
+import tempfile
+import shutil
 from typing import List, Dict, Any
 import kuzu
 
@@ -21,10 +23,25 @@ class ChatClient:
     def __init__(self, user_id: str, username: str):
         self.user_id = user_id
         self.username = username
-        self.db = kuzu.Database(':memory:')
+        # 一時ディレクトリを作成
+        self.temp_dir = tempfile.mkdtemp(prefix=f"kuzu_chat_{user_id}_")
+        db_path = f"{self.temp_dir}/chat.db"
+        self.db = kuzu.Database(db_path)
         self.conn = kuzu.Connection(self.db)
         self.messages: List[Dict[str, Any]] = []
         self._initialize_schema()
+        
+    def __del__(self):
+        """クリーンアップ"""
+        if hasattr(self, 'conn'):
+            del self.conn
+        if hasattr(self, 'db'):
+            del self.db
+        if hasattr(self, 'temp_dir'):
+            try:
+                shutil.rmtree(self.temp_dir)
+            except:
+                pass
         
     def _initialize_schema(self):
         """チャットアプリのスキーマを初期化"""
@@ -109,6 +126,7 @@ class ChatClient:
             "content": content,
             "timestamp": int(time.time() * 1000),
             "userId": self.user_id,
+            "username": self.username,
             "channelId": channel_id
         }
         
@@ -165,10 +183,28 @@ class ChatClient:
                 "timestamp": message["timestamp"]
             })
             
-            # 送信者情報を確認/作成
+            # 送信者情報を確認/作成（オンラインステータスと名前も同期）
             self.conn.execute("""
                 MERGE (u:User {id: $userId})
-            """, {"userId": message["userId"]})
+                ON CREATE SET u.username = $username, u.status = 'online'
+                ON MATCH SET u.status = 'online', u.lastSeen = $timestamp
+            """, {
+                "userId": message["userId"],
+                "username": message.get("username", "Unknown"),
+                "timestamp": message["timestamp"]
+            })
+            
+            # ユーザーをチャンネルのメンバーとして追加
+            self.conn.execute("""
+                MATCH (u:User {id: $userId})
+                MATCH (c:Channel {id: $channelId})
+                MERGE (u)-[m:MEMBER_OF]->(c)
+                ON CREATE SET m.joinedAt = $timestamp
+            """, {
+                "userId": message["userId"],
+                "channelId": message["channelId"],
+                "timestamp": message["timestamp"]
+            })
             
             # リレーションシップを作成
             self.conn.execute("""
