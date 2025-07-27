@@ -9,7 +9,6 @@ import json
 import sys
 import os
 from typing import Dict, Any, Optional
-import uuid
 from pathlib import Path
 
 # パフォーマンス計測用
@@ -74,9 +73,8 @@ def run_system_optimized(input_data: Dict[str, Any], db_path: Optional[str] = No
 @pytest.fixture
 def inmemory_db():
     """インメモリデータベースを使用するフィクスチャ"""
-    # ユニークなインメモリDB識別子を生成
-    db_id = str(uuid.uuid4())
-    db_path = f":memory:{db_id}"
+    # KuzuDBは:memory:だけで独立したインスタンスを作成
+    db_path = ":memory:"
     
     # スキーマ初期化
     result = run_system_optimized({"type": "schema", "action": "apply"}, db_path)
@@ -153,6 +151,28 @@ def perf_collector():
         print("\n⚠️  Slow tests detected:")
         for name, duration in sorted(slow_tests, key=lambda x: x[1], reverse=True):
             print(f"  - {name}: {duration:.2f}s")
+
+
+# リアルタイム実行時間表示（環境変数で有効化）
+import time
+from datetime import datetime
+
+if os.environ.get("PYTEST_REALTIME", ""):
+    test_start_times = {}
+    
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_runtest_setup(item):
+        """各テストの開始時に呼ばれる"""
+        test_start_times[item.nodeid] = time.time()
+        print(f"\n[{datetime.now().strftime('%H:%M:%S')}] 🚀 Starting: {item.nodeid}")
+    
+    @pytest.hookimpl(trylast=True)
+    def pytest_runtest_teardown(item, nextitem):
+        """各テストの終了時に呼ばれる"""
+        if item.nodeid in test_start_times:
+            duration = time.time() - test_start_times[item.nodeid]
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Finished: {item.nodeid} ({duration:.2f}s)")
+            del test_start_times[item.nodeid]
 
 
 @pytest.fixture
