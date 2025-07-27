@@ -19,16 +19,10 @@
         # kuzu_py パッケージ  
         kuzuPy = pkgs.python312Packages.buildPythonPackage rec {
           pname = "kuzu_py";
-          version = "0.1.0";
+          version = "0.1.1";
           
-          src = pkgs.lib.cleanSourceWith {
-            src = ./.;
-            filter = path: type: 
-              (pkgs.lib.hasSuffix ".py" path) ||
-              (pkgs.lib.hasSuffix "pyproject.toml" path) ||
-              (pkgs.lib.hasSuffix "setup.py" path) ||
-              (type == "directory");
-          };
+          # Use simple source for now
+          src = ./.;
           
           # setuptools形式でビルド
           pyproject = true;
@@ -72,33 +66,48 @@
           kuzuPy = kuzuPy;
         };
         
-        # テストランナー
+        # テストランナー（規約準拠）
         apps = {
           test = {
             type = "app";
             program = "${pkgs.writeShellScriptBin "test" ''
               cd /home/nixos/bin/src/persistence/kuzu_py
+              
+              # ユニット・統合テスト
               ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_query_loader.py
+              
+              # 内部E2Eテスト
+              if [ -d "e2e/internal" ]; then
+                ${pythonEnv}/bin/pytest -v e2e/internal/
+              fi
+              
+              # 外部E2Eテスト
+              if [ -f "e2e/external/flake.nix" ]; then
+                (cd e2e/external && nix run .#test)
+              fi
             ''}/bin/test";
           };
           
-          # e2eテストランナー
-          e2e = {
-            type = "app";
-            program = "${pkgs.writeShellScriptBin "e2e" ''
-              cd /home/nixos/bin/src/persistence/kuzu_py
-              echo "Running e2e tests for external import capability..."
-              ${pythonEnv}/bin/pytest -v test_e2e.py
-            ''}/bin/e2e";
-          };
-          
-          # 全テスト実行
+          # 全テスト実行（規約準拠）
           test-all = {
             type = "app";
             program = "${pkgs.writeShellScriptBin "test-all" ''
               cd /home/nixos/bin/src/persistence/kuzu_py
               echo "Running all tests..."
-              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_query_loader.py test_e2e.py test_query_loader.py
+              
+              # ユニット・統合テスト
+              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_query_loader.py
+              
+              # 内部E2Eテスト
+              if [ -d "e2e/internal" ]; then
+                ${pythonEnv}/bin/pytest -v e2e/internal/
+              fi
+              
+              # 外部E2Eテスト
+              if [ -f "e2e/external/flake.nix" ]; then
+                echo "Running external E2E tests..."
+                (cd e2e/external && nix run .#test)
+              fi
             ''}/bin/test-all";
           };
           
