@@ -6,9 +6,10 @@
     flake-utils.url = "github:numtide/flake-utils";
     storage-s3.url = "path:../../storage/s3";
     kuzu-py.url = "path:../../persistence/kuzu_py";
+    log-ts.url = "path:../../telemetry/log_ts";
   };
 
-  outputs = { self, nixpkgs, flake-utils, storage-s3, kuzu-py }:
+  outputs = { self, nixpkgs, flake-utils, storage-s3, kuzu-py, log-ts }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -34,7 +35,7 @@
           program = let
             appNames = builtins.attrNames (removeAttrs self.apps.${system} ["default"]);
             helpText = ''
-              🔄 Unified Sync - KuzuDB同期実装
+              🔄 KuzuDB Sync - 分散同期システム
               
               利用可能なコマンド:
               ${builtins.concatStringsSep "\n" (map (name: "  nix run .#${name}") appNames)}
@@ -46,16 +47,24 @@
           ''}";
         };
         
-        # README表示アプリ
-        apps.readme = {
+        # サーバー起動
+        apps.server = {
           type = "app";
-          program = "${pkgs.writeShellScript "show-readme" ''
-            if [ -f README.md ]; then
-              cat README.md
-            else
-              echo "README.md not found"
-              exit 1
-            fi
+          program = "${pkgs.writeShellScript "start-server" ''
+            export LOG_TS_PATH="${log-ts.lib.importPath}"
+            export PATH="${pkgs.deno}/bin:$PATH"
+            echo "🚀 Starting KuzuDB sync server..."
+            exec ${pkgs.deno}/bin/deno run --allow-net --allow-read --allow-env ./server.ts
+          ''}";
+        };
+        
+        # クライアント起動
+        apps.client = {
+          type = "app";
+          program = "${pkgs.writeShellScript "start-client" ''
+            export PATH="${pkgs.deno}/bin:$PATH"
+            echo "🔌 Starting KuzuDB sync client..."
+            exec ${pkgs.deno}/bin/deno run --allow-net ./client.ts $@
           ''}";
         };
         
@@ -130,28 +139,26 @@
           ];
 
           shellHook = ''
-            echo "🔄 Unified Sync Development Environment"
+            echo "🔄 KuzuDB Sync Development Environment"
             echo "====================================="
+            echo ""
+            echo "🚀 Quick start:"
+            echo "  nix run .#server            - Start sync server"
+            echo "  nix run .#client            - Start sync client"
+            echo "  nix run .#test              - Run all tests"
             echo ""
             echo "📦 Available tools:"
             echo "  - Deno ${pkgs.deno.version}"
-            echo "  - Python ${pkgs.python311.version} with pytest"
-            echo "  - websocat (WebSocket testing)"
+            echo "  - Python ${pkgs.python312.version} with pytest"
             echo "  - KuzuDB (Python bindings)"
-            echo ""
-            echo "🧪 Test commands:"
-            echo "  nix run .#test              - Run all tests"
-            echo "  pytest tests/e2e_test.py    - Run E2E tests only"
-            echo "  deno test tests/            - Run integration tests"
-            echo ""
-            echo "🗄️ KuzuDB usage:"
-            echo "  - Python: import kuzu"
-            echo "  - TypeScript: import from 'kuzu-wasm'"
             echo ""
             
             # Set environment variables for KuzuDB
             export KUZU_STORAGE_PATH="./kuzu_storage"
             export NODE_PATH="${pkgs.nodejs}/lib/node_modules:$NODE_PATH"
+            
+            # Set environment variable for log_ts module
+            export LOG_TS_PATH="${log-ts.lib.importPath}"
           '';
         };
       });
