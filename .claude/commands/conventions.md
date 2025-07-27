@@ -6,6 +6,8 @@
 
 # 実行内容
 
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
+
 ## 規約作成の依頼がある場合
 - 必要性確認 → `/home/nixos/bin/docs/conventions/`に作成
 - 既存規約との整合性・相互参照を確認

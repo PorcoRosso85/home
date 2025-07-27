@@ -5,6 +5,7 @@
 bin/src/requirement/graphシステムを使用して、TRD（Traced Requirements Driven）データベースの構築・データ投入を行う
 
 # 実行内容
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
 1. **requirement/graphシステムの初期化**
    ```bash
    cd ~/bin/src/requirement/graph

@@ -5,6 +5,8 @@
 文脈に沿った提案を行うコマンド。ユーザーの反論を想定し、具体的で実現可能な提案を生成する。
 
 # 実行内容
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
+
 1. **文脈確認**
    - 会話履歴から要件・制約を抽出
    - conditions.mdとconstraints.mdがあれば参照

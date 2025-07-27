@@ -5,6 +5,7 @@
 品質保証付きPOC実施の自動化コマンド
 
 # 実行内容
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
 1. 情報収集（POC対象・実施場所・参考資料・期待結果）
 2. 品質保証フロー自動実行
    - /web実行（URLがある場合）

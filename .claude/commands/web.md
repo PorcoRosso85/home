@@ -5,6 +5,7 @@
 readabilityを使用してウェブドキュメントを取得する。保存先ディレクトリが指定された場合のみダウンロード・保存を行う。
 
 # 実行内容
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
 ## URLのみ指定した場合
 ```
 /web https://example.com/article

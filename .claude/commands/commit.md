@@ -6,6 +6,7 @@ Commit only the files that you (Claude) have edited in the current session, excl
 ## Usage
 When the user says "commit", "/commit", or mentions "git commit":
 
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
 1. First run `git status` to see all changed files
 2. Identify which files you have edited during this conversation
 3. Stage ONLY those files you edited

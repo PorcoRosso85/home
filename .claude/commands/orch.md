@@ -8,6 +8,8 @@ Split complex tasks into sequential steps, where each step can contain multiple 
 
 ## Process
 
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
+
 1. **Task Decomposition**
    - Use `/phase` command to decompose task into Baby Steps
    - Review generated phases and their dependencies

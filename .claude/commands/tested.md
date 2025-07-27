@@ -5,6 +5,7 @@
 テストとアプリケーションの整合性確認
 
 # 実行内容
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
 1. 整合性確認の観点は `/bin/docs/conventions/testing.md#テストとアプリケーションの整合性確認` を参照
 2. テスト実行環境の確認は `/bin/docs/conventions/test_infrastructure.md` を参照
 3. 規約に従って以下を実行：

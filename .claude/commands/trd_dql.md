@@ -1,5 +1,6 @@
 TRD（Traced Requirements Driven）システムの使い方:
 
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
 1. **要件の追加方法を確認**
    - ~/bin/src/kuzu/README.mdの「新機能追加の完全手順」を表示
    - 必要なCSVファイルとその形式を説明

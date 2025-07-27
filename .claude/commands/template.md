@@ -6,6 +6,7 @@ Create reusable shell script templates with configurable variables for common op
 ## Usage
 When the user says "/template" or requests a template:
 
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
 1. Create a `.template` file with:
    - Clearly defined configurable variables at the top
    - Common functions for operations

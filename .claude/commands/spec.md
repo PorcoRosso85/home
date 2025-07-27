@@ -5,6 +5,7 @@
 プロジェクトのflake.nixを確認してテストフレームワークを特定し、テストファイルを探索することでディレクトリの責務が仕様としてテストに表現されているか確認する
 
 # 実行内容
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
 1. 対象ディレクトリパスを確認（不明な場合はユーザーに確認）
 2. プロジェクトのflake.nixを読み込んでテストフレームワークを特定
 3. `nix develop --command pytest --collect-only` または同等のコマンドでテスト一覧を取得

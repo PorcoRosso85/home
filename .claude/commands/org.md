@@ -14,6 +14,7 @@ Delegates tasks to Claude instances working in parallel using Git worktrees with
 ```
 
 ## How it works
+0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
 1. Creates isolated Git worktree for the task
 2. Sets up sparse-checkout for the target directory
 3. Provides DB_URI environment variable for GraphDB access
