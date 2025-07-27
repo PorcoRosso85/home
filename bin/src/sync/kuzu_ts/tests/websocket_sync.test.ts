@@ -28,7 +28,7 @@ class TestServer {
   async start(port: number = 8080): Promise<void> {
     const denoPath = Deno.env.get("DENO_PATH") || "deno";
     const command = new Deno.Command(denoPath, {
-      args: ["run", "--allow-net", "./core/websocket/server.ts"],
+      args: ["run", "--allow-net", "--allow-read", "--allow-env", "./server.ts"],
       stdout: "piped",
       stderr: "piped",
     });

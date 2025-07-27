@@ -84,6 +84,6 @@ async applyEvent(event: TemplateEvent) {
 
 現在のテストはすべてignore状態：
 - `tests/ddl_sync.test.ts` - DDL同期の基本テスト
-- `tests/future_features.test.ts` - ALTER操作のテスト
+- `tests/oltp_features_skip.test.ts` - ALTER操作のテスト
 
 これらを有効化するには実装が必要。

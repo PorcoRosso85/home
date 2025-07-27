@@ -9,7 +9,7 @@
    - イベント適用による状態同期
    - クエリ実行インターフェース
 
-2. **WebSocketサーバー統合** (`core/websocket/server.ts`)
+2. **WebSocketサーバー統合** (`server.ts`)
    - サーバー起動時にKuzuDBインスタンスを初期化
    - イベント受信時にサーバー側KuzuDBも更新
    - HTTPクエリエンドポイント `/query` の追加

@@ -99,7 +99,7 @@
             # 統合テスト (TypeScript)
             echo ""
             echo "📦 Running integration tests with Deno..."
-            ${pkgs.deno}/bin/deno test ./tests/integration.test.ts --no-check --allow-env --allow-net --allow-run || INTEGRATION_EXIT=$?
+            ${pkgs.deno}/bin/deno test ./tests/websocket_sync.test.ts --no-check --allow-env --allow-net --allow-run || INTEGRATION_EXIT=$?
             
             # 再接続テスト (TypeScript)
             echo ""

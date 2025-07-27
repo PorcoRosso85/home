@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 - TypeScriptファイル名をcamelCaseに統一
   - `websocket-server.ts` → `websocketServer.ts`
   - `websocket-client.ts` → `websocketClient.ts`
-  - `tests/integration_test.ts` → `tests/integration.test.ts`
+  - `tests/integration_test.ts` → `tests/websocket_sync.test.ts`
 
 ### Impact
 - 関連する設定ファイルのパスを更新

@@ -3,10 +3,18 @@
 /**
  * Minimal KuzuDB Sync Server
  * E2Eテストが期待する最小限の実装
+ * 
+ * Features:
+ * - WebSocket sync server with minimal dependencies
+ * - Health endpoint with metrics
+ * - Telemetry logging support (optional)
  */
+
+import * as telemetry from "./telemetry_log.ts";
 
 const port = parseInt(Deno.env.get("PORT") || "8080");
 const clients = new Map<string, WebSocket>();
+const serverStartTime = Date.now();
 
 interface StoredEvent {
   id: string;
@@ -25,7 +33,26 @@ const state = {
   counters: new Map<string, number>()
 };
 
-console.log(`🚀 Server starting on ws://localhost:${port}`);
+// Simple metrics
+const metrics = {
+  totalConnections: 0,
+  totalEvents: 0,
+  errors: 0,
+  startTime: Date.now()
+};
+
+// Check if telemetry is available
+const telemetryAvailable = await telemetry.isAvailable().catch(() => false);
+
+// Log server start
+if (telemetryAvailable) {
+  await telemetry.info(`Server starting on ws://localhost:${port}`, {
+    port,
+    telemetry: "enabled"
+  });
+} else {
+  console.log(`🚀 Server starting on ws://localhost:${port}`);
+}
 
 // Start server
 Deno.serve({ port }, (req) => {
@@ -37,9 +64,18 @@ Deno.serve({ port }, (req) => {
     const clientId = url.searchParams.get("clientId") || 
       `client_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     
-    socket.addEventListener("open", () => {
-      console.log(`✅ Client connected: ${clientId}`);
+    socket.addEventListener("open", async () => {
+      metrics.totalConnections++;
       clients.set(clientId, socket);
+      
+      if (telemetryAvailable) {
+        await telemetry.info(`Client connected: ${clientId}`, {
+          clientId,
+          activeConnections: clients.size
+        });
+      } else {
+        console.log(`✅ Client connected: ${clientId}`);
+      }
       
       socket.send(JSON.stringify({
         type: "connected",
@@ -54,6 +90,7 @@ Deno.serve({ port }, (req) => {
         
         switch (message.type) {
           case "event":
+            metrics.totalEvents++;
             const storedEvent: StoredEvent = {
               ...message.payload,
               sequence: ++eventSequence
@@ -105,22 +142,62 @@ Deno.serve({ port }, (req) => {
             break;
         }
       } catch (error) {
-        console.error("Message error:", error);
+        metrics.errors++;
+        if (telemetryAvailable) {
+          await telemetry.error("Message processing error", {
+            clientId,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        } else {
+          console.error("Message error:", error);
+        }
       }
     });
     
-    socket.addEventListener("close", () => {
-      console.log(`❌ Client disconnected: ${clientId}`);
+    socket.addEventListener("close", async () => {
       clients.delete(clientId);
+      
+      if (telemetryAvailable) {
+        await telemetry.info(`Client disconnected: ${clientId}`, {
+          clientId,
+          activeConnections: clients.size
+        });
+      } else {
+        console.log(`❌ Client disconnected: ${clientId}`);
+      }
     });
     
     return response;
   }
   
-  // Health check
+  // Health check with enhanced metrics
   if (url.pathname === "/health") {
-    return new Response(JSON.stringify({ status: "healthy" }), {
-      headers: { "Content-Type": "application/json" }
+    const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
+    const eventsPerMinute = uptime > 0 ? Math.round((metrics.totalEvents / uptime) * 60) : 0;
+    
+    const health = {
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime,
+      connections: clients.size,
+      totalConnections: metrics.totalConnections,
+      totalEvents: eventHistory.length,
+      checks: {
+        websocket: "operational",
+        storage: "in-memory"
+      },
+      metrics: {
+        eventsPerMinute,
+        errors: metrics.errors,
+        telemetry: telemetryAvailable ? "enabled" : "disabled"
+      }
+    };
+    
+    return new Response(JSON.stringify(health), {
+      headers: { 
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      }
     });
   }
   

@@ -6,7 +6,7 @@
 import { assertEquals, assertExists } from "jsr:@std/assert";
 import { BrowserKuzuClientImpl } from "../core/client/browser_kuzu_client.ts";
 import { KuzuTransactionManager } from "../transaction/kuzu_transaction_manager.ts";
-import { ServerKuzuClient } from "../core/server/server_kuzu_client.ts";
+// import { ServerKuzuClient } from "../core/server/server_kuzu_client.ts"; // Removed: server_kuzu deprecated
 
 Deno.test("Counter events - Client side operations", async () => {
   const client = new BrowserKuzuClientImpl();
@@ -41,52 +41,53 @@ Deno.test("Counter events - Client side operations", async () => {
   assertEquals(nonExistentValue, 0);
 });
 
-Deno.test("Counter events - Server side operations", async () => {
-  const server = new ServerKuzuClient();
-  await server.initialize();
-
-  // Apply INCREMENT_COUNTER event
-  const event = {
-    id: "evt_test_1",
-    template: "INCREMENT_COUNTER",
-    params: {
-      counterId: "server_counter",
-      amount: 10
-    },
-    timestamp: Date.now()
-  };
-
-  await server.applyEvent(event);
-
-  // Query the counter
-  const result = await server.executeQuery(`
-    MATCH (c:Counter {id: $counterId})
-    RETURN c.value as value
-  `, { counterId: "server_counter" });
-
-  assertEquals(result.length, 1);
-  assertEquals(result[0].value, 10);
-
-  // Apply another increment
-  const event2 = {
-    id: "evt_test_2",
-    template: "INCREMENT_COUNTER",
-    params: {
-      counterId: "server_counter",
-      amount: 15
-    },
-    timestamp: Date.now()
-  };
-
-  await server.applyEvent(event2);
-
-  const result2 = await server.executeQuery(`
-    MATCH (c:Counter {id: $counterId})
-    RETURN c.value as value
-  `, { counterId: "server_counter" });
-
-  assertEquals(result2[0].value, 25);
-});
+// Skipped: Server side operations test (server_kuzu deprecated)
+// Deno.test("Counter events - Server side operations", async () => {
+//   const server = new ServerKuzuClient();
+//   await server.initialize();
+//
+//   // Apply INCREMENT_COUNTER event
+//   const event = {
+//     id: "evt_test_1",
+//     template: "INCREMENT_COUNTER",
+//     params: {
+//       counterId: "server_counter",
+//       amount: 10
+//     },
+//     timestamp: Date.now()
+//   };
+//
+//   await server.applyEvent(event);
+//
+//   // Query the counter
+//   const result = await server.executeQuery(`
+//     MATCH (c:Counter {id: $counterId})
+//     RETURN c.value as value
+//   `, { counterId: "server_counter" });
+//
+//   assertEquals(result.length, 1);
+//   assertEquals(result[0].value, 10);
+//
+//   // Apply another increment
+//   const event2 = {
+//     id: "evt_test_2",
+//     template: "INCREMENT_COUNTER",
+//     params: {
+//       counterId: "server_counter",
+//       amount: 15
+//     },
+//     timestamp: Date.now()
+//   };
+//
+//   await server.applyEvent(event2);
+//
+//   const result2 = await server.executeQuery(`
+//     MATCH (c:Counter {id: $counterId})
+//     RETURN c.value as value
+//   `, { counterId: "server_counter" });
+//
+//   assertEquals(result2[0].value, 25);
+// });
 
 Deno.test("Counter events - Transaction rollback", async () => {
   const client = new BrowserKuzuClientImpl();

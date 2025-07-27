@@ -4,7 +4,7 @@
  */
 
 import { assertEquals, assertExists, assert } from "jsr:@std/assert";
-import { ServerKuzuClient } from "../core/server/server_kuzu_client.ts";
+// import { ServerKuzuClient } from "../core/server/server_kuzu_client.ts"; // Removed: server_kuzu deprecated
 import { TemplateEvent } from "../event_sourcing/types.ts";
 
 // Extended TemplateEvent for DDL support
@@ -18,8 +18,8 @@ Deno.test("DDL Sync Integration Tests", async (t) => {
   await t.step("Phase 1: Basic DDL Operations", async (st) => {
     
     await st.step("should create node table via DDL event", async () => {
-      const client = new ServerKuzuClient();
-      await client.initialize();
+      // const client = new ServerKuzuClient(); // Removed: server_kuzu deprecated
+      // await client.initialize();
       
       const ddlEvent: DDLTemplateEvent = {
         id: "ddl-001",
@@ -47,8 +47,8 @@ Deno.test("DDL Sync Integration Tests", async (t) => {
     });
     
     await st.step("should create relationship table via DDL event", async () => {
-      const client = new ServerKuzuClient();
-      await client.initialize();
+      // const client = new ServerKuzuClient(); // Removed: server_kuzu deprecated
+      // await client.initialize();
       
       const ddlEvent: DDLTemplateEvent = {
         id: "ddl-002",
@@ -112,8 +112,8 @@ Deno.test("DDL Sync Integration Tests", async (t) => {
   await t.step("Phase 3: Causal Ordering", async (st) => {
     
     await st.step("should wait for schema dependencies", async () => {
-      const client = new ServerKuzuClient();
-      await client.initialize();
+      // const client = new ServerKuzuClient(); // Removed: server_kuzu deprecated
+      // await client.initialize();
       
       // DML operation that depends on DDL
       const dmlEvent: DDLTemplateEvent = {

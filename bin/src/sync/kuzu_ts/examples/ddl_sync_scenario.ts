@@ -13,7 +13,7 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 // === Step 1: WebSocketサーバーの起動 ===
 console.log("=== Step 1: WebSocketサーバーを起動 ===");
 console.log("別のターミナルで以下を実行:");
-console.log("$ deno run --allow-all core/websocket/server.ts");
+console.log("$ deno run --allow-net --allow-read --allow-env server.ts");
 console.log("");
 console.log("サーバーが起動したらEnterキーを押してください...");
 await new Promise(resolve => {

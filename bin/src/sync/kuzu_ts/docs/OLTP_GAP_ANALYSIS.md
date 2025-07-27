@@ -86,6 +86,6 @@
 
 ## 参考資料
 
-- [tests/future_features.test.ts](../tests/future_features.test.ts) - 将来機能のスキップテスト
+- [tests/oltp_features_skip.test.ts](../tests/oltp_features_skip.test.ts) - 将来機能のスキップテスト
 - [core/cache/aggregate_cache.ts](../core/cache/aggregate_cache.ts) - 集約キャッシュ実装
 - [docs/2025-01-26_09-33-53_kuzudb_indexes.md](./2025-01-26_09-33-53_kuzudb_indexes.md) - KuzuDBインデックス機能

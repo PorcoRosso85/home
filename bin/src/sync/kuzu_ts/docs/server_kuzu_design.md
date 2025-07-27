@@ -81,7 +81,7 @@ export class ServerKuzuClient {
 ### 2. WebSocketサーバー統合
 
 ```typescript
-// core/websocket/server.ts の拡張
+// server.ts の実装例
 import { ServerKuzuClient } from "../server/server_kuzu_client.ts";
 
 const serverKuzu = new ServerKuzuClient();
