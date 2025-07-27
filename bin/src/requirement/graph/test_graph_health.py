@@ -91,8 +91,8 @@ class TestDepthLimitEnforcement:
                 "type": "template", 
                 "template": "add_dependency",
                 "parameters": {
-                    "child_id": child_id,
-                    "parent_id": parent_id
+                    "from_id": child_id,  # パラメータ名を修正
+                    "to_id": parent_id    # パラメータ名を修正
                 }
             }, temp_db)
             assert result.get("data", {}).get("status") == "success"
@@ -171,8 +171,8 @@ class TestCircularDependencyPrevention:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "circular_a",
-                "parent_id": "circular_b"
+                "from_id": "circular_a",
+                "to_id": "circular_b"
             }
         }, temp_db)
         assert result.get("data", {}).get("status") == "success"
@@ -182,8 +182,8 @@ class TestCircularDependencyPrevention:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "circular_b",
-                "parent_id": "circular_a"
+                "from_id": "circular_b",
+                "to_id": "circular_a"
             }
         }, temp_db)
         
@@ -217,8 +217,8 @@ class TestCircularDependencyPrevention:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "self_ref",
-                "parent_id": "self_ref"
+                "from_id": "self_ref",
+                "to_id": "self_ref"
             }
         }, temp_db)
         
@@ -260,8 +260,8 @@ class TestCircularDependencyPrevention:
                 "type": "template",
                 "template": "add_dependency",
                 "parameters": {
-                    "child_id": child_id,
-                    "parent_id": parent_id
+                    "from_id": child_id,
+                    "to_id": parent_id
                 }
             }, temp_db)
             assert result.get("data", {}).get("status") == "success"
@@ -271,8 +271,8 @@ class TestCircularDependencyPrevention:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "chain_c",
-                "parent_id": "chain_a"
+                "from_id": "chain_c",
+                "to_id": "chain_a"
             }
         }, temp_db)
         

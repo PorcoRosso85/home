@@ -162,8 +162,8 @@ class TestDependencyManagement:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "req_002",
-                "parent_id": "req_001"
+                "from_id": "req_002",
+                "to_id": "req_001"
             }
         }, temp_db_with_requirements)
 
@@ -177,14 +177,14 @@ class TestDependencyManagement:
         run_system({
             "type": "template",
             "template": "add_dependency",
-            "parameters": {"child_id": "req_002", "parent_id": "req_001"}
+            "parameters": {"from_id": "req_002", "to_id": "req_001"}
         }, temp_db_with_requirements)
 
         # When: 逆方向の依存を追加しようとする
         result = run_system({
             "type": "template",
             "template": "add_dependency",
-            "parameters": {"child_id": "req_001", "parent_id": "req_002"}
+            "parameters": {"from_id": "req_001", "to_id": "req_002"}
         }, temp_db_with_requirements)
 
         # Then: エラーまたは警告が発生
@@ -196,13 +196,13 @@ class TestDependencyManagement:
         run_system({
             "type": "template",
             "template": "add_dependency",
-            "parameters": {"child_id": "req_002", "parent_id": "req_001"}
+            "parameters": {"from_id": "req_002", "to_id": "req_001"}
         }, temp_db_with_requirements)
 
         run_system({
             "type": "template",
             "template": "add_dependency",
-            "parameters": {"child_id": "req_003", "parent_id": "req_002"}
+            "parameters": {"from_id": "req_003", "to_id": "req_002"}
         }, temp_db_with_requirements)
 
         # When: req_003の依存関係を検索
@@ -256,8 +256,8 @@ class TestEndToEndScenarios:
             "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "auth_002",
-                "parent_id": "auth_001"
+                "from_id": "auth_002",
+                "to_id": "auth_001"
             }
         }, temp_db)
         assert "error" not in dep_result

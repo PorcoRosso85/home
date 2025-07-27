@@ -124,7 +124,8 @@ class TestContradictionDetection:
         
         # When: 要件と依存関係を作成
         # 高セキュリティモード
-        process_template({
+        run_system({
+            "type": "template",
             "template": "create_requirement",
             "parameters": {
                 "id": "req_high_security",
@@ -132,10 +133,11 @@ class TestContradictionDetection:
                 "description": "ネットワーク遮断を必須とする高セキュリティモード",
                 "status": "active"
             }
-        }, repository)
+        }, db_path)
         
         # ネットワーク遮断
-        process_template({
+        run_system({
+            "type": "template",
             "template": "create_requirement",
             "parameters": {
                 "id": "req_network_isolation",
@@ -143,10 +145,11 @@ class TestContradictionDetection:
                 "description": "外部ネットワークへの接続を完全に遮断",
                 "status": "active"
             }
-        }, repository)
+        }, db_path)
         
         # リアルタイム同期
-        process_template({
+        run_system({
+            "type": "template",
             "template": "create_requirement",
             "parameters": {
                 "id": "req_realtime_sync",
@@ -154,16 +157,17 @@ class TestContradictionDetection:
                 "description": "クラウドとのリアルタイム同期機能",
                 "status": "active"
             }
-        }, repository)
+        }, db_path)
         
         # 依存関係を追加: high_security REQUIRES network_isolation
-        process_template({
+        run_system({
+            "type": "template",
             "template": "add_dependency",
             "parameters": {
-                "child_id": "req_high_security",
-                "parent_id": "req_network_isolation"
+                "from_id": "req_high_security",
+                "to_id": "req_network_isolation"
             }
-        }, repository)
+        }, db_path)
         
         # Then: 将来実装では、矛盾する依存関係の追加時に警告
         # 例: realtime_sync EXCLUDES network_isolation を追加しようとした場合
@@ -195,7 +199,8 @@ class TestContradictionDetection:
         
         # When: 時間的に矛盾する要件を作成
         # 24時間365日稼働
-        result1 = process_template({
+        result1 = run_system({
+            "type": "template",
             "template": "create_requirement",
             "parameters": {
                 "id": "req_24_7_operation",
@@ -207,10 +212,11 @@ class TestContradictionDetection:
                     "downtime_allowed": "0"
                 }
             }
-        }, repository)
+        }, db_path)
         
         # 日次メンテナンス必須
-        result2 = process_template({
+        result2 = run_system({
+            "type": "template",
             "template": "create_requirement",
             "parameters": {
                 "id": "req_daily_maintenance",
@@ -222,7 +228,7 @@ class TestContradictionDetection:
                     "maintenance_duration": "1h"
                 }
             }
-        }, repository)
+        }, db_path)
         
         # Then: 将来実装では、時間的矛盾が検出されるべき
         # expected_warning = {
@@ -253,7 +259,8 @@ class TestContradictionDetection:
         
         # When: リソース制約で矛盾する要件を作成
         # 低メモリフットプリント
-        result1 = process_template({
+        result1 = run_system({
+            "type": "template",
             "template": "create_requirement",
             "parameters": {
                 "id": "req_low_memory_footprint",
@@ -264,10 +271,11 @@ class TestContradictionDetection:
                     "max_memory": "100MB"
                 }
             }
-        }, repository)
+        }, db_path)
         
         # インメモリ全件処理
-        result2 = process_template({
+        result2 = run_system({
+            "type": "template",
             "template": "create_requirement",
             "parameters": {
                 "id": "req_inmemory_processing",
@@ -278,7 +286,7 @@ class TestContradictionDetection:
                     "required_memory": "10GB"
                 }
             }
-        }, repository)
+        }, db_path)
         
         # Then: 将来実装では、リソース矛盾が検出されるべき
         # expected_warning = {
@@ -312,7 +320,8 @@ class TestContradictionDetection:
         
         # When: 論理的に矛盾する要件を作成
         # 全ユーザーアクセス可能
-        result1 = process_template({
+        result1 = run_system({
+            "type": "template",
             "template": "create_requirement",
             "parameters": {
                 "id": "req_public_access",
@@ -324,10 +333,11 @@ class TestContradictionDetection:
                     "authentication": "none"
                 }
             }
-        }, repository)
+        }, db_path)
         
         # 特定ユーザーのみアクセス可能
-        result2 = process_template({
+        result2 = run_system({
+            "type": "template",
             "template": "create_requirement",
             "parameters": {
                 "id": "req_restricted_access",
@@ -339,7 +349,7 @@ class TestContradictionDetection:
                     "authentication": "required"
                 }
             }
-        }, repository)
+        }, db_path)
         
         # Then: 将来実装では、論理的不整合が検出されるべき
         # expected_warning = {
