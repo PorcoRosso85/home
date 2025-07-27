@@ -3,10 +3,11 @@
  * Transparently handles both local and archived events
  */
 
-import type { ServerEventStore, EventSnapshot } from "../types.ts";
+import type { ServerEventStore, EventSnapshot, MutableServerEventStore } from "../types.ts";
 import type { TemplateEvent } from "../event_sourcing/types.ts";
 import type { S3ArchiveAdapter } from "./archive_adapter.ts";
 import { validateChecksum } from "../event_sourcing/core.ts";
+import { ArchiveExecutor, type ArchiveOperation } from "../event_sourcing/archive_executor.ts";
 
 // Cache statistics interface
 export interface CacheStats {
@@ -18,7 +19,7 @@ export interface CacheStats {
 
 // Unified event store interface
 export interface UnifiedEventStore extends ServerEventStore {
-  initialize(localStore: ServerEventStore, archiveAdapter: S3ArchiveAdapter): Promise<void>;
+  initialize(localStore: MutableServerEventStore, archiveAdapter: S3ArchiveAdapter): Promise<void>;
   archiveOldEvents(): Promise<number>;
   clearCache(): void;
   getCacheStats(): CacheStats;
@@ -58,8 +59,10 @@ class LRUCache<K, V> {
     // Evict oldest if at capacity
     if (this.cache.size >= this.maxSize) {
       const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
-      this.stats.evictions++;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+        this.stats.evictions++;
+      }
     }
     
     this.cache.set(key, value);
@@ -80,15 +83,24 @@ class LRUCache<K, V> {
 }
 
 export class UnifiedEventStoreImpl implements UnifiedEventStore {
-  private localStore!: ServerEventStore;
+  private localStore!: MutableServerEventStore;
   private archiveAdapter!: S3ArchiveAdapter;
+  private archiveExecutor!: ArchiveExecutor;
   private archivedEventsCache = new LRUCache<string, TemplateEvent>(100);
   private archivedEventsList: TemplateEvent[] = [];
   private initialized = false;
 
-  async initialize(localStore: ServerEventStore, archiveAdapter: S3ArchiveAdapter): Promise<void> {
+  async initialize(localStore: MutableServerEventStore, archiveAdapter: S3ArchiveAdapter): Promise<void> {
     this.localStore = localStore;
     this.archiveAdapter = archiveAdapter;
+    
+    // Initialize ArchiveExecutor with safe deletion enabled
+    this.archiveExecutor = new ArchiveExecutor(archiveAdapter.getStorageAdapter(), {
+      verifyAfterUpload: true,
+      deleteLocalAfterVerify: false, // We'll handle deletion separately
+      batchSize: 10
+    });
+    
     this.initialized = true;
     
     // Pre-load archived events for synchronous access
@@ -225,20 +237,47 @@ export class UnifiedEventStoreImpl implements UnifiedEventStore {
     // Get archivable events from local store
     const archivableEvents = await this.localStore.getArchivableEvents();
     
-    // Archive each event
-    for (const event of archivableEvents) {
-      await this.archiveAdapter.archiveEvent(event);
+    if (archivableEvents.length === 0) {
+      return 0;
     }
     
-    // Update our cached list of archived events
-    await this.refreshArchivedEventsList();
+    // Prepare archive operations
+    const operations: ArchiveOperation[] = archivableEvents.map(event => ({
+      event,
+      localPath: `memory://event-${event.id}` // Virtual path for in-memory events
+    }));
     
-    // Since the ServerEventStore interface doesn't provide a way to remove events,
-    // we can't actually remove them from the local store
-    // In a real implementation, you'd need to extend the interface or
-    // create a new local store instance with only the non-archived events
-    
-    return archivableEvents.length;
+    try {
+      // Use ArchiveExecutor for transactional archiving
+      // We'll create a custom version that doesn't need local files
+      const eventIds: string[] = [];
+      
+      // Archive events individually with error handling
+      for (const event of archivableEvents) {
+        try {
+          await this.archiveAdapter.archiveEvent(event);
+          eventIds.push(event.id);
+        } catch (error) {
+          console.error(`Failed to archive event ${event.id}:`, error);
+          // Continue with other events
+        }
+      }
+      
+      if (eventIds.length === 0) {
+        return 0;
+      }
+      
+      // Remove successfully archived events from local store
+      const removedCount = await this.localStore.removeEvents(eventIds);
+      
+      // Update our cached list of archived events
+      await this.refreshArchivedEventsList();
+      
+      return removedCount;
+    } catch (error) {
+      console.error("Archive operation failed:", error);
+      throw error;
+    }
   }
 
   clearCache(): void {

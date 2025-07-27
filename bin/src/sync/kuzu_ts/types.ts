@@ -37,7 +37,28 @@ export type ServerEventStore = {
   getSnapshot(): EventSnapshot;
   onNewEvent(handler: (event: TemplateEvent) => void): void;
   validateChecksum(event: TemplateEvent): boolean;
+  getArchivableEvents(): Promise<TemplateEvent[]>;
 };
+
+/**
+ * Mutable extension of ServerEventStore that supports event deletion
+ * イベント削除をサポートするServerEventStoreの可変拡張
+ */
+export interface MutableServerEventStore extends ServerEventStore {
+  /**
+   * Remove events by their IDs
+   * @param eventIds Array of event IDs to remove
+   * @returns Number of events removed
+   */
+  removeEvents(eventIds: string[]): Promise<number>;
+  
+  /**
+   * Remove all events before the specified timestamp
+   * @param timestamp Unix timestamp in milliseconds
+   * @returns Number of events removed
+   */
+  removeEventsBefore(timestamp: number): Promise<number>;
+}
 
 export type EventSnapshot = {
   events: TemplateEvent[];
