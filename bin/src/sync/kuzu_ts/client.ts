@@ -6,7 +6,8 @@
  */
 
 const serverUrl = Deno.args[0] || "ws://localhost:8080";
-const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+const clientName = Deno.env.get("CLIENT_NAME") || Deno.args[1];
+const clientId = clientName || `client_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
 console.log(`🔌 Connecting to ${serverUrl} as ${clientId}...`);
 
@@ -18,6 +19,8 @@ ws.addEventListener("open", () => {
   // Interactive prompt
   console.log("\nCommands:");
   console.log("  event <template> <params> - Send event");
+  console.log("  query <counterId>         - Query counter value");
+  console.log("  increment <counterId> [amount] - Increment counter");
   console.log("  history                   - Request history");
   console.log("  exit                      - Disconnect");
   console.log("");
@@ -32,7 +35,11 @@ ws.addEventListener("message", (event) => {
       break;
       
     case "event":
-      console.log(`📨 Received event: ${data.payload.template} from ${data.payload.clientId}`);
+      if (data.payload.template === "COUNTER_VALUE") {
+        console.log(`📊 Counter ${data.payload.params.counterId} = ${data.payload.params.value}`);
+      } else {
+        console.log(`📨 Received event: ${data.payload.template} from ${data.payload.clientId}`);
+      }
       break;
       
     case "history":
@@ -72,6 +79,47 @@ for await (const line of readLines()) {
           timestamp: Date.now()
         }
       }));
+      break;
+      
+    case "query":
+      const queryCounterId = args[0];
+      if (!queryCounterId) {
+        console.log("Usage: query <counterId>");
+        break;
+      }
+      
+      ws.send(JSON.stringify({
+        type: "event",
+        payload: {
+          id: `evt_${Date.now()}`,
+          template: "QUERY_COUNTER",
+          params: { counterId: queryCounterId },
+          clientId: clientId,
+          timestamp: Date.now()
+        }
+      }));
+      break;
+      
+    case "increment":
+      const incCounterId = args[0];
+      const amount = args[1] ? parseInt(args[1]) : 1;
+      
+      if (!incCounterId) {
+        console.log("Usage: increment <counterId> [amount]");
+        break;
+      }
+      
+      ws.send(JSON.stringify({
+        type: "event",
+        payload: {
+          id: `evt_${Date.now()}`,
+          template: "INCREMENT_COUNTER",
+          params: { counterId: incCounterId, amount: amount },
+          clientId: clientId,
+          timestamp: Date.now()
+        }
+      }));
+      console.log(`✅ Incremented ${incCounterId} by ${amount}`);
       break;
       
     case "history":

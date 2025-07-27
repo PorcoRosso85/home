@@ -64,7 +64,7 @@
           program = "${pkgs.writeShellScript "start-client" ''
             export PATH="${pkgs.deno}/bin:$PATH"
             echo "🔌 Starting KuzuDB sync client..."
-            exec ${pkgs.deno}/bin/deno run --allow-net ./client.ts $@
+            exec ${pkgs.deno}/bin/deno run --allow-net --allow-env ./client.ts $@
           ''}";
         };
         

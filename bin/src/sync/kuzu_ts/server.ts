@@ -10,7 +10,7 @@
  * - Telemetry logging support (optional)
  */
 
-import * as telemetry from "./telemetry_log.ts";
+// import * as telemetry from "./telemetry_log.ts";
 
 const port = parseInt(Deno.env.get("PORT") || "8080");
 const clients = new Map<string, WebSocket>();
@@ -42,17 +42,10 @@ const metrics = {
 };
 
 // Check if telemetry is available
-const telemetryAvailable = await telemetry.isAvailable().catch(() => false);
+const telemetryAvailable = false; // await telemetry.isAvailable().catch(() => false);
 
 // Log server start
-if (telemetryAvailable) {
-  await telemetry.info(`Server starting on ws://localhost:${port}`, {
-    port,
-    telemetry: "enabled"
-  });
-} else {
-  console.log(`🚀 Server starting on ws://localhost:${port}`);
-}
+console.log(`🚀 Server starting on ws://localhost:${port}`);
 
 // Start server
 Deno.serve({ port }, (req) => {
@@ -68,14 +61,7 @@ Deno.serve({ port }, (req) => {
       metrics.totalConnections++;
       clients.set(clientId, socket);
       
-      if (telemetryAvailable) {
-        await telemetry.info(`Client connected: ${clientId}`, {
-          clientId,
-          activeConnections: clients.size
-        });
-      } else {
-        console.log(`✅ Client connected: ${clientId}`);
-      }
+      console.log(`✅ Client connected: ${clientId}`);
       
       socket.send(JSON.stringify({
         type: "connected",
@@ -97,15 +83,20 @@ Deno.serve({ port }, (req) => {
             };
             eventHistory.push(storedEvent);
             
+            // Log received event
+            console.log(`📨 Event received: ${storedEvent.template} from ${storedEvent.clientId}`);
+            
             // Apply to in-memory state
             if (storedEvent.template === "INCREMENT_COUNTER") {
               const counterId = storedEvent.params.counterId;
               const amount = storedEvent.params.amount || 1;
               const current = state.counters.get(counterId) || 0;
               state.counters.set(counterId, current + amount);
+              console.log(`🔢 Counter ${counterId}: ${current} + ${amount} = ${current + amount}`);
             } else if (storedEvent.template === "QUERY_COUNTER") {
               const counterId = storedEvent.params.counterId;
               const value = state.counters.get(counterId) || 0;
+              console.log(`🔍 Query counter ${counterId}: value = ${value}`);
               
               // Send counter value back
               socket.send(JSON.stringify({
@@ -123,13 +114,18 @@ Deno.serve({ port }, (req) => {
               }));
             } else {
               // Broadcast to other clients (not for query events)
+              let broadcastCount = 0;
               for (const [cid, ws] of clients) {
                 if (cid !== clientId && ws.readyState === WebSocket.OPEN) {
                   ws.send(JSON.stringify({
                     type: "event",
                     payload: storedEvent
                   }));
+                  broadcastCount++;
                 }
+              }
+              if (broadcastCount > 0) {
+                console.log(`📡 Broadcasted ${storedEvent.template} to ${broadcastCount} clients`);
               }
             }
             break;
@@ -143,28 +139,14 @@ Deno.serve({ port }, (req) => {
         }
       } catch (error) {
         metrics.errors++;
-        if (telemetryAvailable) {
-          await telemetry.error("Message processing error", {
-            clientId,
-            error: error instanceof Error ? error.message : String(error)
-          });
-        } else {
-          console.error("Message error:", error);
-        }
+        console.error("Message error:", error);
       }
     });
     
     socket.addEventListener("close", async () => {
       clients.delete(clientId);
       
-      if (telemetryAvailable) {
-        await telemetry.info(`Client disconnected: ${clientId}`, {
-          clientId,
-          activeConnections: clients.size
-        });
-      } else {
-        console.log(`❌ Client disconnected: ${clientId}`);
-      }
+      console.log(`❌ Client disconnected: ${clientId}`);
     });
     
     return response;
