@@ -9,6 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
 from uuid import UUID
+from pathlib import Path
 
 from .domain import (
     Contract, ContractId, ContractParty, ContractStatus,
@@ -309,3 +310,122 @@ class ContractEventHandler:
     def handle_contract_terminated(self, event: ContractTerminatedEvent) -> None:
         """Handle contract terminated event"""
         pass
+
+
+# Analytics DTOs
+
+@dataclass
+class NetworkMetricsResponse:
+    """DTO for network growth metrics"""
+    k_factor: float
+    monthly_growth_rate: float
+    network_value: int
+    total_users: int
+    referring_users: int
+    referred_users: int
+    new_users_30d: int
+    critical_mass_distance: int
+    is_viral: bool
+
+
+@dataclass
+class GrowthPredictionResponse:
+    """DTO for growth predictions"""
+    current_date: str
+    prediction_date: str
+    current_users: int
+    predicted_users: int
+    growth_multiplier: float
+    predicted_revenue: str
+    k_factor: float
+    confidence_level: str
+    growth_type: str
+
+
+@dataclass
+class CommunityDiscountResponse:
+    """DTO for community discount calculations"""
+    community_id: str
+    member_count: int
+    discount_rate: float
+
+
+@dataclass
+class ReferralRewardResponse:
+    """DTO for referral reward calculations"""
+    referrer_id: str
+    referred_id: str
+    level: int
+    commission_rate: float
+    commission_amount: str
+
+
+# Analytics Service
+
+class ContractAnalyticsService:
+    """Service for contract analytics and growth metrics"""
+    
+    def __init__(self, repository: ContractRepository):
+        self.repository = repository
+        # For GraphDB repositories, this would execute Cypher queries
+        # For now, we'll prepare the interface
+    
+    def calculate_network_metrics(self, days_back: int = 30) -> NetworkMetricsResponse:
+        """Calculate network growth metrics including viral coefficient"""
+        # In a real implementation with GraphDB, this would:
+        # 1. Load and execute the calculate_growth_metrics.cypher query
+        # 2. Parse the results into the response DTO
+        # For now, return mock data to demonstrate the interface
+        return NetworkMetricsResponse(
+            k_factor=0.85,
+            monthly_growth_rate=23.5,
+            network_value=10000,
+            total_users=100,
+            referring_users=45,
+            referred_users=38,
+            new_users_30d=28,
+            critical_mass_distance=18,
+            is_viral=False
+        )
+    
+    def predict_growth(self, days_ahead: int = 90) -> GrowthPredictionResponse:
+        """Predict future network growth based on current metrics"""
+        # Would execute predict_growth.cypher
+        return GrowthPredictionResponse(
+            current_date=datetime.now().isoformat(),
+            prediction_date=(datetime.now() + timedelta(days=days_ahead)).isoformat(),
+            current_users=100,
+            predicted_users=250,
+            growth_multiplier=2.5,
+            predicted_revenue="2500000.00",
+            k_factor=0.85,
+            confidence_level="MEDIUM",
+            growth_type="LINEAR"
+        )
+    
+    def calculate_community_discount(self, community_id: str) -> CommunityDiscountResponse:
+        """Calculate dynamic discount based on community size"""
+        # Would execute calculate_community_discount.cypher
+        return CommunityDiscountResponse(
+            community_id=community_id,
+            member_count=15,
+            discount_rate=0.15
+        )
+    
+    def calculate_referral_rewards(self, contract_id: str, 
+                                   base_amount: Decimal) -> List[ReferralRewardResponse]:
+        """Calculate multi-level referral rewards"""
+        # Would execute calculate_referral_chain_rewards.cypher
+        return [
+            ReferralRewardResponse(
+                referrer_id="ref-001",
+                referred_id="buyer-001",
+                level=1,
+                commission_rate=0.15,
+                commission_amount=f"{base_amount * Decimal('0.15'):.2f}"
+            )
+        ]
+
+
+# Import timedelta for the analytics service
+from datetime import timedelta
