@@ -48,7 +48,7 @@ export function validateS3Environment(): void {
   try {
     getS3Config();
   } catch (error) {
-    console.error('S3 configuration error:', error.message);
+    console.error('S3 configuration error:', error instanceof Error ? error.message : String(error));
     console.error('\nRequired environment variables:');
     console.error('  S3_REGION          - AWS region (e.g., us-east-1)');
     console.error('  S3_ACCESS_KEY_ID   - AWS access key ID');
