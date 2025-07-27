@@ -5,9 +5,15 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     kuzu_py.url = "path:../../persistence/kuzu_py";
+    
+    # OWASP ASVS source repository
+    asvs-source = {
+      url = "github:OWASP/ASVS";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, kuzu_py }:
+  outputs = { self, nixpkgs, flake-utils, kuzu_py, asvs-source }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -22,6 +28,7 @@
           pyyaml
           jinja2
           kuzu
+          requests  # ASVS fetcher用
         ];
         
         # Import kuzu_py as a local dependency
@@ -29,6 +36,14 @@
         
         # Python environment with all dependencies
         pythonEnv = python.withPackages (ps: pythonDeps ++ [ kuzuPyPackage ]);
+        
+        # ASVS 5.0 data from GitHub
+        asvs5Data = pkgs.runCommand "asvs-5.0-data" {} ''
+          mkdir -p $out/en
+          # Copy markdown files from ASVS repository
+          cp -r ${asvs-source}/5.0/en/*.md $out/en/
+          echo "ASVS 5.0 data copied to $out"
+        '';
         
       in
       {
@@ -40,6 +55,7 @@
             set -e
             echo "Running ASVS Reference tests..."
             cd ${self}
+            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
             ${pythonEnv}/bin/python -m pytest test_*.py -v
           '';
           
@@ -48,6 +64,7 @@
             set -e
             echo "Running ASVS guardrails demo..."
             cd ${self}
+            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
             ${pythonEnv}/bin/python demo_guardrails.py
           '';
           
@@ -56,6 +73,7 @@
             set -e
             echo "Running mandatory references demo..."
             cd ${self}
+            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
             ${pythonEnv}/bin/python demo_mandatory_references.py
           '';
           
@@ -63,7 +81,18 @@
           cli = pkgs.writeShellScriptBin "asvs-loader" ''
             set -e
             cd ${self}
+            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
             ${pythonEnv}/bin/python asvs_loader.py "$@"
+          '';
+          
+          # Fetch ASVS 5.0 data from GitHub
+          fetch-asvs5 = pkgs.writeShellScriptBin "fetch-asvs5" ''
+            set -e
+            echo "Fetching ASVS 5.0 data from GitHub..."
+            cd ${self}
+            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+            export ASVS_SOURCE_PATH="${asvs5Data}"
+            ${pythonEnv}/bin/python scripts/fetch_asvs_5.0.py
           '';
         };
         
@@ -92,6 +121,11 @@
             type = "app";
             program = "${self.packages.${system}.cli}/bin/asvs-loader";
           };
+          
+          fetch-asvs5 = {
+            type = "app";
+            program = "${self.packages.${system}.fetch-asvs5}/bin/fetch-asvs5";
+          };
         };
         
         devShells.default = pkgs.mkShell {
@@ -113,6 +147,7 @@
             echo "  nix run .#demo-guardrails   - Run guardrails demo"
             echo "  nix run .#demo-mandatory    - Run mandatory references demo"
             echo "  nix run .#cli               - Run ASVS loader CLI"
+            echo "  nix run .#fetch-asvs5       - Fetch ASVS 5.0 data from GitHub"
             echo ""
             echo "Python environment with pytest, pyyaml, jinja2, kuzu, and kuzu_py available"
           '';
