@@ -81,6 +81,7 @@
             echo "  nix run .#test        - Run tests"
             echo "  nix run .#cli         - Run interactive CLI"
             echo "  nix run .#demo        - Run demo scenario"
+            echo "  nix run .#guardrails  - Run reference guardrails demo"
           '';
         };
         
@@ -112,7 +113,7 @@
             program = "${pkgs.writeShellScript "test" ''
               cd ${self}
               export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
-              exec ${devEnv}/bin/pytest test_mod.py -v
+              exec ${devEnv}/bin/pytest test_*.py -v
             ''}";
           };
           
@@ -199,6 +200,35 @@ PYTHON_EOF
             ''}";
           };
           
+          guardrails = {
+            type = "app";
+            program = "${pkgs.writeShellScript "guardrails" ''
+              cd ${self}
+              export PYTHONPATH="${self}:../../persistence/kuzu_py:../../requirement/graph:$PYTHONPATH"
+              exec ${devEnv}/bin/python demo_enforced_guardrails.py
+            ''}";
+          };
+          
+          asvs = {
+            type = "app";
+            program = "${pkgs.writeShellScript "asvs" ''
+              echo "ASVS Data Loader Demo"
+              echo "===================="
+              echo ""
+              cd ${self}
+              export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+              exec ${devEnv}/bin/python asvs_loader.py
+            ''}";
+          };
+          
+          embedding = {
+            type = "app";
+            program = "${pkgs.writeShellScript "embedding" ''
+              cd ${self}
+              export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+              exec ${devEnv}/bin/python demo_embedding_similarity.py
+            ''}";
+          };
         };
       }
     );

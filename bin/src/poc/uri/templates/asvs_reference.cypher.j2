@@ -1,0 +1,59 @@
+// ASVS Reference Data Template
+// Generated from {{ source_file }} at {{ timestamp }}
+
+// Create ASVS Standard Reference
+MERGE (standard:Standard {uri: '{{ standard.uri }}'})
+SET standard.name = '{{ standard.name }}',
+    standard.version = '{{ standard.version }}',
+    standard.description = '{{ standard.description }}',
+    standard.url = '{{ standard.url }}';
+
+{% for chapter in chapters %}
+// Chapter: {{ chapter.name }}
+MERGE (chapter:Chapter {uri: '{{ chapter.uri }}'})
+SET chapter.number = '{{ chapter.number }}',
+    chapter.name = '{{ chapter.name }}',
+    chapter.description = '{{ chapter.description }}';
+
+MERGE (standard)-[:HAS_CHAPTER]->(chapter);
+
+{% for section in chapter.sections %}
+// Section: {{ section.name }}
+MERGE (section:Section {uri: '{{ section.uri }}'})
+SET section.number = '{{ section.number }}',
+    section.name = '{{ section.name }}',
+    section.description = '{{ section.description }}';
+
+MERGE (chapter)-[:HAS_SECTION]->(section);
+
+{% for requirement in section.requirements %}
+// Requirement: {{ requirement.number }}
+MERGE (req:Requirement {uri: '{{ requirement.uri }}'})
+SET req.number = '{{ requirement.number }}',
+    req.description = '{{ requirement.description }}',
+    req.level1 = {{ requirement.level1 | lower }},
+    req.level2 = {{ requirement.level2 | lower }},
+    req.level3 = {{ requirement.level3 | lower }},
+    req.cwe = {% if requirement.cwe %}{{ requirement.cwe }}{% else %}null{% endif %},
+    req.nist = {% if requirement.nist %}'{{ requirement.nist }}'{% else %}null{% endif %};
+
+MERGE (section)-[:HAS_REQUIREMENT]->(req);
+
+{% if requirement.tags %}
+{% for tag in requirement.tags %}
+MERGE (tag:Tag {name: '{{ tag }}'})
+MERGE (req)-[:TAGGED_WITH]->(tag);
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% endfor %}
+{% endfor %}
+
+// Create indexes for efficient lookups
+CREATE INDEX IF NOT EXISTS FOR (s:Standard) ON (s.uri);
+CREATE INDEX IF NOT EXISTS FOR (c:Chapter) ON (c.uri);
+CREATE INDEX IF NOT EXISTS FOR (s:Section) ON (s.uri);
+CREATE INDEX IF NOT EXISTS FOR (r:Requirement) ON (r.uri);
+CREATE INDEX IF NOT EXISTS FOR (r:Requirement) ON (r.number);
+CREATE INDEX IF NOT EXISTS FOR (t:Tag) ON (t.name);
