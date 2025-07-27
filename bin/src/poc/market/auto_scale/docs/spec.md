@@ -59,26 +59,34 @@ class ContractStatus(Enum):
 
 ### GraphDB スキーマ定義 (Kuzu DDL)
 
+スキーマ定義は外部ファイルで管理されています：
+- **メインスキーマ**: `auto_scale_contract/contract_management/cypher/schema/contract_schema.cypher`
+
 #### ノード定義
 ```sql
 -- 契約ノード
 CREATE NODE TABLE Contract(
     id STRING PRIMARY KEY,
-    type STRING NOT NULL,
-    status STRING NOT NULL,
-    terms JSON,
-    created_at TIMESTAMP NOT NULL,
-    expires_at TIMESTAMP,
-    updated_at TIMESTAMP
+    title STRING,                -- Contract title
+    description STRING,          -- Contract description
+    type STRING,                 -- 'reseller', 'referral', 'community', 'value_chain'
+    status STRING,               -- 'draft', 'active', 'expired', 'terminated'
+    value_amount STRING,         -- Contract value amount (stored as string for Decimal)
+    value_currency STRING,       -- Currency code
+    payment_terms STRING,        -- Payment terms
+    terms STRING,                -- Contract terms as JSON string
+    created_at STRING,           -- ISO format timestamp
+    expires_at STRING,           -- ISO format timestamp
+    updated_at STRING            -- ISO format timestamp
 );
 
 -- 契約当事者ノード
 CREATE NODE TABLE Party(
     id STRING PRIMARY KEY,
-    name STRING NOT NULL,
-    type STRING NOT NULL,  -- 'company', 'individual'
-    tax_id STRING,
-    created_at TIMESTAMP NOT NULL
+    name STRING,                 -- Party name
+    type STRING,                 -- 'company', 'individual'
+    tax_id STRING,               -- Tax identification number
+    created_at STRING            -- ISO format timestamp
 );
 ```
 
@@ -87,26 +95,26 @@ CREATE NODE TABLE Party(
 -- 契約の親子関係
 CREATE REL TABLE ParentContract(
     FROM Contract TO Contract,
-    inheritance_type STRING,      -- 'full', 'partial', 'none'
-    inherited_terms JSON,
-    created_at TIMESTAMP
+    inheritance_type STRING,     -- 'full', 'partial', 'none'
+    inherited_terms STRING,      -- Terms inherited from parent contract (JSON string)
+    created_at STRING            -- ISO format timestamp
 );
 
 -- 契約と当事者の関係
 CREATE REL TABLE ContractParty(
     FROM Contract TO Party,
-    role STRING NOT NULL,         -- 'buyer', 'seller', 'referrer', 'guarantor'
-    commission_rate DOUBLE,
-    special_terms JSON,
-    joined_at TIMESTAMP NOT NULL
+    role STRING,                 -- 'buyer', 'seller', 'referrer', 'guarantor'
+    commission_rate DOUBLE,      -- Commission rate for this party in this contract
+    special_terms STRING,        -- Party-specific special terms (JSON string)
+    joined_at STRING             -- ISO format timestamp
 );
 
 -- 当事者間の紹介関係
 CREATE REL TABLE ReferralChain(
     FROM Party TO Party,
-    contract_id STRING NOT NULL,
-    referral_date TIMESTAMP NOT NULL,
-    commission_rate DOUBLE
+    contract_id STRING,          -- ID of the contract governing this referral
+    referral_date STRING,        -- ISO format timestamp
+    commission_rate DOUBLE       -- Commission rate for this referral
 );
 ```
 
@@ -137,6 +145,59 @@ CREATE REL TABLE ReferralChain(
    - 多段階の手数料率は親契約から継承可能
    - 各レベルでの手数料上限を設定可能
    - 累積手数料の自動計算
+
+### クエリ管理
+
+クエリは外部ファイルとして体系的に管理されています：
+
+#### クエリファイル構造
+```
+auto_scale_contract/contract_management/cypher/
+├── schema/
+│   └── contract_schema.cypher    # データベーススキーマ定義
+└── queries/
+    ├── contract/                 # 契約関連クエリ
+    │   ├── check_contract_exists.cypher
+    │   ├── check_contract_party_relationship.cypher
+    │   ├── create_contract.cypher
+    │   ├── create_contract_party_relationship.cypher
+    │   ├── find_active_contracts.cypher
+    │   ├── find_contract.cypher
+    │   ├── find_contracts_by_client.cypher
+    │   └── update_contract.cypher
+    └── party/                    # 当事者関連クエリ
+        ├── check_contract_party_exists.cypher
+        ├── create_contract_party_relationship.cypher
+        ├── create_party.cypher
+        ├── create_referral_chain.cypher
+        ├── ensure_party_exists.cypher
+        ├── find_contracts_by_party.cypher
+        ├── find_parties_by_contract.cypher
+        ├── find_party_by_id.cypher
+        ├── find_referral_chains.cypher
+        └── update_party.cypher
+```
+
+各クエリファイルには以下が含まれます：
+- 目的（Purpose）の説明
+- 詳細な説明（Description）
+- パラメータの仕様
+- 実際のCypherクエリ
+
+#### クエリの使用方法
+インフラストラクチャ層では、`kuzu_py.load_query_from_file`を使用してクエリを読み込みます：
+
+```python
+from kuzu_py import load_query_from_file
+from pathlib import Path
+
+# クエリファイルを読み込む
+query_path = Path(__file__).parent / "cypher" / "queries" / "contract" / "create_contract.cypher"
+query_result = load_query_from_file(query_path)
+
+# パラメータを設定して実行
+self.db.execute(query_result.query, parameters)
+```
 
 ### クエリ例
 

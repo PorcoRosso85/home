@@ -18,6 +18,14 @@ from auto_scale_contract.contract_management.domain import (
     ContractRepository
 )
 
+try:
+    from kuzu_py import load_query_from_file
+except ImportError:
+    # Fallback for test environments
+    def load_query_from_file(path):
+        with open(path, 'r') as f:
+            return f.read()
+
 
 # Mock KuzuGraphRepository for testing
 # In production, this would be imported from infrastructure module
@@ -39,55 +47,103 @@ class KuzuGraphRepository(ContractRepository):
         self.db_path = db_path
         self.db = kuzu.Database(db_path)
         self.conn = kuzu.Connection(self.db)
+        self.query_path = Path(__file__).parent / "cypher"
         self._init_schema()
     
     def _init_schema(self) -> None:
         """Initialize the graph database schema"""
+        try:
+            # Load schema from file
+            schema_path = self.query_path / "schema" / "test_schema.cypher"
+            schema_query = load_query_from_file(schema_path)
+            
+            # Execute each statement in the schema file
+            statements = [stmt.strip() for stmt in schema_query.split(';') if stmt.strip()]
+            
+            for statement in statements:
+                # Remove comments
+                lines = statement.split('\n')
+                cleaned_lines = []
+                for line in lines:
+                    if line.strip().startswith('--'):
+                        continue
+                    if '--' in line:
+                        line = line[:line.index('--')]
+                    if line.strip():
+                        cleaned_lines.append(line)
+                
+                if cleaned_lines:
+                    cleaned_statement = '\n'.join(cleaned_lines).strip()
+                    if cleaned_statement:
+                        try:
+                            self.conn.execute(cleaned_statement)
+                        except Exception as e:
+                            if "already exists" not in str(e):
+                                print(f"Warning: Error creating schema: {e}")
+        except Exception as e:
+            print(f"Error loading schema file: {e}")
+            # Fallback to inline schema
+            self._create_fallback_schema()
+    
+    def _create_fallback_schema(self) -> None:
+        """Create schema using inline queries as fallback"""
         # Create node tables
-        self.conn.execute("""
-            CREATE NODE TABLE IF NOT EXISTS Contract (
-                contract_id STRING PRIMARY KEY,
-                title STRING,
-                description STRING,
-                client_id STRING,
-                client_name STRING,
-                client_email STRING,
-                vendor_id STRING,
-                vendor_name STRING,
-                vendor_email STRING,
-                value_amount STRING,
-                value_currency STRING,
-                start_date STRING,
-                end_date STRING,
-                payment_terms STRING,
-                status STRING,
-                created_at STRING,
-                updated_at STRING
-            )
-        """)
+        try:
+            self.conn.execute("""
+                CREATE NODE TABLE IF NOT EXISTS Contract (
+                    contract_id STRING PRIMARY KEY,
+                    title STRING,
+                    description STRING,
+                    client_id STRING,
+                    client_name STRING,
+                    client_email STRING,
+                    vendor_id STRING,
+                    vendor_name STRING,
+                    vendor_email STRING,
+                    value_amount STRING,
+                    value_currency STRING,
+                    start_date STRING,
+                    end_date STRING,
+                    payment_terms STRING,
+                    status STRING,
+                    created_at STRING,
+                    updated_at STRING
+                )
+            """)
+        except:
+            pass
         
-        self.conn.execute("""
-            CREATE NODE TABLE IF NOT EXISTS ContractTerm (
-                term_id STRING PRIMARY KEY,
-                title STRING,
-                description STRING,
-                is_mandatory BOOLEAN
-            )
-        """)
+        try:
+            self.conn.execute("""
+                CREATE NODE TABLE IF NOT EXISTS ContractTerm (
+                    term_id STRING PRIMARY KEY,
+                    title STRING,
+                    description STRING,
+                    is_mandatory BOOLEAN
+                )
+            """)
+        except:
+            pass
         
         # Create relationship tables
-        self.conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS HAS_TERM (
-                FROM Contract TO ContractTerm
-            )
-        """)
+        try:
+            self.conn.execute("""
+                CREATE REL TABLE IF NOT EXISTS HAS_TERM (
+                    FROM Contract TO ContractTerm
+                )
+            """)
+        except:
+            pass
         
-        self.conn.execute("""
-            CREATE REL TABLE IF NOT EXISTS PARENT_OF (
-                FROM Contract TO Contract,
-                relationship_type STRING
-            )
-        """)
+        try:
+            self.conn.execute("""
+                CREATE REL TABLE IF NOT EXISTS PARENT_OF (
+                    FROM Contract TO Contract,
+                    relationship_type STRING
+                )
+            """)
+        except:
+            pass
     
     def save(self, contract: Contract) -> None:
         """Save a contract to the graph database"""
@@ -112,26 +168,32 @@ class KuzuGraphRepository(ContractRepository):
             "updated_at": contract.updated_at.isoformat()
         }
         
-        # Upsert contract node
-        self.conn.execute("""
-            MERGE (c:Contract {contract_id: $contract_id})
-            SET c.title = $title,
-                c.description = $description,
-                c.client_id = $client_id,
-                c.client_name = $client_name,
-                c.client_email = $client_email,
-                c.vendor_id = $vendor_id,
-                c.vendor_name = $vendor_name,
-                c.vendor_email = $vendor_email,
-                c.value_amount = $value_amount,
-                c.value_currency = $value_currency,
-                c.start_date = $start_date,
-                c.end_date = $end_date,
-                c.payment_terms = $payment_terms,
-                c.status = $status,
-                c.created_at = $created_at,
-                c.updated_at = $updated_at
-        """, contract_data)
+        try:
+            # Upsert contract node using query file
+            upsert_query = load_query_from_file(self.query_path / "queries" / "contract" / "upsert_contract.cypher")
+            self.conn.execute(upsert_query, contract_data)
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            self.conn.execute("""
+                MERGE (c:Contract {contract_id: $contract_id})
+                SET c.title = $title,
+                    c.description = $description,
+                    c.client_id = $client_id,
+                    c.client_name = $client_name,
+                    c.client_email = $client_email,
+                    c.vendor_id = $vendor_id,
+                    c.vendor_name = $vendor_name,
+                    c.vendor_email = $vendor_email,
+                    c.value_amount = $value_amount,
+                    c.value_currency = $value_currency,
+                    c.start_date = $start_date,
+                    c.end_date = $end_date,
+                    c.payment_terms = $payment_terms,
+                    c.status = $status,
+                    c.created_at = $created_at,
+                    c.updated_at = $updated_at
+            """, contract_data)
         
         # Save terms and relationships
         for term in contract.terms:
@@ -142,27 +204,47 @@ class KuzuGraphRepository(ContractRepository):
                 "is_mandatory": term.is_mandatory
             }
             
-            self.conn.execute("""
-                MERGE (t:ContractTerm {term_id: $term_id})
-                SET t.title = $title,
-                    t.description = $description,
-                    t.is_mandatory = $is_mandatory
-            """, term_data)
-            
-            # Create relationship
-            self.conn.execute("""
-                MATCH (c:Contract {contract_id: $contract_id})
-                MATCH (t:ContractTerm {term_id: $term_id})
-                MERGE (c)-[:HAS_TERM]->(t)
-            """, {"contract_id": str(contract.contract_id), "term_id": term.term_id})
+            try:
+                # Upsert term using query file
+                term_query = load_query_from_file(self.query_path / "queries" / "term" / "upsert_term.cypher")
+                self.conn.execute(term_query, term_data)
+                
+                # Create relationship using query file
+                link_query = load_query_from_file(self.query_path / "queries" / "term" / "link_to_contract.cypher")
+                self.conn.execute(link_query, {
+                    "contract_id": str(contract.contract_id), 
+                    "term_id": term.term_id
+                })
+            except Exception as e:
+                print(f"Error loading query file, falling back to inline query: {e}")
+                # Fallback to inline queries
+                self.conn.execute("""
+                    MERGE (t:ContractTerm {term_id: $term_id})
+                    SET t.title = $title,
+                        t.description = $description,
+                        t.is_mandatory = $is_mandatory
+                """, term_data)
+                
+                # Create relationship
+                self.conn.execute("""
+                    MATCH (c:Contract {contract_id: $contract_id})
+                    MATCH (t:ContractTerm {term_id: $term_id})
+                    MERGE (c)-[:HAS_TERM]->(t)
+                """, {"contract_id": str(contract.contract_id), "term_id": term.term_id})
     
     def find_by_id(self, contract_id: ContractId) -> Optional[Contract]:
         """Find a contract by ID"""
-        result = self.conn.execute("""
-            MATCH (c:Contract {contract_id: $contract_id})
-            OPTIONAL MATCH (c)-[:HAS_TERM]->(t:ContractTerm)
-            RETURN c, collect(t) as terms
-        """, {"contract_id": str(contract_id)})
+        try:
+            query = load_query_from_file(self.query_path / "queries" / "contract" / "find_by_id.cypher")
+            result = self.conn.execute(query, {"contract_id": str(contract_id)})
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            result = self.conn.execute("""
+                MATCH (c:Contract {contract_id: $contract_id})
+                OPTIONAL MATCH (c)-[:HAS_TERM]->(t:ContractTerm)
+                RETURN c, collect(t) as terms
+            """, {"contract_id": str(contract_id)})
         
         if result.has_next():
             row = result.get_next()
@@ -175,11 +257,17 @@ class KuzuGraphRepository(ContractRepository):
     
     def find_active_contracts(self) -> List[Contract]:
         """Find all active contracts"""
-        result = self.conn.execute("""
-            MATCH (c:Contract {status: $status})
-            OPTIONAL MATCH (c)-[:HAS_TERM]->(t:ContractTerm)
-            RETURN c, collect(t) as terms
-        """, {"status": ContractStatus.ACTIVE.value})
+        try:
+            query = load_query_from_file(self.query_path / "queries" / "contract" / "find_active.cypher")
+            result = self.conn.execute(query, {"status": ContractStatus.ACTIVE.value})
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            result = self.conn.execute("""
+                MATCH (c:Contract {status: $status})
+                OPTIONAL MATCH (c)-[:HAS_TERM]->(t:ContractTerm)
+                RETURN c, collect(t) as terms
+            """, {"status": ContractStatus.ACTIVE.value})
         
         contracts = []
         while result.has_next():
@@ -192,11 +280,17 @@ class KuzuGraphRepository(ContractRepository):
     
     def find_by_client(self, client_id: str) -> List[Contract]:
         """Find contracts by client"""
-        result = self.conn.execute("""
-            MATCH (c:Contract {client_id: $client_id})
-            OPTIONAL MATCH (c)-[:HAS_TERM]->(t:ContractTerm)
-            RETURN c, collect(t) as terms
-        """, {"client_id": client_id})
+        try:
+            query = load_query_from_file(self.query_path / "queries" / "contract" / "find_by_client_id.cypher")
+            result = self.conn.execute(query, {"client_id": client_id})
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            result = self.conn.execute("""
+                MATCH (c:Contract {client_id: $client_id})
+                OPTIONAL MATCH (c)-[:HAS_TERM]->(t:ContractTerm)
+                RETURN c, collect(t) as terms
+            """, {"client_id": client_id})
         
         contracts = []
         while result.has_next():
@@ -210,23 +304,37 @@ class KuzuGraphRepository(ContractRepository):
     def add_parent_child_relationship(self, parent_id: ContractId, child_id: ContractId, 
                                       relationship_type: str = "SUBCONTRACT") -> None:
         """Add a parent-child relationship between contracts"""
-        self.conn.execute("""
-            MATCH (p:Contract {contract_id: $parent_id})
-            MATCH (c:Contract {contract_id: $child_id})
-            MERGE (p)-[:PARENT_OF {relationship_type: $rel_type}]->(c)
-        """, {
+        params = {
             "parent_id": str(parent_id),
             "child_id": str(child_id),
             "rel_type": relationship_type
-        })
+        }
+        
+        try:
+            query = load_query_from_file(self.query_path / "queries" / "relationship" / "add_parent_child.cypher")
+            self.conn.execute(query, params)
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            self.conn.execute("""
+                MATCH (p:Contract {contract_id: $parent_id})
+                MATCH (c:Contract {contract_id: $child_id})
+                MERGE (p)-[:PARENT_OF {relationship_type: $rel_type}]->(c)
+            """, params)
     
     def find_child_contracts(self, parent_id: ContractId) -> List[Contract]:
         """Find all child contracts of a parent contract"""
-        result = self.conn.execute("""
-            MATCH (p:Contract {contract_id: $parent_id})-[:PARENT_OF]->(c:Contract)
-            OPTIONAL MATCH (c)-[:HAS_TERM]->(t:ContractTerm)
-            RETURN c, collect(t) as terms
-        """, {"parent_id": str(parent_id)})
+        try:
+            query = load_query_from_file(self.query_path / "queries" / "relationship" / "find_children.cypher")
+            result = self.conn.execute(query, {"parent_id": str(parent_id)})
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            result = self.conn.execute("""
+                MATCH (p:Contract {contract_id: $parent_id})-[:PARENT_OF]->(c:Contract)
+                OPTIONAL MATCH (c)-[:HAS_TERM]->(t:ContractTerm)
+                RETURN c, collect(t) as terms
+            """, {"parent_id": str(parent_id)})
         
         contracts = []
         while result.has_next():
@@ -239,11 +347,17 @@ class KuzuGraphRepository(ContractRepository):
     
     def find_parent_contract(self, child_id: ContractId) -> Optional[Contract]:
         """Find the parent contract of a child contract"""
-        result = self.conn.execute("""
-            MATCH (p:Contract)-[:PARENT_OF]->(c:Contract {contract_id: $child_id})
-            OPTIONAL MATCH (p)-[:HAS_TERM]->(t:ContractTerm)
-            RETURN p, collect(t) as terms
-        """, {"child_id": str(child_id)})
+        try:
+            query = load_query_from_file(self.query_path / "queries" / "relationship" / "find_parent.cypher")
+            result = self.conn.execute(query, {"child_id": str(child_id)})
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            result = self.conn.execute("""
+                MATCH (p:Contract)-[:PARENT_OF]->(c:Contract {contract_id: $child_id})
+                OPTIONAL MATCH (p)-[:HAS_TERM]->(t:ContractTerm)
+                RETURN p, collect(t) as terms
+            """, {"child_id": str(child_id)})
         
         if result.has_next():
             row = result.get_next()

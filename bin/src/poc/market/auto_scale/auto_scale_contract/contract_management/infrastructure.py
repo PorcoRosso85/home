@@ -13,6 +13,7 @@ from typing import List, Optional, Dict, Any
 from uuid import UUID
 
 import kuzu
+from kuzu_py import load_query_from_file
 
 from .domain import (
     Contract, ContractId, ContractParty, ContractStatus,
@@ -59,9 +60,54 @@ class KuzuGraphRepository(ContractRepository):
     
     def _init_schema(self) -> None:
         """Initialize the graph database schema"""
-        # Create node tables
         try:
-            # Contract Node
+            # Load and execute schema from file
+            schema_path = Path(__file__).parent / "cypher" / "schema" / "contract_schema.cypher"
+            schema_result = load_query_from_file(schema_path)
+            
+            # Check if query loading succeeded
+            if isinstance(schema_result, dict) and not schema_result.get('ok', True):
+                raise Exception(f"Failed to load schema: {schema_result.get('error')}")
+            
+            schema_query = schema_result
+            
+            # Execute each statement in the schema file
+            # Split by semicolon to handle multiple statements
+            statements = [stmt.strip() for stmt in schema_query.split(';') if stmt.strip()]
+            
+            for i, statement in enumerate(statements):
+                # Remove comments from statement
+                lines = statement.split('\n')
+                cleaned_lines = []
+                for line in lines:
+                    # Skip pure comment lines
+                    if line.strip().startswith('--'):
+                        continue
+                    # Remove inline comments
+                    if '--' in line:
+                        line = line[:line.index('--')]
+                    if line.strip():
+                        cleaned_lines.append(line)
+                
+                if cleaned_lines:
+                    cleaned_statement = '\n'.join(cleaned_lines).strip()
+                    if cleaned_statement:  # Only execute non-empty statements
+                        try:
+                            self.conn.execute(cleaned_statement)
+                        except Exception as e:
+                            # Table might already exist, which is fine
+                            if "already exists" not in str(e):
+                                print(f"Warning: Error creating schema: {e}")
+        
+        except Exception as e:
+            print(f"Error loading schema file: {e}")
+            # Fall back to creating basic schema if file loading fails
+            self._create_fallback_schema()
+    
+    def _create_fallback_schema(self) -> None:
+        """Create basic schema as fallback when file loading fails"""
+        # Only create the most essential tables for basic functionality
+        try:
             self.conn.execute("""
                 CREATE NODE TABLE Contract(
                     id STRING PRIMARY KEY,
@@ -78,12 +124,10 @@ class KuzuGraphRepository(ContractRepository):
                     updated_at STRING
                 )
             """)
-        except Exception as e:
-            # Table might already exist
+        except:
             pass
         
         try:
-            # Party Node
             self.conn.execute("""
                 CREATE NODE TABLE Party(
                     id STRING PRIMARY KEY,
@@ -93,27 +137,10 @@ class KuzuGraphRepository(ContractRepository):
                     created_at STRING
                 )
             """)
-        except Exception as e:
-            # Table might already exist
-            pass
-        
-        # Create relationship tables
-        try:
-            # ParentContract relationship
-            self.conn.execute("""
-                CREATE REL TABLE ParentContract(
-                    FROM Contract TO Contract,
-                    inheritance_type STRING,
-                    inherited_terms STRING,
-                    created_at STRING
-                )
-            """)
-        except Exception as e:
-            # Table might already exist
+        except:
             pass
         
         try:
-            # ContractParty relationship
             self.conn.execute("""
                 CREATE REL TABLE ContractParty(
                     FROM Contract TO Party,
@@ -123,22 +150,7 @@ class KuzuGraphRepository(ContractRepository):
                     joined_at STRING
                 )
             """)
-        except Exception as e:
-            # Table might already exist
-            pass
-        
-        try:
-            # ReferralChain relationship
-            self.conn.execute("""
-                CREATE REL TABLE ReferralChain(
-                    FROM Party TO Party,
-                    contract_id STRING,
-                    referral_date STRING,
-                    commission_rate DOUBLE
-                )
-            """)
-        except Exception as e:
-            # Table might already exist
+        except:
             pass
     
     def save(self, contract: Contract) -> None:
@@ -163,47 +175,71 @@ class KuzuGraphRepository(ContractRepository):
             'updated_at': contract.updated_at.isoformat()
         }
         
-        # Create or update contract node
-        # First check if contract exists
-        result = self.conn.execute(
-            "MATCH (c:Contract) WHERE c.id = $id RETURN c",
-            {'id': str(contract.contract_id)}
-        )
+        try:
+            # Check if contract exists using query file
+            check_query_path = Path(__file__).parent / "cypher" / "queries" / "contract" / "check_contract_exists.cypher"
+            check_result = load_query_from_file(check_query_path)
+            if isinstance(check_result, dict) and not check_result.get('ok', True):
+                raise Exception(f"Failed to load query: {check_result.get('error')}")
+            result = self.conn.execute(check_result, {'id': str(contract.contract_id)})
+            
+            if result.has_next():
+                # Update existing contract using query file
+                update_query_path = Path(__file__).parent / "cypher" / "queries" / "contract" / "update_contract.cypher"
+                update_result = load_query_from_file(update_query_path)
+                if isinstance(update_result, dict) and not update_result.get('ok', True):
+                    raise Exception(f"Failed to load query: {update_result.get('error')}")
+                self.conn.execute(update_result, contract_data)
+            else:
+                # Create new contract using query file
+                create_query_path = Path(__file__).parent / "cypher" / "queries" / "contract" / "create_contract.cypher"
+                create_result = load_query_from_file(create_query_path)
+                if isinstance(create_result, dict) and not create_result.get('ok', True):
+                    raise Exception(f"Failed to load query: {create_result.get('error')}")
+                self.conn.execute(create_result, contract_data)
         
-        if result.has_next():
-            # Update existing contract
-            self.conn.execute("""
-                MATCH (c:Contract) WHERE c.id = $id
-                SET c.title = $title,
-                    c.description = $description,
-                    c.type = $type,
-                    c.status = $status,
-                    c.value_amount = $value_amount,
-                    c.value_currency = $value_currency,
-                    c.payment_terms = $payment_terms,
-                    c.terms = $terms,
-                    c.created_at = $created_at,
-                    c.expires_at = $expires_at,
-                    c.updated_at = $updated_at
-            """, contract_data)
-        else:
-            # Create new contract
-            self.conn.execute("""
-                CREATE (c:Contract {
-                    id: $id,
-                    title: $title,
-                    description: $description,
-                    type: $type,
-                    status: $status,
-                    value_amount: $value_amount,
-                    value_currency: $value_currency,
-                    payment_terms: $payment_terms,
-                    terms: $terms,
-                    created_at: $created_at,
-                    expires_at: $expires_at,
-                    updated_at: $updated_at
-                })
-            """, contract_data)
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline queries
+            result = self.conn.execute(
+                "MATCH (c:Contract) WHERE c.id = $id RETURN c",
+                {'id': str(contract.contract_id)}
+            )
+            
+            if result.has_next():
+                # Update existing contract
+                self.conn.execute("""
+                    MATCH (c:Contract) WHERE c.id = $id
+                    SET c.title = $title,
+                        c.description = $description,
+                        c.type = $type,
+                        c.status = $status,
+                        c.value_amount = $value_amount,
+                        c.value_currency = $value_currency,
+                        c.payment_terms = $payment_terms,
+                        c.terms = $terms,
+                        c.created_at = $created_at,
+                        c.expires_at = $expires_at,
+                        c.updated_at = $updated_at
+                """, contract_data)
+            else:
+                # Create new contract
+                self.conn.execute("""
+                    CREATE (c:Contract {
+                        id: $id,
+                        title: $title,
+                        description: $description,
+                        type: $type,
+                        status: $status,
+                        value_amount: $value_amount,
+                        value_currency: $value_currency,
+                        payment_terms: $payment_terms,
+                        terms: $terms,
+                        created_at: $created_at,
+                        expires_at: $expires_at,
+                        updated_at: $updated_at
+                    })
+                """, contract_data)
         
         # Create contract-party relationships
         self._create_contract_party_relationship(contract, contract.client, 'buyer')
@@ -211,11 +247,21 @@ class KuzuGraphRepository(ContractRepository):
     
     def find_by_id(self, contract_id: ContractId) -> Optional[Contract]:
         """Find a contract by ID"""
-        result = self.conn.execute("""
-            MATCH (c:Contract) WHERE c.id = $id
-            OPTIONAL MATCH (c)-[cp:ContractParty]->(p:Party)
-            RETURN c, collect({party: p, relationship: cp}) as parties
-        """, {'id': str(contract_id)})
+        try:
+            # Load query from file
+            query_path = Path(__file__).parent / "cypher" / "queries" / "contract" / "find_contract.cypher"
+            query_result = load_query_from_file(query_path)
+            if isinstance(query_result, dict) and not query_result.get('ok', True):
+                raise Exception(f"Failed to load query: {query_result.get('error')}")
+            result = self.conn.execute(query_result, {'id': str(contract_id)})
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            result = self.conn.execute("""
+                MATCH (c:Contract) WHERE c.id = $id
+                OPTIONAL MATCH (c)-[cp:ContractParty]->(p:Party)
+                RETURN c, collect({party: p, relationship: cp}) as parties
+            """, {'id': str(contract_id)})
         
         row = result.get_next()
         if row:
@@ -224,11 +270,21 @@ class KuzuGraphRepository(ContractRepository):
     
     def find_active_contracts(self) -> List[Contract]:
         """Find all active contracts"""
-        result = self.conn.execute("""
-            MATCH (c:Contract) WHERE c.status = $status
-            OPTIONAL MATCH (c)-[cp:ContractParty]->(p:Party)
-            RETURN c, collect({party: p, relationship: cp}) as parties
-        """, {'status': ContractStatus.ACTIVE.value})
+        try:
+            # Load query from file
+            query_path = Path(__file__).parent / "cypher" / "queries" / "contract" / "find_active_contracts.cypher"
+            query_result = load_query_from_file(query_path)
+            if isinstance(query_result, dict) and not query_result.get('ok', True):
+                raise Exception(f"Failed to load query: {query_result.get('error')}")
+            result = self.conn.execute(query_result, {'status': ContractStatus.ACTIVE.value})
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            result = self.conn.execute("""
+                MATCH (c:Contract) WHERE c.status = $status
+                OPTIONAL MATCH (c)-[cp:ContractParty]->(p:Party)
+                RETURN c, collect({party: p, relationship: cp}) as parties
+            """, {'status': ContractStatus.ACTIVE.value})
         
         contracts = []
         while result.has_next():
@@ -239,12 +295,22 @@ class KuzuGraphRepository(ContractRepository):
     
     def find_by_client(self, client_id: str) -> List[Contract]:
         """Find contracts by client"""
-        result = self.conn.execute("""
-            MATCH (c:Contract)-[cp1:ContractParty]->(client:Party) 
-            WHERE cp1.role = 'buyer' AND client.id = $client_id
-            OPTIONAL MATCH (c)-[cp2:ContractParty]->(p:Party)
-            RETURN c, collect({party: p, relationship: cp2}) as parties
-        """, {'client_id': client_id})
+        try:
+            # Load query from file
+            query_path = Path(__file__).parent / "cypher" / "queries" / "contract" / "find_contracts_by_client.cypher"
+            query_result = load_query_from_file(query_path)
+            if isinstance(query_result, dict) and not query_result.get('ok', True):
+                raise Exception(f"Failed to load query: {query_result.get('error')}")
+            result = self.conn.execute(query_result, {'client_id': client_id})
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline query
+            result = self.conn.execute("""
+                MATCH (c:Contract)-[cp1:ContractParty]->(client:Party) 
+                WHERE cp1.role = 'buyer' AND client.id = $client_id
+                OPTIONAL MATCH (c)-[cp2:ContractParty]->(p:Party)
+                RETURN c, collect({party: p, relationship: cp2}) as parties
+            """, {'client_id': client_id})
         
         contracts = []
         while result.has_next():
@@ -255,67 +321,112 @@ class KuzuGraphRepository(ContractRepository):
     
     def _ensure_party_exists(self, party: ContractParty) -> None:
         """Ensure a party exists in the database"""
-        # Check if party exists
-        result = self.conn.execute(
-            "MATCH (p:Party) WHERE p.id = $id RETURN p",
-            {'id': party.party_id}
-        )
+        party_data = {
+            'id': party.party_id,
+            'name': party.name,
+            'type': 'company',  # Default to company for now
+            'created_at': datetime.now().isoformat()
+        }
         
-        if result.has_next():
-            # Update existing party
-            self.conn.execute("""
-                MATCH (p:Party) WHERE p.id = $id
-                SET p.name = $name,
-                    p.type = $type
-            """, {
-                'id': party.party_id,
-                'name': party.name,
-                'type': 'company'  # Default to company for now
-            })
-        else:
-            # Create new party
-            self.conn.execute("""
-                CREATE (p:Party {
-                    id: $id,
-                    name: $name,
-                    type: $type,
-                    created_at: $created_at
+        try:
+            # Load and execute ensure_party_exists query from file
+            query_path = Path(__file__).parent / "cypher" / "queries" / "party" / "ensure_party_exists.cypher"
+            query_result = load_query_from_file(query_path)
+            if isinstance(query_result, dict) and not query_result.get('ok', True):
+                raise Exception(f"Failed to load query: {query_result.get('error')}")
+            self.conn.execute(query_result, party_data)
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline queries
+            # Check if party exists
+            result = self.conn.execute(
+                "MATCH (p:Party) WHERE p.id = $id RETURN p",
+                {'id': party.party_id}
+            )
+            
+            if result.has_next():
+                # Update existing party
+                self.conn.execute("""
+                    MATCH (p:Party) WHERE p.id = $id
+                    SET p.name = $name,
+                        p.type = $type
+                """, {
+                    'id': party.party_id,
+                    'name': party.name,
+                    'type': 'company'  # Default to company for now
                 })
-            """, {
-                'id': party.party_id,
-                'name': party.name,
-                'type': 'company',  # Default to company for now
-                'created_at': datetime.now().isoformat()
-            })
+            else:
+                # Create new party
+                self.conn.execute("""
+                    CREATE (p:Party {
+                        id: $id,
+                        name: $name,
+                        type: $type,
+                        created_at: $created_at
+                    })
+                """, party_data)
     
     def _create_contract_party_relationship(self, contract: Contract, party: ContractParty, role: str) -> None:
         """Create relationship between contract and party"""
-        # First check if relationship exists
-        result = self.conn.execute("""
-            MATCH (c:Contract)-[cp:ContractParty]->(p:Party)
-            WHERE c.id = $contract_id AND p.id = $party_id AND cp.role = $role
-            RETURN cp
-        """, {
+        # Parameters for checking if relationship exists
+        check_params = {
             'contract_id': str(contract.contract_id),
             'party_id': party.party_id,
             'role': role
-        })
+        }
         
-        if not result.has_next():
-            # Create new relationship
-            self.conn.execute("""
-                MATCH (c:Contract) WHERE c.id = $contract_id
-                MATCH (p:Party) WHERE p.id = $party_id
-                CREATE (c)-[cp:ContractParty {
-                    role: $role,
-                    joined_at: $joined_at
-                }]->(p)
-            """, {
-                'contract_id': str(contract.contract_id),
-                'party_id': party.party_id,
-                'role': role,
-                'joined_at': datetime.now().isoformat()
-            })
+        # Parameters for creating the relationship
+        create_params = {
+            'contract_id': str(contract.contract_id),
+            'party_id': party.party_id,
+            'role': role,
+            'joined_at': datetime.now().isoformat()
+        }
+        
+        try:
+            # Check if relationship exists using query file
+            check_query_path = Path(__file__).parent / "cypher" / "queries" / "contract" / "check_contract_party_relationship.cypher"
+            check_result = load_query_from_file(check_query_path)
+            if isinstance(check_result, dict) and not check_result.get('ok', True):
+                raise Exception(f"Failed to load query: {check_result.get('error')}")
+            
+            try:
+                result = self.conn.execute(check_result, check_params)
+                
+                if not result.has_next():
+                    # Create new relationship using query file
+                    create_query_path = Path(__file__).parent / "cypher" / "queries" / "contract" / "create_contract_party_relationship.cypher"
+                    create_result = load_query_from_file(create_query_path)
+                    if isinstance(create_result, dict) and not create_result.get('ok', True):
+                        raise Exception(f"Failed to load query: {create_result.get('error')}")
+                    self.conn.execute(create_result, create_params)
+                    
+            except RuntimeError as e:
+                # This is a query execution error, not a file loading error
+                raise e
+        
+        except RuntimeError:
+            # Re-raise runtime errors (query execution failures)
+            raise
+        except Exception as e:
+            print(f"Error loading query file, falling back to inline query: {e}")
+            # Fallback to inline queries
+            result = self.conn.execute("""
+                MATCH (c:Contract)-[cp:ContractParty]->(p:Party)
+                WHERE c.id = $contract_id AND p.id = $party_id AND cp.role = $role
+                RETURN cp
+            """, check_params)
+            
+            if not result.has_next():
+                # Create new relationship
+                self.conn.execute("""
+                    MATCH (c:Contract) WHERE c.id = $contract_id
+                    MATCH (p:Party) WHERE p.id = $party_id
+                    CREATE (c)-[cp:ContractParty {
+                        role: $role,
+                        joined_at: $joined_at
+                    }]->(p)
+                """, create_params)
     
     def _determine_contract_type(self, contract: Contract) -> str:
         """Determine contract type based on contract details"""

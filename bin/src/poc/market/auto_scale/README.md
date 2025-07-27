@@ -53,7 +53,13 @@ auto_scale/
 │       ├── application.py       # アプリケーション層
 │       ├── domain.py            # ドメインモデル
 │       ├── infrastructure.py    # インフラストラクチャ層
-│       └── schema.sql           # データベーススキーマ
+│       ├── schema.sql           # データベーススキーマ
+│       └── cypher/              # GraphDBクエリ管理
+│           ├── schema/          # スキーマ定義
+│           │   └── contract_schema.cypher
+│           └── queries/         # クエリファイル
+│               ├── contract/    # 契約関連クエリ
+│               └── party/       # 当事者関連クエリ
 ├── tests/                       # テストディレクトリ
 │   ├── __init__.py
 │   ├── conftest.py              # pytest設定
@@ -111,10 +117,21 @@ auto_scale/
 - 契約管理機能に特化（報酬計算は別システム化も可能）
 
 ## 技術スタック
-- バックエンド: [TBD]
-- フロントエンド: [TBD]
-- データベース: [TBD]
+- バックエンド: Python (DDD アーキテクチャ)
+- データベース: KuzuDB (グラフデータベース)
+- クエリ管理: 外部Cypherファイルによる体系的管理
 - 認証・認可: [TBD]
+- フロントエンド: [TBD]
+
+### GraphDBクエリ管理
+本システムでは、GraphDBのクエリを外部ファイルとして管理しています：
+- **スキーマ定義**: `cypher/schema/` ディレクトリ
+- **クエリファイル**: `cypher/queries/` ディレクトリ配下に機能別に整理
+- **利点**: 
+  - クエリの再利用性向上
+  - バージョン管理の容易化
+  - コードとクエリの責務分離
+  - クエリの単体テストが可能
 
 ## システム設計
 
@@ -170,4 +187,6 @@ POC段階 - 最初のパターン選定と要件定義を実施中
 
 ## 関連ドキュメント
 - [議論の経緯](./docs/discussion.md) - システム構想に至るまでの議論内容
-- [POC結果](./POC_RESULT.md) - POC実施結果とその評価
+- [POC結果](./docs/POC_RESULT.md) - POC実施結果とその評価
+- [詳細仕様書](./docs/spec.md) - システムの詳細仕様とコンポーネント定義
+- [リファクタリング概要](./docs/REFACTORING_SUMMARY.md) - GraphDBクエリ管理のリファクタリング内容
