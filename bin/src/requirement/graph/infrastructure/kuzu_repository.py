@@ -42,7 +42,7 @@ def create_kuzu_repository(db_path: str = None) -> Union[Dict, Dict[str, Any]]:
     # データベースとコネクションの作成
     if in_memory:
         # テスト用: キャッシュなし、ユニークインスタンス
-        db = create_database(in_memory=True, use_cache=False, test_unique=True)
+        db = create_database(in_memory=True, use_cache=False)
     else:
         db = create_database(path=str(db_path))
 

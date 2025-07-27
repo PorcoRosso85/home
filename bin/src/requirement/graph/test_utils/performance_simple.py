@@ -10,8 +10,15 @@ import functools
 try:
     # log_pyが利用可能な場合
     import sys
-    sys.path.append("../../telemetry/log_py")
+    import os
+    # 相対パスを絶対パスに変換
+    log_py_path = os.path.join(os.path.dirname(__file__), "../../../telemetry/log_py")
+    sys.path.insert(0, os.path.abspath(log_py_path))
     from log_py import log
+    # log_pyのlogはlevelをデータ内に含める必要がある
+    _original_log = log
+    def log(level: str, data: dict):
+        _original_log(level, data)
 except ImportError:
     # フォールバック: 単純なprint
     import json

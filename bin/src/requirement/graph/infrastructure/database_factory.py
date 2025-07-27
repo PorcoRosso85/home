@@ -35,7 +35,7 @@ def create_database(
     Returns:
         Union[Any, DatabaseError]: 成功時はDatabaseインスタンス、失敗時はDatabaseError
     """
-    cache_key = f"{path}:{in_memory}:{test_unique}"
+    cache_key = f"{path}:{in_memory}"
 
     if not _kuzu_available:
         return DatabaseError(
@@ -52,9 +52,7 @@ def create_database(
 
     try:
         if in_memory:
-            import uuid
-            unique_id = str(uuid.uuid4()) if test_unique else "test"
-            db_path = f":memory:{unique_id}"
+            db_path = ":memory:"
         else:
             if not path:
                 path = os.environ.get('RGL_DATABASE_PATH', './kuzu_db')
@@ -69,7 +67,7 @@ def create_database(
 
         # persistence.kuzu_pyのcreate_database関数を使用
         if in_memory:
-            result = kuzu_create_database(db_path)  # ":memory:xxx"形式のパスを渡す
+            result = kuzu_create_database(db_path)  # ":memory:"形式のパスを渡す
         else:
             result = kuzu_create_database(str(db_path))
 

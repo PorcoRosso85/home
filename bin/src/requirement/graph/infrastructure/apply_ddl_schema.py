@@ -54,7 +54,7 @@ def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = Fal
     # インメモリDBの場合はディレクトリ作成をスキップ
     if db_path == ":memory:":
         debug("rgl.schema", "Using in-memory database")
-        db = create_database(in_memory=True, use_cache=False, test_unique=True)
+        db = create_database(in_memory=True, use_cache=False)
     else:
         debug("rgl.schema", "Creating database directory", path=db_path)
         os.makedirs(db_path, exist_ok=True)
