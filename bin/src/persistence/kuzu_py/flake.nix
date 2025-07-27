@@ -26,7 +26,8 @@
             filter = path: type: 
               (pkgs.lib.hasSuffix ".py" path) ||
               (pkgs.lib.hasSuffix "pyproject.toml" path) ||
-              (pkgs.lib.hasSuffix "setup.py" path);
+              (pkgs.lib.hasSuffix "setup.py" path) ||
+              (type == "directory");
           };
           
           # setuptools形式でビルド
@@ -77,7 +78,7 @@
             type = "app";
             program = "${pkgs.writeShellScriptBin "test" ''
               cd /home/nixos/bin/src/persistence/kuzu_py
-              ${pythonEnv}/bin/pytest -v test_kuzu_py.py
+              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_query_loader.py
             ''}/bin/test";
           };
           
@@ -97,8 +98,18 @@
             program = "${pkgs.writeShellScriptBin "test-all" ''
               cd /home/nixos/bin/src/persistence/kuzu_py
               echo "Running all tests..."
-              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_e2e.py
+              ${pythonEnv}/bin/pytest -v test_kuzu_py.py test_query_loader.py test_e2e.py test_query_loader.py
             ''}/bin/test-all";
+          };
+          
+          # query loaderテストランナー
+          test-query-loader = {
+            type = "app";
+            program = "${pkgs.writeShellScriptBin "test-query-loader" ''
+              cd /home/nixos/bin/src/persistence/kuzu_py
+              echo "Running query loader tests..."
+              ${pythonEnv}/bin/pytest -v test_query_loader.py
+            ''}/bin/test-query-loader";
           };
         };
       });
