@@ -120,7 +120,11 @@ class ChatClient:
                 timestamp: $timestamp,
                 edited: false
             })
-        """, message)
+        """, {
+            "id": message["id"],
+            "content": message["content"],
+            "timestamp": message["timestamp"]
+        })
         
         # リレーションシップを作成
         self.conn.execute("""
@@ -129,7 +133,11 @@ class ChatClient:
             MATCH (c:Channel {id: $channelId})
             CREATE (m)-[:SENT_BY]->(u)
             CREATE (m)-[:IN_CHANNEL]->(c)
-        """, message)
+        """, {
+            "id": message["id"],
+            "userId": message["userId"],
+            "channelId": message["channelId"]
+        })
         
         self.messages.append(message)
         return message
@@ -151,7 +159,11 @@ class ChatClient:
                     timestamp: $timestamp,
                     edited: false
                 })
-            """, message)
+            """, {
+                "id": message["id"],
+                "content": message["content"],
+                "timestamp": message["timestamp"]
+            })
             
             # 送信者情報を確認/作成
             self.conn.execute("""
@@ -165,7 +177,11 @@ class ChatClient:
                 MATCH (c:Channel {id: $channelId})
                 CREATE (m)-[:SENT_BY]->(u)
                 CREATE (m)-[:IN_CHANNEL]->(c)
-            """, message)
+            """, {
+                "id": message["id"],
+                "userId": message["userId"],
+                "channelId": message["channelId"]
+            })
             
             self.messages.append(message)
             

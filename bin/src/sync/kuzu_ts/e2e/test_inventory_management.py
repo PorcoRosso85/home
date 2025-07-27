@@ -167,7 +167,13 @@ class InventoryNode:
                 timestamp: $timestamp,
                 status: $status
             })
-        """, movement_data)
+        """, {
+            "id": movement_data["id"],
+            "type": movement_data["type"],
+            "quantity": movement_data["quantity"],
+            "timestamp": movement_data["timestamp"],
+            "status": movement_data["status"]
+        })
         
         # リレーションシップを作成
         if movement.get("from_node"):
@@ -209,7 +215,13 @@ class InventoryNode:
                     timestamp: $timestamp,
                     status: $status
                 })
-            """, movement)
+            """, {
+                "id": movement["id"],
+                "type": movement["type"],
+                "quantity": movement["quantity"],
+                "timestamp": movement["timestamp"],
+                "status": movement["status"]
+            })
             
             # リレーションシップも同期
             if movement.get("from_node"):

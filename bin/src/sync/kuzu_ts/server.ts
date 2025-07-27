@@ -155,11 +155,19 @@ Deno.serve({ port }, (req) => {
             
           case "requestHistory":
             const fromPosition = message.fromPosition || 0;
-            const historyEvents = eventHistory.slice(fromPosition);
+            const limit = message.limit;
+            let historyEvents;
+            
+            if (limit !== undefined) {
+              historyEvents = eventHistory.slice(fromPosition, fromPosition + limit);
+            } else {
+              historyEvents = eventHistory.slice(fromPosition);
+            }
             
             telemetry.info(`History requested`, {
               clientId,
               fromPosition,
+              limit,
               eventCount: historyEvents.length,
               totalEvents: eventHistory.length
             });

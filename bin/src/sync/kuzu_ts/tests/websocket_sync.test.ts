@@ -4,6 +4,7 @@
  */
 
 import { assertEquals, assert } from "jsr:@std/assert@^1.0.0";
+import { afterEach } from "jsr:@std/testing@^1.0.0/bdd";
 import { SyncClient } from "../core/websocket/client.ts";
 import { TestServer } from "./test_utils.ts";
 
@@ -27,12 +28,69 @@ async function getServerState(): Promise<ServerState> {
 
 // テスト用のWebSocketサーバー管理はtest_utils.tsから使用
 
+// アクティブなクライアントとタイマーを追跡
+const activeClients: SyncClient[] = [];
+const activeTimers: number[] = [];
+
+// クライアント管理用の共通関数
+function addClient(client: SyncClient): void {
+  activeClients.push(client);
+}
+
+function removeClient(client: SyncClient): void {
+  const index = activeClients.indexOf(client);
+  if (index > -1) {
+    activeClients.splice(index, 1);
+  }
+}
+
+function clearAllClients(): void {
+  activeClients.length = 0;
+}
+
+// クリーンアップフック
+afterEach(async () => {
+  // 全てのクライアントを切断
+  const clientsToClose = [...activeClients]; // コピーを作成して二重削除を防ぐ
+  for (const client of clientsToClose) {
+    try {
+      await client.close(); // closeを使用して即座に切断
+    } catch (error) {
+      // 既に切断されている場合は無視
+    }
+  }
+  clearAllClients();
+  
+  // 全てのタイマーをクリア
+  for (const timer of activeTimers) {
+    clearTimeout(timer);
+  }
+  activeTimers.length = 0;
+  
+  // WebSocket接続が完全に閉じるのを待つ
+  await safeSetTimeout(() => {}, 50);
+});
+
+// 安全なsetTimeoutラッパー
+function safeSetTimeout(fn: () => void, delay: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      fn();
+      resolve();
+      const index = activeTimers.indexOf(timer);
+      if (index > -1) activeTimers.splice(index, 1);
+    }, delay);
+    activeTimers.push(timer);
+  });
+}
+
 // テストケース
 Deno.test("WebSocket client connection and disconnection", async () => {
   // Server is already running externally
   
   try {
     const client = new SyncClient("test-client-1");
+    addClient(client);
     
     // 接続テスト
     await client.connect();
@@ -47,6 +105,9 @@ Deno.test("WebSocket client connection and disconnection", async () => {
     await client.disconnect();
     assert(!client.isConnected(), "Client should be disconnected");
     
+    // クライアントをリストから削除
+    removeClient(client);
+    
   } finally {
     // Server managed externally
   }
@@ -57,7 +118,12 @@ Deno.test("Event sending and history", async () => {
   
   try {
     const client = new SyncClient("test-client-2");
+    addClient(client);
     await client.connect();
+    
+    // Get initial history count
+    const initialHistory = await client.requestHistory({ fromPosition: 0 });
+    const initialCount = initialHistory.events.length;
     
     // イベント送信
     const testEvent = {
@@ -71,13 +137,16 @@ Deno.test("Event sending and history", async () => {
     await client.sendEvent(testEvent);
     
     // イベントが処理されるのを待つ
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await safeSetTimeout(() => {}, 100);
     
-    // 履歴を確認
+    // 履歴を確認 - 新しいイベントが追加されたことを確認
     const history = await client.requestHistory({ fromPosition: 0 });
-    assertEquals(history.events.length, 1);
-    assertEquals(history.events[0].id, testEvent.id);
-    assertEquals(history.events[0].template, testEvent.template);
+    assertEquals(history.events.length, initialCount + 1);
+    
+    // 最新のイベントが送信したものと一致することを確認
+    const latestEvent = history.events[history.events.length - 1];
+    assertEquals(latestEvent.id, testEvent.id);
+    assertEquals(latestEvent.template, testEvent.template);
     
     await client.disconnect();
     
@@ -93,6 +162,8 @@ Deno.test("Multiple clients synchronization", async () => {
     // 2つのクライアントを接続
     const client1 = new SyncClient("multi-client-1");
     const client2 = new SyncClient("multi-client-2");
+    addClient(client1);
+    addClient(client2);
     
     await client1.connect();
     await client2.connect();
@@ -115,15 +186,15 @@ Deno.test("Multiple clients synchronization", async () => {
     await client1.sendEvent(event);
     
     // 同期を待つ
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await safeSetTimeout(() => {}, 500);
     
     // Client2がイベントを受信したことを確認
     assertEquals(receivedEvents.length, 1);
     assertEquals(receivedEvents[0].id, event.id);
     assertEquals(receivedEvents[0].params.message, "Hello from client1");
     
-    await client1.disconnect();
-    await client2.disconnect();
+    await client1.close();
+    await client2.close();
     
   } finally {
     // Server managed externally
@@ -135,6 +206,7 @@ Deno.test("Subscription filtering", async () => {
   
   try {
     const client = new SyncClient("subscription-client");
+    addClient(client);
     await client.connect();
     
     const userEvents: any[] = [];
@@ -147,6 +219,7 @@ Deno.test("Subscription filtering", async () => {
     
     // 別クライアントから異なるタイプのイベントを送信
     const sender = new SyncClient("sender-client");
+    addClient(sender);
     await sender.connect();
     
     await sender.sendEvent({
@@ -165,14 +238,18 @@ Deno.test("Subscription filtering", async () => {
       timestamp: Date.now()
     });
     
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await safeSetTimeout(() => {}, 500);
     
     // USER_EVENTのみ受信されていることを確認
     assertEquals(userEvents.length, 1);
     assertEquals(userEvents[0].template, "USER_EVENT");
     
-    await client.disconnect();
-    await sender.disconnect();
+    // クライアントをリストから削除
+    removeClient(client);
+    removeClient(sender);
+    
+    await client.close();
+    await sender.close();
     
   } finally {
     // Server managed externally
@@ -184,30 +261,38 @@ Deno.test("History pagination", async () => {
   
   try {
     const client = new SyncClient("pagination-client");
+    addClient(client);
     await client.connect();
     
+    // Get initial position
+    const initialHistory = await client.requestHistory({ fromPosition: 0 });
+    const startPosition = initialHistory.events.length;
+    
     // 複数のイベントを送信
+    const testEvents = [];
     for (let i = 0; i < 10; i++) {
-      await client.sendEvent({
+      const event = {
         id: crypto.randomUUID(),
-        template: "PAGE_EVENT",
+        template: "PAGE_EVENT_" + Date.now(),
         params: { index: i },
         clientId: "pagination-client",
         timestamp: Date.now()
-      });
+      };
+      testEvents.push(event);
+      await client.sendEvent(event);
       // 各イベント送信後に短い遅延を追加
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await safeSetTimeout(() => {}, 10);
     }
     
     // すべてのイベントが処理されるのを待つ
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await safeSetTimeout(() => {}, 100);
     
-    // ページネーションテスト
-    const page1 = await client.requestHistoryPage({ fromPosition: 0, limit: 5 });
+    // ページネーションテスト - 既存のイベントを考慮
+    const page1 = await client.requestHistoryPage({ fromPosition: startPosition, limit: 5 });
     assertEquals(page1.events.length, 5);
     assertEquals(page1.events[0].params.index, 0);
     
-    const page2 = await client.requestHistoryPage({ fromPosition: 5, limit: 5 });
+    const page2 = await client.requestHistoryPage({ fromPosition: startPosition + 5, limit: 5 });
     assertEquals(page2.events.length, 5);
     assertEquals(page2.events[0].params.index, 5);
     

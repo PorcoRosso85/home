@@ -371,11 +371,10 @@ class IoTGateway:
         measurements_result = self.conn.execute("""
             MATCH (d:Device {id: $device_id})-[:HAS_SENSOR]->(s:Sensor)
             OPTIONAL MATCH (m:Measurement)-[:MEASURED_BY]->(s)
-            WITH s, m ORDER BY m.timestamp DESC
-            WITH s, COLLECT(m)[0] as latest_m
+            WITH s, m ORDER BY m.timestamp DESC LIMIT 1
             RETURN s.sensor_type as sensor_type,
-                   latest_m.value as latest_value,
-                   latest_m.timestamp as latest_timestamp
+                   m.value as latest_value,
+                   m.timestamp as latest_timestamp
         """, {"device_id": device_id})
         
         sensor_data = []
@@ -414,14 +413,9 @@ class IoTGateway:
             
         # アクティブアラート
         alert_stats = self.conn.execute("""
-            MATCH (a:Alert {acknowledged: false})
+            MATCH (a:Alert)
+            WHERE a.acknowledged = false
             RETURN a.severity as severity, COUNT(a) as count
-            ORDER BY 
-                CASE a.severity 
-                    WHEN 'critical' THEN 1 
-                    WHEN 'warning' THEN 2 
-                    ELSE 3 
-                END
         """)
         
         alerts = []
@@ -488,7 +482,12 @@ async def test_environmental_monitoring_network():
                         value: $value,
                         quality: $quality
                     })
-                """, meas)
+                """, {
+                    "id": meas["id"],
+                    "timestamp": meas["timestamp"],
+                    "value": meas["value"],
+                    "quality": meas["quality"]
+                })
             
             # バッテリー消費
             device.simulate_battery_drain()

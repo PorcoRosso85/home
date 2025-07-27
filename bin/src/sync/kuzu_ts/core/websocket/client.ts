@@ -133,10 +133,16 @@ export class SyncClient {
       throw new Error("Not connected");
     }
     
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.ws!.removeEventListener("message", handler);
+        reject(new Error("History request timeout"));
+      }, 5000);
+      
       const handler = (event: MessageEvent) => {
         const message = JSON.parse(event.data);
         if (message.type === "history") {
+          clearTimeout(timeout);
           this.ws!.removeEventListener("message", handler);
           resolve({ events: message.events });
         }
@@ -203,10 +209,16 @@ export class SyncClient {
       throw new Error("Not connected");
     }
     
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.ws!.removeEventListener("message", handler);
+        reject(new Error("History page request timeout"));
+      }, 5000);
+      
       const handler = (event: MessageEvent) => {
         const message = JSON.parse(event.data);
         if (message.type === "history") {
+          clearTimeout(timeout);
           this.ws!.removeEventListener("message", handler);
           resolve({ events: message.events || [] });
         }
@@ -269,25 +281,34 @@ export class SyncClient {
     return this.id;
   }
   
-  close(): void {
+  async close(): Promise<void> {
     this.autoReconnect = false;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
     if (this.ws) {
+      const ws = this.ws;
       this.ws.close();
+      
+      // WebSocketがCLOSED状態になるまで待機（最大1秒）
+      const startTime = Date.now();
+      while (ws.readyState !== WebSocket.CLOSED) {
+        if (Date.now() - startTime > 1000) {
+          console.warn("WebSocket close timeout after 1 second");
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      
       this.ws = null;
       this.connected = false;
     }
   }
   
-  disconnect(): void {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-      this.connected = false;
-    }
+  async disconnect(): Promise<void> {
+    // close()メソッドを呼び出して同じ処理を実行
+    await this.close();
   }
   
 }
