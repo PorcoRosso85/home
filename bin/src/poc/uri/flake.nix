@@ -19,6 +19,7 @@
           pytest-cov
           pyyaml
           jinja2
+          sentence-transformers
         ];
         
         # ����Xpersistence/kuzu_py	
@@ -112,7 +113,7 @@
             program = "${pkgs.writeShellScript "test" ''
               cd ${self}
               export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
-              exec ${devEnv}/bin/pytest test_mod.py test_asvs_loader.py -v
+              exec ${devEnv}/bin/pytest test_*.py -v
             ''}";
           };
           
@@ -217,6 +218,15 @@ PYTHON_EOF
               cd ${self}
               export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
               exec ${devEnv}/bin/python asvs_loader.py
+            ''}";
+          };
+          
+          embedding = {
+            type = "app";
+            program = "${pkgs.writeShellScript "embedding" ''
+              cd ${self}
+              export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+              exec ${devEnv}/bin/python demo_embedding_similarity.py
             ''}";
           };
         };
