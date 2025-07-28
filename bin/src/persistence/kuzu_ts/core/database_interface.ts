@@ -19,6 +19,5 @@ export interface IDatabaseFactory {
 }
 
 export interface DatabaseOptions {
-  useCache?: boolean;
   testUnique?: boolean;
 }
