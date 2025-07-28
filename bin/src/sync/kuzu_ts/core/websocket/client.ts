@@ -307,8 +307,30 @@ export class SyncClient {
   }
   
   async disconnect(): Promise<void> {
-    // close()メソッドを呼び出して同じ処理を実行
-    await this.close();
+    // 再接続タイマーをクリア（新しい切断による再接続を防ぐ）
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    
+    // WebSocketを閉じる（autoReconnectフラグは保持）
+    if (this.ws) {
+      const ws = this.ws;
+      this.ws.close();
+      
+      // WebSocketがCLOSED状態になるまで待機（最大1秒）
+      const startTime = Date.now();
+      while (ws.readyState !== WebSocket.CLOSED) {
+        if (Date.now() - startTime > 1000) {
+          console.warn("WebSocket close timeout after 1 second");
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      
+      this.ws = null;
+      this.connected = false;
+    }
   }
   
 }
