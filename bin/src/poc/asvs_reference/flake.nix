@@ -29,6 +29,8 @@
           jinja2
           kuzu
           requests  # ASVS fetcher用
+          numpy     # KuzuDB get_as_df()用
+          pandas    # DataFrame操作用
         ];
         
         # Import kuzu_py as a local dependency
