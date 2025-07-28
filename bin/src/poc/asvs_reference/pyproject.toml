@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "asvs-reference"
+name = "asvs-arrow-converter"
 version = "0.1.0"
-description = "ASVS Reference Arrow Converter - Convert ASVS data to Apache Arrow format"
+description = "Convert OWASP ASVS from GitHub to Apache Arrow/Parquet format"
 authors = [{name = "ASVS Reference Team"}]
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,8 +22,6 @@ classifiers = [
 
 dependencies = [
     "pyarrow>=14.0.0",
-    "pyyaml>=6.0",
-    "pytest>=7.0.0",
 ]
 
 [project.optional-dependencies]
@@ -38,11 +36,8 @@ dev = [
 ]
 
 [project.scripts]
-asvs-arrow-converter = "asvs_arrow_converter:main"
+asvs-arrow-cli = "arrow_cli:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["asvs_reference*"]
 
 [tool.pytest.ini_options]
 testpaths = [".", "e2e"]
@@ -54,10 +49,8 @@ addopts = "-v --tb=short"
 [tool.coverage.run]
 source = ["."]
 omit = [
-    "*/tests/*",
-    "*/test_*",
+    "test_*.py",
     "*/__pycache__/*",
-    "*/e2e/*",
 ]
 
 [tool.black]

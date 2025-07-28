@@ -1,5 +1,5 @@
 {
-  description = "ASVS Reference Management POC";
+  description = "ASVS Arrow Converter - GitHub to Arrow/Parquet pipeline";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -24,9 +24,7 @@
         pythonDeps = with pythonPackages; [
           pytest
           pytest-cov
-          pyyaml      # YAML解析用（将来的に削除可能）
-          pyarrow     # Arrow形式でのデータ提供用
-          requests    # ASVS fetcher用（オプション）
+          pyarrow     # Arrow形式でのデータ変換用
         ];
         
         # Python environment with all dependencies
@@ -40,10 +38,47 @@
           echo "ASVS 5.0 data copied to $out"
         '';
         
+        # Build Python package
+        asvsArrowConverter = pythonPackages.buildPythonPackage {
+          pname = "asvs-arrow-converter";
+          version = "0.1.0";
+          src = self;
+          pyproject = true;
+          
+          build-system = with pythonPackages; [
+            setuptools
+            wheel
+          ];
+          
+          dependencies = with pythonPackages; [
+            pyarrow
+          ];
+          
+          nativeCheckInputs = with pythonPackages; [
+            pytest
+            pytest-cov
+          ];
+          
+          checkPhase = ''
+            pytest test_*.py -v
+          '';
+          
+          pythonImportsCheck = [
+            "asvs_arrow_converter"
+            "asvs_arrow_types"
+          ];
+        };
+        
+        # Python environment with the package
+        pythonEnvWithPackage = python.withPackages (ps: [
+          asvsArrowConverter
+        ] ++ pythonDeps);
+        
       in
       {
         packages = {
-          default = pythonEnv;
+          default = asvsArrowConverter;
+          python-env = pythonEnvWithPackage;
           
           # Test runner
           test = pkgs.writeShellScriptBin "test-asvs-reference" ''
@@ -51,61 +86,37 @@
             echo "Running ASVS Reference tests..."
             cd ${self}
             export PYTHONPATH="${self}:$PYTHONPATH"
-            ${pythonEnv}/bin/python -m pytest test_*.py -v
+            ${pythonEnvWithPackage}/bin/python -m pytest test_*.py -v
           '';
           
-          # Demo for guardrails
-          demo-guardrails = pkgs.writeShellScriptBin "demo-guardrails" ''
-            set -e
-            echo "Running ASVS guardrails demo..."
-            cd ${self}
-            export PYTHONPATH="${self}:$PYTHONPATH"
-            ${pythonEnv}/bin/python demo_guardrails.py
-          '';
-          
-          # Demo for mandatory references
-          demo-mandatory = pkgs.writeShellScriptBin "demo-mandatory-references" ''
-            set -e
-            echo "Running mandatory references demo..."
-            cd ${self}
-            export PYTHONPATH="${self}:$PYTHONPATH"
-            ${pythonEnv}/bin/python demo_mandatory_references.py
-          '';
-          
-          # CLI for ASVS loader
-          cli = pkgs.writeShellScriptBin "asvs-loader" ''
-            set -e
-            cd ${self}
-            export PYTHONPATH="${self}:$PYTHONPATH"
-            ${pythonEnv}/bin/python asvs_loader.py "$@"
-          '';
-          
-          # Fetch ASVS 5.0 data from GitHub
-          fetch-asvs5 = pkgs.writeShellScriptBin "fetch-asvs5" ''
-            set -e
-            echo "Fetching ASVS 5.0 data from GitHub..."
-            cd ${self}
-            export PYTHONPATH="${self}:$PYTHONPATH"
-            export ASVS_SOURCE_PATH="${asvs5Data}"
-            ${pythonEnv}/bin/python scripts/fetch_asvs_5.0.py
-          '';
-          
-          # Arrow CLI for converting ASVS markdown to Parquet
+          # Arrow CLI tool
           arrow-cli = pkgs.writeShellScriptBin "asvs-arrow-cli" ''
             set -e
-            cd ${self}
             export PYTHONPATH="${self}:$PYTHONPATH"
-            ${pythonEnv}/bin/python arrow_cli.py "$@"
+            ${pythonEnvWithPackage}/bin/python ${self}/arrow_cli.py "$@"
           '';
           
-          # Example conversion using bundled ASVS data
+          # Convert example - uses bundled ASVS 5.0 data
           convert-example = pkgs.writeShellScriptBin "convert-asvs-example" ''
             set -e
-            echo "Converting ASVS 5.0 markdown to Parquet..."
-            OUTPUT_DIR="$(pwd)/output"
+            echo "Converting ASVS 5.0 from GitHub to Parquet..."
+            
+            OUTPUT_DIR="output"
             mkdir -p "$OUTPUT_DIR"
+            
+            echo "Input: ${asvs5Data}/en"
+            echo "Output: $OUTPUT_DIR/asvs_v5.0.parquet"
+            
             ${self.packages.${system}.arrow-cli}/bin/asvs-arrow-cli ${asvs5Data}/en -o "$OUTPUT_DIR/asvs_v5.0.parquet" -v
-            echo "Conversion complete! Output saved to $OUTPUT_DIR/asvs_v5.0.parquet"
+            
+            echo ""
+            echo "Conversion complete! To read the file:"
+            echo "  python example_read_parquet.py $OUTPUT_DIR/asvs_v5.0.parquet"
+          '';
+          
+          # README display
+          readme = pkgs.writeShellScriptBin "show-readme" ''
+            ${pkgs.less}/bin/less ${self}/README.md
           '';
         };
         
@@ -120,26 +131,6 @@
             program = "${self.packages.${system}.test}/bin/test-asvs-reference";
           };
           
-          demo-guardrails = {
-            type = "app";
-            program = "${self.packages.${system}.demo-guardrails}/bin/demo-guardrails";
-          };
-          
-          demo-mandatory = {
-            type = "app";
-            program = "${self.packages.${system}.demo-mandatory}/bin/demo-mandatory-references";
-          };
-          
-          cli = {
-            type = "app";
-            program = "${self.packages.${system}.cli}/bin/asvs-loader";
-          };
-          
-          fetch-asvs5 = {
-            type = "app";
-            program = "${self.packages.${system}.fetch-asvs5}/bin/fetch-asvs5";
-          };
-          
           arrow-cli = {
             type = "app";
             program = "${self.packages.${system}.arrow-cli}/bin/asvs-arrow-cli";
@@ -149,11 +140,21 @@
             type = "app";
             program = "${self.packages.${system}.convert-example}/bin/convert-asvs-example";
           };
+          
+          readme = {
+            type = "app";
+            program = "${self.packages.${system}.readme}/bin/show-readme";
+          };
+        };
+        
+        # Export for other flakes
+        lib = {
+          inherit asvsArrowConverter asvs5Data;
         };
         
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            pythonEnv
+            pythonEnvWithPackage
             # Development tools
             python312Packages.black
             python312Packages.isort
@@ -163,18 +164,15 @@
           ];
           
           shellHook = ''
-            echo "ASVS Reference Management POC Development Shell"
+            echo "ASVS Arrow Converter Development Shell"
             echo ""
             echo "Available commands:"
             echo "  nix run .#test              - Run all tests"
-            echo "  nix run .#demo-guardrails   - Run guardrails demo"
-            echo "  nix run .#demo-mandatory    - Run mandatory references demo"
-            echo "  nix run .#cli               - Run ASVS loader CLI"
-            echo "  nix run .#fetch-asvs5       - Fetch ASVS 5.0 data from GitHub"
-            echo "  nix run .#arrow-cli         - Convert ASVS markdown to Parquet"
-            echo "  nix run .#convert-example   - Run example conversion of ASVS 5.0"
+            echo "  nix run .#arrow-cli         - Convert ASVS to Parquet"
+            echo "  nix run .#convert-example   - Convert bundled ASVS 5.0"
+            echo "  nix run .#readme            - Show README"
             echo ""
-            echo "Python environment with pytest, pyyaml, and pyarrow available"
+            echo "Python environment with pytest and pyarrow available"
           '';
         };
       });
