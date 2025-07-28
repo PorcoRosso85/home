@@ -13,13 +13,14 @@ export type { TemplateEvent } from "./event_sourcing/types.ts";
 
 // ========== Client Types ==========
 
-export type BrowserKuzuClient = {
+export type KuzuWasmClient = {
   initialize(): Promise<void>;
   initializeFromSnapshot(snapshot: EventSnapshot): Promise<void>;
   executeTemplate(template: string, params: Record<string, any>): Promise<TemplateEvent>;
   getLocalState(): Promise<LocalState>;
   onRemoteEvent(handler: (event: TemplateEvent) => void): void;
   executeQuery(cypher: string, params?: Record<string, any>): Promise<any>;
+  applyEvent(event: TemplateEvent): Promise<void>;
 };
 
 export type LocalState = {
@@ -81,7 +82,7 @@ export type ConflictResolution = {
 // ========== Metrics Types ==========
 
 export type MetricsCollector = {
-  startTracking(client: BrowserKuzuClient): void;
+  startTracking(client: KuzuWasmClient): void;
   trackEvent(event: TemplateEvent): void;
   getStats(): MetricsStats;
 };

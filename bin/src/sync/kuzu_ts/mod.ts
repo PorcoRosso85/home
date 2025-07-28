@@ -5,7 +5,7 @@
 
 // Re-export all types
 export type {
-  BrowserKuzuClient,
+  KuzuWasmClient,
   LocalState,
   WebSocketSync,
   WebSocketMessage,
@@ -18,13 +18,15 @@ export type {
 } from "./types.ts";
 
 // Re-export implementations
-export { BrowserKuzuClientImpl } from "./core/client/browser_kuzu_client.ts";
+export { KuzuWasmClientImpl } from "./core/client/kuzu_wasm_client.ts";
+export { KuzuNativeClientImpl } from "./core/client/kuzu_native_client.ts";
 export { WebSocketSyncImpl } from "./core/websocket/sync.ts";
 export { TransactionalSyncAdapter } from "./core/sync/transactional_sync_adapter.ts";
 export { ServerEventStoreImpl } from "./storage/server_event_store.ts";
 export { CompressedEventStore } from "./storage/compressed_event_store.ts";
 export { ConflictResolverImpl } from "./core/sync/conflict_resolver.ts";
 export { MetricsCollectorImpl } from "./operations/metrics_collector.ts";
+export { SyncKuzuClient, type SyncKuzuClientOptions } from "./core/sync_kuzu_client.ts";
 
 // Re-export event sourcing components
 export { 

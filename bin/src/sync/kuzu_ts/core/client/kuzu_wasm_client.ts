@@ -1,9 +1,11 @@
 /**
- * Browser KuzuDB Client - モックフリー実装
- * ブラウザ環境専用（ESM版KuzuDB WASM使用）
+ * KuzuDB WASM Client - モックフリー実装
+ * WASM版KuzuDB使用（Deno環境での実行）
+ * TODO: 将来的にブラウザ環境のサポートを追加する際は、
+ * Worker APIの互換性やESMローダーの違いを考慮する必要がある
  */
 
-import type { BrowserKuzuClient, LocalState, EventSnapshot } from "../../types.ts";
+import type { KuzuWasmClient, LocalState, EventSnapshot } from "../../types.ts";
 import type { TemplateEvent } from "../../event_sourcing/types.ts";
 import type { DDLTemplateEvent } from "../../event_sourcing/ddl_types.ts";
 import { isDDLEvent, DDLOperationType } from "../../event_sourcing/ddl_types.ts";
@@ -14,14 +16,14 @@ import { SchemaManager } from "../schema_manager.ts";
 import { ExtendedTemplateRegistry } from "../../event_sourcing/ddl_event_handler.ts";
 import * as telemetry from "../../telemetry_log.ts";
 
-export class BrowserKuzuClientImpl implements BrowserKuzuClient {
+export class KuzuWasmClientImpl implements KuzuWasmClient {
   private db?: any;
   private conn?: any;
   private events: TemplateEvent[] = [];
   private remoteEventHandlers: Array<(event: TemplateEvent) => void> = [];
   private registry = new TemplateRegistry();
   private extendedRegistry = new ExtendedTemplateRegistry();
-  private clientId = `browser_${crypto.randomUUID()}`;
+  private clientId = `wasm_${crypto.randomUUID()}`;
   private stateCache = new StateCache();
   private schemaManager: SchemaManager;
 
@@ -31,6 +33,8 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
 
   async initialize(): Promise<void> {
     // Use sync version for Deno which doesn't support classic workers
+    // TODO: ブラウザ環境では異なるインポート方法が必要になる可能性がある
+    // 例: import("kuzu-wasm") for browser with worker support
     const kuzuModule = await import("kuzu-wasm/sync");
     const kuzu = kuzuModule.default || kuzuModule;
     
@@ -46,6 +50,8 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
   }
   
   // Worker pathを取得するための拡張ポイント
+  // TODO: ブラウザ環境でのWorker使用時には、このメソッドを実装して
+  // 適切なWorkerスクリプトのパスを返す必要がある
   private getWorkerPath?(): string;
 
   async initializeFromSnapshot(snapshot: EventSnapshot): Promise<void> {
@@ -334,7 +340,7 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
     }
   }
 
-  private async applyEvent(event: TemplateEvent | DDLTemplateEvent): Promise<void> {
+  async applyEvent(event: TemplateEvent | DDLTemplateEvent): Promise<void> {
     if (!this.conn) {
       throw new Error("Client not initialized");
     }
@@ -398,7 +404,22 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
         const metadata = this.extendedRegistry.getTemplateMetadata(event.template);
         const sanitizedParams = validateParams(event.params, metadata);
         
+        // Log DML query execution with telemetry
+        telemetry.info("Executing DML query", {
+          template: event.template,
+          eventId: event.id,
+          query: query.trim(),
+          params: sanitizedParams,
+          timestamp: event.timestamp
+        });
+        
         const result = await this.conn.query(query, sanitizedParams);
+        
+        // Log successful execution
+        telemetry.info("DML query executed successfully", {
+          template: event.template,
+          eventId: event.id
+        });
         
         // Special handling for QUERY_COUNTER
         if (event.template === "QUERY_COUNTER") {
@@ -418,9 +439,23 @@ export class BrowserKuzuClientImpl implements BrowserKuzuClient {
         // Notify handlers
         this.remoteEventHandlers.forEach(handler => handler(event));
       } catch (error) {
+        // Log DML query error with telemetry
+        telemetry.error("DML query execution failed", {
+          template: event.template,
+          eventId: event.id,
+          query: query.trim(),
+          params: event.params,
+          error: error instanceof Error ? error.message : String(error)
+        });
         console.error(`Failed to apply event ${event.id}:`, error);
         // Continue processing other events
       }
+    } else {
+      // Log unknown template warning
+      telemetry.warn("Unknown DML template", {
+        template: event.template,
+        eventId: event.id
+      });
     }
   }
 }
