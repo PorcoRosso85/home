@@ -4,13 +4,13 @@ A proof-of-concept implementation for managing external security standards (like
 
 ## Purpose
 
-This POC demonstrates how to leverage external security standards as a reference foundation for requirement management. It provides:
+This POC provides a clean data provider interface for OWASP ASVS (Application Security Verification Standard) data. It serves as a reference data source for other POCs that need to access security requirements.
 
-- **Reference Entity Management**: Store and query security standards (ASVS, NIST, etc.) as graph entities
-- **Compliance Mapping**: Link requirements to reference standards for traceability
-- **Quality Guardrails**: Enforce mandatory reference associations or justified exceptions
-- **Workflow Enforcement**: State machine for requirement lifecycle with audit trails
-- **Coverage Analysis**: Gap analysis and compliance reporting against standards
+### What it provides:
+- **ASVS Data Management**: Store and query ASVS requirements in a graph database
+- **Type-Safe API**: Strongly typed interfaces using TypedDict
+- **Search Capabilities**: Find requirements by number, keyword, level, or section
+- **Version Support**: Manage multiple ASVS versions (currently 4.0.3 and 5.0)
 
 ## Key Features
 
@@ -25,13 +25,7 @@ This POC demonstrates how to leverage external security standards as a reference
 - Version management support
 - Flexible search and filtering capabilities
 
-### 3. Workflow Enforcement
-- State machine: DRAFT → UNDER_REVIEW → APPROVED → IMPLEMENTING → IMPLEMENTED
-- Transition validation with business rules
-- Review comment system with severity levels
-- Complete audit trail for all operations
-
-### 4. ASVS Data Loader
+### 3. ASVS Data Loader
 - YAML-based ASVS data import
 - Jinja2 template engine for Cypher query generation
 - Batch loading of security standards
@@ -43,9 +37,11 @@ This POC demonstrates how to leverage external security standards as a reference
 
 ```
 asvs_reference/
+├── asvs_types.py               # Type definitions for ASVS data structures
+├── asvs_api.py                 # Data provider API for other POCs
 ├── reference_repository.py      # Core repository with KuzuDB integration
-├── enforced_workflow.py         # Workflow state machine and business rules
 ├── asvs_loader.py              # YAML data loader with template engine
+├── asvs_direct_import.py       # Direct import from Markdown to KuzuDB
 ├── data/                       # Sample ASVS and rule data
 ├── ddl/                        # Database schema definitions
 ├── templates/                  # Jinja2 templates for Cypher generation
@@ -54,10 +50,11 @@ asvs_reference/
 
 ### Module Responsibilities
 
+- **asvs_types.py**: Type definitions for all ASVS data structures
+- **asvs_api.py**: High-level API for other POCs to access ASVS data
 - **reference_repository.py**: Low-level database operations, error handling, connection management
-- **reference_guardrails.py**: Reference-requirement mapping, gap analysis, compliance checking
-- **enforced_workflow.py**: Business logic enforcement, state transitions, audit logging
 - **asvs_loader.py**: Data import/export, template processing, batch operations
+- **asvs_direct_import.py**: Direct Markdown to database import without YAML
 
 ## Usage Examples
 
@@ -74,17 +71,17 @@ python -m pytest test_reference_repository.py -v
 python -m pytest --cov=. --cov-report=html
 ```
 
-### Running Demos
+### Loading ASVS Data
 
 ```bash
-# Basic guardrails demo
-nix run .#demo-guardrails
+# Fetch ASVS 5.0 data from GitHub
+nix run .#fetch-asvs5
 
-# Mandatory references enforcement demo
-nix run .#demo-mandatory
+# Or load from local YAML file
+python asvs_loader.py
 
-# Enforced workflow demo
-python demo_enforced_guardrails.py
+# Direct import from Markdown
+python scripts/asvs_direct_import.py path/to/asvs.md
 ```
 
 ### Using the CLI
@@ -100,7 +97,39 @@ python asvs_loader.py
 ### Python API Examples
 
 ```python
-# Create repository
+# Using the ASVS Data Provider API
+from asvs_api import create_asvs_provider
+
+# Create provider
+provider = create_asvs_provider(":memory:")
+
+# Get a specific requirement
+response = provider.get_requirement_by_number("2.1.1")
+if response['type'] == 'Success':
+    req = response['value']
+    print(f"{req['number']}: {req['description']}")
+
+# Search requirements
+from asvs_types import SearchFilter
+filter: SearchFilter = {'keyword': 'password', 'levels': {'level1': True}}
+response = provider.search_requirements(filter)
+if response['type'] == 'Success':
+    result = response['value']
+    print(f"Found {result['total_count']} requirements")
+    for req in result['requirements']:
+        print(f"  - {req['number']}: {req['description']}")
+
+# Get all Level 1 requirements
+response = provider.get_requirements_by_level(1)
+
+# Get requirements by section
+response = provider.get_requirements_by_section("2.1")
+```
+
+### Lower-level Repository API
+
+```python
+# Create repository directly
 from reference_repository import create_reference_repository
 
 repo = create_reference_repository(":memory:")
