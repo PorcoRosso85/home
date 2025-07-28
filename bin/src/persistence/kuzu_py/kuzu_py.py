@@ -18,6 +18,7 @@ from result_types import DatabaseResult, ConnectionResult, ErrorDict
 
 # クエリローダー機能（実験的）
 from query_loader import load_query_from_file, clear_query_cache, load_structured_query
+# typed_query_loaderは後でインポート（循環依存を避けるため）
 
 __all__ = [
     # KuzuDBのコアAPI
