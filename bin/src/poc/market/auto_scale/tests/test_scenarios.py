@@ -21,7 +21,7 @@ from auto_scale_contract.contract_management.domain import (
 from auto_scale_contract.contract_management.application import (
     ContractService, CreateContractRequest, ContractResponse
 )
-from auto_scale_contract.contract_management.infrastructure import (
+from auto_scale_contract.contract_management.repositories import (
     KuzuGraphRepository, InMemoryContractRepository
 )
 

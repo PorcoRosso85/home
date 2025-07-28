@@ -78,17 +78,17 @@ def test_application_services_import():
 
 
 def test_infrastructure_repositories_import():
-    """Test that infrastructure repositories can be imported."""
+    """Test that repositories can be imported from repositories module."""
     try:
-        from auto_scale_contract.contract_management.infrastructure import (
-            ContractRepository,
+        from auto_scale_contract.contract_management.repositories import (
+            KuzuGraphRepository,
         )
         
         # Verify imports are not None
-        assert ContractRepository is not None
+        assert KuzuGraphRepository is not None
         
     except ImportError as e:
-        pytest.fail(f"Failed to import infrastructure repositories: {e}")
+        pytest.fail(f"Failed to import repositories: {e}")
 
 
 if __name__ == "__main__":

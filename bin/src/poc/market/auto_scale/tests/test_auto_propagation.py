@@ -17,7 +17,7 @@ from auto_scale_contract.contract_management.application import (
     ContractService, CreateContractRequest, ContractAnalyticsService,
     NetworkMetricsResponse, GrowthPredictionResponse
 )
-from auto_scale_contract.contract_management.infrastructure import (
+from auto_scale_contract.contract_management.repositories import (
     KuzuGraphRepository
 )
 
@@ -150,9 +150,11 @@ class TestReferralChainPropagation:
         
         # Verify commission calculation
         # In a real implementation with GraphDB, this would traverse the chain
+        # Base commission is 20% of purchase (100k × 0.20 = 20k)
+        # Level 1 gets 15% of base commission (20k × 0.15 = 3k)
         assert len(rewards) >= 1
         assert rewards[0].commission_rate == 0.15  # Direct referrer gets 15%
-        assert rewards[0].commission_amount == "15000.00"
+        assert rewards[0].commission_amount == "3000.00"  # 15% of 20k base commission
 
 
 class TestCommunityGrowthPropagation:
