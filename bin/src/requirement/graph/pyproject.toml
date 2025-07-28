@@ -16,8 +16,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["main", "mod", "cli", "conftest"]
-packages = ["application", "domain", "infrastructure", "query"]
+py-modules = ["main", "mod", "cli", "conftest", "__init__", "__main__"]
+packages = ["application", "domain", "infrastructure", "query", "test_utils", "e2e"]
 
 [tool.setuptools.package-data]
 "*" = ["*.cypher", "*.yaml", "*.json"]

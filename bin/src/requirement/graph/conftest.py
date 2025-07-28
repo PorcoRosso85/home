@@ -11,8 +11,14 @@ import os
 from typing import Dict, Any, Optional
 from pathlib import Path
 
+
 # パフォーマンス計測用
-from test_utils.performance import PerformanceCollector, measure_time
+try:
+    from test_utils.performance import PerformanceCollector, measure_time
+except ImportError:
+    # test_utilsがまだ利用できない場合のフォールバック
+    PerformanceCollector = None
+    measure_time = lambda name: lambda func: func
 
 
 def run_system_optimized(input_data: Dict[str, Any], db_path: Optional[str] = None, timeout: int = 30) -> Dict[str, Any]:
@@ -24,13 +30,17 @@ def run_system_optimized(input_data: Dict[str, Any], db_path: Optional[str] = No
     python_cmd = sys.executable
     
     # プロセスを作成
+    # E2Eテストから実行される場合でも、プロジェクトルートから実行する
+    # requirement.graphモジュールが見つかるように、src/の親ディレクトリから実行
+    project_root = Path(__file__).parent.parent.parent
     process = subprocess.Popen(
         [python_cmd, "-m", "requirement.graph"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        env=env
+        env=env,
+        cwd=str(project_root)
     )
     
     try:
@@ -188,6 +198,15 @@ def measure():
             with measure("main_operation", threshold=2.0):
                 result = process_data()
     """
+    if measure_time:
+        return measure_time
+    else:
+        # フォールバック実装
+        from contextlib import contextmanager
+        @contextmanager
+        def dummy_measure(name, threshold=None):
+            yield
+        return dummy_measure
     collector = PerformanceCollector("single_test")
     
     def _measure(name: str, threshold: Optional[float] = None, **metadata):

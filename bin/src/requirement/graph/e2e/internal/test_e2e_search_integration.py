@@ -15,42 +15,11 @@ import pytest
 import time
 
 
-def run_system(input_data, db_path=None):
-    """requirement/graphシステムの公開APIを実行"""
-    env = os.environ.copy()
-    if db_path:
-        env["RGL_DATABASE_PATH"] = db_path
-
-    # venvのPythonを使用
-    import sys
-    python_cmd = sys.executable  # 現在のPython（venv内）を使用
-
-    result = subprocess.run(
-        [python_cmd, "-m", "requirement.graph"],
-        input=json.dumps(input_data),
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    )
-
-    if result.stdout:
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if line.strip():
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-    return {"error": "No valid JSON output", "stderr": result.stderr}
-
-
 class TestSearchIntegration:
     """Search Service統合の振る舞いテスト（VSSのみ、FTSは将来対応）"""
 
     @pytest.fixture
-    def temp_db(self):
+    def temp_db(self, run_system):
         """一時的なデータベース環境"""
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマ初期化
@@ -62,7 +31,7 @@ class TestSearchIntegration:
             yield db_dir
 
     @pytest.mark.skip(reason="Future implementation: duplicate detection threshold adjustment needed")
-    def test_duplicate_detection_with_search_service(self, temp_db):
+    def test_duplicate_detection_with_search_service(self, temp_db, run_system):
         """Search serviceによる重複検出が動作する"""
         # Given: 要件を作成
         create_result = run_system({
@@ -102,7 +71,7 @@ class TestSearchIntegration:
         assert duplicates[0]["id"] == "auth_001"
         assert duplicates[0]["score"] > 0.7  # 高い類似度
 
-    def test_embedding_persistence(self, temp_db):
+    def test_embedding_persistence(self, temp_db, run_system):
         """エンベディングが永続化される"""
         # Given: 要件を作成（エンベディング生成を含む）
         create_result = run_system({
@@ -141,7 +110,7 @@ class TestSearchIntegration:
             # VSS有効時は重複が検出される可能性がある
             assert "emb_001" in [d["id"] for d in warning.get("duplicates", [])]
 
-    def test_search_service_error_handling(self, temp_db):
+    def test_search_service_error_handling(self, temp_db, run_system):
         """Search service障害時もシステムは動作継続する"""
         # Given: Search serviceが利用できない状況をシミュレート
         # （環境変数で無効化など、実装に応じて調整）
@@ -184,7 +153,7 @@ class TestSearchIntegration:
         assert output.get("data", {}).get("status") == "success"
         assert "warning" not in output  # 重複警告はない
 
-    def test_search_index_consistency(self, temp_db):
+    def test_search_index_consistency(self, temp_db, run_system):
         """検索インデックスとDBの整合性が保たれる"""
         # Given: 複数の要件を作成
         requirements = [
@@ -227,7 +196,7 @@ class TestSearchIntegration:
                 scores = [d["score"] for d in warning["duplicates"]]
                 assert scores == sorted(scores, reverse=True)
 
-    def test_connection_reuse_with_search(self, temp_db):
+    def test_connection_reuse_with_search(self, temp_db, run_system):
         """共有接続使用時も検索機能が正しく動作する"""
         # Given: 複数の要件を順次作成（同一プロセスで接続を再利用）
         requirements = [

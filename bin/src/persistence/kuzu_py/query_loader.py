@@ -6,6 +6,7 @@ from typing import Union, Dict, Optional
 import os
 
 from result_types import ErrorDict
+from errors import FileOperationError, NotFoundError
 
 # クエリキャッシュ
 _query_cache: Dict[str, tuple[str, float]] = {}  # {path: (query, mtime)}
@@ -17,7 +18,7 @@ def clear_query_cache() -> None:
     _query_cache.clear()
 
 
-def load_query_from_file(path: Path, force_reload: bool = False) -> Union[str, ErrorDict]:
+def load_query_from_file(path: Path, force_reload: bool = False) -> Union[str, ErrorDict, FileOperationError, NotFoundError]:
     """
     クエリファイルを読み込む
     
@@ -27,7 +28,7 @@ def load_query_from_file(path: Path, force_reload: bool = False) -> Union[str, E
         
     Returns:
         成功時: クエリ文字列
-        失敗時: ErrorDict
+        失敗時: ErrorDict, FileOperationError, NotFoundError
     """
     # ファイルの存在チェック
     if not path.exists():
@@ -113,7 +114,7 @@ def load_structured_query(
         
     Returns:
         成功時: クエリ文字列
-        失敗時: ErrorDict
+        失敗時: ErrorDict, FileOperationError, NotFoundError
     """
     base_path = Path(base_dir)
     

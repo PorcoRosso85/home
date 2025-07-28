@@ -71,3 +71,6 @@ VALID_QUERY_TYPES = ["dml", "dql", "auto"]
 
 # ファイル拡張子
 QUERY_FILE_EXTENSION = ".cypher"
+
+# デフォルトクエリディレクトリ
+DEFAULT_QUERY_DIR = "./queries"

@@ -89,3 +89,4 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 uv.lock
+bin/src/sync/kuzu_ts/deno.lock

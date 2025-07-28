@@ -3,7 +3,7 @@ Test error handling patterns - advanced error cases
 """
 import pytest
 from embed_pkg.types import is_embedding_error, is_error_result, ErrorResult
-from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone
+from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone as create_embedding_repository_standalone
 
 
 def test_embedder_initialization_error():

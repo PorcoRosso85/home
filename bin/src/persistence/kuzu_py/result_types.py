@@ -15,6 +15,9 @@ class ErrorDict(TypedDict):
     details: dict[str, Any]
 
 
+# Import new error types
+from errors import FileOperationError, ValidationError
+
 # Result型の定義（規約に従い、ジェネリックResultは使わない）
-DatabaseResult = Union["kuzu.Database", ErrorDict]
-ConnectionResult = Union["kuzu.Connection", ErrorDict]
+DatabaseResult = Union["kuzu.Database", ErrorDict, FileOperationError, ValidationError]
+ConnectionResult = Union["kuzu.Connection", ErrorDict, FileOperationError, ValidationError]

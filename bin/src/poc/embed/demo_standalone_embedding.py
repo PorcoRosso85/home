@@ -3,7 +3,7 @@
 Demo script for standalone embedding repository
 Shows usage without asvs_reference dependency
 """
-from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone
+from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone as create_embedding_repository_standalone
 from embed_pkg.types import ReferenceDict
 
 

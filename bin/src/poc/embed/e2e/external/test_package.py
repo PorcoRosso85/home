@@ -8,7 +8,7 @@ def test_embed_package_importable():
 
 def test_embedding_repository_available():
     """Test that embedding repository can be created"""
-    from embed_pkg.embedding_repository import create_embedding_repository
+    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone as create_embedding_repository
     # メモリDBでテスト
     repo = create_embedding_repository(":memory:")
     assert "save_with_embedding" in repo

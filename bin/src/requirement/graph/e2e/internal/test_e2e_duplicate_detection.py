@@ -2,52 +2,17 @@
 重複検出機能の振る舞いテスト
 規約に従い、公開APIの振る舞いのみを検証する統合テスト
 """
-import subprocess
 import json
-import os
-import sys
 import tempfile
 import pytest
-
-
-def run_system(input_data, db_path=None):
-    """requirement/graphシステムの公開APIを実行"""
-    env = os.environ.copy()
-    if db_path:
-        env["RGL_DATABASE_PATH"] = db_path
-
-    # 公開API（main.py）を通じて実行
-    # プロジェクトルートから実行
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    # 現在のPython（venv内）を使用
-    python_cmd = sys.executable
-
-    result = subprocess.run(
-        [python_cmd, "-m", "requirement.graph"],
-        input=json.dumps(input_data),
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=project_root
-    )
-
-    if result.stdout:
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if line.strip():
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-    return {"error": "No valid JSON output", "stderr": result.stderr}
+import time
 
 
 class TestDuplicateDetection:
     """重複検出機能の振る舞いテスト - リファクタリングの壁原則に準拠"""
 
     @pytest.fixture
-    def temp_db(self):
+    def temp_db(self, run_system):
         """一時的なデータベース環境"""
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマ初期化（公開API経由）
@@ -55,7 +20,7 @@ class TestDuplicateDetection:
             # Search service準拠のスキーマが適用されることを期待
             yield db_dir
 
-    def test_duplicate_detection_behavior(self, temp_db):
+    def test_duplicate_detection_behavior(self, temp_db, run_system):
         """重複検出の振る舞い - 実装詳細に依存しない"""
         # Given: 要件が作成されている
         create_result = run_system({
@@ -72,7 +37,6 @@ class TestDuplicateDetection:
         assert create_result.get("data", {}).get("status") == "success"
 
         # 検索インデックスへの追加を待つ（実装詳細は隠蔽）
-        import time
         time.sleep(0.1)
 
         # When: 類似した要件を作成しようとする
@@ -99,7 +63,7 @@ class TestDuplicateDetection:
             assert similar_req is not None
             assert similar_req["score"] >= 0.7  # 閾値以上
 
-    def test_no_false_positives(self, temp_db):
+    def test_no_false_positives(self, temp_db, run_system):
         """無関係な要件で誤検出しない - 振る舞いの検証"""
         # Given: データベース関連の要件
         run_system({
@@ -127,7 +91,7 @@ class TestDuplicateDetection:
         assert "warning" not in ui_result
         assert ui_result.get("data", {}).get("status") == "success"
 
-    def test_search_functionality(self, temp_db):
+    def test_search_functionality(self, temp_db, run_system):
         """検索機能の振る舞い - 将来の拡張を想定"""
         # 複数の要件を作成
         requirements = [
@@ -153,7 +117,7 @@ class TestDuplicateDetection:
         # 検索結果に認証関連の要件が含まれることを確認
         # assert len(search_result["data"]) >= 2
 
-    def test_embedding_generation(self, temp_db):
+    def test_embedding_generation(self, temp_db, run_system):
         """エンベディング生成の振る舞い - Search service統合の確認"""
         # Given: 要件を作成
         create_result = run_system({
@@ -188,7 +152,7 @@ class TestDuplicateDetection:
     # ========== ユーザージャーニーテスト ==========
     # 実際のユーザーの使用シナリオを検証する統合テスト
     
-    def test_user_journey_iterative_refinement(self, temp_db):
+    def test_user_journey_iterative_refinement(self, temp_db, run_system):
         """ユーザージャーニー: 重複警告を受けて要件を改善する
         
         シナリオ:
@@ -209,7 +173,6 @@ class TestDuplicateDetection:
         }, temp_db)
         
         # インデックス反映を待つ
-        import time
         time.sleep(0.1)
         
         # Step 2: 類似した要件を作成しようとする
@@ -261,7 +224,7 @@ class TestDuplicateDetection:
             }, temp_db)
             assert refined_result.get("data", {}).get("status") == "success"
     
-    def test_user_journey_progressive_elaboration(self, temp_db):
+    def test_user_journey_progressive_elaboration(self, temp_db, run_system):
         """ユーザージャーニー: 抽象から具体への段階的詳細化
         
         シナリオ:
@@ -312,7 +275,7 @@ class TestDuplicateDetection:
         # 実装詳細なので重複警告は出ない
         assert impl_result.get("data", {}).get("status") == "success"
     
-    def test_user_journey_cross_team_coordination(self, temp_db):
+    def test_user_journey_cross_team_coordination(self, temp_db, run_system):
         """ユーザージャーニー: チーム間での要件調整
         
         シナリオ:
@@ -365,7 +328,7 @@ class TestDuplicateDetection:
         # 統合要件は新しい観点なので重複警告は出ない
         assert integrated_result.get("data", {}).get("status") == "success"
     
-    def test_user_journey_terminology_variations(self, temp_db):
+    def test_user_journey_terminology_variations(self, temp_db, run_system):
         """ユーザージャーニー: 表記ゆれの吸収
         
         シナリオ:

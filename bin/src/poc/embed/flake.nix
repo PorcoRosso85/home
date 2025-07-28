@@ -28,6 +28,7 @@
           propagatedBuildInputs = with pythonPackages; [
             pyyaml
             jinja2
+            pyarrow
             kuzuPyPackage
           ];
           
@@ -79,9 +80,30 @@
           test = {
             type = "app";
             program = "${pkgs.writeShellScript "test-embed-poc" ''
-              # Run tests in the current directory
+              # Run all tests in the current directory
               export PYTHONPATH="$PWD:$PWD/../asvs_reference:$PYTHONPATH"
-              exec ${python.withPackages (ps: [embedPkg ps.pytest ps.pytest-cov])}/bin/pytest test_embedding_repository.py -v
+              
+              # Unit tests
+              echo "Running unit tests..."
+              ${python.withPackages (ps: [embedPkg ps.pytest ps.pytest-cov])}/bin/pytest test_*.py -v
+              
+              # Internal E2E tests
+              if [ -d "e2e/internal" ]; then
+                echo ""
+                echo "Running internal E2E tests..."
+                ${python.withPackages (ps: [embedPkg ps.pytest ps.pytest-cov])}/bin/pytest e2e/internal/ -v
+              else
+                echo "⚠️  WARNING: No internal E2E tests found"
+              fi
+              
+              # External E2E tests
+              if [ -f "e2e/external/test_package.py" ]; then
+                echo ""
+                echo "Running external E2E tests..."
+                ${python.withPackages (ps: [embedPkg ps.pytest])}/bin/pytest e2e/external/test_package.py -v
+              else
+                echo "⚠️  WARNING: No external E2E tests found"
+              fi
             ''}";
           };
           

@@ -3,7 +3,7 @@ Internal integration tests for embedding functionality
 Tests real embeddings without mocking to ensure ML models work correctly
 """
 import pytest
-from embed_pkg.embedding_repository import create_embedding_repository
+from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone as create_embedding_repository
 
 
 def test_real_embedding_generation():

@@ -9,7 +9,7 @@ from embed_pkg.types import ReferenceDict, EmbeddingResult, SaveResult, FindResu
 
 def test_create_standalone_embedding_repository():
     """Test creating a standalone embedding repository without asvs_reference"""
-    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone
+    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone as create_embedding_repository_standalone
     
     # Create repository without base repository
     repo = create_embedding_repository_standalone()
@@ -24,7 +24,7 @@ def test_create_standalone_embedding_repository():
 
 def test_save_reference_with_embedding_using_seeds():
     """Test saving reference with embedding using seed data"""
-    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone
+    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone as create_embedding_repository_standalone
     
     # Seed data
     reference: ReferenceDict = {
@@ -48,7 +48,7 @@ def test_save_reference_with_embedding_using_seeds():
 
 def test_find_reference_with_embedding():
     """Test finding reference returns embedding data"""
-    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone
+    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone as create_embedding_repository_standalone
     
     # Setup
     repo = create_embedding_repository_standalone(use_seed_embedder=True)
@@ -72,7 +72,7 @@ def test_find_reference_with_embedding():
 
 def test_find_similar_by_text_with_seeds():
     """Test semantic search using seed embeddings"""
-    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone
+    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone as create_embedding_repository_standalone
     
     # Setup with multiple references
     repo = create_embedding_repository_standalone(use_seed_embedder=True)
@@ -152,7 +152,7 @@ def test_seed_embedder_different_texts():
 
 def test_repository_with_custom_storage():
     """Test repository with in-memory storage instead of database"""
-    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone
+    from embed_pkg.embedding_repository_standalone import create_embedding_repository_standalone as create_embedding_repository_standalone
     
     # Create with in-memory storage
     storage: Dict[str, Any] = {}

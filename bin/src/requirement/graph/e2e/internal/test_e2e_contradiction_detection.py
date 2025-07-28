@@ -9,56 +9,20 @@
 import pytest
 import tempfile
 import os
-import sys
-import subprocess
-import json
-
-# プロジェクトルートから実行
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
-def run_system(input_data, db_path=None):
-    """requirement/graphシステムの公開APIを実行"""
-    env = os.environ.copy()
-    if db_path:
-        env["RGL_DATABASE_PATH"] = db_path
-
-    # 現在のPython（venv内）を使用
-    python_cmd = sys.executable
-
-    result = subprocess.run(
-        [python_cmd, "-m", "requirement.graph"],
-        input=json.dumps(input_data),
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=project_root
-    )
-
-    if result.stdout:
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if line.strip():
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-    return {"error": "No valid JSON output", "stderr": result.stderr}
 
 
 class TestContradictionDetection:
     """要件間の論理的矛盾を検出する機能の仕様"""
     
     @pytest.fixture
-    def temp_db(self):
+    def temp_db(self, run_system):
         """一時的なデータベース環境"""
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマ初期化（公開API経由）
             result = run_system({"type": "schema", "action": "apply"}, db_dir)
             yield db_dir
     
-    def test_mutual_exclusion_contradiction(self, temp_db):
+    def test_mutual_exclusion_contradiction(self, temp_db, run_system):
         """相互排他的な要件の矛盾を検出する仕様
         
         期待される動作:
@@ -111,7 +75,7 @@ class TestContradictionDetection:
         # 現時点ではスキップ（将来実装時に有効化）
         pytest.skip("Contradiction detection not yet implemented - feature planned for future release")
     
-    def test_dependency_contradiction(self, temp_db):
+    def test_dependency_contradiction(self, temp_db, run_system):
         """依存関係の矛盾を検出する仕槗
         
         期待される動作:
@@ -187,7 +151,7 @@ class TestContradictionDetection:
         
         pytest.skip("Dependency contradiction detection not yet implemented - feature planned for future release")
     
-    def test_temporal_contradiction(self, temp_db):
+    def test_temporal_contradiction(self, temp_db, run_system):
         """時間的な矛盾を検出する仕様
         
         期待される動作:
@@ -247,7 +211,7 @@ class TestContradictionDetection:
         
         pytest.skip("Temporal contradiction detection not yet implemented - feature planned for future release")
     
-    def test_resource_contradiction(self, temp_db):
+    def test_resource_contradiction(self, temp_db, run_system):
         """リソース制約の矛盾を検出する仕様
         
         期待される動作:
@@ -308,7 +272,7 @@ class TestContradictionDetection:
         pytest.skip("Resource contradiction detection not yet implemented - feature planned for future release")
 
 
-    def test_logical_inconsistency(self, temp_db):
+    def test_logical_inconsistency(self, temp_db, run_system):
         """論理的な不整合を検出する仕様
         
         期待される動作:
@@ -373,7 +337,7 @@ class TestContradictionDetectionAPI:
     """矛盾検出APIの仕様"""
     
     @pytest.fixture
-    def temp_db_with_schema(self):
+    def temp_db_with_schema(self, run_system):
         """スキーマ初期化済みのテスト用データベース"""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test_contradiction_api.db")
@@ -390,7 +354,7 @@ class TestContradictionDetectionAPI:
             
             yield db_path, repository
     
-    def test_check_contradictions_template(self, temp_db_with_schema):
+    def test_check_contradictions_template(self, temp_db_with_schema, run_system):
         """check_contradictionsテンプレートの仕様
         
         期待される動作:

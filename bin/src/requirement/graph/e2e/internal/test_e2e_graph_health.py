@@ -11,49 +11,15 @@ Tests for graph health features including:
 Following the testing philosophy: no mocks, test actual behavior through real instances
 """
 import pytest
-import subprocess
-import json
-import os
 import tempfile
 import time
-
-
-def run_system(input_data, db_path=None):
-    """requirement/graphシステムの公開APIを実行"""
-    env = os.environ.copy()
-    if db_path:
-        env["RGL_DATABASE_PATH"] = db_path
-
-    # venvのPythonを使用
-    import sys
-    python_cmd = sys.executable  # 現在のPython（venv内）を使用
-
-    result = subprocess.run(
-        [python_cmd, "-m", "requirement.graph"],
-        input=json.dumps(input_data),
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    )
-
-    if result.stdout:
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if line.strip():
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-    return {"error": "No valid JSON output", "stderr": result.stderr}
 
 
 class TestDepthLimitEnforcement:
     """深さ制限の強制（実装済み機能のテスト）"""
 
     @pytest.fixture
-    def temp_db(self):
+    def temp_db(self, run_system):
         """一時的なデータベース環境"""
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマ初期化
@@ -62,7 +28,7 @@ class TestDepthLimitEnforcement:
                 pytest.fail(f"Schema initialization failed: {result}")
             yield db_dir
 
-    def test_depth_limit_validation_passes_within_limit(self, temp_db):
+    def test_depth_limit_validation_passes_within_limit(self, temp_db, run_system):
         """深さ制限内の依存関係は正常に作成される"""
         # Given: 階層的な要件を作成
         requirements = [
@@ -101,7 +67,7 @@ class TestDepthLimitEnforcement:
         # 注: 実際のAPIがグラフヘルスチェックを提供する場合のテスト
         # 現在は依存関係が正常に作成されることを確認
         
-    def test_depth_limit_prevents_deep_chains(self, temp_db):
+    def test_depth_limit_prevents_deep_chains(self, temp_db, run_system):
         """深い依存関係チェーンの防止"""
         # Given: 多層の要件を作成
         layer_count = 10
@@ -142,7 +108,7 @@ class TestCircularDependencyPrevention:
     """循環依存の防止（実装済み機能のテスト）"""
     
     @pytest.fixture
-    def temp_db(self):
+    def temp_db(self, run_system):
         """一時的なデータベース環境"""
         with tempfile.TemporaryDirectory() as db_dir:
             result = run_system({"type": "schema", "action": "apply"}, db_dir)
@@ -150,7 +116,7 @@ class TestCircularDependencyPrevention:
                 pytest.fail(f"Schema initialization failed: {result}")
             yield db_dir
     
-    def test_direct_circular_dependency_prevented(self, temp_db):
+    def test_direct_circular_dependency_prevented(self, temp_db, run_system):
         """直接的な循環依存（A->B->A）が防止される"""
         # Given: 2つの要件を作成
         requirements = [
@@ -198,7 +164,7 @@ class TestCircularDependencyPrevention:
             error_message = str(result.get("error", "")) or str(result.get("message", ""))
         assert "circular" in error_message.lower() or "cycle" in error_message.lower()
     
-    def test_self_dependency_prevented(self, temp_db):
+    def test_self_dependency_prevented(self, temp_db, run_system):
         """自己依存（A->A）が防止される"""
         # Given: 要件を作成
         result = run_system({
@@ -232,7 +198,7 @@ class TestCircularDependencyPrevention:
             error_message = str(result.get("error", "")) or str(result.get("message", ""))
         assert "self" in error_message.lower() or "circular" in error_message.lower()
     
-    def test_indirect_circular_dependency_prevented(self, temp_db):
+    def test_indirect_circular_dependency_prevented(self, temp_db, run_system):
         """間接的な循環依存（A->B->C->A）が防止される"""
         # Given: 3つの要件を作成
         requirements = [

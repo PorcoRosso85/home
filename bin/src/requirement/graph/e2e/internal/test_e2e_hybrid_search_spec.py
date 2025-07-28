@@ -3,44 +3,9 @@ VSS検索仕様テスト
 ベクトル検索（VSS）単独での検索機能の仕様テスト
 注: FTS統合は将来的な拡張として保留中
 """
-import subprocess
-import json
-import os
-import sys
 import tempfile
 import pytest
-
-
-def run_system(input_data, db_path=None):
-    """requirement/graphシステムの公開APIを実行"""
-    env = os.environ.copy()
-    if db_path:
-        env["RGL_DATABASE_PATH"] = db_path
-
-    # 現在のPython（venv内）を使用
-    python_cmd = sys.executable
-
-    # プロジェクトルートから実行
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    result = subprocess.run(
-        [python_cmd, "-m", "requirement.graph"],
-        input=json.dumps(input_data),
-        capture_output=True,
-        text=True,
-        env=env,
-        cwd=project_root
-    )
-
-    if result.stdout:
-        lines = result.stdout.strip().split('\n')
-        for line in reversed(lines):
-            if line.strip():
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-    return {"error": "No valid JSON output", "stderr": result.stderr}
+import time
 
 
 class TestVSSSearchSpec:
@@ -54,14 +19,14 @@ class TestVSSSearchSpec:
     """
 
     @pytest.fixture
-    def temp_db(self):
+    def temp_db(self, run_system):
         """一時的なデータベース環境"""
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマ初期化
             result = run_system({"type": "schema", "action": "apply"}, db_dir)
             yield db_dir
 
-    def test_vss_search_integration(self, temp_db):
+    def test_vss_search_integration(self, temp_db, run_system):
         """VSS検索が動作する（重複検出はオプショナル）"""
         # Given: 要件を作成
         create_result = run_system({
@@ -101,7 +66,7 @@ class TestVSSSearchSpec:
             assert duplicate.get("type") == "vss"  # VSSのみの結果
             assert duplicate.get("score") > 0.5
 
-    def test_embedding_generation_optional(self, temp_db):
+    def test_embedding_generation_optional(self, temp_db, run_system):
         """エンベディング生成はオプショナル（VSSが利用可能な場合のみ）"""
         # Given: 要件を作成
         create_result = run_system({
@@ -147,7 +112,7 @@ class TestVSSSearchSpec:
             # 要件が見つかったことを確認
             assert len(data) > 0
 
-    def test_search_service_api_usage(self, temp_db):
+    def test_search_service_api_usage(self, temp_db, run_system):
         """Search serviceのAPIが正しく使用される"""
         # このテストは実装の詳細ではなく、振る舞いを検証
         # Search serviceが動作していることを間接的に確認
