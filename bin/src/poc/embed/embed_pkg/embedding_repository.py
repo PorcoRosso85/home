@@ -4,8 +4,8 @@ Functional style following reference_repository.py patterns
 """
 from typing import List, Dict, Any, Union, Optional
 import json
-from reference_repository import create_reference_repository, DatabaseError, ValidationError
-from embeddings.base import create_embedder, Embedder
+from asvs_reference.reference_repository import create_reference_repository, DatabaseError, ValidationError
+from embed_pkg.embeddings.base import create_embedder, Embedder
 
 
 def create_embedding_repository(

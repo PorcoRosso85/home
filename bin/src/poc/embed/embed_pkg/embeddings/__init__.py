@@ -13,6 +13,10 @@ from .base import (
 from .sentence_transformer import (
     create_sentence_transformer_embedder,
 )
+from .seed_embedder import (
+    create_seed_embedder,
+    create_semantic_seed_embedder,
+)
 
 __all__ = [
     # Types
@@ -23,4 +27,6 @@ __all__ = [
     "create_embedder",
     # Implementations
     "create_sentence_transformer_embedder",
+    "create_seed_embedder",
+    "create_semantic_seed_embedder",
 ]

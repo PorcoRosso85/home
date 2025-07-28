@@ -2,8 +2,8 @@
 Demonstration of Embedding-based Semantic Search for References
 Shows how embeddings enable finding similar references by meaning, not just keywords
 """
-from embedding_repository import create_embedding_repository
-from reference_repository import DatabaseError, ValidationError
+from embed_pkg.embedding_repository import create_embedding_repository
+from asvs_reference.reference_repository import DatabaseError, ValidationError
 import json
 
 

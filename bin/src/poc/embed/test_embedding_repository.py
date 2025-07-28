@@ -6,7 +6,7 @@ Following testing.md conventions: test behavior, not implementation
 import pytest
 from typing import Dict, Any, List, Union
 from unittest.mock import MagicMock, patch
-from embedding_repository import create_embedding_repository
+from embed_pkg.embedding_repository import create_embedding_repository
 
 
 def test_save_reference_with_embedding_success():
