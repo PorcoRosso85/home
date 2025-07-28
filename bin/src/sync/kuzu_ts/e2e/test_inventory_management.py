@@ -25,10 +25,10 @@ class InventoryNode:
         self.node_id = node_id
         self.node_type = node_type  # 'warehouse' or 'store'
         self.location = location
-        # 一時ディレクトリを作成
+        # 一時ディレクトリを作成（将来の削除用に保持）
         self.temp_dir = tempfile.mkdtemp(prefix=f"kuzu_inv_{node_id}_")
-        db_path = f"{self.temp_dir}/inventory.db"
-        self.db = kuzu.Database(db_path)
+        # In-memory database with 128MB buffer pool
+        self.db = kuzu.Database(":memory:", buffer_pool_size=128 * 1024 * 1024)
         self.conn = kuzu.Connection(self.db)
         self._initialize_schema()
         

@@ -28,8 +28,8 @@ class IoTDevice:
         self.location = location
         # 一時ディレクトリを作成
         self.temp_dir = tempfile.mkdtemp(prefix=f"kuzu_iot_{device_id}_")
-        db_path = f"{self.temp_dir}/iot.db"
-        self.db = kuzu.Database(db_path)
+        # Use in-memory database with 256MB buffer pool for time-series data
+        self.db = kuzu.Database(":memory:", buffer_pool_size=256 * 1024 * 1024)
         self.conn = kuzu.Connection(self.db)
         self.is_online = True
         self.battery_level = 100.0
@@ -339,8 +339,8 @@ class IoTGateway:
         self.gateway_id = gateway_id
         # 一時ディレクトリを作成
         self.temp_dir = tempfile.mkdtemp(prefix=f"kuzu_gateway_{gateway_id}_")
-        db_path = f"{self.temp_dir}/gateway.db"
-        self.db = kuzu.Database(db_path)
+        # Use in-memory database with 256MB buffer pool for time-series data
+        self.db = kuzu.Database(":memory:", buffer_pool_size=256 * 1024 * 1024)
         self.conn = kuzu.Connection(self.db)
         self._initialize_schema()
         

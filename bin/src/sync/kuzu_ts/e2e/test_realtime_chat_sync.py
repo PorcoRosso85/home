@@ -23,10 +23,10 @@ class ChatClient:
     def __init__(self, user_id: str, username: str):
         self.user_id = user_id
         self.username = username
-        # 一時ディレクトリを作成
+        # 一時ディレクトリを作成（互換性のため保持）
         self.temp_dir = tempfile.mkdtemp(prefix=f"kuzu_chat_{user_id}_")
-        db_path = f"{self.temp_dir}/chat.db"
-        self.db = kuzu.Database(db_path)
+        # In-memory database with 64MB buffer pool
+        self.db = kuzu.Database(":memory:", buffer_pool_size=64 * 1024 * 1024)
         self.conn = kuzu.Connection(self.db)
         self.messages: List[Dict[str, Any]] = []
         self._initialize_schema()
