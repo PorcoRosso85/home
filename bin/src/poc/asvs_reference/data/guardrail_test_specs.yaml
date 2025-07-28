@@ -1,0 +1,95 @@
+# Guardrail Test Specifications
+# Preserved from deleted test files for reference
+
+test_mandatory_references:
+  specifications:
+    - name: "Authentication requires ASVS and NIST references"
+      given: "A requirement with category 'authentication'"
+      when: "Creating the requirement"
+      then: "Must have references from both ASVS and NIST standards"
+      
+    - name: "Cryptography requires 3 references minimum"
+      given: "A requirement with category 'cryptography'"
+      when: "Validating references"
+      then: "Must have at least 3 references from ASVS, NIST, or FIPS"
+      
+    - name: "POC requirements bypass reference checks"
+      given: "A requirement with ID matching 'REQ-POC-*'"
+      when: "Validating references"
+      then: "No reference requirements are enforced"
+      
+    - name: "Coverage calculation includes all requirements"
+      given: "A set of requirements with varying reference counts"
+      when: "Calculating coverage"
+      then: "Coverage percentage = (requirements with references / total) * 100"
+
+test_enforced_workflow:
+  specifications:
+    - name: "Cannot create requirement without reference or exception"
+      given: "A new requirement"
+      when: "No references or exception provided"
+      then: "Creation fails with ValidationError"
+      
+    - name: "Exception justification minimum length"
+      given: "A requirement with exception"
+      when: "Justification is less than 50 characters"
+      then: "Creation fails with ValidationError"
+      
+    - name: "State transitions follow defined workflow"
+      given: "A requirement in 'draft' state"
+      when: "Transitioning states"
+      then: "Can only move to 'under_review' or 'rejected'"
+      
+    - name: "Audit trail captures all operations"
+      given: "Any requirement operation"
+      when: "Operation completes"
+      then: "Audit record created with user, timestamp, and action details"
+
+test_exception_workflow:
+  specifications:
+    - name: "Risk accepted exceptions require dual approval"
+      given: "An exception of type 'risk_accepted'"
+      when: "Submitted for approval"
+      then: "Requires approval from security_architect AND risk_management"
+      
+    - name: "Temporary exceptions require expiration date"
+      given: "An exception of type 'temporary'"
+      when: "Creating the exception"
+      then: "Must include expiration_date or creation fails"
+      
+    - name: "Sequential approval enforcement"
+      given: "An exception requiring multiple approvals"
+      when: "First approver hasn't approved"
+      then: "Second approver cannot approve"
+      
+    - name: "Audit trail immutability"
+      given: "An audit record"
+      when: "Attempting to modify"
+      then: "Modification fails and original record remains unchanged"
+      
+    - name: "Expired exceptions trigger notifications"
+      given: "A temporary exception past expiration"
+      when: "Daily review process runs"
+      then: "Notification sent to requirement owner and approvers"
+
+integration_workflows:
+  specifications:
+    - name: "Template-based requirement creation"
+      given: "A requirement template with predefined references"
+      when: "Creating requirement from template"
+      then: "References are automatically associated"
+      
+    - name: "Bulk import maintains individual validation"
+      given: "Multiple requirements in bulk import"
+      when: "Processing import"
+      then: "Each requirement validated independently with detailed error reporting"
+      
+    - name: "Deprecated reference migration"
+      given: "A reference marked as deprecated"
+      when: "Used in active requirement"
+      then: "Migration notification created with suggested alternatives"
+      
+    - name: "Cross-POC reference validation"
+      given: "A requirement referencing external standards"
+      when: "Validating references"
+      then: "ASVS data provider confirms reference exists and is valid"

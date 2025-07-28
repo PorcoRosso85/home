@@ -12,6 +12,11 @@ This POC provides a clean data provider interface for OWASP ASVS (Application Se
 - **Search Capabilities**: Find requirements by number, keyword, level, or section
 - **Version Support**: Manage multiple ASVS versions (currently 4.0.3 and 5.0)
 
+### Previous Functionality (Removed)
+This POC previously included guardrail enforcement functionality that has been removed to achieve better separation of concerns. The specifications for these features are preserved in:
+- `GUARDRAIL_SPECS_MIGRATION.md` - Complete migration guide for implementing guardrails elsewhere
+- `data/guardrail_test_specs.yaml` - Test specifications in structured format
+
 ## Key Features
 
 ### 1. Reference Repository
@@ -196,6 +201,7 @@ requirement_with_exception = {
 - ⚠️ Tests require proper kuzu_py package structure (import path adjustment needed)
 - ⚠️ Schema initialization must be done manually or through environment variable
 - ⚠️ Some tests use in-memory mock data instead of actual database
+- ⚠️ Guardrail specifications removed - see `GUARDRAIL_SPECS_MIGRATION.md` for implementation in other POCs
 
 ### Pending Improvements
 - [ ] Full integration with requirement/graph system
