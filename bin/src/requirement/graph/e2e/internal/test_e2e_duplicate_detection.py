@@ -6,8 +6,13 @@ import json
 import tempfile
 import pytest
 import time
+from test_utils.pytest_marks import mark_test, TestSpeed, TestType
 
 
+@mark_test(
+    speed=TestSpeed.VERY_SLOW,
+    test_type=TestType.E2E
+)
 class TestDuplicateDetection:
     """重複検出機能の振る舞いテスト - リファクタリングの壁原則に準拠"""
 
@@ -244,7 +249,6 @@ class TestDuplicateDetection:
         }, temp_db)
         
         assert parent_result.get("data", {}).get("status") == "success"
-        import time
         time.sleep(0.1)
         
         # Step 2: 具体的な子要件を作成（認証API）
@@ -296,7 +300,6 @@ class TestDuplicateDetection:
         }, temp_db)
         
         assert fe_result.get("data", {}).get("status") == "success"
-        import time
         time.sleep(0.1)
         
         # Step 2: バックエンドチームが類似要件を作成しようとする
@@ -349,7 +352,6 @@ class TestDuplicateDetection:
         }, temp_db)
         
         assert jp_result.get("data", {}).get("status") == "success"
-        import time
         time.sleep(0.1)
         
         # Step 2: 英語で類似要件を作成しようとする

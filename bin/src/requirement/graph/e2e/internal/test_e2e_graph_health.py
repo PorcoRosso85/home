@@ -13,8 +13,13 @@ Following the testing philosophy: no mocks, test actual behavior through real in
 import pytest
 import tempfile
 import time
+from test_utils.pytest_marks import mark_test, TestSpeed, TestType
 
 
+@mark_test(
+    speed=TestSpeed.SLOW,
+    test_type=TestType.E2E
+)
 class TestDepthLimitEnforcement:
     """深さ制限の強制（実装済み機能のテスト）"""
 
@@ -104,6 +109,10 @@ class TestDepthLimitEnforcement:
                 assert "error" not in result or result.get("data", {}).get("status") == "success"
 
 
+@mark_test(
+    speed=TestSpeed.SLOW,
+    test_type=TestType.E2E
+)
 class TestCircularDependencyPrevention:
     """循環依存の防止（実装済み機能のテスト）"""
     

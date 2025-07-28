@@ -20,6 +20,20 @@ except ImportError:
     PerformanceCollector = None
     measure_time = lambda name: lambda func: func
 
+# JSON reporter for mark information
+try:
+    from test_utils.pytest_json_reporter import pytest_configure as json_configure
+    from test_utils.pytest_json_reporter import pytest_addoption as json_addoption
+    from test_utils.pytest_json_reporter import pytest_runtest_setup as json_runtest_setup
+    from test_utils.pytest_json_reporter import pytest_runtest_makereport as json_runtest_makereport
+    from test_utils.pytest_json_reporter import pytest_sessionfinish as json_sessionfinish
+except ImportError:
+    json_configure = None
+    json_addoption = None
+    json_runtest_setup = None
+    json_runtest_makereport = None
+    json_sessionfinish = None
+
 
 def run_system_optimized(input_data: Dict[str, Any], db_path: Optional[str] = None, timeout: int = 30) -> Dict[str, Any]:
     """最適化されたrun_system関数（タイムアウトとクリーンアップ付き）"""
@@ -219,3 +233,35 @@ def measure():
         print(f"\nTest performance summary:")
         for name, stats in collector.get_statistics().items():
             print(f"  {name}: {stats['mean']:.3f}s (n={stats['count']})")
+
+
+# Hook for JSON reporter configuration
+def pytest_configure(config):
+    """Configure pytest with JSON reporter if enabled"""
+    # Check if JSON output is requested via environment variable
+    if os.environ.get("PYTEST_JSON_OUTPUT"):
+        # Set the JSON output path
+        json_path = os.environ.get("PYTEST_JSON_OUTPUT", "test_marks.jsonl")
+        config.stash["json_output"] = json_path
+        config.option.json_report = True
+    
+    # Call the JSON reporter's configure if available
+    if json_configure:
+        json_configure(config)
+
+
+def pytest_addoption(parser):
+    """Add custom options including JSON reporter"""
+    if json_addoption:
+        json_addoption(parser)
+
+
+# Forward hooks to JSON reporter if available
+if json_runtest_setup:
+    pytest_runtest_setup = json_runtest_setup
+
+if json_runtest_makereport:
+    pytest_runtest_makereport = json_runtest_makereport
+
+if json_sessionfinish:
+    pytest_sessionfinish = json_sessionfinish

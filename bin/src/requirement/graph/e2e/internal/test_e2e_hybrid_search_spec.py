@@ -6,8 +6,13 @@ VSS検索仕様テスト
 import tempfile
 import pytest
 import time
+from test_utils.pytest_marks import mark_test, TestSpeed, TestType
 
 
+@mark_test(
+    speed=TestSpeed.VERY_SLOW,
+    test_type=TestType.E2E
+)
 class TestVSSSearchSpec:
     """VSS検索の仕様
     

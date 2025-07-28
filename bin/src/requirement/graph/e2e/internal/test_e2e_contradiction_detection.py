@@ -9,8 +9,13 @@
 import pytest
 import tempfile
 import os
+from test_utils.pytest_marks import mark_test, TestSpeed, TestType
 
 
+@mark_test(
+    speed=TestSpeed.VERY_SLOW,
+    test_type=TestType.E2E
+)
 class TestContradictionDetection:
     """要件間の論理的矛盾を検出する機能の仕様"""
     

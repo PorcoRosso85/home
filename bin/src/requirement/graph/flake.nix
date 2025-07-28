@@ -77,6 +77,31 @@
             ''}";
           };
           
+          "test-db" = {
+            type = "app";
+            program = "${mkRunner "test-db" ''
+              DB_FILE="test_$(date +%Y%m%d_%H%M%S).db"
+              echo "🦆 Running tests with DuckDB persistence to: $DB_FILE"
+              
+              export RGL_SKIP_SCHEMA_CHECK="true"
+              
+              # Run pytest and capture all output
+              ${pythonEnv}/bin/pytest -xvs --tb=short "$@" 2>&1 | tee test_output.log
+              
+              # Import all pytest output to DuckDB
+              ${pkgs.duckdb}/bin/duckdb "$DB_FILE" -c "
+                CREATE TABLE test_output AS 
+                SELECT 
+                  ROW_NUMBER() OVER () as line_no,
+                  line as line_text,
+                  CURRENT_TIMESTAMP as timestamp
+                FROM read_csv_auto('test_output.log', columns={'line': 'VARCHAR'});
+              "
+              
+              echo "✅ Saved to $DB_FILE"
+            ''}";
+          };
+          
           "test.up" = {
             type = "app";
             program = "${mkRunner "test-up" ''

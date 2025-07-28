@@ -15,8 +15,16 @@ README.mdの約束:
 import pytest
 import tempfile
 from datetime import datetime, timedelta
+from test_utils.pytest_marks import mark_slow, mark_e2e, mark_test, TestSpeed, TestType, TestDependency
 
 
+# 新しいマーキングシステムの例（既存のマークと併用可能）
+@mark_test(
+    speed=38.5,  # 実際の計測値
+    test_type=TestType.E2E,
+    dependencies=[TestDependency.DB, TestDependency.FILESYSTEM],
+    tags=["append_only", "history"]
+)
 class TestRequirementImmutability:
     """要件のイミュータビリティ（不変性）を検証する仕様"""
     

@@ -9,8 +9,13 @@ import sys
 import tempfile
 import pytest
 import time
+from test_utils.pytest_marks import mark_test, TestSpeed, TestType
 
 
+@mark_test(
+    speed=TestSpeed.VERY_SLOW,
+    test_type=TestType.E2E
+)
 class TestDuplicateDetectionIntegration:
     """重複検出機能の統合テスト"""
 
@@ -105,6 +110,10 @@ class TestDuplicateDetectionIntegration:
         assert find_result.get("data") is not None
 
 
+@mark_test(
+    speed=TestSpeed.VERY_SLOW,
+    test_type=TestType.E2E
+)
 class TestDependencyManagement:
     """依存関係管理機能のテスト"""
 
@@ -187,6 +196,10 @@ class TestDependencyManagement:
         assert result.get("data") is not None
 
 
+@mark_test(
+    speed=TestSpeed.VERY_SLOW,
+    test_type=TestType.E2E
+)
 class TestEndToEndScenarios:
     """エンドツーエンドシナリオの統合テスト"""
 

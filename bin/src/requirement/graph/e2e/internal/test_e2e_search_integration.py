@@ -13,8 +13,13 @@ import sys
 import tempfile
 import pytest
 import time
+from test_utils.pytest_marks import mark_test, TestSpeed, TestType
 
 
+@mark_test(
+    speed=TestSpeed.VERY_SLOW,
+    test_type=TestType.E2E
+)
 class TestSearchIntegration:
     """Search Service統合の振る舞いテスト（VSSのみ、FTSは将来対応）"""
 
