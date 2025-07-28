@@ -5,9 +5,10 @@
 
 import { BrowserKuzuClientImpl } from "../core/client/browser_kuzu_client.ts";
 import { KuzuTransactionManager } from "../transaction/kuzu_transaction_manager.ts";
+import * as telemetry from "../telemetry_log.ts";
 
 async function runCounterExample() {
-  console.log("=== Counter Event Example ===");
+  telemetry.info("=== Counter Event Example ===");
 
   // Initialize client
   const client = new BrowserKuzuClientImpl();
@@ -17,7 +18,7 @@ async function runCounterExample() {
   const txManager = new KuzuTransactionManager(client);
 
   // Example 1: Increment counter with transaction
-  console.log("\n1. Increment counter with transaction:");
+  telemetry.info("\n1. Increment counter with transaction:");
   const incrementResult = await txManager.executeInTransaction(async (tx) => {
     // Increment counter by 5
     const event = await tx.executeTemplate("INCREMENT_COUNTER", {
@@ -25,7 +26,7 @@ async function runCounterExample() {
       amount: 5
     });
     
-    console.log("Event created:", event);
+    telemetry.debug("Event created:", { event });
     
     // Query the counter value within the same transaction
     const result = await tx.query(`
@@ -34,20 +35,20 @@ async function runCounterExample() {
     `, { counterId: "visitor_count" });
     
     const value = result.getAll()[0]?.[0] ?? 0;
-    console.log("Counter value after increment:", value);
+    telemetry.info("Counter value after increment:", { value });
     
     return { event, value };
   });
 
   if (incrementResult.success) {
-    console.log("Transaction committed successfully");
-    console.log("Final counter value:", incrementResult.data?.value);
+    telemetry.info("Transaction committed successfully");
+    telemetry.info("Final counter value:", { value: incrementResult.data?.value });
   } else {
-    console.error("Transaction failed:", incrementResult.error);
+    telemetry.error("Transaction failed:", { error: incrementResult.error });
   }
 
   // Example 2: Multiple increments in a single transaction
-  console.log("\n2. Multiple increments in a single transaction:");
+  telemetry.info("\n2. Multiple increments in a single transaction:");
   const batchResult = await txManager.executeInTransaction(async (tx) => {
     const events = [];
     
@@ -60,16 +61,16 @@ async function runCounterExample() {
       events.push(event);
     }
     
-    console.log(`Created ${events.length} increment events`);
+    telemetry.info(`Created ${events.length} increment events`);
     return events;
   });
 
   if (batchResult.success) {
-    console.log("Batch increment successful");
+    telemetry.info("Batch increment successful");
   }
 
   // Example 3: Error handling with automatic rollback
-  console.log("\n3. Error handling with automatic rollback:");
+  telemetry.info("\n3. Error handling with automatic rollback:");
   const errorResult = await txManager.executeInTransaction(async (tx) => {
     // Increment counter
     await tx.executeTemplate("INCREMENT_COUNTER", {
@@ -82,16 +83,16 @@ async function runCounterExample() {
   });
 
   if (!errorResult.success) {
-    console.log("Transaction rolled back due to error:", errorResult.error?.message);
+    telemetry.info("Transaction rolled back due to error:", { error: errorResult.error?.message });
   }
 
   // Example 4: Query counter without transaction
-  console.log("\n4. Query counter value directly:");
+  telemetry.info("\n4. Query counter value directly:");
   const visitorCount = await client.queryCounter("visitor_count");
-  console.log("Visitor count:", visitorCount);
+  telemetry.info("Visitor count:", { count: visitorCount });
 
   // Example 5: Transaction timeout
-  console.log("\n5. Transaction with timeout:");
+  telemetry.info("\n5. Transaction with timeout:");
   const timeoutResult = await txManager.executeInTransaction(async (tx) => {
     await tx.executeTemplate("INCREMENT_COUNTER", {
       counterId: "timeout_test",
@@ -105,26 +106,26 @@ async function runCounterExample() {
   }, { timeout: 1000 }); // 1 second timeout
 
   if (!timeoutResult.success) {
-    console.log("Transaction timed out:", timeoutResult.error?.message);
+    telemetry.info("Transaction timed out:", { error: timeoutResult.error?.message });
   }
 
   // Display all counters
-  console.log("\n6. All counter values:");
+  telemetry.info("\n6. All counter values:");
   const counters = await client.executeQuery(`
     MATCH (c:Counter)
     RETURN c.id as id, c.value as value
     ORDER BY c.id
   `);
   
-  console.log("Counters in database:");
+  telemetry.info("Counters in database:");
   for (const row of counters.getAll()) {
-    console.log(`  ${row[0]}: ${row[1]}`);
+    telemetry.info(`  ${row[0]}: ${row[1]}`);
   }
 }
 
 // Run the example
 if (import.meta.main) {
-  runCounterExample().catch(console.error);
+  runCounterExample().catch((err) => telemetry.error("Failed to run counter example", { error: err }));
 }
 
 export { runCounterExample };

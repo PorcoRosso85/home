@@ -16,8 +16,6 @@ import { BrowserKuzuClientImpl } from "../core/client/browser_kuzu_client.ts";
 //   await serverClient.initialize();
 //   await browserClient.initialize();
 //   
-//   console.log("Testing DDL synchronization between server and browser clients...");
-//   
 //   // 1. Create a new table via server client
 //   const createTableEvent = await serverClient.createDDLEvent(
 //     "CREATE_NODE_TABLE",
@@ -129,12 +127,6 @@ import { BrowserKuzuClientImpl } from "../core/client/browser_kuzu_client.ts";
 //   assertEquals(serverResult.length, 1);
 //   assertEquals(serverResult[0].name, "Alice");
 //   assertEquals(serverResult[0].phone, "+1234567890");
-//   
-//   console.log("✅ DDL synchronization test completed successfully!");
-//   console.log(`   - Schema version: ${serverSchemaState.version}`);
-//   console.log(`   - Tables created: Customer`);
-//   console.log(`   - Columns added: phone`);
-//   console.log(`   - DML operations: CREATE Customer`);
 // });
 
 // Skipped: E2E tests requiring ServerKuzuClient (server_kuzu deprecated)
@@ -144,8 +136,6 @@ import { BrowserKuzuClientImpl } from "../core/client/browser_kuzu_client.ts";
 //   
 //   await client1.initialize();
 //   await client2.initialize();
-//   
-//   console.log("Testing concurrent DDL operations...");
 //   
 //   // Both clients create tables
 //   const table1Event = await client1.createDDLEvent(
@@ -192,16 +182,12 @@ import { BrowserKuzuClientImpl } from "../core/client/browser_kuzu_client.ts";
 //   
 //   assertEquals(state1.version, 2);
 //   assertEquals(state2.version, 2);
-//   
-//   console.log("✅ Concurrent DDL operations handled successfully!");
 // });
 
 // Skipped: E2E tests requiring ServerKuzuClient (server_kuzu deprecated)
 // Deno.test("DDL Sync E2E - Dependency Management", async () => {
 //   const client = new ServerKuzuClient("dep-test");
 //   await client.initialize();
-//   
-//   console.log("Testing DDL dependency management...");
 //   
 //   // Create events with dependencies
 //   const userTableEvent = await client.createDDLEvent(
@@ -264,6 +250,4 @@ import { BrowserKuzuClientImpl } from "../core/client/browser_kuzu_client.ts";
 //   
 //   const schemaState = await client.getSchemaState();
 //   assertEquals(schemaState.version, 3);
-//   
-//   console.log("✅ DDL dependency management working correctly!");
 // });

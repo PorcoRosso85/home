@@ -12,6 +12,7 @@ import { EventGroupManager } from "../event_sourcing/event_group_manager.ts";
 import { KuzuTransactionManager } from "../transaction/kuzu_transaction_manager.ts";
 import type { TemplateEvent } from "../event_sourcing/types.ts";
 import type { BrowserKuzuClient } from "../types.ts";
+import * as telemetry from "../telemetry_log.ts";
 
 /**
  * Example 1: Basic Transaction Support
@@ -51,16 +52,16 @@ export async function basicTransactionExample(
     await transactionalSync.sendEvent(event2);
     
     // Events are not sent yet - still buffered
-    console.log("Events buffered, not sent to server yet");
+    telemetry.debug("Events buffered, not sent to server yet");
     
     // Commit transaction - now events are sent
     await transactionalSync.commitTransaction(txId);
-    console.log("Transaction committed - events sent to server");
+    telemetry.info("Transaction committed - events sent to server");
     
   } catch (error) {
     // Rollback on error - buffered events are discarded
     await transactionalSync.rollbackTransaction(txId);
-    console.error("Transaction rolled back:", error);
+    telemetry.error("Transaction rolled back:", { error });
   }
 }
 
@@ -109,9 +110,9 @@ export async function transactionManagerIntegration(
   });
   
   if (result.success) {
-    console.log("Transaction successful - events synchronized");
+    telemetry.info("Transaction successful - events synchronized");
   } else {
-    console.log("Transaction failed - no events sent");
+    telemetry.info("Transaction failed - no events sent");
   }
 }
 
@@ -172,7 +173,7 @@ export async function eventGroupTransactionExample(
     return eventGroup;
   });
   
-  console.log("Event group transaction result:", result.success);
+  telemetry.info("Event group transaction result:", { success: result.success });
 }
 
 /**
@@ -224,21 +225,21 @@ export async function nestedTransactionExample(
       
       // Commit inner transaction
       await transactionalSync.commitTransaction(innerTxId);
-      console.log("Inner transaction committed");
+      telemetry.debug("Inner transaction committed");
       
     } catch (error) {
       await transactionalSync.rollbackTransaction(innerTxId);
-      console.error("Inner transaction rolled back:", error);
+      telemetry.error("Inner transaction rolled back:", { error });
       throw error;
     }
     
     // Commit outer transaction - sends all events
     await transactionalSync.commitTransaction(outerTxId);
-    console.log("Outer transaction committed - all events sent");
+    telemetry.info("Outer transaction committed - all events sent");
     
   } catch (error) {
     await transactionalSync.rollbackTransaction(outerTxId);
-    console.error("Outer transaction rolled back:", error);
+    telemetry.error("Outer transaction rolled back:", { error });
   }
 }
 
@@ -303,18 +304,18 @@ export async function manualContextExample(
     // Commit through TransactionManager
     await transactionManager.commitTransaction(transaction.id);
     
-    console.log("Transaction committed with mixed immediate and buffered events");
+    telemetry.info("Transaction committed with mixed immediate and buffered events");
     
   } catch (error) {
     transactionalSync.clearTransactionContext();
     await transactionManager.rollbackTransaction(transaction.id);
-    console.error("Transaction rolled back:", error);
+    telemetry.error("Transaction rolled back:", { error });
   }
 }
 
 // Usage instructions
 if (import.meta.main) {
-  console.log(`
+  telemetry.info(`
 TransactionalSyncAdapter Examples
 =================================
 

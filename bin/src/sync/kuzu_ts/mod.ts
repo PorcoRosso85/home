@@ -152,3 +152,9 @@ export {
   type SchemaSyncState,
   type SchemaConflict
 } from "./core/schema_manager.ts";
+
+// Re-export telemetry wrapper
+export {
+  createTelemetryWrapper,
+  type TelemetryWrapper
+} from "./telemetry_wrapper.ts";

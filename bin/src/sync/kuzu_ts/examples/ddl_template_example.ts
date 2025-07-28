@@ -5,14 +5,15 @@
 
 import { DDLEventHandler, createUnifiedEvent } from "../event_sourcing/ddl_event_handler.ts";
 import { isDDLEvent } from "../event_sourcing/ddl_types.ts";
+import * as telemetry from "../telemetry_log.ts";
 
 async function runDDLExample() {
-  console.log("=== DDL Template Example ===\n");
+  telemetry.info("=== DDL Template Example ===\n");
   
   const handler = new DDLEventHandler();
   
   // Example 1: Create a node table
-  console.log("1. Creating a node table:");
+  telemetry.info("1. Creating a node table:");
   const createUserTable = handler.createDDLEvent("CREATE_NODE_TABLE", {
     tableName: "User",
     columns: [
@@ -26,12 +27,12 @@ async function runDDLExample() {
     ifNotExists: true
   });
   
-  console.log("DDL Event:", createUserTable);
-  console.log("Generated Query:", createUserTable.payload?.query);
-  console.log();
+  telemetry.debug("DDL Event:", { event: createUserTable });
+  telemetry.info("Generated Query:", { query: createUserTable.payload?.query });
+  telemetry.info("");
   
   // Example 2: Create an edge table with dependencies
-  console.log("2. Creating an edge table with dependencies:");
+  telemetry.info("2. Creating an edge table with dependencies:");
   const createFollowsTable = handler.createDDLEvent(
     "CREATE_EDGE_TABLE",
     {
@@ -47,13 +48,13 @@ async function runDDLExample() {
     [createUserTable.id] // Depends on User table being created
   );
   
-  console.log("DDL Event:", createFollowsTable);
-  console.log("Generated Query:", createFollowsTable.payload?.query);
-  console.log("Dependencies:", createFollowsTable.dependsOn);
-  console.log();
+  telemetry.debug("DDL Event:", { event: createFollowsTable });
+  telemetry.info("Generated Query:", { query: createFollowsTable.payload?.query });
+  telemetry.info("Dependencies:", { dependencies: createFollowsTable.dependsOn });
+  telemetry.info("");
   
   // Example 3: Add column to existing table
-  console.log("3. Adding a column to existing table:");
+  telemetry.info("3. Adding a column to existing table:");
   const addAgeColumn = handler.createDDLEvent("ADD_COLUMN", {
     tableName: "User",
     columnName: "age",
@@ -61,11 +62,11 @@ async function runDDLExample() {
     nullable: true
   });
   
-  console.log("Generated Query:", addAgeColumn.payload?.query);
-  console.log();
+  telemetry.info("Generated Query:", { query: addAgeColumn.payload?.query });
+  telemetry.info("");
   
   // Example 4: Create index
-  console.log("4. Creating an index:");
+  telemetry.info("4. Creating an index:");
   const createEmailIndex = handler.createDDLEvent("CREATE_INDEX", {
     indexName: "idx_user_email",
     tableName: "User",
@@ -74,11 +75,11 @@ async function runDDLExample() {
     ifNotExists: true
   });
   
-  console.log("Generated Query:", createEmailIndex.payload?.query);
-  console.log();
+  telemetry.info("Generated Query:", { query: createEmailIndex.payload?.query });
+  telemetry.info("");
   
   // Example 5: Drop column with cascade
-  console.log("5. Dropping a column with cascade:");
+  telemetry.info("5. Dropping a column with cascade:");
   const dropColumn = handler.createDDLEvent("DROP_COLUMN", {
     tableName: "User",
     columnName: "temp_field",
@@ -86,11 +87,11 @@ async function runDDLExample() {
     cascade: true
   });
   
-  console.log("Generated Query:", dropColumn.payload?.query);
-  console.log();
+  telemetry.info("Generated Query:", { query: dropColumn.payload?.query });
+  telemetry.info("");
   
   // Example 6: Add comments
-  console.log("6. Adding comments to table and column:");
+  telemetry.info("6. Adding comments to table and column:");
   const tableComment = handler.createDDLEvent("COMMENT_ON_TABLE", {
     tableName: "User",
     comment: "Core user information table"
@@ -102,12 +103,12 @@ async function runDDLExample() {
     comment: "User's primary email address"
   });
   
-  console.log("Table comment query:", tableComment.payload?.query);
-  console.log("Column comment query:", columnComment.payload?.query);
-  console.log();
+  telemetry.info("Table comment query:", { query: tableComment.payload?.query });
+  telemetry.info("Column comment query:", { query: columnComment.payload?.query });
+  telemetry.info("");
   
   // Example 7: Using unified event creation
-  console.log("7. Using unified event creation (DDL vs DML):");
+  telemetry.info("7. Using unified event creation (DDL vs DML):");
   
   // This creates a DDL event
   const ddlEvent = createUnifiedEvent("CREATE_NODE_TABLE", {
@@ -127,37 +128,37 @@ async function runDDLExample() {
     email: "alice@example.com"
   });
   
-  console.log("DDL Event?", isDDLEvent(ddlEvent), "- Template:", ddlEvent.template);
-  console.log("DML Event?", !isDDLEvent(dmlEvent), "- Template:", dmlEvent.template);
-  console.log();
+  telemetry.info("DDL Event?", { isDDL: isDDLEvent(ddlEvent), template: ddlEvent.template });
+  telemetry.info("DML Event?", { isDML: !isDDLEvent(dmlEvent), template: dmlEvent.template });
+  telemetry.info("");
   
   // Example 8: Schema version tracking
-  console.log("8. Schema version tracking:");
+  telemetry.info("8. Schema version tracking:");
   
   // Mock query executor
   const mockExecuteQuery = async (query: string) => {
-    console.log(`  Executing: ${query}`);
+    telemetry.debug(`  Executing: ${query}`);
     return {};
   };
   
-  console.log("Initial schema version:", handler.getSchemaVersion());
+  telemetry.info("Initial schema version:", { version: handler.getSchemaVersion() });
   
   // Apply schema-modifying operations
   await handler.applyDDLEvent(createUserTable, mockExecuteQuery);
-  console.log("After CREATE TABLE - version:", handler.getSchemaVersion());
+  telemetry.info("After CREATE TABLE - version:", { version: handler.getSchemaVersion() });
   
   await handler.applyDDLEvent(addAgeColumn, mockExecuteQuery);
-  console.log("After ADD COLUMN - version:", handler.getSchemaVersion());
+  telemetry.info("After ADD COLUMN - version:", { version: handler.getSchemaVersion() });
   
   // Apply non-schema-modifying operation (comment)
   await handler.applyDDLEvent(tableComment, mockExecuteQuery);
-  console.log("After COMMENT - version:", handler.getSchemaVersion());
+  telemetry.info("After COMMENT - version:", { version: handler.getSchemaVersion() });
   
-  console.log("\nApplied DDL events:", handler.getAppliedDDLs().length);
-  console.log();
+  telemetry.info("\nApplied DDL events:", { count: handler.getAppliedDDLs().length });
+  telemetry.info("");
   
   // Example 9: Error handling
-  console.log("9. Error handling examples:");
+  telemetry.info("9. Error handling examples:");
   
   try {
     // Invalid table name
@@ -167,7 +168,7 @@ async function runDDLExample() {
       primaryKey: ["id"]
     });
   } catch (error) {
-    console.log("✓ Caught error:", error.message);
+    telemetry.info("✓ Caught error:", { error: error.message });
   }
   
   try {
@@ -178,7 +179,7 @@ async function runDDLExample() {
       dataType: "VARCHAR" // Not a valid KuzuDB type
     });
   } catch (error) {
-    console.log("✓ Caught error:", error.message);
+    telemetry.info("✓ Caught error:", { error: error.message });
   }
   
   try {
@@ -188,7 +189,7 @@ async function runDDLExample() {
       // Missing columns and primaryKey
     });
   } catch (error) {
-    console.log("✓ Caught error:", error.message);
+    telemetry.info("✓ Caught error:", { error: error.message });
   }
 }
 
