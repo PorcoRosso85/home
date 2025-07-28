@@ -118,16 +118,16 @@ def load_structured_query(
     base_path = Path(base_dir)
     
     # query_typeの検証
-    valid_types = ["dml", "dql", "auto"]
-    if query_type not in valid_types:
+    import variables
+    if query_type not in variables.VALID_QUERY_TYPES:
         return ErrorDict(
             ok=False,
             error=f"Invalid query_type: {query_type}",
-            details={"valid_types": valid_types}
+            details={"valid_types": variables.VALID_QUERY_TYPES}
         )
     
     # ファイル名
-    filename = f"{query_name}.cypher"
+    filename = f"{query_name}{variables.QUERY_FILE_EXTENSION}"
     
     # autoの場合、両方のディレクトリを検索
     if query_type == "auto":

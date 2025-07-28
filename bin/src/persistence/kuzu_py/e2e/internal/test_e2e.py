@@ -156,12 +156,20 @@ if __name__ == "__main__":
     ]
     
     print("Running e2e tests...")
+    failed_tests = []
     for name, test_func in tests:
         try:
             test_func()
             print(f"✓ {name}")
         except AssertionError as e:
             print(f"✗ {name}: {e}")
-            raise
+            failed_tests.append((name, str(e)))
     
-    print("\nAll e2e tests passed! 🎉")
+    if failed_tests:
+        print(f"\n{len(failed_tests)} test(s) failed:")
+        for name, error in failed_tests:
+            print(f"  - {name}: {error}")
+        import sys
+        sys.exit(1)
+    else:
+        print("\nAll e2e tests passed! 🎉")

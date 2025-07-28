@@ -5,9 +5,9 @@ KuzuDBのAPIを直接公開しつつ、便利なヘルパー関数を提供
 """
 # KuzuDBのAPIを直接公開（APIを隠さない）
 try:
-    # シンプルにkuzuをインポート
+    # 必要なAPIのみを明示的にインポート
     import kuzu
-    from kuzu import *
+    from kuzu import Database, Connection
 except ImportError:
     # Nix環境外での開発時のため
     pass
@@ -20,6 +20,9 @@ from result_types import DatabaseResult, ConnectionResult, ErrorDict
 from query_loader import load_query_from_file, clear_query_cache, load_structured_query
 
 __all__ = [
+    # KuzuDBのコアAPI
+    "Database",
+    "Connection",
     # ヘルパー関数
     "create_database",
     "create_connection",

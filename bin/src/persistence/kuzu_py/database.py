@@ -60,8 +60,9 @@ def create_database(path: Optional[str] = None) -> DatabaseResult:
             if db_path.is_dir():
                 db_path = db_path / "db.kuzu"
             
-            # max_db_sizeを1GBに制限
-            db = kuzu.Database(str(db_path), max_db_size=1 << 30)
+            # max_db_sizeを設定から取得
+            import variables
+            db = kuzu.Database(str(db_path), max_db_size=variables.DEFAULT_DB_MAX_SIZE)
         
         return db
         
