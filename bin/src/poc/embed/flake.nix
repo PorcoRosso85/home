@@ -19,30 +19,6 @@
         # Build kuzu_py package
         kuzuPyPackage = kuzu_py.packages.${system}.default;
         
-        # Build asvs_reference package
-        asvsReference = pythonPackages.buildPythonPackage {
-          pname = "asvs-reference";
-          version = "0.1.0";
-          src = ../asvs_reference;
-          
-          propagatedBuildInputs = with pythonPackages; [
-            pyyaml
-            jinja2
-            pyarrow
-            kuzuPyPackage
-          ];
-          
-          format = "pyproject";
-          
-          nativeBuildInputs = with pythonPackages; [
-            setuptools
-            wheel
-          ];
-          
-          # Disable conflict check due to pythonEnv dependencies
-          catchConflicts = false;
-        };
-        
         # Build embed package
         embedPkg = pythonPackages.buildPythonPackage {
           pname = "embed-pkg";
@@ -50,13 +26,19 @@
           src = ./.;
           
           propagatedBuildInputs = with pythonPackages; [
-            asvsReference
-            sentence-transformers
-            torch
-            transformers
-            numpy
+            # Core dependencies only
+            pyarrow
             kuzuPyPackage
           ];
+          
+          passthru.optional-dependencies = {
+            ml = with pythonPackages; [
+              sentence-transformers
+              torch
+              transformers
+              numpy
+            ];
+          };
           
           format = "pyproject";
           
@@ -77,11 +59,28 @@
         };
         
         apps = {
+          default = {
+            type = "app";
+            program = "${pkgs.writeShellScript "embed-default" ''
+              echo "Available apps:"
+              echo "  nix run .#test              - Run all tests"
+              echo "  nix run .#test-external     - Run external E2E tests only"
+              echo "  nix run .#demo              - Run standalone demo"
+              echo "  nix run .#readme            - Show README"
+            ''}";
+          };
+          
+          readme = {
+            type = "app";
+            program = "${pkgs.writeShellScript "show-readme" ''
+              ${pkgs.bat}/bin/bat README.md || ${pkgs.coreutils}/bin/cat README.md
+            ''}";
+          };
           test = {
             type = "app";
             program = "${pkgs.writeShellScript "test-embed-poc" ''
               # Run all tests in the current directory
-              export PYTHONPATH="$PWD:$PWD/../asvs_reference:$PYTHONPATH"
+              export PYTHONPATH="$PWD:$PYTHONPATH"
               
               # Unit tests
               echo "Running unit tests..."
@@ -118,10 +117,9 @@
           demo = {
             type = "app";
             program = "${pkgs.writeShellScript "demo-embed-poc" ''
-              # Run demo in the current directory
-              # Add both current directory and asvs_reference to PYTHONPATH
-              export PYTHONPATH="$PWD:$(dirname $PWD)/asvs_reference:$PYTHONPATH"
-              exec ${python.withPackages (ps: [embedPkg asvsReference])}/bin/python embed_pkg/demo_embedding_similarity.py
+              # Run standalone demo in the current directory
+              export PYTHONPATH="$PWD:$PYTHONPATH"
+              exec ${python.withPackages (ps: [embedPkg])}/bin/python demo_standalone_embedding.py
             ''}";
           };
         };
