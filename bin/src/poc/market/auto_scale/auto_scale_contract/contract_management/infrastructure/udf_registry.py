@@ -1,5 +1,9 @@
 """User Defined Functions (UDF) Registry for KuzuDB
 
+RESPONSIBILITY: Bridge between Python auto-scale functions and future GraphDB UDFs.
+AUTO-SCALE CONTRIBUTION: Prepares the system for moving all viral growth logic
+into the database layer, enabling true scalability without application bottlenecks.
+
 This module manages the registration and execution of Python functions
 as User Defined Functions within KuzuDB. It provides a clean interface
 for registering custom business logic that can be executed directly
@@ -139,183 +143,64 @@ class UDFRegistry:
         return name in self._registered_functions
 
 
-class CommissionCalculator:
-    """Business logic for commission calculations as UDFs
-    
-    This class contains static methods that can be registered as UDFs
-    for calculating commissions within the graph database.
-    """
-    
-    @staticmethod
-    def calculate_base_commission(
-        contract_value: float,
-        commission_rate: float
-    ) -> Dict[str, Union[bool, float, str]]:
-        """Calculate base commission for a contract
-        
-        Args:
-            contract_value: Total contract value
-            commission_rate: Commission percentage (0.0 to 1.0)
-            
-        Returns:
-            Result dict with commission amount or error
-        """
-        try:
-            if contract_value < 0:
-                return {
-                    "ok": False,
-                    "error": "Contract value cannot be negative"
-                }
-            
-            if not 0 <= commission_rate <= 1:
-                return {
-                    "ok": False,
-                    "error": "Commission rate must be between 0 and 1"
-                }
-            
-            commission = contract_value * commission_rate
-            
-            return {
-                "ok": True,
-                "value": round(commission, 2)
-            }
-            
-        except Exception as e:
-            return {
-                "ok": False,
-                "error": str(e)
-            }
-    
-    @staticmethod
-    def calculate_tiered_commission(
-        contract_value: float,
-        tier_thresholds: List[float],
-        tier_rates: List[float]
-    ) -> Dict[str, Union[bool, float, str]]:
-        """Calculate commission based on tiered rates
-        
-        Args:
-            contract_value: Total contract value
-            tier_thresholds: List of value thresholds for each tier
-            tier_rates: List of commission rates for each tier
-            
-        Returns:
-            Result dict with commission amount or error
-        """
-        try:
-            if contract_value < 0:
-                return {
-                    "ok": False,
-                    "error": "Contract value cannot be negative"
-                }
-            
-            if len(tier_thresholds) != len(tier_rates):
-                return {
-                    "ok": False,
-                    "error": "Tier thresholds and rates must have same length"
-                }
-            
-            # Find applicable tier
-            applicable_rate = 0.0
-            for i, threshold in enumerate(tier_thresholds):
-                if contract_value >= threshold:
-                    applicable_rate = tier_rates[i]
-                else:
-                    break
-            
-            commission = contract_value * applicable_rate
-            
-            return {
-                "ok": True,
-                "value": round(commission, 2)
-            }
-            
-        except Exception as e:
-            return {
-                "ok": False,
-                "error": str(e)
-            }
-    
-    @staticmethod
-    def calculate_referral_chain_commission(
-        base_commission: float,
-        chain_level: int,
-        decay_factor: float = 0.5
-    ) -> Dict[str, Union[bool, float, str]]:
-        """Calculate commission for referral chain members
-        
-        Args:
-            base_commission: Original commission amount
-            chain_level: Level in the referral chain (0 = direct, 1 = first referrer, etc.)
-            decay_factor: Factor by which commission decreases per level
-            
-        Returns:
-            Result dict with commission amount or error
-        """
-        try:
-            if base_commission < 0:
-                return {
-                    "ok": False,
-                    "error": "Base commission cannot be negative"
-                }
-            
-            if chain_level < 0:
-                return {
-                    "ok": False,
-                    "error": "Chain level cannot be negative"
-                }
-            
-            if not 0 < decay_factor < 1:
-                return {
-                    "ok": False,
-                    "error": "Decay factor must be between 0 and 1"
-                }
-            
-            # Calculate commission with exponential decay
-            commission = base_commission * (decay_factor ** chain_level)
-            
-            return {
-                "ok": True,
-                "value": round(commission, 2)
-            }
-            
-        except Exception as e:
-            return {
-                "ok": False,
-                "error": str(e)
-            }
+# Note: CommissionCalculator removed - use functions from infrastructure/functions/ instead
 
 
 def create_default_registry(connection: kuzu.Connection) -> UDFRegistry:
-    """Create a UDF registry with default business functions registered
+    """Create a UDF registry for auto-scale functions
+    
+    AUTO-SCALE: Registers all viral growth functions that will eventually
+    run as UDFs within KuzuDB, enabling database-level auto-scaling logic.
     
     Args:
         connection: Active KuzuDB connection
         
     Returns:
-        UDFRegistry instance with common functions pre-registered
+        UDFRegistry instance ready for auto-scale function registration
     """
     registry = UDFRegistry(connection)
     
-    # Register commission calculation functions
+    # Import auto-scale functions
+    from .functions.commission.calculate import CommissionCalculator
+    from .functions.growth import metrics
+    from .functions.referral import traverse
+    
+    # Register commission functions for multi-tier rewards
+    commission_calc = CommissionCalculator()
     registry.register_function(
-        name="calculate_base_commission",
-        func=CommissionCalculator.calculate_base_commission,
+        name="calculate_commission",
+        func=commission_calc.calculate,
         input_types=["DOUBLE", "DOUBLE"],
+        output_type="DOUBLE"
+    )
+    
+    registry.register_function(
+        name="distribute_referral_commission",
+        func=commission_calc.distribute_referral_commission,
+        input_types=["DOUBLE", "LIST"],
+        output_type="MAP"
+    )
+    
+    # Register growth metrics for viral coefficient tracking
+    registry.register_function(
+        name="calculate_k_factor",
+        func=metrics.calculate_k_factor,
+        input_types=["INT64", "DOUBLE", "MAP"],
         output_type="STRUCT"
     )
     
     registry.register_function(
-        name="calculate_tiered_commission",
-        func=CommissionCalculator.calculate_tiered_commission,
-        input_types=["DOUBLE", "LIST", "LIST"],
+        name="calculate_network_value",
+        func=metrics.calculate_network_value,
+        input_types=["INT64", "DOUBLE", "MAP"],
         output_type="STRUCT"
     )
     
+    # Register referral traversal for commission distribution
     registry.register_function(
-        name="calculate_referral_chain_commission",
-        func=CommissionCalculator.calculate_referral_chain_commission,
-        input_types=["DOUBLE", "INT64", "DOUBLE"],
+        name="traverse_referral_upward",
+        func=traverse.traverse_upward,
+        input_types=["STRING", "INT64"],
         output_type="STRUCT"
     )
     

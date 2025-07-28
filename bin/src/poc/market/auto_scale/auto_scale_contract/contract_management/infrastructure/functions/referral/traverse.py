@@ -1,4 +1,9 @@
-"""Referral chain traversal functions.
+"""Referral chain traversal functions for auto-scale mechanism.
+
+RESPONSIBILITY: Navigate multi-level referral networks to calculate rewards.
+AUTO-SCALE CONTRIBUTION: Enables deep referral chains where each participant
+benefits from their downstream network, creating incentive alignment throughout
+the entire customer acquisition funnel.
 
 This module provides functions to traverse referral relationships in preparation
 for future GraphDB integration. All functions return structured results following
@@ -69,6 +74,10 @@ DescendantResult = Union[DescendantSuccess, DescendantError]
 
 def traverse_upward(referee_id: str, max_levels: Optional[int] = None) -> TraversalResult:
     """Traverse the referral chain upward from a referee to all referrers.
+    
+    AUTO-SCALE: Identifies all beneficiaries in a referral chain who should
+    receive commission when a new customer makes a purchase, ensuring rewards
+    flow to everyone who contributed to the growth.
     
     Args:
         referee_id: The ID of the referee to start from

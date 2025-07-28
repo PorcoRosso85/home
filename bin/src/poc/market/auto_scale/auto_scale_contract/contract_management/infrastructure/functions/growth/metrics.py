@@ -1,4 +1,8 @@
-"""Growth metrics calculation functions.
+"""Growth metrics calculation functions for auto-scale mechanism.
+
+RESPONSIBILITY: Measure and predict viral growth patterns.
+AUTO-SCALE CONTRIBUTION: Provides quantitative metrics to identify when the system
+achieves self-sustaining growth (K > 1) and exponential network value increase.
 
 This module provides functions to calculate K-factor, network value using
 Metcalfe's Law, and growth rates. All functions return structured results
@@ -39,6 +43,10 @@ def calculate_k_factor(
     metadata: Optional[Dict[str, str]] = None
 ) -> MetricsResult:
     """Calculate K-factor (viral coefficient).
+    
+    AUTO-SCALE: Core metric that determines if the system has achieved viral growth.
+    K > 1 means each customer brings more than one new customer, creating 
+    exponential growth without additional marketing spend.
     
     K-factor = invites_sent * conversion_rate
     
@@ -93,6 +101,10 @@ def calculate_network_value(
     metadata: Optional[Dict[str, str]] = None
 ) -> MetricsResult:
     """Calculate network value using Metcalfe's Law.
+    
+    AUTO-SCALE: Demonstrates exponential value creation as the network grows.
+    Each new user adds value not just linearly but quadratically, making
+    the platform increasingly attractive and creating a self-reinforcing cycle.
     
     V = n² * value_per_connection
     
