@@ -4,7 +4,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    kuzu_py.url = "path:../../persistence/kuzu_py";
     
     # OWASP ASVS source repository
     asvs-source = {
@@ -13,7 +12,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, kuzu_py, asvs-source }:
+  outputs = { self, nixpkgs, flake-utils, asvs-source }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -25,19 +24,13 @@
         pythonDeps = with pythonPackages; [
           pytest
           pytest-cov
-          pyyaml
-          jinja2
-          kuzu
-          requests  # ASVS fetcher用
-          numpy     # KuzuDB get_as_df()用
-          pandas    # DataFrame操作用
+          pyyaml      # YAML解析用（将来的に削除可能）
+          pyarrow     # Arrow形式でのデータ提供用
+          requests    # ASVS fetcher用（オプション）
         ];
         
-        # Import kuzu_py as a local dependency
-        kuzuPyPackage = kuzu_py.packages.${system}.default;
-        
         # Python environment with all dependencies
-        pythonEnv = python.withPackages (ps: pythonDeps ++ [ kuzuPyPackage ]);
+        pythonEnv = python.withPackages (ps: pythonDeps);
         
         # ASVS 5.0 data from GitHub
         asvs5Data = pkgs.runCommand "asvs-5.0-data" {} ''
@@ -57,7 +50,7 @@
             set -e
             echo "Running ASVS Reference tests..."
             cd ${self}
-            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+            export PYTHONPATH="${self}:$PYTHONPATH"
             ${pythonEnv}/bin/python -m pytest test_*.py -v
           '';
           
@@ -66,7 +59,7 @@
             set -e
             echo "Running ASVS guardrails demo..."
             cd ${self}
-            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+            export PYTHONPATH="${self}:$PYTHONPATH"
             ${pythonEnv}/bin/python demo_guardrails.py
           '';
           
@@ -75,7 +68,7 @@
             set -e
             echo "Running mandatory references demo..."
             cd ${self}
-            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+            export PYTHONPATH="${self}:$PYTHONPATH"
             ${pythonEnv}/bin/python demo_mandatory_references.py
           '';
           
@@ -83,7 +76,7 @@
           cli = pkgs.writeShellScriptBin "asvs-loader" ''
             set -e
             cd ${self}
-            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+            export PYTHONPATH="${self}:$PYTHONPATH"
             ${pythonEnv}/bin/python asvs_loader.py "$@"
           '';
           
@@ -92,9 +85,27 @@
             set -e
             echo "Fetching ASVS 5.0 data from GitHub..."
             cd ${self}
-            export PYTHONPATH="${self}:../../persistence/kuzu_py:$PYTHONPATH"
+            export PYTHONPATH="${self}:$PYTHONPATH"
             export ASVS_SOURCE_PATH="${asvs5Data}"
             ${pythonEnv}/bin/python scripts/fetch_asvs_5.0.py
+          '';
+          
+          # Arrow CLI for converting ASVS markdown to Parquet
+          arrow-cli = pkgs.writeShellScriptBin "asvs-arrow-cli" ''
+            set -e
+            cd ${self}
+            export PYTHONPATH="${self}:$PYTHONPATH"
+            ${pythonEnv}/bin/python arrow_cli.py "$@"
+          '';
+          
+          # Example conversion using bundled ASVS data
+          convert-example = pkgs.writeShellScriptBin "convert-asvs-example" ''
+            set -e
+            echo "Converting ASVS 5.0 markdown to Parquet..."
+            OUTPUT_DIR="$(pwd)/output"
+            mkdir -p "$OUTPUT_DIR"
+            ${self.packages.${system}.arrow-cli}/bin/asvs-arrow-cli ${asvs5Data}/en -o "$OUTPUT_DIR/asvs_v5.0.parquet" -v
+            echo "Conversion complete! Output saved to $OUTPUT_DIR/asvs_v5.0.parquet"
           '';
         };
         
@@ -128,6 +139,16 @@
             type = "app";
             program = "${self.packages.${system}.fetch-asvs5}/bin/fetch-asvs5";
           };
+          
+          arrow-cli = {
+            type = "app";
+            program = "${self.packages.${system}.arrow-cli}/bin/asvs-arrow-cli";
+          };
+          
+          convert-example = {
+            type = "app";
+            program = "${self.packages.${system}.convert-example}/bin/convert-asvs-example";
+          };
         };
         
         devShells.default = pkgs.mkShell {
@@ -150,8 +171,10 @@
             echo "  nix run .#demo-mandatory    - Run mandatory references demo"
             echo "  nix run .#cli               - Run ASVS loader CLI"
             echo "  nix run .#fetch-asvs5       - Fetch ASVS 5.0 data from GitHub"
+            echo "  nix run .#arrow-cli         - Convert ASVS markdown to Parquet"
+            echo "  nix run .#convert-example   - Run example conversion of ASVS 5.0"
             echo ""
-            echo "Python environment with pytest, pyyaml, jinja2, kuzu, and kuzu_py available"
+            echo "Python environment with pytest, pyyaml, and pyarrow available"
           '';
         };
       });

@@ -1,268 +1,154 @@
-# ASVS Reference Management POC
+# ASVS Reference Arrow Converter
 
-A proof-of-concept implementation for managing external security standards (like OWASP ASVS) as reference entities in a graph database, enabling requirement traceability, compliance mapping, and quality guardrails.
+A lightweight tool for converting OWASP ASVS (Application Security Verification Standard) data directly from the official GitHub repository to Apache Arrow/Parquet format.
+
+## Primary Input
+
+**Input Source**: `github:OWASP/ASVS`
+- Automatically fetched via Nix flakes from the official repository
+- No manual cloning or downloading required
+- Always uses the latest official ASVS markdown files
+- Defined in `flake.nix`:
+  ```nix
+  asvs-source = {
+    url = "github:OWASP/ASVS";
+    flake = false;
+  };
+  ```
 
 ## Purpose
 
-This POC provides a clean data provider interface for OWASP ASVS (Application Security Verification Standard) data. It serves as a reference data source for other POCs that need to access security requirements.
-
-### What it provides:
-- **ASVS Data Management**: Store and query ASVS requirements in a graph database
-- **Type-Safe API**: Strongly typed interfaces using TypedDict
-- **Search Capabilities**: Find requirements by number, keyword, level, or section
-- **Version Support**: Manage multiple ASVS versions (currently 4.0.3 and 5.0)
-
-### Previous Functionality (Removed)
-This POC previously included guardrail enforcement functionality that has been removed to achieve better separation of concerns. The specifications for these features are preserved in:
-- `GUARDRAIL_SPECS_MIGRATION.md` - Complete migration guide for implementing guardrails elsewhere
-- `data/guardrail_test_specs.yaml` - Test specifications in structured format
-
-## Key Features
-
-### 1. Reference Repository
-- Graph-based storage for reference entities using KuzuDB
-- CRUD operations for reference management
-- Relationship tracking (IMPLEMENTS) between references
-- Full-text search capabilities
-
-### 2. Data Structure
-- Standard → Chapter → Section → Requirement hierarchy
-- Version management support
-- Flexible search and filtering capabilities
-
-### 3. ASVS Data Loader
-- YAML-based ASVS data import
-- Jinja2 template engine for Cypher query generation
-- Batch loading of security standards
-- Extensible for other standards (NIST, ISO, etc.)
+This tool provides a direct pipeline from GitHub to Arrow format:
+- **GitHub → Arrow**: Convert ASVS markdown files to columnar format
+- **Zero Manual Steps**: Nix handles fetching and conversion
+- **Type-Safe**: Strongly typed Arrow schemas
+- **Efficient Storage**: Output as compressed Parquet files
+- **Analysis Ready**: Compatible with pandas, DuckDB, Polars, etc.
 
 ## Architecture
 
-### Main Modules
+### Data Flow
+```
+github:OWASP/ASVS → Nix Flake → Markdown Parser → Arrow Table → Parquet File
+```
 
+### Components
 ```
 asvs_reference/
-├── asvs_types.py               # Type definitions for ASVS data structures
-├── asvs_api.py                 # Data provider API for other POCs
-├── reference_repository.py      # Core repository with KuzuDB integration
-├── asvs_loader.py              # YAML data loader with template engine
-├── asvs_direct_import.py       # Direct import from Markdown to KuzuDB
-├── data/                       # Sample ASVS and rule data
-├── ddl/                        # Database schema definitions
-├── templates/                  # Jinja2 templates for Cypher generation
-└── e2e/                        # End-to-end integration tests
+├── flake.nix               # Fetches ASVS from GitHub
+├── asvs_arrow_converter.py # Markdown to Arrow conversion
+├── asvs_arrow_types.py     # Arrow schema definitions
+├── arrow_cli.py            # CLI for conversion
+└── test_arrow_converter.py # Tests
 ```
 
-### Module Responsibilities
+## Usage
 
-- **asvs_types.py**: Type definitions for all ASVS data structures
-- **asvs_api.py**: High-level API for other POCs to access ASVS data
-- **reference_repository.py**: Low-level database operations, error handling, connection management
-- **asvs_loader.py**: Data import/export, template processing, batch operations
-- **asvs_direct_import.py**: Direct Markdown to database import without YAML
-
-## Usage Examples
-
-### Running Tests
+### Quick Start with Nix (Recommended)
 
 ```bash
-# Run all tests
-nix run .#test
+# Convert ASVS 5.0 from GitHub to Parquet in one command
+nix run .#convert-example
 
-# Run specific test file
-python -m pytest test_reference_repository.py -v
-
-# Run with coverage
-python -m pytest --cov=. --cov-report=html
+# Output: output/asvs_v5.0.parquet (345 requirements, ~50KB)
 ```
 
-### Loading ASVS Data
+This single command:
+1. Fetches ASVS from `github:OWASP/ASVS`
+2. Parses all V*.md files
+3. Converts to Arrow format
+4. Saves as compressed Parquet
+
+### CLI Usage
 
 ```bash
-# Fetch ASVS 5.0 data from GitHub
-nix run .#fetch-asvs5
+# If you need custom options
+nix run .#arrow-cli -- ${ASVS_SOURCE_PATH}/5.0 -o custom.parquet -c gzip
 
-# Or load from local YAML file
-python asvs_loader.py
-
-# Direct import from Markdown
-python scripts/asvs_direct_import.py path/to/asvs.md
+# Available compressions: snappy (default), gzip, brotli, lz4, zstd
 ```
 
-### Using the CLI
-
-```bash
-# Load ASVS data from YAML
-nix run .#cli
-
-# Or directly
-python asvs_loader.py
-```
-
-### Python API Examples
+### Python API
 
 ```python
-# Using the ASVS Data Provider API
-from asvs_api import create_asvs_provider
+from asvs_arrow_converter import ASVSArrowConverter
 
-# Create provider
-provider = create_asvs_provider(":memory:")
+# The converter expects a path to ASVS markdown directory
+# In Nix, this is automatically provided from GitHub
+converter = ASVSArrowConverter("/path/to/asvs/5.0")
 
-# Get a specific requirement
-response = provider.get_requirement_by_number("2.1.1")
-if response['type'] == 'Success':
-    req = response['value']
-    print(f"{req['number']}: {req['description']}")
+# Get Arrow table
+table = converter.get_requirements_table()
+print(f"Requirements: {table.num_rows}")
+print(f"Schema: {table.schema}")
 
-# Search requirements
-from asvs_types import SearchFilter
-filter: SearchFilter = {'keyword': 'password', 'levels': {'level1': True}}
-response = provider.search_requirements(filter)
-if response['type'] == 'Success':
-    result = response['value']
-    print(f"Found {result['total_count']} requirements")
-    for req in result['requirements']:
-        print(f"  - {req['number']}: {req['description']}")
-
-# Get all Level 1 requirements
-response = provider.get_requirements_by_level(1)
-
-# Get requirements by section
-response = provider.get_requirements_by_section("2.1")
+# Save as Parquet
+converter.to_parquet("asvs.parquet")
 ```
 
-### Lower-level Repository API
+### Reading Output
 
 ```python
-# Create repository directly
-from reference_repository import create_reference_repository
+import pyarrow.parquet as pq
 
-repo = create_reference_repository(":memory:")
+# Read Parquet file
+table = pq.read_table("output/asvs_v5.0.parquet")
 
-# Save a reference
-reference = {
-    "uri": "ASVS:V2.1.1",
-    "title": "Password Length",
-    "entity_type": "security_control",
-    "description": "Verify minimum password length of 12 characters"
-}
-repo["save"](reference)
+# Analyze with pandas
+df = table.to_pandas()
+print(f"Total: {len(df)} requirements")
+print(f"Level 1: {df['level1'].sum()} requirements")
 
-# Create workflow with guardrails
-from enforced_workflow import create_workflow_repository
-
-workflow = create_workflow_repository()
-
-# Create requirement with mandatory reference
-requirement = {
-    "id": "REQ-001",
-    "title": "Implement password policy",
-    "references": ["ASVS:V2.1.1"]  # Required!
-}
-result = workflow["create_requirement"](requirement)
-
-# Or with justified exception
-requirement_with_exception = {
-    "id": "REQ-002",
-    "title": "Custom authentication",
-    "exception": {
-        "type": "custom_implementation",
-        "justification": "Using biometric authentication instead of passwords, which provides equivalent security through different means"
-    }
-}
+# Or use with DuckDB
+import duckdb
+duckdb.sql("SELECT * FROM 'output/asvs_v5.0.parquet' WHERE level1 = true")
 ```
+
+## Arrow Schema
+
+The output Arrow table has the following schema:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| uri | string | Unique identifier (e.g., "asvs:5.0:req:2.1.1") |
+| number | string | Requirement number (e.g., "2.1.1") |
+| description | string | Full requirement text |
+| level1 | bool | Required for Level 1 |
+| level2 | bool | Required for Level 2 |
+| level3 | bool | Required for Level 3 |
+| section | string | Section name |
+| chapter | string | Chapter name |
+| tags | list<string> | Optional tags |
+| cwe | list<int32> | CWE IDs mentioned |
+| nist | list<string> | NIST references |
 
 ## Dependencies
 
-### Core Dependencies
-- **kuzu_py**: Local KuzuDB Python wrapper (path: `../../persistence/kuzu_py`)
-- **KuzuDB**: Graph database engine
-- **PyYAML**: YAML data parsing
-- **Jinja2**: Template engine for Cypher generation
-- **pytest**: Testing framework
-
-### Development Dependencies
-- Black, isort, flake8: Code formatting and linting
-- mypy: Type checking
-- pytest-cov: Test coverage reporting
-
-## Current Status
-
-### Working Features
-- ✅ Reference entity CRUD operations
-- ✅ ASVS data loading from YAML
-- ✅ Guardrails with mandatory reference enforcement
-- ✅ Exception handling with justification
-- ✅ Basic workflow state machine
-- ✅ Audit trail logging
-- ✅ Gap analysis and coverage reporting
-
-### Known Issues
-- ⚠️ Tests require proper kuzu_py package structure (import path adjustment needed)
-- ⚠️ Schema initialization must be done manually or through environment variable
-- ⚠️ Some tests use in-memory mock data instead of actual database
-- ⚠️ Guardrail specifications removed - see `GUARDRAIL_SPECS_MIGRATION.md` for implementation in other POCs
-
-### Pending Improvements
-- [ ] Full integration with requirement/graph system
-- [ ] Advanced NLP for reference suggestions
-- [ ] Multi-standard support (NIST, ISO)
-- [ ] GraphQL API layer
-- [ ] Web UI for compliance dashboard
+- **Runtime**: PyArrow only
+- **Build**: Nix (for GitHub fetching)
+- **Optional**: pandas (for DataFrame conversion)
 
 ## Development
-
-### Setting up the environment
 
 ```bash
 # Enter development shell
 nix develop
 
-# Install in editable mode (if using pip)
-pip install -e .
+# Run tests
+pytest test_arrow_converter.py -v
+
+# Run CLI directly
+./arrow_cli.py --help
 ```
 
-### Running individual components
+## Key Benefits
 
-```python
-# Test ASVS loader
-from asvs_loader import ASVSLoader
-loader = ASVSLoader()
-cypher = loader.load_and_generate("asvs_sample.yaml")
-
-# Test guardrails
-from reference_guardrails import create_reference_repository
-repo = create_reference_repository(":memory:")
-repo["load_asvs_samples"]()
-```
-
-## Integration Points
-
-This POC is designed to integrate with the larger requirement management system:
-
-1. **Database Integration**: Uses same KuzuDB instance as requirement/graph
-2. **Error Handling**: Consistent error types (ValidationError, NotFoundError, etc.)
-3. **Workflow Alignment**: Compatible with existing requirement workflows
-4. **Schema Compatibility**: DDL can be merged with main requirement schema
-
-## Future Roadmap
-
-1. **Phase 1**: Fix kuzu_py import issues, complete test coverage
-2. **Phase 2**: Integrate with main requirement system
-3. **Phase 3**: Add support for multiple standards (NIST, ISO)
-4. **Phase 4**: Build compliance dashboard UI
-5. **Phase 5**: Implement ML-based reference suggestions
-
-## Contributing
-
-When contributing to this POC:
-
-1. Ensure all tests pass: `nix run .#test`
-2. Follow the established patterns for error handling
-3. Update tests for new features
-4. Document any new business rules in docstrings
-5. Use type hints for better code clarity
+1. **Authoritative Source**: Always uses official OWASP/ASVS from GitHub
+2. **No Manual Steps**: Nix automates fetching and setup
+3. **Minimal Dependencies**: Only PyArrow required
+4. **Fast**: Arrow columnar format for efficient processing
+5. **Portable**: Parquet files work across languages and tools
 
 ## License
 
-MIT License (as specified in pyproject.toml)
+Same as OWASP ASVS project.
