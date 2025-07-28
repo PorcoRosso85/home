@@ -5,7 +5,7 @@ KuzuDBのAPIを隠さず、in-memory/persistence切り替えを簡単にする�
 """
 from pathlib import Path
 from typing import Optional, Any
-from result_types import DatabaseResult, ConnectionResult, ErrorDict
+from result_types import DatabaseResult, ConnectionResult
 from errors import FileOperationError, ValidationError
 
 # ロギング - 一旦シンプルなprint使用（後でlog依存を解決）

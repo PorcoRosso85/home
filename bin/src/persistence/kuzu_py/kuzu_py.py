@@ -14,11 +14,11 @@ except ImportError:
 
 # ヘルパー関数とResult型
 from database import create_database, create_connection
-from result_types import DatabaseResult, ConnectionResult, ErrorDict
+from result_types import DatabaseResult, ConnectionResult
 
-# クエリローダー機能（実験的）
-from query_loader import load_query_from_file, clear_query_cache, load_structured_query
-# typed_query_loaderは後でインポート（循環依存を避けるため）
+# クエリローダー機能
+from query_loader import load_typed_query, execute_query
+from errors import FileOperationError, ValidationError, NotFoundError
 
 __all__ = [
     # KuzuDBのコアAPI
@@ -30,9 +30,11 @@ __all__ = [
     # Result型
     "DatabaseResult", 
     "ConnectionResult",
-    "ErrorDict",
-    # クエリローダー（実験的）
-    "load_query_from_file",
-    "clear_query_cache",
-    "load_structured_query",
+    # エラー型
+    "FileOperationError",
+    "ValidationError",
+    "NotFoundError",
+    # クエリローダー
+    "load_typed_query",
+    "execute_query",
 ]

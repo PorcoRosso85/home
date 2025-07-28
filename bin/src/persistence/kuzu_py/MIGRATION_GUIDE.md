@@ -62,8 +62,8 @@ from ..query.loader import load_query, execute_query
 from ..domain.errors import FileOperationError, ValidationError, NotFoundError
 
 # After (kuzu_py)
-from kuzu_py.typed_query_loader import load_typed_query as load_query, execute_query
-from kuzu_py.errors import FileOperationError, ValidationError, NotFoundError
+from kuzu_py import load_typed_query as load_query, execute_query
+from kuzu_py import FileOperationError, ValidationError, NotFoundError
 ```
 
 ### Step 2: QueryLoaderクラスの置き換え
@@ -98,21 +98,13 @@ if isinstance(result, dict) and result.get("type") in ["FileOperationError", "Va
 4. **キャッシング**: パフォーマンス向上のためのキャッシュ機能
 5. **コメント処理**: `//` と `--` の両方をサポート
 
-## 既存機能との併用
+## 完全移行済み
 
-移行期間中は、既存のErrorDict形式も引き続き使用可能です：
+kuzu_pyは完全に型安全なエラー処理に移行しました。ErrorDict形式は削除されています。
 
 ```python
-# 従来のErrorDict形式
-from kuzu_py import load_query_from_file
-
-result = load_query_from_file("query.cypher")
-if isinstance(result, dict) and not result.get("ok"):
-    # ErrorDict形式のエラー処理
-    print(f"Error: {result['error']}")
-
-# 新しい型安全な形式
-from kuzu_py.typed_query_loader import load_typed_query
+# 新しい型安全な形式のみサポート
+from kuzu_py import load_typed_query
 
 result = load_typed_query("query_name")
 if isinstance(result, dict) and result.get("type") == "NotFoundError":

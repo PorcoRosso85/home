@@ -49,7 +49,9 @@ import kuzu_py
 
 # エクスポートされているべき項目
 exports = ["create_database", "create_connection", 
-           "DatabaseResult", "ConnectionResult", "ErrorDict"]
+           "DatabaseResult", "ConnectionResult",
+           "FileOperationError", "ValidationError", "NotFoundError",
+           "load_typed_query", "execute_query"]
 
 for item in exports:
     assert hasattr(kuzu_py, item), f"{item} not found"

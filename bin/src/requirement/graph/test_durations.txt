@@ -1,0 +1,27 @@
+warning: Git tree '/home/nixos' is dirty
+Requirement Graph Logic (RGL) Development Environment
+Environment ready!
+============================= test session starts ==============================
+platform linux -- Python 3.12.11, pytest-8.3.5, pluggy-1.6.0 -- /nix/store/a220kalhjq5bhnjn67g48aflanl7ymyc-python3-3.12.11-env/bin/python3.12
+cachedir: .pytest_cache
+hypothesis profile 'default' -> database=DirectoryBasedExampleDatabase(PosixPath('/home/nixos/bin/src/requirement/graph/.hypothesis/examples'))
+rootdir: /home/nixos/bin/src/requirement/graph
+configfile: pytest.ini
+plugins: xdist-3.6.1, hypothesis-6.131.17
+collecting ... collected 164 items
+
+domain/test_constraints.py::test_validate_no_circular_dependency_with_cycle_returns_error PASSED [  0%]
+domain/test_constraints.py::test_validate_no_circular_dependency_without_cycle_returns_true PASSED [  1%]
+domain/test_constraints.py::test_validate_max_depth_exceeded_returns_error PASSED [  1%]
+domain/test_constraints.py::test_validate_implementation_completeness_partial_returns_status PASSED [  2%]
+domain/test_error_unions.py::test_config_result_usage PASSED             [  3%]
+domain/test_error_unions.py::test_db_operation_result PASSED             [  3%]
+domain/test_error_unions.py::test_file_result PASSED                     [  4%]
+domain/test_error_unions.py::test_module_import_result PASSED            [  4%]
+domain/test_errors.py::test_environment_config_error_structure PASSED    [  5%]
+domain/test_errors.py::test_database_error_structure PASSED              [  6%]
+domain/test_errors.py::test_file_operation_error_structure PASSED        [  6%]
+domain/test_errors.py::test_import_error_structure PASSED                [  7%]
+domain/test_errors.py::test_optional_fields PASSED                       [  7%]
+e2e/internal/test_e2e_append_only_history.py::TestRequirementImmutability::test_requirement_update_creates_new_version FAILED [  8%]
+e2e/internal/test_e2e_append_only_history.py::TestCompleteHistoryTracking::test_complete_requirement_history_retrieval 

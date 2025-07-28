@@ -13,8 +13,8 @@ def test_create_in_memory_database():
     result = create_database(":memory:")
     
     # Assert - Result型でエラーがないことを確認
-    # ErrorDictの場合は辞書型、成功時はDatabaseオブジェクト
-    assert not isinstance(result, dict) or "error" not in result
+    # エラーの場合は辞書型でtypeフィールドを持つ、成功時はDatabaseオブジェクト
+    assert not isinstance(result, dict) or "type" not in result
     assert result is not None
 
 
@@ -22,13 +22,13 @@ def test_create_connection():
     """データベース接続作成の動作確認"""
     # Arrange
     db_result = create_database(":memory:")
-    assert not isinstance(db_result, dict) or "error" not in db_result
+    assert not isinstance(db_result, dict) or "type" not in db_result
     
     # Act
     conn_result = create_connection(db_result)
     
     # Assert
-    assert not isinstance(conn_result, dict) or "error" not in conn_result
+    assert not isinstance(conn_result, dict) or "type" not in conn_result
     assert conn_result is not None
 
 
@@ -36,10 +36,10 @@ def test_basic_kuzu_operations():
     """KuzuDBの基本操作が可能であることを確認"""
     # Arrange
     db_result = create_database(":memory:")
-    assert not isinstance(db_result, dict) or "error" not in db_result
+    assert not isinstance(db_result, dict) or "type" not in db_result
     
     conn_result = create_connection(db_result)
-    assert not isinstance(conn_result, dict) or "error" not in conn_result
+    assert not isinstance(conn_result, dict) or "type" not in conn_result
     
     # Act & Assert - 基本的なCypher操作
     conn = conn_result
@@ -64,24 +64,26 @@ def test_error_handling_invalid_path():
     # 存在しないディレクトリへのパス
     result = create_database("/invalid/path/to/database")
     
-    # ErrorDictが返されることを確認
+    # FileOperationErrorが返されることを確認
     assert isinstance(result, dict)
-    assert "ok" in result
-    assert result["ok"] is False
-    assert "error" in result
-    assert "details" in result
+    assert result["type"] == "FileOperationError"
+    assert "message" in result
+    assert result["operation"] == "create"
+    assert result["file_path"] == "/invalid/path/to/database"
+    assert result["permission_issue"] is True
 
 
 def test_error_handling_none_database():
     """Noneデータベースでの接続作成時のエラーハンドリング"""
     result = create_connection(None)
     
-    # ErrorDictが返されることを確認
+    # ValidationErrorが返されることを確認
     assert isinstance(result, dict)
-    assert "ok" in result
-    assert result["ok"] is False
-    assert "error" in result
-    assert result["error"] == "Database instance is required"
+    assert result["type"] == "ValidationError"
+    assert result["message"] == "Database instance is required"
+    assert result["field"] == "database"
+    assert result["value"] == "None"
+    assert result["constraint"] == "Must be a valid kuzu.Database instance"
 
 
 def test_kuzu_api_exposed():

@@ -8,16 +8,13 @@
 import os
 from pathlib import Path
 from typing import Optional, Union
-from result_types import ErrorDict
 
-
-def get_kuzu_path() -> Union[str, ErrorDict]:
+def get_kuzu_path() -> str:
     """
     KuzuDBのパスを環境変数から取得
     
     Returns:
-        成功時: パス文字列
-        失敗時: ErrorDict
+        パス文字列
     """
     path = os.environ.get("KUZU_DB_PATH")
     if path is None:
