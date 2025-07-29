@@ -29,16 +29,22 @@ requirement_reference_guardrail/
 │   └── migrations/
 │       └── 3.5.0_reference_guardrails.cypher  # ReferenceEntityとIMPLEMENTS関係の定義
 ├── src/
-│   ├── asvs_importer.py                       # ASVSデータのインポート機能
-│   ├── guardrail_enforcer.py                  # ガードレール強制ロジック
-│   └── coverage_analyzer.py                   # コンプライアンスカバレッジ分析
+│   └── guardrail/
+│       ├── __init__.py                        # パッケージ初期化
+│       ├── guardrail_logic.py                 # DB非依存のガードレールロジック
+│       └── minimal_enforcer.py                # トランザクションレベルの強制実装
+├── scripts/
+│   ├── import_asvs_with_embeddings.py         # ASVSデータと埋め込みのインポート
+│   ├── demo_guardrail_logic.py                # ガードレールロジックのデモ
+│   ├── coverage_analysis.cypher               # カバレッジ分析クエリ集
+│   └── run_coverage_analysis.py               # カバレッジ分析実行スクリプト
 ├── tests/
-│   ├── test_reference_entity_migration.py     # DDL適用テスト
-│   ├── test_guardrail_enforcement.py          # 強制ロジックのテスト
-│   └── test_coverage_analysis.py              # カバレッジ計算のテスト
+│   ├── test_minimal_enforcer.py               # 強制ロジックのテスト
+│   ├── test_asvs_import.py                    # インポート機能のテスト
+│   └── test_ddl_migration.py                  # DDL適用テスト
 └── docs/
-    ├── kuzudb-import.md                       # KuzuDBインポート機能のドキュメント
-    └── kuzudb-python-load-from.md             # Python APIのLOAD FROM機能
+    ├── poc_meta_node_handover.md              # GuardrailRuleノード実装の引き継ぎ
+    └── 保存されたKuzuDBドキュメント           # インポート機能の参考資料
 
 ```
 
@@ -47,43 +53,90 @@ requirement_reference_guardrail/
 ### 1. 要件作成時の強制チェック
 
 ```python
-# 標準参照なしでの要件作成は失敗
-result = create_requirement({
-    "title": "パスワード認証",
-    "description": "ユーザーのパスワード認証を実装"
-})
-# → エラー: セキュリティ標準への参照が必要です
+from guardrail.minimal_enforcer import enforce_basic_guardrails
+
+# セキュリティ関連要件は参照なしで作成できない
+result = enforce_basic_guardrails(
+    conn,
+    "REQ-001",
+    "ユーザー認証を実装する",
+    []  # 参照なし
+)
+# → エラー: Authentication requirements must reference ASVS V2 or NIST IA controls
 
 # 正しい使用方法
-result = create_requirement_with_references(
-    requirement={
-        "title": "パスワード認証",
-        "description": "ユーザーのパスワード認証を実装"
-    },
-    reference_ids=["ASVS_V2.1.1", "ASVS_V2.1.7"]
+result = enforce_basic_guardrails(
+    conn,
+    "REQ-001",
+    "ユーザー認証を実装する",
+    ["ASVS-V2.1.1", "ASVS-V2.1.7"]
 )
 # → 成功: 要件がASVS標準と関連付けられて作成
 ```
 
 ### 2. カバレッジ分析
 
-```python
-# カテゴリ別のセキュリティ標準カバレッジを取得
-coverage = analyze_coverage_by_category("authentication")
-print(f"認証カテゴリのカバレッジ: {coverage['percentage']}%")
-print(f"未実装項目: {coverage['missing_items']}")
+```bash
+# カバレッジ分析クエリを実行
+python scripts/run_coverage_analysis.py /path/to/database
+
+# 出力例:
+# - セキュリティカテゴリ別の要件数
+# - 参照なし要件の一覧
+# - ASVS セクション別のカバレッジ
+# - 全体的なコンプライアンス率
 ```
 
 ### 3. 例外管理
 
 ```python
+from guardrail.minimal_enforcer import create_exception_request
+
 # 正当な理由での標準除外申請
-exception = request_exception(
-    requirement_data={...},
-    justification="レガシーシステムとの互換性のため一時的に除外",
-    mitigation_plan="次期バージョンで標準準拠予定"
+result = create_exception_request(
+    conn,
+    "REQ-LEGACY-001",
+    reason="レガシーシステムとの互換性のため一時的に除外",
+    mitigation="次期バージョンで標準準拠予定"
 )
 # → 承認待ち状態で例外申請が作成される
+```
+
+## 使用方法
+
+### 1. DDLマイグレーション実行
+
+```bash
+# KuzuDBにスキーマを適用
+cat ddl/migrations/3.5.0_reference_guardrails.cypher | kuzu-cli /path/to/database
+```
+
+### 2. ASVSデータのインポート
+
+```bash
+# ASVSデータと埋め込みベクトルをインポート
+python scripts/import_asvs_with_embeddings.py /path/to/database
+```
+
+### 3. ガードレール適用例
+
+```python
+from guardrail.minimal_enforcer import enforce_basic_guardrails
+
+# セキュリティ関連の要件を作成
+result = enforce_basic_guardrails(
+    conn,
+    "REQ-001", 
+    "ユーザー認証を実装する",
+    ["ASVS-V2.1.1"]  # 適切な参照が必要
+)
+```
+
+### 4. カバレージ分析
+
+```bash
+# 要件と参照のカバレージを分析
+python scripts/run_coverage_analysis.py /path/to/database
 ```
 
 ## 依存関係
@@ -100,13 +153,16 @@ exception = request_exception(
 ```cypher
 -- セキュリティ標準を管理するエンティティ
 CREATE NODE TABLE ReferenceEntity (
-    id STRING PRIMARY KEY,      -- 例: "ASVS_V2.1.1"
-    standard STRING,            -- 例: "OWASP ASVS"
+    id STRING PRIMARY KEY,      -- 例: "ASVS-V2.1.1"
+    standard STRING,            -- 例: "ASVS"
     version STRING,             -- 例: "5.0"
-    section STRING,             -- 例: "V2.1.1"
-    description STRING,
+    section STRING,             -- 例: "V2"
+    subsection STRING,          -- 例: "2.1.1"
+    title STRING,               -- 要件のタイトル
+    description STRING,         -- 詳細説明
     level INT,                  -- 1, 2, 3
-    category STRING             -- "authentication", "session", etc
+    category STRING,            -- "authentication", "session", etc
+    embedding DOUBLE[384]       -- 意味的類似度検索用ベクトル
 );
 
 -- 要件が標準を実装することを表現
@@ -124,12 +180,21 @@ CREATE REL TABLE IMPLEMENTS (
 
 1. **asvs_referenceからArrow Table取得**
    ```python
+   from asvs_reference import get_asvs_requirements_table
    arrow_table = get_asvs_requirements_table()
    ```
 
-2. **KuzuDBへの直接インポート**
+2. **embedサービスで埋め込みベクトル生成**
    ```python
-   conn.execute("COPY ReferenceEntity FROM arrow_table")
+   from embed import get_embeddings
+   descriptions = [row['description'] for row in arrow_table]
+   embeddings = get_embeddings(descriptions)
+   ```
+
+3. **KuzuDBへのバッチインポート**
+   ```python
+   # スクリプトを使用
+   python scripts/import_asvs_with_embeddings.py /path/to/database
    ```
 
 ### トランザクション保証
@@ -159,10 +224,15 @@ except:
 
 ## 開発状況
 
-本POCは現在開発中です。以下の機能を実装予定：
+以下の機能が実装済み：
 
 1. ✅ 要件とセキュリティ標準の関連付けスキーマ設計
-2. ⬜ ASVSデータのインポート機能
-3. ⬜ ガードレール強制ロジック
-4. ⬜ カバレッジ分析機能
-5. ⬜ 例外管理ワークフロー
+2. ✅ ASVSデータのインポート機能（埋め込みベクトル付き）
+3. ✅ ガードレール強制ロジック（ハードコード版）
+4. ✅ カバレッジ分析機能
+5. ✅ 例外管理ワークフロー
+
+今後の実装予定：
+- ⬜ GuardrailRuleノードによるデータ駆動型ルール（poc/meta_node待ち）
+- ⬜ より詳細なコンプライアンスレポート
+- ⬜ 他のセキュリティ標準のサポート（NIST, ISO 27001等）
