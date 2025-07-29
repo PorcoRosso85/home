@@ -18,11 +18,22 @@ export {
 } from "./core/variables.ts";
 export type { KuzuConfig, QueryType } from "./core/variables.ts";
 
-// Error types
+// Error types and functions
 export type {
   FileOperationError,
   ValidationError,
   NotFoundError,
+  KuzuError,
+} from "./core/errors.ts";
+
+export {
+  createFileOperationError,
+  createValidationError,
+  createNotFoundError,
+  isFileOperationError,
+  isValidationError,
+  isNotFoundError,
+  isKuzuError,
 } from "./core/errors.ts";
 
 // Result types and type guards

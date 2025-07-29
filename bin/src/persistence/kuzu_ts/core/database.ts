@@ -2,11 +2,7 @@ import { Database, Connection } from "kuzu";
 import type { DatabaseResult, ConnectionResult } from "./result_types.ts";
 import type { FileOperationError, ValidationError } from "./errors.ts";
 import { dirname, join } from "jsr:@std/path@^1.0.0";
-
-// Logging function - simple JSON output
-function log(level: "DEBUG" | "INFO" | "ERROR", data: Record<string, unknown>): void {
-  console.log(JSON.stringify({ level, ...data }));
-}
+import { log } from "log_ts/mod.ts";
 
 export interface DatabaseOptions {
   testUnique?: boolean;
