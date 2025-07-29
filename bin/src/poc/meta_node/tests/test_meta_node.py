@@ -11,7 +11,7 @@ import tempfile
 import os
 import kuzu
 
-from meta_node import MetaNode, QueryNode, QueryExecutor
+from meta_node import MetaNode, QueryNode, QueryExecutor, QueryNotFoundError, CypherSyntaxError
 
 
 class TestMetaNodeBasics:
@@ -144,3 +144,60 @@ class TestQueryExecutor:
             assert len(results) == 2
             assert results[0]["name"] == "Alice"
             assert results[1]["name"] == "Bob"
+
+
+class TestErrorCases:
+    """エラーケースの振る舞いを検証"""
+    
+    def test_存在しないクエリノードを取得しようとした場合(self):
+        """存在しないクエリノードを取得すると例外が発生する"""
+        # Given: 空のメタノードシステム
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = os.path.join(temp_dir, "test.db")
+            db = kuzu.Database(db_path)
+            meta_node = MetaNode(db)
+            
+            # When: 存在しないクエリノードを取得
+            # Then: ValueError例外が発生すべき（現在の実装ではNoneが返るため、このテストは失敗する）
+            with pytest.raises(ValueError) as exc_info:
+                meta_node.get_query_node("non_existent_query")
+            assert "not found" in str(exc_info.value).lower()
+    
+    def test_存在しないクエリノードを実行しようとした場合(self):
+        """存在しないクエリノードを実行すると詳細なエラーメッセージを含む例外が発生する"""
+        # Given: 空のメタノードシステム
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = os.path.join(temp_dir, "test.db")
+            db = kuzu.Database(db_path)
+            meta_node = MetaNode(db)
+            executor = QueryExecutor(meta_node)
+            
+            # When: 存在しないクエリノードを実行
+            # Then: QueryNotFoundError例外が発生すべき（現在はValueError）
+            with pytest.raises(QueryNotFoundError) as exc_info:
+                executor.execute_query("non_existent_query")
+            assert "Query node 'non_existent_query' not found in database" in str(exc_info.value)
+    
+    def test_不正なCypherクエリを実行しようとした場合(self):
+        """不正なCypherクエリを持つクエリノードを実行するとCypherSyntaxError例外が発生する"""
+        # Given: 不正なCypherクエリを持つクエリノード
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = os.path.join(temp_dir, "test.db")
+            db = kuzu.Database(db_path)
+            meta_node = MetaNode(db)
+            
+            # 不正なCypherクエリを持つクエリノードを作成
+            invalid_query_node = QueryNode(
+                name="invalid_syntax_query",
+                description="文法的に不正なクエリ",
+                cypher_query="MATCH (p:Person WHERE p.age > 25 RETURN p"  # 括弧が閉じていない
+            )
+            meta_node.create_query_node(invalid_query_node)
+            
+            # When: 不正なクエリを実行
+            # Then: CypherSyntaxError例外が発生すべき（現在は一般的なException）
+            executor = QueryExecutor(meta_node)
+            with pytest.raises(CypherSyntaxError) as exc_info:
+                executor.execute_query("invalid_syntax_query")
+            assert "Syntax error in Cypher query" in str(exc_info.value)
+            assert "invalid_syntax_query" in str(exc_info.value)
