@@ -23,8 +23,8 @@
 ## 作業範囲規則
 - **作業ディレクトリ制限**: 現在作業しているディレクトリ以下のみを変更対象とする
   - 例: `/home/nixos/bin/src/search/vss/kuzu/` で作業中の場合、その配下のみ変更可能
-  - 親ディレクトリや他プロジェクトのファイルは読み取りのみ許可
-  - 例外: 共通規約（`/home/nixos/bin/docs/conventions/`）や共通コマンド（`/home/nixos/.claude/commands/`）の更新時
+  - **重要**: 親ディレクトリや他プロジェクトのファイルは読み取りのみ許可、**一切の変更・操作を禁止**
+  - 例外: 共通規約（`/home/nixos/bin/docs/conventions/`）や共通コマンド（`/home/nixos/.claude/commands/`）の更新時のみ変更可能
 
 ## タスク管理規則
 - **TodoWrite/TodoReadツール使用義務**: すべての作業はTodoWrite/TodoReadツールで管理する
