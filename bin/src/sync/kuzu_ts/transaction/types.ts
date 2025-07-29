@@ -4,7 +4,7 @@
  */
 
 import type { TemplateEvent, EventGroup } from "../event_sourcing/types.ts";
-import type { BrowserKuzuClient } from "../types.ts";
+import type { KuzuWasmClient } from "../types.ts";
 
 // ========== Transaction Types ==========
 
@@ -31,9 +31,9 @@ export type TransactionResult<T> = {
   transaction: Transaction;
 };
 
-// ========== TransactionManager Interface ==========
+// ========== TransactionManager Type ==========
 
-export interface TransactionManager {
+export type TransactionManager = {
   /**
    * 新しいトランザクションを開始
    * KuzuDBのBEGINコマンドをラップ
@@ -75,11 +75,11 @@ export interface TransactionManager {
    * トランザクション履歴を取得
    */
   getTransactionHistory(): Transaction[];
-}
+};
 
 // ========== Transaction Context ==========
 
-export interface TransactionContext {
+export type TransactionContext = {
   /**
    * トランザクションID
    */
@@ -88,7 +88,7 @@ export interface TransactionContext {
   /**
    * トランザクション内でテンプレートを実行
    */
-  executeTemplate(template: string, params: Record<string, any>): Promise<TemplateEvent>;
+  executeTemplate(template: string, params: Record<string, unknown>): Promise<TemplateEvent>;
 
   /**
    * トランザクション内で複数のイベントを実行
@@ -98,13 +98,13 @@ export interface TransactionContext {
   /**
    * トランザクション内でクエリを実行
    */
-  query(cypher: string, params?: Record<string, any>): Promise<any>;
+  query(cypher: string, params?: Record<string, unknown>): Promise<unknown>;
 
   /**
    * 現在のトランザクション状態を取得
    */
   getStatus(): TransactionStatus;
-}
+};
 
 // ========== Error Types ==========
 
@@ -132,7 +132,7 @@ export enum TransactionErrorCode {
 
 // ========== Integration Types ==========
 
-export interface TransactionalKuzuClient extends BrowserKuzuClient {
+export type TransactionalKuzuClient = KuzuWasmClient & {
   /**
    * トランザクションマネージャーを取得
    */
@@ -144,7 +144,7 @@ export interface TransactionalKuzuClient extends BrowserKuzuClient {
    */
   executeTemplate(
     template: string,
-    params: Record<string, any>,
+    params: Record<string, unknown>,
     transactionId?: string
   ): Promise<TemplateEvent>;
-}
+};

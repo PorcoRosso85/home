@@ -16,10 +16,10 @@ export type { TemplateEvent } from "./event_sourcing/types.ts";
 export type KuzuWasmClient = {
   initialize(): Promise<void>;
   initializeFromSnapshot(snapshot: EventSnapshot): Promise<void>;
-  executeTemplate(template: string, params: Record<string, any>): Promise<TemplateEvent>;
+  executeTemplate(template: string, params: Record<string, unknown>): Promise<TemplateEvent>;
   getLocalState(): Promise<LocalState>;
   onRemoteEvent(handler: (event: TemplateEvent) => void): void;
-  executeQuery(cypher: string, params?: Record<string, any>): Promise<any>;
+  executeQuery(cypher: string, params?: Record<string, unknown>): Promise<unknown>;
   applyEvent(event: TemplateEvent): Promise<void>;
 };
 
@@ -45,7 +45,7 @@ export type ServerEventStore = {
  * Mutable extension of ServerEventStore that supports event deletion
  * イベント削除をサポートするServerEventStoreの可変拡張
  */
-export interface MutableServerEventStore extends ServerEventStore {
+export type MutableServerEventStore = ServerEventStore & {
   /**
    * Remove events by their IDs
    * @param eventIds Array of event IDs to remove
@@ -59,7 +59,7 @@ export interface MutableServerEventStore extends ServerEventStore {
    * @returns Number of events removed
    */
   removeEventsBefore(timestamp: number): Promise<number>;
-}
+};
 
 export type EventSnapshot = {
   events: TemplateEvent[];

@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@kuzu-ts/": "../../persistence/kuzu_ts/"
+  }
+}

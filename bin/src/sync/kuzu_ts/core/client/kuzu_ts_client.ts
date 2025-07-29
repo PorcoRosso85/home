@@ -20,18 +20,18 @@ import { ExtendedTemplateRegistry } from "../../event_sourcing/ddl_event_handler
 import * as telemetry from "../../telemetry_log.ts";
 
 // Type definitions for kuzu_ts module
-interface KuzuDatabase {
+type KuzuDatabase = {
   close(): void;
-}
+};
 
-interface KuzuConnection {
-  query(statement: string, params?: Record<string, any>): Promise<KuzuQueryResult>;
-}
+type KuzuConnection = {
+  query(statement: string, params?: Record<string, unknown>): Promise<KuzuQueryResult>;
+};
 
-interface KuzuQueryResult {
-  getAll(): any[];
-  getAllObjects(): any[];
-}
+type KuzuQueryResult = {
+  getAll(): unknown[][];
+  getAllObjects(): Record<string, unknown>[];
+};
 
 type DatabaseResult = KuzuDatabase | { type: string; message: string };
 type ConnectionResult = KuzuConnection | { type: string; message: string };
@@ -123,7 +123,7 @@ export class KuzuTsClientImpl implements KuzuWasmClient {
     }
   }
 
-  async executeTemplate(template: string, params: Record<string, any>): Promise<TemplateEvent> {
+  async executeTemplate(template: string, params: Record<string, unknown>): Promise<TemplateEvent> {
     if (!this.conn) {
       throw new Error("Client not initialized");
     }
@@ -226,7 +226,7 @@ export class KuzuTsClientImpl implements KuzuWasmClient {
     this.remoteEventHandlers.push(handler);
   }
 
-  async executeQuery(cypher: string, params?: Record<string, any>): Promise<any> {
+  async executeQuery(cypher: string, params?: Record<string, unknown>): Promise<unknown> {
     if (!this.conn) {
       throw new Error("Client not initialized");
     }
@@ -476,7 +476,7 @@ export class KuzuTsClientImpl implements KuzuWasmClient {
   // DDL Event Creation
   createDDLEvent(
     ddlType: DDLOperationType,
-    params: Record<string, any>
+    params: Record<string, unknown>
   ): DDLTemplateEvent {
     return this.schemaManager.createDDLEvent(ddlType, params);
   }
@@ -510,7 +510,7 @@ export class KuzuTsClientImpl implements KuzuWasmClient {
     return this.extendedRegistry.isDMLTemplate(template);
   }
 
-  getTemplateMetadata(template: string): any {
+  getTemplateMetadata(template: string): unknown {
     return this.extendedRegistry.getTemplateMetadata(template);
   }
 }

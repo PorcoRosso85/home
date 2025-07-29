@@ -26,6 +26,7 @@ classifiers = [
 
 dependencies = [
     "pyarrow>=14.0.0",
+    "kuzu>=0.0.12",
 ]
 
 [project.optional-dependencies]
@@ -43,6 +44,7 @@ dev = [
 
 [tool.setuptools]
 packages = ["guardrail"]
+package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 guardrail = ["py.typed"]

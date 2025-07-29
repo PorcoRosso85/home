@@ -13,6 +13,7 @@
 - **アーカイブ機能**: 30日経過イベントのS3自動アーカイブ
 - **集計キャッシュ**: 高速クエリのためのO(1)アクセス
 - **テレメトリ統合**: OpenTelemetry準拠のログ
+- **統計モニタリング**: DML操作の自動統計収集と定期レポート
 
 ## クイックスタート
 
@@ -63,6 +64,45 @@ deno run --allow-net --allow-read --allow-env server.ts
 # テスト実行
 pytest tests/e2e_test.py -v
 deno test tests/ --allow-all
+```
+
+## 統計モニタリング
+
+SyncKuzuClientは自動的にDML操作の統計を収集し、5秒ごとにレポートします。
+
+### 機能
+
+1. **定期統計レポート**
+   - 5秒ごとに自動的にDML統計をログ出力
+   - 全体統計とテンプレート別統計を含む
+
+2. **テンプレート別カウンター**
+   - 各テンプレート（CREATE_USER、UPDATE_USER等）ごとの統計
+   - sent、received、applied、failed のカウント
+   - 成功率の自動計算
+
+3. **詳細統計API**
+   ```typescript
+   // 全体統計の取得
+   const stats = client.getDMLStats();
+   
+   // テンプレート別詳細統計の取得
+   const detailedStats = client.getDetailedStatsByTemplate();
+   ```
+
+### 使用例
+
+```bash
+# 統計モニタリングのデモ実行
+deno run --allow-net --allow-read examples/stats_monitoring.ts
+```
+
+統計ログの例：
+```
+=== DML Statistics Report ===
+Overall: sent: 10, received: 5, applied: 4, failed: 1
+Template: CREATE_USER - sent: 5, received: 3, applied: 3, success rate: 100%
+Template: UPDATE_USER - sent: 3, received: 2, applied: 1, success rate: 50%
 ```
 
 ## 設定

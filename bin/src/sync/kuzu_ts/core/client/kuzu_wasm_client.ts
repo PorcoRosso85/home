@@ -179,7 +179,10 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
       
       return state;
     } catch (error) {
-      console.error("Error getting local state:", error);
+      telemetry.error("Error getting local state", {
+        error: error instanceof Error ? error.message : String(error),
+        clientId: this.clientId
+      });
       return { users: [], posts: [], follows: [] };
     }
   }
@@ -189,7 +192,7 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
   }
 
   // Public method to execute raw queries (for transaction support)
-  async executeQuery(cypher: string, params?: Record<string, any>): Promise<any> {
+  async executeQuery(cypher: string, params?: Record<string, unknown>): Promise<unknown> {
     if (!this.conn) {
       throw new Error("Client not initialized");
     }
