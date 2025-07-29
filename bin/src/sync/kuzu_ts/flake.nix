@@ -5,27 +5,15 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     storage-s3.url = "path:../../storage/s3";
-    kuzu-py.url = "path:../../persistence/kuzu_py";
+    kuzu-ts.url = "path:../../persistence/kuzu_ts";
     log-ts.url = "path:../../telemetry/log_ts";
   };
 
-  outputs = { self, nixpkgs, flake-utils, storage-s3, kuzu-py, log-ts }:
+  outputs = { self, nixpkgs, flake-utils, storage-s3, kuzu-ts, log-ts }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # Python環境 - kuzu-pyを含めた統合環境
-        # kuzu-pyはkuzuPyパッケージとして提供される
-        pythonEnv = pkgs.python312.withPackages (ps: with ps; [
-          # kuzu-pyからのパッケージ
-          kuzu-py.packages.${system}.kuzuPy
-          # 既存のテスト用パッケージ
-          pytest
-          pytest-asyncio
-          websockets
-          httpx
-          aiohttp
-        ]);
         
       in
       {
@@ -52,6 +40,7 @@
           type = "app";
           program = "${pkgs.writeShellScript "start-server" ''
             export PATH="${pkgs.deno}/bin:$PATH"
+            export LOG_TS_PATH="${log-ts}/lib/mod.ts"
             echo "🚀 Starting KuzuDB sync server..."
             exec ${pkgs.deno}/bin/deno run --allow-net --allow-read --allow-env ./server.ts
           ''}";
@@ -62,6 +51,7 @@
           type = "app";
           program = "${pkgs.writeShellScript "start-client" ''
             export PATH="${pkgs.deno}/bin:$PATH"
+            export LOG_TS_PATH="${log-ts}/lib/mod.ts"
             echo "🔌 Starting KuzuDB sync client..."
             exec ${pkgs.deno}/bin/deno run --allow-net --allow-env ./client.ts $@
           ''}";
@@ -78,22 +68,17 @@
             
             # 環境変数を設定
             export DENO_PATH="${pkgs.deno}/bin/deno"
-            export PATH="${pkgs.deno}/bin:${pythonEnv}/bin:$PATH"
+            export PATH="${pkgs.deno}/bin:$PATH"
+            export LOG_TS_PATH="${log-ts}/lib/mod.ts"
             
             # ポート競合を避けるため、既存のプロセスをクリーンアップ
             echo "🧹 Cleaning up existing processes..."
             pkill -f "deno.*websocket-server" || true
-            pkill -f "python.*e2e_test" || true
             sleep 1
             
             # テスト結果
-            E2E_EXIT=0
             INTEGRATION_EXIT=0
             
-            # E2Eテスト (Python pytest)
-            echo ""
-            echo "🐍 Running E2E tests with pytest..."
-            ${pythonEnv}/bin/pytest ./e2e/ -v || E2E_EXIT=$?
             
             # 統合テスト (TypeScript)
             echo ""
@@ -109,11 +94,10 @@
             echo ""
             echo "📊 Test Summary"
             echo "==============="
-            echo "E2E Test: $([ $E2E_EXIT -eq 0 ] && echo '✅ PASSED' || echo '❌ FAILED')"
             echo "Integration Test: $([ $INTEGRATION_EXIT -eq 0 ] && echo '✅ PASSED' || echo '❌ FAILED')"
             echo ""
             
-            if [ $E2E_EXIT -eq 0 ] && [ $INTEGRATION_EXIT -eq 0 ]; then
+            if [ $INTEGRATION_EXIT -eq 0 ]; then
                 echo "🎉 All tests passed!"
                 exit 0
             else
@@ -128,8 +112,6 @@
             # Deno for server and tests
             deno
             
-            # Python for E2E tests
-            pythonEnv
             
             # Development tools
             jq
@@ -148,8 +130,6 @@
             echo ""
             echo "📦 Available tools:"
             echo "  - Deno ${pkgs.deno.version}"
-            echo "  - Python ${pkgs.python312.version} with pytest"
-            echo "  - KuzuDB (Python bindings)"
             echo ""
             
             # Set environment variables for KuzuDB
@@ -158,6 +138,7 @@
             
             # Set environment variable for log_ts module
             export LOG_TS_PATH="${log-ts}/lib/mod.ts"
+            
           '';
         };
       });

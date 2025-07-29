@@ -1,21 +1,11 @@
 /**
- * KuzuDB WASM Client - モックフリー実装
- * WASM版KuzuDB使用（Deno環境での実行）
+ * KuzuDB TypeScript Client - Native Deno Implementation
+ * persistence/kuzu_tsパッケージを使用したネイティブ実装
  * 
- * FIXME: DenoでKuzuDB WASMが動作しない経緯
- * 1. kuzu-wasmパッケージはnpm経由でインポート可能
- * 2. しかしinit()時に"Classic workers are not supported"エラー
- * 3. DenoはWeb標準のModule Workersのみサポート
- * 4. persistence/kuzu_tsパッケージも結局モック実装
- * 5. そのため、Python Native実装（kuzu_native_client）を採用
- * 
- * 将来的な解決策:
- * - Deno FFIでネイティブKuzuDBライブラリを直接呼び出す
- * - Module Workers対応のKuzuDB WASM版を待つ
- * - persistence/kuzu_tsをFFIベースで実装し直す
- * 
- * TODO: 将来的にブラウザ環境のサポートを追加する際は、
- * Worker APIの互換性やESMローダーの違いを考慮する必要がある
+ * FIXME: Current limitations:
+ * 1. persistence/kuzu_ts has V8 isolate lifecycle issues on Deno exit
+ * 2. Works correctly but crashes on process termination
+ * 3. This is a temporary implementation until FFI solution is ready
  */
 
 import type { KuzuWasmClient, LocalState, EventSnapshot } from "../../types.ts";
@@ -29,43 +19,90 @@ import { SchemaManager } from "../schema_manager.ts";
 import { ExtendedTemplateRegistry } from "../../event_sourcing/ddl_event_handler.ts";
 import * as telemetry from "../../telemetry_log.ts";
 
-export class KuzuWasmClientImpl implements KuzuWasmClient {
-  private db?: any;
-  private conn?: any;
+// Type definitions for kuzu_ts module
+interface KuzuDatabase {
+  close(): void;
+}
+
+interface KuzuConnection {
+  query(statement: string, params?: Record<string, any>): Promise<KuzuQueryResult>;
+}
+
+interface KuzuQueryResult {
+  getAll(): any[];
+  getAllObjects(): any[];
+}
+
+type DatabaseResult = KuzuDatabase | { type: string; message: string };
+type ConnectionResult = KuzuConnection | { type: string; message: string };
+
+// Dynamic import helper for kuzu_ts
+async function importKuzuTs() {
+  // Try to import from persistence/kuzu_ts
+  // This would need proper module resolution in production
+  const { createDatabase, createConnection } = await import("../../../../../../persistence/kuzu_ts/mod.ts");
+  return { createDatabase, createConnection };
+}
+
+function isError(result: DatabaseResult | ConnectionResult): result is { type: string; message: string } {
+  return typeof result === "object" && "type" in result && "message" in result;
+}
+
+export class KuzuTsClientImpl implements KuzuWasmClient {
+  private db?: KuzuDatabase;
+  private conn?: KuzuConnection;
   private events: TemplateEvent[] = [];
   private remoteEventHandlers: Array<(event: TemplateEvent) => void> = [];
   private registry = new TemplateRegistry();
   private extendedRegistry = new ExtendedTemplateRegistry();
-  private clientId = `wasm_${crypto.randomUUID()}`;
+  private clientId = `ts_${crypto.randomUUID()}`;
   private stateCache = new StateCache();
   private schemaManager: SchemaManager;
+  private kuzuModule?: Awaited<ReturnType<typeof importKuzuTs>>;
 
   constructor() {
     this.schemaManager = new SchemaManager(this.clientId);
   }
 
   async initialize(): Promise<void> {
-    // Use sync version for Deno which doesn't support classic workers
-    // TODO: ブラウザ環境では異なるインポート方法が必要になる可能性がある
-    // 例: import("kuzu-wasm") for browser with worker support
-    const kuzuModule = await import("kuzu-wasm/sync");
-    const kuzu = kuzuModule.default || kuzuModule;
-    
-    // Initialize the WASM module
-    await kuzu.init();
-    
-    // Database と Connection を作成
-    this.db = new kuzu.Database(':memory:');
-    this.conn = new kuzu.Connection(this.db);
-    
-    // Create schema
-    await this.createSchema();
+    telemetry.info("Initializing TypeScript KuzuDB client", {
+      clientId: this.clientId
+    });
+
+    try {
+      // Import kuzu_ts module
+      this.kuzuModule = await importKuzuTs();
+      
+      // Create in-memory database
+      const dbResult = this.kuzuModule.createDatabase(":memory:", { testUnique: true });
+      
+      if (isError(dbResult)) {
+        throw new Error(`Failed to create database: ${dbResult.message}`);
+      }
+      
+      this.db = dbResult;
+      
+      // Create connection
+      const connResult = this.kuzuModule.createConnection(this.db);
+      
+      if (isError(connResult)) {
+        throw new Error(`Failed to create connection: ${connResult.message}`);
+      }
+      
+      this.conn = connResult;
+      
+      // Create schema
+      await this.createSchema();
+      
+      telemetry.info("TypeScript KuzuDB client initialized successfully");
+    } catch (error) {
+      telemetry.error("Failed to initialize TypeScript KuzuDB client", {
+        error: error instanceof Error ? error.message : String(error),
+        clientId: this.clientId
+      });
+      throw error;
+    }
   }
-  
-  // Worker pathを取得するための拡張ポイント
-  // TODO: ブラウザ環境でのWorker使用時には、このメソッドを実装して
-  // 適切なWorkerスクリプトのパスを返す必要がある
-  private getWorkerPath?(): string;
 
   async initializeFromSnapshot(snapshot: EventSnapshot): Promise<void> {
     await this.initialize();
@@ -77,7 +114,7 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
     // Initialize schema manager from snapshot
     await this.schemaManager.initializeFromSnapshot(
       snapshot.events,
-      (query: string) => this.conn.query(query)
+      (query: string) => this.conn!.query(query)
     );
     
     // Replay all events from snapshot
@@ -179,7 +216,10 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
       
       return state;
     } catch (error) {
-      console.error("Error getting local state:", error);
+      telemetry.error("Error getting local state", {
+        error: error instanceof Error ? error.message : String(error),
+        clientId: this.clientId
+      });
       return { users: [], posts: [], follows: [] };
     }
   }
@@ -188,169 +228,11 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
     this.remoteEventHandlers.push(handler);
   }
 
-  // Public method to execute raw queries (for transaction support)
   async executeQuery(cypher: string, params?: Record<string, any>): Promise<any> {
     if (!this.conn) {
       throw new Error("Client not initialized");
     }
     return await this.conn.query(cypher, params);
-  }
-
-  // Query counter value
-  async queryCounter(counterId: string): Promise<number> {
-    if (!this.conn) {
-      throw new Error("Client not initialized");
-    }
-    
-    const result = await this.conn.query(`
-      MATCH (c:Counter {id: $counterId})
-      RETURN c.value as value
-    `, { counterId });
-    
-    const table = result.getAll();
-    if (table.length > 0 && table[0][0] !== null) {
-      return table[0][0];
-    }
-    return 0; // Default if counter doesn't exist
-  }
-
-  // Schema query methods
-
-  getSchemaVersion(): number {
-    return this.schemaManager.getSchemaVersion();
-  }
-
-  getSchemaState() {
-    return this.schemaManager.getCurrentSchema();
-  }
-
-  hasTable(tableName: string): boolean {
-    return this.schemaManager.hasTable(tableName);
-  }
-
-  hasColumn(tableName: string, columnName: string): boolean {
-    return this.schemaManager.hasColumn(tableName, columnName);
-  }
-
-  getTableSchema(tableName: string) {
-    return this.schemaManager.getTableSchema(tableName);
-  }
-
-  getSchemaSyncState() {
-    return this.schemaManager.getSyncState();
-  }
-
-  async resolveSchemaConflict(
-    conflictId: string,
-    resolution: "APPLY_FIRST" | "APPLY_LAST" | "MANUAL"
-  ): Promise<void> {
-    await this.schemaManager.resolveConflict(
-      conflictId,
-      resolution,
-      (query: string) => this.conn.query(query)
-    );
-  }
-
-  // DDL Event Creation
-
-  createDDLEvent(
-    ddlType: DDLOperationType,
-    params: Record<string, any>
-  ): DDLTemplateEvent {
-    return this.schemaManager.createDDLEvent(ddlType, params);
-  }
-
-  async applyDDLEvent(event: DDLTemplateEvent): Promise<void> {
-    await this.applyEvent(event);
-  }
-
-  getAppliedDDLs(): DDLTemplateEvent[] {
-    return this.schemaManager.getAppliedDDLs();
-  }
-
-  getPendingDDLs(): DDLTemplateEvent[] {
-    return this.schemaManager.getPendingDDLs();
-  }
-
-  validateDDL(event: DDLTemplateEvent): { valid: boolean; errors: string[] } {
-    return this.schemaManager.validateDDL(event);
-  }
-
-  // Template Support
-
-  hasTemplate(template: string): boolean {
-    return this.extendedRegistry.hasTemplate(template);
-  }
-
-  isDDLTemplate(template: string): boolean {
-    return this.extendedRegistry.isDDLTemplate(template);
-  }
-
-  isDMLTemplate(template: string): boolean {
-    return this.extendedRegistry.isDMLTemplate(template);
-  }
-
-  getTemplateMetadata(template: string): any {
-    return this.extendedRegistry.getTemplateMetadata(template);
-  }
-
-  // Private methods
-
-  private async createSchema(): Promise<void> {
-    // Check current schema state
-    const schemaState = this.schemaManager.getCurrentSchema();
-    
-    // Create default schema if no tables exist
-    if (Object.keys(schemaState.nodeTables).length === 0) {
-      // Create User node table
-      if (!this.schemaManager.hasTable("User")) {
-        await this.conn.query(`
-          CREATE NODE TABLE IF NOT EXISTS User(
-            id STRING, 
-            name STRING, 
-            email STRING, 
-            PRIMARY KEY(id)
-          )
-        `);
-      }
-      
-      // Create Post node table
-      if (!this.schemaManager.hasTable("Post")) {
-        await this.conn.query(`
-          CREATE NODE TABLE IF NOT EXISTS Post(
-            id STRING,
-            content STRING,
-            authorId STRING,
-            PRIMARY KEY(id)
-          )
-        `);
-      }
-      
-      // Create FOLLOWS relationship table
-      if (!this.schemaManager.hasTable("FOLLOWS")) {
-        await this.conn.query(`
-          CREATE REL TABLE IF NOT EXISTS FOLLOWS(FROM User TO User)
-        `);
-      }
-      
-      // Create Counter node table
-      if (!this.schemaManager.hasTable("Counter")) {
-        await this.conn.query(`
-          CREATE NODE TABLE IF NOT EXISTS Counter(
-            id STRING,
-            value INT64,
-            PRIMARY KEY(id)
-          )
-        `);
-      }
-      
-      telemetry.info("Default database schema created");
-    } else {
-      telemetry.info("Schema already exists", {
-        nodeTables: Object.keys(schemaState.nodeTables).length,
-        edgeTables: Object.keys(schemaState.edgeTables).length
-      });
-    }
   }
 
   async applyEvent(event: TemplateEvent | DDLTemplateEvent): Promise<void> {
@@ -363,12 +245,15 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
       try {
         await this.schemaManager.applyDDLEvent(
           event,
-          (query: string) => this.conn.query(query)
+          (query: string) => this.conn!.query(query)
         );
         // Notify handlers
         this.remoteEventHandlers.forEach(handler => handler(event));
       } catch (error) {
-        console.error(`Failed to apply DDL event ${event.id}:`, error);
+        telemetry.error(`Failed to apply DDL event ${event.id}`, {
+          error: error instanceof Error ? error.message : String(error),
+          clientId: this.clientId
+        });
         throw error; // DDL errors should propagate
       }
       return;
@@ -423,7 +308,8 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
           eventId: event.id,
           query: query.trim(),
           params: sanitizedParams,
-          timestamp: event.timestamp
+          timestamp: event.timestamp,
+          clientId: this.clientId
         });
         
         const result = await this.conn.query(query, sanitizedParams);
@@ -431,16 +317,15 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
         // Log successful execution
         telemetry.info("DML query executed successfully", {
           template: event.template,
-          eventId: event.id
+          eventId: event.id,
+          clientId: this.clientId
         });
         
         // Special handling for QUERY_COUNTER
         if (event.template === "QUERY_COUNTER") {
-          // For query events, we need to return the result somehow
-          // We'll store it in the event params for now
-          const table = result.getAll();
-          if (table.length > 0) {
-            event.params._result = table[0][0]; // The value
+          const rows = result.getAll();
+          if (rows.length > 0) {
+            event.params._result = rows[0][0]; // The value
           } else {
             event.params._result = 0; // Default if counter doesn't exist
           }
@@ -458,17 +343,176 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
           eventId: event.id,
           query: query.trim(),
           params: event.params,
+          error: error instanceof Error ? error.message : String(error),
+          clientId: this.clientId
+        });
+        telemetry.error(`Failed to apply event ${event.id}`, {
           error: error instanceof Error ? error.message : String(error)
         });
-        console.error(`Failed to apply event ${event.id}:`, error);
         // Continue processing other events
       }
     } else {
       // Log unknown template warning
       telemetry.warn("Unknown DML template", {
         template: event.template,
-        eventId: event.id
+        eventId: event.id,
+        clientId: this.clientId
       });
     }
+  }
+
+  private async createSchema(): Promise<void> {
+    // Check current schema state
+    const schemaState = this.schemaManager.getCurrentSchema();
+    
+    // Create default schema if no tables exist
+    if (Object.keys(schemaState.nodeTables).length === 0) {
+      // Create User node table
+      if (!this.schemaManager.hasTable("User")) {
+        await this.conn!.query(`
+          CREATE NODE TABLE IF NOT EXISTS User(
+            id STRING, 
+            name STRING, 
+            email STRING, 
+            PRIMARY KEY(id)
+          )
+        `);
+      }
+      
+      // Create Post node table
+      if (!this.schemaManager.hasTable("Post")) {
+        await this.conn!.query(`
+          CREATE NODE TABLE IF NOT EXISTS Post(
+            id STRING,
+            content STRING,
+            authorId STRING,
+            PRIMARY KEY(id)
+          )
+        `);
+      }
+      
+      // Create FOLLOWS relationship table
+      if (!this.schemaManager.hasTable("FOLLOWS")) {
+        await this.conn!.query(`
+          CREATE REL TABLE IF NOT EXISTS FOLLOWS(FROM User TO User)
+        `);
+      }
+      
+      // Create Counter node table
+      if (!this.schemaManager.hasTable("Counter")) {
+        await this.conn!.query(`
+          CREATE NODE TABLE IF NOT EXISTS Counter(
+            id STRING,
+            value INT64,
+            PRIMARY KEY(id)
+          )
+        `);
+      }
+      
+      telemetry.info("Default database schema created", {
+        clientId: this.clientId
+      });
+    } else {
+      telemetry.info("Schema already exists", {
+        nodeTables: Object.keys(schemaState.nodeTables).length,
+        edgeTables: Object.keys(schemaState.edgeTables).length,
+        clientId: this.clientId
+      });
+    }
+  }
+
+  // Query counter value
+  async queryCounter(counterId: string): Promise<number> {
+    if (!this.conn) {
+      throw new Error("Client not initialized");
+    }
+    
+    const result = await this.conn.query(`
+      MATCH (c:Counter {id: $counterId})
+      RETURN c.value as value
+    `, { counterId });
+    
+    const rows = result.getAll();
+    if (rows.length > 0 && rows[0][0] !== null) {
+      return rows[0][0];
+    }
+    return 0; // Default if counter doesn't exist
+  }
+
+  // Schema query methods
+  getSchemaVersion(): number {
+    return this.schemaManager.getSchemaVersion();
+  }
+
+  getSchemaState() {
+    return this.schemaManager.getCurrentSchema();
+  }
+
+  hasTable(tableName: string): boolean {
+    return this.schemaManager.hasTable(tableName);
+  }
+
+  hasColumn(tableName: string, columnName: string): boolean {
+    return this.schemaManager.hasColumn(tableName, columnName);
+  }
+
+  getTableSchema(tableName: string) {
+    return this.schemaManager.getTableSchema(tableName);
+  }
+
+  getSchemaSyncState() {
+    return this.schemaManager.getSyncState();
+  }
+
+  async resolveSchemaConflict(
+    conflictId: string,
+    resolution: "APPLY_FIRST" | "APPLY_LAST" | "MANUAL"
+  ): Promise<void> {
+    await this.schemaManager.resolveConflict(
+      conflictId,
+      resolution,
+      (query: string) => this.conn!.query(query)
+    );
+  }
+
+  // DDL Event Creation
+  createDDLEvent(
+    ddlType: DDLOperationType,
+    params: Record<string, any>
+  ): DDLTemplateEvent {
+    return this.schemaManager.createDDLEvent(ddlType, params);
+  }
+
+  async applyDDLEvent(event: DDLTemplateEvent): Promise<void> {
+    await this.applyEvent(event);
+  }
+
+  getAppliedDDLs(): DDLTemplateEvent[] {
+    return this.schemaManager.getAppliedDDLs();
+  }
+
+  getPendingDDLs(): DDLTemplateEvent[] {
+    return this.schemaManager.getPendingDDLs();
+  }
+
+  validateDDL(event: DDLTemplateEvent): { valid: boolean; errors: string[] } {
+    return this.schemaManager.validateDDL(event);
+  }
+
+  // Template Support
+  hasTemplate(template: string): boolean {
+    return this.extendedRegistry.hasTemplate(template);
+  }
+
+  isDDLTemplate(template: string): boolean {
+    return this.extendedRegistry.isDDLTemplate(template);
+  }
+
+  isDMLTemplate(template: string): boolean {
+    return this.extendedRegistry.isDMLTemplate(template);
+  }
+
+  getTemplateMetadata(template: string): any {
+    return this.extendedRegistry.getTemplateMetadata(template);
   }
 }
