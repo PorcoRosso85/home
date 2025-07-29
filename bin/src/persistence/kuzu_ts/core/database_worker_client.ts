@@ -165,7 +165,7 @@ export async function createDatabaseWorker(
       `Failed to create database: ${error}`,
       "create",
       path,
-      { permission_issue: false, exists: null }
+      { permission_issue: false, exists: undefined }
     );
   }
 }
