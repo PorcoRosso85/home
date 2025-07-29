@@ -5,7 +5,7 @@
  */
 
 import { SyncClient } from "./websocket/client.ts";
-import { KuzuNativeClientImpl } from "./client/kuzu_native_client.ts";
+import { KuzuTsClientImpl } from "./client/kuzu_ts_client.ts";
 import type { TemplateEvent } from "../event_sourcing/types.ts";
 import * as telemetry from "../telemetry_log.ts";
 
@@ -17,7 +17,7 @@ export interface SyncKuzuClientOptions {
 
 export class SyncKuzuClient {
   private syncClient: SyncClient;
-  private kuzuClient: KuzuNativeClientImpl;
+  private kuzuClient: KuzuTsClientImpl;
   private dmlStats = {
     sent: 0,
     received: 0,
@@ -46,8 +46,8 @@ export class SyncKuzuClient {
       reconnectDelay: options.reconnectDelay ?? 1000
     });
     
-    // KuzuDBクライアント (Native Python implementation)
-    this.kuzuClient = new KuzuNativeClientImpl();
+    // KuzuDBクライアント (TypeScript implementation)
+    this.kuzuClient = new KuzuTsClientImpl();
     
     // WebSocketイベントをKuzuDBに適用
     this.syncClient.onEvent(async (event) => {

@@ -10,6 +10,8 @@
     "@std/assert": "jsr:@std/assert@^1.0.0",
     "@std/async": "jsr:@std/async@^1.0.0",
     "kuzu-wasm": "npm:kuzu-wasm@latest",
-    "kuzu-wasm/sync": "npm:kuzu-wasm@latest/sync"
+    "kuzu-wasm/sync": "npm:kuzu-wasm@latest/sync",
+    "@kuzu-ts/": "../../persistence/kuzu_ts/",
+    "log_ts/": "../../telemetry/log_ts/"
   }
 }

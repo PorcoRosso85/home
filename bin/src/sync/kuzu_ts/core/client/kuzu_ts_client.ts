@@ -36,11 +36,9 @@ interface KuzuQueryResult {
 type DatabaseResult = KuzuDatabase | { type: string; message: string };
 type ConnectionResult = KuzuConnection | { type: string; message: string };
 
-// Dynamic import helper for kuzu_ts
+// Import from persistence/kuzu_ts using import map
 async function importKuzuTs() {
-  // Try to import from persistence/kuzu_ts
-  // This would need proper module resolution in production
-  const { createDatabase, createConnection } = await import("../../../../../../persistence/kuzu_ts/mod.ts");
+  const { createDatabase, createConnection } = await import("@kuzu-ts/mod.ts");
   return { createDatabase, createConnection };
 }
 

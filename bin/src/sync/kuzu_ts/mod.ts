@@ -19,7 +19,6 @@ export type {
 
 // Re-export implementations
 export { KuzuWasmClientImpl } from "./core/client/kuzu_wasm_client.ts";
-export { KuzuNativeClientImpl } from "./core/client/kuzu_native_client.ts";
 export { KuzuTsClientImpl } from "./core/client/kuzu_ts_client.ts";
 export { WebSocketSyncImpl } from "./core/websocket/sync.ts";
 export { TransactionalSyncAdapter } from "./core/sync/transactional_sync_adapter.ts";
