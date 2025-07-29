@@ -116,29 +116,30 @@ class TestGuardrailCypherQuery:
         row = log_result.get_next()
         assert row[0] == "test_rule"
 
-    def test_mixed_rule_types(self, meta_node):
-        """Cypherクエリベースと旧形式の混在"""
-        # Cypherクエリベースのルール
+    def test_multiple_cypher_rules(self, meta_node):
+        """複数のCypherクエリベースルールの実行"""
+        # Cypherクエリベースのルール1
         meta_node.create_guardrail_rule(
             rule_type="validation",
-            name="cypher_rule",
-            description="Cypherクエリベースのルール",
+            name="cypher_rule_1",
+            description="Cypherクエリベースのルール1",
             cypher_query="""
-                RETURN true AS passed, 'Cypher rule executed' AS message
+                RETURN true AS passed, 'Cypher rule 1 executed' AS message
             """,
             priority=1,
             active=True
         )
         
-        # 旧形式のルール（condition/action）
+        # Cypherクエリベースのルール2
         meta_node.create_guardrail_rule(
             rule_type="validation",
-            name="legacy_rule",
-            description="旧形式のルール",
+            name="cypher_rule_2",
+            description="Cypherクエリベースのルール2",
+            cypher_query="""
+                RETURN true AS passed, 'Cypher rule 2 executed' AS message
+            """,
             priority=2,
-            active=True,
-            condition="True",
-            action="log('Legacy rule executed')"
+            active=True
         )
         
         # 両方のルールを実行
@@ -150,12 +151,12 @@ class TestGuardrailCypherQuery:
         
         assert result["passed"] is True
         assert len(result["executed_rules"]) == 2
-        assert result["executed_rules"][0]["name"] == "cypher_rule"
-        assert result["executed_rules"][1]["name"] == "legacy_rule"
+        assert result["executed_rules"][0]["name"] == "cypher_rule_1"
+        assert result["executed_rules"][1]["name"] == "cypher_rule_2"
         # ログに両方のメッセージが含まれていることを確認
         logs_str = " ".join(result["logs"])
-        assert "Cypher rule executed" in logs_str
-        assert "Legacy rule executed" in logs_str
+        assert "Cypher rule 1 executed" in logs_str
+        assert "Cypher rule 2 executed" in logs_str
 
     def test_cypher_query_with_parameters(self, meta_node):
         """パラメータを使用したCypherクエリ"""

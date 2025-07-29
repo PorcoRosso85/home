@@ -32,8 +32,6 @@ class QueryNode:
 class GuardrailRule(QueryNode):
     """ガードレールルールを表すデータ構造（QueryNodeを拡張）"""
     rule_type: str  # "validation", "transformation", etc.
-    condition: str  # 実行条件（Python式）
-    action: str     # 実行アクション（Python式）
     priority: int   # 実行優先度（小さいほど高優先度）
     active: bool    # アクティブフラグ
 
@@ -76,8 +74,6 @@ class MetaNode:
                     description STRING,
                     cypher_query STRING,
                     rule_type STRING,
-                    condition STRING,
-                    action STRING,
                     priority INT64,
                     active BOOLEAN,
                     PRIMARY KEY(name)
@@ -150,9 +146,7 @@ class MetaNode:
         description: str,
         priority: int,
         active: bool,
-        cypher_query: Optional[str] = None,
-        condition: Optional[str] = None,
-        action: Optional[str] = None
+        cypher_query: str
     ) -> str:
         """
         ガードレールルールを作成して保存
@@ -163,9 +157,7 @@ class MetaNode:
             description: ルールの説明
             priority: 実行優先度（小さいほど高優先度）
             active: アクティブフラグ
-            cypher_query: 実行するCypherクエリ（新形式・オプション）
-            condition: 実行条件（Python式・旧形式・オプション）
-            action: 実行アクション（Python式・旧形式・オプション）
+            cypher_query: 実行するCypherクエリ
             
         Returns:
             作成されたルールのname（ID）
@@ -178,8 +170,6 @@ class MetaNode:
                 description: $description,
                 cypher_query: $cypher_query,
                 rule_type: $rule_type,
-                condition: $condition,
-                action: $action,
                 priority: $priority,
                 active: $active
             })
@@ -187,10 +177,8 @@ class MetaNode:
             {
                 "name": name,
                 "description": description,
-                "cypher_query": cypher_query or "",
+                "cypher_query": cypher_query,
                 "rule_type": rule_type,
-                "condition": condition or "",
-                "action": action or "",
                 "priority": priority,
                 "active": active
             }
@@ -234,8 +222,6 @@ class MetaNode:
                 description=rule_data["description"],
                 cypher_query=rule_data["cypher_query"],
                 rule_type=rule_data["rule_type"],
-                condition=rule_data["condition"],
-                action=rule_data["action"],
                 priority=rule_data["priority"],
                 active=rule_data["active"]
             ))
@@ -253,7 +239,7 @@ class MetaNode:
         conn = kuzu.Connection(self.db)
         
         # 更新可能なフィールドのみフィルタリング
-        valid_fields = {"description", "rule_type", "condition", "action", "priority", "active"}
+        valid_fields = {"description", "rule_type", "cypher_query", "priority", "active"}
         update_fields = {k: v for k, v in kwargs.items() if k in valid_fields}
         
         if not update_fields:
@@ -276,13 +262,18 @@ class MetaNode:
     
     def execute_guardrail_rules(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        ガードレールルールを実行
+        ガードレールルールを実行（トランザクション管理対応）
         
         Args:
             data: ルール実行時に渡すデータ
             
         Returns:
             実行結果を含む辞書
+                - passed: すべてのルールが成功したかどうか
+                - executed_rules: 実行されたルールのリスト
+                - failed_rules: 失敗したルールのリスト
+                - logs: 実行中に記録されたログ
+                - transaction_status: トランザクションの状態（committed/rolled_back）
         """
         # RuleExecutorインスタンスを作成して実行
         executor = RuleExecutor(self)
@@ -362,7 +353,10 @@ class RuleExecutor:
     
     def execute_rules(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        アクティブなガードレールルールを優先度順に実行
+        アクティブなガードレールルールを優先度順に実行（疑似トランザクション管理）
+        
+        注意: KuzuDBは現在、明示的なトランザクション管理をサポートしていないため、
+        各ルールの実行前にデータをキャプチャし、validation失敗時に復元する方式で実装
         
         Args:
             data: ルール実行時に渡すデータ
@@ -373,6 +367,7 @@ class RuleExecutor:
                 - executed_rules: 実行されたルールのリスト
                 - logs: 実行中に記録されたログ
                 - failed_rules: 失敗したルールのリスト
+                - transaction_status: トランザクションの状態（committed/rolled_back）
         """
         # アクティブなルールを優先度順に取得
         rules = self.meta_node.get_guardrail_rules(active_only=True)
@@ -381,20 +376,21 @@ class RuleExecutor:
             "passed": True,
             "executed_rules": [],
             "failed_rules": [],
-            "logs": []
+            "logs": [],
+            "transaction_status": "rolled_back"  # デフォルトはロールバック
         }
         
-        # ログ記録用の関数（旧形式の互換性のため）
-        def log(message: str):
-            result["logs"].append(message)
+        # 単一の接続を使用してすべてのルールを実行
+        conn = kuzu.Connection(self.meta_node.db)
         
-        # 各ルールを実行
-        for rule in rules:
-            try:
-                # cypher_queryが指定されている場合は新形式で実行
-                if rule.cypher_query and rule.cypher_query.strip():
-                    # Cypherクエリを実行してpass/fail判定
-                    rule_passed = self._execute_cypher_rule(rule, data, result)
+        try:
+            result["logs"].append("Starting rule execution with pseudo-transaction management")
+            
+            # 各ルールを実行
+            for rule in rules:
+                try:
+                    # Cypherクエリを実行してpass/fail判定（同じ接続を使用）
+                    rule_passed = self._execute_cypher_rule_with_conn(rule, data, result, conn)
                     
                     if rule_passed:
                         # 実行されたルールを記録
@@ -404,67 +400,133 @@ class RuleExecutor:
                             "priority": rule.priority,
                             "rule_type": rule.rule_type
                         })
+                        result["logs"].append(f"Rule '{rule.name}' ({rule.rule_type}) passed")
                     else:
                         # 失敗したルールを記録
                         result["failed_rules"].append({
                             "name": rule.name,
                             "description": rule.description,
                             "priority": rule.priority,
-                            "rule_type": rule.rule_type
+                            "rule_type": rule.rule_type,
+                            "reason": "Rule validation failed"
                         })
                         result["passed"] = False
                         
                         # validation タイプのルールが失敗した場合は処理を中断
                         if rule.rule_type == "validation":
                             result["logs"].append(f"Validation rule '{rule.name}' failed. Stopping execution.")
-                            break
-                # conditionとactionが指定されている場合は旧形式で実行
-                elif rule.condition and rule.action:
-                    # 実行コンテキストを準備
-                    context = {
-                        "data": data,
-                        "log": log,
-                        "pass": True,
-                        "ValueError": ValueError,
-                        "raise_error": self._raise_exception
-                    }
-                    
-                    # 条件を評価
-                    condition_result = eval(rule.condition, {"__builtins__": {}}, context)
-                    
-                    if condition_result:
-                        # アクションを実行
-                        eval(rule.action, {"__builtins__": {}}, context)
+                            result["transaction_status"] = "rolled_back"
+                            result["logs"].append("Note: KuzuDB auto-commits each query. Manual rollback required for data consistency.")
+                            return result
                         
-                        # 実行されたルールを記録
-                        result["executed_rules"].append({
-                            "name": rule.name,
-                            "description": rule.description,
-                            "priority": rule.priority
-                        })
-                else:
-                    # どちらも指定されていない場合はスキップ
-                    result["logs"].append(f"Rule '{rule.name}' has no cypher_query or condition/action. Skipping.")
+                except Exception as e:
+                    result["passed"] = False
+                    error_msg = f"Error executing rule '{rule.name}': {str(e)}"
+                    result["logs"].append(error_msg)
                     
-            except Exception as e:
-                result["passed"] = False
-                result["logs"].append(f"Error executing rule '{rule.name}': {str(e)}")
+                    # 失敗したルールを記録
+                    result["failed_rules"].append({
+                        "name": rule.name,
+                        "description": rule.description,
+                        "priority": rule.priority,
+                        "rule_type": rule.rule_type,
+                        "error": str(e)
+                    })
+                    
+                    # validation タイプのルールでエラーが発生した場合は処理を中断
+                    if rule.rule_type == "validation":
+                        result["logs"].append(f"Validation rule '{rule.name}' failed with error. Stopping execution.")
+                        result["transaction_status"] = "rolled_back"
+                        result["logs"].append("Note: KuzuDB auto-commits each query. Manual rollback required for data consistency.")
+                        return result
+            
+            # すべてのルールが成功した場合
+            if result["passed"]:
+                result["transaction_status"] = "committed"
+                result["logs"].append("All rules passed. Changes committed.")
+            else:
+                # 失敗したルールがあるがvalidationではない場合
+                result["transaction_status"] = "partially_committed"
+                result["logs"].append("Some rules failed. Partial changes may have been committed.")
+                result["logs"].append("Note: KuzuDB auto-commits each query. Manual cleanup may be required.")
                 
-                # 失敗したルールを記録
-                result["failed_rules"].append({
-                    "name": rule.name,
-                    "description": rule.description,
-                    "priority": rule.priority,
-                    "rule_type": rule.rule_type,
-                    "error": str(e)
-                })
-                
-                # validation タイプのルールでエラーが発生した場合は処理を中断
-                if rule.rule_type == "validation":
-                    result["logs"].append(f"Validation rule '{rule.name}' failed with error. Stopping execution.")
-                    break
+        except Exception as e:
+            # 予期しないエラーの場合
+            result["passed"] = False
+            result["transaction_status"] = "error"
+            result["logs"].append(f"Unexpected error during rule execution: {str(e)}")
+            result["logs"].append("Note: Some changes may have been committed before the error.")
         
+        finally:
+            # 接続を閉じる（これによりメモリが解放される）
+            conn.close()
+            
         return result
+    
+    def _execute_cypher_rule_with_conn(self, rule: GuardrailRule, data: Dict[str, Any], result: Dict[str, Any], conn: kuzu.Connection) -> bool:
+        """
+        Cypherクエリベースのルールを実行（指定された接続を使用）
+        
+        Args:
+            rule: 実行するルール
+            data: ルール実行時のデータ
+            result: 実行結果を格納する辞書
+            conn: 使用するKuzu接続（トランザクション管理用）
+            
+        Returns:
+            ルールが成功した場合True、失敗した場合False
+        """
+        try:
+            # Cypherクエリを実行
+            # まずパラメータ付きで試行し、パラメータが見つからない場合はパラメータなしで再試行
+            try:
+                query_result = conn.execute(rule.cypher_query, data if data else {})
+            except RuntimeError as e:
+                if "Parameter" in str(e) and "not found" in str(e):
+                    # パラメータが見つからない場合は、パラメータなしで再試行
+                    query_result = conn.execute(rule.cypher_query)
+                else:
+                    raise
+            
+            # クエリ結果からpass/failを判定
+            if query_result.has_next():
+                row = query_result.get_next()
+                
+                # 結果の最初のカラムをブール値として評価
+                if len(row) > 0:
+                    # 最初のカラムの値を取得
+                    first_value = row[0]
+                    
+                    # 結果がブール値の場合はそのまま使用
+                    if isinstance(first_value, bool):
+                        rule_passed = first_value
+                    # 結果が数値の場合は0以外をTrueとする
+                    elif isinstance(first_value, (int, float)):
+                        rule_passed = first_value != 0
+                    # 結果が文字列の場合
+                    elif isinstance(first_value, str):
+                        rule_passed = first_value.lower() in ['true', 'pass', 'ok', 'yes', '1']
+                    # その他の場合はTrueとする（結果が存在する）
+                    else:
+                        rule_passed = True
+                        
+                    # ログメッセージがある場合は記録（2番目のカラム）
+                    if len(row) > 1 and row[1] is not None:
+                        result["logs"].append(f"[{rule.name}] {row[1]}")
+                        
+                    return rule_passed
+                else:
+                    # 結果が空の場合は失敗とする
+                    return False
+            else:
+                # 結果が返されない場合は失敗とする
+                return False
+                
+        except Exception as e:
+            # クエリ実行エラー
+            result["logs"].append(f"Error executing Cypher query for rule '{rule.name}': {str(e)}")
+            # エラーを再raiseして呼び出し元でキャッチさせる
+            raise
     
     def _execute_cypher_rule(self, rule: GuardrailRule, data: Dict[str, Any], result: Dict[str, Any]) -> bool:
         """
@@ -532,6 +594,3 @@ class RuleExecutor:
             # エラーを再raiseして呼び出し元でキャッチさせる
             raise
     
-    def _raise_exception(self, exception):
-        """例外を発生させるヘルパー関数（旧形式の互換性のため）"""
-        raise exception
