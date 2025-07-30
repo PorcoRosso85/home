@@ -1,5 +1,5 @@
 {
-  description = "ctags-based code analysis tool with KuzuDB persistence";
+  description = "ctags-based code analysis library with KuzuDB persistence";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -8,24 +8,76 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, python-flake }:
-    flake-utils.lib.eachDefaultSystem (system:
+    let
+      # Define overlay for library usage
+      overlay = final: prev: {
+        pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+          (python-final: python-prev: {
+            tags-in-dir = python-final.buildPythonPackage rec {
+              pname = "tags-in-dir";
+              version = "0.1.0";
+              src = ./.;
+              
+              propagatedBuildInputs = with python-final; [
+                kuzu
+              ];
+              
+              buildInputs = with python-final; [
+                pytest
+              ];
+              
+              # No setup.py, so we need to manually install
+              format = "other";
+              
+              installPhase = ''
+                mkdir -p $out/${python-final.python.sitePackages}/tags_in_dir
+                cp tags_in_dir.py $out/${python-final.python.sitePackages}/tags_in_dir/__init__.py
+                cp kuzu_storage.py $out/${python-final.python.sitePackages}/tags_in_dir/
+                cp call_detector.py $out/${python-final.python.sitePackages}/tags_in_dir/
+                cp analysis_queries.py $out/${python-final.python.sitePackages}/tags_in_dir/
+              '';
+              
+              pythonImportsCheck = [ "tags_in_dir" ];
+              
+              meta = with prev.lib; {
+                description = "ctags-based code analysis library with KuzuDB persistence";
+                license = licenses.mit;
+              };
+            };
+          })
+        ];
+      };
+    in
+    {
+      # Export the overlay at the top level (not per-system)
+      overlays.default = overlay;
+    } // flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        # Apply our overlay to get the extended Python packages
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ overlay ];
+        };
         
-        # Inherit Python environment from parent flake and extend it
-        pythonEnv = pkgs.python312.withPackages (ps: with ps; [
+        # Get Python environment from parent flake
+        pythonBase = python-flake.packages.${system}.pythonEnv;
+        
+        # Create Python environment with our package and test dependencies
+        pythonEnv = pkgs.python3.withPackages (ps: with ps; [
+          tags-in-dir
           pytest
           kuzu
         ]);
         
-        # Package definition for tags_in_dir (placeholder)
-        tagsInDirPackage = pkgs.writeScriptBin "tags-in-dir" ''
-          #!${pythonEnv}/bin/python
-          print("tags_in_dir - ctags-based code analysis with KuzuDB")
-          print("Implementation pending...")
-        '';
       in
       {
+        
+        # Provide the Python environment as the main output
+        packages = {
+          default = pythonEnv;  # Python environment with the library installed
+        };
+        
+        
         # Development shell
         devShells.default = pkgs.mkShell {
           buildInputs = [
@@ -38,13 +90,19 @@
           
           shellHook = ''
             echo "tags_in_dir development environment"
-            echo "Available commands:"
+            echo "Library is available as Python package: tags_in_dir"
+            echo ""
+            echo "Python usage:"
+            echo "  from tags_in_dir import CtagsParser, Symbol"
+            echo "  from tags_in_dir.kuzu_storage import KuzuStorage"
+            echo "  from tags_in_dir.call_detector import CallDetector"
+            echo ""
+            echo "Available tools:"
             echo "  ctags - Universal Ctags for code analysis"
-            echo "  python - Python with kuzu and pytest"
+            echo "  python - Python with tags_in_dir library"
             echo "  pytest - Run tests"
-            echo "  ruff - Python linter"
-            echo "  black - Python formatter"
-            echo "  mypy - Python type checker"
+            echo "  ruff/black - Python formatting"
+            echo "  mypy - Type checker"
           '';
         };
         
@@ -56,7 +114,18 @@
             program = let
               appNames = builtins.attrNames (removeAttrs self.apps.${system} ["default"]);
               helpText = ''
-                tags_in_dir: ctags-based code analysis with KuzuDB
+                tags_in_dir: ctags-based code analysis library
+                
+                This is a library package. Import it in your Python code:
+                  from tags_in_dir import CtagsParser, Symbol
+                  from tags_in_dir.kuzu_storage import KuzuStorage
+                  from tags_in_dir.call_detector import CallDetector
+                
+                Or use it in another flake:
+                  inputs.tags-in-dir.url = "path:/home/nixos/bin/src/poc/tags_in_dir";
+                  
+                  # Then use the Python environment:
+                  pythonEnv = tags-in-dir.packages.''${system}.default;
                 
                 Available commands:
                 ${builtins.concatStringsSep "\n" (map (name: "  nix run .#${name}") appNames)}
@@ -68,11 +137,6 @@
             ''}";
           };
           
-          # Main application
-          tags-in-dir = {
-            type = "app";
-            program = "${tagsInDirPackage}/bin/tags-in-dir";
-          };
           
           # Test runner
           test = {
@@ -81,6 +145,7 @@
               # Run in source directory
               cd ${./.}
               export PATH="${pkgs.universal-ctags}/bin:$PATH"
+              export PYTHONPATH="${pythonEnv}/${pythonEnv.python.sitePackages}:$PYTHONPATH"
               exec ${pythonEnv}/bin/pytest -v "$@"
             ''}";
           };
@@ -120,9 +185,23 @@
               ${pkgs.mypy}/bin/mypy *.py
             ''}";
           };
+          
+          # Example usage demonstration
+          example = {
+            type = "app";
+            program = "${pkgs.writeShellScript "example" ''
+              ${pythonEnv}/bin/python ${./example_integration.py}
+            ''}";
+          };
+          
+          # Generate command for processing URIs
+          generate = {
+            type = "app";
+            program = "${pkgs.writeShellScript "generate" ''
+              export PATH="${pkgs.universal-ctags}/bin:$PATH"
+              exec ${pythonEnv}/bin/python ${./cli.py} "$@"
+            ''}";
+          };
         };
-        
-        # Package export
-        packages.default = tagsInDirPackage;
       });
 }

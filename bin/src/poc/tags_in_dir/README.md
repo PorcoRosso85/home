@@ -1,5 +1,7 @@
 # tags_in_dir
 
+A Nix flake library for ctags-based code analysis with KuzuDB graph persistence.
+
 ctagsを使用してディレクトリ配下のコードベースを解析し、KuzuDBに永続化するツール。
 
 ## 目的
@@ -28,6 +30,49 @@ ctagsを使用してディレクトリ配下のコードベースを解析し、
 - Symbol間の呼び出し関係を表現
 - from_symbol -[CALLS]-> to_symbol
 - **line_number**: 呼び出しが発生した行番号（オプション）
+
+## Library Usage (Nix Flake)
+
+### Using in Another Flake
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    tags-in-dir.url = "path:/home/nixos/bin/src/poc/tags_in_dir";
+  };
+
+  outputs = { self, nixpkgs, tags-in-dir }:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ tags-in-dir.overlays.default ];
+      };
+      
+      pythonEnv = pkgs.python3.withPackages (ps: [
+        ps.tags-in-dir
+        # other dependencies
+      ]);
+    in
+    {
+      # Your flake outputs using tags-in-dir
+    };
+}
+```
+
+### CLI Usage
+
+```bash
+# Run the CLI
+nix run path:/home/nixos/bin/src/poc/tags_in_dir#cli -- /path/to/analyze
+
+# Run tests
+nix run path:/home/nixos/bin/src/poc/tags_in_dir#test
+
+# Enter development shell
+nix develop path:/home/nixos/bin/src/poc/tags_in_dir
+```
 
 ## 使用方法
 
