@@ -2,10 +2,35 @@
  * KuzuDB Worker Process
  * 
  * npm:kuzuを別プロセスで実行し、パニックを隔離
+ * 
+ * NOTE: なぜWorker実装が必要か
+ * =====================================================
+ * npm:kuzuはネイティブNode.jsモジュール（C++バインディング）であり、
+ * Denoで直接実行すると以下の問題が発生します：
+ * 
+ * 1. **Denoパニック問題**
+ *    - エラー: "Fatal error in :0: Check failed: heap->isolate() == Isolate::TryGetCurrent()"
+ *    - 原因: V8 Isolateのライフサイクル不整合
+ *    - 影響: メインプロセス全体がクラッシュ
+ * 
+ * 2. **プロジェクト間利用の制約**
+ *    - Workerは呼び出し元のコンテキストで実行される
+ *    - 外部プロジェクトもnpm:kuzu@0.10.0を持つ必要がある
+ *    - バージョン不一致でモジュール解決エラー
+ * 
+ * 3. **代替案とその問題**
+ *    - WASM版: Denoの"Classic workers are not supported"エラー
+ *    - 直接import: 上記のDenoパニックが発生
+ * 
+ * 将来的な解決策：
+ * - Deno FFI (Foreign Function Interface) でlibkuzu.soを直接呼び出し
+ * - これによりnpm依存とWorker実装が不要になる
+ * =====================================================
  */
 
 // ワーカー内ではnpm:kuzuを直接使用
-import { Database, Connection } from "npm:kuzu";
+// NOTE: Version should match KUZU_VERSION in ../version.ts
+import { Database, Connection } from "npm:kuzu@0.10.0";
 
 interface WorkerMessage {
   id: string;

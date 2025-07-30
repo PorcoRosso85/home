@@ -2,6 +2,9 @@
 export { createDatabase, createConnection } from "./core/database.ts";
 export type { DatabaseOptions } from "./core/database.ts";
 
+// Version
+export { KUZU_VERSION } from "./version.ts";
+
 // Configuration and variables
 export {
   DEFAULT_DB_MAX_SIZE,
@@ -45,6 +48,4 @@ export type {
 export {
   isDatabase,
   isConnection,
-  isFileOperationError,
-  isValidationError,
 } from "./core/result_types.ts";

@@ -2,6 +2,21 @@
  * KuzuDB Worker Client
  * 
  * ワーカープロセスと通信するクライアント実装
+ * 
+ * NOTE: Worker APIを使用する理由
+ * =====================================================
+ * このファイルはWorkerプロセスへのプロキシとして機能します。
+ * 
+ * なぜプロキシパターンが必要か：
+ * 1. **プロセス分離**: npm:kuzuのクラッシュをWorker内に隔離
+ * 2. **非同期通信**: Worker APIはメッセージベースの非同期通信のみサポート
+ * 3. **型安全性**: TypeScriptの型を維持しながらWorkerと通信
+ * 
+ * 制約事項：
+ * - すべての操作は非同期（Promise）になる
+ * - シリアライズ可能なデータのみ送受信可能
+ * - Worker起動時のオーバーヘッドがある
+ * =====================================================
  */
 import type { DatabaseResult, ConnectionResult } from "./result_types.ts";
 import { createValidationError, createFileOperationError } from "./errors.ts";

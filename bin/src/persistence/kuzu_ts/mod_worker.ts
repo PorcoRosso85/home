@@ -5,6 +5,18 @@
  * All database operations run in a separate worker thread, preventing any
  * potential crashes from affecting the main application.
  * 
+ * NOTE: このモジュールが推奨される理由
+ * =====================================================
+ * 1. **安定性**: npm:kuzuのクラッシュがメインプロセスに影響しない
+ * 2. **互換性**: Denoのnpm:サポートの制限を回避
+ * 3. **将来性**: FFI実装への移行パスを提供
+ * 
+ * 使用上の注意：
+ * - 外部プロジェクトでもnpm:kuzu@0.10.0が必要
+ * - KUZU_VERSIONをインポートして適切なバージョンを使用
+ * - 詳細はe2e/external/README.mdを参照
+ * =====================================================
+ * 
  * @module
  */
 
@@ -16,6 +28,9 @@ export {
   WorkerDatabase,
   WorkerConnection,
 } from "./core/database_worker_client.ts";
+
+// Re-export version
+export { KUZU_VERSION } from "./version.ts";
 
 // Re-export configuration and types
 export {
