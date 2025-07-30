@@ -10,13 +10,15 @@
 - **`TODO`/`FIXME`コメント**: タスク管理はIssueトラッカーで行うべきです。コード内に未完了のタスクを示すコメントを残してはいけません。
 - **ダミー実装・モック**: 本番コード内に、テスト用のダミー実装やモックを含めること。
 - **クラスベースOOP**: [設計原則](./design_principles.md) に従い、データと振る舞いを分離した関数型スタイルを優先します。
+- **シェルベースの独自実装**: flake.nix内でのシェルスクリプトによる機能実装。必要な機能は適切なNixパッケージまたはflake inputとして実装すること。
+- **print文の使用**: Pythonでの`print()`使用。構造化ログ出力には`bin/src/telemetry/*/log_py`を使用すること。
 
 ## 言語別
 
 | 言語 | 禁止事項 |
 | :--- | :--- |
 | **TypeScript** | `any` 型の使用, `@ts-ignore` コメント, `interface` の使用 (`type` を使用), CommonJS (`require`/`module.exports`) |
-| **Python** | `"type: ignore"` コメント, `import *` |
+| **Python** | `"type: ignore"` コメント, `import *`, Pythonファイル間の直接import（flake.nix経由のモジュール化を使用すること） |
 | **Go** | `main` パッケージ以外での `panic` の使用, 複雑な `init` 関数 |
 | **Rust** | 本番コードでの `.unwrap()` や `.expect()` の使用, 過剰な `unsafe` ブロック |
 | **Zig** | デバッグ目的以外での `unreachable` の使用 |
