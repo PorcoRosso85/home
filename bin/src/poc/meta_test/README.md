@@ -118,3 +118,27 @@ To add a new evaluation aspect:
 1. Prove it cannot be expressed by existing 7 metrics
 2. Add as 8th metric in domain/metrics/
 3. No need to redefine or categorize existing metrics
+
+## Q&A
+
+### Q: 改善するテストはどうやって特定される？
+A: 各指標に0.7（70%）の閾値を設定し、閾値未満のテストを改善対象として特定します。例えば、boundary_coverage = 0.4 の場合、「境界値テストが不足」として検出されます。
+
+### Q: ビジネス価値の優先順位付けは誰が行う？
+A: ビジネス価値（例：100万円削減）は**外部から与えられる前提**です。このシステムはビジネス価値を定義せず、テストとビジネス価値の**相関を測定**することに専念します。
+
+### Q: 優先順位付けの基準は？
+A: Impact（影響度）× Effort（工数）のマトリクスで判定します：
+- **Quick Wins**: 高インパクト × 低工数（例：テスト追加、説明文更新）
+- **Critical**: インパクト最大、工数不問（例：テストゼロ、実行不可）
+
+### Q: 「継続的」とは具体的に何を指す？
+A: 日次学習サイクルによるベイズ更新を指します：
+- Day 1: runtime_correlation = 0.5（初期推定）
+- Day 7: runtime_correlation = 0.65（実績で更新）
+- Day 30: runtime_correlation = 0.72（収束）
+
+cronで`nix run .#learn`を日次実行、またはCIでテスト後に自動更新されます。
+
+### Q: 可視化機能はある？
+A: 現在は数値での出力のみです。可視化は将来の拡張として検討可能ですが、現時点ではスコープ外です。
