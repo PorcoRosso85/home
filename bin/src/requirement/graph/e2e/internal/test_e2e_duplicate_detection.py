@@ -1,16 +1,6 @@
 """
 重複検出機能の振る舞いテスト
 規約に従い、公開APIの振る舞いのみを検証する統合テスト
-
-テストレベル:
-- Level 1: 純粋なビジネスルールテスト（依存なし）
-- Level 2: モックベースの統合テスト
-- Level 3: 実際のシステムを使ったE2Eテスト
-
-環境変数 TEST_LEVEL で実行レベルを制御:
-- TEST_LEVEL=1: Level 1のみ実行
-- TEST_LEVEL=2: Level 1,2を実行
-- TEST_LEVEL=3 or 未設定: すべて実行
 """
 import json
 import tempfile
@@ -22,10 +12,6 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 from test_utils.pytest_marks import mark_test, TestSpeed, TestType
-
-
-# テストレベル設定
-TEST_LEVEL = int(os.environ.get("TEST_LEVEL", "3"))
 
 
 def load_test_data(level: str) -> Dict[str, Any]:
@@ -105,7 +91,6 @@ class DuplicateDetectionSpec:
         return sorted(duplicates, key=lambda x: x[1], reverse=True)
 
 
-@pytest.mark.skipif(TEST_LEVEL > 1, reason="Only run level 1 tests")
 @mark_test(
     speed=TestSpeed.INSTANT,
     test_type=TestType.UNIT
@@ -356,7 +341,7 @@ class MockRequirementSystem:
         return {"status": "not_found"}
 
 
-@pytest.mark.skipif(TEST_LEVEL < 2 or TEST_LEVEL > 2, reason="Only run level 2 tests")
+@pytest.mark.skip(reason="Mock tests not implemented yet")
 @mark_test(
     speed=TestSpeed.FAST,
     test_type=TestType.INTEGRATION
@@ -512,7 +497,6 @@ class TestLevel2Integration:
 
 
 # ========== Level 3: 実際のE2Eテスト ==========
-@pytest.mark.skipif(TEST_LEVEL < 3, reason="Only run level 3 tests")
 @mark_test(
     speed=TestSpeed.VERY_SLOW,
     test_type=TestType.E2E

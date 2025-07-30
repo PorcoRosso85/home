@@ -122,8 +122,9 @@ Phase 5.11完了により、以下の機能を提供：
 # 開発環境
 nix develop
 
-# テスト実行（必須方法 - 直接pytestは禁止）
-nix run .#test
+# テスト実行
+nix run .#test              # 全テスト
+nix run .#test -m "not slow"  # E2E以外（開発用、3秒以内）
 
 # 実行
 nix run .#run

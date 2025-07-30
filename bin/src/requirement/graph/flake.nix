@@ -39,6 +39,8 @@
           # 開発ツール
           ps.pytest-xdist
           ps.hypothesis
+          # JSON出力用
+          ps.pytest-json-report
         ]);
         
         # 共通の実行ラッパー
@@ -69,193 +71,12 @@
             ''}";
           };
           
+          # テストコマンドは1つだけ
           test = {
             type = "app";
             program = "${mkRunner "test" ''
               export RGL_SKIP_SCHEMA_CHECK="true"
               exec ${pythonEnv}/bin/pytest "$@"
-            ''}";
-          };
-          
-          "test-db" = {
-            type = "app";
-            program = "${mkRunner "test-db" ''
-              DB_FILE="test_$(date +%Y%m%d_%H%M%S).db"
-              echo "🦆 Running tests with DuckDB persistence to: $DB_FILE"
-              
-              export RGL_SKIP_SCHEMA_CHECK="true"
-              
-              # Run pytest and capture all output
-              ${pythonEnv}/bin/pytest -xvs --tb=short "$@" 2>&1 | tee test_output.log
-              
-              # Import all pytest output to DuckDB
-              ${pkgs.duckdb}/bin/duckdb "$DB_FILE" -c "
-                CREATE TABLE test_output AS 
-                SELECT 
-                  ROW_NUMBER() OVER () as line_no,
-                  line as line_text,
-                  CURRENT_TIMESTAMP as timestamp
-                FROM read_csv_auto('test_output.log', columns={'line': 'VARCHAR'});
-              "
-              
-              echo "✅ Saved to $DB_FILE"
-            ''}";
-          };
-          
-          "test.up" = {
-            type = "app";
-            program = "${mkRunner "test-up" ''
-              echo "🚀 Setting up test environment..."
-              
-              # テスト用DBディレクトリの作成
-              export RGL_DB_PATH="/tmp/test_rgl_db"
-              mkdir -p "$RGL_DB_PATH"
-              
-              # 既存のテストDBをバックアップ（存在する場合）
-              if [ -d "$RGL_DB_PATH" ] && [ "$(ls -A $RGL_DB_PATH 2>/dev/null)" ]; then
-                echo "📦 Backing up existing test database..."
-                rm -rf "$RGL_DB_PATH.bak"
-                mv "$RGL_DB_PATH" "$RGL_DB_PATH.bak"
-                mkdir -p "$RGL_DB_PATH"
-              fi
-              
-              # テスト用スキーマの適用
-              echo "📊 Applying test schema..."
-              export RGL_SKIP_SCHEMA_CHECK="true"
-              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python main.py
-              
-              echo "✅ Test environment is ready!"
-              echo "   DB Path: $RGL_DB_PATH"
-            ''}";
-          };
-          
-          "test.down" = {
-            type = "app";
-            program = "${mkRunner "test-down" ''
-              echo "🧹 Cleaning up test environment..."
-              
-              export RGL_DB_PATH="/tmp/test_rgl_db"
-              
-              # テストDBの削除
-              if [ -d "$RGL_DB_PATH" ]; then
-                echo "🗑️  Removing test database at $RGL_DB_PATH..."
-                rm -rf "$RGL_DB_PATH"
-              fi
-              
-              # バックアップの復元（オプション）
-              if [ -d "$RGL_DB_PATH.bak" ]; then
-                echo "♻️  Found backup database"
-                read -p "Restore backup? (y/N) " -n 1 -r
-                echo
-                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                  mv "$RGL_DB_PATH.bak" "$RGL_DB_PATH"
-                  echo "✅ Backup restored"
-                else
-                  rm -rf "$RGL_DB_PATH.bak"
-                  echo "🗑️  Backup removed"
-                fi
-              fi
-              
-              # その他のテスト成果物のクリーンアップ
-              echo "🧹 Cleaning up test artifacts..."
-              find . -name "*.pyc" -delete
-              find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-              find . -name ".pytest_cache" -type d -exec rm -rf {} + 2>/dev/null || true
-              
-              echo "✅ Test environment cleaned up!"
-            ''}";
-          };
-          
-          test-help = {
-            type = "app";
-            program = "${pkgs.writeShellScript "test-help" ''
-              cat << 'EOF'
-📊 Test Runner Commands
-
-基本コマンド:
-  nix run .#test                    # 通常のテスト実行
-  nix run .#test-timed              # 実行時間付きテスト
-  nix run .#test-fast               # 高速テストのみ（@pytest.mark.slowを除外）
-
-DuckDBへの永続化:
-  # テスト結果をDuckDBに保存（堅牢な行単位インポート）
-  nix run .#test-timed 2>&1 | nix run nixpkgs#duckdb -- test.db -c "
-    CREATE OR REPLACE TABLE raw_output (line_text VARCHAR);
-    INSERT INTO raw_output 
-    SELECT * FROM read_csv('/dev/stdin', columns={'line_text': 'VARCHAR'}, auto_detect=false);
-  "
-
-  # より詳細な構造化データ保存
-  nix run .#test-timed 2>&1 | duckdb test.db -c "
-    CREATE TABLE IF NOT EXISTS test_output (
-      session_id UUID DEFAULT gen_random_uuid(),
-      line_no BIGINT,
-      line_text VARCHAR,
-      inserted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-    );
-    INSERT INTO test_output (line_no, line_text)
-    SELECT ROW_NUMBER() OVER (), column0
-    FROM read_csv('/dev/stdin', delim='\n', header=false);
-  "
-
-分析の実行:
-  # 保存したデータを分析
-  duckdb test.db < analysis/slow_tests.sql
-  duckdb test.db < analysis/test_durations.sql
-
-使用例:
-  # 特定のテストを計測付きで実行
-  nix run .#test-timed -- tests/test_foo.py
-
-  # 特定のテストパターンのみ実行
-  nix run .#test-timed -- -k "test_requirement"
-
-  # 実行時間を永続化して分析
-  nix run .#test-timed 2>&1 | duckdb results.db -c "..."
-  duckdb results.db -c "SELECT * FROM raw_output WHERE column0 LIKE '%slowest durations%' LIMIT 10"
-
-マーキング:
-  # テストに@pytest.mark.slowを付けることで、test-fastから除外可能
-  @pytest.mark.slow
-  def test_heavy_computation():
-      ...
-
-詳細は analysis/README.md を参照
-EOF
-            ''}";
-          };
-          
-          test-timed = {
-            type = "app";
-            program = "${mkRunner "test-timed" ''
-              export RGL_SKIP_SCHEMA_CHECK="true"
-              echo "⏱️  Running tests with timing information..."
-              exec ${pythonEnv}/bin/pytest --durations=0 "$@"
-            ''}";
-          };
-          
-          test-fast = {
-            type = "app";
-            program = "${mkRunner "test-fast" ''
-              export RGL_SKIP_SCHEMA_CHECK="true"
-              echo "🚀 Running fast tests only (excluding @pytest.mark.slow)..."
-              exec ${pythonEnv}/bin/pytest -m "not slow" "$@"
-            ''}";
-          };
-          
-          test-with-db = {
-            type = "app";
-            program = "${mkRunner "test-with-db" ''
-              echo "⚠️  'nix run .#test-with-db' は非推奨です。"
-              echo ""
-              echo "新しい方法を使用してください:"
-              echo "  nix run .#test-timed              # 実行時間付きテスト"
-              echo "  nix run .#test-help               # 詳細なヘルプを表示"
-              echo ""
-              echo "DuckDBへの永続化:"
-              echo "  nix run .#test-timed 2>&1 | duckdb test.db -c \"CREATE TABLE raw_output AS SELECT * FROM read_csv('/dev/stdin', delim='\\n', header=false);\""
-              echo ""
-              exit 1
             ''}";
           };
           
@@ -297,71 +118,47 @@ EOF
           lint = {
             type = "app";
             program = "${mkRunner "lint" ''
-              echo "🔍 Running linter (ruff)..."
-              exec ${pkgs.ruff}/bin/ruff check . "$@"
+              echo "🔍 Running linters..."
+              ${pkgs.ruff}/bin/ruff check . || exit 1
+              echo "✅ All checks passed!"
             ''}";
           };
           
-          "lint.fix" = {
+          type-check = {
             type = "app";
-            program = "${mkRunner "lint-fix" ''
-              echo "🔧 Running linter with auto-fix..."
-              exec ${pkgs.ruff}/bin/ruff check --fix . "$@"
+            program = "${mkRunner "type-check" ''
+              echo "🔍 Running type checks..."
+              ${pythonEnv}/bin/python -m mypy . --ignore-missing-imports || exit 1
+              echo "✅ Type checks passed!"
             ''}";
           };
-          
-          "lint.fix-unsafe" = {
-            type = "app";
-            program = "${mkRunner "lint-fix-unsafe" ''
-              echo "⚠️  Running linter with unsafe fixes..."
-              echo "This may change code behavior. Review changes carefully!"
+        };
+        
+        packages = {
+          default = pkgs.stdenv.mkDerivation {
+            pname = "requirement-graph";
+            version = "0.0.1";
+            src = self;
+            
+            nativeBuildInputs = [ pythonEnv ];
+            
+            installPhase = ''
+              mkdir -p $out/bin
+              cp -r . $out/src
               
-              if [ -f ".venv/bin/ruff" ]; then
-                exec .venv/bin/ruff check --fix --unsafe-fixes . "$@"
-              else
-                exec ${pkgs.ruff}/bin/ruff check --fix --unsafe-fixes . "$@"
-              fi
-            ''}";
+              # Create wrapper script
+              cat > $out/bin/rgl << EOF
+              #!/usr/bin/env bash
+              export PYTHONPATH=$out/src:\$PYTHONPATH
+              exec ${pythonEnv}/bin/python -m requirement.graph "\$@"
+              EOF
+              
+              chmod +x $out/bin/rgl
+            '';
           };
           
-          "lint.preview" = {
-            type = "app";
-            program = "${mkRunner "lint-preview" ''
-              echo "👀 Previewing fixes (no changes will be made)..."
-              
-              if [ -f ".venv/bin/ruff" ]; then
-                exec .venv/bin/ruff check --fix --diff . "$@"
-              else
-                exec ${pkgs.ruff}/bin/ruff check --fix --diff . "$@"
-              fi
-            ''}";
-          };
-          
-          "lint.stats" = {
-            type = "app";
-            program = "${mkRunner "lint-stats" ''
-              echo "📊 Lint statistics..."
-              
-              if [ -f ".venv/bin/ruff" ]; then
-                .venv/bin/ruff check --statistics . "$@" | sort -k1 -n -r
-              else
-                ${pkgs.ruff}/bin/ruff check --statistics . "$@" | sort -k1 -n -r
-              fi
-            ''}";
-          };
-          
-          format = {
-            type = "app";
-            program = "${mkRunner "format" ''
-              echo "✨ Formatting code..."
-              
-              if [ -f ".venv/bin/ruff" ]; then
-                exec .venv/bin/ruff format . "$@"
-              else
-                exec ${pkgs.ruff}/bin/ruff format . "$@"
-              fi
-            ''}";
-          };
+          # Python環境を外部から利用可能にする
+          pythonEnv = pythonEnv;
         };
       });
 }
