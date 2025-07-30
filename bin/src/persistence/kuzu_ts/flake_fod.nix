@@ -1,5 +1,5 @@
 {
-  description = "KuzuDB TypeScript/Deno persistence layer with buildNpmPackage";
+  description = "KuzuDB TypeScript/Deno persistence layer with FOD";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,6 +17,32 @@
     } // flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        
+        # npm dependencies as Fixed Output Derivation
+        npmDeps = pkgs.stdenv.mkDerivation {
+          name = "kuzu-ts-npm-deps";
+          src = ./.;
+          
+          buildInputs = with pkgs; [ deno ];
+          
+          # Fixed Output Derivation設定
+          outputHashMode = "recursive";
+          outputHashAlgo = "sha256";
+          outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # 初回は失敗させて正しいハッシュを取得
+          
+          buildPhase = ''
+            export HOME=$TMPDIR
+            export DENO_DIR=$TMPDIR/.deno
+            
+            # Install npm dependencies
+            deno cache --node-modules-dir=node_modules --reload mod.ts
+          '';
+          
+          installPhase = ''
+            mkdir -p $out
+            cp -r node_modules $out/
+          '';
+        };
       in
       {
         # 開発環境
@@ -47,45 +73,43 @@
           '';
         };
         
-        # buildNpmPackageを使用したパッケージ定義
-        packages.default = pkgs.buildNpmPackage rec {
+        # パッケージ定義（node_modules込み）
+        packages.default = pkgs.stdenv.mkDerivation rec {
           pname = "kuzu_ts";
           version = "0.1.0";
           
           src = ./.;
           
-          # package-lock.jsonのハッシュ
-          npmDepsHash = "sha256-eSa6agcAMBrN8aOEDsCMUNYfd73L4nYjseETXedz1AQ=";
-          
           buildInputs = with pkgs; [
             deno
+            nodejs_20
             stdenv.cc.cc.lib
             patchelf
           ];
           
-          # Skip npm build since this is a Deno project
-          dontNpmBuild = true;
-          
-          # npm install後の処理
-          postInstall = ''
-            # Install Deno dependencies
+          buildPhase = ''
+            runHook preBuild
+            
+            # Set up environment
             export HOME=$TMPDIR
             export DENO_DIR=$TMPDIR/.deno
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
             
+            # Copy source files
+            cp -r $src/* .
+            chmod -R u+w .
+            
+            # Use pre-cached npm dependencies
+            ln -s ${npmDeps}/node_modules node_modules
+            
             # Set up deps directory
-            mkdir -p $out/lib/kuzu_ts/deps
-            ln -sf ${log_ts.lib.importPath} $out/lib/kuzu_ts/deps/log_ts
+            rm -rf deps/log_ts
+            mkdir -p deps
+            ln -sf ${log_ts.lib.importPath} deps/log_ts
             
-            # Copy Deno files
-            mkdir -p $out/lib/kuzu_ts
-            cp -r core tests $out/lib/kuzu_ts/
-            [ -d examples ] && cp -r examples $out/lib/kuzu_ts/
-            cp mod.ts mod_worker.ts version.ts deno.json deno.lock package.json package-lock.json $out/lib/kuzu_ts/
-            
-            # Patch native modules
-            if [ -d "$out/lib/node_modules/kuzu" ]; then
-              for lib in $out/lib/node_modules/kuzu/*.node; do
+            # Patch native modules for Nix compatibility
+            if [ -d "node_modules/.deno" ]; then
+              for lib in node_modules/.deno/*/node_modules/kuzu/*.node; do
                 if [ -f "$lib" ]; then
                   ${pkgs.patchelf}/bin/patchelf \
                     --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" \
@@ -94,27 +118,50 @@
               done
             fi
             
-            # Also patch modules in .deno cache if they exist
-            if [ -d "$out/lib/node_modules/.deno" ]; then
-              for lib in $out/lib/node_modules/.deno/*/node_modules/kuzu/*.node; do
-                if [ -f "$lib" ]; then
-                  ${pkgs.patchelf}/bin/patchelf \
-                    --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" \
-                    "$lib" || true
-                fi
-              done
-            fi
+            runHook postBuild
+          '';
+          
+          installPhase = ''
+            runHook preInstall
             
-            # Create wrapper script
+            # Create output directory
+            mkdir -p $out/lib
+            
+            # Copy all source files to lib directory
+            cp -r core tests examples $out/lib/
+            cp mod.ts mod_worker.ts version.ts deno.json deno.lock $out/lib/
+            
+            # Copy node_modules
+            cp -r node_modules $out/lib/
+            
+            # Copy deps directory with log_ts link
+            cp -r deps $out/lib/
+            
+            # Create a wrapper script for runtime usage
             mkdir -p $out/bin
             cat > $out/bin/kuzu_ts <<EOF
             #!/bin/sh
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}:\$LD_LIBRARY_PATH"
-            export KUZU_TS_PATH="$out/lib/kuzu_ts"
-            cd $out/lib/kuzu_ts
-            exec ${pkgs.deno}/bin/deno run --allow-all --unstable-ffi "$out/lib/kuzu_ts/mod.ts" "\$@"
+            export KUZU_TS_PATH="$out/lib"
+            exec ${pkgs.deno}/bin/deno run --allow-read --allow-write --allow-net --allow-env --allow-ffi --unstable-ffi "$out/lib/mod.ts" "\$@"
             EOF
             chmod +x $out/bin/kuzu_ts
+            
+            # Create package.json for npm compatibility
+            cat > $out/lib/package.json <<EOF
+            {
+              "name": "kuzu_ts",
+              "version": "${version}",
+              "type": "module",
+              "main": "mod.ts",
+              "exports": {
+                ".": "./mod.ts",
+                "./worker": "./mod_worker.ts"
+              }
+            }
+            EOF
+            
+            runHook postInstall
           '';
           
           meta = with pkgs.lib; {
