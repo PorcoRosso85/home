@@ -15,6 +15,7 @@
         # 共通のPython環境を提供
         packages.pythonEnv = pkgs.python312.withPackages (ps: with ps; [
           pytest
+          pytest-json-report
         ]);
       });
 }
