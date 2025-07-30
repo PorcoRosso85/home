@@ -107,11 +107,61 @@
           ''}";
         };
         
+        # サーバー付きテスト実行
+        apps.test-with-server = {
+          type = "app";
+          program = "${pkgs.writeShellScript "test-with-server" ''
+            set -e
+            
+            # Colors
+            GREEN='\033[0;32m'
+            RED='\033[0;31m'
+            YELLOW='\033[1;33m'
+            NC='\033[0m'
+            
+            echo -e "''${YELLOW}🚀 Starting test environment...''${NC}"
+            
+            # Cleanup function
+            cleanup() {
+              echo -e "\n''${YELLOW}🧹 Cleaning up...''${NC}"
+              [ ! -z "''${SERVER_PID:-}" ] && kill $SERVER_PID 2>/dev/null || true
+              exit ''${1:-0}
+            }
+            trap 'cleanup $?' EXIT INT TERM
+            
+            # Start server
+            echo -e "''${GREEN}📡 Starting WebSocket server...''${NC}"
+            ${pkgs.deno}/bin/deno run --allow-net --allow-read --allow-env ./server.ts &
+            SERVER_PID=$!
+            
+            # Wait for server
+            echo -e "''${YELLOW}⏳ Waiting for server...''${NC}"
+            for i in {1..30}; do
+              if ${pkgs.curl}/bin/curl -s http://localhost:8080/health > /dev/null 2>&1; then
+                echo -e "''${GREEN}✅ Server ready!''${NC}"
+                break
+              fi
+              [ $i -eq 30 ] && { echo -e "''${RED}❌ Server failed to start''${NC}"; exit 1; }
+              sleep 0.5
+            done
+            
+            # Run tests
+            echo -e "''${GREEN}🧪 Running all tests...''${NC}"
+            export PATH="${pkgs.deno}/bin:$PATH"
+            export LOG_TS_PATH="${log-ts}/lib/mod.ts"
+            
+            # Run the existing test command
+            nix run .#test
+          ''}";
+        };
+        
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Deno for server and tests
             deno
             
+            # System libraries for npm:kuzu
+            stdenv.cc.cc.lib  # libstdc++.so.6
             
             # Development tools
             jq
@@ -127,6 +177,7 @@
             echo "  nix run .#server            - Start sync server"
             echo "  nix run .#client            - Start sync client"
             echo "  nix run .#test              - Run all tests"
+            echo "  nix run .#test-with-server  - Run tests with auto server"
             echo ""
             echo "📦 Available tools:"
             echo "  - Deno ${pkgs.deno.version}"
@@ -135,6 +186,7 @@
             # Set environment variables for KuzuDB
             export KUZU_STORAGE_PATH="./kuzu_storage"
             export NODE_PATH="${pkgs.nodejs}/lib/node_modules:$NODE_PATH"
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
             
             # Set environment variable for log_ts module
             export LOG_TS_PATH="${log-ts}/lib/mod.ts"
