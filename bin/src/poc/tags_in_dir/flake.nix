@@ -116,19 +116,15 @@
               helpText = ''
                 tags_in_dir: ctags-based code analysis library
                 
-                This is a library package. Import it in your Python code:
-                  from tags_in_dir import CtagsParser, Symbol
-                  from tags_in_dir.kuzu_storage import KuzuStorage
-                  from tags_in_dir.call_detector import CallDetector
+                詳細な使用方法はREADMEを参照してください：
+                  nix run .#readme
                 
-                Or use it in another flake:
-                  inputs.tags-in-dir.url = "path:/home/nixos/bin/src/poc/tags_in_dir";
-                  
-                  # Then use the Python environment:
-                  pythonEnv = tags-in-dir.packages.''${system}.default;
-                
-                Available commands:
+                利用可能なコマンド:
                 ${builtins.concatStringsSep "\n" (map (name: "  nix run .#${name}") appNames)}
+                
+                基本的な使い方:
+                  find -d 3 | nix run .#generate
+                  nix run .#generate /path/to/project --export-dir ./output
               '';
             in "${pkgs.writeShellScript "show-help" ''
               cat << 'EOF'

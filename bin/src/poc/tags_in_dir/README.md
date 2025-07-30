@@ -31,48 +31,65 @@ ctagsを使用してディレクトリ配下のコードベースを解析し、
 - from_symbol -[CALLS]-> to_symbol
 - **line_number**: 呼び出しが発生した行番号（オプション）
 
-## Library Usage (Nix Flake)
+## 使用方法（CLI）
 
-### Using in Another Flake
+### インストール
 
-```nix
+```bash
+# Nix flakeとして使用
+nix develop path:/home/nixos/bin/src/poc/tags_in_dir
+
+# または他のflakeから参照
+inputs.tags-in-dir.url = "path:/home/nixos/bin/src/poc/tags_in_dir";
+pythonEnv = tags-in-dir.packages.${system}.default;
+```
+
+### CLI使用例
+
+```bash
+# ディレクトリを指定して解析
+nix run .#generate /path/to/project
+
+# findコマンドと組み合わせて使用
+find /path/to/project -type f -name "*.py" | nix run .#generate
+
+# 深さ3までのディレクトリを解析
+find -d 3 | nix run .#generate
+
+# 分析結果をエクスポート
+nix run .#generate /path/to/project --export-dir ./output
+
+# 既存のデータベースから分析結果のみエクスポート
+nix run .#generate --db tags.db --export-only --export-dir ./output
+```
+
+### 出力形式
+
+CLIは構造化されたJSON形式で結果を出力します：
+
+```json
 {
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    tags-in-dir.url = "path:/home/nixos/bin/src/poc/tags_in_dir";
-  };
-
-  outputs = { self, nixpkgs, tags-in-dir }:
-    let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs {
-        inherit system;
-        overlays = [ tags-in-dir.overlays.default ];
-      };
-      
-      pythonEnv = pkgs.python3.withPackages (ps: [
-        ps.tags-in-dir
-        # other dependencies
-      ]);
-    in
+  "processed": [
     {
-      # Your flake outputs using tags-in-dir
-    };
+      "uri": "/path/to/file.py",
+      "symbols_count": 10,
+      "calls_count": 5
+    }
+  ],
+  "total_symbols": 50,
+  "total_calls": 25
 }
 ```
 
-### CLI Usage
+### エクスポート形式
 
-```bash
-# Run the CLI
-nix run path:/home/nixos/bin/src/poc/tags_in_dir#cli -- /path/to/analyze
+`--export-dir`オプションを使用すると、以下のファイルが生成されます：
 
-# Run tests
-nix run path:/home/nixos/bin/src/poc/tags_in_dir#test
+- `symbols.parquet`: 全シンボル情報（KuzuDBから直接エクスポート）
+- `calls.parquet`: 呼び出し関係（KuzuDBから直接エクスポート）
+- `analysis.json`: 分析結果（デッドコード、最多呼び出し関数、ファイル依存関係）
 
-# Enter development shell
-nix develop path:/home/nixos/bin/src/poc/tags_in_dir
-```
+Parquetファイルは`COPY TO`構文で生成され、他のツールでの分析に利用できます。
 
 ## 使用方法
 
