@@ -8,6 +8,20 @@ import { afterEach } from "jsr:@std/testing@^1.0.0/bdd";
 import { SyncClient } from "../core/websocket/client.ts";
 import { TestServer } from "./test_utils.ts";
 
+// Check if WebSocket tests should be skipped
+const SKIP_WEBSOCKET_TESTS = Deno.env.get("SKIP_WEBSOCKET_TESTS") === "true";
+
+// Helper function to conditionally run tests
+function websocketTest(name: string, fn: () => Promise<void>) {
+  if (SKIP_WEBSOCKET_TESTS) {
+    Deno.test(`${name} (SKIPPED: SKIP_WEBSOCKET_TESTS=true)`, () => {
+      console.log(`Skipping WebSocket test: ${name}`);
+    });
+  } else {
+    Deno.test(name, fn);
+  }
+}
+
 // WebSocketサーバーの起動を待つ中間クラスはtest_utils.tsから使用
 
 // アクティブなクライアントとタイマーを追跡
@@ -15,7 +29,8 @@ const activeClients: SyncClient[] = [];
 const activeTimers: number[] = [];
 
 // クリーンアップフック
-afterEach(async () => {
+if (!SKIP_WEBSOCKET_TESTS) {
+  afterEach(async () => {
   // 全てのクライアントを切断
   for (const client of activeClients) {
     try {
@@ -31,7 +46,8 @@ afterEach(async () => {
     clearTimeout(timer);
   }
   activeTimers.length = 0;
-});
+  });
+}
 
 // 安全なsetTimeoutラッパー
 function safeSetTimeout(fn: () => void, delay: number): Promise<void> {
@@ -46,7 +62,7 @@ function safeSetTimeout(fn: () => void, delay: number): Promise<void> {
   });
 }
 
-Deno.test("WebSocket auto-reconnection after disconnection", async () => {
+websocketTest("WebSocket auto-reconnection after disconnection", async () => {
   // Server is already running externally
   
   try {
@@ -85,7 +101,7 @@ Deno.test("WebSocket auto-reconnection after disconnection", async () => {
   }
 });
 
-Deno.test("Reconnection maintains client ID", async () => {
+websocketTest("Reconnection maintains client ID", async () => {
   // Server is already running externally
   
   try {
@@ -112,7 +128,7 @@ Deno.test("Reconnection maintains client ID", async () => {
   }
 });
 
-Deno.test("Reconnection emits reconnected event", async () => {
+websocketTest("Reconnection emits reconnected event", async () => {
   // Server is already running externally
   
   try {

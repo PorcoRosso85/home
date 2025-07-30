@@ -2,17 +2,19 @@
  * KuzuDB WASM Client - モックフリー実装
  * WASM版KuzuDB使用（Deno環境での実行）
  * 
- * FIXME: DenoでKuzuDB WASMが動作しない経緯
- * 1. kuzu-wasmパッケージはnpm経由でインポート可能
- * 2. しかしinit()時に"Classic workers are not supported"エラー
- * 3. DenoはWeb標準のModule Workersのみサポート
- * 4. persistence/kuzu_tsパッケージも結局モック実装
- * 5. そのため、Python Native実装（kuzu_native_client）を採用
+ * ## Known Limitations
  * 
- * 将来的な解決策:
- * - Deno FFIでネイティブKuzuDBライブラリを直接呼び出す
- * - Module Workers対応のKuzuDB WASM版を待つ
- * - persistence/kuzu_tsをFFIベースで実装し直す
+ * ### Deno Environment Worker Compatibility
+ * The kuzu-wasm package is importable via npm but has compatibility issues with Deno:
+ * - During init(), it throws "Classic workers are not supported" error
+ * - Deno only supports Web standard Module Workers, not classic workers
+ * - The persistence/kuzu_ts package also ended up being a mock implementation
+ * - As a result, we adopted the Python Native implementation (kuzu_native_client)
+ * 
+ * ### Future Solutions
+ * - Use Deno FFI to directly call native KuzuDB library
+ * - Wait for Module Workers-compatible KuzuDB WASM version
+ * - Re-implement persistence/kuzu_ts with FFI-based approach
  * 
  * TODO: 将来的にブラウザ環境のサポートを追加する際は、
  * Worker APIの互換性やESMローダーの違いを考慮する必要がある
@@ -473,5 +475,22 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
         eventId: event.id
       });
     }
+  }
+
+  // Cleanup method - WASM client doesn't need explicit cleanup
+  async cleanup(): Promise<void> {
+    telemetry.info("Cleanup called on WASM client", {
+      clientId: this.clientId
+    });
+    
+    // Clear internal state
+    this.events = [];
+    this.remoteEventHandlers = [];
+    this.stateCache.clear();
+    
+    // WASM resources are managed by the browser/runtime
+    // No explicit cleanup needed for in-memory database
+    this.db = undefined;
+    this.conn = undefined;
   }
 }

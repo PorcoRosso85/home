@@ -2,10 +2,14 @@
  * KuzuDB TypeScript Client - Native Deno Implementation with Result Pattern
  * persistence/kuzu_tsパッケージを使用したネイティブ実装（Result型パターン使用）
  * 
- * FIXME: Current limitations:
- * 1. persistence/kuzu_ts has V8 isolate lifecycle issues on Deno exit
- * 2. Works correctly but crashes on process termination
- * 3. This is a temporary implementation until FFI solution is ready
+ * ## Known Limitations
+ * 
+ * ### V8 Isolate Lifecycle Issues
+ * - The persistence/kuzu_ts package experiences V8 isolate lifecycle issues on Deno exit
+ * - The implementation works correctly during runtime but may crash on process termination
+ * - This is a temporary implementation until a proper FFI-based solution is available
+ * 
+ * These limitations do not affect the correctness of operations during normal runtime.
  */
 
 import type { KuzuWasmClient, LocalState, EventSnapshot } from "../../types.ts";
@@ -648,5 +652,34 @@ export class KuzuTsClientImplResult implements KuzuWasmClient {
 
   getTemplateMetadata(template: string): unknown {
     return this.extendedRegistry.getTemplateMetadata(template);
+  }
+
+  // Cleanup method
+  async cleanup(): Promise<void> {
+    telemetry.info("Cleanup called on Result client", {
+      clientId: this.clientId
+    });
+    
+    // Close database if it exists
+    if (this.db && typeof this.db.close === 'function') {
+      try {
+        this.db.close();
+      } catch (error) {
+        telemetry.error("Error closing database", {
+          error: error instanceof Error ? error.message : String(error),
+          clientId: this.clientId
+        });
+      }
+    }
+    
+    // Clear internal state
+    this.events = [];
+    this.remoteEventHandlers = [];
+    this.stateCache.clear();
+    
+    // Clear references
+    this.db = undefined;
+    this.conn = undefined;
+    this.kuzuModule = undefined;
   }
 }

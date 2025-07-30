@@ -21,6 +21,12 @@ export type KuzuWasmClient = {
   onRemoteEvent(handler: (event: TemplateEvent) => void): void;
   executeQuery(cypher: string, params?: Record<string, unknown>): Promise<unknown>;
   applyEvent(event: TemplateEvent): Promise<void>;
+  /**
+   * Cleanup resources and terminate worker.
+   * Should be called when the client is no longer needed.
+   * Ensures proper resource cleanup even on failures.
+   */
+  cleanup(): Promise<void>;
 };
 
 export type LocalState = {

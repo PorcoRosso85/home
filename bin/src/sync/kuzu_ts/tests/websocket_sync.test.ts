@@ -8,6 +8,20 @@ import { afterEach } from "jsr:@std/testing@^1.0.0/bdd";
 import { SyncClient } from "../core/websocket/client.ts";
 import { TestServer } from "./test_utils.ts";
 
+// Check if WebSocket tests should be skipped
+const SKIP_WEBSOCKET_TESTS = Deno.env.get("SKIP_WEBSOCKET_TESTS") === "true";
+
+// Helper function to conditionally run tests
+function websocketTest(name: string, fn: () => Promise<void>) {
+  if (SKIP_WEBSOCKET_TESTS) {
+    Deno.test(`${name} (SKIPPED: SKIP_WEBSOCKET_TESTS=true)`, () => {
+      console.log(`Skipping WebSocket test: ${name}`);
+    });
+  } else {
+    Deno.test(name, fn);
+  }
+}
+
 // WebSocketサーバーの型定義をインポート
 interface ServerState {
   activeConnections: number;
@@ -49,27 +63,29 @@ function clearAllClients(): void {
 }
 
 // クリーンアップフック
-afterEach(async () => {
-  // 全てのクライアントを切断
-  const clientsToClose = [...activeClients]; // コピーを作成して二重削除を防ぐ
-  for (const client of clientsToClose) {
-    try {
-      await client.close(); // closeを使用して即座に切断
-    } catch (error) {
-      // 既に切断されている場合は無視
+if (!SKIP_WEBSOCKET_TESTS) {
+  afterEach(async () => {
+    // 全てのクライアントを切断
+    const clientsToClose = [...activeClients]; // コピーを作成して二重削除を防ぐ
+    for (const client of clientsToClose) {
+      try {
+        await client.close(); // closeを使用して即座に切断
+      } catch (error) {
+        // 既に切断されている場合は無視
+      }
     }
-  }
-  clearAllClients();
-  
-  // 全てのタイマーをクリア
-  for (const timer of activeTimers) {
-    clearTimeout(timer);
-  }
-  activeTimers.length = 0;
-  
-  // WebSocket接続が完全に閉じるのを待つ
-  await safeSetTimeout(() => {}, 50);
-});
+    clearAllClients();
+    
+    // 全てのタイマーをクリア
+    for (const timer of activeTimers) {
+      clearTimeout(timer);
+    }
+    activeTimers.length = 0;
+    
+    // WebSocket接続が完全に閉じるのを待つ
+    await safeSetTimeout(() => {}, 50);
+  });
+}
 
 // 安全なsetTimeoutラッパー
 function safeSetTimeout(fn: () => void, delay: number): Promise<void> {
@@ -85,7 +101,7 @@ function safeSetTimeout(fn: () => void, delay: number): Promise<void> {
 }
 
 // テストケース
-Deno.test("WebSocket client connection and disconnection", async () => {
+websocketTest("WebSocket client connection and disconnection", async () => {
   // Server is already running externally
   
   try {
@@ -113,7 +129,7 @@ Deno.test("WebSocket client connection and disconnection", async () => {
   }
 });
 
-Deno.test("Event sending and history", async () => {
+websocketTest("Event sending and history", async () => {
   // Server is already running externally
   
   try {
@@ -155,7 +171,7 @@ Deno.test("Event sending and history", async () => {
   }
 });
 
-Deno.test("Multiple clients synchronization", async () => {
+websocketTest("Multiple clients synchronization", async () => {
   // Server is already running externally
   
   try {
@@ -201,7 +217,7 @@ Deno.test("Multiple clients synchronization", async () => {
   }
 });
 
-Deno.test("Subscription filtering", async () => {
+websocketTest("Subscription filtering", async () => {
   // Server is already running externally
   
   try {
@@ -256,7 +272,7 @@ Deno.test("Subscription filtering", async () => {
   }
 });
 
-Deno.test("History pagination", async () => {
+websocketTest("History pagination", async () => {
   // Server is already running externally
   
   try {
@@ -304,7 +320,7 @@ Deno.test("History pagination", async () => {
 });
 
 // エラーハンドリングのテスト
-Deno.test("Error handling", async () => {
+websocketTest("Error handling", async () => {
   const client = new SyncClient("error-client");
   
   // 接続していない状態での送信はエラー

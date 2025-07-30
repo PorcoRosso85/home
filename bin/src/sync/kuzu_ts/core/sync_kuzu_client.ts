@@ -232,9 +232,7 @@ export class SyncKuzuClient {
     
     await this.syncClient.close();
     
-    // Close native KuzuDB client
-    if (this.kuzuClient.close) {
-      await this.kuzuClient.close();
-    }
+    // Cleanup native KuzuDB client
+    await this.kuzuClient.cleanup();
   }
 }

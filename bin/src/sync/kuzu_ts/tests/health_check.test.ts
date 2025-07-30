@@ -5,7 +5,21 @@
 
 import { assertEquals, assert } from "jsr:@std/assert";
 
-Deno.test("health check endpoint returns system status", async () => {
+// Check if WebSocket tests should be skipped
+const SKIP_WEBSOCKET_TESTS = Deno.env.get("SKIP_WEBSOCKET_TESTS") === "true";
+
+// Helper function to conditionally run tests
+function websocketTest(name: string, fn: () => Promise<void>) {
+  if (SKIP_WEBSOCKET_TESTS) {
+    Deno.test(`${name} (SKIPPED: SKIP_WEBSOCKET_TESTS=true)`, () => {
+      console.log(`Skipping WebSocket test: ${name}`);
+    });
+  } else {
+    Deno.test(name, fn);
+  }
+}
+
+websocketTest("health check endpoint returns system status", async () => {
   // サーバーが起動していることを前提
   const response = await fetch("http://localhost:8080/health");
   
@@ -30,7 +44,7 @@ Deno.test("health check endpoint returns system status", async () => {
   assertEquals(health.checks.websocket, "operational");
 });
 
-Deno.test("health check responds quickly", async () => {
+websocketTest("health check responds quickly", async () => {
   const startTime = performance.now();
   const response = await fetch("http://localhost:8080/health");
   const endTime = performance.now();

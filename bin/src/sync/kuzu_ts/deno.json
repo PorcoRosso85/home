@@ -1,8 +1,8 @@
 {
   "tasks": {
-    "test": "deno test --allow-all",
-    "test:watch": "deno test --allow-all --no-check --watch",
-    "test:red": "deno test --allow-all --no-check test_*.ts",
+    "test": "deno test --allow-all --unstable-worker-options",
+    "test:watch": "deno test --allow-all --no-check --watch --unstable-worker-options",
+    "test:red": "deno test --allow-all --no-check test_*.ts --unstable-worker-options",
     "server": "deno run --allow-all server.ts",
     "dev": "deno run --allow-all --watch server.ts"
   },
@@ -12,6 +12,8 @@
     "kuzu-wasm": "npm:kuzu-wasm@latest",
     "kuzu-wasm/sync": "npm:kuzu-wasm@latest/sync",
     "@kuzu-ts/": "../../persistence/kuzu_ts/",
+    "@kuzu-ts/worker": "../../persistence/kuzu_ts/mod_worker.ts",
     "log_ts/": "../../telemetry/log_ts/"
-  }
+  },
+  "nodeModulesDir": "auto"
 }
