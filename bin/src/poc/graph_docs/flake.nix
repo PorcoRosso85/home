@@ -4,19 +4,21 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    python-flake.url = "path:/home/nixos/bin/src/flakes/python";
+    kuzu-py-flake.url = "path:/home/nixos/bin/src/persistence/kuzu_py";
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        pythonEnv = pkgs.python3.withPackages (ps: with ps; [
+        # 親flakeからPythonバージョンを継承し、追加パッケージを含めて再構築
+        basePython = python-flake.packages.${system}.pythonEnv.python;
+        pythonEnv = basePython.withPackages (ps: with ps; [
           pytest
           pytest-asyncio
-          kuzu
-          typer
-          rich
+          kuzu  # nixpkgsのkuzuを使用
         ]);
 
       in
@@ -50,11 +52,11 @@
             program = let
               appNames = builtins.attrNames (removeAttrs self.apps.${system} ["default"]);
               helpText = ''
-                ������: graph_docs POC
+                プロジェクト: graph_docs POC
                 
-                ��: 2dnKuzuDBǣ���k�Y�B���h������
+                責務: 2つのKuzuDBディレクトリに対する同時クエリとリレーション定義
                 
-                )(��j����:
+                利用可能なコマンド:
                 ${builtins.concatStringsSep "\n" (map (name: "  nix run .#${name}") appNames)}
               '';
             in "${pkgs.writeShellScript "show-help" ''
