@@ -1,0 +1,69 @@
+[tool.pyright]
+# 基本設定
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+typeCheckingMode = "basic"  # 段階的に "strict" へ
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+# tags_in_dirプロジェクト固有の設定
+include = [
+    "**/*.py"
+]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    ".git",
+    ".venv"
+]
+
+# 段階的な型チェック導入のため、一部警告を無効化
+reportGeneralTypeIssues = "warning"
+reportOptionalMemberAccess = "warning"
+reportOptionalCall = "warning"
+reportUnknownMemberType = "warning"
+reportUnknownArgumentType = "warning"
+reportUnknownVariableType = "warning"
+
+[tool.ruff]
+# Pythonバージョン
+target-version = "py312"
+
+# 基本設定
+line-length = 100
+indent-width = 4
+
+# チェックするルール
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+]
+
+# 除外するルール
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "W191",  # indentation contains tabs
+]
+
+# 除外するファイル/ディレクトリ
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.ruff.isort]
+known-first-party = ["tags_in_dir"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "test_*.py"]
+python_files = "test_*.py"
+python_functions = "test_*"
