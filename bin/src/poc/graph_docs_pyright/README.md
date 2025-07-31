@@ -245,3 +245,41 @@ WHERE s.kind = 'interface'
 RETURN s.name, COUNT(r) as ref_count
 ORDER BY ref_count DESC
 ```
+
+## 実装完了内容
+
+### 実装済み機能
+1. ✅ **PyrightAnalyzer** - Pyright CLIでの型チェック
+2. ✅ **KuzuStorage** - 解析結果のグラフDB保存
+3. ✅ **統合テスト** - 型エラー検出とKuzuDB保存の検証
+4. ✅ **COPY TO/FROM Parquet** - Parquet形式でのエクスポート/インポート
+5. ✅ **永続化とデータ移行** - ファイルDB → Parquet → in-memory DBの完全なフロー
+
+### KuzuStorage API
+
+```python
+# 基本機能
+storage = KuzuStorage(":memory:")  # in-memory DB
+storage = KuzuStorage("path/to/db.kuzu")  # 永続化DB
+
+# データ保存
+storage.store_analysis(pyright_results)
+
+# クエリ
+files_with_errors = storage.query_files_with_errors()
+
+# Parquetエクスポート/インポート
+storage.export_to_parquet("output/dir")  # files.parquet, diagnostics.parquet を生成
+storage.import_from_parquet("input/dir")  # Parquetファイルからデータをインポート
+```
+
+### テスト実行
+
+```bash
+# 全テストを実行
+nix run .#test
+
+# 個別テスト
+python test_minimal.py      # 基本的な解析とKuzuDB保存
+python test_persistence.py  # 永続化、Parquet、データ移行
+```

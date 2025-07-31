@@ -127,7 +127,10 @@
               cd ${./.}
               export PYTHONPATH="${./.}:$PYTHONPATH"
               export PATH="${pythonFlakePackages.pyright}/bin:$PATH"
-              exec ${pythonEnv}/bin/python test_minimal.py
+              echo "Running minimal test..."
+              ${pythonEnv}/bin/python test_minimal.py
+              echo -e "\nRunning persistence tests..."
+              ${pythonEnv}/bin/python test_persistence.py
             ''}";
           };
           

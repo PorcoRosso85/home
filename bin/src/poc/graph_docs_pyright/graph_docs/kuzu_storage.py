@@ -3,6 +3,7 @@
 import kuzu
 from pathlib import Path
 from typing import Dict, Any, List
+import os
 
 
 class KuzuStorage:
@@ -107,3 +108,61 @@ class KuzuStorage:
         while result.has_next():
             files.append(result.get_next())
         return files
+    
+    def export_to_parquet(self, output_dir: str):
+        """Export File and Diagnostic tables to Parquet files.
+        
+        Args:
+            output_dir: Directory path to save the Parquet files
+        """
+        # Create output directory if it doesn't exist
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        # Export File table to Parquet
+        files_output = output_path / "files.parquet"
+        self.conn.execute(f"""
+            COPY (MATCH (f:File) RETURN f.*) TO '{files_output}' (FORMAT PARQUET)
+        """)
+        
+        # Export Diagnostic table to Parquet
+        diagnostics_output = output_path / "diagnostics.parquet"
+        self.conn.execute(f"""
+            COPY (MATCH (d:Diagnostic) RETURN d.*) TO '{diagnostics_output}' (FORMAT PARQUET)
+        """)
+        
+        print(f"Exported File table to: {files_output}")
+        print(f"Exported Diagnostic table to: {diagnostics_output}")
+    
+    def import_from_parquet(self, input_dir: str):
+        """Import File and Diagnostic tables from Parquet files.
+        
+        Args:
+            input_dir: Directory path containing the Parquet files (files.parquet and diagnostics.parquet)
+        """
+        # Validate input directory
+        input_path = Path(input_dir)
+        if not input_path.exists():
+            raise ValueError(f"Input directory does not exist: {input_dir}")
+        
+        # Check for required Parquet files
+        files_parquet = input_path / "files.parquet"
+        diagnostics_parquet = input_path / "diagnostics.parquet"
+        
+        if not files_parquet.exists():
+            raise FileNotFoundError(f"files.parquet not found in {input_dir}")
+        if not diagnostics_parquet.exists():
+            raise FileNotFoundError(f"diagnostics.parquet not found in {input_dir}")
+        
+        # Import File table from Parquet
+        self.conn.execute(f"""
+            COPY File FROM '{files_parquet}' (FORMAT PARQUET)
+        """)
+        
+        # Import Diagnostic table from Parquet
+        self.conn.execute(f"""
+            COPY Diagnostic FROM '{diagnostics_parquet}' (FORMAT PARQUET)
+        """)
+        
+        print(f"Imported File table from: {files_parquet}")
+        print(f"Imported Diagnostic table from: {diagnostics_parquet}")
