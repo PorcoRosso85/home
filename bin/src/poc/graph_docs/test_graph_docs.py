@@ -37,7 +37,7 @@ class TestDualKuzuDB:
         # クリーンアップ
         shutil.rmtree(db_dir, ignore_errors=True)
     
-    def test_initialization(self, temp_db_paths):
+    def test_dual_kuzu_db_when_initialized_then_connections_are_none(self, temp_db_paths):
         """初期化のテスト"""
         db1_path, db2_path = temp_db_paths
         db = DualKuzuDB(db1_path, db2_path)
@@ -49,7 +49,7 @@ class TestDualKuzuDB:
         assert db._conn1 is None
         assert db._conn2 is None
     
-    def test_context_manager(self, temp_db_paths):
+    def test_dual_kuzu_db_when_using_context_manager_then_connections_managed(self, temp_db_paths):
         """コンテキストマネージャーのテスト"""
         db1_path, db2_path = temp_db_paths
         
@@ -66,7 +66,7 @@ class TestDualKuzuDB:
         assert db._conn1 is None
         assert db._conn2 is None
     
-    def test_query_single_invalid_db_name(self, temp_db_paths):
+    def test_query_single_when_invalid_db_name_then_returns_error(self, temp_db_paths):
         """無効なDB名でのクエリテスト"""
         db1_path, db2_path = temp_db_paths
         
@@ -79,7 +79,7 @@ class TestDualKuzuDB:
             assert result.columns == []
             assert result.rows == []
     
-    def test_query_single_not_connected(self, temp_db_paths):
+    def test_query_single_when_not_connected_then_returns_error(self, temp_db_paths):
         """接続前のクエリテスト"""
         db1_path, db2_path = temp_db_paths
         db = DualKuzuDB(db1_path, db2_path)
@@ -91,7 +91,7 @@ class TestDualKuzuDB:
         assert "Not connected" in result.error
         assert result.source == "db1"
     
-    def test_query_both(self, temp_db_paths):
+    def test_query_both_when_same_query_executed_then_both_dbs_return_results(self, temp_db_paths):
         """両DBへの同一クエリテスト"""
         db1_path, db2_path = temp_db_paths
         
@@ -103,7 +103,7 @@ class TestDualKuzuDB:
             # 両方のDBで実行されることを確認
             assert result.db1_result is not None or result.db2_result is not None
     
-    def test_query_parallel(self, temp_db_paths):
+    def test_query_parallel_when_different_queries_executed_then_both_results_returned(self, temp_db_paths):
         """異なるクエリの並列実行テスト"""
         db1_path, db2_path = temp_db_paths
         
@@ -117,7 +117,7 @@ class TestDualKuzuDB:
             # 両方のDBで実行されることを確認
             assert result.db1_result is not None or result.db2_result is not None
     
-    def test_init_local_db(self, temp_local_db_path):
+    def test_local_db_when_schema_created_then_tables_exist(self, temp_local_db_path):
         """ローカルDB作成とスキーマ定義の確認"""
         # KuzuDBインスタンスを作成
         db = kuzu.Database(str(temp_local_db_path))
@@ -150,7 +150,7 @@ class TestDualKuzuDB:
         assert "Product" in tables
         assert "OWNS" in tables
     
-    def test_local_db_schema(self, temp_local_db_path):
+    def test_user_product_owns_when_data_inserted_then_relationships_verified(self, temp_local_db_path):
         """User/Product/OWNSテーブルの存在確認"""
         # KuzuDBインスタンスを作成してスキーマを定義
         db = kuzu.Database(str(temp_local_db_path))
@@ -182,7 +182,7 @@ class TestDualKuzuDB:
         assert len(owns_data) == 1
         assert owns_data[0] == ['Alice', 'Laptop', 2024]
     
-    def test_copy_from_target_success(self, temp_db_paths):
+    def test_copy_from_when_valid_csv_provided_then_data_imported_successfully(self, temp_db_paths):
         """正常なCOPY FROM動作の確認"""
         db1_path, db2_path = temp_db_paths
         
@@ -221,7 +221,7 @@ class TestDualKuzuDB:
             # CSVファイルのクリーンアップ
             Path(csv_file.name).unlink(missing_ok=True)
     
-    def test_copy_from_invalid_target(self, temp_db_paths):
+    def test_copy_from_when_invalid_target_name_then_returns_error(self, temp_db_paths):
         """無効なtarget名でのCOPY FROMエラー確認"""
         db1_path, db2_path = temp_db_paths
         
@@ -240,7 +240,7 @@ class TestDualKuzuDB:
             assert result.columns == []
             assert result.rows == []
     
-    def test_copy_preserves_original(self, temp_db_paths):
+    def test_copy_from_when_importing_to_one_db_then_other_db_unchanged(self, temp_db_paths):
         """COPY FROM実行時に元のDBが変更されないことの確認"""
         db1_path, db2_path = temp_db_paths
         
@@ -297,7 +297,7 @@ class TestDualKuzuDB:
             # CSVファイルのクリーンアップ
             Path(csv_file.name).unlink(missing_ok=True)
     
-    def test_create_relation_success(self, temp_local_db_path):
+    def test_owns_relation_when_nodes_exist_then_relationships_created(self, temp_local_db_path):
         """User->Product間のOWNSリレーション作成確認"""
         # KuzuDBインスタンスを作成
         db = kuzu.Database(str(temp_local_db_path))
@@ -335,7 +335,7 @@ class TestDualKuzuDB:
         assert owns_data[0] == ['Phone', 2023]
         assert owns_data[1] == ['Laptop', 2024]
     
-    def test_create_relation_invalid_nodes(self, temp_local_db_path):
+    def test_owns_relation_when_nodes_missing_then_no_relationships_created(self, temp_local_db_path):
         """存在しないノードへのリレーションエラー確認"""
         # KuzuDBインスタンスを作成
         db = kuzu.Database(str(temp_local_db_path))
@@ -369,7 +369,7 @@ class TestDualKuzuDB:
         row2 = result2.get_next()
         assert row2[0] == 0  # リレーションが作成されていない
     
-    def test_query_relations(self, temp_local_db_path):
+    def test_graph_queries_when_relationships_exist_then_correct_results_returned(self, temp_local_db_path):
         """作成したリレーションのクエリ動作確認"""
         # KuzuDBインスタンスを作成
         db = kuzu.Database(str(temp_local_db_path))
@@ -435,7 +435,7 @@ class TestDualKuzuDB:
 class TestQueryResult:
     """QueryResultデータクラスのテスト"""
     
-    def test_query_result_creation(self):
+    def test_query_result_when_created_with_data_then_fields_set_correctly(self):
         """QueryResultの作成テスト"""
         result = QueryResult(
             source="db1",
@@ -448,7 +448,7 @@ class TestQueryResult:
         assert result.rows == [[1, "test"], [2, "test2"]]
         assert result.error is None
     
-    def test_query_result_with_error(self):
+    def test_query_result_when_created_with_error_then_error_field_populated(self):
         """エラー付きQueryResultのテスト"""
         result = QueryResult(
             source="db1",
@@ -465,7 +465,7 @@ class TestQueryResult:
 class TestDualQueryResult:
     """DualQueryResultデータクラスのテスト"""
     
-    def test_dual_query_result_creation(self):
+    def test_dual_query_result_when_created_with_both_results_then_fields_set_correctly(self):
         """DualQueryResultの作成テスト"""
         db1_result = QueryResult("db1", ["col1"], [[1]])
         db2_result = QueryResult("db2", ["col2"], [[2]])

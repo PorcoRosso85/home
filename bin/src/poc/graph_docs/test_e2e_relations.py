@@ -108,11 +108,17 @@ def setup_integrated_db(db_path: Path, user_db_path: Path, product_db_path: Path
     # クロスDBリレーション（User-Product間）
     conn.execute("MATCH (u:User {id: 2}), (p:Product {id: 101}) CREATE (u)-[:OWNS {quantity: 1}]->(p)")  # Bob owns Laptop A
     conn.execute("MATCH (u:User {id: 3}), (p:Product {id: 103}) CREATE (u)-[:OWNS {quantity: 2}]->(p)")  # Charlie owns Phone X
+    conn.execute("MATCH (u:User {id: 4}), (p:Product {id: 102}) CREATE (u)-[:OWNS {quantity: 1}]->(p)")  # David owns Laptop B
     
     return db, conn
 
-def test_e2e_queries():
-    """E2Eクエリのテスト"""
+def test_follow_chain_to_product_when_users_connected_then_finds_owned_products():
+    """テスト: ユーザー間のフォローチェーンを辿って所有製品を発見できる
+    
+    シナリオ: Alice → Bob → Charlie とフォローチェーンがあり、
+    CharileがPhone Xを所有している場合、
+    Aliceから2ホップ以内のフォローチェーンを辿って所有製品を見つける
+    """
     # 一時ディレクトリ作成
     temp_dir = tempfile.mkdtemp()
     user_db_path = Path(temp_dir) / "user.db"
@@ -131,9 +137,40 @@ def test_e2e_queries():
             MATCH path = (alice:User {name: 'Alice'})-[:FOLLOWS*1..2]->(owner:User)-[:OWNS]->(product:Product)
             RETURN alice.name as start_user, owner.name as product_owner, product.name as owned_product
         """)
+        
+        # 結果検証
+        found = False
         while result.has_next():
             row = result.get_next()
             log('DEBUG', 'graph_docs.test_e2e', 'Query result', start_user=row[0], product_owner=row[1], owned_product=row[2], path_type='follows_chain_owns')
+            if row[1] == 'Charlie' and row[2] == 'Phone X':
+                found = True
+        
+        assert found, "Alice should be able to find Charlie's Phone X through follow chain"
+        
+    finally:
+        # クリーンアップ
+        shutil.rmtree(temp_dir)
+
+
+def test_product_similarity_recommendation_when_user_owns_product_then_recommends_similar():
+    """テスト: ユーザーが所有する製品に基づいて類似製品をレコメンドできる
+    
+    シナリオ: BobがLaptop Aを所有しており、
+    Laptop A → Laptop B → Phone X という類似性チェーンがある場合、
+    Bobに対して類似製品をレコメンドする
+    """
+    # 一時ディレクトリ作成
+    temp_dir = tempfile.mkdtemp()
+    user_db_path = Path(temp_dir) / "user.db"
+    product_db_path = Path(temp_dir) / "product.db"
+    integrated_db_path = Path(temp_dir) / "integrated.db"
+    
+    try:
+        # 各DBのセットアップ
+        user_db, user_conn = setup_user_db(user_db_path)
+        product_db, product_conn = setup_product_db(product_db_path)
+        integrated_db, conn = setup_integrated_db(integrated_db_path, user_db_path, product_db_path)
         
         log('DEBUG', 'graph_docs.test_e2e', 'Starting E2E Query 2', query_type='product_similarity_recommendation')
         # Bob(2) → Laptop A(101) → Laptop B(102) → Phone X(103)
@@ -143,9 +180,39 @@ def test_e2e_queries():
             WHERE owned.id <> recommended.id
             RETURN user.name, owned.name, recommended.name, recommended.category
         """)
+        
+        # 結果検証
+        recommendations = []
         while result.has_next():
             row = result.get_next()
             log('DEBUG', 'graph_docs.test_e2e', 'Query result', user=row[0], owned_product=row[1], recommended_product=row[2], category=row[3], path_type='owns_similar_to')
+            recommendations.append(row[2])
+        
+        assert 'Laptop B' in recommendations, "Bob should get Laptop B as recommendation"
+        assert 'Phone X' in recommendations, "Bob should get Phone X as recommendation through similarity chain"
+        
+    finally:
+        # クリーンアップ
+        shutil.rmtree(temp_dir)
+
+
+def test_social_product_full_path_when_following_and_owning_then_traces_complete_path():
+    """テスト: ソーシャルグラフと製品グラフを跨いだ完全なパスを追跡できる
+    
+    シナリオ: Alice → Bob → Charlie → Phone X → Tablet Y という
+    フォローチェーンと製品所有、製品類似性を含む完全なパスを追跡する
+    """
+    # 一時ディレクトリ作成
+    temp_dir = tempfile.mkdtemp()
+    user_db_path = Path(temp_dir) / "user.db"
+    product_db_path = Path(temp_dir) / "product.db"
+    integrated_db_path = Path(temp_dir) / "integrated.db"
+    
+    try:
+        # 各DBのセットアップ
+        user_db, user_conn = setup_user_db(user_db_path)
+        product_db, product_conn = setup_product_db(product_db_path)
+        integrated_db, conn = setup_integrated_db(integrated_db_path, user_db_path, product_db_path)
         
         log('DEBUG', 'graph_docs.test_e2e', 'Starting E2E Query 3', query_type='social_product_full_path')
         # Alice → Bob → Charlie → Phone X → Tablet Y
@@ -159,7 +226,11 @@ def test_e2e_queries():
             row = result.get_next()
             paths.append(row)
         
+        # パスが見つかったことを確認
+        assert len(paths) > 0, "Should find at least one path from Alice to owned products"
+        
         # 各製品から類似製品へのパスを探索
+        similar_products_found = False
         for start_name, owner_name, prod_name, prod_id in paths:
             # 直接の類似製品を探索
             similar_result = conn.execute(f"""
@@ -169,21 +240,69 @@ def test_e2e_queries():
             while similar_result.has_next():
                 target_name = similar_result.get_next()[0]
                 log('DEBUG', 'graph_docs.test_e2e', 'Query result', start_user=start_name, product_owner=owner_name, owned_product=prod_name, similar_product=target_name, path_type='follows_owns_similar')
+                if prod_name == 'Phone X' and target_name == 'Tablet Y':
+                    similar_products_found = True
+        
+        assert similar_products_found, "Should find path from Phone X to Tablet Y through similarity"
+        
+    finally:
+        # クリーンアップ
+        shutil.rmtree(temp_dir)
+
+
+def test_common_interest_users_when_similar_products_owned_then_finds_connections():
+    """テスト: 類似製品を所有するユーザー同士の関係を発見できる
+    
+    シナリオ: 異なるユーザーが類似製品を所有している場合、
+    その関係を発見して共通の興味を持つユーザーを特定する
+    """
+    # 一時ディレクトリ作成
+    temp_dir = tempfile.mkdtemp()
+    user_db_path = Path(temp_dir) / "user.db"
+    product_db_path = Path(temp_dir) / "product.db"
+    integrated_db_path = Path(temp_dir) / "integrated.db"
+    
+    try:
+        # 各DBのセットアップ
+        user_db, user_conn = setup_user_db(user_db_path)
+        product_db, product_conn = setup_product_db(product_db_path)
+        integrated_db, conn = setup_integrated_db(integrated_db_path, user_db_path, product_db_path)
         
         log('DEBUG', 'graph_docs.test_e2e', 'Starting E2E Query 4', query_type='common_interest_users')
         # 類似製品を所有するユーザー同士の関係
         result = conn.execute("""
-            MATCH (u1:User)-[:OWNS]->(p1:Product)-[:SIMILAR_TO]-(p2:Product)<-[:OWNS]-(u2:User)
+            MATCH (u1:User)-[:OWNS]->(p1:Product)-[:SIMILAR_TO]->(p2:Product)<-[:OWNS]-(u2:User)
             WHERE u1.id < u2.id
             RETURN u1.name, p1.name, p2.name, u2.name
         """)
+        
+        # 結果検証
+        connections = []
         while result.has_next():
             row = result.get_next()
             log('DEBUG', 'graph_docs.test_e2e', 'Query result', user1=row[0], user1_product=row[1], user2_product=row[2], user2=row[3], relationship='similar_products')
+            connections.append((row[0], row[3]))
+        
+        # Bob (Laptop A) と Charlie (Phone X) は類似製品チェーンで繋がっている
+        # Laptop A → Laptop B → Phone X
+        assert len(connections) > 0, "Should find users with similar product interests"
         
     finally:
         # クリーンアップ
         shutil.rmtree(temp_dir)
 
 if __name__ == "__main__":
-    test_e2e_queries()
+    # 各テストを順番に実行
+    test_follow_chain_to_product_when_users_connected_then_finds_owned_products()
+    print("✓ Test 1 passed: Follow chain to product")
+    
+    test_product_similarity_recommendation_when_user_owns_product_then_recommends_similar()
+    print("✓ Test 2 passed: Product similarity recommendation")
+    
+    test_social_product_full_path_when_following_and_owning_then_traces_complete_path()
+    print("✓ Test 3 passed: Social product full path")
+    
+    test_common_interest_users_when_similar_products_owned_then_finds_connections()
+    print("✓ Test 4 passed: Common interest users")
+    
+    print("\nAll tests passed!")
