@@ -20,6 +20,7 @@
       in
       {
         # 開発環境
+        # Use: nix develop (default Deno), nix develop .#nodejs, or nix develop .#bun
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             deno
@@ -44,6 +45,63 @@
                 [ -f "$lib" ] && ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" "$lib" || true
               done
             fi
+          '';
+        };
+        
+        # Node.js development shell
+        devShells.nodejs = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            nodejs_20
+            stdenv.cc.cc.lib
+            gcc
+            patchelf
+          ];
+          
+          shellHook = ''
+            echo "KuzuDB TypeScript persistence layer - Node.js environment"
+            echo "Node.js version: $(node --version)"
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+            
+            # Link log_ts for development
+            mkdir -p deps
+            ln -sf ${log_ts.lib.importPath} deps/log_ts
+            
+            # Install npm dependencies if needed
+            if [ ! -d "node_modules" ]; then
+              echo "Installing npm dependencies..."
+              npm install
+            fi
+          '';
+        };
+        
+        # Bun development shell
+        devShells.bun = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            bun
+            stdenv.cc.cc.lib
+            gcc
+            patchelf
+          ];
+          
+          shellHook = ''
+            echo "KuzuDB TypeScript persistence layer - Bun environment"
+            echo "Bun version: $(bun --version)"
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+            
+            # Link log_ts for development
+            mkdir -p deps
+            ln -sf ${log_ts.lib.importPath} deps/log_ts
+            
+            # Install dependencies using Bun if needed
+            if [ ! -d "node_modules" ]; then
+              echo "Installing dependencies with Bun..."
+              bun install
+            fi
+            
+            echo ""
+            echo "Bun runtime environment ready!"
+            echo "Run your TypeScript files with: bun run <file.ts>"
+            echo "Run tests with: bun test"
           '';
         };
         
@@ -199,6 +257,78 @@
           
           meta = with pkgs.lib; {
             description = "KuzuDB TypeScript/Deno persistence layer - Worker implementation";
+            homepage = "https://github.com/nixos/bin/src/persistence/kuzu_ts";
+            license = licenses.mit;
+            maintainers = [ ];
+            platforms = platforms.unix;
+          };
+        };
+        
+        # Bun implementation package
+        packages.bun = pkgs.buildNpmPackage rec {
+          pname = "kuzu_ts_bun";
+          version = "0.1.0";
+          
+          src = ./.;
+          
+          # package-lock.jsonのハッシュ
+          npmDepsHash = "sha256-eSa6agcAMBrN8aOEDsCMUNYfd73L4nYjseETXedz1AQ=";
+          
+          buildInputs = with pkgs; [
+            bun
+            stdenv.cc.cc.lib
+            patchelf
+          ];
+          
+          # Skip npm build since we're using Bun
+          dontNpmBuild = true;
+          
+          # Install and setup for Bun
+          postInstall = ''
+            # Install dependencies using Bun
+            export HOME=$TMPDIR
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+            
+            # Set up deps directory
+            mkdir -p $out/lib/kuzu_ts_bun/deps
+            ln -sf ${log_ts.lib.importPath} $out/lib/kuzu_ts_bun/deps/log_ts
+            
+            # Copy source files
+            mkdir -p $out/lib/kuzu_ts_bun
+            cp -r shared worker classic $out/lib/kuzu_ts_bun/
+            [ -d tests ] && cp -r tests $out/lib/kuzu_ts_bun/
+            [ -d examples ] && cp -r examples $out/lib/kuzu_ts_bun/
+            [ -d bun ] && cp -r bun $out/lib/kuzu_ts_bun/
+            cp mod.ts deno.json deno.lock package.json package-lock.json $out/lib/kuzu_ts_bun/
+            
+            # Create a symlink to node_modules in the package directory
+            ln -s $out/lib/node_modules/kuzu_ts/node_modules $out/lib/kuzu_ts_bun/node_modules
+            
+            # Patch native modules
+            if [ -d "$out/lib/node_modules/kuzu" ]; then
+              for lib in $out/lib/node_modules/kuzu/*.node; do
+                if [ -f "$lib" ]; then
+                  ${pkgs.patchelf}/bin/patchelf \
+                    --set-rpath "${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}" \
+                    "$lib" || true
+                fi
+              done
+            fi
+            
+            # Create wrapper script for Bun runtime
+            mkdir -p $out/bin
+            cat > $out/bin/kuzu_ts_bun <<EOF
+            #!/bin/sh
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib]}:\$LD_LIBRARY_PATH"
+            export KUZU_TS_PATH="$out/lib/kuzu_ts_bun"
+            cd $out/lib/kuzu_ts_bun
+            exec ${pkgs.bun}/bin/bun run "$out/lib/kuzu_ts_bun/mod.ts" "\$@"
+            EOF
+            chmod +x $out/bin/kuzu_ts_bun
+          '';
+          
+          meta = with pkgs.lib; {
+            description = "KuzuDB TypeScript persistence layer - Bun runtime";
             homepage = "https://github.com/nixos/bin/src/persistence/kuzu_ts";
             license = licenses.mit;
             maintainers = [ ];

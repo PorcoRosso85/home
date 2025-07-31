@@ -37,6 +37,29 @@ const rows = await result.getAll();
 - ✅ TypeScript type definitions
 - ✅ Deno-first design
 
+## Runtime Support
+
+### Deno (Primary)
+The primary implementation targets Deno with full TypeScript support and import maps.
+
+### Node.js
+Available through the Node.js dev shell with npm compatibility:
+```bash
+nix develop .#nodejs
+```
+
+### Bun
+Bun runtime is now officially supported with a simplified API:
+```bash
+# Use the Bun package
+nix develop .#bun
+
+# Or in your flake
+kuzu-ts.packages.${system}.bun
+```
+
+See [BUN_USAGE.md](./BUN_USAGE.md) for detailed Bun usage instructions and examples.
+
 ## Testing
 
 ```bash
