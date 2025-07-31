@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graph_docs"
+version = "0.1.0"
+description = "Dual KuzuDB Query Interface - CLI for querying two KuzuDB databases simultaneously"
+authors = [
+    {name = "graph_docs contributors"},
+]
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database :: Front-Ends",
+]
+dependencies = [
+    "kuzu>=0.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio",
+]
+
+[project.scripts]
+graph-docs-pyright = "graph_docs.main:main"
+
+[tool.setuptools]
+packages = ["graph_docs"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+graph_docs = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["test_*.py"]
+pythonpath = ["."]
+
+[tool.pyright]
+include = ["graph_docs", "main.py", "test_*.py"]
+exclude = ["docs", "build", "dist"]
+reportMissingImports = true
+reportMissingTypeStubs = false
+pythonVersion = "3.11"
+pythonPlatform = "All"
