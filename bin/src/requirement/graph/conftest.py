@@ -132,17 +132,79 @@ def run_system():
 import inspect
 
 def pytest_collection_modifyitems(items):
-    """run_systemを使用するテストに自動的にe2eマーカーを追加"""
+    """テストに自動的にマーカーを追加"""
+    # 前回の実行時間データを読み込み（存在する場合）
+    test_times = {}
+    try:
+        json_report_path = ".test_times.json"
+        if os.path.exists(json_report_path):
+            with open(json_report_path, "r") as f:
+                data = json.load(f)
+                for test in data.get("tests", []):
+                    nodeid = test["nodeid"]
+                    duration = test.get("call", {}).get("duration", 0)
+                    test_times[nodeid] = duration
+    except (json.JSONDecodeError, KeyError):
+        pass
+    
     for item in items:
-        # テスト関数のソースコードを確認
+        # 1. run_systemを使用するテストは自動的にe2eマーク
         if hasattr(item, "function"):
             try:
                 source = inspect.getsource(item.function)
                 if "run_system" in source:
                     item.add_marker(pytest.mark.e2e)
             except (OSError, TypeError):
-                # ソースコードが取得できない場合はスキップ
                 pass
+        
+        # 2. パスベースの自動マーキング
+        path_str = str(item.fspath)
+        
+        # E2Eテストの自動検出
+        if "/e2e/" in path_str:
+            if not item.get_closest_marker("e2e"):
+                item.add_marker(pytest.mark.e2e)
+            # E2Eテストはデフォルトでslowとマーク（既存マークがない場合）
+            if not item.get_closest_marker("slow"):
+                item.add_marker(pytest.mark.slow)
+        
+        # ドメインテストは高速
+        elif "/domain/" in path_str:
+            if not item.get_closest_marker("unit"):
+                item.add_marker(pytest.mark.unit)
+            if not item.get_closest_marker("instant"):
+                item.add_marker(pytest.mark.instant)
+        
+        # インフラ/アプリケーションは統合テスト
+        elif "/infrastructure/" in path_str or "/application/" in path_str:
+            if not item.get_closest_marker("integration"):
+                item.add_marker(pytest.mark.integration)
+        
+        # 3. 実行時間ベースの自動マーキング
+        nodeid = item.nodeid
+        if nodeid in test_times:
+            duration = test_times[nodeid]
+            
+            # 速度マークがない場合のみ追加
+            speed_marks = ["instant", "fast", "normal", "slow", "very_slow"]
+            if not any(item.get_closest_marker(m) for m in speed_marks):
+                if duration < 0.1:
+                    item.add_marker(pytest.mark.instant)
+                elif duration < 1.0:
+                    item.add_marker(pytest.mark.fast)
+                elif duration < 5.0:
+                    item.add_marker(pytest.mark.normal)
+                elif duration < 30.0:
+                    item.add_marker(pytest.mark.slow)
+                else:
+                    item.add_marker(pytest.mark.very_slow)
+        
+        # 4. キーワードベースのマーキング
+        nodeid_lower = nodeid.lower()
+        if "vss" in nodeid_lower:
+            item.add_marker(pytest.mark.vss_required)
+        if "network" in nodeid_lower or "http" in nodeid_lower:
+            item.add_marker(pytest.mark.network_required)
 
 
 # パフォーマンス計測フィクスチャ
