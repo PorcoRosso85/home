@@ -1,5 +1,5 @@
 import { assertEquals, assertExists } from "https://deno.land/std@0.218.0/assert/mod.ts";
-import { createDatabase, createConnection } from "../core/database.ts";
+import { createDatabase, createConnection } from "../classic/database.ts";
 
 // KuzuDB TypeScript/Deno 使用方法の完全なサンプル
 Deno.test("【使い方サンプル】基本的なKuzuDB操作", async () => {

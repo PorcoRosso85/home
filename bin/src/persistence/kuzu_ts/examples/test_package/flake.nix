@@ -25,7 +25,7 @@
             
             # Create a test script
             cat > test.ts <<EOF
-            import { KUZU_VERSION } from "${kuzuTsPackage}/lib/kuzu_ts/mod_worker.ts";
+            import { KUZU_VERSION } from "${kuzuTsPackage}/lib/kuzu_ts/worker/mod.ts";
             console.log("KuzuDB version from package:", KUZU_VERSION);
             
             // Test that we can import from the package

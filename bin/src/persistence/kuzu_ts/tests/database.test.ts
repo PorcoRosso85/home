@@ -1,11 +1,11 @@
 import { assertEquals, assertExists, assertStrictEquals } from "https://deno.land/std@0.218.0/assert/mod.ts";
-import { createDatabase, createConnection } from "../core/database.ts";
+import { createDatabase, createConnection } from "../classic/database.ts";
 import { 
   isDatabase, 
   isConnection, 
   isFileOperationError, 
   isValidationError 
-} from "../core/result_types.ts";
+} from "../shared/types.ts";
 
 Deno.test("createDatabase - in-memory database creation", () => {
   const result = createDatabase(":memory:");

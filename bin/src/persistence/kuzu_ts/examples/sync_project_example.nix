@@ -71,7 +71,7 @@
                 "@std/assert": "jsr:@std/assert@^1.0.0",
                 "@std/async": "jsr:@std/async@^1.0.0",
                 "@kuzu-ts/": "${kuzuTsPackage}/lib/",
-                "@kuzu-ts/worker": "${kuzuTsPackage}/lib/mod_worker.ts",
+                "@kuzu-ts/worker": "${kuzuTsPackage}/lib/worker/mod.ts",
                 "log_ts/": "${log-ts.lib.importPath}/"
               },
               "nodeModulesDir": false
@@ -83,7 +83,7 @@
             echo ""
             echo "📍 Important paths:"
             echo "  - KuzuTS module: ${kuzuTsPackage}/lib/mod.ts"
-            echo "  - KuzuTS worker: ${kuzuTsPackage}/lib/mod_worker.ts"
+            echo "  - KuzuTS worker: ${kuzuTsPackage}/lib/worker/mod.ts"
             echo "  - Node modules: ${kuzuTsPackage}/lib/node_modules"
             echo ""
             echo "🚀 You can now import kuzu_ts using:"
@@ -165,7 +165,7 @@
             {
               "imports": {
                 "@kuzu-ts/": "${kuzuTsPackage}/lib/",
-                "@kuzu-ts/worker": "${kuzuTsPackage}/lib/mod_worker.ts",
+                "@kuzu-ts/worker": "${kuzuTsPackage}/lib/worker/mod.ts",
                 "log_ts/": "${log-ts.lib.importPath}/"
               }
             }

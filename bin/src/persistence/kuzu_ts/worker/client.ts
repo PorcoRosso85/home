@@ -18,8 +18,8 @@
  * - Worker起動時のオーバーヘッドがある
  * =====================================================
  */
-import type { DatabaseResult, ConnectionResult } from "./result_types.ts";
-import { createValidationError, createFileOperationError } from "./errors.ts";
+import type { DatabaseResult, ConnectionResult } from "../shared/result_types.ts";
+import { createValidationError, createFileOperationError } from "../shared/errors.ts";
 import { log } from "log_ts/mod.ts";
 
 // ワーカーインスタンス
@@ -36,7 +36,7 @@ const pendingRequests = new Map<string, {
 function initWorker() {
   if (!worker) {
     worker = new Worker(
-      new URL("./kuzu_worker.ts", import.meta.url).href,
+      new URL("./worker.ts", import.meta.url).href,
       { 
         type: "module",
         deno: {

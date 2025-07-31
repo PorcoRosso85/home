@@ -27,10 +27,10 @@ export {
   terminateWorker,
   WorkerDatabase,
   WorkerConnection,
-} from "./core/database_worker_client.ts";
+} from "./client.ts";
 
 // Re-export version
-export { KUZU_VERSION } from "./version.ts";
+export { KUZU_VERSION } from "../shared/version.ts";
 
 // Re-export configuration and types
 export {
@@ -45,9 +45,9 @@ export {
   getDebugMode,
   getDefaultConfig,
   mergeConfig,
-} from "./core/variables.ts";
+} from "../shared/config.ts";
 
-export type { KuzuConfig, QueryType } from "./core/variables.ts";
+export type { KuzuConfig, QueryType } from "../shared/config.ts";
 
 // Re-export error types
 export type {
@@ -55,7 +55,7 @@ export type {
   ValidationError,
   NotFoundError,
   KuzuError,
-} from "./core/errors.ts";
+} from "../shared/errors.ts";
 
 export {
   createFileOperationError,
@@ -65,24 +65,24 @@ export {
   isValidationError,
   isNotFoundError,
   isKuzuError,
-} from "./core/errors.ts";
+} from "../shared/errors.ts";
 
 // Re-export result types
 export type {
   DatabaseResult,
   ConnectionResult,
-} from "./core/result_types.ts";
+} from "../shared/types.ts";
 
 export {
   isDatabase,
   isConnection,
-} from "./core/result_types.ts";
+} from "../shared/types.ts";
 
 /**
  * Example usage:
  * 
  * ```typescript
- * import { createDatabase, createConnection, terminateWorker } from "./mod_worker.ts";
+ * import { createDatabase, createConnection, terminateWorker } from "./mod.ts";
  * 
  * // Create an in-memory database
  * const db = await createDatabase(":memory:");

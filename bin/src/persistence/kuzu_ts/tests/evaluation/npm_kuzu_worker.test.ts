@@ -6,7 +6,7 @@ import {
   terminateWorker,
   WorkerDatabase,
   WorkerConnection
-} from "../../core/database_worker_client.ts";
+} from "../../worker/client.ts";
 
 Deno.test("npm:kuzu worker - panic isolation test", async () => {
   console.log("Starting npm:kuzu worker panic isolation test...");

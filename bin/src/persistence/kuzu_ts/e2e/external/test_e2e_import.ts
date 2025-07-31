@@ -21,7 +21,7 @@ import {
   KUZU_VERSION,
   type DatabaseResult,
   type ConnectionResult,
-} from "../../mod_worker.ts";
+} from "../../worker/mod.ts";
 
 Deno.test("External package - module exports", () => {
   // Verify all expected exports are available

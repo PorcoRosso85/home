@@ -116,9 +116,9 @@
             mkdir -p $out/lib
             
             # Copy all source files to lib directory
-            cp -r core $out/lib/
+            cp -r core shared worker $out/lib/
             cp -r tests $out/lib/
-            cp mod.ts mod_worker.ts version.ts deno.json deno.lock $out/lib/
+            cp mod.ts deno.json deno.lock $out/lib/
             
             # Copy node_modules from current directory
             echo "Checking for node_modules..."
@@ -154,7 +154,7 @@
               "main": "mod.ts",
               "exports": {
                 ".": "./mod.ts",
-                "./worker": "./mod_worker.ts"
+                "./worker": "./worker/mod.ts"
               }
             }
             EOF

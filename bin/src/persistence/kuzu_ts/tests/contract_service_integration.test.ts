@@ -1,5 +1,5 @@
 import { assertEquals, assertExists } from "https://deno.land/std@0.218.0/assert/mod.ts";
-import { createDatabase, createConnection } from "../core/database.ts";
+import { createDatabase, createConnection } from "../classic/database.ts";
 
 // Contract Service用のテストケース - 報告された期待動作を検証
 Deno.test("Contract Service - Provider Registration", async () => {

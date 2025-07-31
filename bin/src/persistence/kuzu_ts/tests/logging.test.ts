@@ -1,7 +1,7 @@
 import { assertEquals, assertExists } from "jsr:@std/assert@^1.0.0";
 import { log } from "log_ts/mod.ts";
-import { createDatabase, createConnection } from "../core/database.ts";
-import { isDatabase, isConnection, isValidationError } from "../core/result_types.ts";
+import { createDatabase, createConnection } from "../classic/database.ts";
+import { isDatabase, isConnection, isValidationError } from "../shared/types.ts";
 
 // Test log_ts module integration
 Deno.test("log_ts - module import and basic functionality", () => {

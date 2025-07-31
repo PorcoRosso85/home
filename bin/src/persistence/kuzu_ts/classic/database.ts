@@ -1,6 +1,6 @@
 import { Database, Connection } from "kuzu";
-import type { DatabaseResult, ConnectionResult } from "./result_types.ts";
-import type { FileOperationError, ValidationError } from "./errors.ts";
+import type { DatabaseResult, ConnectionResult } from "../shared/types.ts";
+import type { FileOperationError, ValidationError } from "../shared/errors.ts";
 import { dirname, join } from "jsr:@std/path@^1.0.0";
 import { log } from "log_ts/mod.ts";
 
@@ -167,4 +167,3 @@ export function createConnection(db: Database): ConnectionResult {
     return error;
   }
 }
-

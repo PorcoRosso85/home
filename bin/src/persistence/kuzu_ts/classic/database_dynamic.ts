@@ -3,10 +3,10 @@
  * 
  * kuzu/queryの実装を参考に、動的importでパニックを回避
  */
-import type { DatabaseResult, ConnectionResult } from "./result_types.ts";
-import { createValidationError, createFileOperationError } from "./errors.ts";
+import type { DatabaseResult, ConnectionResult } from "../shared/types.ts";
+import { createValidationError, createFileOperationError } from "../shared/errors.ts";
 import { log } from "log_ts/mod.ts";
-import { DEFAULT_DB_MAX_SIZE } from "./variables.ts";
+import { DEFAULT_DB_MAX_SIZE } from "../shared/config.ts";
 import { existsSync } from "jsr:@std/fs@^1.0.0";
 
 // KuzuDBモジュールのキャッシュ

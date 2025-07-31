@@ -15,7 +15,7 @@ import {
   getDebugMode,
   getDefaultConfig,
   mergeConfig,
-} from "../core/variables.ts";
+} from "../shared/config.ts";
 
 Deno.test("グローバル定数の確認", () => {
   // kuzu_pyと同じ値であることを確認

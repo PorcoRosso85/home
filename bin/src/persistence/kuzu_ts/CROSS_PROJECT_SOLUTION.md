@@ -53,19 +53,19 @@ persistence/kuzu_ts側でWorkerファイルをバンドルして提供。
 // persistence/kuzu_ts/build_bundled_worker.ts
 import { bundle } from "https://deno.land/x/emit@0.40.0/mod.ts";
 
-const result = await bundle("./core/kuzu_worker.ts", {
+const result = await bundle("./worker/worker.ts", {
   compilerOptions: {
     inlineSourceMap: true,
   },
 });
 
-await Deno.writeTextFile("./dist/kuzu_worker.bundle.js", result.code);
+await Deno.writeTextFile("./dist/worker.bundle.js", result.code);
 ```
 
 ```typescript
 // persistence/kuzu_ts/mod_bundled.ts
 export function createDatabaseBundled(path: string) {
-  const workerCode = await Deno.readTextFile("./dist/kuzu_worker.bundle.js");
+  const workerCode = await Deno.readTextFile("./dist/worker.bundle.js");
   const blob = new Blob([workerCode], { type: "application/javascript" });
   const worker = new Worker(URL.createObjectURL(blob), { type: "module" });
   // ...

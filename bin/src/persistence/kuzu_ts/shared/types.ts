@@ -14,7 +14,8 @@ export function isDatabase(result: DatabaseResult): result is Database {
     typeof result === "object" &&
     result !== null &&
     !("type" in result) &&
-    "query" in result
+    "close" in result &&
+    !("execute" in result)  // Database has close but not execute
   );
 }
 

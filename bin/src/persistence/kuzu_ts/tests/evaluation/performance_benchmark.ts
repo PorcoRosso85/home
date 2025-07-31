@@ -17,7 +17,7 @@ import {
   terminateWorker,
   WorkerDatabase,
   WorkerConnection
-} from "../../core/database_worker_client.ts";
+} from "../../worker/client.ts";
 
 interface BenchmarkResult {
   implementation: string;

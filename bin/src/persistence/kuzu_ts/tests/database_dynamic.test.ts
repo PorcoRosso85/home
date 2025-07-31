@@ -4,8 +4,8 @@ import {
   createConnectionDynamic,
   closeDatabaseSafe,
   closeConnectionSafe
-} from "../core/database_dynamic.ts";
-import { isDatabase, isConnection, isValidationError } from "../core/result_types.ts";
+} from "../classic/database_dynamic.ts";
+import { isDatabase, isConnection, isValidationError } from "../shared/types.ts";
 
 Deno.test("createDatabaseDynamic - in-memory database creation", async () => {
   const result = await createDatabaseDynamic(":memory:");

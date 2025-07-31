@@ -92,7 +92,7 @@ While full benchmarks couldn't complete due to Worker API configuration issues, 
 
 ```typescript
 // Recommended API structure
-export * from "./core/database_worker_client.ts";
+export * from "./worker/client.ts";
 
 // Usage
 const db = await createDatabaseWorker(":memory:");

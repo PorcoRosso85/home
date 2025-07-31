@@ -16,7 +16,7 @@ The Worker implementation provides the best balance of stability and functionali
 ## Installation
 
 ```typescript
-import { createDatabase, createConnection } from "./mod_worker.ts";
+import { createDatabase, createConnection } from "./worker/mod.ts";
 ```
 
 ## Usage
@@ -47,7 +47,7 @@ await db.close();
 ### Worker Lifecycle Management
 
 ```typescript
-import { terminateWorker } from "./mod_worker.ts";
+import { terminateWorker } from "./worker/mod.ts";
 
 // When completely done with KuzuDB operations
 terminateWorker();
@@ -120,7 +120,7 @@ import { Database, Connection } from "npm:kuzu";
 const db = new Database(":memory:");
 
 // After (worker - stable)
-import { createDatabase, createConnection } from "./mod_worker.ts";
+import { createDatabase, createConnection } from "./worker/mod.ts";
 const db = await createDatabase(":memory:");
 ```
 

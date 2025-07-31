@@ -1,51 +1,21 @@
 // Main entry point for kuzu_ts module
-export { createDatabase, createConnection } from "./core/database.ts";
-export type { DatabaseOptions } from "./core/database.ts";
+// Re-exports all implementations
 
-// Version
-export { KUZU_VERSION } from "./version.ts";
+// Export shared utilities and types
+export * from "./shared/mod.ts";
 
-// Configuration and variables
+// Export classic implementation (default)
 export {
-  DEFAULT_DB_MAX_SIZE,
-  DEFAULT_CACHE_TTL,
-  VALID_QUERY_TYPES,
-  QUERY_FILE_EXTENSION,
-  DEFAULT_QUERY_DIR,
-  getKuzuPath,
-  getCacheEnabled,
-  getMaxCacheSize,
-  getDebugMode,
-  getDefaultConfig,
-  mergeConfig,
-} from "./core/variables.ts";
-export type { KuzuConfig, QueryType } from "./core/variables.ts";
+  createDatabase,
+  createConnection,
+  type DatabaseOptions as ClassicDatabaseOptions,
+} from "./classic/mod.ts";
 
-// Error types and functions
-export type {
-  FileOperationError,
-  ValidationError,
-  NotFoundError,
-  KuzuError,
-} from "./core/errors.ts";
-
+// Export worker implementation with prefixed names to avoid conflicts
 export {
-  createFileOperationError,
-  createValidationError,
-  createNotFoundError,
-  isFileOperationError,
-  isValidationError,
-  isNotFoundError,
-  isKuzuError,
-} from "./core/errors.ts";
-
-// Result types and type guards
-export type {
-  DatabaseResult,
-  ConnectionResult,
-} from "./core/result_types.ts";
-
-export {
-  isDatabase,
-  isConnection,
-} from "./core/result_types.ts";
+  createDatabase as createDatabaseWorker,
+  createConnection as createConnectionWorker,
+  terminateWorker,
+  WorkerDatabase,
+  WorkerConnection,
+} from "./worker/mod.ts";
