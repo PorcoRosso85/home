@@ -9,6 +9,11 @@ import shutil
 from pathlib import Path
 import kuzu
 
+def log(level: str, component: str, message: str, **kwargs):
+    """Local logging function for testing"""
+    context = " ".join([f"{k}={v}" for k, v in kwargs.items()])
+    print(f"[{level}] {component}: {message} {context}".strip())
+
 def setup_user_db(db_path: Path):
     """UserデータベースのセットアップとUser間リレーション"""
     db = kuzu.Database(str(db_path))
@@ -120,7 +125,7 @@ def test_e2e_queries():
         product_db, product_conn = setup_product_db(product_db_path)
         integrated_db, conn = setup_integrated_db(integrated_db_path, user_db_path, product_db_path)
         
-        print("=== E2E Query 1: Alice → フォローチェーン → 所有者 → 製品 ===")
+        log('DEBUG', 'graph_docs.test_e2e', 'Starting E2E Query 1', query_type='follow_chain_to_product', start_user='Alice')
         # Alice(1) → Bob(2) → Charlie(3) → Phone X(103)
         result = conn.execute("""
             MATCH path = (alice:User {name: 'Alice'})-[:FOLLOWS*1..2]->(owner:User)-[:OWNS]->(product:Product)
@@ -128,9 +133,9 @@ def test_e2e_queries():
         """)
         while result.has_next():
             row = result.get_next()
-            print(f"{row[0]} → (follows chain) → {row[1]} → owns → {row[2]}")
+            log('DEBUG', 'graph_docs.test_e2e', 'Query result', start_user=row[0], product_owner=row[1], owned_product=row[2], path_type='follows_chain_owns')
         
-        print("\n=== E2E Query 2: 製品類似性チェーンを通じた推薦 ===")
+        log('DEBUG', 'graph_docs.test_e2e', 'Starting E2E Query 2', query_type='product_similarity_recommendation')
         # Bob(2) → Laptop A(101) → Laptop B(102) → Phone X(103)
         result = conn.execute("""
             MATCH (user:User {name: 'Bob'})-[:OWNS]->(owned:Product),
@@ -140,9 +145,9 @@ def test_e2e_queries():
         """)
         while result.has_next():
             row = result.get_next()
-            print(f"{row[0]} owns {row[1]} → similar products → {row[2]} ({row[3]})")
+            log('DEBUG', 'graph_docs.test_e2e', 'Query result', user=row[0], owned_product=row[1], recommended_product=row[2], category=row[3], path_type='owns_similar_to')
         
-        print("\n=== E2E Query 3: ソーシャル＋製品の完全パス ===")
+        log('DEBUG', 'graph_docs.test_e2e', 'Starting E2E Query 3', query_type='social_product_full_path')
         # Alice → Bob → Charlie → Phone X → Tablet Y
         # KuzuDBの制約により、クエリを分割して実行
         result = conn.execute("""
@@ -163,9 +168,9 @@ def test_e2e_queries():
             """)
             while similar_result.has_next():
                 target_name = similar_result.get_next()[0]
-                print(f"Path: {start_name} → ... → {owner_name} → owns → {prod_name} → similar → {target_name}")
+                log('DEBUG', 'graph_docs.test_e2e', 'Query result', start_user=start_name, product_owner=owner_name, owned_product=prod_name, similar_product=target_name, path_type='follows_owns_similar')
         
-        print("\n=== E2E Query 4: 共通の興味を持つユーザー発見 ===")
+        log('DEBUG', 'graph_docs.test_e2e', 'Starting E2E Query 4', query_type='common_interest_users')
         # 類似製品を所有するユーザー同士の関係
         result = conn.execute("""
             MATCH (u1:User)-[:OWNS]->(p1:Product)-[:SIMILAR_TO]-(p2:Product)<-[:OWNS]-(u2:User)
@@ -174,7 +179,7 @@ def test_e2e_queries():
         """)
         while result.has_next():
             row = result.get_next()
-            print(f"{row[0]} ({row[1]}) ← similar products → {row[3]} ({row[2]})")
+            log('DEBUG', 'graph_docs.test_e2e', 'Query result', user1=row[0], user1_product=row[1], user2_product=row[2], user2=row[3], relationship='similar_products')
         
     finally:
         # クリーンアップ

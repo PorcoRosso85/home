@@ -14,37 +14,70 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # 親flakeからPythonバージョンを継承し、追加パッケージを含めて再構築
-        basePython = python-flake.packages.${system}.pythonEnv.python;
-        pythonEnv = basePython.withPackages (ps: with ps; [
-          pytest
-          pytest-asyncio
-          kuzu  # nixpkgsのkuzuを使用
+        # Build graph_docs as a proper Python package
+        graphDocsPackage = pkgs.python312Packages.buildPythonPackage rec {
+          pname = "graph_docs";
+          version = "0.1.0";
+          src = ./.;
+          
+          pyproject = true;
+          
+          build-system = with pkgs.python312Packages; [
+            setuptools
+            wheel
+          ];
+          
+          propagatedBuildInputs = with pkgs.python312Packages; [
+            kuzu
+          ];
+          
+          nativeCheckInputs = with pkgs.python312Packages; [
+            pytest
+            pytest-asyncio
+          ];
+          
+          pythonImportsCheck = [ "graph_docs" ];
+          
+          # Disable tests during build (run separately)
+          doCheck = false;
+        };
+        
+        # Python environment with our package and test dependencies
+        pythonEnv = pkgs.python312.withPackages (ps: [
+          graphDocsPackage
+          ps.pytest
+          ps.pytest-asyncio
         ]);
 
       in
       {
-        packages.default = pkgs.stdenv.mkDerivation {
-          pname = "graph-docs";
-          version = "0.1.0";
-          src = ./.;
-          
-          buildInputs = [ pythonEnv ];
-          
-          installPhase = ''
-            mkdir -p $out/bin
-            cp mod.py $out/
-            cp main.py $out/bin/graph-docs
-            chmod +x $out/bin/graph-docs
-            
-            # Add shebang and module path
-            sed -i '1i#!/usr/bin/env python3' $out/bin/graph-docs
-            sed -i '2iimport sys; sys.path.insert(0, "'$out'")' $out/bin/graph-docs
-          '';
+        packages = {
+          default = graphDocsPackage;
+          pythonEnv = pythonEnv;
         };
 
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pythonEnv ];
+          buildInputs = [ 
+            pythonEnv 
+            pkgs.pyright
+            pkgs.ruff
+          ];
+          
+          shellHook = ''
+            echo "graph_docs development environment"
+            echo "Python package: graph_docs"
+            echo "CLI: graph-docs"
+            echo ""
+            echo "Available commands:"
+            echo "  graph-docs query DB1 DB2 'MATCH (n) RETURN n LIMIT 5'"
+            echo "  graph-docs info DB1 DB2"
+            echo "  graph-docs parallel DB1 DB2 'QUERY1' 'QUERY2'"
+            echo ""
+            echo "Development tools:"
+            echo "  pytest - Run tests"
+            echo "  pyright - Type checker"
+            echo "  ruff - Linter"
+          '';
         };
 
         apps = rec {
@@ -71,6 +104,7 @@
             type = "app";
             program = "${pkgs.writeShellScript "test" ''
               cd ${./.}
+              export PYTHONPATH="${./.}:$PYTHONPATH"
               exec ${pythonEnv}/bin/pytest -v
             ''}";
           };
@@ -84,7 +118,7 @@
 
           query = {
             type = "app";
-            program = "${self.packages.${system}.default}/bin/graph-docs";
+            program = "${pythonEnv}/bin/graph-docs";
           };
 
 

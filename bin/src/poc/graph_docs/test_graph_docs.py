@@ -10,7 +10,7 @@ from pathlib import Path
 import tempfile
 import shutil
 import csv
-from mod import DualKuzuDB, QueryResult, DualQueryResult
+from graph_docs.mod import DualKuzuDB, QueryResult, DualQueryResult
 import kuzu
 
 class TestDualKuzuDB:

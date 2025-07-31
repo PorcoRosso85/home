@@ -1,0 +1,67 @@
+{
+  "include": [
+    ".",
+    "../../telemetry"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/node_modules",
+    "**/.venv",
+    "**/venv",
+    "result"
+  ],
+  "defineConstant": {
+    "DEBUG": true
+  },
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Linux",
+  "typeCheckingMode": "strict",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "reportUnknownParameterType": true,
+  "reportUnknownArgumentType": true,
+  "reportUnknownLambdaType": true,
+  "reportUnknownVariableType": true,
+  "reportUnknownMemberType": true,
+  "reportGeneralTypeIssues": true,
+  "reportOptionalSubscript": true,
+  "reportOptionalMemberAccess": true,
+  "reportOptionalCall": true,
+  "reportOptionalIterable": true,
+  "reportOptionalContextManager": true,
+  "reportOptionalOperand": true,
+  "reportTypedDictNotRequiredAccess": true,
+  "reportPrivateImportUsage": true,
+  "reportUnboundVariable": true,
+  "reportUnusedImport": true,
+  "reportUnusedClass": true,
+  "reportUnusedFunction": true,
+  "reportUnusedVariable": true,
+  "reportDuplicateImport": true,
+  "reportUninitializedInstanceVariable": true,
+  "reportInvalidStringEscapeSequence": true,
+  "reportMissingTypeArgument": true,
+  "reportCallInDefaultInitializer": true,
+  "reportUnnecessaryIsInstance": true,
+  "reportUnnecessaryCast": true,
+  "reportUnnecessaryComparison": true,
+  "reportImplicitStringConcatenation": false,
+  "reportIncompatibleMethodOverride": true,
+  "reportIncompatibleVariableOverride": true,
+  "useLibraryCodeForTypes": true,
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.11",
+      "extraPaths": [
+        "../../telemetry",
+        "../.."
+      ]
+    }
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "stubPath": "./typings",
+  "typeshedPath": "./typeshed"
+}
