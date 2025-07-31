@@ -31,14 +31,22 @@ def ensure_test_compatibility(graph_adapter: GraphAdapter) -> None:
             # Extract values - handle the simplified column mapping
             test_id = test.get("col0") or test.get("id")
             test_type = test.get("col1") or test.get("test_type", "unit")
+            name = test.get("col2") or test.get("name", "")
+            description = test.get("col3") or test.get("description", "")
+            
+            logger.debug(f"Processing TestEntity: id={test_id}, type={test_type}, raw={test}")
             
             if test_id:
                 graph_adapter.execute_cypher("""
                     MERGE (t:TestSpecification {id: $id})
-                    SET t.test_type = $test_type
+                    SET t.test_type = $test_type,
+                        t.name = $name,
+                        t.description = $description
                 """, {
                     "id": test_id,
-                    "test_type": test_type
+                    "test_type": test_type,
+                    "name": name,
+                    "description": description
                 })
                 
         # Copy VERIFIED_BY relationships
@@ -55,6 +63,8 @@ def ensure_test_compatibility(graph_adapter: GraphAdapter) -> None:
             test_id = rel.get("col1") or rel.get("test_id")
             v_type = rel.get("col2") or rel.get("v_type", "behavior")
             score = rel.get("col3") or rel.get("score", 0.0)
+            
+            logger.debug(f"Processing relationship: req={req_id}, test={test_id}, type={v_type}, score={score}, raw={rel}")
             
             if req_id and test_id:
                 graph_adapter.execute_cypher("""

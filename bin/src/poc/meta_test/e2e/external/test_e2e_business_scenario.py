@@ -39,7 +39,8 @@ class TestE2EBusinessScenario:
         
         # Initialize components
         self.graph_adapter = GraphAdapter(str(self.db_path))
-        self.ddl_loader = DDLLoader(self.graph_adapter)
+        ddl_dir = Path(__file__).parent.parent.parent / "ddl"
+        self.ddl_loader = DDLLoader(self.graph_adapter, base_dir=str(ddl_dir))
         self.metrics_collector = MetricsCollector(str(Path(self.temp_dir) / "metrics"))
         self.embedding_service = EmbeddingService()
         self.cypher_writer = CypherWriter(str(Path(self.temp_dir) / "cypher"))
@@ -66,17 +67,15 @@ class TestE2EBusinessScenario:
 
     def _load_ddl_and_data(self):
         """Load DDL schema and sample data using DDLLoader."""
-        ddl_dir = Path(__file__).parent.parent.parent / "ddl"
-        
         # Load migration schema
-        migration_result = self.ddl_loader.load_file(ddl_dir / "migration_v1.0.0_meta_test.cypher")
-        if isinstance(migration_result, dict) and "error" in migration_result:
-            pytest.fail(f"Failed to load migration DDL: {migration_result}")
+        success, results = self.ddl_loader.load_ddl("migration_v1.0.0_meta_test")
+        if not success:
+            pytest.fail(f"Failed to load migration DDL: {results}")
             
         # Load sample data
-        sample_result = self.ddl_loader.load_file(ddl_dir / "sample_data.cypher")
-        if isinstance(sample_result, dict) and "error" in sample_result:
-            pytest.fail(f"Failed to load sample data: {sample_result}")
+        success, results = self.ddl_loader.load_ddl("sample_data")
+        if not success:
+            pytest.fail(f"Failed to load sample data: {results}")
             
         logger.info("Successfully loaded DDL schema and sample data")
         
