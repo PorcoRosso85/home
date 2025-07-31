@@ -17,5 +17,9 @@
           pytest
           pytest-json-report
         ]);
+        
+        # 開発ツール
+        packages.pyright = pkgs.pyright;
+        packages.ruff = pkgs.ruff;
       });
 }
