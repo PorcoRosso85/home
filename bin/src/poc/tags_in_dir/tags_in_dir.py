@@ -15,7 +15,7 @@ from typing import List, Optional
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Symbol:
     """Represents a symbol (function, class, etc.) extracted by ctags."""
 

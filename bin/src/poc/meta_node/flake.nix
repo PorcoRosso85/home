@@ -16,6 +16,7 @@
         pythonEnv = pkgs.python312.withPackages (ps: [
           ps.pytest
           ps.kuzu
+          ps.numpy
         ]);
 
         # テストスクリプト

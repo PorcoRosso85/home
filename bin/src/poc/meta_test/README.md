@@ -28,7 +28,72 @@ meta_test/
 └── e2e/             # End-to-end tests
 ```
 
+## Installation
+
+```bash
+# As a library (not yet published to PyPI)
+pip install -e /path/to/meta_test
+
+# Dependencies
+pip install kuzu pydantic numpy httpx aiofiles
+```
+
 ## Usage
+
+### As a Library
+
+```python
+from meta_test.application import MetricsCalculator, ImprovementSuggestionGenerator
+from meta_test.infrastructure import GraphAdapter
+
+# Initialize with your requirement graph
+adapter = GraphAdapter(db_path="/path/to/requirement_graph.db")
+calculator = MetricsCalculator(adapter)
+
+# Calculate all metrics for a requirement
+metrics = calculator.calculate_all_metrics("req_001")
+print(f"Test existence: {metrics['existence'].score}")
+print(f"Boundary coverage: {metrics['boundary_coverage'].score}")
+
+# Get improvement suggestions
+generator = ImprovementSuggestionGenerator(threshold=0.7)
+suggestions = generator.generate_suggestions({"req_001": metrics})
+for suggestion in suggestions[:3]:  # Top 3
+    print(f"{suggestion.metric_name}: {suggestion.suggestions}")
+
+# Custom threshold
+generator_strict = ImprovementSuggestionGenerator(threshold=0.9)
+```
+
+### Output Format
+
+```python
+# MetricResult structure
+{
+    "requirement_id": "req_001",
+    "metric_name": "existence",
+    "score": 0.67,  # 0.0 to 1.0
+    "details": {"total_requirements": 3, "tested": 2},
+    "suggestions": ["Add test for sub-requirement req_001_c"]
+}
+
+# Error handling
+from meta_test.infrastructure.result_types import DatabaseError
+result = calculator.calculate_metric("existence", "req_001")
+if isinstance(result, DatabaseError):
+    print(f"Error: {result['message']}")
+```
+
+### Environment Variables
+
+```bash
+# KuzuDB connection
+export META_TEST_DB_PATH="/path/to/requirement_graph.db"
+
+# Logging configuration
+export META_TEST_LOG_LEVEL="INFO"  # TRACE, DEBUG, INFO, WARN, ERROR
+export LOG_FORMAT="json"  # or "console" (default)
+```
 
 ### Installation
 
@@ -142,3 +207,12 @@ cronで`nix run .#learn`を日次実行、またはCIでテスト後に自動更
 
 ### Q: 可視化機能はある？
 A: 現在は数値での出力のみです。可視化は将来の拡張として検討可能ですが、現時点ではスコープ外です。
+
+### Q: 既存のCIに統合するには？
+A: CI環境でKuzuDBへの接続を設定し、`python -m meta_test calculate`を実行します。閾値未満で非ゼロ終了するため、CIのチェックとして使用できます。
+
+### Q: パフォーマンスはどの程度？
+A: 7つの指標は並列計算されます。1000要件規模で約10秒程度（KuzuDBのクエリ性能に依存）。
+
+### Q: カスタム指標を追加するには？
+A: `domain/metrics/`に新しいメトリクスクラスを追加し、`BaseMetric`を継承して`calculate`メソッドを実装します。既存7指標で表現できないことを先に確認してください。

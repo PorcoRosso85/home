@@ -16,7 +16,6 @@
     "npm:@types/node@*": "22.15.15",
     "npm:kuzu-wasm@*": "0.11.0",
     "npm:kuzu-wasm@latest": "0.11.0",
-    "npm:kuzu@*": "0.11.1",
     "npm:kuzu@0.10.0": "0.10.0"
   },
   "jsr": {
@@ -472,14 +471,6 @@
     },
     "kuzu@0.10.0": {
       "integrity": "sha512-CjM1brQx56lFEfTSIjQwYVmJ7ZLj4RRqAyHRt284NRi2KJ191XGTFRBZ+OO2yjOBXpEsRLfkfm0LspEM6lP6rg==",
-      "dependencies": [
-        "cmake-js",
-        "node-addon-api"
-      ],
-      "scripts": true
-    },
-    "kuzu@0.11.1": {
-      "integrity": "sha512-ii4TWagHP6cl/K7nvxtlw6Du/LmumdKQka0CaXRmQp2rQBv8Cm52GXnXa//CywFaL8n+3qi6Xevv823+F+qTaQ==",
       "dependencies": [
         "cmake-js",
         "node-addon-api"

@@ -14,6 +14,8 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
+        # Get the packaged kuzu_ts with pre-installed node_modules
+        kuzuTsPackage = kuzu-ts.packages.${system}.default;
         
       in
       {
@@ -160,6 +162,9 @@
             # Deno for server and tests
             deno
             
+            # Include the packaged kuzu_ts
+            kuzuTsPackage
+            
             # System libraries for npm:kuzu
             stdenv.cc.cc.lib  # libstdc++.so.6
             
@@ -185,11 +190,15 @@
             
             # Set environment variables for KuzuDB
             export KUZU_STORAGE_PATH="./kuzu_storage"
-            export NODE_PATH="${pkgs.nodejs}/lib/node_modules:$NODE_PATH"
+            export NODE_PATH="${kuzuTsPackage}/lib/node_modules:$NODE_PATH"
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+            export KUZU_TS_PATH="${kuzuTsPackage}/lib"
             
             # Set environment variable for log_ts module
             export LOG_TS_PATH="${log-ts}/lib/mod.ts"
+            
+            echo "📍 KuzuTS module: ${kuzuTsPackage}/lib/mod.ts"
+            echo "📍 KuzuTS worker: ${kuzuTsPackage}/lib/mod_worker.ts"
             
           '';
         };

@@ -4,12 +4,16 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    kuzu_py.url = "path:../../persistence/kuzu_py";
   };
   
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, kuzu_py }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        
+        # Import kuzu_py package from persistence/kuzu_py
+        kuzuPyPkg = kuzu_py.packages.${system}.kuzuPy;
         
         # Meta-test package - using direct Python environment without separate package build
         metaTestDeps = with pkgs.python312Packages; [
@@ -20,7 +24,7 @@
           # Infrastructure dependencies
           httpx
           aiofiles
-          kuzu  # KuzuDB for graph database
+          # KuzuDB is now provided through kuzu_py package
           
           # Testing dependencies
           pytest
@@ -30,7 +34,7 @@
         
         # Python環境
         pythonEnv = pkgs.python312.withPackages (ps: 
-          metaTestDeps ++ (with ps; [
+          [kuzuPyPkg] ++ metaTestDeps ++ (with ps; [
             # Additional dev tools
             ruff
             black

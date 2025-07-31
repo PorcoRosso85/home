@@ -24,6 +24,7 @@
               
               buildInputs = with python-final; [
                 pytest
+                hypothesis
               ];
               
               # No setup.py, so we need to manually install
@@ -66,6 +67,7 @@
         pythonEnv = pkgs.python3.withPackages (ps: with ps; [
           tags-in-dir
           pytest
+          hypothesis
           kuzu
         ]);
         
@@ -86,6 +88,7 @@
             pkgs.ruff
             pkgs.black
             pkgs.mypy
+            pkgs.pyright
           ];
           
           shellHook = ''
@@ -173,12 +176,21 @@
             ''}";
           };
           
-          # Type check
+          # Type check with mypy
           typecheck = {
             type = "app";
             program = "${pkgs.writeShellScript "typecheck" ''
               cd ${./.}
               ${pkgs.mypy}/bin/mypy *.py
+            ''}";
+          };
+          
+          # Type check with pyright
+          pyright = {
+            type = "app";
+            program = "${pkgs.writeShellScript "pyright" ''
+              cd ${./.}
+              ${pkgs.pyright}/bin/pyright "$@"
             ''}";
           };
           

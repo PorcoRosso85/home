@@ -43,12 +43,8 @@ class GraphAdapter:
 
     def _initialize_connection(self) -> None:
         """Initialize KuzuDB connection."""
-        # Import database factory functions
-        try:
-            from persistence.kuzu_py import create_connection, create_database
-        except ImportError:
-            # Fallback to local implementation
-            from .database_helper import create_connection, create_database
+        # Import database factory functions from kuzu_py
+        from kuzu_py import create_connection, create_database
 
         # Create database
         db_result = create_database(self.db_path)
