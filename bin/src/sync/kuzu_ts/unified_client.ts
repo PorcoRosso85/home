@@ -1,6 +1,6 @@
 /**
  * Unified KuzuDB Sync Client Interface
- * Works with both Deno and Bun runtimes
+ * Works with Bun runtime
  */
 
 export interface SyncClientOptions {
@@ -35,22 +35,11 @@ export interface ISyncClient {
 }
 
 /**
- * Creates a sync client appropriate for the current runtime
+ * Creates a sync client for Bun runtime
  */
 export async function createSyncClient(options?: SyncClientOptions): Promise<ISyncClient> {
-  // Detect runtime
-  const isBun = typeof Bun !== 'undefined';
-  const isDeno = typeof Deno !== 'undefined';
-  
-  if (isBun) {
-    const { KuzuSyncClient } = await import("./bun_client.ts");
-    return new KuzuSyncClient(options);
-  } else if (isDeno) {
-    const { KuzuSyncClient } = await import("./deno_client.ts");
-    return new KuzuSyncClient(options);
-  } else {
-    throw new Error("Unsupported runtime. Use Deno or Bun.");
-  }
+  const { KuzuSyncClient } = await import("./bun_client.ts");
+  return new KuzuSyncClient(options);
 }
 
 /**

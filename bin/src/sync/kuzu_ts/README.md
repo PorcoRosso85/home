@@ -8,10 +8,9 @@
 
 ## ランタイムサポート
 
-- **サーバー**: Deno（WebSocket、安定稼働）
-- **クライアント**: DenoとBunの両ランタイムをサポート
-  - **Deno**: 既存実装、安定稼働、フルfeature対応
-  - **Bun**: 高速起動、軽量実装、統一インターフェース対応
+- **サーバー**: Bun（WebSocket、高速起動）
+- **クライアント**: Bunランタイム専用
+  - 高速起動、軽量実装、フルfeature対応
 
 ### 主な機能
 
@@ -29,10 +28,6 @@
 nix run .#server
 
 # クライアント起動（別ターミナル）
-# Denoランタイム使用
-nix run .#client
-
-# Bunランタイム使用
 nix run .#bun-client
 
 # テスト実行
@@ -70,17 +65,13 @@ Client A → WebSocket → Server → KuzuDB
 nix develop
 
 # サーバー起動（デバッグモード）
-deno run --allow-net --allow-read --allow-env server.ts
+bun run server.ts
 
-# クライアント起動（Denoランタイム）
-deno run --allow-net --allow-read --allow-env client.ts
-
-# クライアント起動（Bunランタイム）
+# クライアント起動
 bun run bun_client.ts
 
 # テスト実行
 pytest tests/e2e_test.py -v
-deno test tests/ --allow-all
 bun test
 ```
 
@@ -112,7 +103,7 @@ SyncKuzuClientは自動的にDML操作の統計を収集し、5秒ごとにレ�
 
 ```bash
 # 統計モニタリングのデモ実行
-deno run --allow-net --allow-read examples/stats_monitoring.ts
+bun run examples/stats_monitoring.ts
 ```
 
 統計ログの例：
@@ -125,27 +116,19 @@ Template: UPDATE_USER - sent: 3, received: 2, applied: 1, success rate: 50%
 
 ## 統一インターフェース
 
-DenoとBunの両ランタイムで同じインターフェースを使用できます：
+Bunランタイムでの使用方法：
 
 ```typescript
-// Denoランタイムでの使用
-import { createSyncClient } from "./client_factory.ts";
-
-const client = await createSyncClient("ws://localhost:8080");
-await client.connect();
-await client.sendDML("CREATE USER {name: 'Alice'}");
-
-// Bunランタイムでの使用（同じインターフェース）
 import { createSyncClient } from "./bun_client.ts";
 
 const client = createSyncClient("ws://localhost:8080");
 await client.connect();
-await client.sendDML("CREATE USER {name: 'Bob'}");
+await client.sendDML("CREATE USER {name: 'Alice'}");
 ```
 
 ### インターフェースの特徴
 
-- **ランタイム非依存**: 同じAPIで両ランタイムをサポート
+- **高速起動**: Bunの高速な起動時間を活用
 - **自動再接続**: 接続断時の自動リトライ機能
 - **統計収集**: DML操作の自動統計収集
 - **型安全**: TypeScriptによる型定義

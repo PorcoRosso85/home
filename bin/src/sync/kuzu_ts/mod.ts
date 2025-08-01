@@ -161,9 +161,9 @@ export {
   type TelemetryWrapper
 } from "./telemetry_wrapper.ts";
 
-// Re-export runtime-specific clients
-export { KuzuSyncClient as DenoKuzuSyncClient } from "./deno_client.ts";
-export { KuzuSyncClient as BunKuzuSyncClient } from "./bun_client.ts";
+// Re-export runtime-specific client
+// Bun client is now the primary implementation
+export { KuzuSyncClient } from "./bun_client.ts";
 
 // Re-export unified client interface
 export {
