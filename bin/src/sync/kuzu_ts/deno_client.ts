@@ -1,16 +1,13 @@
 /**
- * Bun WebSocket Client
- * Deno版と同等の機能をBunで実装
+ * Deno WebSocket Client with KuzuDB
+ * Compatible with unified client interface
  */
 
-// Using require() to load the packaged kuzu module from persistence/kuzu_ts
-// This follows the pattern from persistence/kuzu_ts/examples/test_bun_package/test.ts
-const kuzu = require("kuzu");
-const { Database, Connection } = kuzu;
+import { Database, Connection } from "npm:kuzu@0.6.0";
 
 export interface ClientOptions {
   clientId?: string;
-  dbPath?: string;  // Path for persistent storage
+  dbPath?: string;  // Deno uses in-memory only for now
 }
 
 export class KuzuSyncClient {
@@ -18,60 +15,34 @@ export class KuzuSyncClient {
   private conn: Connection;
   private ws: WebSocket | null = null;
   private clientId: string;
-  private dbPath: string;
-  private reconnectTimer?: Timer;
+  private reconnectTimer?: number;
 
   constructor(options?: ClientOptions | string) {
     // Support both old string parameter and new options object
     if (typeof options === 'string') {
       this.clientId = options;
-      this.dbPath = ":memory:";
     } else {
-      this.clientId = options?.clientId || `bun_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-      this.dbPath = options?.dbPath || ":memory:";
+      this.clientId = options?.clientId || `deno_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     }
     
-    this.db = new Database(this.dbPath);
+    // Deno always uses in-memory for now
+    this.db = new Database(":memory:");
     this.conn = new Connection(this.db);
   }
 
   async initialize(): Promise<void> {
-    // Check if table already exists for persistent databases
-    try {
-      const result = await this.conn.query("CALL show_tables() RETURN name");
-      const tables = await result.getAll();
-      const hasTable = tables.some(row => row.name === "LocalEvent");
-      
-      if (!hasTable) {
-        // Create local schema (same as Deno version)
-        await this.conn.query(`
-          CREATE NODE TABLE LocalEvent(
-            id STRING,
-            template STRING,
-            params STRING,
-            timestamp INT64,
-            synced BOOLEAN,
-            PRIMARY KEY(id)
-          )
-        `);
-        console.log(`[${this.clientId}] Local database initialized`);
-      } else {
-        console.log(`[${this.clientId}] Using existing database`);
-      }
-    } catch (error) {
-      // If show_tables fails, try to create the table anyway
-      await this.conn.query(`
-        CREATE NODE TABLE LocalEvent(
-          id STRING,
-          template STRING,
-          params STRING,
-          timestamp INT64,
-          synced BOOLEAN,
-          PRIMARY KEY(id)
-        )
-      `);
-      console.log(`[${this.clientId}] Local database initialized`);
-    }
+    // Create local schema
+    await this.conn.query(`
+      CREATE NODE TABLE LocalEvent(
+        id STRING,
+        template STRING,
+        params STRING,
+        timestamp INT64,
+        synced BOOLEAN,
+        PRIMARY KEY(id)
+      )
+    `);
+    console.log(`[${this.clientId}] Local database initialized`);
   }
 
   connect(url: string = "ws://localhost:8080"): Promise<void> {
@@ -182,7 +153,6 @@ export class KuzuSyncClient {
   }
 
   private async storeEvent(event: any, synced: boolean): Promise<void> {
-    // Bunではqueryに直接パラメータを渡さず、文字列で埋め込む
     const paramsStr = JSON.stringify(event.params).replace(/'/g, "''");
     await this.conn.query(`
       CREATE (:LocalEvent {
@@ -196,42 +166,48 @@ export class KuzuSyncClient {
   }
 
   async getLocalEvents(limit: number = 10): Promise<any[]> {
-    // パラメータを文字列に埋め込む（Bunのkuzuパッケージの制限）
     const result = await this.conn.query(`
       MATCH (e:LocalEvent)
-      RETURN e.id as id, e.template as template, e.params as params, e.timestamp as timestamp, e.synced as synced
+      RETURN e.id, e.template, e.params, e.timestamp, e.synced
       ORDER BY e.timestamp DESC
       LIMIT ${limit}
     `);
 
-    // BunではgetAll()を使用
-    const rows = await result.getAll();
-    return rows.map(row => ({
-      id: row.id,
-      template: row.template,
-      params: row.params ? JSON.parse(row.params) : {},
-      timestamp: row.timestamp,
-      synced: row.synced
-    }));
+    const events = [];
+    while (result.hasNext()) {
+      const row = result.getNext();
+      events.push({
+        id: row[0],
+        template: row[1],
+        params: row[2] ? JSON.parse(row[2]) : {},
+        timestamp: row[3],
+        synced: row[4]
+      });
+    }
+    return events;
   }
 
   async getUnsyncedEvents(limit: number = 100): Promise<any[]> {
     const result = await this.conn.query(`
       MATCH (e:LocalEvent)
       WHERE e.synced = false
-      RETURN e.id as id, e.template as template, e.params as params, e.timestamp as timestamp, e.synced as synced
+      RETURN e.id, e.template, e.params, e.timestamp, e.synced
       ORDER BY e.timestamp ASC
       LIMIT ${limit}
     `);
     
-    const rows = await result.getAll();
-    return rows.map(row => ({
-      id: row.id,
-      template: row.template,
-      params: row.params ? JSON.parse(row.params) : {},
-      timestamp: row.timestamp,
-      synced: row.synced
-    }));
+    const events = [];
+    while (result.hasNext()) {
+      const row = result.getNext();
+      events.push({
+        id: row[0],
+        template: row[1],
+        params: row[2] ? JSON.parse(row[2]) : {},
+        timestamp: row[3],
+        synced: row[4]
+      });
+    }
+    return events;
   }
 
   async markEventSynced(eventId: string): Promise<void> {
@@ -257,5 +233,4 @@ export class KuzuSyncClient {
   }
 }
 
-// Export for both Bun and Deno compatibility
 export default KuzuSyncClient;
