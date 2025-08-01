@@ -1,7 +1,9 @@
 """KuzuDB graph database adapter."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
+
+from .errors import DatabaseError
 
 
 class GraphAdapter:
@@ -16,6 +18,7 @@ class GraphAdapter:
         self.db_path = db_path
         self._db = None
         self._conn = None
+        self._init_error = None
         # In-memory data store for testing
         self._data = {
             "requirements": {},
@@ -23,7 +26,9 @@ class GraphAdapter:
             "relationships": [],
             "metrics": {}
         }
-        self._initialize_connection()
+        init_result = self._initialize_connection()
+        if isinstance(init_result, dict) and init_result.get("type") == "DatabaseError":
+            self._init_error = init_result
 
     def __enter__(self):
         """Context manager entry."""
@@ -40,8 +45,12 @@ class GraphAdapter:
             self._conn = None
         if self._db:
             self._db = None
+    
+    def is_initialized(self) -> bool:
+        """Check if adapter was initialized successfully."""
+        return self._init_error is None and self._conn is not None
 
-    def _initialize_connection(self) -> None:
+    def _initialize_connection(self) -> Union[None, DatabaseError]:
         """Initialize KuzuDB connection."""
         # Import database factory functions from kuzu_py
         from kuzu_py import create_connection, create_database
@@ -49,29 +58,51 @@ class GraphAdapter:
         # Create database
         db_result = create_database(self.db_path)
         if isinstance(db_result, dict) and db_result.get("type") in ["DatabaseError", "ValidationError"]:
-            raise RuntimeError(f"Failed to create database: {db_result['message']}")
+            return DatabaseError(
+                type="DatabaseError",
+                message=f"Failed to create database: {db_result['message']}",
+                operation="create_database",
+                database_name=self.db_path,
+                error_code="DB_CREATE_FAILED",
+                details=db_result
+            )
         self._db = db_result
 
         # Create connection
         conn_result = create_connection(self._db)
         if isinstance(conn_result, dict) and conn_result.get("type") in ["DatabaseError", "ValidationError"]:
-            raise RuntimeError(f"Failed to create connection: {conn_result['message']}")
+            return DatabaseError(
+                type="DatabaseError",
+                message=f"Failed to create connection: {conn_result['message']}",
+                operation="create_connection",
+                database_name=self.db_path,
+                error_code="CONN_CREATE_FAILED",
+                details=conn_result
+            )
         self._conn = conn_result
 
         # Initialize schema if needed
-        self._ensure_schema()
+        schema_result = self._ensure_schema()
+        if isinstance(schema_result, dict) and schema_result.get("type") == "DatabaseError":
+            return schema_result
+        
+        return None
 
-    def _ensure_schema(self) -> None:
+    def _ensure_schema(self) -> Union[None, DatabaseError]:
         """Ensure required schema exists."""
         try:
             # Check if schema exists
             result = self._conn.execute("MATCH (n:RequirementEntity) RETURN count(n) LIMIT 1")
             # Schema exists
-        except Exception:
+            return None
+        except Exception as e:
             # Need to create schema
-            self._create_schema()
+            create_result = self._create_schema()
+            if isinstance(create_result, dict) and create_result.get("type") == "DatabaseError":
+                return create_result
+            return None
 
-    def _create_schema(self) -> None:
+    def _create_schema(self) -> Union[None, DatabaseError]:
         """Create initial schema."""
         schema_queries = [
             # Create node tables
@@ -90,7 +121,16 @@ class GraphAdapter:
             except Exception as e:
                 # Table might already exist
                 if "already exists" not in str(e):
-                    raise
+                    return DatabaseError(
+                        type="DatabaseError",
+                        message=f"Failed to create schema: {str(e)}",
+                        operation="create_schema",
+                        database_name=self.db_path,
+                        error_code="SCHEMA_CREATE_FAILED",
+                        details={"query": query, "error": str(e)}
+                    )
+        
+        return None
 
     def get_requirement(self, requirement_id: str) -> dict[str, Any] | None:
         """Get requirement by ID.

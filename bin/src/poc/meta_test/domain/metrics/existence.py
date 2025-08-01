@@ -1,6 +1,8 @@
 """Metric 1: Test existence rate - percentage of requirements with tests."""
 
+from typing import Union
 
+from ...infrastructure.errors import ValidationError
 from .base import BaseMetric, MetricInput, MetricResult
 
 
@@ -19,10 +21,17 @@ class ExistenceMetric(BaseMetric):
         """Check if we have requirement and test data."""
         return bool(input_data.requirement_id and input_data.requirement_data)
 
-    def calculate(self, input_data: MetricInput) -> MetricResult:
+    def calculate(self, input_data: MetricInput) -> Union[MetricResult, ValidationError]:
         """Calculate test existence score."""
         if not self.validate_input(input_data):
-            raise ValueError("Invalid input data for existence metric")
+            return ValidationError(
+                type="ValidationError",
+                message="Invalid input data for existence metric",
+                field="input_data",
+                value=str(input_data),
+                constraint="requirement_id and requirement_data must be provided",
+                suggestion="Ensure input contains valid requirement_id and requirement_data"
+            )
 
         # Check if tests exist for this requirement
         has_tests = bool(input_data.test_data and input_data.test_data.get("test_count", 0) > 0)

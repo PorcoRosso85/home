@@ -1,6 +1,9 @@
 """Metric 7: Value contribution probability - probability of contributing to business goals."""
 
 
+from typing import Union
+
+from ...infrastructure.errors import ValidationError
 from .base import BaseMetric, MetricInput, MetricResult
 
 
@@ -116,10 +119,17 @@ class ValueProbabilityMetric(BaseMetric):
 
         return max(0.01, min(0.99, posterior))
 
-    def calculate(self, input_data: MetricInput) -> MetricResult:
+    def calculate(self, input_data: MetricInput) -> Union[MetricResult, ValidationError]:
         """Calculate value probability score."""
         if not self.validate_input(input_data):
-            raise ValueError("Invalid input data for value probability metric")
+            return ValidationError(
+                type="ValidationError",
+                message="Invalid input data for value probability metric",
+                field="runtime_data",
+                value=str(input_data.runtime_data) if input_data.runtime_data else "None",
+                constraint="Requires business_metrics or incident_history in runtime_data",
+                suggestion="Provide runtime_data with either business_metrics or incident_history"
+            )
 
         # Start with prior probability
         prior = input_data.runtime_data.get("prior_probability", 0.5)

@@ -5,9 +5,10 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     kuzu_py.url = "path:../../persistence/kuzu_py";
+    python-flake.url = "path:../../flakes/python";
   };
   
-  outputs = { self, nixpkgs, flake-utils, kuzu_py }:
+  outputs = { self, nixpkgs, flake-utils, kuzu_py, python-flake }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -37,8 +38,6 @@
           [kuzuPyPkg] ++ metaTestDeps ++ (with ps; [
             # Additional dev tools
             ruff
-            black
-            mypy
           ])
         );
       in
@@ -47,6 +46,7 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             pythonEnv
+            python-flake.packages.${system}.pyright
           ];
           
           shellHook = ''
@@ -115,7 +115,6 @@
             program = "${pkgs.writeShellScriptBin "format" ''
               cd /home/nixos/bin/src/poc/meta_test
               export PYTHONPATH="/home/nixos/bin/src/poc/meta_test:$PYTHONPATH"
-              ${pythonEnv}/bin/black . "$@"
               ${pythonEnv}/bin/ruff format . "$@"
             ''}/bin/format";
           };
@@ -129,13 +128,14 @@
             ''}/bin/lint";
           };
           
-          typecheck = {
+          
+          pyright = {
             type = "app";
-            program = "${pkgs.writeShellScriptBin "typecheck" ''
+            program = "${pkgs.writeShellScriptBin "pyright" ''
               cd /home/nixos/bin/src/poc/meta_test
               export PYTHONPATH="/home/nixos/bin/src/poc/meta_test:$PYTHONPATH"
-              ${pythonEnv}/bin/mypy . "$@"
-            ''}/bin/typecheck";
+              ${python-flake.packages.${system}.pyright}/bin/pyright "$@"
+            ''}/bin/pyright";
           };
           
           # Meta-test specific commands

@@ -1,7 +1,8 @@
 """Metric 3: Boundary value coverage - testing thresholds."""
 
-from typing import Any
+from typing import Any, Union
 
+from ...infrastructure.errors import ValidationError
 from .base import BaseMetric, MetricInput, MetricResult
 
 
@@ -88,10 +89,17 @@ class BoundaryCoverageMetric(BaseMetric):
 
         return coverage
 
-    def calculate(self, input_data: MetricInput) -> MetricResult:
+    def calculate(self, input_data: MetricInput) -> Union[MetricResult, ValidationError]:
         """Calculate boundary coverage score."""
         if not self.validate_input(input_data):
-            raise ValueError("Invalid input data for boundary coverage metric")
+            return ValidationError(
+                type="ValidationError",
+                message="Invalid input data for boundary coverage metric",
+                field="input_data",
+                value=str(input_data),
+                constraint="Must have requirement_id, requirement_data, and test_data",
+                suggestion="Ensure input_data contains all required fields"
+            )
 
         # Extract boundaries from requirement
         boundaries = self._extract_boundaries(input_data.requirement_data)

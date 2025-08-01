@@ -1,9 +1,12 @@
 """Metric 6: Runtime correlation - correlation between test success and operational metrics."""
 
 
+from typing import Union
+
 import numpy as np
 
 from .base import BaseMetric, MetricInput, MetricResult
+from ...infrastructure.errors import ValidationError
 
 
 class RuntimeCorrelationMetric(BaseMetric):
@@ -89,10 +92,17 @@ class RuntimeCorrelationMetric(BaseMetric):
 
         return correlations
 
-    def calculate(self, input_data: MetricInput) -> MetricResult:
+    def calculate(self, input_data: MetricInput) -> Union[MetricResult, ValidationError]:
         """Calculate runtime correlation score."""
         if not self.validate_input(input_data):
-            raise ValueError("Invalid input data for runtime correlation metric")
+            return ValidationError(
+                type="ValidationError",
+                message="Invalid input data for runtime correlation metric",
+                field="runtime_data",
+                value=str(input_data.runtime_data) if input_data.runtime_data else "None",
+                constraint="runtime_data must contain 'test_history' and 'operational_metrics'",
+                suggestion="Ensure runtime_data contains both test_history and operational_metrics fields"
+            )
 
         test_history = input_data.runtime_data.get("test_history", [])
         operational_metrics = input_data.runtime_data.get("operational_metrics", {})

@@ -2,8 +2,10 @@
 
 
 import numpy as np
+from typing import Union
 
 from .base import BaseMetric, MetricInput, MetricResult
+from ...infrastructure.errors import ValidationError
 
 
 class SemanticAlignmentMetric(BaseMetric):
@@ -70,10 +72,17 @@ class SemanticAlignmentMetric(BaseMetric):
 
         return keywords
 
-    def calculate(self, input_data: MetricInput) -> MetricResult:
+    def calculate(self, input_data: MetricInput) -> Union[MetricResult, ValidationError]:
         """Calculate semantic alignment score."""
         if not self.validate_input(input_data):
-            raise ValueError("Invalid input data for semantic alignment metric")
+            return ValidationError(
+                type="ValidationError",
+                message="Invalid input data for semantic alignment metric",
+                field="input_data",
+                value=str(input_data),
+                constraint="Must have requirement_id, requirement_data with description, and test_data with descriptions",
+                suggestion="Ensure the input contains valid requirement and test data with descriptions"
+            )
 
         requirement_desc = input_data.requirement_data.get("description", "")
         test_descriptions = input_data.test_data.get("descriptions", [])

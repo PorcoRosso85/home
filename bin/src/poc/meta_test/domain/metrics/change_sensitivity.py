@@ -1,7 +1,8 @@
 """Metric 4: Change sensitivity - fails when requirements change."""
 
-from typing import Any
+from typing import Any, Union
 
+from ...infrastructure.errors import ValidationError
 from .base import BaseMetric, MetricInput, MetricResult
 
 
@@ -94,10 +95,17 @@ class ChangeSensitivityMetric(BaseMetric):
 
         return sensitivity
 
-    def calculate(self, input_data: MetricInput) -> MetricResult:
+    def calculate(self, input_data: MetricInput) -> Union[MetricResult, ValidationError]:
         """Calculate change sensitivity score."""
         if not self.validate_input(input_data):
-            raise ValueError("Invalid input data for change sensitivity metric")
+            return ValidationError(
+                type="ValidationError",
+                message="Invalid input data for change sensitivity metric",
+                field="input_data",
+                value=str(input_data),
+                constraint="Must have requirement_id, requirement_data, and test_data",
+                suggestion="Ensure all required fields are provided with valid data"
+            )
 
         # Generate potential requirement changes
         changes = self._simulate_requirement_changes(input_data.requirement_data)

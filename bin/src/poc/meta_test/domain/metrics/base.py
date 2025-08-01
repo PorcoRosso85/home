@@ -2,7 +2,9 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union
+
+from ...infrastructure.errors import ValidationError
 
 
 @dataclass
@@ -40,7 +42,7 @@ class BaseMetric(ABC):
         pass
 
     @abstractmethod
-    def calculate(self, input_data: MetricInput) -> MetricResult:
+    def calculate(self, input_data: MetricInput) -> Union[MetricResult, ValidationError]:
         """Calculate the metric score."""
         pass
 

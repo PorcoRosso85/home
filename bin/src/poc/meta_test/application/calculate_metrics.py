@@ -1,6 +1,7 @@
 """Use case for calculating all metrics for a requirement."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Union
 
 from ..domain.metrics.base import BaseMetric, MetricInput, MetricResult
 from ..domain.metrics.boundary_coverage import BoundaryCoverageMetric
@@ -11,6 +12,7 @@ from ..domain.metrics.runtime_correlation import RuntimeCorrelationMetric
 from ..domain.metrics.semantic_alignment import SemanticAlignmentMetric
 from ..domain.metrics.value_probability import ValueProbabilityMetric
 from ..infrastructure.embedding_service import EmbeddingService
+from ..infrastructure.errors import ValidationError
 from ..infrastructure.graph_adapter import GraphAdapter
 from ..infrastructure.logger import get_logger
 from ..infrastructure.metrics_collector import MetricsCollector
@@ -41,12 +43,19 @@ class MetricsCalculator:
             ValueProbabilityMetric()
         ]
 
-    def calculate_all_metrics(self, requirement_id: str) -> dict[str, MetricResult]:
+    def calculate_all_metrics(self, requirement_id: str) -> Union[dict[str, MetricResult], ValidationError]:
         """Calculate all 7 metrics for a requirement."""
         # Get requirement data
         requirement_data = self.graph_adapter.get_requirement(requirement_id)
         if not requirement_data:
-            raise ValueError(f"Requirement {requirement_id} not found")
+            return ValidationError(
+                type="ValidationError",
+                message=f"Requirement {requirement_id} not found",
+                field="requirement_id",
+                value=requirement_id,
+                constraint="must_exist",
+                suggestion="Ensure the requirement ID exists in the database"
+            )
 
         # Get test data
         tests = self.graph_adapter.get_tests_for_requirement(requirement_id)
@@ -107,17 +116,31 @@ class MetricsCalculator:
 
     def calculate_specific_metric(self,
                                 requirement_id: str,
-                                metric_name: str) -> MetricResult:
+                                metric_name: str) -> Union[MetricResult, ValidationError]:
         """Calculate a specific metric for a requirement."""
         # Find the metric
         metric = next((m for m in self.metrics if m.name == metric_name), None)
         if not metric:
-            raise ValueError(f"Unknown metric: {metric_name}")
+            return ValidationError(
+                type="ValidationError",
+                message=f"Unknown metric: {metric_name}",
+                field="metric_name",
+                value=metric_name,
+                constraint="must_be_valid_metric",
+                suggestion=f"Valid metrics are: {', '.join([m.name for m in self.metrics])}"
+            )
 
         # Get requirement data
         requirement_data = self.graph_adapter.get_requirement(requirement_id)
         if not requirement_data:
-            raise ValueError(f"Requirement {requirement_id} not found")
+            return ValidationError(
+                type="ValidationError",
+                message=f"Requirement {requirement_id} not found",
+                field="requirement_id",
+                value=requirement_id,
+                constraint="must_exist",
+                suggestion="Ensure the requirement ID exists in the database"
+            )
 
         # Get test data
         tests = self.graph_adapter.get_tests_for_requirement(requirement_id)
@@ -145,6 +168,17 @@ class MetricsCalculator:
 
         # Calculate metric
         result = metric.calculate(input_data)
+        
+        # Check if result is a ValidationError
+        if isinstance(result, dict) and result.get("type") == "ValidationError":
+            # Convert ValidationError to MetricResult with error details
+            result = MetricResult(
+                metric_name=metric_name,
+                requirement_id=requirement_id,
+                score=0.0,
+                details={"validation_error": result},
+                suggestions=[result.get("suggestion", "Invalid input data for metric calculation")]
+            )
 
         # Save result
         self.graph_adapter.save_metric_result(
@@ -161,7 +195,20 @@ class MetricsCalculator:
 
     def _calculate_metric(self, metric: BaseMetric, input_data: MetricInput) -> MetricResult:
         """Calculate a single metric."""
-        return metric.calculate(input_data)
+        result = metric.calculate(input_data)
+        
+        # Check if result is a ValidationError
+        if isinstance(result, dict) and result.get("type") == "ValidationError":
+            # Convert ValidationError to MetricResult with error details
+            return MetricResult(
+                metric_name=metric.name,
+                requirement_id=input_data.requirement_id,
+                score=0.0,
+                details={"validation_error": result},
+                suggestions=[result.get("suggestion", "Invalid input data for metric calculation")]
+            )
+        
+        return result
 
     def _prepare_test_data(self, requirement_id: str, tests: list[dict]) -> dict:
         """Prepare test data for metrics."""

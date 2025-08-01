@@ -1,6 +1,8 @@
 """Metric 2: Reachability - executable without circular references."""
 
+from typing import Union
 
+from ...infrastructure.errors import ValidationError
 from .base import BaseMetric, MetricInput, MetricResult
 
 
@@ -45,10 +47,17 @@ class ReachabilityMetric(BaseMetric):
         path.pop()
         return False
 
-    def calculate(self, input_data: MetricInput) -> MetricResult:
+    def calculate(self, input_data: MetricInput) -> Union[MetricResult, ValidationError]:
         """Calculate reachability score."""
         if not self.validate_input(input_data):
-            raise ValueError("Invalid input data for reachability metric")
+            return ValidationError(
+                type="ValidationError",
+                message="Invalid input data for reachability metric",
+                field="input_data",
+                value=str(input_data),
+                constraint="Must have requirement_id, requirement_data, and test_data",
+                suggestion="Ensure all required fields are provided with valid data"
+            )
 
         # Get dependency graph
         dependencies = input_data.test_data.get("dependencies", {})
