@@ -38,11 +38,7 @@ def test_with_files():
     
     os.unlink(temp_file)
     
-    print(f"Step 1 output: '{result1.stdout.strip()}'")
-    print(f"Step 2 output: '{result2.stdout.strip()}'")
-    
     assert result2.stdout.strip() == "10", f"Expected 10, got {result2.stdout.strip()}"
-    print("✓ File-based pipeline test passed")
 
 def test_direct_composition():
     """直接的な関数合成スタイル"""
@@ -63,14 +59,11 @@ def test_direct_composition():
     step1 = run_vessel('print(5)')
     step2 = run_vessel(f'print({step1} * 2)')
     
-    print(f"Pipeline result: {step1} -> {step2}")
     assert step2 == "10", f"Expected 10, got {step2}"
-    print("✓ Direct composition test passed")
 
 def test_unix_style_pipeline():
     """本物のUnixパイプラインを使用"""
     if os.name == 'nt':
-        print("⚠️  Skipping Unix pipeline test on Windows")
         return
     
     # シェルで実際のパイプを使う
@@ -87,13 +80,5 @@ def test_unix_style_pipeline():
         executable='/bin/bash'
     )
     
-    print(f"Unix pipeline output: '{result.stdout.strip()}'")
     assert result.stdout.strip() == "10", f"Expected 10, got {result.stdout.strip()}"
-    print("✓ Unix pipeline test passed")
 
-if __name__ == "__main__":
-    print(f"Using Python: {PYTHON}")
-    test_with_files()
-    test_direct_composition()
-    test_unix_style_pipeline()
-    print("\n✅ All minimal pipeline tests passed!")

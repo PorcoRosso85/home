@@ -45,7 +45,6 @@ sys.stdin = type('obj', (object,), {{'read': lambda: '{output1.strip()}'}})()
     result, _ = cmd3.communicate(combined_script)
     
     assert result.strip() == "10", f"Expected 10, got {result.strip()}"
-    print("✓ Basic pipeline test passed")
 
 def test_real_pipeline():
     """実際のパイプラインをPythonで実装"""
@@ -95,7 +94,6 @@ print(n * 2)""",
     )
     
     assert output2.strip() == "10", f"Expected 10, got {output2.strip()}"
-    print("✓ Real pipeline test passed")
 
 def test_json_pipeline():
     """JSONデータのパイプライン処理"""
@@ -117,11 +115,4 @@ print(data["value"] * 2)""",
     )
     
     assert output2.strip() == "84", f"Expected 84, got {output2.strip()}"
-    print("✓ JSON pipeline test passed")
 
-if __name__ == "__main__":
-    print(f"Using Python: {PYTHON}")
-    test_basic_pipeline()
-    test_real_pipeline()
-    test_json_pipeline()
-    print("\n✅ All pipeline tests passed!")

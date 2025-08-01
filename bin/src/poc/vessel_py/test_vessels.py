@@ -5,8 +5,6 @@
 """
 import subprocess
 import json
-import sys
-from pathlib import Path
 
 def test_basic_vessel():
     """基本vessel.pyのテスト"""
@@ -25,7 +23,6 @@ def test_basic_vessel():
         )
         assert result.stdout == expected, f"Failed: {script}"
     
-    print("✓ basic vessel tests passed")
 
 def test_json_filter():
     """json_filter.pyのテスト"""
@@ -51,7 +48,6 @@ def test_json_filter():
         )
         assert result.stdout.strip() == expected, f"Failed: {path}"
     
-    print("✓ json_filter tests passed")
 
 def test_pipeline():
     """器のパイプラインテスト"""
@@ -70,7 +66,6 @@ EOF
     result = subprocess.run(pipeline, shell=True, capture_output=True, text=True)
     assert result.stdout.strip() == "15", "Pipeline test failed"
     
-    print("✓ pipeline tests passed")
 
 def test_error_handling():
     """エラーハンドリングのテスト"""
@@ -83,12 +78,3 @@ def test_error_handling():
     )
     assert result.returncode != 0, "Should fail on invalid path"
     
-    print("✓ error handling tests passed")
-
-if __name__ == "__main__":
-    test_basic_vessel()
-    test_json_filter()
-    test_pipeline()
-    test_error_handling()
-    
-    print("\n✅ All tests passed!")

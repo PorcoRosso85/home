@@ -20,7 +20,6 @@ EOF
     
     result = subprocess.run(pipeline, shell=True, capture_output=True, text=True)
     assert result.stdout.strip() == "10", f"Expected 10, got {result.stdout.strip()}"
-    print("✓ Basic pipeline test passed")
 
 def test_json_pipeline():
     """JSONデータのパイプライン処理"""
@@ -35,7 +34,6 @@ EOF
     
     result = subprocess.run(pipeline, shell=True, capture_output=True, text=True)
     assert result.stdout.strip() == "84", f"Expected 84, got {result.stdout.strip()}"
-    print("✓ JSON pipeline test passed")
 
 def test_three_stage_pipeline():
     """3段階パイプライン: 生成→変換→集計"""
@@ -57,10 +55,3 @@ EOF
     
     result = subprocess.run(pipeline, shell=True, capture_output=True, text=True)
     assert result.stdout.strip() == "Sum: 20", f"Expected 'Sum: 20', got {result.stdout.strip()}"
-    print("✓ Three-stage pipeline test passed")
-
-if __name__ == "__main__":
-    test_basic_pipeline()
-    test_json_pipeline()
-    test_three_stage_pipeline()
-    print("\n✅ All pipeline tests passed!")

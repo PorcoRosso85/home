@@ -35,7 +35,12 @@
         packages = {
           test = pkgs.writeShellScriptBin "test" ''
             echo "Running Python vessel tests..."
-            ${pythonEnv}/bin/pytest -v
+            ${pythonEnv}/bin/pytest -v --tb=short
+          '';
+          
+          test-quick = pkgs.writeShellScriptBin "test-quick" ''
+            echo "Running Python vessel tests (quick)..."
+            ${pythonEnv}/bin/pytest -q
           '';
         };
         

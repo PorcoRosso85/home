@@ -29,7 +29,6 @@ def test_vessel_structured_error_log():
     except json.JSONDecodeError:
         assert False, f"Expected JSON log, got: {result.stderr}"
     
-    print("✓ Structured error log test passed")
 
 def test_vessel_debug_mode():
     """デバッグモードで追加情報が出力されることを確認"""
@@ -52,7 +51,6 @@ def test_vessel_debug_mode():
     # 通常の出力はstdoutに
     assert result.stdout.strip() == "Hello"
     
-    print("✓ Debug mode test passed")
 
 def test_vessel_data_structured_log():
     """vessel_dataも構造化ログを使用することを確認"""
@@ -73,11 +71,3 @@ def test_vessel_data_structured_log():
     except json.JSONDecodeError:
         assert False, f"Expected JSON log, got: {result.stderr}"
     
-    print("✓ vessel_data structured log test passed")
-
-if __name__ == "__main__":
-    print("Testing structured logging for vessels...")
-    test_vessel_structured_error_log()
-    test_vessel_debug_mode()
-    test_vessel_data_structured_log()
-    print("\n✅ All structured logging tests passed!")
