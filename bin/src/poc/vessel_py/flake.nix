@@ -32,6 +32,13 @@
           '';
         };
         
+        packages = {
+          test = pkgs.writeShellScriptBin "test" ''
+            echo "Running Python vessel tests..."
+            ${pythonEnv}/bin/pytest -v
+          '';
+        };
+        
         apps = {
           test = {
             type = "app";
