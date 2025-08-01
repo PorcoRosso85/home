@@ -116,4 +116,4 @@ if __name__ == "__main__":
     test_calculate_with_circular_deps()
     test_calculate_with_self_reference()
     test_calculate_invalid_input()
-    print("All tests passed!")
+    # print("All tests passed!")

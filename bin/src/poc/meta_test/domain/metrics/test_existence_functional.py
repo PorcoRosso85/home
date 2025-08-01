@@ -67,4 +67,4 @@ if __name__ == "__main__":
     test_validate_input()
     test_calculate_with_tests()
     test_calculate_without_tests()
-    print("All tests passed!")
+    # print("All tests passed!")
