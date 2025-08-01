@@ -11,10 +11,11 @@ from guardrail.guardrail_logic import (
     detect_security_category,
     check_reference_compliance,
 )
+from log_py import log
 
 def test_security_detection():
     """Test security category detection."""
-    print("Testing security category detection...")
+    log("info", {"message": "Testing security category detection"})
     
     tests = [
         ("Implement user login", "authentication"),
@@ -30,17 +31,35 @@ def test_security_detection():
     for description, expected in tests:
         result = detect_security_category(description)
         if result == expected:
-            print(f"  ✓ '{description}' -> {result}")
+            log("info", {
+                "message": "Test passed",
+                "test": "security_detection",
+                "description": description,
+                "result": result,
+                "status": "passed"
+            })
             passed += 1
         else:
-            print(f"  ✗ '{description}' -> {result} (expected: {expected})")
+            log("error", {
+                "message": "Test failed",
+                "test": "security_detection",
+                "description": description,
+                "result": result,
+                "expected": expected,
+                "status": "failed"
+            })
     
-    print(f"\nPassed: {passed}/{len(tests)}")
+    log("info", {
+        "message": "Security detection test summary",
+        "passed": passed,
+        "total": len(tests),
+        "success_rate": f"{passed}/{len(tests)}"
+    })
     return passed == len(tests)
 
 def test_reference_compliance():
     """Test reference compliance checking."""
-    print("\nTesting reference compliance...")
+    log("info", {"message": "Testing reference compliance"})
     
     tests = [
         ("authentication", ["ASVS-V2.1.1"], True),
@@ -55,21 +74,40 @@ def test_reference_compliance():
     for category, refs, should_pass in tests:
         is_compliant, error = check_reference_compliance(category, refs)
         if is_compliant == should_pass:
-            print(f"  ✓ {category} with {refs} -> {'compliant' if is_compliant else 'non-compliant'}")
+            log("info", {
+                "message": "Test passed",
+                "test": "reference_compliance",
+                "category": category,
+                "references": refs,
+                "is_compliant": is_compliant,
+                "status": "passed"
+            })
             passed += 1
         else:
-            print(f"  ✗ {category} with {refs} -> {'compliant' if is_compliant else 'non-compliant'} (expected: {'compliant' if should_pass else 'non-compliant'})")
-            if error:
-                print(f"    Error: {error}")
+            log("error", {
+                "message": "Test failed",
+                "test": "reference_compliance",
+                "category": category,
+                "references": refs,
+                "is_compliant": is_compliant,
+                "expected_compliant": should_pass,
+                "error": error,
+                "status": "failed"
+            })
     
-    print(f"\nPassed: {passed}/{len(tests)}")
+    log("info", {
+        "message": "Reference compliance test summary",
+        "passed": passed,
+        "total": len(tests),
+        "success_rate": f"{passed}/{len(tests)}"
+    })
     return passed == len(tests)
 
 def main():
     """Run all verification tests."""
-    print("=" * 60)
-    print("Requirement Reference Guardrail Implementation Verification")
-    print("=" * 60)
+    log("info", {"message": "=" * 60})
+    log("info", {"message": "Requirement Reference Guardrail Implementation Verification"})
+    log("info", {"message": "=" * 60})
     
     all_passed = True
     
@@ -77,12 +115,12 @@ def main():
     all_passed &= test_security_detection()
     all_passed &= test_reference_compliance()
     
-    print("\n" + "=" * 60)
+    log("info", {"message": "=" * 60})
     if all_passed:
-        print("✓ All tests passed! Implementation is working correctly.")
+        log("info", {"message": "All tests passed! Implementation is working correctly.", "status": "success"})
         return 0
     else:
-        print("✗ Some tests failed. Please check the implementation.")
+        log("error", {"message": "Some tests failed. Please check the implementation.", "status": "failure"})
         return 1
 
 if __name__ == "__main__":

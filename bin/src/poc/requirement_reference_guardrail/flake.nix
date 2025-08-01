@@ -4,12 +4,16 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    log-py.url = "path:/home/nixos/bin/src/telemetry/log_py";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, log-py }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ log-py.overlays.default ];
+        };
         python = pkgs.python312;
         pythonPackages = python.pkgs;
         
@@ -28,6 +32,7 @@
           dependencies = with pythonPackages; [
             pyarrow  # For Arrow Table handling
             kuzu
+            log_py  # For structured logging
           ];
           
           nativeCheckInputs = with pythonPackages; [

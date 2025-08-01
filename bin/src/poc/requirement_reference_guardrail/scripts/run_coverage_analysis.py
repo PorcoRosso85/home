@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, List
 import kuzu
+from log_py import log
 
 def load_queries(query_file: Path) -> List[Dict[str, str]]:
     """Load queries from the Cypher file."""
@@ -43,26 +44,26 @@ def run_analysis(db_path: str):
     # Create database connection
     db_result = kuzu.Database(db_path)
     if not isinstance(db_result, kuzu.Database):
-        print(f"Failed to open database: {db_result.message}")
+        log("error", {"message": "Failed to open database", "error": db_result.message})
         return 1
     
     db = db_result
     conn_result = db.connect()
     if not isinstance(conn_result, kuzu.Connection):
-        print(f"Failed to connect: {conn_result.message}")
+        log("error", {"message": "Failed to connect to database", "error": conn_result.message})
         return 1
     
     conn = conn_result
     
-    print("Requirement Reference Guardrail Coverage Analysis")
-    print("=" * 60)
+    log("info", {"message": "Starting Requirement Reference Guardrail Coverage Analysis"})
+    log("info", {"message": "=" * 60})
     
     # Load and run queries
     queries = load_queries(query_file)
     
     for i, query_info in enumerate(queries, 1):
-        print(f"\n{query_info['description']}")
-        print("-" * 60)
+        log("info", {"message": query_info['description']})
+        log("info", {"message": "-" * 60})
         
         try:
             result = conn.execute(query_info['query'])
@@ -71,30 +72,38 @@ def run_analysis(db_path: str):
                 if arrow_table and arrow_table.num_rows > 0:
                     # Convert to pandas for nice display
                     df = arrow_table.to_pandas()
-                    print(df.to_string(index=False))
+                    # Log the results row by row for structured output
+                    for _, row in df.iterrows():
+                        log("info", {"message": "Query result", **row.to_dict()})
                 else:
-                    print("No results found.")
+                    log("info", {"message": "No results found"})
             else:
-                print("Query executed successfully.")
+                log("info", {"message": "Query executed successfully"})
         except Exception as e:
-            print(f"Error executing query: {str(e)}")
+            log("error", {"message": "Error executing query", "error": str(e), "query": query_info['description']})
     
-    print("\n" + "=" * 60)
-    print("Analysis complete.")
+    log("info", {"message": "=" * 60})
+    log("info", {"message": "Analysis complete"})
     
     return 0
 
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python run_coverage_analysis.py <database_path>")
-        print("Example: python run_coverage_analysis.py /tmp/req_guardrail.db")
+        log("error", {
+            "message": "Missing database path argument",
+            "usage": "python run_coverage_analysis.py <database_path>",
+            "example": "python run_coverage_analysis.py /tmp/req_guardrail.db"
+        })
         return 1
     
     db_path = sys.argv[1]
     if not Path(db_path).exists():
-        print(f"Database not found: {db_path}")
-        print("Please create a database and import data first.")
+        log("error", {
+            "message": "Database not found",
+            "path": db_path,
+            "note": "Please create a database and import data first"
+        })
         return 1
     
     return run_analysis(db_path)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ASVS Import with Embeddings Script
+ASVS Import with Embeddings Script (Functional Version)
 
 This script imports ASVS requirements from the asvs_reference POC,
 generates embeddings using the embed POC, and stores them in KuzuDB
@@ -15,7 +15,7 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple, Union
 import logging
 
 # Import from asvs_reference POC
@@ -41,313 +41,462 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class ASVSImporter:
-    """Imports ASVS requirements with embeddings into KuzuDB"""
+# Type definitions for clarity
+DatabaseConnection = Tuple[kuzu.Database, kuzu.Connection]
+EmbedderFunction = Any  # The actual embedder function type
+ImportResult = Dict[str, Any]
+ProcessResult = Dict[str, Any]
+VerificationResult = Dict[str, Any]
+
+
+def create_database_connection(db_path: str) -> Union[DatabaseConnection, ImportResult]:
+    """
+    Create database and connection
     
-    def __init__(self, db_path: str, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
-        """
-        Initialize the importer
+    Args:
+        db_path: Path to the KuzuDB database
         
-        Args:
-            db_path: Path to the KuzuDB database
-            model_name: Name of the sentence transformer model to use
-        """
-        self.db_path = Path(db_path)
-        self.model_name = model_name
-        self._db = None
-        self._conn = None
-        self._embedder = None
-        self._embedding_repo = None
+    Returns:
+        Tuple of (database, connection) on success, or error dict on failure
+    """
+    try:
+        # Create database
+        db_result = create_database(db_path)
         
-    def __enter__(self):
-        """Context manager entry"""
-        self.connect()
-        return self
+        # Check if result is a kuzu.Database instance
+        if isinstance(db_result, kuzu.Database):
+            db = db_result
+        else:
+            # It's an error type (FileOperationError or ValidationError)
+            return {
+                "success": False,
+                "error": f"Failed to create database: {db_result.message}"
+            }
         
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit"""
-        self.close()
+        # Create connection
+        conn_result = create_connection(db)
         
-    def connect(self):
-        """Connect to the database and initialize components"""
+        # Check if result is a kuzu.Connection instance
+        if isinstance(conn_result, kuzu.Connection):
+            conn = conn_result
+        else:
+            # It's an error type
+            return {
+                "success": False,
+                "error": f"Failed to create connection: {conn_result.message}"
+            }
+        
+        logger.info(f"Connected to database at {db_path}")
+        return (db, conn)
+        
+    except Exception as e:
+        logger.error(f"Failed to connect: {e}")
+        return {
+            "success": False,
+            "error": f"Failed to connect: {str(e)}"
+        }
+
+
+def create_embedder_function(model_name: str) -> Union[EmbedderFunction, ImportResult]:
+    """
+    Create embedder function
+    
+    Args:
+        model_name: Name of the sentence transformer model
+        
+    Returns:
+        Embedder function on success, or error dict on failure
+    """
+    try:
+        embedder_result = create_embedder(model_name)
+        
+        # Check if embedder creation succeeded
+        if callable(embedder_result):
+            return embedder_result
+        else:
+            # It's an error dictionary
+            return {
+                "success": False,
+                "error": f"Failed to create embedder: {embedder_result.get('message', embedder_result.get('error', 'Unknown error'))}"
+            }
+    except Exception as e:
+        logger.error(f"Failed to create embedder: {e}")
+        return {
+            "success": False,
+            "error": f"Failed to create embedder: {str(e)}"
+        }
+
+
+def ensure_reference_entity_schema(conn: kuzu.Connection) -> ImportResult:
+    """
+    Ensure the ReferenceEntity table exists
+    
+    Args:
+        conn: KuzuDB connection
+        
+    Returns:
+        Result dictionary with success status
+    """
+    try:
+        # Check if ReferenceEntity table exists
+        result = conn.execute("CALL TABLE_INFO('ReferenceEntity') RETURN *")
+        if result.has_next():
+            logger.info("ReferenceEntity table already exists")
+            return {"success": True}
+            
+    except Exception:
+        # Table doesn't exist, create it
+        logger.info("Creating ReferenceEntity table...")
+        
+    # Create the table
+    create_table_query = """
+    CREATE NODE TABLE IF NOT EXISTS ReferenceEntity (
+        id STRING PRIMARY KEY,
+        title STRING,
+        description STRING,
+        source STRING,
+        category STRING,
+        level STRING,
+        embedding DOUBLE[384],
+        version STRING,
+        url STRING
+    )
+    """
+    
+    try:
+        conn.execute(create_table_query)
+        logger.info("ReferenceEntity table created successfully")
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Failed to create table: {e}")
+        return {
+            "success": False,
+            "error": f"Failed to create table: {str(e)}"
+        }
+
+
+def load_asvs_requirements(asvs_path: str) -> Union[Tuple[List[Dict[str, Any]], str], ImportResult]:
+    """
+    Load ASVS requirements from markdown files
+    
+    Args:
+        asvs_path: Path to ASVS markdown files
+        
+    Returns:
+        Tuple of (requirements list, version) on success, or error dict on failure
+    """
+    try:
+        # Load ASVS data using Arrow converter
+        converter = ASVSArrowConverter(asvs_path)
+        table = converter.get_requirements_table()
+        metadata = converter.get_metadata()
+        
+        logger.info(f"Loaded {table.num_rows} ASVS requirements from version {metadata.version}")
+        
+        # Convert Arrow table to list of requirements
+        requirements = []
+        for i in range(table.num_rows):
+            req = {
+                'uri': table['uri'][i].as_py(),
+                'number': table['number'][i].as_py(),
+                'description': table['description'][i].as_py(),
+                'level1': table['level1'][i].as_py(),
+                'level2': table['level2'][i].as_py(),
+                'level3': table['level3'][i].as_py(),
+                'section': table['section'][i].as_py(),
+                'chapter': table['chapter'][i].as_py(),
+                'cwe': table['cwe'][i].as_py(),
+                'nist': table['nist'][i].as_py()
+            }
+            requirements.append(req)
+            
+        return (requirements, metadata.version)
+        
+    except Exception as e:
+        logger.error(f"Failed to load ASVS data: {e}")
+        return {
+            "success": False,
+            "error": f"Failed to load ASVS data: {str(e)}"
+        }
+
+
+def determine_requirement_level(req: Dict[str, Any]) -> str:
+    """
+    Determine the level string for a requirement
+    
+    Args:
+        req: Requirement dictionary
+        
+    Returns:
+        Level string (L1, L2, L3, or N/A)
+    """
+    if req['level3']:
+        return "L3"
+    elif req['level2']:
+        return "L2"
+    elif req['level1']:
+        return "L1"
+    else:
+        return "N/A"
+
+
+def create_reference_dict(req: Dict[str, Any], version: str, level: str) -> ReferenceDict:
+    """
+    Create ReferenceDict for embedding
+    
+    Args:
+        req: Requirement dictionary
+        version: ASVS version
+        level: Level string
+        
+    Returns:
+        ReferenceDict object
+    """
+    return ReferenceDict(
+        uri=req['uri'],
+        title=f"ASVS {req['number']}",
+        entity_type='requirement',
+        description=req['description'],
+        metadata={
+            'source': f"OWASP ASVS {version}",
+            'category': req['section'],
+            'level': level,
+            'chapter': req['chapter'],
+            'cwe': req['cwe'],
+            'nist': req['nist'],
+            'number': req['number']
+        }
+    )
+
+
+def generate_embedding(embedder: EmbedderFunction, content: str) -> Union[List[float], None]:
+    """
+    Generate embedding for content
+    
+    Args:
+        embedder: Embedder function
+        content: Text content to embed
+        
+    Returns:
+        Embedding vector or None on failure
+    """
+    try:
+        # The embedder takes a list of strings
+        embedding_result = embedder([content])
+        if not embedding_result['ok']:
+            logger.warning(f"Failed to generate embedding: {embedding_result.get('message', 'Unknown error')}")
+            return None
+            
+        # Extract the first (and only) embedding from the result
+        embedding_vector = embedding_result['embeddings'][0]
+        return embedding_vector.tolist() if hasattr(embedding_vector, 'tolist') else list(embedding_vector)
+        
+    except Exception as e:
+        logger.error(f"Failed to generate embedding: {e}")
+        return None
+
+
+def insert_reference_entity(
+    conn: kuzu.Connection,
+    req: Dict[str, Any],
+    embedding: List[float],
+    version: str,
+    level: str
+) -> bool:
+    """
+    Insert a reference entity into the database
+    
+    Args:
+        conn: Database connection
+        req: Requirement dictionary
+        embedding: Embedding vector
+        version: ASVS version
+        level: Level string
+        
+    Returns:
+        True on success, False on failure
+    """
+    insert_query = """
+    CREATE (r:ReferenceEntity {
+        id: $id,
+        title: $title,
+        description: $description,
+        source: $source,
+        category: $category,
+        level: $level,
+        embedding: $embedding,
+        version: $version,
+        url: $url
+    })
+    """
+    
+    parameters = {
+        'id': req['uri'],
+        'title': f"ASVS {req['number']}",
+        'description': req['description'],
+        'source': f"OWASP ASVS {version}",
+        'category': req['section'],
+        'level': level,
+        'embedding': embedding,
+        'version': version,
+        'url': f"https://github.com/OWASP/ASVS/blob/v{version}/5.0/en/{req['chapter'].split()[0]}-*.md"
+    }
+    
+    try:
+        conn.execute(insert_query, parameters)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to insert requirement {req.get('uri', 'unknown')}: {e}")
+        return False
+
+
+def process_requirement_batch(
+    conn: kuzu.Connection,
+    embedder: EmbedderFunction,
+    requirements: List[Dict[str, Any]],
+    version: str
+) -> int:
+    """
+    Process a batch of requirements
+    
+    Args:
+        conn: Database connection
+        embedder: Embedder function
+        requirements: List of requirement dictionaries
+        version: ASVS version
+        
+    Returns:
+        Number of requirements processed successfully
+    """
+    processed = 0
+    
+    for req in requirements:
         try:
-            # Create database and connection
-            db_result = create_database(str(self.db_path))
+            # Determine level
+            level = determine_requirement_level(req)
             
-            # Check if result is a kuzu.Database instance
-            if isinstance(db_result, kuzu.Database):
-                self._db = db_result
-            else:
-                # It's an error type (FileOperationError or ValidationError)
-                raise RuntimeError(f"Failed to create database: {db_result.message}")
+            # Create reference dict
+            ref_dict = create_reference_dict(req, version, level)
             
-            conn_result = create_connection(self._db)
+            # Generate embedding
+            embedding = generate_embedding(embedder, ref_dict['description'])
+            if embedding is None:
+                continue
             
-            # Check if result is a kuzu.Connection instance
-            if isinstance(conn_result, kuzu.Connection):
-                self._conn = conn_result
-            else:
-                # It's an error type
-                raise RuntimeError(f"Failed to create connection: {conn_result.message}")
-            
-            # Initialize embedder and repository
-            embedder_result = create_embedder(self.model_name)
-            
-            # Check if embedder creation succeeded
-            if callable(embedder_result):
-                self._embedder = embedder_result
-            else:
-                # It's an error dictionary
-                raise RuntimeError(f"Failed to create embedder: {embedder_result.get('message', embedder_result.get('error', 'Unknown error'))}")
-            
-            self._embedding_repo = create_embedding_repository(
-                database_path=str(self.db_path),
-                embedder=self._embedder
-            )
-            
-            logger.info(f"Connected to database at {self.db_path}")
-            
-        except Exception as e:
-            logger.error(f"Failed to connect: {e}")
-            raise
-            
-    def close(self):
-        """Close database connections"""
-        if self._conn:
-            self._conn = None
-        if self._db:
-            self._db = None
-        logger.info("Database connections closed")
-        
-    def ensure_schema(self):
-        """Ensure the ReferenceEntity table exists"""
-        try:
-            # Check if ReferenceEntity table exists
-            result = self._conn.execute("CALL TABLE_INFO('ReferenceEntity') RETURN *")
-            if result.has_next():
-                logger.info("ReferenceEntity table already exists")
-                return
-                
-        except Exception:
-            # Table doesn't exist, create it
-            logger.info("Creating ReferenceEntity table...")
-            
-        # Create the table
-        create_table_query = """
-        CREATE NODE TABLE IF NOT EXISTS ReferenceEntity (
-            id STRING PRIMARY KEY,
-            title STRING,
-            description STRING,
-            source STRING,
-            category STRING,
-            level STRING,
-            embedding DOUBLE[384],
-            version STRING,
-            url STRING
-        )
-        """
-        
-        try:
-            self._conn.execute(create_table_query)
-            logger.info("ReferenceEntity table created successfully")
-        except Exception as e:
-            logger.error(f"Failed to create table: {e}")
-            raise
-            
-    def import_asvs(self, asvs_path: str) -> int:
-        """
-        Import ASVS requirements from markdown files
-        
-        Args:
-            asvs_path: Path to ASVS markdown files
-            
-        Returns:
-            Number of requirements imported
-        """
-        logger.info(f"Starting ASVS import from {asvs_path}")
-        
-        try:
-            # Ensure schema exists
-            self.ensure_schema()
-            
-            # Load ASVS data using Arrow converter
-            converter = ASVSArrowConverter(asvs_path)
-            table = converter.get_requirements_table()
-            metadata = converter.get_metadata()
-            
-            logger.info(f"Loaded {table.num_rows} ASVS requirements from version {metadata.version}")
-            
-            # Convert Arrow table to list of requirements
-            requirements = []
-            for i in range(table.num_rows):
-                req = {
-                    'uri': table['uri'][i].as_py(),
-                    'number': table['number'][i].as_py(),
-                    'description': table['description'][i].as_py(),
-                    'level1': table['level1'][i].as_py(),
-                    'level2': table['level2'][i].as_py(),
-                    'level3': table['level3'][i].as_py(),
-                    'section': table['section'][i].as_py(),
-                    'chapter': table['chapter'][i].as_py(),
-                    'cwe': table['cwe'][i].as_py(),
-                    'nist': table['nist'][i].as_py()
-                }
-                requirements.append(req)
-                
-            # Process requirements in batches
-            batch_size = 50
-            imported_count = 0
-            
-            for i in range(0, len(requirements), batch_size):
-                batch = requirements[i:i + batch_size]
-                imported_count += self._process_batch(batch, metadata.version)
-                logger.info(f"Processed {min(i + batch_size, len(requirements))}/{len(requirements)} requirements")
-                
-            logger.info(f"Successfully imported {imported_count} ASVS requirements")
-            return imported_count
-            
-        except Exception as e:
-            logger.error(f"Failed to import ASVS: {e}")
-            raise
-            
-    def _process_batch(self, requirements: List[Dict[str, Any]], version: str) -> int:
-        """
-        Process a batch of requirements
-        
-        Args:
-            requirements: List of requirement dictionaries
-            version: ASVS version
-            
-        Returns:
-            Number of requirements processed
-        """
-        processed = 0
-        
-        for req in requirements:
-            try:
-                # Determine level string
-                if req['level3']:
-                    level = "L3"
-                elif req['level2']:
-                    level = "L2"
-                elif req['level1']:
-                    level = "L1"
-                else:
-                    level = "N/A"
-                    
-                # Create ReferenceDict for embedding
-                ref_dict = ReferenceDict(
-                    id=req['uri'],
-                    content=req['description'],
-                    metadata={
-                        'title': f"ASVS {req['number']}",
-                        'source': f"OWASP ASVS {version}",
-                        'category': req['section'],
-                        'level': level,
-                        'chapter': req['chapter'],
-                        'cwe': req['cwe'],
-                        'nist': req['nist']
-                    }
-                )
-                
-                # Generate embedding
-                # The embedder takes a list of strings, so wrap the content
-                embedding_result = self._embedder([ref_dict.content])
-                if not embedding_result['ok']:
-                    logger.warning(f"Failed to generate embedding for {req['uri']}: {embedding_result.get('message', 'Unknown error')}")
-                    continue
-                    
-                # Prepare data for insertion
-                # Extract the first (and only) embedding from the result
-                embedding_vector = embedding_result['embeddings'][0]
-                
-                # Insert into KuzuDB
-                insert_query = """
-                CREATE (r:ReferenceEntity {
-                    id: $id,
-                    title: $title,
-                    description: $description,
-                    source: $source,
-                    category: $category,
-                    level: $level,
-                    embedding: $embedding,
-                    version: $version,
-                    url: $url
-                })
-                """
-                
-                parameters = {
-                    'id': req['uri'],
-                    'title': f"ASVS {req['number']}",
-                    'description': req['description'],
-                    'source': f"OWASP ASVS {version}",
-                    'category': req['section'],
-                    'level': level,
-                    'embedding': embedding_vector.tolist() if hasattr(embedding_vector, 'tolist') else list(embedding_vector),
-                    'version': version,
-                    'url': f"https://github.com/OWASP/ASVS/blob/v{version}/5.0/en/{req['chapter'].split()[0]}-*.md"
-                }
-                
-                self._conn.execute(insert_query, parameters)
+            # Insert into database
+            if insert_reference_entity(conn, req, embedding, version, level):
                 processed += 1
                 
-            except Exception as e:
-                logger.error(f"Failed to process requirement {req.get('uri', 'unknown')}: {e}")
-                continue
-                
-        return processed
-        
-    def verify_import(self) -> Dict[str, Any]:
-        """
-        Verify the import by checking counts and sample data
-        
-        Returns:
-            Dictionary with verification results
-        """
-        try:
-            # Count total references
-            count_result = self._conn.execute(
-                "MATCH (r:ReferenceEntity) RETURN COUNT(r) as count"
-            )
-            count = 0
-            if count_result.has_next():
-                count = count_result.get_next()[0]
-                
-            # Get sample references
-            sample_result = self._conn.execute(
-                "MATCH (r:ReferenceEntity) RETURN r.id, r.title, r.level LIMIT 5"
-            )
-            samples = []
-            while sample_result.has_next():
-                row = sample_result.get_next()
-                samples.append({
-                    'id': row[0],
-                    'title': row[1],
-                    'level': row[2]
-                })
-                
-            # Check embedding dimensions
-            embedding_check = self._conn.execute(
-                "MATCH (r:ReferenceEntity) WHERE r.embedding IS NOT NULL RETURN r.id, SIZE(r.embedding) LIMIT 1"
-            )
-            embedding_dim = None
-            if embedding_check.has_next():
-                _, dim = embedding_check.get_next()
-                embedding_dim = dim
-                
-            return {
-                'total_count': count,
-                'samples': samples,
-                'embedding_dimension': embedding_dim,
-                'success': True
-            }
-            
         except Exception as e:
-            logger.error(f"Failed to verify import: {e}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            logger.error(f"Failed to process requirement {req.get('uri', 'unknown')}: {e}")
+            continue
+            
+    return processed
+
+
+def import_asvs_requirements(
+    conn: kuzu.Connection,
+    embedder: EmbedderFunction,
+    asvs_path: str,
+    batch_size: int = 50
+) -> ImportResult:
+    """
+    Import ASVS requirements with embeddings
+    
+    Args:
+        conn: Database connection
+        embedder: Embedder function
+        asvs_path: Path to ASVS markdown files
+        batch_size: Number of requirements to process in each batch
+        
+    Returns:
+        Result dictionary with import status and count
+    """
+    logger.info(f"Starting ASVS import from {asvs_path}")
+    
+    # Ensure schema exists
+    schema_result = ensure_reference_entity_schema(conn)
+    if not schema_result.get("success", False):
+        return schema_result
+    
+    # Load ASVS data
+    load_result = load_asvs_requirements(asvs_path)
+    if isinstance(load_result, dict):
+        # It's an error
+        return load_result
+    
+    requirements, version = load_result
+    
+    # Process requirements in batches
+    imported_count = 0
+    
+    for i in range(0, len(requirements), batch_size):
+        batch = requirements[i:i + batch_size]
+        imported_count += process_requirement_batch(conn, embedder, batch, version)
+        logger.info(f"Processed {min(i + batch_size, len(requirements))}/{len(requirements)} requirements")
+        
+    logger.info(f"Successfully imported {imported_count} ASVS requirements")
+    return {
+        "success": True,
+        "imported_count": imported_count,
+        "total_count": len(requirements)
+    }
+
+
+def verify_import(conn: kuzu.Connection) -> VerificationResult:
+    """
+    Verify the import by checking counts and sample data
+    
+    Args:
+        conn: Database connection
+        
+    Returns:
+        Dictionary with verification results
+    """
+    try:
+        # Count total references
+        count_result = conn.execute(
+            "MATCH (r:ReferenceEntity) RETURN COUNT(r) as count"
+        )
+        count = 0
+        if count_result.has_next():
+            count = count_result.get_next()[0]
+            
+        # Get sample references
+        sample_result = conn.execute(
+            "MATCH (r:ReferenceEntity) RETURN r.id, r.title, r.level LIMIT 5"
+        )
+        samples = []
+        while sample_result.has_next():
+            row = sample_result.get_next()
+            samples.append({
+                'id': row[0],
+                'title': row[1],
+                'level': row[2]
+            })
+            
+        # Check embedding dimensions
+        embedding_check = conn.execute(
+            "MATCH (r:ReferenceEntity) WHERE r.embedding IS NOT NULL RETURN r.id, SIZE(r.embedding) LIMIT 1"
+        )
+        embedding_dim = None
+        if embedding_check.has_next():
+            _, dim = embedding_check.get_next()
+            embedding_dim = dim
+            
+        return {
+            'total_count': count,
+            'samples': samples,
+            'embedding_dimension': embedding_dim,
+            'success': True
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to verify import: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
 
 
 def main():
@@ -384,28 +533,49 @@ def main():
         logger.error(f"ASVS path does not exist: {asvs_path}")
         sys.exit(1)
         
-    # Run import
+    # Create database connection
+    conn_result = create_database_connection(args.db_path)
+    if isinstance(conn_result, dict):
+        # It's an error
+        logger.error(f"Database connection failed: {conn_result.get('error', 'Unknown error')}")
+        sys.exit(1)
+    
+    db, conn = conn_result
+    
+    # Create embedder
+    embedder_result = create_embedder_function(args.model_name)
+    if isinstance(embedder_result, dict):
+        # It's an error
+        logger.error(f"Embedder creation failed: {embedder_result.get('error', 'Unknown error')}")
+        sys.exit(1)
+    
+    embedder = embedder_result
+    
     try:
-        with ASVSImporter(args.db_path, args.model_name) as importer:
-            # Import ASVS data
-            count = importer.import_asvs(str(asvs_path))
-            logger.info(f"Import completed: {count} requirements imported")
-            
-            # Verify if requested
-            if args.verify:
-                logger.info("Verifying import...")
-                verification = importer.verify_import()
-                if verification['success']:
-                    logger.info(f"Verification successful:")
-                    logger.info(f"  Total references: {verification['total_count']}")
-                    logger.info(f"  Embedding dimension: {verification['embedding_dimension']}")
-                    logger.info(f"  Sample references:")
-                    for sample in verification['samples']:
-                        logger.info(f"    - {sample['id']}: {sample['title']} ({sample['level']})")
-                else:
-                    logger.error(f"Verification failed: {verification.get('error', 'Unknown error')}")
-                    sys.exit(1)
-                    
+        # Import ASVS data
+        import_result = import_asvs_requirements(conn, embedder, str(asvs_path))
+        if not import_result.get("success", False):
+            logger.error(f"Import failed: {import_result.get('error', 'Unknown error')}")
+            sys.exit(1)
+        
+        count = import_result.get('imported_count', 0)
+        logger.info(f"Import completed: {count} requirements imported")
+        
+        # Verify if requested
+        if args.verify:
+            logger.info("Verifying import...")
+            verification = verify_import(conn)
+            if verification['success']:
+                logger.info(f"Verification successful:")
+                logger.info(f"  Total references: {verification['total_count']}")
+                logger.info(f"  Embedding dimension: {verification['embedding_dimension']}")
+                logger.info(f"  Sample references:")
+                for sample in verification['samples']:
+                    logger.info(f"    - {sample['id']}: {sample['title']} ({sample['level']})")
+            else:
+                logger.error(f"Verification failed: {verification.get('error', 'Unknown error')}")
+                sys.exit(1)
+                
     except Exception as e:
         logger.error(f"Import failed: {e}")
         sys.exit(1)

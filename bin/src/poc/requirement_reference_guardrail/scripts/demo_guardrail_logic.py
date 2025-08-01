@@ -12,12 +12,13 @@ from guardrail.guardrail_logic import (
     check_reference_compliance,
     SECURITY_CATEGORIES
 )
+from log_py import log
 
 
 def main():
     """Demonstrate guardrail logic"""
-    print("Requirement Reference Guardrail Logic Demo")
-    print("=" * 60)
+    log("info", {"message": "Starting Requirement Reference Guardrail Logic Demo"})
+    log("info", {"message": "=" * 60})
     
     # Test requirements
     test_requirements = [
@@ -53,53 +54,65 @@ def main():
         }
     ]
     
-    print("\nAnalyzing requirements for security compliance:\n")
+    log("info", {"message": "Analyzing requirements for security compliance"})
     
     for req in test_requirements:
         req_id = req["id"]
         description = req["description"]
         references = req["references"]
         
-        print(f"{req_id}: {description}")
+        log("info", {"message": f"Analyzing requirement", "req_id": req_id, "description": description})
         
         # Detect security category
         category = detect_security_category(description)
         
         if category is None:
-            print(f"  ✓ Non-security requirement - no references required")
-            print(f"  Status: ALLOWED\n")
+            log("info", {"message": "Non-security requirement - no references required", "req_id": req_id, "status": "ALLOWED"})
         else:
-            print(f"  → Security category detected: {category}")
+            log("info", {"message": "Security category detected", "req_id": req_id, "category": category})
             
             # Check reference compliance
             is_compliant, error_msg = check_reference_compliance(category, references)
             
             if is_compliant:
-                print(f"  ✓ References compliant: {', '.join(references)}")
-                print(f"  Status: ALLOWED\n")
+                log("info", {
+                    "message": "References compliant",
+                    "req_id": req_id,
+                    "references": references,
+                    "status": "ALLOWED"
+                })
             else:
-                print(f"  ✗ References non-compliant")
-                print(f"  Error: {error_msg}")
-                print(f"  Provided references: {', '.join(references) if references else 'None'}")
-                print(f"  Status: BLOCKED\n")
+                log("error", {
+                    "message": "References non-compliant",
+                    "req_id": req_id,
+                    "error": error_msg,
+                    "provided_references": references if references else [],
+                    "status": "BLOCKED"
+                })
     
     # Show security categories and their requirements
-    print("\n" + "=" * 60)
-    print("Security Categories and Required References:")
-    print("=" * 60)
+    log("info", {"message": "=" * 60})
+    log("info", {"message": "Security Categories and Required References:"})
+    log("info", {"message": "=" * 60})
     
     for category, config in SECURITY_CATEGORIES.items():
-        print(f"\n{category.upper()}:")
-        print(f"  Keywords: {', '.join(sorted(config['keywords']))}")
-        print(f"  Required patterns: {', '.join(config['required_references'])}")
-        print(f"  Message: {config['message']}")
+        log("info", {
+            "message": f"Security category: {category.upper()}",
+            "keywords": sorted(config['keywords']),
+            "required_patterns": config['required_references'],
+            "category_message": config['message']
+        })
     
-    print("\n" + "=" * 60)
-    print("Summary:")
-    print("- Non-security requirements can be created without references")
-    print("- Security requirements MUST have appropriate references")
-    print("- References are checked against category-specific patterns")
-    print("- Failed requirements would need exception requests")
+    log("info", {"message": "=" * 60})
+    log("info", {
+        "message": "Summary:",
+        "rules": [
+            "Non-security requirements can be created without references",
+            "Security requirements MUST have appropriate references",
+            "References are checked against category-specific patterns",
+            "Failed requirements would need exception requests"
+        ]
+    })
 
 
 if __name__ == "__main__":
