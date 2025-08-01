@@ -3,6 +3,10 @@
 Data-aware Vessel - 前段の出力をdataとして受け取る器
 """
 import sys
+from vessel_log import VesselLogger
+
+# vessel_data用のロガーインスタンス
+logger = VesselLogger(vessel_type="vessel_data")
 
 def main():
     # 標準入力から前段のデータを受け取る
@@ -34,7 +38,7 @@ def main():
     try:
         exec(script, context)
     except Exception as e:
-        print(f"Error executing script: {e}", file=sys.stderr)
+        logger.error("Error executing script", error=e)
         sys.exit(1)
 
 if __name__ == "__main__":

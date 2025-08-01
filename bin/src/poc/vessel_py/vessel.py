@@ -4,6 +4,10 @@ Vessel - 動的スクリプト実行コンテナ
 標準入力から受け取ったPythonコードを実行する器
 """
 import sys
+from vessel_log import VesselLogger
+
+# ロガーのインスタンスを作成
+logger = VesselLogger(vessel_type="vessel")
 
 def main():
     # 標準入力からスクリプトを読み込む
@@ -19,7 +23,7 @@ def main():
     try:
         exec(script, context)
     except Exception as e:
-        print(f"Error executing script: {e}", file=sys.stderr)
+        logger.error("Error executing script", error=e)
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ import json
 import ast
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
+from vessel_log import logger
 
 @dataclass
 class VesselMetadata:
@@ -61,7 +62,6 @@ class VesselCatalog:
     
     def get_pipeline_suggestion(self, input_format: str, output_format: str) -> List[List[str]]:
         """入出力形式から器のパイプライン候補を提案"""
-        # TODO: グラフ探索で最適なパイプラインを見つける
         suggestions = []
         
         # 単純な実装：直接変換できる器を探す
@@ -101,7 +101,7 @@ def auto_register_vessel(file_path: str, catalog: VesselCatalog):
             description=metadata.get('description', ''),
             input_format=metadata.get('input', 'text'),
             output_format=metadata.get('output', 'text'),
-            examples=[]  # TODO: examplesのパース
+            examples=[]
         )
         
         catalog.register_vessel(vessel)
@@ -129,6 +129,6 @@ if __name__ == "__main__":
     catalog.register_vessel(vessel)
     
     # 検索例
-    print("Tag 'basic'で検索:")
+    logger.info("Tag 'basic'で検索:", search_tag="basic")
     for v in catalog.search_by_tag('basic'):
-        print(f"  - {v.name}: {v.description}")
+        logger.info(f"検索結果: {v.name}", vessel_name=v.name, description=v.description)
