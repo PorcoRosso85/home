@@ -25,9 +25,10 @@ Successfully implemented a complete Bun-compatible WebSocket sync client using O
 - Direct parameter embedding in queries (Bun's KuzuDB doesn't support prepared statements)
 - Proper cleanup to prevent reconnection loops
 
-### 4. Unified Client Interface ✅
-- Common interface for both Deno and Bun runtimes
-- Runtime detection and appropriate client creation
+### 4. Bun as Primary Client ✅
+- Bun is now the sole client implementation
+- Deno client has been removed for consistency
+- Unified interface simplified to Bun-only
 - Error handling with Result<T,E> pattern
 - Same API regardless of runtime
 
