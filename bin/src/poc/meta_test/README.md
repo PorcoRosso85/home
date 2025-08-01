@@ -1,10 +1,10 @@
 # Meta-Test System
 
-A system for evaluating test quality using 7 independent metrics, providing continuous learning and improvement capabilities.
+A system for evaluating test quality using 7 independent metrics, providing continuous learning and improvement capabilities through bi-directional integration with requirement graphs.
 
 ## Overview
 
-The Meta-Test System analyzes test suites to ensure they effectively validate requirements and provide business value. It uses 7 independent metrics to measure different aspects of test quality.
+The Meta-Test System analyzes test suites to ensure they effectively validate requirements and provide business value. It uses 7 independent metrics to measure different aspects of test quality while enriching the requirement graph with quality insights and discovered specifications.
 
 ## 7 Independent Metrics
 
@@ -61,8 +61,17 @@ suggestions = generator.generate_suggestions({"req_001": metrics})
 for suggestion in suggestions[:3]:  # Top 3
     print(f"{suggestion.metric_name}: {suggestion.suggestions}")
 
-# Custom threshold
-generator_strict = ImprovementSuggestionGenerator(threshold=0.9)
+# Enrich requirement graph with quality insights
+adapter.enrich_requirement(
+    requirement_id="req_001",
+    quality_metrics=metrics,
+    discovered_specs=["30 second timeout", "5 retry limit"]
+)
+
+# Identify requirements that need clarification
+ambiguous_reqs = calculator.find_low_semantic_alignment(threshold=0.5)
+for req in ambiguous_reqs:
+    print(f"Requirement {req.id} needs clearer specification")
 ```
 
 ### Output Format
@@ -151,6 +160,29 @@ nix run .#lint
 nix run .#typecheck
 ```
 
+## Bi-directional Integration with requirement/graph
+
+### Forward Flow: Requirements → Test Quality
+The system evaluates how well tests cover and validate requirements:
+- Analyzes test coverage for each requirement
+- Measures test effectiveness against specifications
+- Identifies gaps in test suites
+
+### Reverse Flow: Test Quality → Requirement Enhancement
+The system enriches the requirement graph with insights from test analysis:
+- **Implicit Requirement Discovery**: Extracts undocumented specifications from test implementations
+- **Requirement Quality Feedback**: Identifies ambiguous or hard-to-test requirements
+- **Metadata Enrichment**: Adds quality metrics, test history, and discovered constraints to requirement nodes
+
+### Continuous Improvement Cycle
+```
+requirement/graph ←→ meta_test ←→ tests
+     ↓                    ↓           ↓
+specifications      quality metrics   execution
+     ↑                    ↓           ↓
+ enrichment ← insights ← analysis ← results
+```
+
 ## Data Flow
 
 ```
@@ -167,6 +199,8 @@ Runtime data collection (metrics 6,7 only)
   Cypher file persistence
          ↓
     GraphDB reflection
+         ↓
+Requirement graph enrichment (quality metadata)
 ```
 
 ## Design Principles
@@ -176,6 +210,8 @@ Runtime data collection (metrics 6,7 only)
 3. **Limited learning** - Only metrics 6 and 7 that require runtime data are learning targets
 4. **Cypher persistence** - All data changes are recorded as Cypher files
 5. **Reuse existing assets** - Leverages requirement/graph schema and data
+6. **Bi-directional value** - Not just evaluating tests, but improving requirement quality
+7. **Graph enrichment** - Accumulates metadata without modifying core requirements
 
 ## Extension
 
@@ -216,3 +252,15 @@ A: 7つの指標は並列計算されます。1000要件規模で約10秒程度�
 
 ### Q: カスタム指標を追加するには？
 A: `domain/metrics/`に新しいメトリクスクラスを追加し、`BaseMetric`を継承して`calculate`メソッドを実装します。既存7指標で表現できないことを先に確認してください。
+
+### Q: 要件グラフはどのように充実していく？
+A: meta_testは要件グラフを以下の3つの方法で充実させます：
+1. **メタデータ追加**: 各要件に品質スコア、測定履歴、改善提案を付与
+2. **暗黙的仕様の発見**: テストコードから制約条件や仕様を抽出して要件に追加
+3. **関連性の発見**: テストと要件の相関から、文書化されていない依存関係を検出
+
+### Q: 要件自体は変更される？
+A: コア要件は変更せず、以下の層で管理します：
+- **不変層**: 要件の本質的な意図（例：「ユーザー認証を提供」）
+- **進化層**: 具体的な仕様（例：「30秒タイムアウト」）- テストから発見された内容で更新
+- **メタデータ層**: 品質指標、実行履歴、相関データ - 継続的に蓄積
