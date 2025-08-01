@@ -50,14 +50,22 @@
           ''}";
         };
         
-        # クライアント起動（Deno版）
+        # クライアント起動（Bun版）
         apps.client = {
           type = "app";
           program = "${pkgs.writeShellScript "start-client" ''
-            export PATH="${pkgs.deno}/bin:$PATH"
+            # 環境設定（Bunのネイティブモジュール用）
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
             export LOG_TS_PATH="${log-ts}/lib/mod.ts"
-            echo "🔌 Starting KuzuDB sync client (Deno)..."
-            exec ${pkgs.deno}/bin/deno run --allow-net --allow-env ./client.ts $@
+            
+            # node_modulesをリンク
+            if [ ! -d node_modules ]; then
+              mkdir -p node_modules
+              ln -sf ${kuzuTsBunPackage}/lib/node_modules/kuzu node_modules/kuzu
+            fi
+            
+            echo "🔌 Starting KuzuDB sync client (Bun)..."
+            exec ${pkgs.bun}/bin/bun run ./client.ts $@
           ''}";
         };
         
@@ -211,6 +219,7 @@
             echo ""
             echo "📦 Available tools:"
             echo "  - Deno ${pkgs.deno.version}"
+            echo "  - Bun ${pkgs.bun.version}"
             echo ""
             
             # Set environment variables for KuzuDB

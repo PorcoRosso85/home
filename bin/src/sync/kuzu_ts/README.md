@@ -9,9 +9,9 @@
 ## ランタイムサポート
 
 - **サーバー**: Deno（WebSocket、安定稼働）
-- **クライアント**: 
-  - Deno（既存実装、安定）
-  - Bun（新実装、高速起動）
+- **クライアント**: DenoとBunの両ランタイムをサポート
+  - **Deno**: 既存実装、安定稼働、フルfeature対応
+  - **Bun**: 高速起動、軽量実装、統一インターフェース対応
 
 ### 主な機能
 
@@ -29,7 +29,11 @@
 nix run .#server
 
 # クライアント起動（別ターミナル）
+# Denoランタイム使用
 nix run .#client
+
+# Bunランタイム使用
+nix run .#bun-client
 
 # テスト実行
 nix run .#test
@@ -68,9 +72,16 @@ nix develop
 # サーバー起動（デバッグモード）
 deno run --allow-net --allow-read --allow-env server.ts
 
+# クライアント起動（Denoランタイム）
+deno run --allow-net --allow-read --allow-env client.ts
+
+# クライアント起動（Bunランタイム）
+bun run bun_client.ts
+
 # テスト実行
 pytest tests/e2e_test.py -v
 deno test tests/ --allow-all
+bun test
 ```
 
 ## 統計モニタリング
@@ -111,6 +122,33 @@ Overall: sent: 10, received: 5, applied: 4, failed: 1
 Template: CREATE_USER - sent: 5, received: 3, applied: 3, success rate: 100%
 Template: UPDATE_USER - sent: 3, received: 2, applied: 1, success rate: 50%
 ```
+
+## 統一インターフェース
+
+DenoとBunの両ランタイムで同じインターフェースを使用できます：
+
+```typescript
+// Denoランタイムでの使用
+import { createSyncClient } from "./client_factory.ts";
+
+const client = await createSyncClient("ws://localhost:8080");
+await client.connect();
+await client.sendDML("CREATE USER {name: 'Alice'}");
+
+// Bunランタイムでの使用（同じインターフェース）
+import { createSyncClient } from "./bun_client.ts";
+
+const client = createSyncClient("ws://localhost:8080");
+await client.connect();
+await client.sendDML("CREATE USER {name: 'Bob'}");
+```
+
+### インターフェースの特徴
+
+- **ランタイム非依存**: 同じAPIで両ランタイムをサポート
+- **自動再接続**: 接続断時の自動リトライ機能
+- **統計収集**: DML操作の自動統計収集
+- **型安全**: TypeScriptによる型定義
 
 ## 設定
 

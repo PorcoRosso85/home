@@ -160,3 +160,17 @@ export {
   createTelemetryWrapper,
   type TelemetryWrapper
 } from "./telemetry_wrapper.ts";
+
+// Re-export runtime-specific clients
+export { KuzuSyncClient as DenoKuzuSyncClient } from "./deno_client.ts";
+export { KuzuSyncClient as BunKuzuSyncClient } from "./bun_client.ts";
+
+// Re-export unified client interface
+export {
+  createSyncClient,
+  type ISyncClient,
+  type SyncClientOptions,
+  type SyncEvent,
+  Result,
+  tryCatch
+} from "./unified_client.ts";

@@ -3,7 +3,10 @@
  * Compatible with unified client interface
  */
 
-import { Database, Connection } from "npm:kuzu@0.6.0";
+// Using require() to load the packaged kuzu module
+// This follows the pattern from bun_client.ts for Bun compatibility
+const kuzu = require("kuzu");
+const { Database, Connection } = kuzu;
 
 export interface ClientOptions {
   clientId?: string;
@@ -15,7 +18,7 @@ export class KuzuSyncClient {
   private conn: Connection;
   private ws: WebSocket | null = null;
   private clientId: string;
-  private reconnectTimer?: number;
+  private reconnectTimer?: Timer;
 
   constructor(options?: ClientOptions | string) {
     // Support both old string parameter and new options object
