@@ -16,8 +16,6 @@
  * - Wait for Module Workers-compatible KuzuDB WASM version
  * - Re-implement persistence/kuzu_ts with FFI-based approach
  * 
- * TODO: 将来的にブラウザ環境のサポートを追加する際は、
- * Worker APIの互換性やESMローダーの違いを考慮する必要がある
  */
 
 import type { KuzuWasmClient, LocalState, EventSnapshot } from "../../types.ts";
@@ -48,8 +46,6 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
 
   async initialize(): Promise<void> {
     // Use sync version for Deno which doesn't support classic workers
-    // TODO: ブラウザ環境では異なるインポート方法が必要になる可能性がある
-    // 例: import("kuzu-wasm") for browser with worker support
     const kuzuModule = await import("kuzu-wasm/sync");
     const kuzu = kuzuModule.default || kuzuModule;
     
@@ -65,8 +61,6 @@ export class KuzuWasmClientImpl implements KuzuWasmClient {
   }
   
   // Worker pathを取得するための拡張ポイント
-  // TODO: ブラウザ環境でのWorker使用時には、このメソッドを実装して
-  // 適切なWorkerスクリプトのパスを返す必要がある
   private getWorkerPath?(): string;
 
   async initializeFromSnapshot(snapshot: EventSnapshot): Promise<void> {

@@ -12,7 +12,7 @@ export interface SyncClientOptions {
 export interface SyncEvent {
   id: string;
   template: string;
-  params: any;
+  params: Record<string, unknown>;
   timestamp: number;
   synced: boolean;
   clientId?: string;
@@ -25,7 +25,7 @@ export interface ISyncClient {
   close(): void;
   
   // Event operations
-  sendEvent(template: string, params: any): Promise<void>;
+  sendEvent(template: string, params: Record<string, unknown>): Promise<void>;
   getLocalEvents(limit?: number): Promise<SyncEvent[]>;
   getUnsyncedEvents(limit?: number): Promise<SyncEvent[]>;
   markEventSynced(eventId: string): Promise<void>;

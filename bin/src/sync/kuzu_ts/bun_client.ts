@@ -3,10 +3,10 @@
  * Deno版と同等の機能をBunで実装
  */
 
-// Using require() to load the packaged kuzu module from persistence/kuzu_ts
-// This follows the pattern from persistence/kuzu_ts/examples/test_bun_package/test.ts
-const kuzu = require("kuzu");
-const { Database, Connection } = kuzu;
+// Module-level variables for lazy loading
+let kuzu: any;
+let Database: any;
+let Connection: any;
 
 export interface ClientOptions {
   clientId?: string;
@@ -14,12 +14,12 @@ export interface ClientOptions {
 }
 
 export class KuzuSyncClient {
-  private db: Database;
-  private conn: Connection;
+  private db: any;
+  private conn: any;
   private ws: WebSocket | null = null;
   private clientId: string;
   private dbPath: string;
-  private reconnectTimer?: Timer;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
 
   constructor(options?: ClientOptions | string) {
     // Support both old string parameter and new options object
@@ -30,12 +30,19 @@ export class KuzuSyncClient {
       this.clientId = options?.clientId || `bun_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       this.dbPath = options?.dbPath || ":memory:";
     }
-    
-    this.db = new Database(this.dbPath);
-    this.conn = new Connection(this.db);
   }
 
   async initialize(): Promise<void> {
+    // Lazy load kuzu module on first initialization
+    if (!kuzu) {
+      kuzu = await import("kuzu");
+      Database = kuzu.Database;
+      Connection = kuzu.Connection;
+    }
+    
+    // Initialize database after module is loaded
+    this.db = new Database(this.dbPath);
+    this.conn = new Connection(this.db);
     // Check if table already exists for persistent databases
     try {
       const result = await this.conn.query("CALL show_tables() RETURN name");

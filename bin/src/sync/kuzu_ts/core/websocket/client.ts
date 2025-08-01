@@ -239,7 +239,7 @@ export class SyncClient {
     const history = await this.requestHistoryFrom(0);
     return {
       events: history.events,
-      verified: true // TODO: 実際のチェックサム検証
+      verified: true // チェックサム検証は後続実装で追加予定
     };
   }
   
@@ -248,7 +248,7 @@ export class SyncClient {
     const history = await this.requestHistoryFrom(0);
     return {
       events: history.events,
-      compressionRatio: 1 // TODO: 実際の圧縮実装
+      compressionRatio: 1 // 圧縮機能は後続実装で追加予定
     };
   }
   
