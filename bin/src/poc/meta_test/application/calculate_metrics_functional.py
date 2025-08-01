@@ -6,6 +6,12 @@ from typing import Callable, Union
 
 from domain.metrics.base import MetricInput, MetricResult
 from domain.metrics.existence_functional import calculate_existence_metric
+from domain.metrics.reachability_functional import calculate_reachability_metric
+from domain.metrics.boundary_coverage_functional import calculate_boundary_coverage_metric
+from domain.metrics.change_sensitivity_functional import calculate_change_sensitivity_metric
+from domain.metrics.semantic_alignment_functional import calculate_semantic_alignment_metric
+from domain.metrics.runtime_correlation_functional import calculate_runtime_correlation_metric
+from domain.metrics.value_probability_functional import calculate_value_probability_metric
 from infrastructure.embedding_service import EmbeddingService
 from infrastructure.errors import ValidationError
 from infrastructure.graph_adapter import GraphAdapter
@@ -39,7 +45,12 @@ def create_metrics_calculator(
         metrics_collector=metrics_collector,
         metric_functions=[
             calculate_existence_metric,
-            # Other metrics would be added here after conversion
+            calculate_reachability_metric,
+            calculate_boundary_coverage_metric,
+            calculate_change_sensitivity_metric,
+            lambda input_data: calculate_semantic_alignment_metric(input_data, embedding_service),
+            calculate_runtime_correlation_metric,
+            calculate_value_probability_metric,
         ]
     )
 

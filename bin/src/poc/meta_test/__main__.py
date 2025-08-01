@@ -145,7 +145,7 @@ def cmd_suggest(args):
 
     logger.info("Improvement plan generated")
     # Print report to stdout for CLI usage
-    print(report)
+    logger.info(report)
     return 0
 
 

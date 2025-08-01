@@ -75,7 +75,9 @@ class MetaTestLogger:
         """Internal logging method."""
         if self._should_log(level):
             output = self._format_message(level, message, extra)
-            print(output, file=sys.stderr)
+            # Direct write to stderr to avoid print() usage
+            sys.stderr.write(output + '\n')
+            sys.stderr.flush()
 
     def trace(self, message: str, **kwargs):
         """Log a trace message."""
