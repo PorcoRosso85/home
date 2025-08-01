@@ -16,6 +16,8 @@
         
         # Get the packaged kuzu_ts with pre-installed node_modules
         kuzuTsPackage = kuzu-ts.packages.${system}.default;
+        # Get the Bun-specific package from persistence/kuzu_ts
+        kuzuTsBunPackage = kuzu-ts.packages.${system}.bun;
         
       in
       {
@@ -48,14 +50,32 @@
           ''}";
         };
         
-        # クライアント起動
+        # クライアント起動（Deno版）
         apps.client = {
           type = "app";
           program = "${pkgs.writeShellScript "start-client" ''
             export PATH="${pkgs.deno}/bin:$PATH"
             export LOG_TS_PATH="${log-ts}/lib/mod.ts"
-            echo "🔌 Starting KuzuDB sync client..."
+            echo "🔌 Starting KuzuDB sync client (Deno)..."
             exec ${pkgs.deno}/bin/deno run --allow-net --allow-env ./client.ts $@
+          ''}";
+        };
+        
+        # Bunクライアント起動（persistence/kuzu_ts使用）
+        apps.bun-client = {
+          type = "app";
+          program = "${pkgs.writeShellScript "start-bun-client" ''
+            # 環境設定（persistence/kuzu_ts/examples/test_bun_package/flake.nixと同じ）
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+            
+            # node_modulesをリンク
+            if [ ! -d node_modules ]; then
+              mkdir -p node_modules
+              ln -sf ${kuzuTsBunPackage}/lib/node_modules/kuzu node_modules/kuzu
+            fi
+            
+            echo "🐰 Starting KuzuDB sync client (Bun + persistence/kuzu_ts)..."
+            exec ${pkgs.bun}/bin/bun run ./bun_client.ts $@
           ''}";
         };
         
@@ -162,8 +182,13 @@
             # Deno for server and tests
             deno
             
+            # Bun for client
+            bun
+            
             # Include the packaged kuzu_ts
             kuzuTsPackage
+            # Include the Bun package from persistence/kuzu_ts
+            kuzuTsBunPackage
             
             # System libraries for npm:kuzu
             stdenv.cc.cc.lib  # libstdc++.so.6
@@ -193,6 +218,12 @@
             export NODE_PATH="${kuzuTsPackage}/lib/node_modules:$NODE_PATH"
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
             export KUZU_TS_PATH="${kuzuTsPackage}/lib"
+            
+            # Set up node_modules for Bun to use persistence/kuzu_ts
+            if [ ! -d node_modules ]; then
+              mkdir -p node_modules
+              ln -sf ${kuzuTsBunPackage}/lib/node_modules/kuzu node_modules/kuzu
+            fi
             
             # Set environment variable for log_ts module
             export LOG_TS_PATH="${log-ts}/lib/mod.ts"
