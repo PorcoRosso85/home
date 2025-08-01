@@ -35,7 +35,7 @@ dev = [
 graph-docs-pyright = "graph_docs.main:main"
 
 [tool.setuptools]
-packages = ["graph_docs"]
+packages = {find = {where = ["."], include = ["graph_docs*"]}}
 include-package-data = true
 
 [tool.setuptools.package-data]

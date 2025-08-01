@@ -70,35 +70,92 @@ Pyright Language Server Protocolを使用した型認識コード解析ツール
 - symbol -[REFERENCES]-> type_symbol
 - **reference_type**: 参照の種類（parameter, return, variable）
 
-## 実装アプローチ
+## アーキテクチャ
 
-### 1. Pyright LSPクライアントの実装
+本プロジェクトはDomain-Driven Design (DDD) に基づいて構成されています：
 
-```python
-from pyright_lsp import PyrightLSPClient
+### ディレクトリ構造
 
-class PyrightAnalyzer:
-    def __init__(self):
-        self.client = PyrightLSPClient()
-    
-    async def analyze_project(self, project_path: str):
-        # プロジェクトを開く
-        await self.client.initialize(project_path)
-        
-        # 全ファイルのシンボル情報を取得
-        symbols = await self.client.get_workspace_symbols()
-        
-        # 各シンボルの詳細情報を取得
-        for symbol in symbols:
-            # 型情報を取得
-            type_info = await self.client.get_symbol_type(symbol)
-            # 参照を取得
-            references = await self.client.find_references(symbol)
-            # 定義を取得
-            definition = await self.client.go_to_definition(symbol)
+```
+graph_docs/
+├── domain/           # ドメインモデル層
+│   └── entities.py   # QueryResult, DualQueryResult などのエンティティ
+├── application/      # アプリケーション層
+│   ├── analyzer_service.py    # Pyright解析サービス
+│   └── interfaces/
+│       └── repository.py      # リポジトリインターフェース
+├── infrastructure/   # インフラストラクチャ層
+│   ├── cli/
+│   │   └── cli_handler.py    # CLIハンドラー
+│   ├── kuzu/
+│   │   ├── kuzu_repository.py      # KuzuDBリポジトリ実装
+│   │   └── dual_kuzu_repository.py # デュアルDBリポジトリ
+│   └── pyright/      # Pyright関連（未実装）
+├── pyright_client.py # Pyright LSPクライアント
+├── pyright_analyzer.py # Pyright解析器
+├── kuzu_storage.py   # KuzuStorage（後方互換性のため）
+├── mod.py            # DualKuzuDB（後方互換性のため）
+└── cli_display.py    # CLIディスプレイユーティリティ
 ```
 
-### 2. KuzuDBスキーマの拡張
+### 1. Domain層
+
+ビジネスロジックの中核となるエンティティを定義：
+
+```python
+# domain/entities.py
+@dataclass
+class QueryResult:
+    """クエリ結果を表すエンティティ"""
+    data: Optional[List[Dict[str, Any]]] = None
+    error: Optional[str] = None
+    timing: Optional[float] = None
+
+@dataclass
+class DualQueryResult:
+    """デュアルクエリ結果を表すエンティティ"""
+    local: Optional[QueryResult] = None
+    server: Optional[QueryResult] = None
+```
+
+### 2. Application層
+
+ビジネスロジックを実装し、ドメインとインフラストラクチャを繋ぐ：
+
+```python
+# application/analyzer_service.py
+class AnalyzerService:
+    def __init__(self, repository: IRepository):
+        self.repository = repository
+        self.analyzer = PyrightAnalyzer()
+    
+    def analyze_and_store(self, directory: str) -> Dict[str, Any]:
+        results = self.analyzer.analyze_directory(directory)
+        self.repository.store_analysis(results)
+        return results
+```
+
+### 3. Infrastructure層
+
+外部システムとの統合を担当：
+
+```python
+# infrastructure/kuzu/kuzu_repository.py
+class KuzuRepository(IRepository):
+    """KuzuDBを使用したリポジトリの実装"""
+    def store_analysis(self, analysis_results: Dict[str, Any]) -> None:
+        # KuzuDBへの保存ロジック
+        pass
+```
+
+### DDDアーキテクチャの利点
+
+1. **関心の分離**: 各層が明確な責務を持つ
+2. **テスタビリティ**: インターフェースによる依存性の注入でテストが容易
+3. **拡張性**: 新しいストレージやアナライザーの追加が簡単
+4. **保守性**: ビジネスロジックが明確に分離されている
+
+## KuzuDBスキーマ
 
 ```cypher
 // 型情報を含むSymbolノード
@@ -254,6 +311,10 @@ ORDER BY ref_count DESC
 3. ✅ **統合テスト** - 型エラー検出とKuzuDB保存の検証
 4. ✅ **COPY TO/FROM Parquet** - Parquet形式でのエクスポート/インポート
 5. ✅ **永続化とデータ移行** - ファイルDB → Parquet → in-memory DBの完全なフロー
+6. ✅ **DDDアーキテクチャ** - Domain/Application/Infrastructure層の分離
+7. ✅ **リポジトリパターン** - KuzuRepositoryによるデータアクセス抽象化
+8. ✅ **DualKuzuDB** - 2つのKuzuDBインスタンスを同時操作
+9. ✅ **E2Eテスト** - ユーザー・製品・ソーシャルグラフのテスト
 
 ### KuzuStorage API
 

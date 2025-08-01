@@ -14,9 +14,9 @@
   "defineConstant": {
     "DEBUG": true
   },
-  "pythonVersion": "3.11",
+  "pythonVersion": "3.12",
   "pythonPlatform": "Linux",
-  "typeCheckingMode": "strict",
+  "typeCheckingMode": "basic",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
   "reportUnknownParameterType": true,
@@ -53,7 +53,7 @@
   "executionEnvironments": [
     {
       "root": ".",
-      "pythonVersion": "3.11",
+      "pythonVersion": "3.12",
       "extraPaths": [
         "../../telemetry",
         "../.."

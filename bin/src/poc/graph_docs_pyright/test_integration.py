@@ -30,9 +30,11 @@ class Example:
         assert client.is_initialized
         
         # Get document symbols
-        symbols = await client.get_document_symbols(str(test_file))
+        result = await client.get_document_symbols(str(test_file))
         
         # Basic assertions
+        assert result['ok'] is True
+        symbols = result['symbols']
         assert len(symbols) > 0
         symbol_names = [s['name'] for s in symbols]
         assert 'hello' in symbol_names

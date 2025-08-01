@@ -5,25 +5,17 @@
 - 2つのDB間のリレーション定義
 """
 
-from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
 import kuzu
 
-@dataclass
-class QueryResult:
-    """クエリ実行結果"""
-    source: str  # "db1" or "db2"
-    columns: List[str]
-    rows: List[List[Any]]
-    error: Optional[str] = None
-
-@dataclass
-class DualQueryResult:
-    """2つのDBに対するクエリ結果"""
-    db1_result: Optional[QueryResult]
-    db2_result: Optional[QueryResult]
-    combined: Optional[List[Dict[str, Any]]] = None
+from graph_docs.domain.entities import (
+    ErrorDict,
+    InitResult,
+    ConnectResult,
+    QueryResult,
+    DualQueryResult
+)
 
 class DualKuzuDB:
     """2つのKuzuDBを管理するクラス"""
@@ -52,17 +44,26 @@ class DualKuzuDB:
         """ローカルDBのパスを取得"""
         return self._local_db_path
     
-    def init_local_db(self, local_path: Union[str, Path]) -> None:
+    def init_local_db(self, local_path: Union[str, Path]) -> Union[InitResult, ErrorDict]:
         """ローカルDBを初期化し、User/Product/OWNSスキーマを定義
         
         Args:
             local_path: ローカルDBのパス
+            
+        Returns:
+            Union[InitResult, ErrorDict]: 成功時はInitResult、失敗時はErrorDict
         """
         self._local_db_path = Path(local_path)
         
-        # ローカルDBの作成と接続
-        self._local_db = kuzu.Database(str(self._local_db_path))
-        self.local_conn = kuzu.Connection(self._local_db)
+        try:
+            # ローカルDBの作成と接続
+            self._local_db = kuzu.Database(str(self._local_db_path))
+            self.local_conn = kuzu.Connection(self._local_db)
+        except Exception as e:
+            return ErrorDict(
+                error="Failed to create or connect to local database",
+                details=str(e)
+            )
         
         # スキーマ定義
         try:
@@ -94,15 +95,51 @@ class DualKuzuDB:
                 )
             """)
             
+            return InitResult(
+                success=True,
+                message="Local DB schema initialized successfully"
+            )
+            
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize local DB schema: {e}")
+            # エラー時は接続をクリーンアップ
+            self.local_conn = None
+            self._local_db = None
+            return ErrorDict(
+                error="Failed to initialize local DB schema",
+                details=str(e)
+            )
     
-    def connect(self) -> None:
-        """両方のDBに接続"""
-        self._db1 = kuzu.Database(str(self.db1_path))
-        self._db2 = kuzu.Database(str(self.db2_path))
-        self._conn1 = kuzu.Connection(self._db1)
-        self._conn2 = kuzu.Connection(self._db2)
+    def connect(self) -> Union[ConnectResult, ErrorDict]:
+        """両方のDBに接続
+        
+        Returns:
+            Union[ConnectResult, ErrorDict]: 成功時はConnectResult、失敗時はErrorDict
+        """
+        try:
+            self._db1 = kuzu.Database(str(self.db1_path))
+            self._conn1 = kuzu.Connection(self._db1)
+        except Exception as e:
+            return ErrorDict(
+                error="Failed to connect to db1",
+                details=f"Path: {self.db1_path}, Error: {str(e)}"
+            )
+        
+        try:
+            self._db2 = kuzu.Database(str(self.db2_path))
+            self._conn2 = kuzu.Connection(self._db2)
+        except Exception as e:
+            # db1の接続をクリーンアップ
+            self._conn1 = None
+            self._db1 = None
+            return ErrorDict(
+                error="Failed to connect to db2",
+                details=f"Path: {self.db2_path}, Error: {str(e)}"
+            )
+        
+        return ConnectResult(
+            success=True,
+            message="Successfully connected to both databases"
+        )
     
     def disconnect(self) -> None:
         """両方のDBから切断"""
@@ -414,8 +451,16 @@ class DualKuzuDB:
             )
     
     def __enter__(self):
-        """コンテキストマネージャーのエントリー"""
-        self.connect()
+        """コンテキストマネージャーのエントリー
+        
+        Note: Context managersはPythonのプロトコル上、例外を投げる必要があるため、
+        ここではエラー値を例外に変換している。通常のメソッド呼び出しでは
+        connect()を直接使用し、エラー値として扱うことを推奨。
+        """
+        result = self.connect()
+        if 'error' in result:
+            # Context manager protocolのため、ここでは例外に変換
+            raise RuntimeError(f"{result['error']}: {result.get('details', '')}")
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -423,4 +468,4 @@ class DualKuzuDB:
         self.disconnect()
 
 # 公開API
-__all__ = ['DualKuzuDB', 'QueryResult', 'DualQueryResult']
+__all__ = ['DualKuzuDB']

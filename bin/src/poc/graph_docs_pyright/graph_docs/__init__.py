@@ -1,44 +1,23 @@
-"""graph_docs - Dual KuzuDB Query Interface Package
+"""graph_docs_pyright - Pyright-based code analysis with KuzuDB storage.
 
-This package provides a CLI interface for querying two KuzuDB databases simultaneously,
-enabling comparison and analysis across multiple graph databases.
+This package provides code analysis using Pyright Language Server Protocol
+and stores the results in KuzuDB for graph-based querying.
 """
-
-# Re-export main components from submodules
-from .mod import (
-    DualKuzuDB,
-    QueryResult,
-    DualQueryResult,
-)
-
-from .cli_display import (
-    section_title,
-    query_result,
-    combined_results,
-    database_info,
-    dual_query_info,
-    json_output,
-    error,
-    newline,
-    info,
-    table,
-)
 
 __version__ = "0.1.0"
 
 # Define explicit exports
 __all__ = [
-    "DualKuzuDB",
-    "QueryResult", 
-    "DualQueryResult",
-    "section_title",
-    "query_result",
-    "combined_results",
-    "database_info",
-    "dual_query_info",
-    "json_output",
-    "error",
-    "newline",
-    "info",
-    "table",
+    "PyrightAnalyzer",
+    "KuzuStorage",
 ]
+
+# Re-export main components - delayed import to avoid circular dependencies
+def __getattr__(name):
+    if name == "PyrightAnalyzer":
+        from .pyright_analyzer import PyrightAnalyzer
+        return PyrightAnalyzer
+    elif name == "KuzuStorage":
+        from .kuzu_storage import KuzuStorage
+        return KuzuStorage
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

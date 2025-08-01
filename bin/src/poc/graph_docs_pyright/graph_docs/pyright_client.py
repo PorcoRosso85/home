@@ -1,12 +1,27 @@
 """Pyright LSP client for type-aware code analysis."""
 
-import asyncio
 import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-import glob
+from typing import Optional, Dict, Any, List, Union, TypedDict
+
+
+class ErrorResult(TypedDict):
+    """Error result type."""
+    ok: bool
+    error: str
+
+
+class InitializeSuccess(TypedDict):
+    """Success result for initialize operation."""
+    ok: bool
+
+
+class SymbolsSuccess(TypedDict):
+    """Success result for symbol operations."""
+    ok: bool
+    symbols: List[Dict[str, Any]]
 
 
 class PyrightLSPClient:
@@ -18,17 +33,17 @@ class PyrightLSPClient:
         self.proc: Optional[subprocess.Popen] = None
         self._request_id: int = 0
         
-    async def initialize(self, workspace_path: str) -> None:
+    async def initialize(self, workspace_path: str) -> Union[InitializeSuccess, ErrorResult]:
         """Initialize the Pyright LSP server.
         
         Args:
             workspace_path: Path to the workspace directory
             
-        Raises:
-            RuntimeError: If client is already initialized
+        Returns:
+            InitializeSuccess if successful, ErrorResult if already initialized
         """
         if self.is_initialized:
-            raise RuntimeError("Client is already initialized")
+            return ErrorResult(ok=False, error="Client is already initialized")
             
         self.workspace_path = Path(workspace_path)
         
@@ -64,6 +79,7 @@ class PyrightLSPClient:
         await self._send_notification("initialized", {})
         
         self.is_initialized = True
+        return InitializeSuccess(ok=True)
         
     async def shutdown(self) -> None:
         """Shutdown the Pyright LSP server."""
@@ -83,17 +99,17 @@ class PyrightLSPClient:
         self.workspace_path = None
         self.proc = None
         
-    async def get_document_symbols(self, file_path: str) -> List[Dict[str, Any]]:
+    async def get_document_symbols(self, file_path: str) -> Union[SymbolsSuccess, ErrorResult]:
         """Get symbols from a specific document.
         
         Args:
             file_path: Path to the Python file
             
         Returns:
-            List of symbol dictionaries with name, kind, location, and type_info
+            SymbolsSuccess with list of symbol dictionaries, or ErrorResult if not initialized
         """
         if not self.is_initialized:
-            raise RuntimeError("Client not initialized")
+            return ErrorResult(ok=False, error="Client not initialized")
             
         # Open the document
         await self._open_document(file_path)
@@ -110,28 +126,29 @@ class PyrightLSPClient:
             raw_symbols = response["result"]
             symbols = self._parse_document_symbols(raw_symbols, uri)
             
-        return symbols
+        return SymbolsSuccess(ok=True, symbols=symbols)
         
-    async def get_workspace_symbols(self, query: str = "") -> List[Dict[str, Any]]:
+    async def get_workspace_symbols(self, query: str = "") -> Union[SymbolsSuccess, ErrorResult]:
         """Get all symbols in the workspace.
         
         Args:
             query: Optional search query
             
         Returns:
-            List of symbol dictionaries
+            SymbolsSuccess with list of symbol dictionaries, or ErrorResult if not initialized
         """
         if not self.is_initialized:
-            raise RuntimeError("Client not initialized")
+            return ErrorResult(ok=False, error="Client not initialized")
             
         # Find all Python files in workspace
         all_symbols = []
         for py_file in self.workspace_path.rglob("*.py"):
             if not any(part.startswith('.') for part in py_file.parts):
-                symbols = await self.get_document_symbols(str(py_file))
-                all_symbols.extend(symbols)
+                result = await self.get_document_symbols(str(py_file))
+                if result["ok"]:
+                    all_symbols.extend(result["symbols"])
                 
-        return all_symbols
+        return SymbolsSuccess(ok=True, symbols=all_symbols)
         
     async def _send_request(self, method: str, params: Any) -> Dict[str, Any]:
         """Send a request to the LSP server and wait for response."""

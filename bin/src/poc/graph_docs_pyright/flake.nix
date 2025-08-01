@@ -16,23 +16,31 @@
         
         # Get packages from flake inputs
         pythonFlakePackages = python-flake.packages.${system};
-        kuzuPyPackage = kuzu-py.packages.${system}.default;
-        logPyPackage = log-py.packages.${system}.default;
+        
+        # Import overlays and use the same Python version consistently
+        overlays = [ log-py.overlays.default ];
+        customPkgs = import nixpkgs {
+          inherit system overlays;
+        };
+        
+        # Use python312 packages from the overlayed pkgs
+        kuzuPyPackage = kuzu-py.packages.${system}.kuzuPy;
+        logPyPackage = customPkgs.python312Packages.log_py;
         
         # Build graph_docs_pyright as a proper Python package
-        graphDocsPyrightPackage = pkgs.python312Packages.buildPythonPackage rec {
+        graphDocsPyrightPackage = customPkgs.python312Packages.buildPythonPackage rec {
           pname = "graph_docs_pyright";
           version = "0.1.0";
           src = ./.;
           
           pyproject = true;
           
-          build-system = with pkgs.python312Packages; [
+          build-system = with customPkgs.python312Packages; [
             setuptools
             wheel
           ];
           
-          propagatedBuildInputs = with pkgs.python312Packages; [
+          propagatedBuildInputs = with customPkgs.python312Packages; [
             kuzuPyPackage
             logPyPackage
             # Pyright LSP client dependencies
@@ -41,7 +49,7 @@
             aiofiles
           ];
           
-          nativeCheckInputs = with pkgs.python312Packages; [
+          nativeCheckInputs = with customPkgs.python312Packages; [
             pytest
             pytest-asyncio
             pytest-timeout
@@ -54,7 +62,7 @@
         };
         
         # Python environment with our package and test dependencies
-        pythonEnv = pkgs.python312.withPackages (ps: [
+        pythonEnv = customPkgs.python312.withPackages (ps: [
           graphDocsPyrightPackage
           ps.pytest
           ps.pytest-asyncio
@@ -124,13 +132,10 @@
           test = {
             type = "app";
             program = "${pkgs.writeShellScript "test" ''
+              # Run tests directly with pytest
+              echo "Running all tests with pytest..."
               cd ${./.}
-              export PYTHONPATH="${./.}:$PYTHONPATH"
-              export PATH="${pythonFlakePackages.pyright}/bin:$PATH"
-              echo "Running minimal test..."
-              ${pythonEnv}/bin/python test_minimal.py
-              echo -e "\nRunning persistence tests..."
-              ${pythonEnv}/bin/python test_persistence.py
+              ${pythonEnv}/bin/pytest -xvs
             ''}";
           };
           
