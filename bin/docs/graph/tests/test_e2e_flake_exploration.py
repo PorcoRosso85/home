@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 
 import pytest
-import kuzu
+from kuzu_py import Database, Connection
 
 from flake_graph.scanner import scan_flake_description
 from flake_graph.models_functional import create_flake_info, get_flake_id
@@ -57,8 +57,8 @@ def test_can_explore_flake_responsibilities():
         
         # Create temporary KuzuDB
         db_path = Path(tmpdir) / "test.kuzu"
-        db = kuzu.Database(str(db_path))
-        conn = kuzu.Connection(db)
+        db = Database(str(db_path))
+        conn = Connection(db)
         
         # Create schema
         conn.execute("""
