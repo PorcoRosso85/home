@@ -20,15 +20,21 @@
 
 ## タスク送信フォーマット
 ```bash
-# 1. ペインリストの確認
+# 1. 現在のウィンドウのペインのみ確認（他ウィンドウへの誤送信を防止）
 tmux list-panes -F "#{pane_id} #{pane_current_command} #{pane_current_path}"
 
-# 2. タスク送信
+# 2. 現在のウィンドウ内のペインにのみタスク送信
+# 注意: %<pane_id>は現在のウィンドウ内のペインIDのみ使用
 tmux send-keys -t %<pane_id> "cd '$(pwd)' && [pane:<pane_id>] <タスク>" Enter
 
 # 3. 送信確認（最後に送信したコマンドの取得）
 tmux capture-pane -t %<pane_id> -p | tail -n 5
 ```
+
+## 重要な制限事項
+- **現在のウィンドウ内のペインのみ操作可能**
+- 他のウィンドウへの送信は明示的に禁止
+- `list-panes`は現在のウィンドウのペインのみ表示するため、これにより安全性を確保
 
 ## 使用例
 ```bash
