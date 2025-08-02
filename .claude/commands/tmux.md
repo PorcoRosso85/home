@@ -8,13 +8,26 @@
 
 ## 実行内容
 0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
-1. 指定されたペインIDにタスクを送信
-2. 作業ディレクトリを自動設定
-3. エラー時はメインペインに報告
+1. **tmux windowリストを取得して送信先を確認**
+   - `tmux list-panes -F "#{pane_id} #{pane_current_command}"` で状況確認
+   - 送信先ペインの存在と状態を検証
+2. **タスクを送信**
+   - 指定されたペインIDにタスクを送信
+   - 作業ディレクトリを自動設定
+3. **送信後の動作確認**
+   - 送信操作が期待通り動作したことを確認
+   - エラー時はメインペインに報告
 
 ## タスク送信フォーマット
 ```bash
+# 1. ペインリストの確認
+tmux list-panes -F "#{pane_id} #{pane_current_command} #{pane_current_path}"
+
+# 2. タスク送信
 tmux send-keys -t %<pane_id> "cd '$(pwd)' && [pane:<pane_id>] <タスク>" Enter
+
+# 3. 送信確認（最後に送信したコマンドの取得）
+tmux capture-pane -t %<pane_id> -p | tail -n 5
 ```
 
 ## 使用例
