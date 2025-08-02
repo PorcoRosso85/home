@@ -8,15 +8,13 @@ dependencies = [
 ]
 
 [project.scripts]
-requirement-graph = "cli:main"
-requirement-graph-schema = "cli:schema_main"
+requirement-graph = "main:main"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["main", "mod", "cli", "conftest", "__init__", "__main__"]
 packages = ["application", "domain", "infrastructure", "query", "test_utils", "e2e"]
 
 [tool.setuptools.package-data]
