@@ -2,6 +2,89 @@
 
 Pyright Language Server Protocolを使用した型認識コード解析ツール。KuzuDBグラフデータベースによる永続化機能付き。
 
+## 使用方法
+
+### 1. 分析対象ディレクトリでの実行
+
+```bash
+# 分析対象ディレクトリに移動
+cd /path/to/target/project
+
+# Pyrightで解析してKuzuDBに格納、Parquetファイルとして保存
+nix develop /path/to/graph_docs_pyright -c python -m graph_docs analyze . ./.kuzu
+
+# 結果: ./.kuzu/files.parquet, ./.kuzu/diagnostics.parquet が生成される
+```
+
+### 2. Cypherクエリでの分析
+
+```bash
+# KuzuDBを起動してParquetファイルから読み込み
+nix develop /path/to/graph_docs_pyright -c python -c "
+import kuzu
+db = kuzu.Database(':memory:')
+conn = db.get_connection()
+
+# スキーマ作成
+conn.execute('''
+CREATE NODE TABLE File(path STRING PRIMARY KEY, errors INT64, warnings INT64)
+''')
+conn.execute('''
+CREATE NODE TABLE Diagnostic(
+    id STRING PRIMARY KEY,
+    severity STRING,
+    message STRING,
+    line INT64,
+    col INT64
+)
+''')
+
+# Parquetからインポート
+conn.execute(\"COPY File FROM './.kuzu/files.parquet'\")
+conn.execute(\"COPY Diagnostic FROM './.kuzu/diagnostics.parquet'\")
+
+# 分析クエリ例
+result = conn.execute('''
+MATCH (d:Diagnostic)
+WHERE d.severity = 'error'
+RETURN d.message, d.line, d.col
+LIMIT 10
+''')
+print(result.get_as_df())
+"
+```
+
+### 3. ワンライナーでの実行例
+
+```bash
+# 型エラーのあるファイルを検索
+nix develop /path/to/graph_docs_pyright -c python -c "import kuzu; db=kuzu.Database(':memory:'); c=db.get_connection(); c.execute('CREATE NODE TABLE File(path STRING PRIMARY KEY, errors INT64, warnings INT64)'); c.execute('CREATE NODE TABLE Diagnostic(id STRING PRIMARY KEY, severity STRING, message STRING, line INT64, col INT64)'); c.execute(\"COPY File FROM './.kuzu/files.parquet'\"); c.execute(\"COPY Diagnostic FROM './.kuzu/diagnostics.parquet'\"); print(c.execute('MATCH (f:File) WHERE f.errors > 0 RETURN f.path, f.errors').get_as_df())"
+```
+
+## 設計思想
+
+### 基本原則
+- 各プロジェクトディレクトリで独立して動作
+- 解析結果は `./.kuzu/*.parquet` として保存
+- Parquetファイル以外の永続化は不要
+- 必要に応じてin-memory KuzuDBで読み込んでクエリ
+
+### 責務の境界
+- **このツールが行うこと**
+  - 指定されたディレクトリの型情報を解析
+  - 解析結果を**分析対象ディレクトリ内**に保存
+  - Parquet形式でのエクスポート機能の提供
+
+- **このツールが行わないこと**
+  - 他ディレクトリの責務や構造を知ること
+  - 分析結果を自身のディレクトリに保持すること
+  - プロジェクト横断的な集計や管理
+
+### 重要な制約
+- このツールは**分析先に分析結果を保存する機能を提供する**ものである
+- 分析結果の所有権は常に分析対象プロジェクトにある
+- 中央集権的なデータ管理は行わない
+
 ## 目的
 
 - Pyright Language Server Protocol (LSP) を使って指定ディレクトリ配下の全関数・シンボルを取得
