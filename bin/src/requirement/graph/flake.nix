@@ -84,6 +84,7 @@
             type = "app";
             program = "${mkRunner "run" ''
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
+              export PYTHONPATH="/home/nixos/bin/src:''${PYTHONPATH}"
               exec ${pythonEnv}/bin/python -m requirement.graph "$@"
             ''}";
           };
@@ -92,6 +93,7 @@
             type = "app";
             program = "${mkRunner "init" ''
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
+              export PYTHONPATH="/home/nixos/bin/src:''${PYTHONPATH}"
               
               # スキーマ状態確認
               if [ -d "$RGL_DB_PATH" ] && [ -f "$RGL_DB_PATH/catalog.kz" ]; then
@@ -144,7 +146,8 @@
             
             installPhase = ''
               mkdir -p $out/bin
-              cp -r . $out/src
+              mkdir -p $out/src/requirement
+              cp -r . $out/src/requirement/graph
               
               # Create wrapper script
               cat > $out/bin/rgl << EOF

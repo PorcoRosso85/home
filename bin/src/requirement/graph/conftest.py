@@ -10,6 +10,17 @@ import sys
 import os
 from typing import Dict, Any, Optional
 from pathlib import Path
+# Logger import with fallback
+try:
+    from requirement.graph.infrastructure.logger import debug, info, warn
+except ImportError:
+    # Fallback when log_py is not available
+    def debug(module, message, **kwargs):
+        pass
+    def info(module, message, **kwargs):
+        pass
+    def warn(module, message, **kwargs):
+        pass
 
 
 # パフォーマンス計測用
@@ -224,8 +235,8 @@ def perf_collector():
     # セッション終了時にレポート出力
     report_path = Path("test_performance_report.json")
     report = collector.report(report_path)
-    print(f"\nPerformance Report saved to: {report_path}")
-    print(f"Total measurements: {report['total_measurements']}")
+    info("rgl.test", f"Performance Report saved to: {report_path}")
+    info("rgl.test", f"Total measurements: {report['total_measurements']}")
     
     # 遅いテストの警告
     slow_tests = []
@@ -234,9 +245,9 @@ def perf_collector():
             slow_tests.append((name, stats["max"]))
     
     if slow_tests:
-        print("\n⚠️  Slow tests detected:")
+        warn("rgl.test", "Slow tests detected:")
         for name, duration in sorted(slow_tests, key=lambda x: x[1], reverse=True):
-            print(f"  - {name}: {duration:.2f}s")
+            warn("rgl.test", f"  - {name}: {duration:.2f}s")
 
 
 # リアルタイム実行時間表示（環境変数で有効化）
@@ -250,14 +261,14 @@ if os.environ.get("PYTEST_REALTIME", ""):
     def pytest_runtest_setup(item):
         """各テストの開始時に呼ばれる"""
         test_start_times[item.nodeid] = time.time()
-        print(f"\n[{datetime.now().strftime('%H:%M:%S')}] 🚀 Starting: {item.nodeid}")
+        debug("rgl.test", f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 Starting: {item.nodeid}")
     
     @pytest.hookimpl(trylast=True)
     def pytest_runtest_teardown(item, nextitem):
         """各テストの終了時に呼ばれる"""
         if item.nodeid in test_start_times:
             duration = time.time() - test_start_times[item.nodeid]
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Finished: {item.nodeid} ({duration:.2f}s)")
+            debug("rgl.test", f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Finished: {item.nodeid} ({duration:.2f}s)")
             del test_start_times[item.nodeid]
 
 
@@ -292,9 +303,9 @@ def measure():
     
     # テスト終了時に統計を出力（verbose時のみ）
     if collector.measurements:
-        print(f"\nTest performance summary:")
+        info("rgl.test", "Test performance summary:")
         for name, stats in collector.get_statistics().items():
-            print(f"  {name}: {stats['mean']:.3f}s (n={stats['count']})")
+            info("rgl.test", f"  {name}: {stats['mean']:.3f}s (n={stats['count']})")
 
 
 # Hook for JSON reporter configuration
