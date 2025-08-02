@@ -11,23 +11,15 @@ from ..infrastructure.logger import debug, info, warn, error
 VSS_MODULES_AVAILABLE = False
 FTS_MODULES_AVAILABLE = False
 
-try:
-    # Try to import vss_kuzu unified API
-    from vss_kuzu import create_vss
-    VSS_MODULES_AVAILABLE = True
-    info("rgl.search", "VSS modules loaded successfully")
-except ImportError as e:
-    # Log the error but don't fail - we'll provide an error
-    warn("rgl.search", f"VSS modules not available: {e}")
+# VSS module is required - no fallback
+from vss_kuzu import create_vss
+VSS_MODULES_AVAILABLE = True
+info("rgl.search", "VSS modules loaded successfully")
 
-try:
-    # Try to import fts_kuzu unified API
-    from fts_kuzu import create_fts
-    FTS_MODULES_AVAILABLE = True
-    info("rgl.search", "FTS modules loaded successfully")
-except ImportError as e:
-    # Log the error but don't fail - we'll provide an error
-    warn("rgl.search", f"FTS modules not available: {e}")
+# FTS module is required - no fallback
+from fts_kuzu import create_fts
+FTS_MODULES_AVAILABLE = True
+info("rgl.search", "FTS modules loaded successfully")
 
 
 
@@ -41,29 +33,28 @@ class VSSSearchAdapter:
         self._vss_service = None
         self._is_initialized = False
 
-        if VSS_MODULES_AVAILABLE:
-            try:
-                # Enable VECTOR extension on the existing connection if provided
-                if existing_connection:
-                    try:
-                        # Try to enable VECTOR extension
-                        existing_connection.execute("INSTALL vector;")
-                        existing_connection.execute("LOAD EXTENSION vector;")
-                        info("rgl.search", "VECTOR extension enabled on shared connection")
-                    except Exception as e:
-                        # Extension might already be loaded, or not available
-                        debug("rgl.search", f"VECTOR extension status: {e}")
+        try:
+            # Enable VECTOR extension on the existing connection if provided
+            if existing_connection:
+                try:
+                    # Try to enable VECTOR extension
+                    existing_connection.execute("INSTALL vector;")
+                    existing_connection.execute("LOAD EXTENSION vector;")
+                    info("rgl.search", "VECTOR extension enabled on shared connection")
+                except Exception as e:
+                    # Extension might already be loaded, or not available
+                    debug("rgl.search", f"VECTOR extension status: {e}")
 
-                # Initialize VSS with unified API, passing existing connection
-                self._vss_service = create_vss(
-                    db_path=db_path,
-                    in_memory=False,
-                    existing_connection=existing_connection
-                )
-                self._is_initialized = True
-                info("rgl.search", "VSS service initialized successfully with shared connection")
-            except Exception as e:
-                warn("rgl.search", f"Failed to initialize VSS service: {e}")
+            # Initialize VSS with unified API, passing existing connection
+            self._vss_service = create_vss(
+                db_path=db_path,
+                in_memory=False,
+                existing_connection=existing_connection
+            )
+            self._is_initialized = True
+            info("rgl.search", "VSS service initialized successfully with shared connection")
+        except Exception as e:
+            warn("rgl.search", f"Failed to initialize VSS service: {e}")
 
     def add_requirement(self, id: str, title: str, content: str) -> None:
         """Add requirement to VSS index"""
@@ -153,26 +144,12 @@ class VSSSearchAdapter:
             return []
 
     def search_hybrid(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
-        """Hybrid search combining VSS and keyword search"""
-        vss_results = self.search_similar(query, k)
-        keyword_results = self.search_keyword(query, k)
-
-        # Merge results by id, preferring VSS scores
-        merged = {}
-        for r in vss_results:
-            merged[r["id"]] = r
-
-        for r in keyword_results:
-            if r["id"] not in merged:
-                merged[r["id"]] = r
-            else:
-                # Average the scores
-                merged[r["id"]]["score"] = (merged[r["id"]]["score"] + r["score"]) / 2
-                merged[r["id"]]["source"] = "hybrid"
-
-        # Sort by score and return top k
-        sorted_results = sorted(merged.values(), key=lambda x: x["score"], reverse=True)
-        return sorted_results[:k]
+        """Hybrid search - delegates to VSS search"""
+        if not self._is_initialized:
+            error("rgl.search", "Cannot perform hybrid search - VSS not initialized")
+            raise RuntimeError("VSS service is required but not initialized")
+        # In a properly initialized system, VSS handles both vector and keyword search
+        return self.search_similar(query, k)
 
 
 class FTSSearchAdapter:
@@ -184,24 +161,23 @@ class FTSSearchAdapter:
         self._fts_service = None
         self._is_initialized = False
 
-        if FTS_MODULES_AVAILABLE:
-            try:
-                # Initialize FTS with unified API, passing existing connection
-                self._fts_service = create_fts(
-                    db_path=db_path,
-                    in_memory=False,
-                    existing_connection=existing_connection
-                )
-                self._is_initialized = True
-                info("rgl.search", "FTS service initialized successfully with shared connection")
-            except Exception as e:
-                warn("rgl.search", f"Failed to initialize FTS service: {e}")
+        try:
+            # Initialize FTS with unified API, passing existing connection
+            self._fts_service = create_fts(
+                db_path=db_path,
+                in_memory=False,
+                existing_connection=existing_connection
+            )
+            self._is_initialized = True
+            info("rgl.search", "FTS service initialized successfully with shared connection")
+        except Exception as e:
+            warn("rgl.search", f"Failed to initialize FTS service: {e}")
 
     def add_requirement(self, id: str, title: str, content: str) -> None:
         """Add requirement to FTS index"""
         if not self._is_initialized:
-            warn("rgl.search", f"Cannot add requirement {id} - FTS not initialized")
-            return
+            error("rgl.search", f"Cannot add requirement {id} - FTS not initialized")
+            raise RuntimeError("FTS service is required but not initialized")
 
         try:
             # Index document using FTS service
@@ -221,7 +197,8 @@ class FTSSearchAdapter:
     def search_keyword(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """Full-text search using FTS module"""
         if not self._is_initialized:
-            return []
+            error("rgl.search", "Cannot perform FTS search - FTS not initialized")
+            raise RuntimeError("FTS service is required but not initialized")
 
         try:
             # Search using FTS service
@@ -264,25 +241,16 @@ class SearchAdapter:
         self._fts_service = None
         self._error = None
 
-        # Initialize VSS service if available
-        if VSS_MODULES_AVAILABLE:
-            self._vss_service = VSSSearchAdapter(db_path, repository_connection)
+        # Initialize VSS service (required)
+        self._vss_service = VSSSearchAdapter(db_path, repository_connection)
 
-        # Initialize FTS service if available
-        if FTS_MODULES_AVAILABLE:
-            self._fts_service = FTSSearchAdapter(db_path, repository_connection)
+        # Initialize FTS service (required)  
+        self._fts_service = FTSSearchAdapter(db_path, repository_connection)
 
-        # If neither service is available, set error
-        if not VSS_MODULES_AVAILABLE and not FTS_MODULES_AVAILABLE:
-            self._error = {
-                "type": "ModuleNotFoundError",
-                "message": "No search modules are available",
-                "details": {
-                    "vss_module": "vss_kuzu not available",
-                    "fts_module": "fts_kuzu not available",
-                    "install_hint": "Search functionality requires either vss_kuzu or fts_kuzu modules to be installed"
-                }
-            }
+        # Both services must be initialized
+        if not self._vss_service._is_initialized or not self._fts_service._is_initialized:
+            error("rgl.search", "VSS/FTS services are required but not initialized")
+            raise RuntimeError("Both VSS and FTS services are required but not initialized")
 
     def check_duplicates(self, text: str, k: int = 5, threshold: float = 0.5) -> List[Dict[str, Any]]:
         """
@@ -296,8 +264,7 @@ class SearchAdapter:
         Returns:
             重複候補のリスト（スコア順）またはエラー
         """
-        if self._error:
-            return [{"error": self._error}]
+        # Services are already validated in __init__
 
         # Use hybrid search for best results
         search_results = self.search_hybrid(text, k=k)
@@ -326,9 +293,7 @@ class SearchAdapter:
         Returns:
             成功時True
         """
-        if self._error:
-            warn("rgl.search", f"Cannot add to index: {self._error['message']}")
-            return False
+        # Services are already validated in __init__
 
         success = False
 
@@ -358,23 +323,13 @@ class SearchAdapter:
 
     def search_similar(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """類似検索（VSS）を実行"""
-        if not self._vss_service:
-            if self._error:
-                return [{"error": self._error}]
-            return [{"error": {"type": "ServiceNotAvailable", "message": "VSS service is not available"}}]
+        # VSS service is guaranteed to be initialized by __init__
         return self._vss_service.search_similar(query, k=k)
 
     def search_keyword(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """キーワード検索（FTS）を実行"""
-        # Try FTS service first, fall back to VSS adapter's basic keyword search
-        if self._fts_service:
-            return self._fts_service.search_keyword(query, k=k)
-        elif self._vss_service:
-            return self._vss_service.search_keyword(query, k=k)
-        else:
-            if self._error:
-                return [{"error": self._error}]
-            return [{"error": {"type": "ServiceNotAvailable", "message": "No search service is available"}}]
+        # FTS service is guaranteed to be initialized by __init__
+        return self._fts_service.search_keyword(query, k=k)
 
     def search_hybrid(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """ハイブリッド検索（VSS + FTS）を実行"""
@@ -392,11 +347,7 @@ class SearchAdapter:
             # Fall back to basic keyword search from VSS adapter
             fts_results = self._vss_service.search_keyword(query, k)
 
-        # If no services available, return error
-        if not vss_results and not fts_results:
-            if self._error:
-                return [{"error": self._error}]
-            return [{"error": {"type": "ServiceNotAvailable", "message": "No search service is available"}}]
+        # Services are already validated in __init__, no need for error check
 
         # Merge results by id, preferring VSS scores
         merged = {}
@@ -423,8 +374,9 @@ class SearchAdapter:
         VSSServiceが利用可能な場合は実際のエンベディングを生成。
         利用不可能な場合はNoneを返す。
         """
-        if not self.vss_available:
-            return None
+        # VSS service is guaranteed to be initialized
+        # Note: Current implementation doesn't expose raw embedding generation
+        return None
 
         # VSSSearchAdapterの場合、内部でエンベディング生成を処理
         if isinstance(self._vss_service, VSSSearchAdapter) and self._vss_service._is_initialized:
@@ -434,3 +386,9 @@ class SearchAdapter:
             return None
 
         return None
+
+    @property
+    def is_available(self) -> bool:
+        """検索サービスが利用可能かどうか"""
+        return (self._vss_service and self._vss_service._is_initialized and
+                self._fts_service and self._fts_service._is_initialized)
