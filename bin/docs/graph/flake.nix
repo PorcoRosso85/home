@@ -7,9 +7,10 @@
     python-flake.url = "path:/home/nixos/bin/src/flakes/python";
     kuzu-py-flake.url = "path:/home/nixos/bin/src/persistence/kuzu_py";
     log-py-flake.url = "path:/home/nixos/bin/src/telemetry/log_py";
+    vss-kuzu-flake.url = "path:/home/nixos/bin/src/search/vss_kuzu";
   };
 
-  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, log-py-flake }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, log-py-flake, vss-kuzu-flake }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -17,6 +18,32 @@
           overlays = [
             log-py-flake.overlays.default
           ];
+        };
+        
+        # vss_kuzuパッケージを同じPythonバージョンで再ビルド
+        vssKuzu = pkgs.python312Packages.buildPythonPackage rec {
+          pname = "vss_kuzu";
+          version = "0.1.0";
+          pyproject = true;
+          
+          # vss-kuzu-flakeのソースディレクトリを使用
+          src = "${vss-kuzu-flake}";
+          
+          build-system = with pkgs.python312Packages; [
+            setuptools
+            wheel
+          ];
+          
+          propagatedBuildInputs = with pkgs.python312Packages; [
+            kuzu-py-flake.packages.${system}.kuzuPy
+            log_py
+            numpy
+            sentence-transformers
+            sentencepiece
+            jsonschema
+          ];
+          
+          doCheck = false;
         };
         
         # flake-graphパッケージをビルド
@@ -35,10 +62,7 @@
           propagatedBuildInputs = with pkgs.python312Packages; [
             kuzu-py-flake.packages.${system}.kuzuPy
             log_py
-            pydantic
-            pyyaml
-            rich
-            click
+            vssKuzu
           ];
 
           checkInputs = with pkgs.python312Packages; [
@@ -55,6 +79,9 @@
           flakeGraph
           pytest
           pytest-json-report
+          numpy
+          sentence-transformers
+          sentencepiece
         ]);
       in
       {
@@ -91,6 +118,7 @@
             echo ""
             echo "Available commands:"
             echo "  nix run .#test      - Run tests"
+            
           '';
         };
       });

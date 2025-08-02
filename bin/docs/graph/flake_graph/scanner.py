@@ -16,3 +16,14 @@ def scan_flake_description(flake_path: Path) -> Optional[str]:
         return None
     except Exception:
         return None
+
+
+def scan_readme_content(flake_dir: Path) -> Optional[str]:
+    """Read README.md content from a flake directory."""
+    readme_path = flake_dir / "README.md"
+    if readme_path.exists():
+        try:
+            return readme_path.read_text()
+        except Exception:
+            return None
+    return None
