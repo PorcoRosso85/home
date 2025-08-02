@@ -124,4 +124,3 @@ if __name__ == "__main__":
     test_file_operation_error_structure()
     test_import_error_structure()
     test_optional_fields()
-    print("All tests passed!")

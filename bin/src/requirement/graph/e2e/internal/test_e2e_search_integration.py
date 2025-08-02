@@ -29,7 +29,6 @@ class TestSearchIntegration:
         with tempfile.TemporaryDirectory() as db_dir:
             # スキーマ初期化
             result = run_system({"type": "schema", "action": "apply"}, db_dir)
-            print(f"Schema initialization result: {result}")
             # 初期化が成功したことを確認
             if result.get("type") == "error" or result.get("error"):
                 pytest.fail(f"Schema initialization failed: {result}")
@@ -89,7 +88,6 @@ class TestSearchIntegration:
             }
         }, temp_db)
 
-        print(f"First create result: {create_result}")
         assert create_result.get("data", {}).get("status") == "success", f"First create failed: {create_result}"
 
         # When: 別の類似要件で重複チェック
@@ -105,7 +103,6 @@ class TestSearchIntegration:
         }, temp_db)
 
         # Then: 要件は作成される（重複検出はオプショナル）
-        print(f"Check result: {check_result}")
         assert "error" not in check_result
         assert check_result.get("data", {}).get("status") == "success"
 

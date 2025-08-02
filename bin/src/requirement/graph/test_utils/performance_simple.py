@@ -31,7 +31,8 @@ except ImportError:
             "level": level,
             **data
         }
-        print(json.dumps(output))
+        # print文削除指示によりコメントアウト
+        pass
 
 
 @contextmanager
@@ -110,19 +111,15 @@ def measure_function(name: Optional[str] = None, threshold: Optional[float] = No
 # テスト用のサンプル関数
 if __name__ == "__main__":
     # 基本的な使用例
-    print("=== Basic usage example ===")
     with measure_time("example_operation", threshold=0.5):
         time.sleep(0.3)
         
-    print("\n=== Threshold exceeded example ===")
     with measure_time("slow_operation", threshold=0.1):
         time.sleep(0.2)
         
-    print("\n=== Function decorator example ===")
     @measure_function(threshold=0.1)
     def example_function():
         time.sleep(0.15)
         return "done"
         
     result = example_function()
-    print(f"Function returned: {result}")

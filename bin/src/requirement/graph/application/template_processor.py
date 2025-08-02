@@ -11,6 +11,7 @@ Template Processor - テンプレート入力をCypherクエリに変換
 from typing import Dict, Any
 from ..query import execute_query
 from ..domain.errors import NotFoundError
+from ..infrastructure.logger import debug, info, warn, error
 
 
 def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], search_factory=None) -> Dict[str, Any]:
@@ -65,11 +66,11 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
             search_service = search_factory()  # 必要時に初期化
             if search_service:
                 try:
-                    print(f"[DEBUG] Checking duplicates for: {search_text}")
+                    debug("rgl.template", f"Checking duplicates for: {search_text}")
                     duplicates = search_service.check_duplicates(search_text, k=5, threshold=0.5)
-                    print(f"[DEBUG] Found {len(duplicates)} duplicates")
+                    debug("rgl.template", f"Found {len(duplicates)} duplicates")
                 except Exception as e:
-                    print(f"Search service error: {e}")
+                    error("rgl.template", f"Search service error: {e}")
                     # エラー時は重複チェックをスキップ
 
         # エンベディング生成
@@ -80,12 +81,12 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
                 try:
                     # SearchAdapterのgenerate_embeddingメソッドを使用
                     if hasattr(search_service, 'generate_embedding'):
-                        print(f"[DEBUG] Generating embedding for: {search_text}")
+                        debug("rgl.template", f"Generating embedding for: {search_text}")
                         embedding = search_service.generate_embedding(search_text)
                         if embedding:
-                            print(f"[DEBUG] Generated embedding with {len(embedding)} dimensions")
+                            debug("rgl.template", f"Generated embedding with {len(embedding)} dimensions")
                 except Exception as e:
-                    print(f"[DEBUG] Failed to generate embedding: {e}")
+                    debug("rgl.template", f"Failed to generate embedding: {e}")
                     # エンベディング生成エラーは致命的ではない
 
         # 要件作成（エンベディングはVSSServiceが後から更新）
@@ -102,16 +103,16 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         # 成功時は検索インデックスに追加（重複チェックで既に初期化済みの場合のみ）
         if 'search_service' in locals() and search_service and result.get("status") == "success":
             try:
-                print(f"[DEBUG] Adding to search index: {params.get('id')}")
+                debug("rgl.template", f"Adding to search index: {params.get('id')}")
                 search_service.add_to_index({
                     "id": params.get("id"),
                     "title": params.get("title"),
                     "description": params.get("description", ""),
                     "status": params.get("status", "proposed")
                 })
-                print("[DEBUG] Successfully added to search index")
+                debug("rgl.template", "Successfully added to search index")
             except Exception as e:
-                print(f"[DEBUG] Failed to add to search index: {e}")
+                debug("rgl.template", f"Failed to add to search index: {e}")
                 # インデックス追加エラーは致命的ではない
 
         # 重複警告を結果に含める

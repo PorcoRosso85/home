@@ -19,7 +19,10 @@ def safe_main():
         import json
         output = {"type": "error", "level": "error", "message": message}
         output.update(kwargs)
-        print(json.dumps(output, ensure_ascii=False), flush=True)
+        # loggerが利用できない場合のため、構造化されたJSONをそのまま出力
+        import sys
+        sys.stdout.write(json.dumps(output, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
 
     error = emergency_error  # デフォルトでemergency_errorを使用
 
@@ -132,12 +135,14 @@ def main():
     except BaseException as e:
         # 最終的なセーフティネット（KeyboardInterruptなども含む）
         import json
-        print(json.dumps({
+        import sys
+        sys.stdout.write(json.dumps({
             "type": "error",
             "level": "error",
             "message": "Unexpected error in main()",
             "details": {"error": str(e), "error_type": type(e).__name__}
-        }, ensure_ascii=False), flush=True)
+        }, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
 
 
 if __name__ == "__main__":

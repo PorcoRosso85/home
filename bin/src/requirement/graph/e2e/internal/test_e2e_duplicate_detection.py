@@ -28,7 +28,6 @@ def load_test_data(level: str) -> Dict[str, Any]:
             return data.get(f"test_level_{level}", {})
     except Exception as e:
         # If loading fails, return empty dict and continue with inline test data
-        print(f"Warning: Failed to load YAML test data: {e}")
         return {}
 
 

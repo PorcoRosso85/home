@@ -20,15 +20,11 @@ def test_validate_no_circular_dependency_with_cycle_returns_error():
     result = validate_no_circular_dependency("C", ["A"], all_deps)
 
     # デバッグ出力
-    print(f"Result: {result}")
-    print(f"Result type: {type(result)}")
     if not isinstance(result, dict):
-        print(f"ERROR: Expected dict but got {type(result)}")
 
         # 手動で循環チェック
         temp_deps = all_deps.copy()
         temp_deps["C"] = ["A"]
-        print(f"temp_deps: {temp_deps}")
 
         # C -> A -> B -> C の経路が存在するはず
         path = ["C"]
@@ -37,7 +33,6 @@ def test_validate_no_circular_dependency_with_cycle_returns_error():
 
         for _ in range(4):  # 最大4ステップ
             if current in visited:
-                print(f"Already visited {current}")
                 break
             visited.add(current)
 
@@ -46,10 +41,9 @@ def test_validate_no_circular_dependency_with_cycle_returns_error():
                 current = next_nodes[0]
                 path.append(current)
                 if current == "C" and len(path) > 1:
-                    print(f"Found cycle: {' -> '.join(path)}")
                     break
         else:
-            print(f"No cycle found, path: {' -> '.join(path)}")
+            pass
 
     assert isinstance(result, dict)
     assert result["type"] == "ConstraintViolationError"

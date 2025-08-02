@@ -98,7 +98,6 @@ class TestVSSSearchSpec:
         assert find_result.get("data", {}).get("status") == "success"
 
         # データ構造を確認
-        print(f"Find result: {find_result}")
 
         # 結果からdataを取得
         if "data" in find_result and "data" in find_result["data"]:

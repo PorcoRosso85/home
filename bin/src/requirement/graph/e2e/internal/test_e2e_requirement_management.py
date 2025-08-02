@@ -62,7 +62,6 @@ class TestDuplicateDetectionIntegration:
         }, temp_db)
 
         # Then: 重複警告が表示される（仕様）
-        print(f"Result2: {create_result2}")  # デバッグ出力
 
         # warningが含まれているかチェック
         # data内のwarningまたは最上位のwarning

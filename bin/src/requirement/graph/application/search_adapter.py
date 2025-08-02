@@ -5,6 +5,7 @@ Search Adapter - requirement/graphとsemantic searchの統合レイヤー
 モジュールが利用できない場合は、グレースフルにフォールバックする。
 """
 from typing import List, Dict, Any, Optional
+from ..infrastructure.logger import debug, info, warn, error
 
 # Try to import semantic search modules
 VSS_MODULES_AVAILABLE = False
@@ -14,19 +15,19 @@ try:
     # Try to import vss_kuzu unified API
     from vss_kuzu import create_vss
     VSS_MODULES_AVAILABLE = True
-    print("[INFO] VSS modules loaded successfully")
+    info("rgl.search", "VSS modules loaded successfully")
 except ImportError as e:
     # Log the error but don't fail - we'll provide an error
-    print(f"[WARNING] VSS modules not available: {e}")
+    warn("rgl.search", f"VSS modules not available: {e}")
 
 try:
     # Try to import fts_kuzu unified API
     from fts_kuzu import create_fts
     FTS_MODULES_AVAILABLE = True
-    print("[INFO] FTS modules loaded successfully")
+    info("rgl.search", "FTS modules loaded successfully")
 except ImportError as e:
     # Log the error but don't fail - we'll provide an error
-    print(f"[WARNING] FTS modules not available: {e}")
+    warn("rgl.search", f"FTS modules not available: {e}")
 
 
 
@@ -48,10 +49,10 @@ class VSSSearchAdapter:
                         # Try to enable VECTOR extension
                         existing_connection.execute("INSTALL vector;")
                         existing_connection.execute("LOAD EXTENSION vector;")
-                        print("[INFO] VECTOR extension enabled on shared connection")
+                        info("rgl.search", "VECTOR extension enabled on shared connection")
                     except Exception as e:
                         # Extension might already be loaded, or not available
-                        print(f"[DEBUG] VECTOR extension status: {e}")
+                        debug("rgl.search", f"VECTOR extension status: {e}")
 
                 # Initialize VSS with unified API, passing existing connection
                 self._vss_service = create_vss(
@@ -60,14 +61,14 @@ class VSSSearchAdapter:
                     existing_connection=existing_connection
                 )
                 self._is_initialized = True
-                print("[INFO] VSS service initialized successfully with shared connection")
+                info("rgl.search", "VSS service initialized successfully with shared connection")
             except Exception as e:
-                print(f"[WARNING] Failed to initialize VSS service: {e}")
+                warn("rgl.search", f"Failed to initialize VSS service: {e}")
 
     def add_requirement(self, id: str, title: str, content: str) -> None:
         """Add requirement to VSS index"""
         if not self._is_initialized:
-            print(f"[WARNING] Cannot add requirement {id} - VSS not initialized")
+            warn("rgl.search", f"Cannot add requirement {id} - VSS not initialized")
             return
 
         try:
@@ -81,11 +82,11 @@ class VSSSearchAdapter:
             }])
 
             if result.get("ok"):
-                print(f"[DEBUG] Added requirement {id} to VSS index")
+                debug("rgl.search", f"Added requirement {id} to VSS index")
             else:
-                print(f"[WARNING] Failed to add to VSS index: {result.get('error', 'Unknown error')}")
+                warn("rgl.search", f"Failed to add to VSS index: {result.get('error', 'Unknown error')}")
         except Exception as e:
-            print(f"[WARNING] Failed to add to VSS index: {e}")
+            warn("rgl.search", f"Failed to add to VSS index: {e}")
 
     def __del__(self):
         """Cleanup VSS connection on deletion"""
@@ -103,7 +104,7 @@ class VSSSearchAdapter:
             result = self._vss_service.search(query, limit=k)
 
             if not result.get("ok"):
-                print(f"[WARNING] VSS search failed: {result.get('error', 'Unknown error')}")
+                warn("rgl.search", f"VSS search failed: {result.get('error', 'Unknown error')}")
                 return []
 
             # Convert results to our format
@@ -119,7 +120,7 @@ class VSSSearchAdapter:
 
             return formatted_results
         except Exception as e:
-            print(f"[WARNING] VSS search failed: {e}")
+            warn("rgl.search", f"VSS search failed: {e}")
             return []
 
     def search_keyword(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
@@ -148,7 +149,7 @@ class VSSSearchAdapter:
                 })
             return results
         except Exception as e:
-            print(f"[WARNING] Keyword search failed: {e}")
+            warn("rgl.search", f"Keyword search failed: {e}")
             return []
 
     def search_hybrid(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
@@ -192,14 +193,14 @@ class FTSSearchAdapter:
                     existing_connection=existing_connection
                 )
                 self._is_initialized = True
-                print("[INFO] FTS service initialized successfully with shared connection")
+                info("rgl.search", "FTS service initialized successfully with shared connection")
             except Exception as e:
-                print(f"[WARNING] Failed to initialize FTS service: {e}")
+                warn("rgl.search", f"Failed to initialize FTS service: {e}")
 
     def add_requirement(self, id: str, title: str, content: str) -> None:
         """Add requirement to FTS index"""
         if not self._is_initialized:
-            print(f"[WARNING] Cannot add requirement {id} - FTS not initialized")
+            warn("rgl.search", f"Cannot add requirement {id} - FTS not initialized")
             return
 
         try:
@@ -211,11 +212,11 @@ class FTSSearchAdapter:
             }])
 
             if result.get("ok"):
-                print(f"[DEBUG] Added requirement {id} to FTS index")
+                debug("rgl.search", f"Added requirement {id} to FTS index")
             else:
-                print(f"[WARNING] Failed to add to FTS index: {result.get('error', 'Unknown error')}")
+                warn("rgl.search", f"Failed to add to FTS index: {result.get('error', 'Unknown error')}")
         except Exception as e:
-            print(f"[WARNING] Failed to add to FTS index: {e}")
+            warn("rgl.search", f"Failed to add to FTS index: {e}")
 
     def search_keyword(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
         """Full-text search using FTS module"""
@@ -227,7 +228,7 @@ class FTSSearchAdapter:
             result = self._fts_service.search(query, limit=k)
 
             if not result.get("ok"):
-                print(f"[WARNING] FTS search failed: {result.get('error', 'Unknown error')}")
+                warn("rgl.search", f"FTS search failed: {result.get('error', 'Unknown error')}")
                 return []
 
             # Convert results to our format
@@ -243,7 +244,7 @@ class FTSSearchAdapter:
 
             return formatted_results
         except Exception as e:
-            print(f"[WARNING] FTS search failed: {e}")
+            warn("rgl.search", f"FTS search failed: {e}")
             return []
 
 
@@ -326,7 +327,7 @@ class SearchAdapter:
             成功時True
         """
         if self._error:
-            print(f"Cannot add to index: {self._error['message']}")
+            warn("rgl.search", f"Cannot add to index: {self._error['message']}")
             return False
 
         success = False
@@ -352,7 +353,7 @@ class SearchAdapter:
 
             return success
         except Exception as e:
-            print(f"Failed to add to search index: {e}")
+            error("rgl.search", f"Failed to add to search index: {e}")
             return False
 
     def search_similar(self, query: str, k: int = 10) -> List[Dict[str, Any]]:

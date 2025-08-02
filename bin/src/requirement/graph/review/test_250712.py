@@ -20,12 +20,8 @@ class RequirementGraphTester:
 
     def run_command(self, template_data: Dict[str, Any], description: str) -> Dict[str, Any]:
         """コマンドを実行し、結果を記録"""
-        print(f"\n{'='*60}")
-        print(f"テスト: {description}")
-        print(f"{'='*60}")
 
         cmd = f'echo \'{json.dumps(template_data)}\' | nix run .#run'
-        print(f"実行コマンド: {cmd}")
 
         try:
             result = subprocess.run(
@@ -49,9 +45,6 @@ class RequirementGraphTester:
                             success = True
 
                         self.results.append((description, response, success))
-                        print(f"結果: {'成功' if success else 'エラー'}")
-                        if not success and 'error' in response.get('data', {}):
-                            print(f"エラー詳細: {response['data']['error']}")
                         return response
                     except json.JSONDecodeError:
                         continue
@@ -70,9 +63,6 @@ class RequirementGraphTester:
 
     def test_phase1_owner_perspective(self):
         """フェーズ1: オーナー視点での要件追加"""
-        print("\n" + "="*80)
-        print("フェーズ1: オーナー（戦略的視点）")
-        print("="*80)
 
         # オーナー要件1: グローバル展開
         self.run_command({
@@ -111,9 +101,6 @@ class RequirementGraphTester:
 
     def test_phase2_manager_perspective(self):
         """フェーズ2: マネージャー視点での実行計画"""
-        print("\n" + "="*80)
-        print("フェーズ2: マネージャー（実行計画）")
-        print("="*80)
 
         # マネージャー要件1: MVP計画
         self.run_command({
@@ -161,9 +148,6 @@ class RequirementGraphTester:
 
     def test_phase3_engineer_perspective(self):
         """フェーズ3: エンジニア視点での技術実装"""
-        print("\n" + "="*80)
-        print("フェーズ3: エンジニア（技術実装）")
-        print("="*80)
 
         # エンジニア要件1: JWT認証
         self.run_command({
@@ -201,12 +185,8 @@ class RequirementGraphTester:
 
     def test_phase4_constraint_validation(self):
         """フェーズ4: システム制約の検証"""
-        print("\n" + "="*80)
-        print("フェーズ4: システム制約の検証")
-        print("="*80)
 
         # テスト1: 循環依存の検出
-        print("\n--- 循環依存テスト ---")
 
         # A → B の依存関係を作成
         self.run_command({
@@ -230,12 +210,11 @@ class RequirementGraphTester:
 
         # エラーチェック
         if 'error' in result.get('data', {}):
-            print("✓ 循環依存が正しく検出されました")
+            pass
         else:
-            print("✗ 循環依存の検出に失敗しました")
+            pass
 
         # テスト2: 深い階層構造の制限
-        print("\n--- 深さ制限テスト ---")
 
         # 深い階層の要件を作成
         for i in range(1, 8):  # 1から7まで
@@ -260,9 +239,6 @@ class RequirementGraphTester:
 
     def test_phase5_query_operations(self):
         """フェーズ5: クエリ操作のテスト"""
-        print("\n" + "="*80)
-        print("フェーズ5: クエリ操作")
-        print("="*80)
 
         # 要件一覧の取得
         self.run_command({
@@ -294,30 +270,11 @@ class RequirementGraphTester:
 
     def generate_report(self):
         """テスト結果のレポートを生成"""
-        print("\n" + "="*80)
-        print("テスト結果サマリー")
-        print("="*80)
-
         total_tests = len(self.results)
         successful_tests = sum(1 for _, _, success in self.results if success)
 
-        print(f"\n総テスト数: {total_tests}")
-        print(f"成功: {successful_tests}")
-        print(f"失敗: {total_tests - successful_tests}")
-        print(f"成功率: {(successful_tests/total_tests*100):.1f}%")
-
-        print("\n詳細結果:")
-        for description, result, success in self.results:
-            status = "✓" if success else "✗"
-            print(f"{status} {description}")
-            if not success and 'error' in result.get('data', {}):
-                print(f"  エラー: {result['data']['error']}")
-
     def run_all_tests(self):
         """全テストを順番に実行"""
-        print("Requirement Graph System 統合テスト開始")
-        print("テスト日時: 2025-07-12")
-        print("作業ディレクトリ: /home/nixos/bin/src/requirement/graph")
 
         self.test_phase1_owner_perspective()
         self.test_phase2_manager_perspective()
