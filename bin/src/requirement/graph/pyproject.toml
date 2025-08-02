@@ -14,8 +14,10 @@ requirement-graph = "main:main"
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["application", "domain", "infrastructure", "query", "test_utils", "e2e"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["tests*", "docs*", "*.log", "*.txt", "debug_*", "test_*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.cypher", "*.yaml", "*.json"]
