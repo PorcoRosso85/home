@@ -47,6 +47,55 @@ def create_kuzu_database(config: DatabaseConfig) -> Tuple[bool, Optional[Any], O
     
     try:
         db_path = IN_MEMORY_DB_PATH if config['in_memory'] else config['db_path']
+        
+        # Validate path before attempting to create database
+        if not config['in_memory']:
+            # Check for invalid characters
+            if '\x00' in db_path or not db_path:
+                error_info = {
+                    "error": "Invalid database path: contains null bytes or empty",
+                    "details": {
+                        "error_type": "InvalidPath",
+                        "file_path": db_path,
+                        "permission_issue": False
+                    }
+                }
+                log("error", {
+                    "message": "Invalid database path detected",
+                    "component": "vss.infrastructure.db",
+                    "operation": "create_database",
+                    "error": error_info["error"],
+                    "db_path": repr(db_path)  # Use repr to show null bytes
+                })
+                return False, None, error_info
+            
+            # Check for permission issues on parent directory
+            import os
+            from pathlib import Path
+            try:
+                parent_dir = Path(db_path).parent
+                # Try to check if we can write to the parent directory
+                if parent_dir.exists() and not os.access(str(parent_dir), os.W_OK):
+                    error_info = {
+                        "error": f"Permission denied: cannot write to directory {parent_dir}",
+                        "details": {
+                            "error_type": "PermissionError",
+                            "file_path": db_path,
+                            "permission_issue": True
+                        }
+                    }
+                    log("error", {
+                        "message": "Permission denied for database path",
+                        "component": "vss.infrastructure.db",
+                        "operation": "create_database",
+                        "error": error_info["error"],
+                        "db_path": db_path
+                    })
+                    return False, None, error_info
+            except Exception:
+                # If we can't even check permissions, continue and let create_database fail
+                pass
+        
         log("info", {
             "message": "Creating KuzuDB database",
             "component": "vss.infrastructure.db",
@@ -57,16 +106,22 @@ def create_kuzu_database(config: DatabaseConfig) -> Tuple[bool, Optional[Any], O
         
         db = create_database(db_path)
         
-        if hasattr(db, 'get') and db.get("ok") is False:
+        # Check if db is an error dictionary (has 'type' field for errors)
+        if isinstance(db, dict) and 'type' in db:
             error_info = {
-                "error": db.get("error", "Unknown error"),
-                "details": db.get("details", {})
+                "error": db.get("message", "Database creation failed"),
+                "details": {
+                    "error_type": db.get("type"),
+                    "file_path": db.get("file_path"),
+                    "permission_issue": db.get("permission_issue", False)
+                }
             }
             log("error", {
                 "message": "Database creation failed",
                 "component": "vss.infrastructure.db",
                 "operation": "create_database",
-                "error": error_info
+                "error": error_info["error"],
+                "details": error_info["details"]
             })
             return False, None, error_info
         

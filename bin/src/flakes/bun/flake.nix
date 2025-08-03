@@ -33,13 +33,14 @@
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             bun
+            nodePackages.typescript
             nodePackages.typescript-language-server
             biome
           ];
           
           shellHook = ''
             echo "Bun development environment loaded"
-            echo "Available tools: bun, typescript-language-server, biome"
+            echo "Available tools: bun, tsc, typescript-language-server, biome"
           '';
         };
       });

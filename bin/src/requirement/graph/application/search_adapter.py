@@ -26,8 +26,13 @@ info("rgl.search", "FTS modules loaded successfully")
 
 class VSSSearchAdapter:
     """Adapter for VSS service when available"""
+    
+    _init_count = 0  # Class variable to track initialization count
 
     def __init__(self, db_path: str, existing_connection=None):
+        VSSSearchAdapter._init_count += 1
+        info("rgl.search", f"VSSSearchAdapter initialization #{VSSSearchAdapter._init_count} - db_path: {db_path}")
+        
         self.db_path = db_path
         self._conn = existing_connection
         self._vss_service = None
@@ -154,8 +159,13 @@ class VSSSearchAdapter:
 
 class FTSSearchAdapter:
     """Adapter for FTS service when available"""
+    
+    _init_count = 0  # Class variable to track initialization count
 
     def __init__(self, db_path: str, existing_connection=None):
+        FTSSearchAdapter._init_count += 1
+        info("rgl.search", f"FTSSearchAdapter initialization #{FTSSearchAdapter._init_count} - db_path: {db_path}")
+        
         self.db_path = db_path
         self._conn = existing_connection
         self._fts_service = None
@@ -227,6 +237,8 @@ class FTSSearchAdapter:
 
 class SearchAdapter:
     """Main search adapter that provides a consistent interface"""
+    
+    _init_count = 0  # Class variable to track initialization count
 
     def __init__(self, db_path: str, repository_connection=None):
         """
@@ -234,6 +246,9 @@ class SearchAdapter:
             db_path: KuzuDBのデータベースパス
             repository_connection: 既存のKuzuDB接続（共有する場合）
         """
+        SearchAdapter._init_count += 1
+        info("rgl.search", f"SearchAdapter initialization #{SearchAdapter._init_count} - db_path: {db_path}")
+        
         self.db_path = db_path
         self.vss_available = VSS_MODULES_AVAILABLE
         self.fts_available = FTS_MODULES_AVAILABLE

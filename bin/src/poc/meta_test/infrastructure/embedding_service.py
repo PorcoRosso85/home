@@ -1,6 +1,9 @@
 """Embedding service for semantic similarity calculations."""
 
 import hashlib
+from typing import Union
+
+from .errors import ValidationError
 
 
 class EmbeddingService:
@@ -33,10 +36,17 @@ class EmbeddingService:
         """Generate embeddings for multiple texts."""
         return [self.generate_embedding(text) for text in texts]
 
-    def calculate_similarity(self, embedding1: list[float], embedding2: list[float]) -> float:
+    def calculate_similarity(self, embedding1: list[float], embedding2: list[float]) -> Union[float, ValidationError]:
         """Calculate cosine similarity between embeddings."""
         if len(embedding1) != len(embedding2):
-            raise ValueError("Embeddings must have same dimension")
+            return ValidationError(
+                type="ValidationError",
+                message="Embeddings must have same dimension",
+                field="embeddings",
+                value=f"embedding1 length: {len(embedding1)}, embedding2 length: {len(embedding2)}",
+                constraint="equal_length",
+                suggestion="Ensure both embeddings have the same number of dimensions"
+            )
 
         # Calculate dot product and norms
         dot_product = sum(a * b for a, b in zip(embedding1, embedding2))
@@ -51,12 +61,14 @@ class EmbeddingService:
     def find_similar(self,
                     query_embedding: list[float],
                     candidate_embeddings: list[list[float]],
-                    top_k: int = 5) -> list[int]:
+                    top_k: int = 5) -> Union[list[int], ValidationError]:
         """Find most similar embeddings to query."""
-        similarities = [
-            (i, self.calculate_similarity(query_embedding, candidate))
-            for i, candidate in enumerate(candidate_embeddings)
-        ]
+        similarities = []
+        for i, candidate in enumerate(candidate_embeddings):
+            sim_result = self.calculate_similarity(query_embedding, candidate)
+            if isinstance(sim_result, dict) and sim_result.get("type") == "ValidationError":
+                return sim_result
+            similarities.append((i, sim_result))
 
         # Sort by similarity descending
         similarities.sort(key=lambda x: x[1], reverse=True)

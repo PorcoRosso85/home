@@ -40,10 +40,12 @@ $ flake-graph check-before-create "新しいログ機能"
 
 **リファクタリング機会の発見**:
 ```bash
-$ flake-graph analyze-architecture
+$ flake-graph analyze . --architecture
+アーキテクチャ健全性: 0.75/1.0
 重複グループ発見:
 1. DB接続系 (3 flakes)
-   - 共通パターン: connection_setup (90%類似)
+   - 意味的類似度: 85% (VSS)
+   - 構造的類似度: 90% (AST - 未実装)
    - 推奨: 共通ライブラリ化で500行削減可能
 ```
 
@@ -67,3 +69,77 @@ $ flake-graph analyze-architecture
 - flakes/python環境の継承
 - persistence/kuzu_py
 - telemetry/log_py
+- search/vss_kuzu (ベクトル類似検索)
+- poc/similarity (コード構造分析・将来統合予定)
+
+## 現在の実装状況
+
+### 実装済み機能
+1. **VSS（Vector Similarity Search）分析**
+   - flakeの説明文に基づく意味的類似性検出
+   - 日本語/英語の表記揺れ対応（例: "ベクトル検索" ↔ "Vector Search"）
+   - クラスタリングによる重複グループ検出
+
+2. **基本的なflake分析**
+   - flake.nixからのメタデータ抽出
+   - README欠落検出
+   - 依存関係の可視化
+
+### 未実装・開発中機能
+1. **AST（Abstract Syntax Tree）分析**
+   - similarityツールとの統合準備中
+   - コードレベルの構造的類似性検出
+   - 言語別（TypeScript/Python/Rust）の対応
+
+2. **永続化機能**
+   - 現状: 毎回メモリ内でVSSインデックス作成
+   - 計画: KuzuDBへのembedding永続化
+
+## 今後の開発方針
+
+### Phase 1: VSS永続化（現在）
+**目的**: 大規模コードベースでの実用性確保
+- VSSのembeddingをKuzuDBに永続化
+- 初回実行後は90%以上の起動時間短縮
+- 更新検知による差分インデックス
+
+### Phase 2: GraphDBスキーマ拡張
+**目的**: 分析結果の個別管理と柔軟な活用
+```cypher
+CREATE NODE Flake {
+    path: STRING PRIMARY KEY,
+    description: STRING,
+    language: STRING,
+    // 分析結果を個別属性として管理
+    vss_score: FLOAT,
+    vss_embedding: LIST[FLOAT],
+    ast_score: FLOAT,
+    ast_metrics: MAP
+}
+```
+
+### Phase 3: 並行分析アーキテクチャ
+**目的**: VSS/AST分析の独立実行と部分的失敗への耐性
+- VSS分析とAST分析を並行実行
+- 片方が失敗しても他方の結果は保存
+- 分析タイプ別の実行タイミング制御
+
+### Phase 4: 統合分析ビュー
+**目的**: 複合的なアーキテクチャ健全性評価
+- VSS（意味）とAST（構造）の統合スコア算出
+- 時系列でのコード品質追跡
+- CI/CDパイプラインへの組み込み
+
+## 設計原則
+
+1. **段階的な価値提供**
+   - 各フェーズで独立した価値を提供
+   - 後方互換性を維持しながら機能拡張
+
+2. **疎結合アーキテクチャ**
+   - VSS/AST/GraphDBは独立したコンポーネント
+   - アダプターパターンによる統合
+
+3. **実用性優先**
+   - 完璧な分析より高速な応答
+   - 部分的な分析結果でも価値を提供

@@ -21,8 +21,37 @@
         vssKuzuPkg = vss-kuzu.packages.${system}.vssKuzu;
         ftsKuzuPkg = fts-kuzu.packages.${system}.default;  # FTSパッケージを有効化
         
+        # requirement-graph パッケージのビルド
+        requirementGraphPkg = pkgs.python312.pkgs.buildPythonPackage {
+          pname = "requirement-graph";
+          version = "0.1.0";
+          src = self;
+          format = "pyproject";
+          
+          nativeBuildInputs = with pkgs.python312.pkgs; [
+            setuptools
+            wheel
+          ];
+          
+          propagatedBuildInputs = with pkgs.python312.pkgs; [
+            kuzu
+            vssKuzuPkg
+            ftsKuzuPkg
+          ];
+          
+          # テスト実行時の環境変数
+          checkPhase = ''
+            export RGL_SKIP_SCHEMA_CHECK="true"
+          '';
+          
+          # テストは無効化（開発環境で実行）
+          doCheck = false;
+        };
+        
         # Python環境 - 開発環境用
         pythonEnv = pkgs.python312.withPackages (ps: [
+          # requirement-graph パッケージ
+          requirementGraphPkg
           # 親flakeの基本パッケージ
           ps.pytest
           # kuzu本体
@@ -84,8 +113,7 @@
             type = "app";
             program = "${mkRunner "run" ''
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              export PYTHONPATH="/home/nixos/bin/src:''${PYTHONPATH}"
-              exec ${pythonEnv}/bin/python -m requirement.graph "$@"
+              exec ${pythonEnv}/bin/requirement-graph "$@"
             ''}";
           };
           
@@ -93,7 +121,6 @@
             type = "app";
             program = "${mkRunner "init" ''
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              export PYTHONPATH="/home/nixos/bin/src:''${PYTHONPATH}"
               
               # スキーマ状態確認
               if [ -d "$RGL_DB_PATH" ] && [ -f "$RGL_DB_PATH/catalog.kz" ]; then
@@ -104,7 +131,7 @@
               fi
               
               # 初期化実行
-              echo '{"type": "init", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python -m requirement.graph
+              echo '{"type": "init", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/requirement-graph
             ''}";
           };
           
@@ -137,28 +164,10 @@
         };
         
         packages = {
-          default = pkgs.stdenv.mkDerivation {
-            pname = "requirement-graph";
-            version = "0.0.1";
-            src = self;
-            
-            nativeBuildInputs = [ pythonEnv ];
-            
-            installPhase = ''
-              mkdir -p $out/bin
-              mkdir -p $out/src/requirement
-              cp -r . $out/src/requirement/graph
-              
-              # Create wrapper script
-              cat > $out/bin/rgl << EOF
-              #!/usr/bin/env bash
-              export PYTHONPATH=$out/src:\$PYTHONPATH
-              exec ${pythonEnv}/bin/python -m requirement.graph "\$@"
-              EOF
-              
-              chmod +x $out/bin/rgl
-            '';
-          };
+          default = requirementGraphPkg;
+          
+          # requirement-graph Python パッケージ
+          requirementGraph = requirementGraphPkg;
           
           # Python環境を外部から利用可能にする
           pythonEnv = pythonEnv;

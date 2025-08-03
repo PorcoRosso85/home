@@ -348,6 +348,7 @@ class TestContradictionDetectionAPI:
             db_path = os.path.join(tmpdir, "test_contradiction_api.db")
             
             # リポジトリ作成とスキーマ初期化
+            from infrastructure.kuzu_repository import create_kuzu_repository
             repository = create_kuzu_repository(db_path)
             
             # スキーマ初期化

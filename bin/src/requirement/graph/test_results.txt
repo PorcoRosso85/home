@@ -1,0 +1,231 @@
+warning: Git tree '/home/nixos' is dirty
+============================= test session starts ==============================
+platform linux -- Python 3.12.11, pytest-8.3.5, pluggy-1.6.0
+rootdir: /home/nixos/bin/src/requirement/graph
+configfile: pytest.ini
+plugins: metadata-3.1.1, json-report-1.5.0, xdist-3.6.1, hypothesis-6.131.17
+collected 138 items / 1 error
+
+==================================== ERRORS ====================================
+__________________ ERROR collecting test_duplicate_simple.py ___________________
+ImportError while importing test module '/home/nixos/bin/src/requirement/graph/test_duplicate_simple.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/nix/store/2i76abyx06asxr2k3rgsp8zx647qj38h-python3-3.12.11/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+test_duplicate_simple.py:10: in <module>
+    from infrastructure.kuzu_repository import KuzuRepository
+infrastructure/kuzu_repository.py:9: in <module>
+    from .variables import get_db_path, should_skip_schema_check
+infrastructure/variables/__init__.py:29: in <module>
+    from .hierarchy_env import (
+infrastructure/variables/hierarchy_env.py:11: in <module>
+    from ...domain.errors import EnvironmentConfigError
+E   ImportError: attempted relative import beyond top-level package
+=============================== warnings summary ===============================
+test_utils/pytest_marks.py:161
+test_utils/pytest_marks.py:161
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:161: PytestUnknownMarkWarning: Unknown pytest.mark.e2e - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_e2e = pytest.mark.e2e
+
+test_utils/pytest_marks.py:162
+test_utils/pytest_marks.py:162
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:162: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_integration = pytest.mark.integration
+
+test_utils/pytest_marks.py:163
+test_utils/pytest_marks.py:163
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:163: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_unit = pytest.mark.unit
+
+test_utils/pytest_marks.py:164
+test_utils/pytest_marks.py:164
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:164: PytestUnknownMarkWarning: Unknown pytest.mark.vss_required - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_vss_required = pytest.mark.vss_required
+
+test_utils/pytest_marks.py:165
+test_utils/pytest_marks.py:165
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:165: PytestUnknownMarkWarning: Unknown pytest.mark.flaky - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_flaky = pytest.mark.flaky
+
+test_utils/pytest_marks.py:168
+test_utils/pytest_marks.py:168
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:168: PytestUnknownMarkWarning: Unknown pytest.mark.instant - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_instant = pytest.mark.instant
+
+test_utils/pytest_marks.py:169
+test_utils/pytest_marks.py:169
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:169: PytestUnknownMarkWarning: Unknown pytest.mark.fast - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_fast = pytest.mark.fast
+
+test_utils/pytest_marks.py:170
+test_utils/pytest_marks.py:170
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:170: PytestUnknownMarkWarning: Unknown pytest.mark.normal - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_normal = pytest.mark.normal
+
+test_utils/pytest_marks.py:173
+test_utils/pytest_marks.py:173
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:173: PytestUnknownMarkWarning: Unknown pytest.mark.db_required - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_db_required = pytest.mark.db_required
+
+test_utils/pytest_marks.py:174
+test_utils/pytest_marks.py:174
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:174: PytestUnknownMarkWarning: Unknown pytest.mark.network_required - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_network_required = pytest.mark.network_required
+
+test_utils/pytest_marks.py:175
+test_utils/pytest_marks.py:175
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:175: PytestUnknownMarkWarning: Unknown pytest.mark.filesystem_required - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_filesystem_required = pytest.mark.filesystem_required
+
+test_utils/pytest_marks.py:178
+test_utils/pytest_marks.py:178
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:178: PytestUnknownMarkWarning: Unknown pytest.mark.stable - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_stable = pytest.mark.stable
+
+test_utils/pytest_marks.py:179
+test_utils/pytest_marks.py:179
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:179: PytestUnknownMarkWarning: Unknown pytest.mark.experimental - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    mark_experimental = pytest.mark.experimental
+
+test_utils/pytest_marks.py:111
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:111: PytestUnknownMarkWarning: Unknown pytest.mark.very_slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = pytest.mark.very_slow(func)
+
+test_utils/pytest_marks.py:119
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:119: PytestUnknownMarkWarning: Unknown pytest.mark.e2e - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, test_type.name.lower())(func)
+
+test_utils/pytest_marks.py:124
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:124: PytestUnknownMarkWarning: Unknown pytest.mark.db_required - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, f"{dep.name.lower()}_required")(func)
+
+test_utils/pytest_marks.py:124
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:124: PytestUnknownMarkWarning: Unknown pytest.mark.filesystem_required - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, f"{dep.name.lower()}_required")(func)
+
+test_utils/pytest_marks.py:133
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:133: PytestUnknownMarkWarning: Unknown pytest.mark.append_only - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, tag)(func)
+
+test_utils/pytest_marks.py:133
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:133: PytestUnknownMarkWarning: Unknown pytest.mark.history - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, tag)(func)
+
+test_utils/pytest_marks.py:40
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:40: PytestCollectionWarning: cannot collect test class 'TestSpeed' because it has a __init__ constructor (from: e2e/internal/test_e2e_append_only_history.py)
+    class TestSpeed(Enum):
+
+test_utils/pytest_marks.py:49
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:49: PytestCollectionWarning: cannot collect test class 'TestType' because it has a __init__ constructor (from: e2e/internal/test_e2e_append_only_history.py)
+    class TestType(Enum):
+
+test_utils/pytest_marks.py:56
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:56: PytestCollectionWarning: cannot collect test class 'TestDependency' because it has a __init__ constructor (from: e2e/internal/test_e2e_append_only_history.py)
+    class TestDependency(Enum):
+
+test_utils/pytest_marks.py:115
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:115: PytestUnknownMarkWarning: Unknown pytest.mark.very_slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, speed.name.lower())(func)
+
+test_utils/pytest_marks.py:40
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:40: PytestCollectionWarning: cannot collect test class 'TestSpeed' because it has a __init__ constructor (from: e2e/internal/test_e2e_contradiction_detection.py)
+    class TestSpeed(Enum):
+
+test_utils/pytest_marks.py:49
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:49: PytestCollectionWarning: cannot collect test class 'TestType' because it has a __init__ constructor (from: e2e/internal/test_e2e_contradiction_detection.py)
+    class TestType(Enum):
+
+test_utils/pytest_marks.py:115
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:115: PytestUnknownMarkWarning: Unknown pytest.mark.instant - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, speed.name.lower())(func)
+
+test_utils/pytest_marks.py:119
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:119: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, test_type.name.lower())(func)
+
+test_utils/pytest_marks.py:115
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:115: PytestUnknownMarkWarning: Unknown pytest.mark.fast - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, speed.name.lower())(func)
+
+test_utils/pytest_marks.py:119
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:119: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, test_type.name.lower())(func)
+
+test_utils/pytest_marks.py:40
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:40: PytestCollectionWarning: cannot collect test class 'TestSpeed' because it has a __init__ constructor (from: e2e/internal/test_e2e_duplicate_detection.py)
+    class TestSpeed(Enum):
+
+test_utils/pytest_marks.py:49
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:49: PytestCollectionWarning: cannot collect test class 'TestType' because it has a __init__ constructor (from: e2e/internal/test_e2e_duplicate_detection.py)
+    class TestType(Enum):
+
+test_utils/pytest_marks.py:115
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:115: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    func = getattr(pytest.mark, speed.name.lower())(func)
+
+test_utils/pytest_marks.py:40
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:40: PytestCollectionWarning: cannot collect test class 'TestSpeed' because it has a __init__ constructor (from: e2e/internal/test_e2e_graph_health.py)
+    class TestSpeed(Enum):
+
+test_utils/pytest_marks.py:49
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:49: PytestCollectionWarning: cannot collect test class 'TestType' because it has a __init__ constructor (from: e2e/internal/test_e2e_graph_health.py)
+    class TestType(Enum):
+
+test_utils/pytest_marks.py:40
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:40: PytestCollectionWarning: cannot collect test class 'TestSpeed' because it has a __init__ constructor (from: e2e/internal/test_e2e_hybrid_search_spec.py)
+    class TestSpeed(Enum):
+
+test_utils/pytest_marks.py:49
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:49: PytestCollectionWarning: cannot collect test class 'TestType' because it has a __init__ constructor (from: e2e/internal/test_e2e_hybrid_search_spec.py)
+    class TestType(Enum):
+
+test_utils/pytest_marks.py:40
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:40: PytestCollectionWarning: cannot collect test class 'TestSpeed' because it has a __init__ constructor (from: e2e/internal/test_e2e_requirement_management.py)
+    class TestSpeed(Enum):
+
+test_utils/pytest_marks.py:49
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:49: PytestCollectionWarning: cannot collect test class 'TestType' because it has a __init__ constructor (from: e2e/internal/test_e2e_requirement_management.py)
+    class TestType(Enum):
+
+test_utils/pytest_marks.py:40
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:40: PytestCollectionWarning: cannot collect test class 'TestSpeed' because it has a __init__ constructor (from: e2e/internal/test_e2e_search_integration.py)
+    class TestSpeed(Enum):
+
+test_utils/pytest_marks.py:49
+  /home/nixos/bin/src/requirement/graph/test_utils/pytest_marks.py:49: PytestCollectionWarning: cannot collect test class 'TestType' because it has a __init__ constructor (from: e2e/internal/test_e2e_search_integration.py)
+    class TestType(Enum):
+
+conftest.py:185
+  /home/nixos/bin/src/requirement/graph/conftest.py:185: PytestUnknownMarkWarning: Unknown pytest.mark.unit - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    item.add_marker(pytest.mark.unit)
+
+conftest.py:187
+  /home/nixos/bin/src/requirement/graph/conftest.py:187: PytestUnknownMarkWarning: Unknown pytest.mark.instant - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    item.add_marker(pytest.mark.instant)
+
+conftest.py:167
+  /home/nixos/bin/src/requirement/graph/conftest.py:167: PytestUnknownMarkWarning: Unknown pytest.mark.e2e - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    item.add_marker(pytest.mark.e2e)
+
+conftest.py:180
+  /home/nixos/bin/src/requirement/graph/conftest.py:180: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    item.add_marker(pytest.mark.slow)
+
+conftest.py:177
+  /home/nixos/bin/src/requirement/graph/conftest.py:177: PytestUnknownMarkWarning: Unknown pytest.mark.e2e - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    item.add_marker(pytest.mark.e2e)
+
+conftest.py:216
+  /home/nixos/bin/src/requirement/graph/conftest.py:216: PytestUnknownMarkWarning: Unknown pytest.mark.vss_required - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    item.add_marker(pytest.mark.vss_required)
+
+conftest.py:192
+  /home/nixos/bin/src/requirement/graph/conftest.py:192: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    item.add_marker(pytest.mark.integration)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR test_duplicate_simple.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+======================== 60 warnings, 1 error in 1.29s =========================

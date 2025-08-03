@@ -28,9 +28,9 @@ class TestErrorHandling:
         with tempfile.TemporaryDirectory() as db_dir:
             os.environ['RGL_DATABASE_PATH'] = db_dir
             
-            # VECTOR拡張のロードを模擬的に失敗させる
-            with patch('vss_kuzu.infrastructure.vector.load_vector_extension') as mock_load:
-                mock_load.side_effect = Exception("Failed to load VECTOR extension")
+            # VECTOR拡張のチェックを模擬的に失敗させる
+            with patch('vss_kuzu.infrastructure.vector.check_vector_extension') as mock_check:
+                mock_check.return_value = (False, {"error": "Failed to load VECTOR extension", "details": {}})
                 
                 # create_vssがRuntimeErrorを発生させることを確認
                 with pytest.raises(RuntimeError) as exc_info:

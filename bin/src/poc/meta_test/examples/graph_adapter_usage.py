@@ -5,15 +5,18 @@ import tempfile
 from pathlib import Path
 
 from infrastructure.graph_adapter import GraphAdapter
+from infrastructure.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def main():
     """Demonstrate GraphAdapter usage."""
-    print("GraphAdapter Usage Example")
-    print("=" * 50)
+    logger.info("GraphAdapter Usage Example")
+    logger.info("=" * 50)
 
     # Example 1: In-memory database
-    print("\n1. Using in-memory database:")
+    logger.info("\n1. Using in-memory database:")
     with GraphAdapter(":memory:") as adapter:
         # Create some test data
         adapter._conn.execute("""
@@ -64,22 +67,22 @@ def main():
 
         # Query data
         req = adapter.get_requirement('REQ-001')
-        print(f"  Found requirement: {req['title']}")
+        logger.info(f"  Found requirement: {req['title']}")
 
         tests = adapter.get_tests_for_requirement('REQ-001')
-        print(f"  Tests verifying REQ-001: {len(tests)} tests")
+        logger.info(f"  Tests verifying REQ-001: {len(tests)} tests")
         for test in tests:
-            print(f"    - {test['id']} ({test['test_type']})")
+            logger.info(f"    - {test['id']} ({test['test_type']})")
 
         # Save metrics
         adapter.save_metric_result('REQ-001', 'coverage', {'value': 0.85})
         adapter.save_metric_result('REQ-001', 'complexity', {'value': 0.3})
 
         history = adapter.get_metric_history('REQ-001', 'coverage')
-        print(f"  Coverage metric history: {history}")
+        logger.info(f"  Coverage metric history: {history}")
 
     # Example 2: Persistent database
-    print("\n2. Using persistent database:")
+    logger.info("\n2. Using persistent database:")
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = Path(temp_dir) / "example_db"
 
@@ -93,15 +96,15 @@ def main():
                     status: 'active'
                 })
             """)
-            print(f"  Created requirement in {db_path}")
+            logger.info(f"  Created requirement in {db_path}")
 
         # Second session - verify persistence
         with GraphAdapter(str(db_path)) as adapter:
             req = adapter.get_requirement('REQ-003')
-            print(f"  Verified persistence: {req['title']}")
+            logger.info(f"  Verified persistence: {req['title']}")
 
     # Example 3: Cypher export
-    print("\n3. Exporting to Cypher:")
+    logger.info("\n3. Exporting to Cypher:")
     with tempfile.NamedTemporaryFile(mode='w', suffix='.cypher', delete=False) as f:
         export_file = f.name
 
@@ -119,19 +122,19 @@ def main():
 
             # Export
             adapter.export_to_cypher(export_file)
-            print(f"  Exported to: {export_file}")
+            logger.info(f"  Exported to: {export_file}")
 
             # Show first few lines
             content = Path(export_file).read_text()
             lines = content.split('\n')[:3]
             for line in lines:
                 if line:
-                    print(f"    {line}")
+                    logger.info(f"    {line}")
     finally:
         Path(export_file).unlink(missing_ok=True)
 
-    print("\n" + "=" * 50)
-    print("Example completed successfully!")
+    logger.info("\n" + "=" * 50)
+    logger.info("Example completed successfully!")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ import tempfile
 import pytest
 
 from ..infrastructure.embedding_service import EmbeddingService
+from ..infrastructure.errors import ValidationError
 from ..infrastructure.graph_adapter import GraphAdapter
 from ..infrastructure.metrics_collector import MetricsCollector
 from .calculate_metrics import MetricsCalculator
@@ -106,13 +107,37 @@ class TestMetricsCalculator:
 
     def test_calculate_nonexistent_requirement(self):
         """Test calculating metrics for non-existent requirement."""
-        with pytest.raises(ValueError, match="Requirement req_999 not found"):
-            self.calculator.calculate_all_metrics("req_999")
+        result = self.calculator.calculate_all_metrics("req_999")
+        
+        # Should return ValidationError
+        assert isinstance(result, dict)
+        assert result["type"] == "ValidationError"
+        assert result["message"] == "Requirement req_999 not found"
+        assert result["field"] == "requirement_id"
+        assert result["value"] == "req_999"
 
     def test_calculate_unknown_metric(self):
         """Test calculating unknown metric."""
-        with pytest.raises(ValueError, match="Unknown metric: unknown"):
-            self.calculator.calculate_specific_metric("req_001", "unknown")
+        result = self.calculator.calculate_specific_metric("req_001", "unknown")
+        
+        # Should return ValidationError
+        assert isinstance(result, dict)
+        assert result["type"] == "ValidationError"
+        assert result["message"] == "Unknown metric: unknown"
+        assert result["field"] == "metric_name"
+        assert result["value"] == "unknown"
+        assert "Valid metrics are:" in result["suggestion"]
+    
+    def test_calculate_specific_metric_nonexistent_requirement(self):
+        """Test calculating specific metric for non-existent requirement."""
+        result = self.calculator.calculate_specific_metric("req_999", "existence")
+        
+        # Should return ValidationError
+        assert isinstance(result, dict)
+        assert result["type"] == "ValidationError"
+        assert result["message"] == "Requirement req_999 not found"
+        assert result["field"] == "requirement_id"
+        assert result["value"] == "req_999"
 
     def test_parallel_calculation(self):
         """Test that metrics are calculated in parallel."""
@@ -120,6 +145,9 @@ class TestMetricsCalculator:
         # We can verify by checking that all metrics complete
         results = self.calculator.calculate_all_metrics("req_001")
 
+        # Should not return ValidationError for valid requirement
+        assert not isinstance(results, dict) or results.get("type") != "ValidationError"
+        
         # All metrics should have results (even if some failed)
         assert len(results) == 7
 

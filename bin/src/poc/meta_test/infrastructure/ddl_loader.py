@@ -9,7 +9,7 @@ from typing import List, Tuple, Dict, Any, Optional
 from pathlib import Path
 import re
 
-from errors import FileOperationError, ValidationError, NotFoundError
+from .errors import FileOperationError, ValidationError, NotFoundError
 
 from .logger import get_logger
 from .graph_adapter import GraphAdapter
