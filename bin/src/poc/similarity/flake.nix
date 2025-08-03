@@ -33,6 +33,66 @@
               fi
             ''}/bin/show-readme";
           };
+          
+          # Cargo経由でsimilarity-tsを実行
+          ts = {
+            type = "app";
+            program = "${pkgs.writeShellScriptBin "similarity-ts" ''
+              export PATH="${pkgs.gcc}/bin:${pkgs.cargo}/bin:${pkgs.rustc}/bin:$PATH"
+              export CARGO_HOME="''${XDG_CACHE_HOME:-$HOME/.cache}/cargo"
+              export RUSTUP_HOME="''${XDG_DATA_HOME:-$HOME/.local/share}/rustup"
+              
+              mkdir -p "$CARGO_HOME"
+              
+              # 初回実行時のみインストール
+              if ! command -v similarity-ts &> /dev/null; then
+                echo "Installing similarity-ts..." >&2
+                ${pkgs.cargo}/bin/cargo install --git https://github.com/mizchi/similarity similarity-ts
+              fi
+              
+              exec "$CARGO_HOME/bin/similarity-ts" "$@"
+            ''}/bin/similarity-ts";
+          };
+          
+          # Python版
+          py = {
+            type = "app";
+            program = "${pkgs.writeShellScriptBin "similarity-py" ''
+              export PATH="${pkgs.gcc}/bin:${pkgs.cargo}/bin:${pkgs.rustc}/bin:$PATH"
+              export CARGO_HOME="''${XDG_CACHE_HOME:-$HOME/.cache}/cargo"
+              export RUSTUP_HOME="''${XDG_DATA_HOME:-$HOME/.local/share}/rustup"
+              
+              mkdir -p "$CARGO_HOME"
+              
+              # 初回実行時のみインストール
+              if ! command -v similarity-py &> /dev/null; then
+                echo "Installing similarity-py..." >&2
+                ${pkgs.cargo}/bin/cargo install --git https://github.com/mizchi/similarity similarity-py
+              fi
+              
+              exec "$CARGO_HOME/bin/similarity-py" "$@"
+            ''}/bin/similarity-py";
+          };
+          
+          # Rust版
+          rs = {
+            type = "app";
+            program = "${pkgs.writeShellScriptBin "similarity-rs" ''
+              export PATH="${pkgs.gcc}/bin:${pkgs.cargo}/bin:${pkgs.rustc}/bin:$PATH"
+              export CARGO_HOME="''${XDG_CACHE_HOME:-$HOME/.cache}/cargo"
+              export RUSTUP_HOME="''${XDG_DATA_HOME:-$HOME/.local/share}/rustup"
+              
+              mkdir -p "$CARGO_HOME"
+              
+              # 初回実行時のみインストール
+              if ! command -v similarity-rs &> /dev/null; then
+                echo "Installing similarity-rs..." >&2
+                ${pkgs.cargo}/bin/cargo install --git https://github.com/mizchi/similarity similarity-rs
+              fi
+              
+              exec "$CARGO_HOME/bin/similarity-rs" "$@"
+            ''}/bin/similarity-rs";
+          };
         };
         
         devShells.default = pkgs.mkShell {
