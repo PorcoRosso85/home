@@ -64,12 +64,54 @@
       };
     };
     
-    apps.${system} = {
+    apps.${system} = rec {
+      # Default app shows available commands
       default = {
+        type = "app";
+        program = let
+          appNames = builtins.attrNames (removeAttrs self.apps.${system} ["default"]);
+          helpText = ''
+            Claude Launcher - Interactive project selector for Claude Code
+
+            Available commands:
+            ${builtins.concatStringsSep "\n" (map (name: "  nix run .#${name}") appNames)}
+            
+            Examples:
+              nix run .         # Show this help
+              nix run .#core    # Launch Claude in project selector mode
+              nix run .#readme  # Show README documentation
+              nix run .#test    # Run tests
+          '';
+        in "${pkgs.writeShellScript "show-help" ''
+          cat << 'EOF'
+          ${helpText}
+          EOF
+        ''}";
+      };
+      
+      # Core functionality - launch Claude with project selection
+      core = {
         type = "app";
         program = "${self.packages.${system}.claude-launcher}/bin/claude-launcher";
       };
       
+      # Search for a project and launch
+      search = core;  # Alias for core
+      
+      # Show README
+      readme = {
+        type = "app";
+        program = "${pkgs.writeShellScript "show-readme" ''
+          if [[ -f ${./README.md} ]]; then
+            ${pkgs.bat}/bin/bat --style=plain ${./README.md} || cat ${./README.md}
+          else
+            echo "README.md not found"
+            exit 1
+          fi
+        ''}";
+      };
+      
+      # Run tests
       test = {
         type = "app";
         program = let
