@@ -14,6 +14,7 @@ setup(
         "asvs_arrow_converter",
         "asvs_arrow_types",
         "arrow_cli",
+        "example_read_parquet",
     ],
     entry_points={
         "console_scripts": [

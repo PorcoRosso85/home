@@ -245,13 +245,13 @@ if __name__ == "__main__":
     
     # Arrow Tableを直接取得
     table = converter.get_requirements_table()
-    print(f"Arrow table shape: {table.shape}")
-    print(f"Schema: {table.schema}")
+    # print(f"Arrow table shape: {table.shape}")
+    # print(f"Schema: {table.schema}")
     
     # メタデータを取得
     metadata = converter.get_metadata()
-    print(f"Version: {metadata['version']}")
-    print(f"Total requirements: {metadata['total_requirements']}")
+    # print(f"Version: {metadata['version']}")
+    # print(f"Total requirements: {metadata['total_requirements']}")
     
     # Parquetへの永続化
     converter.to_parquet("asvs_v5.parquet")
