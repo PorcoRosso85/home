@@ -1,57 +1,87 @@
-# KuzuDB Migration Framework
+# KuzuDB Migration CLI
 
-ALTER TABLE機能を活用したシンプルで強力なマイグレーション管理システム。
+プロジェクトのddlディレクトリを管理し、KuzuDBのマイグレーションを実行するスタンドアロンCLIツール。
 
-## 🎉 重要な更新
+## 概要
 
-KuzuDBが包括的なALTER TABLE機能をサポートしていることが判明し、マイグレーションが大幅に簡素化されました。
+このツールは、各プロジェクトのddlディレクトリを指定して、その配下にマイグレーション構造を構築・管理します。
+
+## アーキテクチャ
+
+```
+プロジェクト/
+├── ddl/                    # プロジェクトが作成
+│   ├── migrations/        # kuzu-migrateが管理
+│   └── snapshots/         # kuzu-migrateが管理
+└── src/                   # プロジェクト本体
+```
 
 ## 主な機能
 
-- ✅ **ネイティブALTER TABLE**: テーブル再作成不要
-- ✅ **瞬時のスキーマ変更**: 大規模データでも高速
-- ✅ **マイグレーション履歴管理**: 適用済み変更の追跡
-- ✅ **Cypherネイティブ定義**: KuzuDBの標準形式で透明性が高い
-- ✅ **スキーマ差分からの自動生成**: EXPORT DATABASEを活用した差分検出
-- ✅ **部分的ロールバック**: 可能な範囲でのロールバック
+- 📁 **DDLディレクトリ管理**: 指定されたddlディレクトリ配下を完全管理
+- 🔄 **Cypherネイティブ実行**: KuzuDBの標準形式で直接実行
+- 📊 **マイグレーション履歴**: _migration_historyテーブルで追跡
+- 📷 **スナップショット**: EXPORT/IMPORT DATABASEで完全バックアップ
+- 🎯 **スタンドアロン**: 言語非依存のCLIツール
 
-## クイックスタート
+## インストール
 
-### 1. インストール
-
+### Nixで直接実行
 ```bash
-# Nix環境
-nix develop
+# インストール不要で直接実行
+nix run github:yourorg/kuzu-migrate -- --ddl ./ddl apply
+```
 
-# または直接
-pip install kuzu
+### Flake統合
+```nix
+# flake.nix
+inputs.kuzu-migrate.url = "github:yourorg/kuzu-migrate";
+
+outputs = { self, kuzu-migrate, ... }: {
+  apps = kuzu-migrate.lib.mkKuzuMigration { 
+    ddlPath = "./ddl";
+  };
+};
+```
+
+## 使い方
+
+### 1. 初期化
+```bash
+# ddlディレクトリを作成して初期化
+mkdir ddl
+kuzu-migrate --ddl ./ddl init
 ```
 
 ### 2. マイグレーション作成
-
 ```bash
 # Cypherファイルを直接作成
-echo "ALTER TABLE User ADD email STRING DEFAULT '';" > migrations/001_add_email.cypher
-
-# または、スキーマ差分から自動生成
-kuzu-migrate generate-migration
+echo "ALTER TABLE User ADD email STRING DEFAULT '';" > ddl/migrations/001_add_email.cypher
 ```
 
 ### 3. マイグレーション実行
+```bash
+# デフォルトはddl/ディレクトリ
+kuzu-migrate apply
 
-```python
-from migration_framework import KuzuMigration
-
-# マイグレーターを初期化
-migrator = KuzuMigration("my_database.db", "migrations")
-migrator.connect()
-migrator.init_migration_tracking()
-
-# すべてのマイグレーションを実行
-migrator.run_migrations()
-
-migrator.disconnect()
+# または明示的に指定
+kuzu-migrate --ddl ./custom/ddl apply
 ```
+
+### 4. スナップショット作成
+```bash
+kuzu-migrate snapshot --version v1.0.0
+```
+
+## コマンド
+
+| コマンド | 説明 |
+|---------|------|
+| `init` | ddlディレクトリ構造を初期化 |
+| `apply` | 未適用のマイグレーションを実行 |
+| `status` | 現在のマイグレーション状態を表示 |
+| `snapshot` | 現在のスキーマをスナップショット |
+| `rollback` | 指定したスナップショットに復元 |
 
 ## マイグレーション定義形式
 
@@ -119,23 +149,24 @@ CREATE NODE TABLE Product (
 );
 ```
 
-## プロジェクト構造
+## ディレクトリ構成
 
+### kuzu-migrateが管理する構造
 ```
-kuzu_migration/
+ddl/
 ├── migrations/              # Cypherマイグレーションファイル
-│   ├── 000_initial.cypher  # EXPORT DATABASE --schema-only の出力
+│   ├── 000_initial.cypher  # 初期スキーマ
 │   └── NNN_description.cypher  # 番号_説明.cypher形式
-├── snapshots/              # EXPORT DATABASEの出力
-│   └── v1.0.0/            # バージョンごとのスナップショット
-│       ├── schema.cypher
-│       ├── macro.cypher
-│       └── data/
-└── src/                    # フレームワークのソースコード
-    ├── migrator.py        # 実行エンジン
-    ├── snapshot.py        # バックアップ/リストア
-    └── cli.py             # コマンドライン
+└── snapshots/              # EXPORT DATABASEの出力
+    └── v1.0.0/            # バージョンごとのスナップショット
+        ├── schema.cypher
+        ├── macro.cypher
+        └── data/
 ```
+
+### 責任分界
+- **プロジェクト**: ddl/ディレクトリの作成のみ
+- **kuzu-migrate**: migrations/とsnapshots/の完全管理
 
 ## ロールバック
 
@@ -162,64 +193,110 @@ migrator.restore_snapshot("pre_migration_v2.0.0")
 ALTER TABLE User DROP status IF EXISTS;
 ```
 
-## ベストプラクティス
+## 環境変数
 
-1. **バックアップ**: 重要な変更前は必ずバックアップ
-   ```python
-   backup_path = migrator.create_backup()
-   ```
+| 変数名 | 説明 | デフォルト |
+|--------|------|----------|
+| `KUZU_DDL_DIR` | DDLディレクトリパス | `./ddl` |
+| `KUZU_DB_PATH` | データベースファイルパス | `./data/kuzu.db` |
 
-2. **段階的な変更**: 大きな変更は複数の小さなマイグレーションに分割
+## エラーメッセージ
 
-3. **テスト環境での検証**: 本番適用前に必ずテスト
+ツールはDon Normanのデザイン原則に従い、明確な指示を提供します：
 
-4. **命名規則**: `YYYYMMDD_HHMMSS_description`形式を推奨
+```
+❌ ERROR: ddl/ directory not found
 
-5. **ドキュメント化**: 各マイグレーションに明確な説明を記載
+This tool manages database migrations in a 'ddl' directory.
+Please create it:
 
-## 制限事項
+    mkdir ddl
+    kuzu-migrate --ddl ./ddl init
 
-1. **データ型変更**: 直接的な型変更は非サポート（新カラム追加→データ移行→旧カラム削除）
-2. **ロールバック**: DROP操作は不可逆
-3. **トランザクション**: 部分的なサポート
+Learn more: https://github.com/yourorg/kuzu-migrate#getting-started
+```
 
-## パフォーマンス
+## よくあるエラーと対処
 
-| 操作 | データ量 | 実行時間 |
-|------|---------|----------|
-| ADD COLUMN | 100万行 | < 1秒 |
-| DROP COLUMN | 100万行 | < 1秒 |
-| RENAME TABLE | 任意 | 瞬時 |
-| RENAME COLUMN | 任意 | 瞬時 |
+### マイグレーション失敗時
+```
+❌ Migration 002_add_email.cypher failed:
 
-## ALTER TABLE機能の発見
+    Error: Column 'email' already exists on table 'User'
+    
+    To fix:
+    1. Check existing columns: 
+       kuzu ./data/kuzu.db -c "CALL table_info('User')"
+    
+    2. Skip this migration:
+       touch ddl/migrations/.applied/002_add_email.cypher
+```
 
-詳細は[ALTER_TABLE_DISCOVERY.md](ALTER_TABLE_DISCOVERY.md)を参照してください。
+## 実装
+
+シンプルなシェルスクリプトとして実装され、KuzuDB CLIのラッパーとして動作します。
+
+```bash
+#!/bin/bash
+# kuzu-migrate
+
+DDL_DIR="${1:-${KUZU_DDL_DIR:-./ddl}}"
+DB_PATH="${KUZU_DB_PATH:-./data/kuzu.db}"
+
+# 必須ディレクトリチェック
+if [ ! -d "$DDL_DIR" ]; then
+    echo "❌ ERROR: ddl/ directory not found"
+    exit 1
+fi
+
+# マイグレーション実行
+for migration in "$DDL_DIR/migrations"/*.cypher; do
+    kuzu "$DB_PATH" < "$migration"
+done
+```
+
+## 関連ドキュメント
+
+- [MIGRATION_DIRECTORY_CONTRACT.md](MIGRATION_DIRECTORY_CONTRACT.md) - ディレクトリ構成契約
+- [TODO.md](TODO.md) - 実装タスク一覧
+- [ALTER_TABLE_DISCOVERY.md](ALTER_TABLE_DISCOVERY.md) - KuzuDBのALTER TABLE機能
+
+## 継承プロジェクト
+
+このツールは以下のプロジェクトで使用される予定です：
+
+- `bin/src/flakes/python` - Pythonプロジェクトテンプレート
+- `bin/src/persistence/kuzu_py` - KuzuDB Pythonバインディング
+- `bin/src/telemetry/log_py` - テレメトリログシステム
+
+各プロジェクトは自身のflake.nixでこのツールをinputとして宣言し、`lib.mkKuzuMigration`を使用してマイグレーションコマンドを統合します。
 
 ## トラブルシューティング
 
-### エラー: "Property already exists"
-- 原因: カラムが既に存在
-- 解決: `ADD IF NOT EXISTS`を使用
+### KuzuDB CLIが見つからない
+```
+❌ ERROR: KuzuDB CLI not found
 
-### エラー: "Table does not exist"
-- 原因: テーブルが存在しない
-- 解決: CREATE TABLEマイグレーションを先に実行
+The 'kuzu' command is required but not installed.
+Please install KuzuDB:
 
-### マイグレーションが重複適用される
-- 原因: 履歴テーブルの不整合
-- 解決: `_migration_history`テーブルを確認
+    nix-env -iA nixpkgs.kuzu
+    # or
+    brew install kuzu
+    # or visit https://kuzudb.com/download/
+```
 
-## 今後の展開
+### DDLディレクトリが存在しない
+```
+❌ ERROR: ddl/ directory not found
 
-1. **自動マイグレーション生成**: スキーマ差分からの自動生成
-2. **並列実行**: 独立したマイグレーションの並列処理
-3. **監視ダッシュボード**: マイグレーション状態の可視化
-4. **クラウド統合**: S3/GCSへの自動バックアップ
+This tool manages database migrations in a 'ddl' directory.
+Please create it:
 
-## 貢献
+    mkdir ddl
+    kuzu-migrate --ddl ./ddl init
+```
 
-PRを歓迎します！特に以下の領域：
-- データ型変換のサポート
-- より高度なロールバック戦略
-- パフォーマンス最適化
+## ライセンス
+
+MIT License

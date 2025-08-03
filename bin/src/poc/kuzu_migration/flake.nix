@@ -10,8 +10,21 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        
+        kuzu-migrate = pkgs.writeShellApplication {
+          name = "kuzu-migrate";
+          runtimeInputs = with pkgs; [ kuzu coreutils ];
+          text = builtins.readFile ./src/kuzu-migrate.sh;
+        };
       in
       {
+        packages.default = kuzu-migrate;
+        
+        apps.kuzu-migrate = {
+          type = "app";
+          program = "${kuzu-migrate}/bin/kuzu-migrate";
+        };
+        
         devShells.default = pkgs.mkShell {
           # The Nix packages available in the development environment
           packages = with pkgs; [
@@ -23,21 +36,21 @@
             deno # Add deno for causal_with_migration tests
             nodejs_20
             nodePackages.typescript
+            # Add kuzu-migrate to development environment
+            kuzu-migrate
           ];
           
           # Automatically set library paths for KuzuDB
           LD_LIBRARY_PATH = "${pkgs.stdenv.cc.cc.lib}/lib";
           
           shellHook = ''
-            echo "KuzuDB Migration Framework Development Environment"
-            echo "Python: $(python --version)"
-            echo "Deno: $(deno --version | head -1)"
+            echo "KuzuDB Migration CLI Development Environment"
+            echo "kuzu-migrate: v$(kuzu-migrate --version | cut -d' ' -f2)"
             echo ""
             echo "Commands:"
-            echo "  uv sync                    - Install dependencies"
-            echo "  uv run pytest -v           - Run all tests"
-            echo "  nix run .#test             - Run tests via nix"
-            echo "  nix run .#test-causal      - Run causal_with_migration tests"
+            echo "  kuzu-migrate --help        - Show CLI help"
+            echo "  nix run .#kuzu-migrate     - Run the CLI"
+            echo "  nix build                  - Build the package"
           '';
         };
         
@@ -97,5 +110,29 @@
             ''}";
           };
         };
-      });
+      })
+    // {
+      # Library functions for other flakes to use
+      lib.mkKuzuMigration = { pkgs, ddlPath ? "./ddl" }: {
+        migrate = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.default}/bin/kuzu-migrate --ddl ${ddlPath} apply";
+        };
+        
+        init = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.default}/bin/kuzu-migrate --ddl ${ddlPath} init";
+        };
+        
+        status = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.default}/bin/kuzu-migrate --ddl ${ddlPath} status";
+        };
+        
+        snapshot = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.default}/bin/kuzu-migrate --ddl ${ddlPath} snapshot";
+        };
+      };
+    };
 }
