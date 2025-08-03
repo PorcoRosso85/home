@@ -206,7 +206,8 @@ def main():
     import sys
     
     if len(sys.argv) < 3:
-        print("Usage: python -m flake_graph.exporter <db_path> <output_path> [language_filter]")
+        # CLI usage information should go to stderr for proper Unix behavior
+        sys.stderr.write("Usage: python -m flake_graph.exporter <db_path> <output_path> [language_filter]\n")
         sys.exit(1)
     
     db_path = sys.argv[1]
@@ -216,8 +217,9 @@ def main():
     exporter = FlakeExporter(db_path)
     try:
         result = exporter.export_to_json(output_path, language_filter=language_filter)
-        print(f"Export successful: {result['total_exported']} flakes exported to {result['output_path']}")
-        print(f"File size: {result['file_size_bytes']} bytes")
+        # CLI success messages to stdout for proper Unix behavior
+        sys.stdout.write(f"Export successful: {result['total_exported']} flakes exported to {result['output_path']}\n")
+        sys.stdout.write(f"File size: {result['file_size_bytes']} bytes\n")
     finally:
         exporter.close()
 

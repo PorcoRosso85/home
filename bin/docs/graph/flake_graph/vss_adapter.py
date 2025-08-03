@@ -6,6 +6,7 @@ from datetime import datetime
 
 from vss_kuzu import create_vss
 from .kuzu_adapter import KuzuAdapter
+from log_py import log
 
 
 def create_flake_document(flake_info: Dict[str, Any], base_path: Path = None) -> Dict[str, str]:
@@ -178,7 +179,12 @@ def index_flakes_with_persistence(
                 stats["errors"] = len(documents_to_index)
                 
         except Exception as e:
-            print(f"Error during indexing: {e}")
+            log("ERROR", {
+                "uri": "/vss/index_flakes_with_persistence",
+                "message": "Error during indexing",
+                "error": str(e),
+                "documents_count": len(documents_to_index)
+            })
             stats["errors"] = len(documents_to_index)
     
     # Close connections

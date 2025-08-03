@@ -21,7 +21,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     # Scan for flakes in the target directory
     target_path = Path(args.path)
     if not target_path.exists():
-        print(f"Error: Path {target_path} does not exist", file=sys.stderr)
+        sys.stderr.write(f"Error: Path {target_path} does not exist\n")
         return 1
     
     # Simple flake scanning (can be enhanced)
@@ -38,7 +38,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
             })
     
     if not flakes:
-        print("No flakes found in the specified directory", file=sys.stderr)
+        sys.stderr.write("No flakes found in the specified directory\n")
         return 1
     
     if args.architecture:
@@ -53,40 +53,40 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         
         # Display results
         health = result["architecture_health"]
-        print(f"Architecture Health Score: {health['score']:.2f}")
-        print(f"\nMetrics:")
+        sys.stdout.write(f"Architecture Health Score: {health['score']:.2f}\n")
+        sys.stdout.write("\nMetrics:\n")
         metrics = health["metrics"]
         if metrics["vss_score"] is not None:
-            print(f"  VSS Score: {metrics['vss_score']:.2f}")
+            sys.stdout.write(f"  VSS Score: {metrics['vss_score']:.2f}\n")
         if metrics["ast_score"] is not None:
-            print(f"  AST Score: {metrics['ast_score']:.2f}")
-        print(f"  Duplication Ratio: {metrics['duplication_ratio']:.2f}")
-        print(f"  Consistency Score: {metrics['consistency_score']:.2f}")
-        print(f"  Coupling Index: {metrics['coupling_index']:.2f}")
+            sys.stdout.write(f"  AST Score: {metrics['ast_score']:.2f}\n")
+        sys.stdout.write(f"  Duplication Ratio: {metrics['duplication_ratio']:.2f}\n")
+        sys.stdout.write(f"  Consistency Score: {metrics['consistency_score']:.2f}\n")
+        sys.stdout.write(f"  Coupling Index: {metrics['coupling_index']:.2f}\n")
         
         if health["issues"]:
-            print(f"\nIssues Found ({len(health['issues'])}):")
+            sys.stdout.write(f"\nIssues Found ({len(health['issues'])}):\n")
             for issue in health["issues"]:
-                print(f"\n[{issue['severity'].upper()}] {issue['type']}")
-                print(f"  {issue['description']}")
+                sys.stdout.write(f"\n[{issue['severity'].upper()}] {issue['type']}\n")
+                sys.stdout.write(f"  {issue['description']}\n")
                 if issue["affected_files"]:
-                    print(f"  Affected files: {', '.join(issue['affected_files'])}")
+                    sys.stdout.write(f"  Affected files: {', '.join(issue['affected_files'])}\n")
         else:
-            print("\nNo issues found!")
+            sys.stdout.write("\nNo issues found!\n")
         
         if args.json:
-            print("\nJSON Output:")
-            print(json.dumps(result, indent=2))
+            sys.stdout.write("\nJSON Output:\n")
+            sys.stdout.write(json.dumps(result, indent=2) + "\n")
     else:
         # Standard analyze (list flakes)
-        print(f"Found {len(flakes)} flakes:")
+        sys.stdout.write(f"Found {len(flakes)} flakes:\n")
         for flake in flakes:
-            print(f"  - {flake['id']}")
+            sys.stdout.write(f"  - {flake['id']}\n")
             if args.verbose:
                 content_preview = flake['content'][:100].replace('\n', ' ')
                 if len(flake['content']) > 100:
                     content_preview += "..."
-                print(f"    Content: {content_preview}")
+                sys.stdout.write(f"    Content: {content_preview}\n")
     
     return 0
 
@@ -95,16 +95,16 @@ def cmd_check_readme(args: argparse.Namespace) -> int:
     """Check for missing README files."""
     target_path = Path(args.path)
     if not target_path.exists():
-        print(f"Error: Path {target_path} does not exist", file=sys.stderr)
+        sys.stderr.write(f"Error: Path {target_path} does not exist\n")
         return 1
     
     report = generate_missing_readme_report(target_path)
-    print(report)
+    sys.stdout.write(report)
     
     if args.output:
         output_path = Path(args.output)
         output_path.write_text(report)
-        print(f"\nReport saved to: {output_path}")
+        sys.stdout.write(f"\nReport saved to: {output_path}\n")
     
     return 0
 
@@ -113,7 +113,7 @@ def cmd_detect_duplicates(args: argparse.Namespace) -> int:
     """Detect duplicate flakes."""
     target_path = Path(args.path)
     if not target_path.exists():
-        print(f"Error: Path {target_path} does not exist", file=sys.stderr)
+        sys.stderr.write(f"Error: Path {target_path} does not exist\n")
         return 1
     
     # Scan for flakes
@@ -128,7 +128,7 @@ def cmd_detect_duplicates(args: argparse.Namespace) -> int:
             })
     
     if not flakes:
-        print("No flakes found in the specified directory", file=sys.stderr)
+        sys.stderr.write("No flakes found in the specified directory\n")
         return 1
     
     # Find duplicates
@@ -139,15 +139,15 @@ def cmd_detect_duplicates(args: argparse.Namespace) -> int:
     )
     
     if duplicates:
-        print(f"Found {len(duplicates)} groups of duplicate flakes:")
+        sys.stdout.write(f"Found {len(duplicates)} groups of duplicate flakes:\n")
         for i, group in enumerate(duplicates, 1):
-            print(f"\nGroup {i}:")
-            print(f"  Description: {group['description']}")
+            sys.stdout.write(f"\nGroup {i}:\n")
+            sys.stdout.write(f"  Description: {group['description']}\n")
             if "similarity_score" in group:
-                print(f"  Similarity Score: {group['similarity_score']:.2f}")
-            print("  Flakes:")
+                sys.stdout.write(f"  Similarity Score: {group['similarity_score']:.2f}\n")
+            sys.stdout.write("  Flakes:\n")
             for flake in group["flakes"]:
-                print(f"    - {flake['path']}")
+                sys.stdout.write(f"    - {flake['path']}\n")
         
         if args.json:
             # Convert Path objects to strings for JSON serialization
@@ -158,10 +158,10 @@ def cmd_detect_duplicates(args: argparse.Namespace) -> int:
                     {**f, "path": str(f["path"])} for f in group["flakes"]
                 ]
                 json_duplicates.append(json_group)
-            print("\nJSON Output:")
-            print(json.dumps(json_duplicates, indent=2))
+            sys.stdout.write("\nJSON Output:\n")
+            sys.stdout.write(json.dumps(json_duplicates, indent=2) + "\n")
     else:
-        print("No duplicate flakes found.")
+        sys.stdout.write("No duplicate flakes found.\n")
     
     return 0
 
@@ -170,13 +170,13 @@ def cmd_export(args: argparse.Namespace) -> int:
     """Export flake data from KuzuDB."""
     # Validate format (currently only JSON is supported)
     if args.format != "json":
-        print(f"Error: Format '{args.format}' is not supported yet. Only 'json' is available.", file=sys.stderr)
+        sys.stderr.write(f"Error: Format '{args.format}' is not supported yet. Only 'json' is available.\n")
         return 1
     
     # Initialize exporter with database path
     db_path = Path(args.db_path)
     if not db_path.exists():
-        print(f"Error: Database path {db_path} does not exist", file=sys.stderr)
+        sys.stderr.write(f"Error: Database path {db_path} does not exist\n")
         return 1
     
     exporter = FlakeExporter(db_path)
@@ -191,23 +191,23 @@ def cmd_export(args: argparse.Namespace) -> int:
         )
         
         # Display results
-        print(f"Export successful!")
-        print(f"  Output file: {result['output_path']}")
-        print(f"  Total flakes exported: {result['total_exported']}")
-        print(f"  File size: {result['file_size_bytes']:,} bytes")
+        sys.stdout.write("Export successful!\n")
+        sys.stdout.write(f"  Output file: {result['output_path']}\n")
+        sys.stdout.write(f"  Total flakes exported: {result['total_exported']}\n")
+        sys.stdout.write(f"  File size: {result['file_size_bytes']:,} bytes\n")
         
         if result['metadata']['language_filter']:
-            print(f"  Language filter: {result['metadata']['language_filter']}")
+            sys.stdout.write(f"  Language filter: {result['metadata']['language_filter']}\n")
         
-        print(f"  Embeddings included: {result['metadata']['embeddings_included']}")
+        sys.stdout.write(f"  Embeddings included: {result['metadata']['embeddings_included']}\n")
         
         if result['metadata']['languages']:
-            print(f"\nFlakes by language:")
+            sys.stdout.write("\nFlakes by language:\n")
             for lang, count in sorted(result['metadata']['languages'].items()):
-                print(f"    {lang}: {count}")
+                sys.stdout.write(f"    {lang}: {count}\n")
         
     except Exception as e:
-        print(f"Error during export: {e}", file=sys.stderr)
+        sys.stderr.write(f"Error during export: {e}\n")
         return 1
     finally:
         exporter.close()

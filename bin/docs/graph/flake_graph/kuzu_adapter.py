@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 import json
+from log_py import log
 
 
 class KuzuAdapter:
@@ -95,7 +96,12 @@ class KuzuAdapter:
             })
             return True
         except Exception as e:
-            print(f"Error creating flake: {e}")
+            log("ERROR", {
+                "uri": "/kuzu/create_flake",
+                "message": "Failed to create flake",
+                "error": str(e),
+                "path": path
+            })
             return False
     
     def read_flake(self, path: str) -> Optional[Dict[str, Any]]:
@@ -134,7 +140,12 @@ class KuzuAdapter:
                 return None
             
         except Exception as e:
-            print(f"Error reading flake: {e}")
+            log("ERROR", {
+                "uri": "/kuzu/read_flake",
+                "message": "Failed to read flake",
+                "error": str(e),
+                "path": path
+            })
             return None
     
     def update_flake(self, 
@@ -173,7 +184,12 @@ class KuzuAdapter:
             return True
             
         except Exception as e:
-            print(f"Error updating flake: {e}")
+            log("ERROR", {
+                "uri": "/kuzu/update_flake",
+                "message": "Failed to update flake",
+                "error": str(e),
+                "path": path
+            })
             return False
     
     def delete_flake(self, path: str) -> bool:
@@ -194,7 +210,12 @@ class KuzuAdapter:
             return True
             
         except Exception as e:
-            print(f"Error deleting flake: {e}")
+            log("ERROR", {
+                "uri": "/kuzu/delete_flake",
+                "message": "Failed to delete flake",
+                "error": str(e),
+                "path": path
+            })
             return False
     
     def list_flakes(self, 
@@ -246,7 +267,13 @@ class KuzuAdapter:
             return flakes
             
         except Exception as e:
-            print(f"Error listing flakes: {e}")
+            log("ERROR", {
+                "uri": "/kuzu/list_flakes",
+                "message": "Failed to list flakes",
+                "error": str(e),
+                "language": language,
+                "limit": limit
+            })
             return []
     
     def find_by_embedding_similarity(self, 
@@ -290,7 +317,13 @@ class KuzuAdapter:
             return flakes
             
         except Exception as e:
-            print(f"Error finding similar flakes: {e}")
+            log("ERROR", {
+                "uri": "/kuzu/find_by_embedding_similarity",
+                "message": "Failed to find similar flakes",
+                "error": str(e),
+                "threshold": threshold,
+                "limit": limit
+            })
             return []
     
     def close(self) -> None:
