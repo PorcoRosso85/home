@@ -48,8 +48,13 @@ class PyrightLSPClient:
         self.workspace_path = Path(workspace_path)
         
         # Start LSP server
+        # Find pyright-langserver in infrastructure/pyright/
+        langserver_path = Path(__file__).parent / "infrastructure" / "pyright" / "pyright-langserver"
+        if not langserver_path.exists():
+            return ErrorResult(ok=False, error=f"pyright-langserver not found at {langserver_path}")
+            
         self.proc = subprocess.Popen(
-            ["pyright-langserver", "--stdio"],
+            [str(langserver_path), "--stdio"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
