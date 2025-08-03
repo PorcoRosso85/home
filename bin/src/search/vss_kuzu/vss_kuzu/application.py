@@ -455,6 +455,9 @@ def create_vss_service(
                     "distance": row["distance"]
                 })
             
+            # スコアの降順でソート
+            results.sort(key=lambda r: r["score"], reverse=True)
+            
             elapsed_ms = (time.time() - start_time) * 1000
             
             # Log successful search completion
