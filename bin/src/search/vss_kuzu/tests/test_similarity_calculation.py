@@ -23,16 +23,10 @@ class TestSimilarityCalculation:
         
         with tempfile.TemporaryDirectory() as db_dir:
             os.environ['RGL_DATABASE_PATH'] = db_dir
-            try:
-                vss = create_vss(db_path=db_dir, in_memory=False)
-                yield vss
-            except RuntimeError as e:
-                log("warning", {
-                    "message": "Failed to create VSS instance",
-                    "error": str(e),
-                    "reason": "VECTOR extension might not be available"
-                })
-                pytest.skip(f"VECTOR extension not available: {e}")
+            vss = create_vss(db_path=db_dir, in_memory=False)
+            if vss is None:
+                pytest.skip("VECTOR extension not available")
+            yield vss
     
     def test_similarity_score_not_zero_for_similar_texts(self, vss_instance):
         """類似テキストの類似度スコアが0.0にならないことを確認"""

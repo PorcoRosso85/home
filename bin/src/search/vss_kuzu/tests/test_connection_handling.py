@@ -31,9 +31,10 @@ class TestConnectionHandling:
             os.environ['RGL_DATABASE_PATH'] = db_dir
             db_path = Path(db_dir)
             
-            try:
-                # 永続的データベースでVSSを作成
-                vss1 = create_vss(db_path=str(db_path), in_memory=False)
+            # 永続的データベースでVSSを作成
+            vss1 = create_vss(db_path=str(db_path), in_memory=False)
+            if vss1 is None:
+                pytest.skip("VECTOR extension not available")
                 
                 # データをインデックスに追加
                 doc = {
@@ -49,6 +50,8 @@ class TestConnectionHandling:
                 
                 # 同じデータベースパスで新しい接続を作成
                 vss2 = create_vss(db_path=str(db_path), in_memory=False)
+                if vss2 is None:
+                    pytest.skip("VECTOR extension not available")
                 
                 # データが永続化されていることを確認
                 search_result = vss2.search("永続化テスト", limit=5)
@@ -72,14 +75,6 @@ class TestConnectionHandling:
                 # クリーンアップ
                 if hasattr(vss2, 'close'):
                     vss2.close()
-                    
-            except RuntimeError as e:
-                log("warning", {
-                    "message": "Failed to create VSS instance",
-                    "error": str(e),
-                    "reason": "VECTOR extension might not be available"
-                })
-                pytest.skip(f"VECTOR extension not available: {e}")
     
     def test_multiple_connections_work_independently(self):
         """複数の接続が独立して動作することを確認"""
@@ -93,13 +88,16 @@ class TestConnectionHandling:
         with tempfile.TemporaryDirectory() as db_dir1, \
              tempfile.TemporaryDirectory() as db_dir2:
             
-            try:
-                # 2つの独立したVSSインスタンスを作成
-                os.environ['RGL_DATABASE_PATH'] = db_dir1
-                vss1 = create_vss(db_path=db_dir1, in_memory=False)
-                
-                os.environ['RGL_DATABASE_PATH'] = db_dir2
-                vss2 = create_vss(db_path=db_dir2, in_memory=False)
+            # 2つの独立したVSSインスタンスを作成
+            os.environ['RGL_DATABASE_PATH'] = db_dir1
+            vss1 = create_vss(db_path=db_dir1, in_memory=False)
+            if vss1 is None:
+                pytest.skip("VECTOR extension not available")
+            
+            os.environ['RGL_DATABASE_PATH'] = db_dir2
+            vss2 = create_vss(db_path=db_dir2, in_memory=False)
+            if vss2 is None:
+                pytest.skip("VECTOR extension not available")
                 
                 # それぞれに異なるデータを追加
                 doc1 = {
@@ -147,14 +145,6 @@ class TestConnectionHandling:
                     vss1.close()
                 if hasattr(vss2, 'close'):
                     vss2.close()
-                    
-            except RuntimeError as e:
-                log("warning", {
-                    "message": "Failed to create VSS instance",
-                    "error": str(e),
-                    "reason": "VECTOR extension might not be available"
-                })
-                pytest.skip(f"VECTOR extension not available: {e}")
     
     def test_connection_cleanup_on_close(self):
         """close()メソッドでリソースが適切に解放されることを確認"""
@@ -168,20 +158,21 @@ class TestConnectionHandling:
         with tempfile.TemporaryDirectory() as db_dir:
             os.environ['RGL_DATABASE_PATH'] = db_dir
             
-            try:
-                connections: List[Any] = []
+            connections: List[Any] = []
+            
+            # 複数の接続を作成
+            for i in range(3):
+                vss = create_vss(db_path=db_dir, in_memory=False)
+                if vss is None:
+                    pytest.skip("VECTOR extension not available")
+                connections.append(vss)
                 
-                # 複数の接続を作成
-                for i in range(3):
-                    vss = create_vss(db_path=db_dir, in_memory=False)
-                    connections.append(vss)
-                    
-                    # データを追加してアクティブに使用
-                    doc = {
-                        "id": f"cleanup_{i:03d}",
-                        "content": f"クリーンアップテスト {i}"
-                    }
-                    vss.index([doc])
+                # データを追加してアクティブに使用
+                doc = {
+                    "id": f"cleanup_{i:03d}",
+                    "content": f"クリーンアップテスト {i}"
+                }
+                vss.index([doc])
                 
                 log("info", {
                     "message": "Created multiple connections",
@@ -202,6 +193,8 @@ class TestConnectionHandling:
                 
                 # 新しい接続が作成できることを確認（リソースが解放されている）
                 new_vss = create_vss(db_path=db_dir, in_memory=False)
+                if new_vss is None:
+                    pytest.skip("VECTOR extension not available")
                 
                 # 新しい接続でデータを確認
                 search_result = new_vss.search("クリーンアップテスト", limit=10)
@@ -220,11 +213,3 @@ class TestConnectionHandling:
                 # クリーンアップ
                 if hasattr(new_vss, 'close'):
                     new_vss.close()
-                    
-            except RuntimeError as e:
-                log("warning", {
-                    "message": "Failed to create VSS instance",
-                    "error": str(e),
-                    "reason": "VECTOR extension might not be available"
-                })
-                pytest.skip(f"VECTOR extension not available: {e}")

@@ -107,7 +107,14 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
                 return True, None
             # If error is about CREATE_VECTOR_INDEX not being defined, VECTOR is missing
             if "CREATE_VECTOR_INDEX" in error_msg and ("not defined" in error_msg or "unknown" in error_msg):
-                raise
+                return False, {
+                    "error": "VECTOR extension not available",
+                    "details": {
+                        "extension": VECTOR_EXTENSION_NAME,
+                        "function": "CREATE_VECTOR_INDEX",
+                        "raw_error": error_msg
+                    }
+                }
             # For other errors, assume VECTOR is available
             return True, None
         
@@ -192,8 +199,16 @@ def initialize_vector_schema(
             # If index already exists, that's OK - schema is already initialized
             if "already exists" in error_msg:
                 return True, None
-            # Otherwise, re-raise the exception
-            raise
+            # Otherwise, return error
+            return False, {
+                "error": f"Failed to create vector index: {error_msg}",
+                "details": {
+                    "index_name": DOCUMENT_EMBEDDING_INDEX_NAME,
+                    "table_name": DOCUMENT_TABLE_NAME,
+                    "exception_type": type(e).__name__,
+                    "raw_error": error_msg
+                }
+            }
         
         return True, None
         

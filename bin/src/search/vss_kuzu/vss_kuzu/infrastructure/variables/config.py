@@ -6,7 +6,7 @@
 優先順位: 引数 > 環境変数 > デフォルト値
 """
 
-from typing import Optional, Dict, Any, TypedDict
+from typing import Optional, Dict, Any, TypedDict, Union
 
 from .env import load_environment_variables, EnvironmentVariables
 
@@ -164,38 +164,48 @@ def merge_config(base_config: VSSConfig, **overrides) -> VSSConfig:
     return new_config
 
 
-def validate_config(config: VSSConfig) -> None:
+def validate_config(config: VSSConfig) -> tuple[bool, VSSConfig | Dict[str, str]]:
     """
     設定値の妥当性を検証
     
     Args:
         config: 検証する設定オブジェクト
         
-    Raises:
-        ValueError: 設定値が不正な場合
+    Returns:
+        成功時: (True, config)
+        失敗時: (False, error_dict) - error_dictは各エラーの詳細を含む辞書
     """
+    errors = {}
+    
     # 埋め込み次元数の検証
     if config['embedding_dimension'] <= 0:
-        raise ValueError(f"埋め込み次元数は正の整数である必要があります: {config['embedding_dimension']}")
+        errors['embedding_dimension'] = f"埋め込み次元数は正の整数である必要があります: {config['embedding_dimension']}"
     
     # HNSWパラメータの検証
     if config['index_mu'] <= 0:
-        raise ValueError(f"index_muは正の整数である必要があります: {config['index_mu']}")
+        errors['index_mu'] = f"index_muは正の整数である必要があります: {config['index_mu']}"
     
     if config['index_ml'] <= 0:
-        raise ValueError(f"index_mlは正の整数である必要があります: {config['index_ml']}")
+        errors['index_ml'] = f"index_mlは正の整数である必要があります: {config['index_ml']}"
     
     if config['index_ml'] < config['index_mu']:
-        raise ValueError(f"index_ml ({config['index_ml']}) はindex_mu ({config['index_mu']}) 以上である必要があります")
+        errors['index_ml_mu_relation'] = f"index_ml ({config['index_ml']}) はindex_mu ({config['index_mu']}) 以上である必要があります"
     
     # メトリックの検証
     valid_metrics = {'cosine', 'l2', 'l2sq', 'dotproduct'}
     if config['index_metric'] not in valid_metrics:
-        raise ValueError(f"index_metricは {valid_metrics} のいずれかである必要があります: {config['index_metric']}")
+        errors['index_metric'] = f"index_metricは {valid_metrics} のいずれかである必要があります: {config['index_metric']}"
     
     # タイムアウトの検証
     if config['vector_extension_timeout'] <= 0:
-        raise ValueError(f"vector_extension_timeoutは正の整数である必要があります: {config['vector_extension_timeout']}")
+        errors['vector_extension_timeout'] = f"vector_extension_timeoutは正の整数である必要があります: {config['vector_extension_timeout']}"
+    
+    # エラーがある場合は失敗を返す
+    if errors:
+        return (False, errors)
+    
+    # 検証成功
+    return (True, config)
 
 
 def config_to_dict(config: VSSConfig) -> Dict[str, Any]:

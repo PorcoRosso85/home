@@ -83,7 +83,14 @@ config = create_config(
 )
 
 # 設定の検証
-validate_config(config)
+is_valid, result = validate_config(config)
+if not is_valid:
+    # resultにはエラーの詳細が含まれる
+    print("設定エラー:", result)
+    # 例: {'embedding_dimension': '埋め込み次元数は正の整数である必要があります: -1'}
+else:
+    # resultには検証済みのconfigが含まれる
+    validated_config = result
 ```
 
 ### 3. 既存設定の部分更新

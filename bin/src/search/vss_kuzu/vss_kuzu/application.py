@@ -550,27 +550,35 @@ def create_embedding_service(model_name: str = "cl-nagoya/ruri-v3-30m") -> Embed
         return generate_embedding
 
 
-class VSSInterpreter:
-    """VSS代数のインタープリター実装"""
-    
-    def __init__(self, config: Any, service_funcs: Dict[str, Callable]):
-        self._config = config
-        self._service_funcs = service_funcs
-    
-    def index(self, documents: List[Dict[str, str]]) -> Dict[str, Any]:
-        """ドキュメントをインデックス"""
-        return self._service_funcs["index_documents"](documents, self._config)
-    
-    def search(self, query: str, limit: int = 10, **kwargs) -> Dict[str, Any]:
-        """類似ドキュメントを検索"""
-        search_input = {"query": query, "limit": limit}
-        search_input.update(kwargs)
-        return self._service_funcs["search"](search_input, self._config)
-
-
 def create_vss_interpreter(config: Any, service_funcs: Dict[str, Callable]) -> VSSAlgebra:
-    """VSSインタープリターを作成"""
-    return VSSInterpreter(config, service_funcs)
+    """
+    VSSインタープリターをクロージャとして作成
+    
+    Args:
+        config: アプリケーション設定
+        service_funcs: サービス関数の辞書
+        
+    Returns:
+        VSSAlgebra protocol を実装するオブジェクト（クロージャ）
+    """
+    # クロージャが参照する設定とサービス関数
+    _config = config
+    _service_funcs = service_funcs
+    
+    class VSSInterpreterClosure:
+        """VSS代数のインタープリター実装（クロージャベース）"""
+        
+        def index(self, documents: List[Dict[str, str]]) -> Dict[str, Any]:
+            """ドキュメントをインデックス"""
+            return _service_funcs["index_documents"](documents, _config)
+        
+        def search(self, query: str, limit: int = 10, **kwargs) -> Dict[str, Any]:
+            """類似ドキュメントを検索"""
+            search_input = {"query": query, "limit": limit}
+            search_input.update(kwargs)
+            return _service_funcs["search"](search_input, _config)
+    
+    return VSSInterpreterClosure()
 
 
 
@@ -580,7 +588,7 @@ def create_vss(
     model_name: str = "cl-nagoya/ruri-v3-30m",
     existing_connection: Optional[Any] = None,
     **kwargs
-) -> VSSAlgebra:
+) -> Optional[VSSAlgebra]:
     """
     VSS統一APIインスタンスを作成
     
@@ -598,10 +606,13 @@ def create_vss(
             - index_efc: HNSWインデックスのefCパラメータ
     
     Returns:
-        VSSAlgebra protocol実装
+        VSSAlgebra protocol実装 (成功時) または None (失敗時)
     
     Example:
         vss = create_vss(in_memory=True)
+        if vss is None:
+            print("Failed to initialize VSS")
+            return
         vss.index([{"id": "1", "content": "テキスト"}])
         results = vss.search("検索語")
     """
@@ -701,7 +712,7 @@ def create_vss(
                 "error": error_msg,
                 "details": db_error.get('details', {})
             })
-            raise RuntimeError(f"Failed to create database: {error_msg}")
+            return None
         
         conn_success, connection, conn_error = create_kuzu_connection(database)
         if not conn_success:
@@ -713,7 +724,7 @@ def create_vss(
                 "error": error_msg,
                 "details": conn_error.get('details', {})
             })
-            raise RuntimeError(f"Failed to create connection: {error_msg}")
+            return None
         
         should_close_connection = True
     
@@ -730,11 +741,7 @@ def create_vss(
                 "error": error_msg,
                 "details": details
             })
-            raise RuntimeError(
-                f"Failed to initialize VSS: {error_msg}. "
-                f"See README.md or run 'nix flake show' for setup instructions. "
-                f"Details: {details}"
-            )
+            return None
         
         # スキーマを初期化
         schema_success, schema_error = initialize_vector_schema(
@@ -755,10 +762,7 @@ def create_vss(
                 "error": error_msg,
                 "details": details
             })
-            raise RuntimeError(
-                f"Failed to initialize VSS schema: {error_msg}. "
-                f"Details: {details}"
-            )
+            return None
     finally:
         # 自分で作成した接続のみクローズ
         if should_close_connection:

@@ -6,7 +6,7 @@
 """
 
 import os
-from typing import Optional, Dict, Any, TypedDict
+from typing import Optional, Dict, Any, TypedDict, Union
 
 
 class EnvironmentVariables(TypedDict):
@@ -48,8 +48,8 @@ def get_env_int(key: str, default: int) -> int:
     Returns:
         環境変数の値またはデフォルト値
         
-    Raises:
-        ValueError: 環境変数が整数に変換できない場合
+    Note:
+        環境変数が整数に変換できない場合はデフォルト値を返す
     """
     value = os.environ.get(key)
     if value is None:
@@ -58,7 +58,9 @@ def get_env_int(key: str, default: int) -> int:
     try:
         return int(value)
     except ValueError:
-        raise ValueError(f"環境変数 {key} の値 '{value}' は整数に変換できません")
+        # 変換エラーの場合はデフォルト値を返す
+        # エラーログを出力する場合はここに追加
+        return default
 
 
 def get_env_bool(key: str, default: bool) -> bool:

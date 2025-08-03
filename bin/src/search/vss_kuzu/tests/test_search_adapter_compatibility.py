@@ -23,16 +23,10 @@ class TestSearchAdapterCompatibility:
         
         with tempfile.TemporaryDirectory() as db_dir:
             os.environ['RGL_DATABASE_PATH'] = db_dir
-            try:
-                vss = create_vss(db_path=db_dir, in_memory=False)
-                yield vss
-            except RuntimeError as e:
-                log("warning", {
-                    "message": "Failed to create VSS instance",
-                    "error": str(e),
-                    "reason": "VECTOR extension might not be available"
-                })
-                pytest.skip(f"VECTOR extension not available: {e}")
+            vss = create_vss(db_path=db_dir, in_memory=False)
+            if vss is None:
+                pytest.skip("VECTOR extension not available")
+            yield vss
     
     def test_add_to_index_functionality(self, vss_instance):
         """add_to_indexに相当する機能が正常動作"""

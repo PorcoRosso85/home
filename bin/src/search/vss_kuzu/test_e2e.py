@@ -38,16 +38,17 @@ class TestE2EImportCapability:
         assert callable(create_vss)
         
         # Try creating an in-memory VSS instance
-        try:
-            vss = create_vss(in_memory=True)
+        vss = create_vss(in_memory=True)
+        if vss is not None:
             # If successful, check it has the expected interface
             assert hasattr(vss, 'index')
             assert hasattr(vss, 'search')
             assert callable(vss.index)
             assert callable(vss.search)
-        except RuntimeError as e:
+        else:
             # VECTOR extension not available is acceptable in test environment
-            assert "VECTOR extension" in str(e)
+            # This is expected when VECTOR extension is not installed
+            pass
     
     def test_type_definitions_available(self):
         """Test that type definitions are accessible"""
