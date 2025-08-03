@@ -4,11 +4,40 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    python-flake.url = "path:/home/nixos/bin/src/flakes/python";
-    kuzu-py-flake.url = "path:/home/nixos/bin/src/persistence/kuzu_py";
-    log-py-flake.url = "path:/home/nixos/bin/src/telemetry/log_py";
-    vss-kuzu-flake.url = "path:/home/nixos/bin/src/search/vss_kuzu";
-    similarity-flake.url = "path:/home/nixos/bin/src/poc/similarity";
+    
+    python-flake = {
+      url = "path:/home/nixos/bin/src/flakes/python";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
+    
+    kuzu-py-flake = {
+      url = "path:/home/nixos/bin/src/persistence/kuzu_py";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
+    
+    log-py-flake = {
+      url = "path:/home/nixos/bin/src/telemetry/log_py";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+      inputs.python-flake.follows = "python-flake";
+    };
+    
+    vss-kuzu-flake = {
+      url = "path:/home/nixos/bin/src/search/vss_kuzu";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+      inputs.python-flake.follows = "python-flake";
+      inputs.kuzu-py-flake.follows = "kuzu-py-flake";
+      inputs.log-py.follows = "log-py-flake";
+    };
+    
+    similarity-flake = {
+      url = "path:/home/nixos/bin/src/poc/similarity";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
   };
 
   outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, log-py-flake, vss-kuzu-flake, similarity-flake }:
