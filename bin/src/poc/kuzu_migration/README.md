@@ -11,7 +11,8 @@ KuzuDBが包括的なALTER TABLE機能をサポートしていることが判明
 - ✅ **ネイティブALTER TABLE**: テーブル再作成不要
 - ✅ **瞬時のスキーマ変更**: 大規模データでも高速
 - ✅ **マイグレーション履歴管理**: 適用済み変更の追跡
-- ✅ **JSONベースの定義**: 読みやすく管理しやすい
+- ✅ **Cypherネイティブ定義**: KuzuDBの標準形式で透明性が高い
+- ✅ **スキーマ差分からの自動生成**: EXPORT DATABASEを活用した差分検出
 - ✅ **部分的ロールバック**: 可能な範囲でのロールバック
 
 ## クイックスタート
@@ -28,20 +29,12 @@ pip install kuzu
 
 ### 2. マイグレーション作成
 
-```python
-from migration_framework import MigrationBuilder
+```bash
+# Cypherファイルを直接作成
+echo "ALTER TABLE User ADD email STRING DEFAULT '';" > migrations/001_add_email.cypher
 
-# カラム追加のマイグレーション
-migration = MigrationBuilder.create_add_column_migration(
-    table="User",
-    column="email",
-    data_type="STRING",
-    default="",
-    description="Add email to users"
-)
-
-# ファイルとして保存
-MigrationBuilder.create_migration_file(migration)
+# または、スキーマ差分から自動生成
+kuzu-migrate generate-migration
 ```
 
 ### 3. マイグレーション実行
@@ -62,22 +55,26 @@ migrator.disconnect()
 
 ## マイグレーション定義形式
 
-### JSON形式（推奨）
+### Cypherネイティブ形式（推奨）
 
-```json
-{
-  "id": "20240701_100000_add_user_email",
-  "name": "Add email column to users",
-  "operations": [
-    {
-      "type": "add_column",
-      "table": "User",
-      "column": "email",
-      "data_type": "STRING",
-      "default": ""
-    }
-  ]
-}
+```cypher
+-- migrations/001_add_user_email.cypher
+-- Migration ID: 001_add_user_email
+-- Description: Add email field to User table
+-- Author: dev-team
+-- Date: 2024-07-01
+
+ALTER TABLE User ADD email STRING DEFAULT '';
+```
+
+### スキーマ差分からの自動生成
+
+```bash
+# 現在のスキーマをエクスポート
+kuzu-migrate export-schema ./snapshots/current
+
+# 変更後のスキーマと比較して差分を生成
+kuzu-migrate generate-migration ./snapshots/current ./snapshots/new
 ```
 
 ### サポートされる操作タイプ
@@ -96,104 +93,73 @@ migrator.disconnect()
 
 ### 1. 単純なカラム追加
 
-```json
-{
-  "id": "20240701_add_status",
-  "name": "Add status field",
-  "operations": [
-    {
-      "type": "add_column",
-      "table": "User",
-      "column": "status",
-      "data_type": "STRING",
-      "default": "active"
-    }
-  ]
-}
+```cypher
+-- migrations/002_add_status.cypher
+ALTER TABLE User ADD status STRING DEFAULT 'active';
 ```
 
 ### 2. 複数操作の組み合わせ
 
-```json
-{
-  "id": "20240701_user_metadata",
-  "name": "Add user metadata fields",
-  "operations": [
-    {
-      "type": "add_column",
-      "table": "User",
-      "column": "created_by",
-      "data_type": "STRING"
-    },
-    {
-      "type": "add_column",
-      "table": "User",
-      "column": "updated_at",
-      "data_type": "TIMESTAMP"
-    },
-    {
-      "type": "add_comment",
-      "table": "User",
-      "comment": "User table with audit fields"
-    }
-  ]
-}
+```cypher
+-- migrations/003_user_metadata.cypher
+ALTER TABLE User ADD created_by STRING;
+ALTER TABLE User ADD updated_at TIMESTAMP;
+ALTER TABLE User COMMENT 'User table with audit fields';
 ```
 
 ### 3. テーブル作成
 
-```json
-{
-  "id": "20240701_create_products",
-  "name": "Create products table",
-  "operations": [
-    {
-      "type": "create_table",
-      "query": "CREATE NODE TABLE Product (id INT64, name STRING, price DOUBLE, PRIMARY KEY (id))"
-    }
-  ]
-}
+```cypher
+-- migrations/004_create_products.cypher
+CREATE NODE TABLE Product (
+    id INT64,
+    name STRING,
+    price DOUBLE,
+    PRIMARY KEY (id)
+);
 ```
 
-## 従来形式のサポート（後方互換性）
+## プロジェクト構造
 
-```cypher
--- Migration: add_user_email
--- Created at: 2024-07-01 10:00:00
-
--- UP
-ALTER TABLE User ADD email STRING DEFAULT '';
-
--- DOWN
-ALTER TABLE User DROP email;
+```
+kuzu_migration/
+├── migrations/              # Cypherマイグレーションファイル
+│   ├── 000_initial.cypher  # EXPORT DATABASE --schema-only の出力
+│   └── NNN_description.cypher  # 番号_説明.cypher形式
+├── snapshots/              # EXPORT DATABASEの出力
+│   └── v1.0.0/            # バージョンごとのスナップショット
+│       ├── schema.cypher
+│       ├── macro.cypher
+│       └── data/
+└── src/                    # フレームワークのソースコード
+    ├── migrator.py        # 実行エンジン
+    ├── snapshot.py        # バックアップ/リストア
+    └── cli.py             # コマンドライン
 ```
 
 ## ロールバック
 
 ⚠️ **注意**: 一部の操作は不可逆です（DROP COLUMNなど）
 
-### ロールバックファイルの作成
-
-```json
-{
-  "id": "20240701_add_status_rollback",
-  "name": "Rollback: Remove status field",
-  "operations": [
-    {
-      "type": "drop_column",
-      "table": "User",
-      "column": "status",
-      "if_exists": true
-    }
-  ],
-  "warning": "This will permanently delete all data in the status column"
-}
-```
-
-### ロールバックの実行
+### スナップショットベースの完全ロールバック
 
 ```python
-migrator.rollback_migration("20240701_add_status")
+# マイグレーション前にスナップショット作成
+migrator.create_snapshot("pre_migration_v2.0.0")
+
+# 変更実行
+migrator.run_migrations()
+
+# 問題発生時は完全復元
+migrator.restore_snapshot("pre_migration_v2.0.0")
+```
+
+### 個別マイグレーションのロールバック
+
+```cypher
+-- migrations/002_add_status_rollback.cypher
+-- Rollback for: 002_add_status
+ALTER TABLE User DROP status IF EXISTS;
 ```
 
 ## ベストプラクティス
