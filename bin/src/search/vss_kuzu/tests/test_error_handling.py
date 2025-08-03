@@ -68,11 +68,12 @@ class TestErrorHandling:
                 vss = create_vss(db_path=db_dir, in_memory=False)
                 
                 # 空のドキュメントリストでのインデックス
-                with pytest.raises((ValueError, AssertionError)) as exc_info:
-                    vss.index([])
+                result = vss.index([])
+                assert result['ok'] is False, "Empty documents should fail"
+                assert 'No documents provided' in result['error']
                 log("info", {
                     "message": "Empty document list rejected",
-                    "error": str(exc_info.value)
+                    "error": result['error']
                 })
                 
                 # 不正な形式のドキュメント
