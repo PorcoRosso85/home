@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# select-project: Standalone project selector for Claude launcher
+# Returns: Selected or created project directory path
+# Exit codes: 0 = success, 1 = cancelled/error
+
+set -euo pipefail
+
+# Debug logging
+debug_log() {
+  if [[ -n "${DEBUG:-}" ]]; then
+    echo "[DEBUG] $*" >&2
+  fi
+}
+
+# Normalize path: expand tilde and make absolute
+normalize_path() {
+  local path="$1"
+  # Expand tilde
+  path=$(eval echo "$path")
+  # Make absolute if relative
+  [[ "$path" != /* ]] && path="$(pwd)/$path"
+  echo "$path"
+}
+
+# Print usage
+usage() {
+  cat >&2 << EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Select an existing project with flake.nix or specify a new project path.
+
+Options:
+  -h, --help     Show this help message
+  -d, --debug    Enable debug logging
+  -r, --root DIR Start search from DIR (default: current directory)
+
+Exit codes:
+  0  Success - project directory selected/created
+  1  Cancelled or error occurred
+
+The script outputs the selected project directory path to stdout.
+EOF
+}
+
+# Parse arguments
+ROOT_DIR="$(pwd)"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -d|--debug)
+      export DEBUG=1
+      shift
+      ;;
+    -r|--root)
+      if [[ -z "${2:-}" ]]; then
+        echo "Error: --root requires an argument" >&2
+        exit 1
+      fi
+      ROOT_DIR="$2"
+      shift 2
+      ;;
+    *)
+      echo "Error: Unknown option: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+# Validate root directory
+if [[ ! -d "$ROOT_DIR" ]]; then
+  echo "Error: Root directory does not exist: $ROOT_DIR" >&2
+  exit 1
+fi
+
+debug_log "Starting project selection from: $ROOT_DIR"
+
+# Find all flake.nix files (excluding .git directories)
+files=$(find "$ROOT_DIR" -name "flake.nix" -type f 2>/dev/null | grep -v "/.git/" || true)
+debug_log "Found $(echo "$files" | wc -l) flake.nix files"
+
+# Check if fzf is available
+if ! command -v fzf >/dev/null 2>&1; then
+  # Try to run fzf via nix if not in PATH
+  FZF_CMD="nix run nixpkgs#fzf --"
+else
+  FZF_CMD="fzf"
+fi
+
+# Run fzf selector
+result=$(echo "$files" | $FZF_CMD \
+  --print-query \
+  --prompt="Select flake.nix or enter new project path: " \
+  --preview="head -20 {}" \
+  --preview-window=right:50%:wrap \
+  --header=$'Enter: Confirm | Tab: Edit selection | Type path: Create new project\n─────────────────────────────────────────────────' \
+  --bind='tab:replace-query' \
+  || echo "")
+
+# Check if cancelled (empty result)
+if [[ -z "$result" ]]; then
+  debug_log "Selection cancelled"
+  exit 1
+fi
+
+# Parse fzf output
+query=$(echo "$result" | head -1)
+selected=$(echo "$result" | tail -n +2)
+debug_log "Query: '$query', Selected: '$selected'"
+
+# Determine mode and output result
+if [[ -z "$selected" && -n "$query" ]]; then
+  # New project mode - query contains the path
+  target_dir=$(normalize_path "$query")
+  debug_log "New project mode: $target_dir"
+  
+  # Create directory if it doesn't exist
+  if [[ ! -d "$target_dir" ]]; then
+    debug_log "Creating directory: $target_dir"
+    mkdir -p "$target_dir" || {
+      echo "Error: Failed to create directory $target_dir" >&2
+      exit 1
+    }
+  fi
+  
+  echo "$target_dir"
+elif [[ -n "$selected" ]]; then
+  # Existing project mode - selected contains path to flake.nix
+  target_dir=$(dirname "$selected")
+  debug_log "Existing project mode: $target_dir"
+  
+  echo "$target_dir"
+else
+  # Should not reach here, but handle gracefully
+  debug_log "No selection made (edge case)"
+  exit 1
+fi
