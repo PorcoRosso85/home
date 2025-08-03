@@ -8,9 +8,10 @@
     kuzu-py-flake.url = "path:/home/nixos/bin/src/persistence/kuzu_py";
     log-py-flake.url = "path:/home/nixos/bin/src/telemetry/log_py";
     vss-kuzu-flake.url = "path:/home/nixos/bin/src/search/vss_kuzu";
+    similarity-flake.url = "path:/home/nixos/bin/src/poc/similarity";
   };
 
-  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, log-py-flake, vss-kuzu-flake }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py-flake, log-py-flake, vss-kuzu-flake, similarity-flake }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -106,6 +107,8 @@
             pythonEnv
             python-flake.packages.${system}.pyright
             python-flake.packages.${system}.ruff
+            cargo
+            rustc
           ];
           
           shellHook = ''
