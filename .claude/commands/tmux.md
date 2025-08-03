@@ -1,45 +1,54 @@
 # /tmux
-同一tmuxウィンドウ内の他のClaudeペインにタスクを送信
+他のtmuxペインにタスクを送信
 
 ## 使用方法
 ```bash
-/tmux <pane_id> <タスク>
+/tmux <window.pane> <タスク>
 ```
+
+## 形式要件
+- **必須**: `window.pane`形式（例: 0.1, 1.2, 2.3）
+- windowは整数、paneは整数
+- ドット区切りの数値でない場合は処理を拒否
 
 ## 実行内容
 0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
-1. **tmux windowリストを取得して送信先を確認**
-   - `tmux list-panes -F "#{pane_id} #{pane_current_command}"` で状況確認
-   - 送信先ペインの存在と状態を検証
-2. **タスクを送信**
-   - 指定されたペインIDにタスクを送信
+1. **入力形式の検証**
+   - `window.pane`形式（例: 0.1）であることを確認
+   - 形式が正しくない場合は処理を中止
+2. **送信先の確認**
+   - `tmux list-panes -t <window> -F "#{window_index}.#{pane_index} #{pane_current_command}"` で確認
+   - 指定されたwindow.paneが存在することを検証
+3. **タスクを送信**
+   - 指定されたwindow.paneにタスクを送信
    - 作業ディレクトリを自動設定
-3. **送信後の動作確認**
+4. **送信後の動作確認**
    - 送信操作が期待通り動作したことを確認
-   - エラー時はメインペインに報告
+   - エラー時は報告
 
 ## タスク送信フォーマット
 ```bash
-# 1. 現在のウィンドウのペインのみ確認（他ウィンドウへの誤送信を防止）
-tmux list-panes -F "#{pane_id} #{pane_current_command} #{pane_current_path}"
+# 1. 入力形式の検証（正規表現で確認）
+if [[ ! "$1" =~ ^[0-9]+\.[0-9]+$ ]]; then
+  echo "エラー: window.pane形式（例: 0.1）で指定してください"
+  exit 1
+fi
 
-# 2. 現在のウィンドウ内のペインにのみタスク送信
-# 注意: %<pane_id>は現在のウィンドウ内のペインIDのみ使用
-tmux send-keys -t %<pane_id> "cd '$(pwd)' && [pane:<pane_id>] <タスク>" Enter
+# 2. 指定されたウィンドウのペイン確認
+tmux list-panes -t <window> -F "#{window_index}.#{pane_index} #{pane_current_command}"
 
-# 3. 送信確認（最後に送信したコマンドの取得）
-tmux capture-pane -t %<pane_id> -p | tail -n 5
+# 3. タスク送信（window.pane形式で指定）
+tmux send-keys -t <window.pane> "cd '$(pwd)' && [pane:<window.pane>] <タスク>" Enter
+
+# 4. 送信確認
+tmux capture-pane -t <window.pane> -p | tail -n 5
 ```
-
-## 重要な制限事項
-- **現在のウィンドウ内のペインのみ操作可能**
-- 他のウィンドウへの送信は明示的に禁止
-- `list-panes`は現在のウィンドウのペインのみ表示するため、これにより安全性を確保
 
 ## 使用例
 ```bash
-/tmux 1 "このファイルのテストを書いて"
-/tmux 2 "コードレビューしてください"
+/tmux 0.1 "このファイルのテストを書いて"
+/tmux 1.2 "コードレビューしてください"
+/tmux 2.1 "ドキュメントを更新して"
 ```
 
 ## ペイン配置の前提
