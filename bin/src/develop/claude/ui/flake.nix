@@ -47,15 +47,17 @@
           self.packages.${system}.launch-claude
         ];
         text = ''
-          # Main launcher using modular scripts
+          # Main launcher using modular scripts  
           project_dir=$(${self.packages.${system}.select-project}/bin/select-project) || exit 1
           
-          # Determine if we should try --continue mode
-          if [[ -d "$project_dir/.claude" ]]; then
-            # Project might have conversation history
+          # Check if this is a new project (created by select-project)
+          # or an existing project (selected from list)
+          # Simple heuristic: if the project has a flake.nix, it's existing
+          if [[ -f "$project_dir/flake.nix" ]]; then
+            # Existing project - try to continue conversation
             ${self.packages.${system}.launch-claude}/bin/launch-claude "$project_dir" --continue
           else
-            # New project or no history
+            # New project - start fresh
             ${self.packages.${system}.launch-claude}/bin/launch-claude "$project_dir"
           fi
         '';
