@@ -61,6 +61,8 @@ $ flake-graph analyze . --architecture
 - 責務に基づいた検索・フィルタリング機能
 - 依存関係の双方向探索（依存先・依存元）
 - カテゴリ別・言語別の統計表示
+- VSS（ベクトル類似検索）による意味的類似性分析
+- AST分析によるコード構造類似性検出（開発中）
 
 ## 使用技術
 - Nix Flakes
@@ -76,14 +78,14 @@ $ flake-graph analyze . --architecture
 
 ### 実装済み機能
 1. **VSS（Vector Similarity Search）分析**
-   - flakeの説明文に基づく意味的類似性検出
+   - flakeの説明文とREADMEに基づく意味的類似性検出
    - 日本語/英語の表記揺れ対応（例: "ベクトル検索" ↔ "Vector Search"）
-   - クラスタリングによる重複グループ検出
+   - Complete-linkageクラスタリングによる重複グループ検出（閾値: 0.9）
 
 2. **基本的なflake分析**
-   - flake.nixからのメタデータ抽出
-   - README欠落検出
-   - 依存関係の可視化
+   - flake.nixからのメタデータ自動抽出
+   - README.md欠落検出とアラート
+   - 依存関係の双方向グラフ構築
 
 ### 未実装・開発中機能
 1. **AST（Abstract Syntax Tree）分析**
@@ -143,3 +145,38 @@ CREATE NODE Flake {
 3. **実用性優先**
    - 完璧な分析より高速な応答
    - 部分的な分析結果でも価値を提供
+
+## 使用方法
+
+### 基本的な分析
+```bash
+# flake情報の分析と可視化
+nix run . -- analyze /home/nixos/bin/src
+
+# README欠落チェック
+nix run . -- check-readme /home/nixos/bin/src
+
+# 重複flake検出
+nix run . -- detect-duplicates /home/nixos/bin/src
+```
+
+### アーキテクチャ分析（VSS実装済み、AST開発中）
+```bash
+# 統合分析の実行
+nix run . -- analyze /home/nixos/bin/src --architecture
+
+# JSON形式での出力
+nix run . -- analyze /home/nixos/bin/src --json
+```
+
+## 開発環境
+```bash
+# 開発シェルに入る
+nix develop
+
+# テストの実行
+pytest -v
+
+# 特定のテストのみ実行
+pytest tests/e2e/internal/test_architecture_analysis.py -v
+```
