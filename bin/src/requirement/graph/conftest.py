@@ -22,14 +22,6 @@ except ImportError:
     def warn(module, message, **kwargs):
         pass
 
-# Import for search adapter session management
-try:
-    import kuzu
-    from requirement.graph.application.search_adapter import SearchAdapter
-except ImportError:
-    kuzu = None
-    SearchAdapter = None
-
 
 # パフォーマンス計測用
 try:
@@ -111,60 +103,6 @@ def run_system_optimized(input_data: Dict[str, Any], db_path: Optional[str] = No
                     continue
     
     return {"error": "No valid JSON output", "stderr": stderr}
-
-
-@pytest.fixture(scope="session")
-def shared_search_adapter_session():
-    """
-    セッション全体で共有されるSearchAdapter
-    VSS/FTS初期化を1回のみ実行
-    """
-    if not SearchAdapter:
-        pytest.skip("SearchAdapter not available")
-    
-    info("rgl.test", "Creating session-scoped SearchAdapter")
-    
-    # インメモリDBで高速化
-    db_path = ":memory:"
-    
-    # KuzuDB接続を作成
-    conn = kuzu.Connection(db_path)
-    
-    # スキーマ初期化
-    from requirement.graph.infrastructure.kuzu_repository import KuzuRepository
-    repo = KuzuRepository(db_path)
-    repo.initialize_schema()
-    
-    # SearchAdapterを初期化（VSS/FTS含む）
-    adapter = SearchAdapter(db_path, repository_connection=conn)
-    
-    info("rgl.test", f"Session SearchAdapter created - VSS: {adapter._vss_service._is_initialized}, FTS: {adapter._fts_service._is_initialized}")
-    
-    yield adapter, conn, db_path
-    
-    # セッション終了時にクリーンアップ
-    conn.close()
-    info("rgl.test", "Session SearchAdapter cleaned up")
-
-
-@pytest.fixture
-def search_adapter(shared_search_adapter_session):
-    """
-    各テスト用のSearchAdapter
-    セッション共有のアダプターを使用し、データのみクリア
-    """
-    adapter, conn, db_path = shared_search_adapter_session
-    
-    # テストごとにデータをクリア（スキーマは保持）
-    try:
-        conn.execute("MATCH (n) DETACH DELETE n")
-        debug("rgl.test", "Cleared all nodes for test isolation")
-    except Exception as e:
-        warn("rgl.test", f"Failed to clear data: {e}")
-    
-    yield adapter
-    
-    # テスト後のクリーンアップは不要（次のテストでクリアされる）
 
 
 @pytest.fixture
