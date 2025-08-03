@@ -10,6 +10,7 @@ from .architecture_analyzer import analyze_architecture
 from .duplicate_detector import find_duplicate_flakes
 from .readme_checker import generate_missing_readme_report
 from .scanner import scan_flake_description, scan_readme_content
+from .exporter import FlakeExporter
 
 
 def cmd_analyze(args: argparse.Namespace) -> int:
@@ -165,6 +166,55 @@ def cmd_detect_duplicates(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    """Export flake data from KuzuDB."""
+    # Validate format (currently only JSON is supported)
+    if args.format != "json":
+        print(f"Error: Format '{args.format}' is not supported yet. Only 'json' is available.", file=sys.stderr)
+        return 1
+    
+    # Initialize exporter with database path
+    db_path = Path(args.db_path)
+    if not db_path.exists():
+        print(f"Error: Database path {db_path} does not exist", file=sys.stderr)
+        return 1
+    
+    exporter = FlakeExporter(db_path)
+    
+    try:
+        # Export to JSON with specified options
+        result = exporter.export_to_json(
+            output_path=args.output,
+            language_filter=args.language,
+            include_embeddings=args.include_embeddings,
+            pretty_print=True
+        )
+        
+        # Display results
+        print(f"Export successful!")
+        print(f"  Output file: {result['output_path']}")
+        print(f"  Total flakes exported: {result['total_exported']}")
+        print(f"  File size: {result['file_size_bytes']:,} bytes")
+        
+        if result['metadata']['language_filter']:
+            print(f"  Language filter: {result['metadata']['language_filter']}")
+        
+        print(f"  Embeddings included: {result['metadata']['embeddings_included']}")
+        
+        if result['metadata']['languages']:
+            print(f"\nFlakes by language:")
+            for lang, count in sorted(result['metadata']['languages'].items()):
+                print(f"    {lang}: {count}")
+        
+    except Exception as e:
+        print(f"Error during export: {e}", file=sys.stderr)
+        return 1
+    finally:
+        exporter.close()
+    
+    return 0
+
+
 def main() -> int:
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
@@ -253,6 +303,38 @@ def main() -> int:
         help="Output results as JSON"
     )
     
+    # Export command
+    export_parser = subparsers.add_parser(
+        "export",
+        help="Export flake data from KuzuDB"
+    )
+    export_parser.add_argument(
+        "--db-path",
+        default="vss.db",
+        help="Path to KuzuDB database (default: vss.db)"
+    )
+    export_parser.add_argument(
+        "--format",
+        default="json",
+        choices=["json"],
+        help="Output format (default: json, future formats can be added)"
+    )
+    export_parser.add_argument(
+        "--language",
+        help="Filter by programming language (e.g., python, typescript, rust)"
+    )
+    export_parser.add_argument(
+        "--include-embeddings",
+        action="store_true",
+        default=False,
+        help="Include VSS embeddings in the export (default: False)"
+    )
+    export_parser.add_argument(
+        "--output",
+        required=True,
+        help="Output file path for the exported data"
+    )
+    
     # Architecture analyze shortcut (for backward compatibility)
     arch_parser = subparsers.add_parser(
         "architecture-analyze",
@@ -301,6 +383,8 @@ def main() -> int:
         return cmd_check_readme(args)
     elif args.command == "detect-duplicates":
         return cmd_detect_duplicates(args)
+    elif args.command == "export":
+        return cmd_export(args)
     else:
         parser.print_help()
         return 1

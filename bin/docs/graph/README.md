@@ -169,6 +169,54 @@ nix run . -- analyze /home/nixos/bin/src --architecture
 nix run . -- analyze /home/nixos/bin/src --json
 ```
 
+### データエクスポート
+```bash
+# 基本的なエクスポート（全flake情報をJSON形式で出力）
+nix run . -- export /home/nixos/bin/src
+
+# 言語フィルタ付きエクスポート
+nix run . -- export /home/nixos/bin/src --language python
+nix run . -- export /home/nixos/bin/src --language typescript
+
+# embedding含むエクスポート（VSS分析用）
+nix run . -- export /home/nixos/bin/src --include-embeddings
+```
+
+### 出力JSONの構造
+```json
+{
+  "flakes": [
+    {
+      "path": "/path/to/flake",
+      "name": "flake_name",
+      "description": "flakeの説明",
+      "language": "python",
+      "category": "persistence",
+      "dependencies": ["dep1", "dep2"],
+      "readme_content": "READMEの内容（存在する場合）",
+      "embedding": [0.1, 0.2, ...] // --include-embeddingsオプション使用時のみ
+    }
+  ],
+  "statistics": {
+    "total_flakes": 42,
+    "by_language": {
+      "python": 20,
+      "typescript": 15,
+      "rust": 7
+    },
+    "by_category": {
+      "persistence": 8,
+      "search": 5,
+      "telemetry": 4
+    }
+  },
+  "metadata": {
+    "generated_at": "2024-01-20T10:30:00Z",
+    "base_path": "/home/nixos/bin/src",
+    "version": "1.0.0"
+  }
+}
+
 ## 開発環境
 ```bash
 # 開発シェルに入る
