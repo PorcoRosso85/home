@@ -175,17 +175,10 @@ tmux bind-key b display-popup -E -w 80% -h 80% \
     cut -d' ' -f1 | xargs -I {} tmux switch-client -t {} \\; select-pane -t {}"
 
 # flake.nixディレクトリ選択して新規window作成 (prefix + c)
-# スクリプトのパスを決定（同じディレクトリ、PATH、またはdevShell環境）
+# 高速版: search-flakes-fast.sh を直接実行（fdとfzfが環境にあることを前提）
 tmux bind-key c display-popup -E -w 80% -h 80% \
     "SCRIPT_DIR=\$(dirname \$(realpath ${BASH_SOURCE[0]:-\$0})); \
-    if [ -x \"\$SCRIPT_DIR/search-flakes.sh\" ]; then \
-        search_cmd=\"\$SCRIPT_DIR/search-flakes.sh\"; \
-    elif command -v search-flakes.sh >/dev/null 2>&1; then \
-        search_cmd=\"search-flakes.sh\"; \
-    else \
-        echo 'search-flakes.sh not found' >&2; exit 1; \
-    fi; \
-    selected_dir=\$(\$search_cmd 2>/dev/null); \
+    selected_dir=\$(\"\$SCRIPT_DIR/search-flakes-fast.sh\" 2>/dev/null); \
     if [ -n \"\$selected_dir\" ]; then \
         # モノレポルートからの相対パス取得
         rel_path=\${selected_dir#/home/nixos/bin/}; \
