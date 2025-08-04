@@ -113,6 +113,22 @@ def index_flakes_with_persistence(
     """
     # Initialize adapters
     vss = create_vss(db_path=vss_db_path)
+    
+    # Handle VSS initialization failure
+    if isinstance(vss, dict) and 'type' in vss:
+        return {
+            "ok": False,
+            "stats": {
+                "total_flakes": len(flakes),
+                "indexed": 0,
+                "skipped": 0,
+                "errors": len(flakes),
+                "new_embeddings": 0,
+                "updated_embeddings": 0
+            },
+            "message": f"VSS initialization failed: {vss.get('message', 'Unknown error')}"
+        }
+    
     kuzu = KuzuAdapter(db_path=kuzu_db_path)
     
     # Statistics
@@ -128,6 +144,7 @@ def index_flakes_with_persistence(
     # Prepare documents for indexing
     documents_to_index = []
     flake_map = {}  # Map document ID to flake info
+    needs_update = {}  # Track which flakes need embedding updates
     
     for flake in flakes:
         flake_path = str(flake["path"])
@@ -147,6 +164,7 @@ def index_flakes_with_persistence(
             doc = create_flake_document(flake)
             documents_to_index.append(doc)
             flake_map[doc["id"]] = flake
+            needs_update[doc["id"]] = existing_flake is None
             
             # Create or update flake in KuzuDB (without embedding yet)
             if existing_flake is None:
@@ -161,41 +179,53 @@ def index_flakes_with_persistence(
         else:
             stats["skipped"] += 1
     
-    # Index documents if any
+    # Index documents and extract embeddings if any
     if documents_to_index:
         try:
-            # Index documents in VSS
+            # First, generate embeddings by indexing documents
             index_result = vss.index(documents_to_index)
             
             if index_result.get("ok"):
                 stats["indexed"] = len(documents_to_index)
                 
-                # Get embeddings from VSS and persist to KuzuDB
-                # Note: This assumes VSS exposes embeddings after indexing
-                # In practice, you might need to extract embeddings differently
+                # Extract embeddings using the internal embedding function
+                # This is a direct approach to get embeddings
+                from vss_kuzu.application import create_embedding_service
+                embedding_func = create_embedding_service()
                 timestamp = datetime.now()
                 
                 for doc in documents_to_index:
                     flake = flake_map[doc["id"]]
                     flake_path = str(flake["path"])
                     
-                    # For now, we'll create a placeholder embedding
-                    # In a real implementation, you'd extract the actual embedding from VSS
-                    embedding = [0.0] * 384  # Placeholder 384-dim embedding
-                    
-                    # Update flake with embedding
-                    kuzu.update_flake(
-                        path=flake_path,
-                        vss_embedding=embedding,
-                        vss_analyzed_at=timestamp
-                    )
+                    try:
+                        # Generate embedding for the content
+                        embedding = embedding_func(doc["content"])
+                        
+                        # Update flake with embedding
+                        kuzu.update_flake(
+                            path=flake_path,
+                            vss_embedding=embedding,
+                            vss_analyzed_at=timestamp
+                        )
+                    except Exception as e:
+                        log("error", {
+                            "message": "Failed to generate embedding",
+                            "component": "flake_graph.vss_adapter",
+                            "operation": "index_flakes_with_persistence",
+                            "flake_path": flake_path,
+                            "error": str(e)
+                        })
+                        stats["errors"] += 1
+                        stats["indexed"] -= 1
             else:
                 stats["errors"] = len(documents_to_index)
                 
         except Exception as e:
-            log("ERROR", {
-                "uri": "/vss/index_flakes_with_persistence",
+            log("error", {
                 "message": "Error during indexing",
+                "component": "flake_graph.vss_adapter",
+                "operation": "index_flakes_with_persistence",
                 "error": str(e),
                 "documents_count": len(documents_to_index)
             })
@@ -230,25 +260,80 @@ def search_similar_flakes_with_kuzu(
     Returns:
         List of similar flakes with scores
     """
-    vss = create_vss(db_path=vss_db_path)
     kuzu = KuzuAdapter(db_path=kuzu_db_path)
     
-    # If using cached embeddings, load flakes from KuzuDB
+    # If using cached embeddings, attempt to use KuzuDB-stored embeddings
     if use_cached_embeddings:
+        # Get all flakes with embeddings from KuzuDB
         flakes_with_embeddings = kuzu.list_flakes()
+        embeddings_available = [f for f in flakes_with_embeddings if f.get("vss_embedding")]
         
-        # Convert to VSS document format
-        documents = []
-        for flake in flakes_with_embeddings:
-            if flake.get("vss_embedding"):
-                documents.append({
-                    "id": flake["path"],
-                    "content": flake.get("description", "")
+        if embeddings_available:
+            # Use direct vector similarity computation
+            from vss_kuzu.application import create_embedding_service
+            
+            try:
+                # Generate query embedding
+                embedding_func = create_embedding_service()
+                query_embedding = embedding_func(query)
+                
+                # Compute similarities directly
+                results = []
+                for flake in embeddings_available:
+                    score = compute_cosine_similarity(
+                        query_embedding, 
+                        flake["vss_embedding"]
+                    )
+                    results.append({
+                        "id": flake["path"],
+                        "content": flake.get("description", ""),
+                        "score": score,
+                        "path": flake["path"],
+                        "description": flake["description"],
+                        "language": flake.get("language"),
+                        "vss_analyzed_at": flake.get("vss_analyzed_at")
+                    })
+                
+                # Sort by score and limit results
+                results.sort(key=lambda x: x["score"], reverse=True)
+                kuzu.close()
+                return results[:limit]
+                
+            except Exception as e:
+                log("warning", {
+                    "message": "Failed to use cached embeddings, falling back to VSS",
+                    "component": "flake_graph.vss_adapter",
+                    "operation": "search_similar_flakes_with_kuzu",
+                    "error": str(e)
                 })
-        
-        # Index documents
-        if documents:
-            vss.index(documents)
+    
+    # Fallback to VSS if cached embeddings not available or failed
+    vss = create_vss(db_path=vss_db_path)
+    
+    # Handle VSS initialization failure
+    if isinstance(vss, dict) and 'type' in vss:
+        log("error", {
+            "message": f"VSS initialization failed: {vss.get('message', 'Unknown error')}",
+            "component": "flake_graph.vss_adapter",
+            "operation": "search_similar_flakes_with_kuzu"
+        })
+        kuzu.close()
+        return []
+    
+    # Get all flakes for indexing
+    all_flakes = kuzu.list_flakes()
+    
+    # Convert to VSS document format
+    documents = []
+    for flake in all_flakes:
+        documents.append({
+            "id": flake["path"],
+            "content": flake.get("description", "")
+        })
+    
+    # Index documents
+    if documents:
+        vss.index(documents)
     
     # Search
     results = vss.search(query, limit=limit)
@@ -272,3 +357,33 @@ def search_similar_flakes_with_kuzu(
     
     kuzu.close()
     return enhanced_results
+
+
+def compute_cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
+    """Compute cosine similarity between two vectors.
+    
+    Args:
+        vec1: First vector
+        vec2: Second vector
+        
+    Returns:
+        Cosine similarity score between 0 and 1
+    """
+    import math
+    
+    # Compute dot product
+    dot_product = sum(a * b for a, b in zip(vec1, vec2))
+    
+    # Compute magnitudes
+    magnitude1 = math.sqrt(sum(a * a for a in vec1))
+    magnitude2 = math.sqrt(sum(b * b for b in vec2))
+    
+    # Avoid division by zero
+    if magnitude1 == 0 or magnitude2 == 0:
+        return 0.0
+    
+    # Compute cosine similarity
+    similarity = dot_product / (magnitude1 * magnitude2)
+    
+    # Ensure result is in [0, 1] range (convert from [-1, 1])
+    return (similarity + 1) / 2

@@ -97,6 +97,35 @@ $ flake-graph analyze . --architecture
    - 現状: 毎回メモリ内でVSSインデックス作成
    - 計画: KuzuDBへのembedding永続化
 
+## VSS Persistence Implementation Progress
+
+### What Has Been Implemented
+1. **Embedding Extraction**: 
+   - Automated extraction of text from flake descriptions and README files
+   - Generation of embeddings using sentence-transformers
+   - Support for Japanese/English mixed content
+
+2. **Persistence Functions**:
+   - Core persistence layer for storing embeddings in KuzuDB
+   - Schema design for VSS data (embeddings, metadata)
+   - Basic CRUD operations for embedding management
+
+### Current Status
+- **Tests Written**: Comprehensive test suite covering persistence layer
+- **Partial Implementation**: Core functions implemented but not yet integrated with main application
+- **Infrastructure Ready**: KuzuDB schema and data models in place
+
+### Performance Goals
+- **90% reduction in startup time** after initial embedding generation
+- From ~30 seconds (current) to ~3 seconds for subsequent runs
+- Incremental updates only for changed flakes
+
+### Next Steps Needed
+1. **Integration**: Connect persistence layer to main analysis workflow
+2. **Cache Management**: Implement change detection for incremental updates
+3. **Performance Testing**: Validate 90% improvement target with real data
+4. **Error Handling**: Add resilience for partial persistence failures
+
 ## 今後の開発方針
 
 ### Phase 1: VSS永続化（現在）
