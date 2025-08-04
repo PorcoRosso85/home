@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Claude launcher - main entry point
+set -euo pipefail
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Run project selection
+project_dir=$("$SCRIPT_DIR/scripts/select-project") || exit 1
+
+# Check if this is an existing project with flake.nix
+if [[ -f "$project_dir/flake.nix" ]]; then
+    # Try to continue existing conversation
+    "$SCRIPT_DIR/scripts/launch-claude" "$project_dir" --continue
+else
+    # Start new session
+    "$SCRIPT_DIR/scripts/launch-claude" "$project_dir"
+fi
