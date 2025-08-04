@@ -498,7 +498,15 @@ def create_test_vss_adapter(kuzu_adapter, load_existing=False, current_model_ver
     """Create a test VSS adapter instance."""
     from flake_graph.vss_adapter import VSSAdapter
     
-    # Mock VSS adapter that can work with our test data
+    # Use actual VSSAdapter implementation
+    return VSSAdapter(
+        kuzu_adapter=kuzu_adapter,
+        vss_db_path="/tmp/test_vss.kuzu",
+        model_version=current_model_version,
+        load_existing=load_existing
+    )
+    
+    # Note: The mock TestVSSAdapter below is kept for reference but not used
     class TestVSSAdapter:
         def __init__(self, kuzu_adapter, load_existing=False, model_version="1.0.0"):
             self.kuzu_adapter = kuzu_adapter

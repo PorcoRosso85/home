@@ -326,6 +326,148 @@ class KuzuAdapter:
             })
             return []
     
+    def store_embedding(self, flake_id: str, embedding_data: Dict[str, Any]) -> None:
+        """Store embedding data for a flake.
+        
+        Args:
+            flake_id: Identifier for the flake
+            embedding_data: Dictionary containing embedding vector and metadata
+        """
+        try:
+            # First ensure the flake exists
+            flake_path = f"/src/{flake_id}"  # Construct path from ID
+            
+            # Update flake with embedding data
+            query = """
+                MATCH (f:Flake {path: $path})
+                SET f.vss_embedding = $embedding_vector,
+                    f.embedding_model = $embedding_model,
+                    f.model_version = $model_version,
+                    f.embedding_created_at = $created_at,
+                    f.content_hash = $content_hash
+            """
+            
+            self.conn.execute(query, {
+                'path': flake_path,
+                'embedding_vector': embedding_data.get('embedding_vector', []),
+                'embedding_model': embedding_data.get('embedding_model', ''),
+                'model_version': embedding_data.get('model_version', ''),
+                'created_at': embedding_data.get('created_at', ''),
+                'content_hash': embedding_data.get('content_hash', '')
+            })
+            
+            log("info", {
+                "message": f"Stored embedding for flake {flake_id}",
+                "component": "flake_graph.KuzuAdapter",
+                "operation": "store_embedding",
+                "flake_id": flake_id
+            })
+            
+        except Exception as e:
+            log("error", {
+                "message": f"Failed to store embedding for {flake_id}",
+                "component": "flake_graph.KuzuAdapter",
+                "operation": "store_embedding",
+                "error": str(e),
+                "flake_id": flake_id
+            })
+    
+    def get_embedding(self, flake_id: str) -> Optional[Dict[str, Any]]:
+        """Get embedding data for a specific flake.
+        
+        Args:
+            flake_id: Identifier for the flake
+            
+        Returns:
+            Embedding data dictionary or None if not found
+        """
+        try:
+            flake_path = f"/src/{flake_id}"
+            
+            query = """
+                MATCH (f:Flake {path: $path})
+                WHERE f.vss_embedding IS NOT NULL
+                RETURN f.vss_embedding as embedding_vector,
+                       f.embedding_model as embedding_model,
+                       f.model_version as model_version,
+                       f.embedding_created_at as created_at,
+                       f.content_hash as content_hash
+            """
+            
+            result = self.conn.execute(query, {'path': flake_path})
+            
+            for row in result:
+                return {
+                    'embedding_vector': row[0],
+                    'embedding_model': row[1],
+                    'model_version': row[2],
+                    'created_at': row[3],
+                    'content_hash': row[4]
+                }
+            
+            return None
+            
+        except Exception as e:
+            log("error", {
+                "message": f"Failed to get embedding for {flake_id}",
+                "component": "flake_graph.KuzuAdapter",
+                "operation": "get_embedding",
+                "error": str(e),
+                "flake_id": flake_id
+            })
+            return None
+    
+    def get_all_embeddings(self) -> Dict[str, Dict[str, Any]]:
+        """Get all stored embeddings.
+        
+        Returns:
+            Dictionary mapping flake IDs to embedding data
+        """
+        try:
+            query = """
+                MATCH (f:Flake)
+                WHERE f.vss_embedding IS NOT NULL
+                RETURN f.path as path,
+                       f.vss_embedding as embedding_vector,
+                       f.embedding_model as embedding_model,
+                       f.model_version as model_version,
+                       f.embedding_created_at as created_at,
+                       f.content_hash as content_hash
+            """
+            
+            result = self.conn.execute(query)
+            
+            embeddings = {}
+            for row in result:
+                path = row[0]
+                # Extract flake ID from path
+                flake_id = path.split('/')[-1] if '/' in path else path
+                
+                embeddings[flake_id] = {
+                    'embedding_vector': row[1],
+                    'embedding_model': row[2],
+                    'model_version': row[3],
+                    'created_at': row[4],
+                    'content_hash': row[5]
+                }
+            
+            log("info", {
+                "message": f"Retrieved {len(embeddings)} embeddings from KuzuDB",
+                "component": "flake_graph.KuzuAdapter",
+                "operation": "get_all_embeddings"
+            })
+            
+            return embeddings
+            
+        except Exception as e:
+            log("error", {
+                "message": "Failed to get all embeddings",
+                "component": "flake_graph.KuzuAdapter",
+                "operation": "get_all_embeddings",
+                "error": str(e)
+            })
+            return {}
+    
     def close(self) -> None:
         """Close the database connection."""
         # KuzuDB handles connection cleanup automatically
