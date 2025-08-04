@@ -1,0 +1,37 @@
+#!/usr/bin/env -S nix shell nixpkgs#tmux --command bash
+
+# aa - 基本的なtmuxセッション管理
+#
+# 機能: 2つのウィンドウを持つtmuxセッションを作成
+#   - Window 0: シェル
+#   - Window 1: watch用
+
+aa() {
+    # セッション名を生成（ディレクトリベース）
+    SESSION_NAME=$(echo "${PWD##*/}" | tr '.' '_')
+
+    # セッションが存在しない場合は新規作成
+    if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        tmux new-session -d -s "$SESSION_NAME" -c "$PWD" -n shell
+        tmux new-window -t "$SESSION_NAME":1 -c "$PWD" -n watch
+        tmux select-window -t "$SESSION_NAME":0
+    else
+        # 不足しているウィンドウを復元
+        if ! tmux list-windows -t "$SESSION_NAME" | grep -q "^0:"; then
+            tmux new-window -t "$SESSION_NAME":0 -c "$PWD" -n shell
+        fi
+        if ! tmux list-windows -t "$SESSION_NAME" | grep -q "^1:"; then
+            tmux new-window -t "$SESSION_NAME":1 -c "$PWD" -n watch
+        fi
+    fi
+
+    # セッションにアタッチ
+    if [ -n "$TMUX" ]; then
+        tmux switch-client -t "$SESSION_NAME"
+    else
+        tmux attach-session -t "$SESSION_NAME"
+    fi
+}
+
+# メイン処理
+aa "$@"

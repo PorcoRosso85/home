@@ -1,0 +1,42 @@
+#!/usr/bin/env -S nix shell nixpkgs#tmux nixpkgs#helix nixpkgs#lazygit nixpkgs#yazi --command bash
+
+# hly - Helix, Lazygit, Yazi統合開発環境
+# 
+# 機能: tmuxセッションを作成し、3つのウィンドウで開発ツールを起動
+#   - Window 0: Helix エディタ
+#   - Window 1: Lazygit
+#   - Window 2: Yazi ファイルマネージャー
+
+hly() {
+    # セッション名を生成（ディレクトリベース）
+    SESSION_NAME=$(echo "${PWD##*/}" | tr '.' '_')
+
+    # セッションが存在しない場合は新規作成
+    if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        tmux new-session -d -s "$SESSION_NAME" -c "$PWD" -n hx 'hx .'
+        tmux new-window -t "$SESSION_NAME":1 -c "$PWD" -n lg 'lazygit'
+        tmux new-window -t "$SESSION_NAME":2 -c "$PWD" -n yz 'yazi'
+        tmux select-window -t "$SESSION_NAME":0
+    else
+        # 不足しているウィンドウを復元
+        if ! tmux list-windows -t "$SESSION_NAME" | grep -q "^0:"; then
+            tmux new-window -t "$SESSION_NAME":0 -c "$PWD" -n hx 'hx .'
+        fi
+        if ! tmux list-windows -t "$SESSION_NAME" | grep -q "^1:"; then
+            tmux new-window -t "$SESSION_NAME":1 -c "$PWD" -n lg 'lazygit'
+        fi
+        if ! tmux list-windows -t "$SESSION_NAME" | grep -q "^2:"; then
+            tmux new-window -t "$SESSION_NAME":2 -c "$PWD" -n yz 'yazi'
+        fi
+    fi
+
+    # セッションにアタッチ
+    if [ -n "$TMUX" ]; then
+        tmux switch-client -t "$SESSION_NAME"
+    else
+        tmux attach-session -t "$SESSION_NAME"
+    fi
+}
+
+# メイン処理
+hly "$@"
