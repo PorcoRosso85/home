@@ -82,7 +82,7 @@ for file in $HOME/.config/shell/*.sh; do
 done
 
 # Bash history search
-bind -x '"\C-r": READLINE_LINE=$(nix run $HOME/bin/src/poc/develop/search/bash_histories); READLINE_POINT=${#READLINE_LINE}'
+bind -x '"\C-r": READLINE_LINE=$(nix shell $HOME/bin/src/poc/develop/search/bash_histories -c search-bash-histories); READLINE_POINT=${#READLINE_LINE}'
 # export GO111MODULE=on
 # export GOPATH=
 export EDITOR=hx
