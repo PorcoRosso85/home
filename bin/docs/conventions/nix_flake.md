@@ -206,8 +206,8 @@ nix run ~/bin/src/poc/readability -- -o article.md https://example.com
 
 ### 実行方法の選択
 
-#### nix run（推奨）
-完成したツールやCLIアプリケーションに最適。
+#### nix run
+アプリケーションパッケージとして配布する場合に使用。
 
 ```nix
 apps = {
@@ -223,6 +223,33 @@ apps = {
 nix run . -- arg1 arg2
 nix run .#app-name -- arg1
 ```
+
+**注意事項**：
+- モノレポではファイルアクセスが多くなる（1000+ファイル）
+- 初回起動が遅い（20-30秒）
+- 再利用可能なパッケージとして配布する場合に適切
+
+#### nix shell（高速起動が必要な場合）
+頻繁に実行される開発ツールやスクリプトに最適。
+
+```bash
+#!/usr/bin/env bash
+# run-with-shell.sh
+exec nix shell \
+  nixpkgs#package1 \
+  nixpkgs#package2 \
+  --command ./actual-script "$@"
+```
+
+**利点**：
+- 起動速度が3倍高速（0.1秒 vs 0.3秒）
+- ファイルアクセスが最小限（50ファイル vs 1000+ファイル）
+- CI/CD環境での初回実行が20倍高速
+
+**使用すべきケース**：
+- 開発中に頻繁に実行されるツール
+- CI/CDパイプラインでの実行
+- モノレポ内でのローカルツール
 
 #### nix develop
 開発環境構築やデバッグ用途に最適。
