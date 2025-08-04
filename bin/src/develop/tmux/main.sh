@@ -5,7 +5,11 @@
 # ヘルプ表示
 if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
     cat << EOF
-Usage: nix run flake#run [options]
+Usage: 
+  ./tmux-shell.sh                          # 推奨: tmux-shell.sh経由で起動
+  ./main.sh [options]                      # 直接実行（非推奨）
+  nix develop -c bash main.sh [options]    # nix develop内で実行
+  nix run .#tmux-session [options]         # flakeアプリとして実行
 
 tmux 水平2分割構成セッション作成スクリプト (Nix版)
 
@@ -13,8 +17,17 @@ tmux 水平2分割構成セッション作成スクリプト (Nix版)
   なし
 
 実行例:
-  # デフォルト設定で起動
-  nix run flake#run
+  # 推奨: tmux-shell.sh経由で起動（bashrcも読み込まれる）
+  ./tmux-shell.sh
+  
+  # 直接実行（実行権限が必要、非推奨）
+  ./main.sh
+  
+  # nix develop環境内で実行
+  nix develop -c bash main.sh
+  
+  # flakeアプリとして実行
+  nix run .#tmux-session
 
 
 キーバインド:
@@ -162,8 +175,17 @@ tmux bind-key b display-popup -E -w 80% -h 80% \
     cut -d' ' -f1 | xargs -I {} tmux switch-client -t {} \\; select-pane -t {}"
 
 # flake.nixディレクトリ選択して新規window作成 (prefix + c)
+# スクリプトのパスを決定（同じディレクトリ、PATH、またはdevShell環境）
 tmux bind-key c display-popup -E -w 80% -h 80% \
-    "selected_dir=\$(nix run /home/nixos/bin/src/poc/develop/search/flakes#run 2>/dev/null); \
+    "SCRIPT_DIR=\$(dirname \$(realpath ${BASH_SOURCE[0]:-\$0})); \
+    if [ -x \"\$SCRIPT_DIR/search-flakes.sh\" ]; then \
+        search_cmd=\"\$SCRIPT_DIR/search-flakes.sh\"; \
+    elif command -v search-flakes.sh >/dev/null 2>&1; then \
+        search_cmd=\"search-flakes.sh\"; \
+    else \
+        echo 'search-flakes.sh not found' >&2; exit 1; \
+    fi; \
+    selected_dir=\$(\$search_cmd 2>/dev/null); \
     if [ -n \"\$selected_dir\" ]; then \
         # モノレポルートからの相対パス取得
         rel_path=\${selected_dir#/home/nixos/bin/}; \
