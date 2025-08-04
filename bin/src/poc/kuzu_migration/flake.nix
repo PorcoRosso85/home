@@ -11,6 +11,26 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
+        # Python environment with all test dependencies
+        pythonEnv = pkgs.python311.withPackages (ps: with ps; [
+          # Core dependencies
+          kuzu
+          # Test dependencies
+          pytest
+          pytest-cov
+          pytest-timeout
+          pytest-mock
+          pytest-xdist
+          pytest-asyncio
+          # Additional useful test utilities
+          pytest-benchmark
+          pytest-env
+          pytest-html
+          pytest-sugar  # Better test output formatting
+          pytest-clarity  # Better assertion diffs
+          hypothesis
+        ]);
+        
         kuzu-migrate = pkgs.writeShellApplication {
           name = "kuzu-migrate";
           runtimeInputs = with pkgs; [ kuzu coreutils ];
@@ -20,15 +40,10 @@
       {
         packages.default = kuzu-migrate;
         
-        apps.kuzu-migrate = {
-          type = "app";
-          program = "${kuzu-migrate}/bin/kuzu-migrate";
-        };
-        
         devShells.default = pkgs.mkShell {
           # The Nix packages available in the development environment
           packages = with pkgs; [
-            python311
+            pythonEnv # Python environment with all dependencies
             ruff
             uv # For managing python dependencies
             # C++ runtime libraries for kuzu
@@ -51,18 +66,97 @@
             echo "  kuzu-migrate --help        - Show CLI help"
             echo "  nix run .#kuzu-migrate     - Run the CLI"
             echo "  nix build                  - Build the package"
+            echo ""
+            echo "Test Commands:"
+            echo "  nix run .#test             - Run all tests (internal + external E2E)"
+            echo "  nix run .#test-cov         - Run tests with coverage report"
+            echo "  nix run .#test-unit        - Run unit tests only"
+            echo "  nix run .#test-integration - Run integration tests only"
+            echo "  nix run .#test-internal    - Run internal E2E tests"
+            echo "  nix run .#test-external    - Run external E2E tests"
+            echo "  nix run .#test-causal      - Run causal migration tests"
+            echo ""
+            echo "Other Commands:"
+            echo "  nix run .#example          - Run example usage"
+            echo ""
+            echo "Python test environment includes:"
+            echo "  - pytest with plugins: cov, timeout, mock, xdist, asyncio"
+            echo "  - hypothesis for property-based testing"
+            echo "  - All dependencies in clean Nix environment"
           '';
         };
         
         # Applications
         apps = {
+          # Default app
+          default = self.apps.${system}.kuzu-migrate;
+          
+          # Main kuzu-migrate CLI
+          kuzu-migrate = {
+            type = "app";
+            program = "${kuzu-migrate}/bin/kuzu-migrate";
+          };
+          
           # Test runner
           test = {
             type = "app";
             program = "${pkgs.writeShellScript "test" ''
               export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib"
+              
               echo "🧪 Running KuzuDB Migration tests..."
-              exec ${pkgs.uv}/bin/uv run pytest -v "$@"
+              echo "=============================="
+              echo ""
+              
+              # Check if tests directory exists
+              if [ ! -d "tests" ]; then
+                echo "⚠️  Warning: No 'tests' directory found in current location!"
+                echo "Current directory: $(pwd)"
+                echo ""
+                echo "Looking for test files in the project..."
+              fi
+              
+              # Check for pytest.ini to ensure we're in the right place
+              if [ -f "tests/pytest.ini" ]; then
+                echo "✅ Found pytest configuration at tests/pytest.ini"
+                cd tests
+              elif [ -f "pytest.ini" ]; then
+                echo "✅ Found pytest configuration at pytest.ini"
+              else
+                echo "⚠️  Warning: No pytest.ini found. Tests may not run with proper configuration."
+              fi
+              
+              echo ""
+              echo "🔍 Discovering tests..."
+              
+              # Count test files
+              INTERNAL_TESTS=$(find . -path "*/e2e/internal/test_*.py" 2>/dev/null | wc -l || echo "0")
+              EXTERNAL_TESTS=$(find . -path "*/e2e/external/test_*.py" 2>/dev/null | wc -l || echo "0")
+              OTHER_TESTS=$(find . -name "test_*.py" -not -path "*/e2e/*" 2>/dev/null | wc -l || echo "0")
+              
+              echo "  Internal E2E tests: $INTERNAL_TESTS files"
+              echo "  External E2E tests: $EXTERNAL_TESTS files"
+              echo "  Other test files: $OTHER_TESTS files"
+              
+              TOTAL_TESTS=$((INTERNAL_TESTS + EXTERNAL_TESTS + OTHER_TESTS))
+              
+              if [ "$TOTAL_TESTS" -eq 0 ]; then
+                echo ""
+                echo "❌ Error: No test files found!"
+                echo ""
+                echo "Expected test structure:"
+                echo "  tests/e2e/internal/test_*.py  - Internal E2E tests"
+                echo "  tests/e2e/external/test_*.py  - External E2E tests"
+                echo ""
+                exit 1
+              fi
+              
+              echo ""
+              echo "📋 Running all tests (internal and external E2E)..."
+              echo ""
+              
+              # Run pytest with proper configuration
+              # If we have a pytest.ini, it will handle test discovery
+              exec ${pythonEnv}/bin/pytest -v "$@"
             ''}";
           };
           
@@ -72,7 +166,57 @@
             program = "${pkgs.writeShellScript "example" ''
               export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib"
               echo "📋 Running example usage..."
-              exec ${pkgs.uv}/bin/uv run python example_usage.py "$@"
+              exec ${pythonEnv}/bin/python example_usage.py "$@"
+            ''}";
+          };
+          
+          # Test with coverage
+          test-cov = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test-cov" ''
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib"
+              echo "🧪 Running tests with coverage..."
+              exec ${pythonEnv}/bin/pytest --cov=src --cov-report=term-missing --cov-report=html "$@"
+            ''}";
+          };
+          
+          # Test only unit tests
+          test-unit = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test-unit" ''
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib"
+              echo "🧪 Running unit tests..."
+              exec ${pythonEnv}/bin/pytest -m unit "$@"
+            ''}";
+          };
+          
+          # Test only integration tests
+          test-integration = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test-integration" ''
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib"
+              echo "🧪 Running integration tests..."
+              exec ${pythonEnv}/bin/pytest -m integration "$@"
+            ''}";
+          };
+          
+          # Test internal e2e tests
+          test-internal = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test-internal" ''
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib"
+              echo "🧪 Running internal E2E tests..."
+              exec ${pythonEnv}/bin/pytest tests/e2e/internal "$@"
+            ''}";
+          };
+          
+          # Test external e2e tests
+          test-external = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test-external" ''
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib"
+              echo "🧪 Running external E2E tests..."
+              exec ${pythonEnv}/bin/pytest tests/e2e/external "$@"
             ''}";
           };
           

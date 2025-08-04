@@ -13,6 +13,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-cov",  # Coverage plugin
+    "pytest-timeout",  # Test timeout support
+    "pytest-mock",  # Mock/patch support
 ]
 
 # -----------------
@@ -77,3 +80,45 @@ known-first-party = ["src"] # Adjust based on project structure
 quote-style = "double"
 # Use black-compatible indentation
 indent-style = "space"
+
+# -----------------
+#  PYTEST Configuration
+#  https://docs.pytest.org/
+# -----------------
+[tool.pytest.ini_options]
+# Test discovery settings
+testpaths = ["tests/e2e/internal", "tests/e2e/external"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Output options
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--disable-warnings",
+    "--color=yes",
+    "--import-mode=importlib",
+]
+
+# Markers for organizing tests
+markers = [
+    "internal: marks tests as internal e2e tests",
+    "external: marks tests as external e2e tests",
+    "slow: marks tests as slow running",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# Minimum Python version requirement
+minversion = "3.11"
+
+# Configure test output
+console_output_style = "progress"
+
+# Filter warnings
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]

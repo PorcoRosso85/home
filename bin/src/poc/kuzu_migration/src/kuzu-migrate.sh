@@ -168,7 +168,8 @@ apply_command() {
     fi
     
     # Create database directory if it doesn't exist
-    local db_dir=$(dirname "$db_path")
+    local db_dir
+    db_dir=$(dirname "$db_path")
     if [[ ! -d "$db_dir" ]]; then
         info "Creating database directory: $db_dir"
         mkdir -p "$db_dir"
@@ -176,7 +177,8 @@ apply_command() {
     
     # Initialize database if needed and create migration history table
     info "Initializing migration tracking..."
-    local init_script=$(mktemp)
+    local init_script
+    init_script=$(mktemp)
     cat > "$init_script" << 'EOF'
 -- Create migration history table if it doesn't exist
 CREATE NODE TABLE IF NOT EXISTS _migration_history (
@@ -217,11 +219,13 @@ EOF
     local failed_count=0
     
     for migration_file in "${migration_files[@]}"; do
-        local migration_name=$(basename "$migration_file")
+        local migration_name
+        migration_name=$(basename "$migration_file")
         
         # Check if migration has already been applied
         local check_query="MATCH (m:_migration_history) WHERE m.migration_name = '$migration_name' RETURN m.migration_name;"
-        local check_result=$(echo "$check_query" | kuzu "$db_path" 2>/dev/null | grep -v "migration_name" | grep -v "^-" | grep -v "^$" || true)
+        local check_result
+        check_result=$(echo "$check_query" | kuzu "$db_path" 2>/dev/null | grep -v "migration_name" | grep -v "^-" | grep -v "^$" || true)
         
         if [[ -n "$check_result" ]]; then
             info "⏭️  Skipping already applied migration: $migration_name"
@@ -230,18 +234,21 @@ EOF
         fi
         
         # Calculate checksum of the migration file
-        local checksum=$(sha256sum "$migration_file" | cut -d' ' -f1)
+        local checksum
+        checksum=$(sha256sum "$migration_file" | cut -d' ' -f1)
         
         info "📄 Applying migration: $migration_name"
         
         # Record start time
-        local start_time=$(date +%s%3N)
+        local start_time
+        start_time=$(date +%s%3N)
         
         # Execute the migration
         local error_msg=""
         if kuzu "$db_path" < "$migration_file" > /dev/null 2>&1; then
             # Calculate execution time
-            local end_time=$(date +%s%3N)
+            local end_time
+            end_time=$(date +%s%3N)
             local exec_time=$((end_time - start_time))
             
             # Record successful migration
@@ -346,7 +353,8 @@ status_command() {
     # Get applied migrations
     echo "✅ Applied migrations:"
     local applied_query="MATCH (m:_migration_history) WHERE m.success = true RETURN m.migration_name, m.applied_at, m.execution_time_ms ORDER BY m.applied_at;"
-    local applied_output=$(echo "$applied_query" | kuzu "$db_path" 2>/dev/null || true)
+    local applied_output
+    applied_output=$(echo "$applied_query" | kuzu "$db_path" 2>/dev/null || true)
     
     # Parse and display applied migrations
     local has_applied=false
@@ -359,9 +367,12 @@ status_command() {
         # Parse the output (format: migration_name|applied_at|execution_time_ms)
         if [[ "$line" =~ \| ]]; then
             has_applied=true
-            local migration_name=$(echo "$line" | cut -d'|' -f1 | xargs)
-            local applied_at=$(echo "$line" | cut -d'|' -f2 | xargs)
-            local exec_time=$(echo "$line" | cut -d'|' -f3 | xargs)
+            local migration_name
+            migration_name=$(echo "$line" | cut -d'|' -f1 | xargs)
+            local applied_at
+            applied_at=$(echo "$line" | cut -d'|' -f2 | xargs)
+            local exec_time
+            exec_time=$(echo "$line" | cut -d'|' -f3 | xargs)
             echo "   ✓ $migration_name (applied: $applied_at, took: ${exec_time}ms)"
         fi
     done <<< "$applied_output"
@@ -373,7 +384,8 @@ status_command() {
     
     # Get failed migrations
     local failed_query="MATCH (m:_migration_history) WHERE m.success = false RETURN m.migration_name, m.applied_at, m.error_message ORDER BY m.applied_at;"
-    local failed_output=$(echo "$failed_query" | kuzu "$db_path" 2>/dev/null || true)
+    local failed_output
+    failed_output=$(echo "$failed_query" | kuzu "$db_path" 2>/dev/null || true)
     
     local has_failed=false
     while IFS= read -r line; do
@@ -386,9 +398,12 @@ status_command() {
                 echo "❌ Failed migrations:"
                 has_failed=true
             fi
-            local migration_name=$(echo "$line" | cut -d'|' -f1 | xargs)
-            local applied_at=$(echo "$line" | cut -d'|' -f2 | xargs)
-            local error_msg=$(echo "$line" | cut -d'|' -f3 | xargs)
+            local migration_name
+            migration_name=$(echo "$line" | cut -d'|' -f1 | xargs)
+            local applied_at
+            applied_at=$(echo "$line" | cut -d'|' -f2 | xargs)
+            local error_msg
+            error_msg=$(echo "$line" | cut -d'|' -f3 | xargs)
             echo "   ✗ $migration_name (attempted: $applied_at)"
             echo "     Error: $error_msg"
         fi
@@ -408,12 +423,14 @@ status_command() {
         
         if [[ ${#migration_files[@]} -gt 0 ]]; then
             # Get list of applied migrations
-            local applied_list=$(echo "MATCH (m:_migration_history) RETURN m.migration_name;" | kuzu "$db_path" 2>/dev/null | grep -v "migration_name" | grep -v "^-" | grep -v "^$" || true)
+            local applied_list
+            applied_list=$(echo "MATCH (m:_migration_history) RETURN m.migration_name;" | kuzu "$db_path" 2>/dev/null | grep -v "migration_name" | grep -v "^-" | grep -v "^$" || true)
             
             local pending_count=0
             local pending_files=()
             for file in "${migration_files[@]}"; do
-                local migration_name=$(basename "$file")
+                local migration_name
+                migration_name=$(basename "$file")
                 if ! echo "$applied_list" | grep -q "^$migration_name$"; then
                     pending_files+=("$migration_name")
                     ((pending_count++))
@@ -432,7 +449,8 @@ status_command() {
     
     # Get database version (last applied migration)
     local version_query="MATCH (m:_migration_history) WHERE m.success = true RETURN m.migration_name ORDER BY m.applied_at DESC LIMIT 1;"
-    local current_version=$(echo "$version_query" | kuzu "$db_path" 2>/dev/null | grep -v "migration_name" | grep -v "^-" | grep -v "^$" | xargs || true)
+    local current_version
+    current_version=$(echo "$version_query" | kuzu "$db_path" 2>/dev/null | grep -v "migration_name" | grep -v "^-" | grep -v "^$" | xargs || true)
     
     if [[ -n "$current_version" ]]; then
         success "Current database version: $current_version"
@@ -514,7 +532,8 @@ snapshot_command() {
     
     # Create snapshot metadata
     local metadata_file="$snapshot_path/snapshot_metadata.json"
-    local current_version=$(echo "MATCH (m:_migration_history) WHERE m.success = true RETURN m.migration_name ORDER BY m.applied_at DESC LIMIT 1;" | kuzu "$db_path" 2>/dev/null | grep -v "migration_name" | grep -v "^-" | grep -v "^$" | xargs || echo "none")
+    local current_version
+    current_version=$(echo "MATCH (m:_migration_history) WHERE m.success = true RETURN m.migration_name ORDER BY m.applied_at DESC LIMIT 1;" | kuzu "$db_path" 2>/dev/null | grep -v "migration_name" | grep -v "^-" | grep -v "^$" | xargs || echo "none")
     
     cat > "$metadata_file" << EOF
 {
@@ -537,18 +556,20 @@ EOF
         tree -L 2 "$snapshot_path" | tail -n +2
     else
         find "$snapshot_path" -type f -o -type d | sort | while read -r item; do
-            local relative_path="${item#$snapshot_path/}"
+            local relative_path="${item#"$snapshot_path"/}"
             if [[ -z "$relative_path" ]]; then
                 continue
             fi
             
-            local depth=$(echo "$relative_path" | grep -o "/" | wc -l)
+            local depth
+            depth=$(echo "$relative_path" | grep -o "/" | wc -l)
             local indent=""
             for ((i=0; i<depth; i++)); do
                 indent="  $indent"
             done
             
-            local basename=$(basename "$item")
+            local basename
+            basename=$(basename "$item")
             if [[ -d "$item" ]]; then
                 echo "${indent}├── $basename/"
             else
