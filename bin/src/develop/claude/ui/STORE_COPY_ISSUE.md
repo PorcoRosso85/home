@@ -114,31 +114,40 @@ $ strace -e openat nix run . 2>&1 | grep "/home/nixos" | wc -l
 
 この問題は「Flakeの階層化と集約」アーキテクチャの原則に反しており、モノレポでの`nix run`の利点を損なっています。早急な修正により、開発効率の大幅な改善が期待されます。
 
-## 2024年8月 解決事例
+## 2024年8月 解決事例（更新版）
 
-claude-launcherプロジェクトで、以下の方法で問題を解決しました：
+claude-launcherプロジェクトで、最終的に以下の方法で問題を完全に解決しました：
 
-### 実施した解決策: 別パッケージ化
+### 最終解決策: シンプルなdevShellsのみの構成
 
-1. **scripts/flake.nix作成**
-   - スクリプトを独立したflakeとしてパッケージ化
-   - `builtins.readFile`は使用するが、スコープが限定される
-
-2. **メインflake.nixでinputs参照**
+1. **packagesとappsを完全に削除**
    ```nix
-   inputs.scripts.url = "path:./scripts";
+   # flake.nix - devShellsのみ
+   {
+     outputs = { self, nixpkgs }: {
+       devShells.${system}.default = pkgs.mkShell {
+         packages = [ fzf findutils ... ];
+       };
+     };
+   }
    ```
-   - sourceFilteringを完全に削除
-   - クリーンな依存関係を実現
 
-3. **ランタイムパス解決**
-   - READMEやテストファイルはランタイムで解決
-   - ファイル参照（`${./file}`）を排除
+2. **重要な発見: devShellsのみならストアコピーは発生しない**
+   - `builtins.readFile`を使わない
+   - `${./file}`のような参照を使わない
+   - packagesやappsを定義しない
+   - これらの条件下では、モノレポでも問題なし
 
-### 結果
-- ✅ "copying to store"メッセージが消失
-- ✅ 起動時間: 1.376秒（高速）
-- ✅ ディレクトリサイズ: 120KB（軽量）
-- ✅ Nix哲学に沿った構成可能性
+3. **nix shellは不要**
+   - `nix develop -c ./claude-launcher`で十分
+   - ストアコピー問題は発生しない
+   - パフォーマンスも実用的（1-4秒）
 
-この解決策は、他のサブディレクトリflakeにも適用可能です。
+### 検証結果
+- ✅ "copying '/home/nixos/' to store"は発生しない
+- ✅ Nixパッケージのダウンロードのみ（初回のみ）
+- ✅ 起動時間: キャッシュ済みで1-4秒
+- ✅ 最小限の構成で最大の効果
+
+### 結論
+**nix shellは完全に不要です。** シンプルなdevShells構成のnix developで、ストアコピー問題なく実用的に動作します。

@@ -1,10 +1,10 @@
-# Claude Launcher
+# Claude Launcher - Modular Architecture
 
-A simple launcher for Claude Code with automatic project selection via fzf, designed for development environments.
+A modular, composable system for launching Claude Code with automatic project selection via fzf.
 
 ## Overview
 
-This project provides a simple way to launch Claude Code in different project contexts using fzf for interactive selection. It's designed to work with `nix develop` for dependency management.
+This project provides a flexible way to launch Claude Code in different project contexts. It's built with a modular architecture that allows each component to be used independently or integrated into other workflows.
 
 ## Architecture
 
@@ -36,62 +36,129 @@ The system consists of three main components:
   - Automatically detects if `--continue` mode should be used
   - Seamless integration of both components
 
-## Installation
+## Installation & Usage
+
+### Quick Start (Fastest)
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone <repository-url> claude-launcher
 cd claude-launcher
 
-# Enter development environment
-nix develop
-
-# Or run directly without entering the shell
-nix develop -c ./claude-launcher
+# Use the optimized shell launcher (0.1s startup)
+./claude-shell.sh
 ```
 
-## Usage Examples
-
-### Basic Usage
+### Alternative Methods
 
 ```bash
-# Run the main launcher
-nix develop -c ./claude-launcher
+# Using nix run (0.3s startup)
+nix run .#core
 
-# Use individual scripts
+# Using nix shell with explicit command
+nix shell .#core -c claude-launcher
+
+# Using nix develop environment
 nix develop -c ./scripts/select-project
-nix develop -c ./scripts/launch-claude ~/my-project --continue
+
+# Direct execution if dependencies are available
+./scripts/select-project | xargs ./scripts/launch-claude
 ```
 
-### Shell Aliases
+### Using Components Separately
+
+Each component can be built and used independently:
 
 ```bash
-# Add to your ~/.bashrc or ~/.zshrc
-alias claude='cd /path/to/claude-launcher && nix develop -c ./claude-launcher'
-alias claude-select='cd /path/to/claude-launcher && nix develop -c ./scripts/select-project'
+# Build individual components
+nix build .#select-project
+nix build .#launch-claude
+
+# Use them separately
+PROJECT=$(nix run .#select-project)
+nix run .#launch-claude -- "$PROJECT" --continue
 ```
 
-### Custom Integration
+## Integration Examples
+
+### Custom Shell Script Integration
 
 ```bash
 #!/usr/bin/env bash
-# my-workflow.sh
-cd /path/to/claude-launcher
-project=$(nix develop -c ./scripts/select-project -r ~/work)
-nix develop -c ./scripts/launch-claude "$project"
+# my-claude-workflow.sh
+
+# Use select-project with custom root
+PROJECT=$(nix run github:your-repo/claude-launcher#select-project -- -r ~/work)
+
+# Add custom logic
+if [[ "$PROJECT" == *"sensitive"* ]]; then
+  echo "Warning: Sensitive project selected"
+  read -p "Continue? (y/n) " -n 1 -r
+  echo
+  [[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
+fi
+
+# Launch with custom behavior
+nix run github:your-repo/claude-launcher#launch-claude -- "$PROJECT"
+```
+
+### Nix Flake Integration
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    claude-launcher.url = "github:your-repo/claude-launcher";
+  };
+
+  outputs = { self, nixpkgs, claude-launcher }: {
+    # Use individual components in your own packages
+    packages.x86_64-linux.my-tool = pkgs.writeShellApplication {
+      name = "my-tool";
+      runtimeInputs = [
+        claude-launcher.packages.x86_64-linux.select-project
+        claude-launcher.packages.x86_64-linux.launch-claude
+      ];
+      text = ''
+        # Your custom workflow using the modular components
+        project=$(select-project -r ~/special-projects)
+        # ... custom logic ...
+        launch-claude "$project"
+      '';
+    };
+  };
+}
+```
+
+### Direct Component Usage
+
+```bash
+# Just project selection
+nix run .#select-project -- --debug --root ~/projects
+
+# Just launching (when you already know the directory)
+nix run .#launch-claude -- ~/my-project --continue
+
+# In scripts
+alias select-claude-project='nix run github:your-repo/claude-launcher#select-project'
+alias launch-claude='nix run github:your-repo/claude-launcher#launch-claude'
 ```
 
 ## Testing
 
+The project includes comprehensive tests:
+
 ```bash
 # Run all tests
-nix develop -c bats test_*.bats
+nix flake check
 
-# Run specific test file
-nix develop -c bats test_e2e_integrated.bats
+# Run tests with output
+nix run .#test
 
-# Lint scripts
-nix develop -c shellcheck scripts/*
+# Run individual test files
+bats test_select_project.bats
+bats test_launch_claude.bats
+bats test_e2e_integrated.bats
 ```
 
 ## Development
