@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+import hashlib
+import json
 
 from vss_kuzu import create_vss
 from .kuzu_adapter import KuzuAdapter

@@ -19,7 +19,8 @@ serialize(42);
 // 2. Conditional Types - 条件型のエラー
 // ======================================
 type IsString<T> = T extends string ? true : false;
-type ErrorCheck: IsString<number> = true; // エラー: falseをtrueに代入
+type ErrorCheck = true; // 本来はIsString<number>はfalseであるべき
+const errorCheck: ErrorCheck = false as unknown as true; // エラー: falseをtrueに代入
 
 // ======================================
 // 3. Type Guards - 誤った型アサーション

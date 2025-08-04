@@ -38,32 +38,18 @@ The system consists of three main components:
 
 ## Installation & Usage
 
-### Quick Start (Fastest)
+### Quick Start
 
 ```bash
 # Clone the repository
 git clone <repository-url> claude-launcher
 cd claude-launcher
 
-# Use the optimized shell launcher (0.1s startup)
+# Launch Claude (0.1s startup)
 ./claude-shell.sh
 ```
 
-### Alternative Methods
-
-```bash
-# Using nix run (0.3s startup)
-nix run .#core
-
-# Using nix shell with explicit command
-nix shell .#core -c claude-launcher
-
-# Using nix develop environment
-nix develop -c ./scripts/select-project
-
-# Direct execution if dependencies are available
-./scripts/select-project | xargs ./scripts/launch-claude
-```
+That's it! The launcher uses `nix shell` to provide dependencies on-demand without requiring a complex flake setup.
 
 ### Using Components Separately
 
