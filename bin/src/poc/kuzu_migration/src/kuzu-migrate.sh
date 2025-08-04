@@ -17,32 +17,37 @@ NC='\033[0m' # No Color
 
 show_usage() {
     cat << EOF
-kuzu-migrate v${VERSION} - KuzuDB Migration CLI
+kuzu-migrate v${VERSION} - Manage your KuzuDB schema migrations
 
-Usage:
+USAGE:
     kuzu-migrate [OPTIONS] COMMAND
 
-Commands:
-    init        Initialize DDL directory structure
-    apply       Apply pending migrations
-    status      Show migration status
-    snapshot    Create database snapshot
-    rollback    Rollback to a snapshot
+COMMANDS:
+    init        Create the DDL directory structure for migrations
+    apply       Execute pending migrations to update your database
+    status      Check which migrations are applied, pending, or failed
+    snapshot    Export the current database state for backup/rollback
+    rollback    Restore database from a previous snapshot (coming soon)
+    check       Show migration system status and environment
 
-Options:
-    --ddl DIR   Specify DDL directory (default: ./ddl)
-    --db PATH   Database path (default: ${DB_PATH})
+OPTIONS:
+    --ddl DIR   Path to DDL directory (default: ./ddl)
+    --db PATH   Path to KuzuDB database (default: ${DB_PATH})
     --help      Show this help message
-    --version   Show version
+    --version   Show version information
 
-Environment Variables:
-    KUZU_DDL_DIR    Default DDL directory
-    KUZU_DB_PATH    Default database path
+GETTING STARTED:
+    # First time? Initialize your migration directory:
+    kuzu-migrate init
 
-Examples:
-    kuzu-migrate --ddl ./ddl init
+    # Create your schema in ./ddl/migrations/000_initial.cypher, then:
     kuzu-migrate apply
-    kuzu-migrate snapshot --version v1.0.0
+
+    # Check what's been applied:
+    kuzu-migrate status
+
+For more examples and documentation, visit:
+https://github.com/kuzudb/kuzu
 
 EOF
 }
@@ -51,6 +56,16 @@ error() {
     echo -e "${RED}❌ ERROR: $1${NC}" >&2
     echo "" >&2
     echo "$2" >&2
+    exit 1
+}
+
+error_with_hint() {
+    local message="$1"
+    local hint="$2"
+    echo -e "${RED}❌ $message${NC}" >&2
+    echo -e "→ $hint" >&2
+    echo "" >&2
+    echo "Run 'kuzu-migrate --help' for usage information" >&2
     exit 1
 }
 
@@ -153,18 +168,18 @@ apply_command() {
     
     # Check if DDL directory exists
     if [[ ! -d "$ddl_dir" ]]; then
-        error "DDL directory not found: $ddl_dir" "Run 'kuzu-migrate init' first to create the DDL directory structure."
+        error_with_hint "DDL directory not found: $ddl_dir" "run 'init'"
     fi
     
     # Check if migrations directory exists
     local migrations_dir="$ddl_dir/migrations"
     if [[ ! -d "$migrations_dir" ]]; then
-        error "Migrations directory not found: $migrations_dir" "The DDL directory structure appears to be incomplete. Run 'kuzu-migrate init' to fix this."
+        error_with_hint "Migrations directory not found: $migrations_dir" "run 'init'"
     fi
     
     # Check if kuzu CLI is available
     if ! command -v kuzu &> /dev/null; then
-        error "KuzuDB CLI not found" "Please install KuzuDB CLI first. Visit https://kuzudb.com for installation instructions."
+        error_with_hint "command not found: kuzu" "check PATH"
     fi
     
     # Create database directory if it doesn't exist
@@ -194,7 +209,7 @@ EOF
     # Execute initialization
     if ! kuzu "$db_path" < "$init_script" > /dev/null 2>&1; then
         rm -f "$init_script"
-        error "Failed to initialize migration tracking table" "Could not create _migration_history table in the database."
+        error_with_hint "Failed to initialize migration tracking table" "check database"
     fi
     rm -f "$init_script"
     
@@ -257,7 +272,7 @@ EOF
                 success "  ✅ Applied successfully (${exec_time}ms)"
                 ((applied_count++))
             else
-                error "Failed to record migration in history" "Could not save migration record for $migration_name"
+                error_with_hint "Failed to record migration in history" "check database"
             fi
         else
             # Capture error output
@@ -290,7 +305,7 @@ EOF
     if [[ $failed_count -gt 0 ]]; then
         echo -e "${RED}  ❌ Failed: $failed_count${NC}"
         echo ""
-        error "Migration process halted due to failure" "Fix the failing migration and run 'kuzu-migrate apply' again."
+        error_with_hint "Migration process halted due to failure" "fix migration"
     fi
     
     if [[ $applied_count -gt 0 && $failed_count -eq 0 ]]; then
@@ -308,7 +323,7 @@ status_command() {
     
     # Check if DDL directory exists
     if [[ ! -d "$ddl_dir" ]]; then
-        error "DDL directory not found: $ddl_dir" "Run 'kuzu-migrate init' first to create the DDL directory structure."
+        error_with_hint "DDL directory not found: $ddl_dir" "run 'init'"
     fi
     
     # Check if database exists
@@ -320,7 +335,7 @@ status_command() {
     
     # Check if kuzu CLI is available
     if ! command -v kuzu &> /dev/null; then
-        error "KuzuDB CLI not found" "Please install KuzuDB CLI first. Visit https://kuzudb.com for installation instructions."
+        error_with_hint "command not found: kuzu" "check PATH"
     fi
     
     echo "=== Migration Status ==="
@@ -473,24 +488,24 @@ snapshot_command() {
                 shift 2
                 ;;
             *)
-                error "Unknown snapshot option: $1" "Run 'kuzu-migrate --help' for usage."
+                error_with_hint "Unknown snapshot option: $1" "see --help"
                 ;;
         esac
     done
     
     # Check if DDL directory exists
     if [[ ! -d "$ddl_dir" ]]; then
-        error "DDL directory not found: $ddl_dir" "Run 'kuzu-migrate init' first to create the DDL directory structure."
+        error_with_hint "DDL directory not found: $ddl_dir" "run 'init'"
     fi
     
     # Check if database exists
     if [[ ! -d "$db_path" ]]; then
-        error "Database not found at: $db_path" "No database to snapshot. Run 'kuzu-migrate apply' first to create the database."
+        error_with_hint "Database not found at: $db_path" "run 'apply' first"
     fi
     
     # Check if kuzu CLI is available
     if ! command -v kuzu &> /dev/null; then
-        error "KuzuDB CLI not found" "Please install KuzuDB CLI first. Visit https://kuzudb.com for installation instructions."
+        error_with_hint "command not found: kuzu" "check PATH"
     fi
     
     # Determine snapshot directory name
@@ -499,7 +514,7 @@ snapshot_command() {
     if [[ -n "$version_tag" ]]; then
         # Validate version tag format (e.g., v1.0.0)
         if [[ ! "$version_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            error "Invalid version format: $version_tag" "Version should be in format vX.Y.Z (e.g., v1.0.0)"
+            error_with_hint "Invalid version format: $version_tag" "use vX.Y.Z"
         fi
         snapshot_name="$version_tag"
     else
@@ -511,7 +526,7 @@ snapshot_command() {
     
     # Check if snapshot already exists
     if [[ -d "$snapshot_path" ]]; then
-        error "Snapshot already exists: $snapshot_name" "Choose a different version or let the system generate a timestamp-based name."
+        error_with_hint "Snapshot already exists: $snapshot_name" "use different version"
     fi
     
     # Create snapshot directory
@@ -527,7 +542,7 @@ snapshot_command() {
     else
         # Clean up failed snapshot directory
         rm -rf "$snapshot_path"
-        error "Failed to export database" "Could not create snapshot. Check database permissions and disk space."
+        error_with_hint "Failed to export database" "check permissions"
     fi
     
     # Create snapshot metadata
@@ -587,6 +602,142 @@ EOF
     echo "  kuzu-migrate rollback --snapshot $snapshot_name"
 }
 
+check_command() {
+    local ddl_dir="$1"
+    local db_path="$2"
+    
+    echo "=== Migration System Check ==="
+    echo ""
+    
+    # Check DDL directory
+    echo "📁 DDL Directory:"
+    if [[ -d "$ddl_dir" ]]; then
+        echo "   ✓ Exists: $ddl_dir"
+        
+        # Check migrations subdirectory
+        local migrations_dir="$ddl_dir/migrations"
+        if [[ -d "$migrations_dir" ]]; then
+            local migration_count
+            migration_count=$(find "$migrations_dir" -name "*.cypher" -type f 2>/dev/null | wc -l)
+            echo "   ✓ Migrations directory: $migration_count file(s)"
+        else
+            echo "   ✗ Migrations directory: not found"
+            echo "     → run 'kuzu-migrate init' to create"
+        fi
+        
+        # Check snapshots subdirectory
+        local snapshots_dir="$ddl_dir/snapshots"
+        if [[ -d "$snapshots_dir" ]]; then
+            local snapshot_count
+            snapshot_count=$(find "$snapshots_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+            echo "   ✓ Snapshots directory: $snapshot_count snapshot(s)"
+        else
+            echo "   ✗ Snapshots directory: not found"
+            echo "     → run 'kuzu-migrate init' to create"
+        fi
+    else
+        echo "   ✗ Not found: $ddl_dir"
+        echo "     → run 'kuzu-migrate init' to create"
+    fi
+    
+    echo ""
+    
+    # Check environment
+    echo "🔧 Environment:"
+    
+    # Check kuzu CLI
+    if command -v kuzu &> /dev/null; then
+        local kuzu_version
+        kuzu_version=$(kuzu --version 2>/dev/null || echo "unknown")
+        echo "   ✓ KuzuDB CLI: available (version: $kuzu_version)"
+    else
+        echo "   ✗ KuzuDB CLI: not found in PATH"
+        echo "     → ensure 'kuzu' is installed and in PATH"
+    fi
+    
+    # Check database path
+    echo "   ℹ Database path: $db_path"
+    if [[ -d "$db_path" ]]; then
+        echo "   ✓ Database exists"
+        
+        # Check if we can connect
+        if command -v kuzu &> /dev/null; then
+            if echo "RETURN 'test';" | kuzu "$db_path" > /dev/null 2>&1; then
+                echo "   ✓ Database connection: OK"
+                
+                # Check migration history table
+                local check_table_query="CALL TABLE_INFO('_migration_history') RETURN *;"
+                if echo "$check_table_query" | kuzu "$db_path" > /dev/null 2>&1; then
+                    echo "   ✓ Migration tracking: initialized"
+                else
+                    echo "   ℹ Migration tracking: not initialized"
+                    echo "     → will be created on first 'apply'"
+                fi
+            else
+                echo "   ✗ Database connection: failed"
+                echo "     → check database integrity"
+            fi
+        fi
+    else
+        echo "   ℹ Database not created yet"
+        echo "     → will be created on first 'apply'"
+    fi
+    
+    echo ""
+    
+    # Check migration files
+    if [[ -d "$ddl_dir/migrations" ]]; then
+        echo "📄 Migration Files:"
+        local migration_files=()
+        while IFS= read -r -d '' file; do
+            migration_files+=("$file")
+        done < <(find "$ddl_dir/migrations" -name "*.cypher" -type f -print0 | sort -z)
+        
+        if [[ ${#migration_files[@]} -gt 0 ]]; then
+            for file in "${migration_files[@]}"; do
+                local filename
+                filename=$(basename "$file")
+                local filesize
+                filesize=$(stat -c %s "$file" 2>/dev/null || stat -f %z "$file" 2>/dev/null || echo "0")
+                
+                # Check naming convention
+                if [[ "$filename" =~ ^[0-9]{3}_[a-z0-9_]+\.cypher$ ]]; then
+                    echo "   ✓ $filename ($filesize bytes)"
+                else
+                    echo "   ⚠ $filename ($filesize bytes) - non-standard naming"
+                    echo "     → use format: NNN_description.cypher"
+                fi
+            done
+        else
+            echo "   (none found)"
+        fi
+        
+        echo ""
+    fi
+    
+    # Summary
+    echo "📊 Summary:"
+    local issues=0
+    
+    if [[ ! -d "$ddl_dir" ]]; then
+        echo "   ⚠ DDL directory not initialized"
+        ((issues++))
+    fi
+    
+    if ! command -v kuzu &> /dev/null; then
+        echo "   ⚠ KuzuDB CLI not available"
+        ((issues++))
+    fi
+    
+    if [[ $issues -eq 0 ]]; then
+        success "   ✅ System ready for migrations"
+    else
+        echo "   ⚠ $issues issue(s) found"
+        echo ""
+        info "Run 'kuzu-migrate --help' for usage information"
+    fi
+}
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -606,14 +757,14 @@ while [[ $# -gt 0 ]]; do
             echo "kuzu-migrate v${VERSION}"
             exit 0
             ;;
-        init|apply|status|snapshot|rollback)
+        init|apply|status|snapshot|rollback|check)
             COMMAND="$1"
             shift
             # Don't shift additional arguments for snapshot command
             break
             ;;
         *)
-            error "Unknown option: $1" "Run 'kuzu-migrate --help' for usage."
+            error_with_hint "Unknown option: $1" "see --help"
             ;;
     esac
 done
@@ -640,10 +791,14 @@ case "$COMMAND" in
     rollback)
         info "Rollback command will be implemented in Step 2"
         ;;
+    check)
+        check_command "$DDL_DIR" "$DB_PATH"
+        ;;
     "")
-        error "No command specified" "$(show_usage)"
+        show_usage
+        exit 1
         ;;
     *)
-        error "Unknown command: $COMMAND" "Run 'kuzu-migrate --help' for usage."
+        error_with_hint "Unknown command: $COMMAND" "see --help"
         ;;
 esac

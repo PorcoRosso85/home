@@ -27,7 +27,7 @@
           pytest-env
           pytest-html
           pytest-sugar  # Better test output formatting
-          pytest-clarity  # Better assertion diffs
+          # pytest-clarity  # Better assertion diffs (not available in nixpkgs)
           hypothesis
         ]);
         
@@ -258,14 +258,15 @@
     // {
       # Library functions for other flakes to use
       lib.mkKuzuMigration = { pkgs, ddlPath ? "./ddl" }: {
-        migrate = {
-          type = "app";
-          program = "${self.packages.${pkgs.system}.default}/bin/kuzu-migrate --ddl ${ddlPath} apply";
-        };
-        
+        # Minimalist approach - just wrap the CLI
         init = {
           type = "app";
           program = "${self.packages.${pkgs.system}.default}/bin/kuzu-migrate --ddl ${ddlPath} init";
+        };
+        
+        migrate = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.default}/bin/kuzu-migrate --ddl ${ddlPath} apply";
         };
         
         status = {
@@ -276,6 +277,45 @@
         snapshot = {
           type = "app";
           program = "${self.packages.${pkgs.system}.default}/bin/kuzu-migrate --ddl ${ddlPath} snapshot";
+        };
+        
+        # Single responsibility: check state
+        check = {
+          type = "app";
+          program = "${pkgs.writeShellScript "check-state" ''
+            # Source minimalist functions
+            source ${self.packages.${pkgs.system}.default}/share/kuzu-migrate/minimalist-cli.sh
+            
+            echo "=== kuzu-migrate state check ==="
+            echo ""
+            
+            # DDL check with hints
+            report_state "ddl-check" "${ddlPath}"
+            
+            # Add hints based on DDL state
+            if [[ ! -d "${ddlPath}" ]]; then
+              echo ""
+              echo "→ run .#init to create DDL directory structure"
+            elif [[ ! -d "${ddlPath}/migrations" ]] || [[ ! -d "${ddlPath}/snapshots" ]]; then
+              echo ""
+              echo "→ run .#init to complete DDL directory structure"
+            fi
+            
+            echo ""
+            report_state "environment-check"
+            
+            # Add hints based on environment state
+            if ! command -v kuzu >/dev/null 2>&1; then
+              echo ""
+              echo "→ install kuzu to use migration tools"
+            fi
+            
+            # Check for database path issues
+            if [[ -n "''${KUZU_DB_PATH:-}" ]] && [[ ! -d "$(dirname "''${KUZU_DB_PATH}")" ]]; then
+              echo ""
+              echo "→ KUZU_DB_PATH parent directory missing: $(dirname "''${KUZU_DB_PATH}")"
+            fi
+          ''}";
         };
       };
     };
