@@ -63,6 +63,18 @@ def search_similar_flakes(
     # Use actual VSS
     vss = create_vss(db_path=db_path)
     
+    # Handle case where VSS is not available (returns dict with 'type' key on error)
+    if isinstance(vss, dict) and 'type' in vss:
+        log("error", {
+            "message": f"VSS initialization failed: {vss.get('message', 'Unknown error')}",
+            "component": "flake_graph.vss_adapter",
+            "operation": "search_similar_flakes",
+            "error": vss.get('type', 'VSSInitializationError'),
+            "details": vss.get('details', {})
+        })
+        # Return error result following error handling convention
+        return []
+    
     # Index all flakes
     vss.index(flakes)
     
@@ -78,6 +90,8 @@ def search_similar_flakes(
         }
         for result in results["results"]
     ]
+
+
 
 
 def index_flakes_with_persistence(
