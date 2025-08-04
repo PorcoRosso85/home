@@ -10,7 +10,7 @@ import pytest
 import tempfile
 import os
 import gc
-from typing import List
+from typing import List, Any
 from log_py import log
 from pathlib import Path
 
@@ -33,8 +33,8 @@ class TestConnectionHandling:
             
             # 永続的データベースでVSSを作成
             vss1 = create_vss(db_path=str(db_path), in_memory=False)
-            if vss1 is None:
-                pytest.skip("VECTOR extension not available")
+            if isinstance(vss1, dict) and vss1.get('type'):
+                pytest.skip(f"VECTOR extension not available: {vss1.get('message')}")
                 
                 # データをインデックスに追加
                 doc = {
@@ -50,8 +50,8 @@ class TestConnectionHandling:
                 
                 # 同じデータベースパスで新しい接続を作成
                 vss2 = create_vss(db_path=str(db_path), in_memory=False)
-                if vss2 is None:
-                    pytest.skip("VECTOR extension not available")
+                if isinstance(vss2, dict) and vss2.get('type'):
+                    pytest.skip(f"VECTOR extension not available: {vss2.get('message')}")
                 
                 # データが永続化されていることを確認
                 search_result = vss2.search("永続化テスト", limit=5)
@@ -91,13 +91,13 @@ class TestConnectionHandling:
             # 2つの独立したVSSインスタンスを作成
             os.environ['RGL_DATABASE_PATH'] = db_dir1
             vss1 = create_vss(db_path=db_dir1, in_memory=False)
-            if vss1 is None:
-                pytest.skip("VECTOR extension not available")
+            if isinstance(vss1, dict) and vss1.get('type'):
+                pytest.skip(f"VECTOR extension not available: {vss1.get('message')}")
             
             os.environ['RGL_DATABASE_PATH'] = db_dir2
             vss2 = create_vss(db_path=db_dir2, in_memory=False)
-            if vss2 is None:
-                pytest.skip("VECTOR extension not available")
+            if isinstance(vss2, dict) and vss2.get('type'):
+                pytest.skip(f"VECTOR extension not available: {vss2.get('message')}")
                 
                 # それぞれに異なるデータを追加
                 doc1 = {
@@ -163,8 +163,8 @@ class TestConnectionHandling:
             # 複数の接続を作成
             for i in range(3):
                 vss = create_vss(db_path=db_dir, in_memory=False)
-                if vss is None:
-                    pytest.skip("VECTOR extension not available")
+                if isinstance(vss, dict) and vss.get('type'):
+                    pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
                 connections.append(vss)
                 
                 # データを追加してアクティブに使用
@@ -193,8 +193,8 @@ class TestConnectionHandling:
                 
                 # 新しい接続が作成できることを確認（リソースが解放されている）
                 new_vss = create_vss(db_path=db_dir, in_memory=False)
-                if new_vss is None:
-                    pytest.skip("VECTOR extension not available")
+                if isinstance(new_vss, dict) and new_vss.get('type'):
+                    pytest.skip(f"VECTOR extension not available: {new_vss.get('message')}")
                 
                 # 新しい接続でデータを確認
                 search_result = new_vss.search("クリーンアップテスト", limit=10)

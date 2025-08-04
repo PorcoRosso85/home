@@ -2,6 +2,10 @@
 
 A function-first library for vector similarity search using KuzuDB's native VECTOR extension.
 
+## ⚠️ Breaking Change in v2.0
+
+The `create_vss` function now returns `Union[VSSAlgebra, VSSError]` instead of `Optional[VSSAlgebra]`. This provides detailed error information instead of just `None`. See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for upgrade instructions.
+
 ## Overview
 
 This library provides high-performance vector similarity search functionality through a clean, functional API. It leverages KuzuDB's disk-based HNSW vector indexing for scalable similarity search operations.
@@ -40,6 +44,11 @@ from vss_kuzu import create_vss
 
 # Create VSS instance
 vss = create_vss(db_path="./my_database")
+
+# Check for errors (v2.0+)
+if isinstance(vss, dict) and vss.get('type'):
+    print(f"Failed to initialize: {vss['message']}")
+    exit(1)
 
 # Index documents
 documents = [

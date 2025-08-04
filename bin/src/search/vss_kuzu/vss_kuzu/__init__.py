@@ -8,14 +8,21 @@ All public classes, functions, and types should be imported from this module.
 from typing import List, Dict, Any, TypedDict, Optional
 
 # Import only what's needed for the public API
-from .application import create_vss
+from .application import create_vss, create_vss_optional
 from .protocols import VSSAlgebra
+from log_py import log
 
 # Type definitions
 class VectorSearchError(TypedDict):
     """エラー情報を表す型"""
     ok: bool
     error: str
+    details: Dict[str, Any]
+
+class VSSError(TypedDict):
+    """VSS操作のエラー情報を表す型"""
+    type: str
+    message: str
     details: Dict[str, Any]
 
 class VectorSearchResult(TypedDict):
@@ -35,16 +42,20 @@ class VectorIndexResult(TypedDict):
 # Version information
 __version__ = "0.1.0"
 
+
+
 # Public API - everything that external users should import
 __all__ = [
     # Type definitions
     "VectorSearchError",
+    "VSSError",
     "VectorSearchResult",
     "VectorIndexResult",
     "VSSAlgebra",
     
     # Unified API (Recommended)
     "create_vss",
+    "create_vss_optional",  # For backward compatibility
     
     # Version
     "__version__",
@@ -78,6 +89,7 @@ Supports Japanese text embeddings using the ruri-v3-30m model.
 
 The module exports TypedDict classes for type-safe interactions:
 - VectorSearchError: Error information with ok=False, error message, and details
+- VSSError: VSS operation error with type, message, and details fields
 - VectorSearchResult: Successful search results with ok=True, results list, and metadata
 - VectorIndexResult: Indexing operation result with status and performance metrics
 """

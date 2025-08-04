@@ -32,12 +32,16 @@ class TestErrorHandling:
             with patch('vss_kuzu.infrastructure.vector.check_vector_extension') as mock_check:
                 mock_check.return_value = (False, {"error": "Failed to load VECTOR extension", "details": {}})
                 
-                # create_vssがNoneを返すことを確認
+                # create_vssがVSSErrorを返すことを確認
                 vss = create_vss(db_path=db_dir, in_memory=False)
-                assert vss is None, "create_vss should return None when VECTOR extension is missing"
+                assert isinstance(vss, dict), "create_vss should return a dict (VSSError) when VECTOR extension is missing"
+                assert vss.get('type') == 'vector_extension_error', f"Expected type='vector_extension_error', got {vss.get('type')}"
+                assert 'message' in vss, "VSSError should have a message field"
+                assert 'details' in vss, "VSSError should have a details field"
                 
                 log("info", {
-                    "message": "create_vss correctly returned None for missing VECTOR extension"
+                    "message": "create_vss correctly returned VSSError for missing VECTOR extension",
+                    "error_type": vss.get('type')
                 })
     
     def test_invalid_parameters_rejected(self):
@@ -53,8 +57,8 @@ class TestErrorHandling:
             os.environ['RGL_DATABASE_PATH'] = db_dir
             
             vss = create_vss(db_path=db_dir, in_memory=False)
-            if vss is None:
-                pytest.skip("VECTOR extension not available")
+            if isinstance(vss, dict) and vss.get('type'):
+                pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
                 
                 # 空のドキュメントリストでのインデックス
                 result = vss.index([])
@@ -149,8 +153,8 @@ class TestErrorHandling:
             os.environ['RGL_DATABASE_PATH'] = db_dir
             
             vss = create_vss(db_path=db_dir, in_memory=False)
-            if vss is None:
-                pytest.skip("VECTOR extension not available")
+            if isinstance(vss, dict) and vss.get('type'):
+                pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
             
             # 大量のドキュメントを追加してリソースを消費
             batch_size = 100
@@ -218,4 +222,184 @@ class TestErrorHandling:
             log("info", {
                 "message": "Resource exhaustion test completed",
                 "system_operational": True
+            })
+    
+    def test_vss_error_structure(self):
+        """VSSErrorオブジェクトの構造検証"""
+        log("info", {
+            "message": "Testing VSSError structure",
+            "test": "test_vss_error_structure"
+        })
+        
+        from vss_kuzu import VSSError
+        
+        # VSSErrorはTypedDictなので、辞書として作成
+        error: VSSError = {
+            "type": "validation_error",
+            "message": "Invalid document format",
+            "details": {"field": "content", "reason": "missing"}
+        }
+        
+        # VSSError構造を検証（dict形式）
+        assert "type" in error, "VSSError should have 'type' key"
+        assert "message" in error, "VSSError should have 'message' key"
+        assert "details" in error, "VSSError should have 'details' key"
+        
+        # 型チェック
+        assert isinstance(error["type"], str), "VSSError.type should be string"
+        assert isinstance(error["message"], str), "VSSError.message should be string"
+        assert isinstance(error["details"], dict), "VSSError.details should be dict"
+        
+        # 値チェック
+        assert error["type"] == "validation_error", "VSSError.type should preserve value"
+        assert error["message"] == "Invalid document format", "VSSError.message should preserve value"
+        assert error["details"] == {"field": "content", "reason": "missing"}, "VSSError.details should preserve value"
+        
+        log("info", {
+            "message": "VSSError structure validated",
+            "error_type": error["type"],
+            "error_message": error["message"],
+            "error_details": error["details"]
+        })
+    
+    def test_vss_error_required_fields(self):
+        """VSSErrorの必須フィールド検証"""
+        log("info", {
+            "message": "Testing VSSError required fields",
+            "test": "test_vss_error_required_fields"
+        })
+        
+        from vss_kuzu import VSSError
+        from typing import get_type_hints, get_args, get_origin
+        
+        # TypedDictは静的型チェック用なので、実行時の検証は手動で実装
+        # VSS APIが返すエラー構造を検証する関数
+        def validate_vss_error(error_dict: dict) -> bool:
+            """VSSError形式の辞書を検証"""
+            required_fields = {"type", "message", "details"}
+            return all(field in error_dict for field in required_fields)
+        
+        # 不完全なエラー辞書
+        incomplete_errors = [
+            {"type": "test_error"},  # messageとdetailsが欠けている
+            {"message": "Test error"},  # typeとdetailsが欠けている
+            {"type": "test_error", "message": "Test message"},  # detailsが欠けている
+        ]
+        
+        for error_dict in incomplete_errors:
+            assert not validate_vss_error(error_dict), f"Incomplete error should not validate: {error_dict}"
+            log("info", {
+                "message": "Incomplete error correctly rejected",
+                "error_dict": error_dict
+            })
+        
+        # 完全なエラー辞書
+        complete_error: VSSError = {
+            "type": "test_error",
+            "message": "Test error message",
+            "details": {}
+        }
+        
+        assert validate_vss_error(complete_error), "Complete error should validate"
+        assert complete_error["type"] == "test_error"
+        assert complete_error["message"] == "Test error message"
+        assert complete_error["details"] == {}
+        
+        log("info", {
+            "message": "VSSError required fields validated"
+        })
+    
+    def test_vss_error_details_context_preservation(self):
+        """VSSErrorの詳細情報コンテキスト保持検証"""
+        log("info", {
+            "message": "Testing VSSError details context preservation",
+            "test": "test_vss_error_details_context_preservation"
+        })
+        
+        from vss_kuzu import VSSError
+        import copy
+        
+        # 複雑な詳細情報
+        complex_details = {
+            "operation": "index_documents",
+            "phase": "embedding_generation",
+            "document_id": "test_001",
+            "nested_info": {
+                "model": "cl-nagoya/ruri-v3-30m",
+                "dimension": 256,
+                "error_code": "MODEL_LOAD_FAILED"
+            },
+            "timestamp": "2024-01-15T10:30:00Z",
+            "retry_count": 3,
+            "environment": {
+                "db_path": "/tmp/test.db",
+                "in_memory": False
+            }
+        }
+        
+        # detailsのディープコピーを作成
+        details_copy = copy.deepcopy(complex_details)
+        
+        error: VSSError = {
+            "type": "embedding_error",
+            "message": "Failed to generate embedding",
+            "details": details_copy
+        }
+        
+        # 詳細情報が完全に保持されているか検証
+        assert error["details"] == complex_details, "Complex details should be preserved exactly"
+        assert error["details"]["nested_info"]["model"] == "cl-nagoya/ruri-v3-30m"
+        assert error["details"]["nested_info"]["dimension"] == 256
+        assert error["details"]["environment"]["in_memory"] is False
+        
+        # 詳細情報の変更が元のデータに影響しないか確認
+        error["details"]["new_field"] = "added"
+        assert "new_field" not in complex_details, "Original details should not be modified"
+        
+        log("info", {
+            "message": "VSSError details context preservation validated",
+            "details_keys": list(error["details"].keys()),
+            "nested_keys": list(error["details"].get("nested_info", {}).keys())
+        })
+    
+    def test_vss_api_error_format(self):
+        """VSS APIのエラー形式がVSSError構造に従うことを検証"""
+        log("info", {
+            "message": "Testing VSS API error format",
+            "test": "test_vss_api_error_format"
+        })
+        
+        from vss_kuzu import create_vss
+        
+        with tempfile.TemporaryDirectory() as db_dir:
+            os.environ['RGL_DATABASE_PATH'] = db_dir
+            
+            vss = create_vss(db_path=db_dir, in_memory=False)
+            if isinstance(vss, dict) and vss.get('type'):
+                pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
+            
+            # 空のドキュメントリストでインデックスを試みる
+            result = vss.index([])
+            
+            # エラー結果の構造を検証
+            assert "ok" in result, "Result should have 'ok' field"
+            assert result["ok"] is False, "Empty documents should fail"
+            assert "error" in result, "Result should have 'error' field"
+            assert "details" in result, "Result should have 'details' field"
+            
+            # VSSError形式に変換可能か検証
+            vss_error = {
+                "type": "validation_error",
+                "message": result["error"],
+                "details": result["details"]
+            }
+            
+            assert isinstance(vss_error["type"], str)
+            assert isinstance(vss_error["message"], str)
+            assert isinstance(vss_error["details"], dict)
+            
+            log("info", {
+                "message": "VSS API error format validated",
+                "error_message": vss_error["message"],
+                "error_type": vss_error["type"]
             })

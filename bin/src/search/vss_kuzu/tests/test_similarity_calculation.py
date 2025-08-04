@@ -24,8 +24,8 @@ class TestSimilarityCalculation:
         with tempfile.TemporaryDirectory() as db_dir:
             os.environ['RGL_DATABASE_PATH'] = db_dir
             vss = create_vss(db_path=db_dir, in_memory=False)
-            if vss is None:
-                pytest.skip("VECTOR extension not available")
+            if isinstance(vss, dict) and vss.get('type'):
+                pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
             yield vss
     
     def test_similarity_score_not_zero_for_similar_texts(self, vss_instance):

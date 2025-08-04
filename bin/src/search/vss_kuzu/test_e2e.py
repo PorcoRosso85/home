@@ -39,7 +39,7 @@ class TestE2EImportCapability:
         
         # Try creating an in-memory VSS instance
         vss = create_vss(in_memory=True)
-        if vss is not None:
+        if not (isinstance(vss, dict) and vss.get('type')):
             # If successful, check it has the expected interface
             assert hasattr(vss, 'index')
             assert hasattr(vss, 'search')

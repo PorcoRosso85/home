@@ -610,8 +610,8 @@ def create_vss(
     
     Example:
         vss = create_vss(in_memory=True)
-        if vss is None:
-            print("Failed to initialize VSS")
+        if isinstance(vss, dict) and vss.get('type'):
+            print(f"Failed to initialize VSS: {vss.get('message')}")
             return
         vss.index([{"id": "1", "content": "テキスト"}])
         results = vss.search("検索語")
@@ -712,7 +712,11 @@ def create_vss(
                 "error": error_msg,
                 "details": db_error.get('details', {})
             })
-            return None
+            return {
+                "type": "database_creation_error",
+                "message": error_msg,
+                "details": db_error.get('details', {})
+            }
         
         conn_success, connection, conn_error = create_kuzu_connection(database)
         if not conn_success:
@@ -724,7 +728,11 @@ def create_vss(
                 "error": error_msg,
                 "details": conn_error.get('details', {})
             })
-            return None
+            return {
+                "type": "connection_error",
+                "message": error_msg,
+                "details": conn_error.get('details', {})
+            }
         
         should_close_connection = True
     
@@ -741,7 +749,11 @@ def create_vss(
                 "error": error_msg,
                 "details": details
             })
-            return None
+            return {
+                "type": "vector_extension_error",
+                "message": error_msg,
+                "details": details
+            }
         
         # スキーマを初期化
         schema_success, schema_error = initialize_vector_schema(
@@ -762,7 +774,11 @@ def create_vss(
                 "error": error_msg,
                 "details": details
             })
-            return None
+            return {
+                "type": "schema_initialization_error",
+                "message": error_msg,
+                "details": details
+            }
     finally:
         # 自分で作成した接続のみクローズ
         if should_close_connection:
@@ -781,3 +797,47 @@ def create_vss(
     return create_vss_interpreter(config, service_funcs)
 
 
+def create_vss_optional(
+    db_path: str = "./kuzu_db",
+    in_memory: bool = False,
+    model_name: str = "cl-nagoya/ruri-v3-30m",
+    existing_connection: Optional[Any] = None,
+    **kwargs
+) -> Optional[VSSAlgebra]:
+    """
+    VSS統一APIインスタンスを作成 (Optional版 - 後方互換性のため)
+    
+    Args:
+        db_path: データベースパス
+        in_memory: インメモリデータベースを使用するか
+        model_name: 使用する埋め込みモデル名
+        existing_connection: 既存のKuzuDB接続（オプション）
+        **kwargs: その他の設定パラメータ
+    
+    Returns:
+        VSSAlgebra protocol実装 (成功時) または None (失敗時)
+    
+    Example:
+        vss = create_vss_optional(in_memory=True)
+        if vss is None:
+            print("Failed to initialize VSS")
+            return
+        vss.index([{"id": "1", "content": "テキスト"}])
+        results = vss.search("検索語")
+    """
+    # Deprecation warning
+    log("warning", {
+        "message": "create_vss_optional is deprecated and will be removed in a future version",
+        "component": "vss_kuzu",
+        "operation": "create_vss_optional",
+        "deprecation": True,
+        "recommendation": "Use create_vss directly and check for VSSError dict"
+    })
+    
+    result = create_vss(db_path, in_memory, model_name, existing_connection, **kwargs)
+    
+    # VSSErrorの場合はNoneを返す（後方互換性のため）
+    if isinstance(result, dict) and result.get('type'):
+        return None
+    
+    return result

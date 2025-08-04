@@ -15,7 +15,7 @@ class TestUnifiedAPI:
         # In environments without VECTOR extension, create_vss should return None
         # This test verifies the mandatory VECTOR extension behavior
         vss = create_vss(in_memory=True)
-        if vss is None:
+        if isinstance(vss, dict) and vss.get('type'):
             # VECTOR extension is not available, which is expected in test environments
             # without the extension installed
             pass
@@ -28,23 +28,23 @@ class TestUnifiedAPI:
     def test_create_vss_returns_vss_instance(self):
         """create_vss()がVSSAlgebra Protocolを実装したオブジェクトを返すこと"""
         vss = create_vss(in_memory=True)
-        if vss is not None:
+        if not (isinstance(vss, dict) and vss.get('type')):
             # VECTOR拡張が利用可能な場合のテスト
             assert hasattr(vss, 'index')
             assert hasattr(vss, 'search')
             assert callable(vss.index)
             assert callable(vss.search)
         else:
-            # VECTOR拡張が利用できない場合はNoneが返される
+            # VECTOR拡張が利用できない場合はVSSErrorが返される
             # This is expected behavior in test environments without VECTOR extension
-            pytest.skip("VECTOR extension not available")
+            pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
     
     def test_unified_api_index_and_search(self):
         """統一APIでインデックスと検索が動作すること"""
         # VSS インスタンスを作成
         vss = create_vss(in_memory=True)
-        if vss is None:
-            pytest.skip("VECTOR extension not available")
+        if isinstance(vss, dict) and vss.get('type'):
+            pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
         
         # ドキュメントをインデックス
         documents = [
@@ -87,8 +87,8 @@ class TestUnifiedAPI:
             index_metric='l2',
             index_efc=300
         )
-        if vss is None:
-            pytest.skip("VECTOR extension not available")
+        if isinstance(vss, dict) and vss.get('type'):
+            pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
         
         # インデックスと検索が動作すること
         documents = [{"id": "test1", "content": "テストドキュメント"}]
@@ -104,8 +104,8 @@ class TestUnifiedAPI:
     def test_unified_api_search_with_kwargs(self):
         """統一APIのsearchメソッドで追加パラメータが使用できること"""
         vss = create_vss(in_memory=True)
-        if vss is None:
-            pytest.skip("VECTOR extension not available")
+        if isinstance(vss, dict) and vss.get('type'):
+            pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
         
         # ドキュメントをインデックス
         documents = [
@@ -124,8 +124,8 @@ class TestUnifiedAPI:
     def test_unified_api_error_handling(self):
         """統一APIでエラーが適切にハンドリングされること"""
         vss = create_vss(in_memory=True)
-        if vss is None:
-            pytest.skip("VECTOR extension not available")
+        if isinstance(vss, dict) and vss.get('type'):
+            pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
         
         # 空のドキュメントリストでインデックス
         index_result = vss.index([])
@@ -156,8 +156,8 @@ class TestUnifiedAPI:
         
         # 統一APIでインデックスと検索
         vss = create_vss(in_memory=True)
-        if vss is None:
-            pytest.skip("VECTOR extension not available")
+        if isinstance(vss, dict) and vss.get('type'):
+            pytest.skip(f"VECTOR extension not available: {vss.get('message')}")
         documents = [{"id": "1", "content": "テストコンテンツ"}]
         unified_index = vss.index(documents)
         if not unified_index["ok"] and "VECTOR" in unified_index.get("error", ""):
