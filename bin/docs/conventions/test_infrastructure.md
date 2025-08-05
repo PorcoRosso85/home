@@ -65,6 +65,22 @@
 }
 ```
 
+#### 開発時の高速テスト実行
+
+開発中の頻繁なテスト実行では、`nix shell`を使用してストアコピーを回避できる：
+
+```bash
+# 高速テスト実行（開発用）
+nix shell . -c pytest              # Python
+nix shell . -c "deno test"         # TypeScript
+nix shell . -c "cargo test"        # Rust
+
+# エイリアスの設定例
+alias test-fast="nix shell . -c pytest"
+```
+
+**注意**: CI/CDや最終確認では必ず`nix run .#test`を使用すること。
+
 ## テスト環境設定
 
 ### 環境変数
