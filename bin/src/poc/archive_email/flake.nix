@@ -211,6 +211,15 @@
             ''}";
           };
 
+          # Email demo with mock
+          email-demo = {
+            type = "app";
+            program = "${pkgs.writeShellScript "email-demo" ''
+              cd ${./.}
+              exec ./scripts/email-demo.sh
+            ''}";
+          };
+
           # Demo script that shows the system architecture and components
           demo = {
             type = "app";
