@@ -87,63 +87,38 @@ def check_vector_extension(connection: Any) -> Tuple[bool, Optional[Dict[str, An
         (is_available, error_info)
     """
     try:
-        # Simple check - try to call VECTOR extension function
-        # This will fail immediately if VECTOR is not available
-        test_table = "_vector_test_" + str(int(time.time() * 1000))
-        try:
-            # Just check if CREATE_VECTOR_INDEX function exists
-            # Use a table that doesn't exist - it will fail but in a different way
-            connection.execute(f"""
-                CALL CREATE_VECTOR_INDEX(
-                    'nonexistent_table_{test_table}',
-                    'test_idx',
-                    'embedding'
-                )
-            """)
-        except Exception as e:
-            error_msg = str(e)
-            # If error is about the table not existing, VECTOR is available
-            if "does not exist" in error_msg and "nonexistent_table" in error_msg:
-                return True, None
-            # If error is about CREATE_VECTOR_INDEX not being defined, VECTOR is missing
-            if "CREATE_VECTOR_INDEX" in error_msg and ("not defined" in error_msg or "unknown" in error_msg):
-                return False, {
-                    "error": "VECTOR extension not available",
-                    "details": {
-                        "extension": VECTOR_EXTENSION_NAME,
-                        "function": "CREATE_VECTOR_INDEX",
-                        "raw_error": error_msg
-                    }
-                }
-            # For other errors, assume VECTOR is available
-            return True, None
+        # まず拡張をインストール・ロード（すでにある場合は無害）
+        connection.execute(f"INSTALL {VECTOR_EXTENSION_NAME}")
+        connection.execute(f"LOAD EXTENSION {VECTOR_EXTENSION_NAME}")
+        
+        log("info", {
+            "message": "VECTOR extension is ready",
+            "component": "vss.infrastructure.vector",
+            "operation": "check_vector_extension",
+            "extension": VECTOR_EXTENSION_NAME
+        })
+        
+        return True, None
         
     except Exception as e:
         error_msg = str(e)
-        if any(pattern in error_msg for pattern in ["Extension", "CREATE_VECTOR_INDEX", "does not exist", "unknown function", "not defined"]):
-            install_success, install_error = install_vector_extension(connection)
-            
-            if install_success:
-                return check_vector_extension(connection)
-            else:
-                return False, {
-                    "error": "VECTOR extension not available and failed to install",
-                    "details": {
-                        "extension": VECTOR_EXTENSION_NAME,
-                        "install_command": f"INSTALL {VECTOR_EXTENSION_NAME}",
-                        "install_error": install_error,
-                        "original_error": error_msg
-                    }
-                }
-        else:
-            # For other errors, assume VECTOR extension is not available
-            return False, {
-                "error": "VECTOR extension check failed",
-                "details": {
-                    "extension": VECTOR_EXTENSION_NAME,
-                    "raw_error": error_msg
-                }
+        error_info = {
+            "error": "Failed to install/load VECTOR extension",
+            "details": {
+                "extension": VECTOR_EXTENSION_NAME,
+                "raw_error": error_msg
             }
+        }
+        
+        log("error", {
+            "message": "VECTOR extension check failed",
+            "component": "vss.infrastructure.vector",
+            "operation": "check_vector_extension",
+            "error": error_msg,
+            "extension": VECTOR_EXTENSION_NAME
+        })
+        
+        return False, error_info
 
 
 def initialize_vector_schema(
