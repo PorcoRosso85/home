@@ -11,31 +11,19 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     
-    # Graph database for architecture knowledge
-    kuzu-py = {
-      url = "path:../persistence/kuzu_py";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    
     # For semantic analysis of project descriptions
+    # This includes kuzu-py as a dependency
     vss-kuzu = {
       url = "path:../search/vss_kuzu";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    
-    # Logging and telemetry support
-    log-py = {
-      url = "path:../telemetry/log_py";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py, vss-kuzu, log-py }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, vss-kuzu }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ log-py.overlays.default ];
         };
         python = pkgs.python312;
         
@@ -54,10 +42,8 @@
           ];
           
           propagatedBuildInputs = with pythonPackages; [
-            # Inherit dependencies
-            kuzu-py.packages.${system}.kuzuPy
+            # Get kuzu from vss-kuzu's dependency to avoid conflicts
             vss-kuzu.packages.${system}.vssKuzu
-            log_py  # Now available through overlay
             
             # Additional dependencies
             pydantic
@@ -101,9 +87,57 @@
           '';
         };
         
-        apps.default = {
-          type = "app";
-          program = "${architectureTool}/bin/architecture";
+        apps = {
+          default = {
+            type = "app";
+            program = "${architectureTool}/bin/architecture";
+          };
+          
+          test = {
+            type = "app";
+            program = let
+              testEnv = python.withPackages (ps: architectureTool.propagatedBuildInputs ++ (with ps; [
+                pytest
+                pytest-asyncio
+              ]));
+            in "${pkgs.writeShellScript "test" ''
+              set -e
+              echo "=== Running Architecture Tool Tests ==="
+              cd ${./.}
+              
+              # Infrastructure tests
+              if [ -f test_infrastructure_spec.py ]; then
+                echo "Running infrastructure tests..."
+                ${testEnv}/bin/pytest -v test_infrastructure_spec.py
+              fi
+              
+              # DDL specification tests
+              if [ -d ddl ] && ls ddl/test_*.py 2>/dev/null; then
+                echo "Running DDL tests..."
+                ${testEnv}/bin/pytest -v ddl/test_*.py
+              fi
+              
+              # DQL specification tests
+              if [ -d dql ] && ls dql/test_*.py 2>/dev/null; then
+                echo "Running DQL tests..."
+                ${testEnv}/bin/pytest -v dql/test_*.py
+              fi
+              
+              # Integration tests
+              if ls test_integration_*.py 2>/dev/null; then
+                echo "Running integration tests..."
+                ${testEnv}/bin/pytest -v test_integration_*.py
+              fi
+              
+              # E2E tests
+              if [ -d "e2e/internal" ]; then
+                echo "Running E2E tests..."
+                ${testEnv}/bin/pytest -v e2e/internal/
+              fi
+              
+              echo "=== All tests completed ==="
+            ''}";
+          };
         };
       });
 }
