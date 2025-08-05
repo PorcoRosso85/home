@@ -22,15 +22,24 @@
       url = "path:../search/vss_kuzu";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    
+    # Logging and telemetry support
+    log-py = {
+      url = "path:../telemetry/log_py";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py, vss-kuzu }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, kuzu-py, vss-kuzu, log-py }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
-        python = python-flake.packages.${system}.pythonEnv;
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ log-py.overlays.default ];
+        };
+        python = pkgs.python312;
         
-        pythonPackages = python.pkgs;
+        pythonPackages = pkgs.python312Packages;
         
         architectureTool = pythonPackages.buildPythonApplication {
           pname = "architecture-tool";
@@ -38,10 +47,17 @@
           
           src = ./.;
           
+          pyproject = true;
+          
+          build-system = with pythonPackages; [
+            setuptools
+          ];
+          
           propagatedBuildInputs = with pythonPackages; [
             # Inherit dependencies
-            kuzu-py.packages.${system}.default
-            vss-kuzu.packages.${system}.default
+            kuzu-py.packages.${system}.kuzuPy
+            vss-kuzu.packages.${system}.vssKuzu
+            log_py  # Now available through overlay
             
             # Additional dependencies
             pydantic
