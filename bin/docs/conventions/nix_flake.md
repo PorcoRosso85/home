@@ -34,10 +34,61 @@
 }
 ```
 
+## パッケージ中心設計の原則
+
+### なぜパッケージを中心に置くべきか
+
+**パッケージ定義は、Nix Flakeにおける「唯一の真実の源（Single Source of Truth）」として機能します。**
+
+1. **再利用性の最大化**
+   - `nix shell`での直接利用
+   - `nix run`でのアプリケーション実行
+   - 外部flakeからの参照（buildInputs）
+   - devShellへの組み込み
+
+2. **DRY原則の徹底**
+   ```nix
+   # ❌ アンチパターン：重複定義
+   devShells.default = pkgs.mkShell {
+     buildInputs = [ bash shellcheck bats shfmt ];  # 重複
+   };
+   packages.default = pkgs.buildEnv {
+     paths = [ bash shellcheck bats shfmt ];  # 重複
+   };
+
+   # ✅ ベストプラクティス：パッケージを参照
+   packages.default = pkgs.buildEnv {
+     name = "my-tools";
+     paths = [ bash shellcheck bats shfmt ];
+   };
+   devShells.default = pkgs.mkShell {
+     buildInputs = [ self.packages.${system}.default ];
+   };
+   ```
+
+3. **外部参照の簡潔性**
+   ```nix
+   # 外部flakeでの利用が単純明快
+   inputs.bash-dev.url = "github:user/bash-dev";
+   buildInputs = [ bash-dev.packages.${system}.default ];
+   ```
+
+4. **段階的拡張の容易さ**
+   - 基本：packageのみ提供
+   - 必要に応じて：devShell追加（環境変数・shellHook）
+   - 高度な統合：overlay提供
+
 ## パッケージとOverlayの提供
 
+### 設計の優先順位
+
+1. **packages（必須）** - すべてのflakeはパッケージを提供すべき
+2. **devShells（推奨）** - パッケージを参照し、開発環境固有の設定を追加
+3. **overlays（オプション）** - 特殊な統合が必要な場合のみ
+
 ### 基本方針
-- **パッケージ提供を基本とする**: `packages.default`で直接利用可能なパッケージを提供
+- **パッケージ定義を唯一の真実の源とする**: `packages.default`にツールセットを集約
+- **他の出力はパッケージを参照**: devShellもoverlayもパッケージを基点に構築
 - **Overlayは補助的に提供**: 以下のケースではoverlayの提供を検討
 
 ### Overlayが適切なケース
@@ -376,6 +427,8 @@ nix run .#test
 - ❌ 環境依存の前提条件
 - ❌ 言語バージョンのハードコード（例: `pkgs.python312` を直接使用）
 - ❌ 共通環境の重複定義
+- ❌ devShellとpackagesで同じツールリストを重複定義
+- ❌ パッケージなしでdevShellのみ提供
 
 ## ベストプラクティス
 
@@ -389,6 +442,8 @@ nix run .#test
 - ✅ 明確なエラーメッセージ
 - ✅ 言語環境は親flakeから継承
 - ✅ バージョン管理は親flakeで一元化
+- ✅ パッケージ定義を中心に、devShellは参照で構築
+- ✅ ツールの定義は一箇所（packages）に集約
 
 ## デフォルトアプリの動的一覧表示
 
