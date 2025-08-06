@@ -7,6 +7,18 @@ set -euo pipefail
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# MCP server URIs - easy to add new servers here
+declare -A MCP_SERVERS=(
+  ["lsmcp"]="/home/nixos/bin/src/develop/lsp/lsmcp"
+  # Add more servers as needed:
+  # ["my-server"]="/path/to/my-server"
+)
+
+# Export MCP server paths as environment variables for launch-claude to use
+for server_name in "${!MCP_SERVERS[@]}"; do
+  export "MCP_SERVER_${server_name^^}=${MCP_SERVERS[$server_name]}"
+done
+
 # Run project selector with nix shell
 project_dir=$(nix shell \
   nixpkgs#fzf \

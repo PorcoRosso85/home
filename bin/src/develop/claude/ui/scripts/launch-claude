@@ -81,6 +81,13 @@ fi
 # Change to target directory
 cd "$TARGET_DIR"
 
+# Create symlink to global .mcp.json if it doesn't exist
+GLOBAL_MCP="/home/nixos/.config/claude/global-mcp.json"
+if [[ -f "$GLOBAL_MCP" ]] && [[ ! -e ".mcp.json" ]]; then
+  ln -sf "$GLOBAL_MCP" .mcp.json
+  echo "Linked to global MCP configuration"
+fi
+
 # Function to launch Claude
 launch_claude() {
   local flags="$1"
