@@ -26,9 +26,11 @@ COMMANDS:
     init        Create the DDL directory structure for migrations
     apply       Execute pending migrations to update your database
     status      Check which migrations are applied, pending, or failed
+    validate    Check migration syntax without executing
     snapshot    Export the current database state for backup/rollback
     rollback    Restore database from a previous snapshot (coming soon)
     check       Show migration system status and environment
+    diff        Compare schemas between two databases
 
 OPTIONS:
     --ddl DIR   Path to DDL directory (default: ./ddl)
@@ -36,12 +38,24 @@ OPTIONS:
     --help      Show this help message
     --version   Show version information
 
+APPLY OPTIONS:
+    --dry-run   Show what would be applied without making changes
+
+DIFF OPTIONS:
+    --target PATH   Path to target database for comparison (required)
+
 GETTING STARTED:
     # First time? Initialize your migration directory:
     kuzu-migrate init
 
     # Create your schema in ./ddl/migrations/000_initial.cypher, then:
+    kuzu-migrate validate
+
+    # If validation passes, apply the migrations:
     kuzu-migrate apply
+
+    # Or see what would be applied without making changes:
+    kuzu-migrate apply --dry-run
 
     # Check what's been applied:
     kuzu-migrate status
@@ -165,6 +179,7 @@ EOF
 apply_command() {
     local ddl_dir="$1"
     local db_path="$2"
+    local dry_run="${3:-false}"
     
     # Check if DDL directory exists
     if [[ ! -d "$ddl_dir" ]]; then
@@ -252,7 +267,11 @@ EOF
         local checksum
         checksum=$(sha256sum "$migration_file" | cut -d' ' -f1)
         
-        info "📄 Applying migration: $migration_name"
+        if [[ "$dry_run" == "true" ]]; then
+            info "📄 [DRY-RUN] Would apply migration: $migration_name"
+        else
+            info "📄 Applying migration: $migration_name"
+        fi
         
         # Record start time
         local start_time
@@ -260,31 +279,71 @@ EOF
         
         # Execute the migration
         local error_msg=""
-        if kuzu "$db_path" < "$migration_file" > /dev/null 2>&1; then
+        local migration_success=false
+        
+        if [[ "$dry_run" == "true" ]]; then
+            # Create a transaction script that rolls back
+            local dry_run_script
+            dry_run_script=$(mktemp)
+            
+            # Wrap migration in transaction with rollback
+            {
+                echo "BEGIN TRANSACTION;"
+                cat "$migration_file"
+                echo "ROLLBACK;"
+            } > "$dry_run_script"
+            
+            if kuzu "$db_path" < "$dry_run_script" > /dev/null 2>&1; then
+                migration_success=true
+            else
+                error_msg=$(kuzu "$db_path" < "$dry_run_script" 2>&1 || true)
+            fi
+            
+            rm -f "$dry_run_script"
+        else
+            # Normal execution
+            if kuzu "$db_path" < "$migration_file" > /dev/null 2>&1; then
+                migration_success=true
+            else
+                error_msg=$(kuzu "$db_path" < "$migration_file" 2>&1 || true)
+            fi
+        fi
+        
+        if [[ "$migration_success" == "true" ]]; then
             # Calculate execution time
             local end_time
             end_time=$(date +%s%3N)
             local exec_time=$((end_time - start_time))
             
-            # Record successful migration
-            local record_query="CREATE (m:_migration_history {migration_name: '$migration_name', checksum: '$checksum', execution_time_ms: $exec_time});"
-            if echo "$record_query" | kuzu "$db_path" > /dev/null 2>&1; then
-                success "  ✅ Applied successfully (${exec_time}ms)"
+            if [[ "$dry_run" == "true" ]]; then
+                success "  ✅ [DRY-RUN] Would apply successfully (${exec_time}ms)"
                 ((applied_count++))
             else
-                error_with_hint "Failed to record migration in history" "check database"
+                # Record successful migration
+                local record_query="CREATE (m:_migration_history {migration_name: '$migration_name', checksum: '$checksum', execution_time_ms: $exec_time});"
+                if echo "$record_query" | kuzu "$db_path" > /dev/null 2>&1; then
+                    success "  ✅ Applied successfully (${exec_time}ms)"
+                    ((applied_count++))
+                else
+                    error_with_hint "Failed to record migration in history" "check database"
+                fi
             fi
         else
-            # Capture error output
-            error_msg=$(kuzu "$db_path" < "$migration_file" 2>&1 || true)
+            # Capture error output was already captured above
             error_msg=$(echo "$error_msg" | tr '\n' ' ' | sed "s/'/''/g")
             
-            # Record failed migration
-            local record_query="CREATE (m:_migration_history {migration_name: '$migration_name', checksum: '$checksum', execution_time_ms: 0, success: false, error_message: '$error_msg'});"
-            echo "$record_query" | kuzu "$db_path" > /dev/null 2>&1 || true
+            if [[ "$dry_run" == "true" ]]; then
+                echo -e "${RED}  ❌ [DRY-RUN] Would fail to apply${NC}"
+                echo -e "${RED}     Error: ${error_msg}${NC}"
+            else
+                # Record failed migration
+                local record_query="CREATE (m:_migration_history {migration_name: '$migration_name', checksum: '$checksum', execution_time_ms: 0, success: false, error_message: '$error_msg'});"
+                echo "$record_query" | kuzu "$db_path" > /dev/null 2>&1 || true
+                
+                echo -e "${RED}  ❌ Failed to apply${NC}"
+                echo -e "${RED}     Error: ${error_msg}${NC}"
+            fi
             
-            echo -e "${RED}  ❌ Failed to apply${NC}"
-            echo -e "${RED}     Error: ${error_msg}${NC}"
             ((failed_count++))
             
             # Stop on first failure
@@ -294,23 +353,45 @@ EOF
     
     # Summary
     echo ""
-    echo "Migration Summary:"
+    if [[ "$dry_run" == "true" ]]; then
+        echo "[DRY-RUN] Migration Summary:"
+    else
+        echo "Migration Summary:"
+    fi
     echo "  📊 Total migrations: ${#migration_files[@]}"
     if [[ $applied_count -gt 0 ]]; then
-        success "  ✅ Applied: $applied_count"
+        if [[ "$dry_run" == "true" ]]; then
+            success "  ✅ Would apply: $applied_count"
+        else
+            success "  ✅ Applied: $applied_count"
+        fi
     fi
     if [[ $skipped_count -gt 0 ]]; then
         info "  ⏭️  Skipped: $skipped_count (already applied)"
     fi
     if [[ $failed_count -gt 0 ]]; then
-        echo -e "${RED}  ❌ Failed: $failed_count${NC}"
+        if [[ "$dry_run" == "true" ]]; then
+            echo -e "${RED}  ❌ Would fail: $failed_count${NC}"
+        else
+            echo -e "${RED}  ❌ Failed: $failed_count${NC}"
+        fi
         echo ""
-        error_with_hint "Migration process halted due to failure" "fix migration"
+        if [[ "$dry_run" == "true" ]]; then
+            error_with_hint "Some migrations would fail" "fix migration before applying"
+        else
+            error_with_hint "Migration process halted due to failure" "fix migration"
+        fi
     fi
     
     if [[ $applied_count -gt 0 && $failed_count -eq 0 ]]; then
         echo ""
-        success "All pending migrations applied successfully!"
+        if [[ "$dry_run" == "true" ]]; then
+            success "All pending migrations would apply successfully!"
+            echo ""
+            info "Run without --dry-run to actually apply these migrations"
+        else
+            success "All pending migrations applied successfully!"
+        fi
     elif [[ $applied_count -eq 0 && $skipped_count -gt 0 && $failed_count -eq 0 ]]; then
         echo ""
         info "Database is already up to date!"
@@ -602,6 +683,135 @@ EOF
     echo "  kuzu-migrate rollback --snapshot $snapshot_name"
 }
 
+validate_command() {
+    local ddl_dir="$1"
+    local db_path="$2"
+    
+    # Check if DDL directory exists
+    if [[ ! -d "$ddl_dir" ]]; then
+        error_with_hint "DDL directory not found: $ddl_dir" "run 'init'"
+    fi
+    
+    # Check if migrations directory exists
+    local migrations_dir="$ddl_dir/migrations"
+    if [[ ! -d "$migrations_dir" ]]; then
+        error_with_hint "Migrations directory not found: $migrations_dir" "run 'init'"
+    fi
+    
+    # Check if kuzu CLI is available
+    if ! command -v kuzu &> /dev/null; then
+        error_with_hint "command not found: kuzu" "check PATH"
+    fi
+    
+    echo "=== Migration Validation ==="
+    echo ""
+    
+    # Find all .cypher files sorted by name
+    info "Scanning for migration files..."
+    local migration_files=()
+    while IFS= read -r -d '' file; do
+        migration_files+=("$file")
+    done < <(find "$migrations_dir" -name "*.cypher" -type f -print0 | sort -z)
+    
+    if [[ ${#migration_files[@]} -eq 0 ]]; then
+        info "No migration files found in $migrations_dir"
+        return 0
+    fi
+    
+    info "Found ${#migration_files[@]} migration file(s)"
+    echo ""
+    
+    # Create temporary database for validation
+    local temp_db_dir
+    temp_db_dir=$(mktemp -d)
+    local temp_db_path="$temp_db_dir/validation.db"
+    
+    # Initialize temporary database
+    local init_script
+    init_script=$(mktemp)
+    cat > "$init_script" << 'EOF'
+-- Minimal initialization for validation
+CREATE NODE TABLE IF NOT EXISTS _validation_test (id INT64 PRIMARY KEY);
+EOF
+    
+    if ! kuzu "$temp_db_path" < "$init_script" > /dev/null 2>&1; then
+        rm -f "$init_script"
+        rm -rf "$temp_db_dir"
+        error_with_hint "Failed to create temporary database for validation" "check permissions"
+    fi
+    rm -f "$init_script"
+    
+    # Process each migration for syntax validation
+    local valid_count=0
+    local invalid_count=0
+    local validation_failed=false
+    
+    for migration_file in "${migration_files[@]}"; do
+        local migration_name
+        migration_name=$(basename "$migration_file")
+        
+        info "🔍 Validating: $migration_name"
+        
+        # Create validation script with EXPLAIN prefix
+        local validation_script
+        validation_script=$(mktemp)
+        
+        # Read migration file and prefix each non-comment line with EXPLAIN
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            # Skip empty lines and comments
+            if [[ -z "$line" || "$line" =~ ^[[:space:]]*-- ]]; then
+                continue
+            fi
+            
+            # Skip lines that are only whitespace
+            if [[ "$line" =~ ^[[:space:]]*$ ]]; then
+                continue
+            fi
+            
+            # Add EXPLAIN prefix to each DDL statement
+            echo "EXPLAIN $line" >> "$validation_script"
+        done < "$migration_file"
+        
+        # Execute validation
+        local error_msg=""
+        if kuzu "$temp_db_path" < "$validation_script" > /dev/null 2>&1; then
+            success "  ✅ Syntax validation passed"
+            ((valid_count++))
+        else
+            # Capture error output for detailed feedback
+            error_msg=$(kuzu "$temp_db_path" < "$validation_script" 2>&1 | head -5 | tr '\n' ' ' || true)
+            echo -e "${RED}  ❌ Syntax validation failed${NC}"
+            echo -e "${RED}     Error: ${error_msg}${NC}"
+            ((invalid_count++))
+            validation_failed=true
+        fi
+        
+        # Clean up validation script
+        rm -f "$validation_script"
+    done
+    
+    # Clean up temporary database
+    rm -rf "$temp_db_dir"
+    
+    # Summary
+    echo ""
+    echo "=== Validation Summary ==="
+    echo "  📊 Total migrations: ${#migration_files[@]}"
+    if [[ $valid_count -gt 0 ]]; then
+        success "  ✅ Valid: $valid_count"
+    fi
+    if [[ $invalid_count -gt 0 ]]; then
+        echo -e "${RED}  ❌ Invalid: $invalid_count${NC}"
+    fi
+    
+    echo ""
+    if [[ $validation_failed == true ]]; then
+        error_with_hint "Migration validation failed" "fix syntax errors"
+    else
+        success "All migration files have valid syntax!"
+    fi
+}
+
 check_command() {
     local ddl_dir="$1"
     local db_path="$2"
@@ -738,6 +948,141 @@ check_command() {
     fi
 }
 
+diff_command() {
+    local db_path="$1"
+    local target_path="$2"
+    
+    # Check if kuzu CLI is available
+    if ! command -v kuzu &> /dev/null; then
+        error_with_hint "command not found: kuzu" "check PATH"
+    fi
+    
+    # Validate database paths
+    if [[ ! -d "$db_path" ]]; then
+        error_with_hint "Source database not found: $db_path" "check database path"
+    fi
+    
+    if [[ ! -d "$target_path" ]]; then
+        error_with_hint "Target database not found: $target_path" "check --target path"
+    fi
+    
+    # Test connections
+    if ! echo "RETURN 'test';" | kuzu "$db_path" > /dev/null 2>&1; then
+        error_with_hint "Cannot connect to source database: $db_path" "check database integrity"
+    fi
+    
+    if ! echo "RETURN 'test';" | kuzu "$target_path" > /dev/null 2>&1; then
+        error_with_hint "Cannot connect to target database: $target_path" "check database integrity"
+    fi
+    
+    echo "=== Database Schema Comparison ==="
+    echo ""
+    info "Source: $db_path"
+    info "Target: $target_path"
+    echo ""
+    
+    # Create temporary directories for schema exports
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    local source_schema_dir="$temp_dir/source"
+    local target_schema_dir="$temp_dir/target"
+    
+    # Export schemas with schema_only=true
+    info "Exporting source database schema..."
+    local source_export="EXPORT DATABASE '$source_schema_dir' (schema_only=true);"
+    if ! echo "$source_export" | kuzu "$db_path" > /dev/null 2>&1; then
+        rm -rf "$temp_dir"
+        error_with_hint "Failed to export source schema" "check permissions"
+    fi
+    
+    info "Exporting target database schema..."
+    local target_export="EXPORT DATABASE '$target_schema_dir' (schema_only=true);"
+    if ! echo "$target_export" | kuzu "$target_path" > /dev/null 2>&1; then
+        rm -rf "$temp_dir"
+        error_with_hint "Failed to export target schema" "check permissions"
+    fi
+    
+    # Find and compare schema files
+    local source_schema_file="$source_schema_dir/schema.cypher"
+    local target_schema_file="$target_schema_dir/schema.cypher"
+    
+    if [[ ! -f "$source_schema_file" ]]; then
+        rm -rf "$temp_dir"
+        error_with_hint "Source schema file not found" "check export output"
+    fi
+    
+    if [[ ! -f "$target_schema_file" ]]; then
+        rm -rf "$temp_dir"
+        error_with_hint "Target schema file not found" "check export output"
+    fi
+    
+    # Generate checksums
+    local source_checksum
+    local target_checksum
+    source_checksum=$(sha256sum "$source_schema_file" | cut -d' ' -f1)
+    target_checksum=$(sha256sum "$target_schema_file" | cut -d' ' -f1)
+    
+    echo "🔍 Schema Analysis:"
+    echo "   Source checksum: $source_checksum"
+    echo "   Target checksum: $target_checksum"
+    echo ""
+    
+    if [[ "$source_checksum" == "$target_checksum" ]]; then
+        success "✅ Schemas are identical"
+        rm -rf "$temp_dir"
+        return 0
+    fi
+    
+    echo "📊 Schema Differences Found:"
+    echo ""
+    
+    # Use diff to show detailed differences
+    if command -v diff &> /dev/null; then
+        echo "=== Detailed Schema Diff ==="
+        echo ""
+        
+        # Create unified diff with labels
+        if diff -u --label "Source ($db_path)" --label "Target ($target_path)" "$source_schema_file" "$target_schema_file" 2>/dev/null; then
+            success "No differences detected by line comparison"
+        else
+            local diff_lines
+            diff_lines=$(diff -u --label "Source ($db_path)" --label "Target ($target_path)" "$source_schema_file" "$target_schema_file" 2>/dev/null | wc -l)
+            info "Diff output contains $diff_lines lines"
+        fi
+    else
+        info "diff command not available, showing file statistics:"
+        echo ""
+        
+        local source_lines target_lines
+        source_lines=$(wc -l < "$source_schema_file")
+        target_lines=$(wc -l < "$target_schema_file")
+        
+        echo "   Source schema: $source_lines lines"
+        echo "   Target schema: $target_lines lines"
+        
+        if [[ $source_lines -gt $target_lines ]]; then
+            echo "   → Source has $((source_lines - target_lines)) more lines"
+        elif [[ $target_lines -gt $source_lines ]]; then
+            echo "   → Target has $((target_lines - source_lines)) more lines"
+        fi
+    fi
+    
+    echo ""
+    echo "=== Schema File Locations ==="
+    info "Temporary schema exports saved at:"
+    echo "   Source: $source_schema_file"
+    echo "   Target: $target_schema_file"
+    echo ""
+    info "Use 'cat' or your preferred editor to examine the differences"
+    echo "   cat '$source_schema_file'"
+    echo "   cat '$target_schema_file'"
+    echo ""
+    info "Clean up temp files with: rm -rf '$temp_dir'"
+    
+    # Clean up automatically after showing paths
+    # rm -rf "$temp_dir"
+}
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -757,10 +1102,10 @@ while [[ $# -gt 0 ]]; do
             echo "kuzu-migrate v${VERSION}"
             exit 0
             ;;
-        init|apply|status|snapshot|rollback|check)
+        init|apply|status|validate|snapshot|rollback|check|diff)
             COMMAND="$1"
             shift
-            # Don't shift additional arguments for snapshot command
+            # Don't shift additional arguments for snapshot and diff commands
             break
             ;;
         *)
@@ -780,10 +1125,26 @@ case "$COMMAND" in
         init_command "$DDL_DIR"
         ;;
     apply)
-        apply_command "$DDL_DIR" "$DB_PATH"
+        # Parse apply-specific arguments
+        dry_run="false"
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --dry-run)
+                    dry_run="true"
+                    shift
+                    ;;
+                *)
+                    error_with_hint "Unknown apply option: $1" "see --help"
+                    ;;
+            esac
+        done
+        apply_command "$DDL_DIR" "$DB_PATH" "$dry_run"
         ;;
     status)
         status_command "$DDL_DIR" "$DB_PATH"
+        ;;
+    validate)
+        validate_command "$DDL_DIR" "$DB_PATH"
         ;;
     snapshot)
         snapshot_command "$DDL_DIR" "$DB_PATH" "$@"
@@ -793,6 +1154,27 @@ case "$COMMAND" in
         ;;
     check)
         check_command "$DDL_DIR" "$DB_PATH"
+        ;;
+    diff)
+        # Parse diff-specific arguments
+        target_path=""
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --target)
+                    target_path="$2"
+                    shift 2
+                    ;;
+                *)
+                    error_with_hint "Unknown diff option: $1" "see --help"
+                    ;;
+            esac
+        done
+        
+        if [[ -z "$target_path" ]]; then
+            error_with_hint "Missing --target option for diff command" "specify target database path"
+        fi
+        
+        diff_command "$DB_PATH" "$target_path"
         ;;
     "")
         show_usage
