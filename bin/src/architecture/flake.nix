@@ -17,9 +17,15 @@
       url = "path:../search/vss_kuzu";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    
+    # Migration tool for KuzuDB
+    kuzu-migration = {
+      url = "path:../poc/kuzu_migration";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, python-flake, vss-kuzu }:
+  outputs = { self, nixpkgs, flake-utils, python-flake, vss-kuzu, kuzu-migration }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -73,6 +79,7 @@
               mypy
               ipython
             ])))
+            kuzu-migration.packages.${system}.default
           ];
           
           shellHook = ''
