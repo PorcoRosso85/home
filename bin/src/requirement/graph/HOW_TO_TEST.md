@@ -9,58 +9,58 @@ requirement/graphのテストスイートは126個のテストを含み、完全
 ### 開発時（高速実行）
 ```bash
 # 高速テストのみ実行（〜1分）
-nix run .#test -- -m "not slow and not very_slow"
+nix shell .# -c 'pytest -m "not slow and not very_slow"'
 
 # 単体テストのみ（〜30秒）
-nix run .#test -- -m "unit"
+nix shell .# -c 'pytest -m "unit"'
 
 # ドメインロジックのみ（〜10秒）
-nix run .#test -- domain/
+nix shell .# -c 'pytest domain/'
 ```
 
 ### 機能別テスト
 ```bash
 # 重複検出機能のテスト
-nix run .#test -- -k "duplicate_detection"
+nix shell .# -c 'pytest -k "duplicate_detection"'
 
 # 検索機能のテスト
-nix run .#test -- -k "search"
+nix shell .# -c 'pytest -k "search"'
 
 # 循環依存検出のテスト
-nix run .#test -- -k "circular"
+nix shell .# -c 'pytest -k "circular"'
 ```
 
 ### 統合テスト
 ```bash
 # E2Eテストを除外（〜5分）
-nix run .#test -- -m "not e2e"
+nix shell .# -c 'pytest -m "not e2e"'
 
 # 統合テストのみ
-nix run .#test -- -m "integration"
+nix shell .# -c 'pytest -m "integration"'
 ```
 
 ### CI/完全実行
 ```bash
 # すべてのテスト（〜20分）
-nix run .#test
+nix shell .# -c 'pytest'
 
 # 並列実行で高速化
-nix run .#test -- -n auto
+nix shell .# -c 'pytest -n auto'
 
 # 最も遅い10個のテストを表示
-nix run .#test -- --durations=10
+nix shell .# -c 'pytest --durations=10'
 ```
 
 ### デバッグ用
 ```bash
 # 詳細な出力
-nix run .#test -- -vv
+nix shell .# -c 'pytest -vv'
 
 # 最初のエラーで停止
-nix run .#test -- -x
+nix shell .# -c 'pytest -x'
 
 # 特定のテストのみ
-nix run .#test -- path/to/test_file.py::TestClass::test_method
+nix shell .# -c 'pytest path/to/test_file.py::TestClass::test_method'
 ```
 
 ## テストマーカー
@@ -83,9 +83,9 @@ nix run .#test -- path/to/test_file.py::TestClass::test_method
 
 ## 推奨ワークフロー
 
-1. **開発中**: `nix run .#test -- -m "not slow and not very_slow"`
-2. **コミット前**: `nix run .#test -- -m "not e2e"`
-3. **プルリクエスト**: `nix run .#test`（完全実行）
+1. **開発中**: `nix shell .# -c 'pytest -m "not slow and not very_slow"'`
+2. **コミット前**: `nix shell .# -c 'pytest -m "not e2e"'`
+3. **プルリクエスト**: `nix shell .# -c 'pytest'`（完全実行）
 
 ## パフォーマンスのヒント
 
@@ -98,14 +98,14 @@ nix run .#test -- path/to/test_file.py::TestClass::test_method
 ### テストが遅い場合
 ```bash
 # 最も遅い20個のテストを確認
-nix run .#test -- --durations=20
+nix shell .# -c 'pytest --durations=20'
 
 # プロファイリング付き実行
-python -m cProfile -o profile.stats -m pytest
+nix shell .# -c 'python -m cProfile -o profile.stats -m pytest'
 ```
 
 ### 特定のテストをスキップ
 ```bash
 # VSSが必要なテストをスキップ
-nix run .#test -- -m "not vss_required"
+nix shell .# -c 'pytest -m "not vss_required"'
 ```

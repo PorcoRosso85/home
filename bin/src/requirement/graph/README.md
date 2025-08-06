@@ -123,8 +123,8 @@ Phase 5.11完了により、以下の機能を提供：
 nix develop
 
 # テスト実行
-nix run .#test              # 全テスト
-nix run .#test -m "not slow"  # E2E以外（開発用、3秒以内）
+nix shell .# -c 'pytest'              # 全テスト
+nix shell .# -c 'pytest -m "not slow"'  # E2E以外（開発用、3秒以内）
 
 # 実行
 nix run .#run
