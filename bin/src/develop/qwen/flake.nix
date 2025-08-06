@@ -16,27 +16,20 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          default = pkgs.buildNpmPackage {
-            pname = "qwen-code";
-            version = "latest";
+          # Simple wrapper that uses npx for execution
+          qwen-code = pkgs.writeShellScriptBin "qwen-code" ''
+            #!${pkgs.bash}/bin/bash
+            export PATH="${pkgs.nodejs_20}/bin:$PATH"
+            
+            # Create a temporary directory for npm cache
+            export NPM_CONFIG_CACHE="''${XDG_CACHE_HOME:-$HOME/.cache}/qwen-code-npm"
+            mkdir -p "$NPM_CONFIG_CACHE"
+            
+            # Run qwen-code via npx with caching
+            exec ${pkgs.nodejs_20}/bin/npx --yes @qwen-code/qwen-code@latest "$@"
+          '';
 
-            src = pkgs.fetchFromGitHub {
-              owner = "QwenLM";
-              repo = "qwen-code";
-              rev = "main";
-              hash = "sha256-YKnGUCoK6sV3KwGh5G/to+dYrssxky2rcoPQAAeqGkA=";
-            };
-
-            npmDepsHash = "sha256-YKnGUCoK6sV3KwGh5G/to+dYrssxky2rcoPQAAeqGkA=";
-
-            nodejs = pkgs.nodejs_20;
-
-            installPhase = ''
-              mkdir -p $out/bin
-              npm pack
-              npm install -g *.tgz --prefix=$out
-            '';
-          };
+          default = self.packages.${system}.qwen-code;
         });
 
       apps = forAllSystems (system: {
@@ -55,7 +48,16 @@
             buildInputs = with pkgs; [
               nodejs_20
               nodePackages.npm
+              self.packages.${system}.qwen-code
             ];
+
+            shellHook = ''
+              echo "Qwen-Code development shell"
+              echo "Node.js: $(node --version)"
+              echo "npm: $(npm --version)"
+              echo ""
+              echo "Run: qwen-code [arguments]"
+            '';
           };
         });
     };
