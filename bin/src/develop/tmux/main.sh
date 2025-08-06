@@ -97,6 +97,23 @@ tmux set-option -g window-status-activity-style "bg=$BG_BASE,fg=$FG_ALERT"
 tmux set-option -g window-status-format " #I:#W "
 tmux set-option -g window-status-current-format " #I:#W* "
 
+# window名前を取得する関数
+get_window_name() {
+    local path="${1:-$PWD}"
+    local rel_path="${path#/home/nixos/bin/}"
+    
+    # パスが長い場合は省略記法を使用
+    if [ $(echo "$rel_path" | tr '/' '\n' | wc -l) -gt 3 ]; then
+        # 最初のディレクトリと最後の2階層を保持
+        local first=$(echo "$rel_path" | cut -d'/' -f1)
+        local parent=$(basename $(dirname "$path"))
+        local last=$(basename "$path")
+        echo "$first/.../$parent/$last"
+    else
+        echo "$rel_path"
+    fi
+}
+
 # window作成関数
 create_window() {
     local idx=$1
@@ -153,10 +170,10 @@ setup_hooks() {
 setup_hooks
 
 # Window作成（相対パス表示）
-# 現在のディレクトリからの相対パス
-current_rel_path=${PWD#/home/nixos/bin/}
-create_window 0 "$current_rel_path" "lazygit" "yazi"
-create_window 1 "$current_rel_path"
+# window名前を取得
+window_name=$(get_window_name "$PWD")
+create_window 0 "$window_name" "lazygit" "yazi"
+create_window 1 "$window_name"
 
 
 # キーバインド
@@ -177,44 +194,30 @@ tmux bind-key b display-popup -E -w 80% -h 80% \
 # flake.nixディレクトリ選択して新規window作成 (prefix + c)
 # nix shell経由でfd + fzfを実行
 tmux bind-key c display-popup -E -w 80% -h 80% \
-    "nix shell nixpkgs#fd nixpkgs#fzf --command bash -c \"fd -H -t f 'flake.nix' '$HOME' | \
-     sed 's|/flake.nix$||' | \
-     fzf --reverse --header='Select flake directory:' | \
-     while read selected_dir; do \
-         # モノレポルートからの相対パス取得
-         rel_path=\\\${selected_dir#/home/nixos/bin/}; \
-         # パスが長い場合は省略記法を使用
-         if [ \\\$(echo \\\"\\\$rel_path\\\" | tr '/' '\\\\n' | wc -l) -gt 3 ]; then \
-             # 最初のディレクトリと最後の2階層を保持
-             first=\\\$(echo \\\"\\\$rel_path\\\" | cut -d'/' -f1); \
-             parent=\\\$(basename \\\$(dirname \\\"\\\$selected_dir\\\")); \
-             last=\\\$(basename \\\"\\\$selected_dir\\\"); \
-             window_name=\\\"\\\$first/.../\\\$parent/\\\$last\\\"; \
-         else \
-             window_name=\\\"\\\$rel_path\\\"; \
-         fi; \
-         tmux new-window -n \\\"\\\$window_name\\\" -c \\\"\\\$selected_dir\\\"; \
-     done\""
+    "nix shell nixpkgs#fd nixpkgs#fzf --command bash -c \"
+        # get_window_name関数を定義
+        get_window_name() {
+            local path=\\\"\\\${1:-\\\$PWD}\\\"
+            local rel_path=\\\"\\\${path#/home/nixos/bin/}\\\"
+            
+            if [ \\\$(echo \\\"\\\$rel_path\\\" | tr '/' '\\\\n' | wc -l) -gt 3 ]; then
+                local first=\\\$(echo \\\"\\\$rel_path\\\" | cut -d'/' -f1)
+                local parent=\\\$(basename \\\$(dirname \\\"\\\$path\\\"))
+                local last=\\\$(basename \\\"\\\$path\\\")
+                echo \\\"\\\$first/.../\\\$parent/\\\$last\\\"
+            else
+                echo \\\"\\\$rel_path\\\"
+            fi
+        }
+        
+        fd -H -t f 'flake.nix' '\$HOME' | \
+        sed 's|/flake.nix\$||' | \
+        fzf --reverse --header='Select flake directory:' | \
+        while read selected_dir; do \
+            window_name=\\\$(get_window_name \\\"\\\$selected_dir\\\"); \
+            tmux new-window -n \\\"\\\$window_name\\\" -c \\\"\\\$selected_dir\\\"; \
+        done\""
 
-# 元の実装（コメントアウト）
-# tmux bind-key c display-popup -E -w 80% -h 80% \
-#     "SCRIPT_DIR=\$(dirname \$(realpath ${BASH_SOURCE[0]:-\$0})); \
-#     selected_dir=\$(\"\$SCRIPT_DIR/search-flakes-fast.sh\" 2>/dev/null); \
-#     if [ -n \"\$selected_dir\" ]; then \
-#         # モノレポルートからの相対パス取得
-#         rel_path=\${selected_dir#/home/nixos/bin/}; \
-#         # パスが長い場合は省略記法を使用
-#         if [ \$(echo \"\$rel_path\" | tr '/' '\\n' | wc -l) -gt 3 ]; then \
-#             # 最初のディレクトリと最後の2階層を保持
-#             first=\$(echo \"\$rel_path\" | cut -d'/' -f1); \
-#             parent=\$(basename \$(dirname \"\$selected_dir\")); \
-#             last=\$(basename \"\$selected_dir\"); \
-#             window_name=\"\$first/.../\$parent/\$last\"; \
-#         else \
-#             window_name=\"\$rel_path\"; \
-#         fi; \
-#         tmux new-window -n \"\$window_name\" -c \"\$selected_dir\"; \
-#     fi"
 
 # コピーモード
 tmux bind-key -T copy-mode-vi v send-keys -X begin-selection
