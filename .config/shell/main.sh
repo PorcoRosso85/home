@@ -81,8 +81,8 @@ for file in $HOME/.config/shell/*.sh; do
     fi
 done
 
-# Bash history search
-bind -x '"\C-r": READLINE_LINE=$(nix shell $HOME/bin/src/poc/develop/search/bash_histories -c search-bash-histories); READLINE_POINT=${#READLINE_LINE}'
+# Bash history search (optimized with nixpkgs#fzf)
+bind -x '"\C-r": READLINE_LINE=$(nix shell nixpkgs#fzf --command bash $HOME/bin/src/poc/develop/search/bash_histories/bash_histories.sh); READLINE_POINT=${#READLINE_LINE}'
 # export GO111MODULE=on
 # export GOPATH=
 export EDITOR=hx
