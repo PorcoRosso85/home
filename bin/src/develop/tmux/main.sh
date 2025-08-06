@@ -180,7 +180,21 @@ tmux bind-key c display-popup -E -w 80% -h 80% \
     "nix shell nixpkgs#fd nixpkgs#fzf --command bash -c \"fd -H -t f 'flake.nix' '$HOME' | \
      sed 's|/flake.nix$||' | \
      fzf --reverse --header='Select flake directory:' | \
-     xargs -I {} tmux new-window -c {}\""
+     while read selected_dir; do \
+         # モノレポルートからの相対パス取得
+         rel_path=\\\${selected_dir#/home/nixos/bin/}; \
+         # パスが長い場合は省略記法を使用
+         if [ \\\$(echo \\\"\\\$rel_path\\\" | tr '/' '\\\\n' | wc -l) -gt 3 ]; then \
+             # 最初のディレクトリと最後の2階層を保持
+             first=\\\$(echo \\\"\\\$rel_path\\\" | cut -d'/' -f1); \
+             parent=\\\$(basename \\\$(dirname \\\"\\\$selected_dir\\\")); \
+             last=\\\$(basename \\\"\\\$selected_dir\\\"); \
+             window_name=\\\"\\\$first/.../\\\$parent/\\\$last\\\"; \
+         else \
+             window_name=\\\"\\\$rel_path\\\"; \
+         fi; \
+         tmux new-window -n \\\"\\\$window_name\\\" -c \\\"\\\$selected_dir\\\"; \
+     done\""
 
 # 元の実装（コメントアウト）
 # tmux bind-key c display-popup -E -w 80% -h 80% \
