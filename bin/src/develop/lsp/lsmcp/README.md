@@ -1,18 +1,14 @@
-# lsmcp Flake Purpose and Requirements
+# lsmcp - Language Service MCP Server
 
-## 目的
+## 概要
 
-このflakeは以下の2つの主要な目的を持ちます：
+lsmcp（Language Service MCP）を簡単に実行できるシェルスクリプトです。Nix環境で必要な言語サーバーを自動的に提供し、MCPサーバーとして動作します。
 
-1. **リポジトリのためのflake.nixを提供**
-   - lsmcpリポジトリ用の標準的なNix flake設定
-   - 開発環境の提供
-   - パッケージビルドの定義
+## 特徴
 
-2. **MCP設定をファイルに書き込む機能**
-   - `.mcp.json`ファイルへの設定書き込み
-   - Claude CLIとの統合設定
-   - 言語サーバーの自動設定
+- **インストール不要**: nix-shellで必要な依存関係を自動解決
+- **高速起動**: flake評価のオーバーヘッドなし（0.1秒）
+- **多言語対応**: TypeScript、Rust、Go、Python等の言語サーバーを同梱
 
 ## 背景
 
@@ -23,73 +19,70 @@ lsmcp（Language Service MCP）は、Model Context Protocol（MCP）サーバー
 - 🔍 セマンティックコード解析（定義へのジャンプ、参照検索、型情報）
 - 🤖 AI最適化（LLM向けに設計されたライン・シンボルベースのインターフェース）
 
-## Flake設計要件
+## 使い方
 
-### 1. 開発環境
-- Node.js環境（lsmcpの実行に必要）
-- 各言語のLSPサーバー（オプション）
-  - TypeScript: typescript-language-server
-  - Rust: rust-analyzer
-  - Python: pyright
-  - Go: gopls
-  - その他
+### 基本的な使用方法
 
-### 2. MCP設定生成機能
-`.mcp.json`の自動生成・更新機能：
+```bash
+# スクリプトを実行可能にする（初回のみ）
+chmod +x lsmcp.sh
+
+# TypeScript用MCPサーバーとして起動
+./lsmcp.sh -p typescript
+
+# Rust用MCPサーバーとして起動
+./lsmcp.sh -p rust-analyzer
+
+# ヘルプを表示
+./lsmcp.sh --help
+```
+
+### リモート実行
+
+```bash
+# GitHubから直接実行
+curl -sL https://raw.githubusercontent.com/user/lsmcp/main/lsmcp.sh | bash -s -- -p typescript
+```
+
+### Claude Codeとの統合
+
+`.mcp.json`ファイルを作成して、Claude Codeから利用できます：
 
 ```json
 {
   "mcpServers": {
     "typescript": {
-      "command": "npx",
-      "args": ["-y", "@mizchi/lsmcp", "-p", "typescript"]
-    },
-    "rust": {
-      "command": "npx",
-      "args": ["-y", "@mizchi/lsmcp", "-p", "rust-analyzer"]
+      "command": "./lsmcp.sh",
+      "args": ["-p", "typescript"]
     }
   }
 }
 ```
 
-### 3. 提供すべき機能
-- `nix develop`: 開発環境の起動
-- `nix run .#setup-mcp`: MCP設定ファイルの生成
-- `nix run .#lsmcp`: lsmcpの直接実行
-- `nix build`: パッケージのビルド（必要に応じて）
+## 含まれる言語サーバー
 
-## 実装方針
+- **TypeScript/JavaScript**: typescript-language-server
+- **Rust**: rust-analyzer
+- **Go**: gopls
+- **Python**: pyright
+- **HTML/CSS/JSON**: vscode-langservers-extracted
 
-1. **基本的なflake構造**
-   - inputs: nixpkgs, flake-utils
-   - outputs: devShells, packages, apps
+## 技術詳細
 
-2. **MCP設定スクリプト**
-   - 設定ファイルの存在確認
-   - 既存設定とのマージ
-   - バックアップの作成
-   - 設定の検証
+### nix-shell shebang
+このスクリプトはnix-shellのshebang機能を使用しており、実行時に必要な依存関係を自動的に解決します。初回実行時はパッケージのダウンロードに時間がかかりますが、2回目以降はキャッシュから高速に起動します。
 
-3. **言語別の設定プリセット**
-   - 各言語用の推奨設定
-   - カスタム設定のサポート
-   - 環境変数による設定
+### 動作要件
+- Nix パッケージマネージャー
+- インターネット接続（初回実行時）
 
-## 使用例
+## トラブルシューティング
 
-```bash
-# 開発環境に入る
-nix develop
+### 初回実行が遅い
+初回実行時は依存パッケージのダウンロードが必要です。2回目以降は高速に起動します。
 
-# MCP設定を生成（TypeScriptとRust用）
-nix run .#setup-mcp -- --languages typescript,rust
-
-# カスタム設定で生成
-nix run .#setup-mcp -- --config custom-config.json
-
-# lsmcpを直接実行
-nix run .#lsmcp -- -p typescript
-```
+### 言語サーバーが見つからない
+スクリプト内で言語サーバーがバンドルされているため、別途インストールは不要です。
 
 ## 参考資料
 - [lsmcp GitHub Repository](https://github.com/mizchi/lsmcp)
