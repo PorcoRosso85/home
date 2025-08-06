@@ -1,0 +1,83 @@
+{"type":"summary","summary":"Nix Flake Patterns: Dependency and Build Configuration","leafUuid":"85011659-9a12-4bd5-994e-8b8efa5a4aa5"}
+{"type":"summary","summary":"Nix Flake Responsibility Graph System Design","leafUuid":"12c9fe4c-8a20-41fc-b3fa-4e510b36aa4e"}
+{"type":"summary","summary":"Normalize Kuzu DB Persistence and Flake Graph Code","leafUuid":"3ac0d0e0-048e-4edb-9aca-9597a556973f"}
+{"type":"summary","summary":"Flake Dependency Graph: Simplifying Kuzu Integration and Removing Redundancies","leafUuid":"b7d35000-9329-4883-8eb1-2984be769382"}
+{"type":"summary","summary":"Nix Flake Exploration with VSS and KuzuDB Integration","leafUuid":"d6cf43c1-9b87-46cb-9d03-522439a77179"}
+{"type":"summary","summary":"Nix Graph Project: Test Consistency & VSS Detection Issue","leafUuid":"8182d90f-c2e3-4326-a792-ecd49d259b21"}
+{"type":"summary","summary":"VSS Test Failure: Debugging Flake Similarity Detection","leafUuid":"3230dc68-fabe-4652-b7b9-029576916517"}
+{"type":"summary","summary":"VSS Clustering Fix: Refined Document Grouping Algorithm","leafUuid":"89e93e58-d81e-4f43-878b-1673dd580d6a"}
+{"type":"summary","summary":"VSS Similarity Detection Tests Pass Successfully","leafUuid":"146c5e63-25e5-47d5-953e-85d1558b3a41"}
+{"type":"summary","summary":"Duplicate Detection Report Testing in NixOS Project","leafUuid":"94f50dd5-99d2-4d0f-910c-380e8b373586"}
+{"type":"summary","summary":"README Missing Detection in Nix Flake Graph","leafUuid":"8a043f0b-727d-48b5-99af-e1835119110a"}
+{"type":"summary","summary":"Missing README Alert Report for Flake Graph","leafUuid":"bb72a9a4-6c36-4aaa-a0d6-f495aec6839e"}
+{"type":"summary","summary":"E2E Test Creation for Full Workflow Integration","leafUuid":"1e6c7667-446f-46d9-ba48-0aa19db1253b"}
+{"type":"summary","summary":"Nix Flake Graph Explorer: Tests Pass, Full Completion","leafUuid":"65480f46-d495-444f-a805-2a9699147840"}
+{"type":"summary","summary":"E2E Test Directory Restructuring in NixOS Project","leafUuid":"2cb410f1-393f-4115-8e7c-c3a8818484fa"}
+{"type":"summary","summary":"Bun移行時のFlake Graph探索機能の分析と機能分離戦略","leafUuid":"e5235af6-918c-453b-a394-3a0ce0e0882c"}
+{"type":"summary","summary":"Flake Graph Explorer: Integrating Similarity Analysis for Architectural Insights","leafUuid":"954dab6c-a423-4ced-aa0a-08cc7fdfcb47"}
+{"type":"summary","summary":"Doc-Graph: VSS+AST Flake Analysis Tool Development","leafUuid":"3df76009-162c-490e-8799-873c66868227"}
+{"type":"summary","summary":"Similarity Tool Integration for Flake-Graph Project","leafUuid":"4a2fa8d5-1a87-4455-ada6-914e619213e2"}
+{"type":"summary","summary":"Nix Flake Update: Add Similarity Flake and Rust Tools","leafUuid":"6e11a202-1ce9-4bd8-a43c-1c3393cfd7d6"}
+{"type":"summary","summary":"Code Similarity Detection Adapter for Flake Projects","leafUuid":"6c996074-1cb5-43b8-ba56-b3aa322235be"}
+{"type":"summary","summary":"Flake Graph Architecture Analyzer Implementation","leafUuid":"a77e4a0b-7b04-4f40-9c31-056d36a90cde"}
+{"type":"summary","summary":"CLI Architecture Analysis Tool Development","leafUuid":"81357644-506d-47f2-bbd5-438f18c037be"}
+{"type":"summary","summary":"VSS Index Persistence in KuzuDB: Design Strategy","leafUuid":"360c60d0-e7eb-4d3c-9479-b40d641e2656"}
+{"type":"summary","summary":"Architecture Analysis Test Suite Development","leafUuid":"795f9f18-f44c-4133-b6eb-1edea8432cbf"}
+{"type":"summary","summary":"Flake-Graph Component Responsibility Documentation","leafUuid":"6b5375d5-6713-435c-9235-13cd878e8813"}
+{"type":"summary","summary":"Flake Graph DB: Schema Discovery and Persistence Analysis","leafUuid":"3a8b96a9-1735-4035-ba41-33d751556648"}
+{"type":"summary","summary":"VSS Adapter Embedding Persistence Analysis","leafUuid":"ad8e5995-f28c-4ea7-adaf-bdad40c87709"}
+{"type":"summary","summary":"Kuzu DB Adapter: Flake Graph Schema & CRUD Ops","leafUuid":"34d3cbb3-64b2-4e03-bd09-2a19bf5e7081"}
+{"type":"summary","summary":"KuzuDB VSS Adapter: Embedding Persistence Logic","leafUuid":"9bc6f079-dfb3-42fb-8af2-8d2e5a8715f2"}
+{"type":"summary","summary":"KuzuDB Storage Tests: CRUD and VSS Persistence","leafUuid":"368e26d3-b37e-498e-861a-fcc9c3a9a793"}
+{"type":"summary","summary":"Kuzu Flake Graph Exporter: JSON Export Implementation","leafUuid":"62c8b700-5bd1-40c2-8e5a-97a3bfcccd29"}
+{"type":"summary","summary":"Flake Graph CLI: Export Subcommand Implementation","leafUuid":"a4244609-9532-41d7-b727-021952e5ea70"}
+{"type":"summary","summary":"KuzuDB AST Schema Verification and Export Process","leafUuid":"7af5fcc2-322a-41a4-bb75-1766b41c2bcd"}
+{"type":"summary","summary":"Nixos Graph Export Tool README Update","leafUuid":"bb12c998-7027-47f7-ab70-67fa2d514744"}
+{"type":"summary","summary":"feat: VSS永続化とデータ出力システムの実装","leafUuid":"bda46b3c-4c09-43f3-ace2-eb935d70b9e0"}
+{"type":"summary","summary":"Telemetry Log Integration in Flake Graph Project","leafUuid":"e0018ea8-276a-4e75-8686-be177565afe3"}
+{"type":"summary","summary":"Structured Logging Upgrade for Kuzu Adapter","leafUuid":"982d659a-e770-4df5-b6c9-bfd03d263c2d"}
+{"type":"summary","summary":"Structured Logging Update in VSS Adapter Script","leafUuid":"a7120539-36ba-4aea-8759-972451026ee9"}
+{"type":"summary","summary":"CLI Tool Print Replacement in Exporter Script","leafUuid":"48e0eb46-1dc9-4209-ad8f-3fad930172ba"}
+{"type":"summary","summary":"CLI Output Refactoring: Stdout/Stderr Separation","leafUuid":"2d0d366b-206f-48b7-8c91-321cc4b6293d"}
+{"type":"summary","summary":"Test Cleanup: Removing Broken Tests in Graph Project","leafUuid":"a9f46f8d-b047-4425-ab41-5ab928b74dc1"}
+{"type":"summary","summary":"Spec Test for Flake Duplicate Detection System","leafUuid":"e7522616-874a-4ea8-ad88-036ab1222b74"}
+{"type":"summary","summary":"Duplicate Detection Threshold Investigation and Findings","leafUuid":"7aaee100-431c-4b2d-86b3-a3216dbe2976"}
+{"type":"summary","summary":"Japanese-English Variation Handling Test Spec","leafUuid":"97fcbd98-cf28-4fab-8cd2-2b312dd06274"}
+{"type":"summary","summary":"Flake Graph: Export Spec Tests for System Integration","leafUuid":"6fb0fdb9-be8a-4c41-8349-883b7749e3a0"}
+{"type":"summary","summary":"Transforming Flake Graph Tests: From Implementation Details to Executable Specifications","leafUuid":"10d067e3-6063-44f6-9a80-f09f84eb4ec1"}
+{"type":"summary","summary":"規約遵守: VSS テストのフォールバック処理を削除し、エラーハンドリング規約に準拠","leafUuid":"486e4bd5-9098-46b2-bfaf-e945539288b2"}
+{"type":"summary","summary":"Graph Flake Test Alignment & Infrastructure Challenges","leafUuid":"58cfe3aa-16f3-4b1a-9a42-7d609936f365"}
+{"type":"summary","summary":"VSS Embedding Persistence in KuzuDB Schema Analysis","leafUuid":"b93f35d8-05a1-4ecc-83a7-d217e50c0139"}
+{"type":"summary","summary":"VSS Embedding Persistence Tests: TDD Startup Optimization","leafUuid":"3578fe90-c604-4f00-b237-203bb728c15e"}
+{"type":"summary","summary":"KuzuDB Embedding Persistence Design Document","leafUuid":"7983f349-72ca-47dc-988b-daee086c11b7"}
+{"type":"summary","summary":"Kuzu Graph Adapter: Flake Persistence and Vector Search","leafUuid":"8ee90c61-ef30-4c5e-b689-afd00b8f1ad4"}
+{"type":"summary","summary":"Incremental VSS Indexing: TDD RED Phase Test Design","leafUuid":"6b17211d-b06a-4f13-818d-de5366b85b14"}
+{"type":"summary","summary":"Incremental Indexing Design for Efficient File Updates","leafUuid":"8041feb2-4cb5-400a-a4b9-f83cd21d754d"}
+{"type":"summary","summary":"VSS Persistence Tests: Adapter Implementation Needed","leafUuid":"18afc373-5c9d-49aa-b86c-fa40ae5a0e87"}
+{"type":"summary","summary":"Flake Indexing Performance Measurement Script Development","leafUuid":"0416673c-6eb7-46d4-9409-bc683b6d6e45"}
+{"type":"summary","summary":"VSS Persistence Implementation: README Update Progress","leafUuid":"38697a10-686b-47dc-b9fb-8d13369bc359"}
+{"type":"summary","summary":"VSS Persistence and Adapter Implementation in Flake Graph Project","leafUuid":"b2ee47e8-1749-40ba-9085-f94c7457cfc0"}
+{"type":"summary","summary":"VSS Adapter Code Review: Severe Convention Violations","leafUuid":"d9f085ab-b8c1-4c63-8bea-5b410191d2d9"}
+{"type":"summary","summary":"VSSAdapter規約違反修正：依存性注入とアーキテクチャ改善","leafUuid":"16ad500d-19e1-461d-a595-e4d177f65c0c"}
+{"type":"summary","summary":"VSS and Kuzu Adapters: Convention Violation Analysis","leafUuid":"e0d29363-51fb-461e-a619-b9e36eecbb39"}
+{"type":"summary","summary":"Functional Refactoring of VSSAdapter with TypedDict","leafUuid":"6c3a3bc3-5d82-4ed5-8dff-92eb3e252f50"}
+{"type":"summary","summary":"Functional Kuzu Adapter: Refactoring with Pure Functions","leafUuid":"ce9fbdd4-8e99-4f15-be4d-a1afb3cac9f1"}
+{"type":"summary","summary":"VSS Adapter Error Handling Refactoring","leafUuid":"b7614eb9-6b9a-4526-8028-b2f516ab184b"}
+{"type":"summary","summary":"Kuzu Adapter Error Handling Refactor","leafUuid":"ea5f69da-ddac-48a4-a1a3-eff10ed7f586"}
+{"type":"summary","summary":"Logging Conventions Update for vss_adapter.py","leafUuid":"26d00a27-6c98-409c-a042-1a2b1ccd896d"}
+{"type":"summary","summary":"Kuzu Adapter Logging Compliance Update","leafUuid":"53d3675c-adda-437d-81ca-005c68411a5d"}
+{"type":"summary","summary":"Graph Flake Tests: Type Fixes, Spec Validation","leafUuid":"d078556f-29ad-4599-a28e-2308048fd847"}
+{"type":"summary","summary":"Nix Test Execution in tmux Pane 4.1","leafUuid":"37c546f6-f9c4-4522-9877-c23a8570c403"}
+{"type":"summary","summary":"モック排除と Vector Extension 調査","leafUuid":"f5a94093-1c06-4e3f-8c16-801a1a6114c5"}
+{"type":"summary","summary":"Semantic Similarity Test Reveals Nuanced Flake Detection","leafUuid":"06d0e5f3-b7f2-49ae-9162-f89aad9e7e21"}
+{"type":"summary","summary":"Clustering Algorithms for Detecting Duplicate Auth Flakes","leafUuid":"7950d994-5b0c-464b-a526-64a0d732bc67"}
+{"type":"summary","summary":"Flake Similarity Analysis: Debug and Clustering","leafUuid":"73be61d9-8a50-4666-ae22-3208d069afc0"}
+{"type":"summary","summary":"Fixing Duplicate Detection: VSS Instance Consistency","leafUuid":"b47ee038-ae46-480b-aa39-0a874054aa8f"}
+{"type":"summary","summary":"Fixing VSS Duplicate Detection in Flake Grouping","leafUuid":"bb5a75e8-ff5c-4cf8-a3cc-2f587dacafa8"}
+{"type":"summary","summary":"KuzuDB Test Failures: Directory Path vs File Path","leafUuid":"a8f62062-6850-465d-a89c-04e65699b47f"}
+{"type":"summary","summary":"Database Path Fix in Test Persistence Spec","leafUuid":"e49c9e2b-730f-45bb-b308-8b1ded5fe589"}
+{"type":"summary","summary":"Multilingual VSS Test: Fixing Japanese-English Variation Detection","leafUuid":"166094ac-c539-443f-998b-e54bad5a83b8"}
+{"type":"summary","summary":"Incremental Indexing Test: Timestamp and Hash Fix","leafUuid":"3b96bfad-ce74-4068-900e-e85ea93b38e5"}
+{"type":"summary","summary":"Incremental Indexing: Fixing Embedding Generation Count","leafUuid":"e2238d08-059e-4608-8561-934147e0b854"}
+{"type":"summary","summary":"Fixing VSS Persistence and Incremental Indexing Tests","leafUuid":"58556d39-26ed-4436-b533-cc78bba6e1bc"}
+{"type":"summary","summary":"Nix Flake Graph Explorer: DML/DQL Separation Strategy","leafUuid":"e313556b-dbd5-46da-9635-6df2bb7ec15c"}

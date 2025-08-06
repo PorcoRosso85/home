@@ -1,0 +1,35 @@
+{"type":"summary","summary":"Kuzu Graph DB Migration and Symbol-based Architecture Management","leafUuid":"149dd297-ace2-4e42-b377-c66e1accad41"}
+{"type":"summary","summary":"DDL Design for Symbol-Based Architecture Management","leafUuid":"dec91448-6ab8-449b-a135-6c87540c983c"}
+{"type":"summary","summary":"DDL Design for Symbol-Based Architecture Management with KuzuDB","leafUuid":"bb3b09cb-b18f-45ed-a53e-a3a54421c926"}
+{"type":"summary","summary":"DDL Design for Symbol-Based Architecture Management","leafUuid":"cfbddfb8-1acf-4606-8f3f-22dd1b7a3372"}
+{"type":"summary","summary":"Kuzu Schema Analysis: Architecture Migration Insights","leafUuid":"9f461428-4985-4b7e-b97c-2b64b140d480"}
+{"type":"summary","summary":"Cypher Migration: Rename ImplementationURI to LocationURI","leafUuid":"c37eceed-ec33-4484-8d0b-574c5d250f3e"}
+{"type":"summary","summary":"KuzuDB ALTER TABLE: Capabilities and Migration Strategies","leafUuid":"710ff762-eeaf-4209-9f28-865db0f38908"}
+{"type":"summary","summary":"Cypher Rollback: Unifying Naming Conventions Safely","leafUuid":"7d7f75a9-6dd0-4023-a09f-31ae486d4135"}
+{"type":"summary","summary":"Cypher Migration: Naming Unification Challenges Revealed","leafUuid":"286a97bf-b9fd-468f-9e91-167138704039"}
+{"type":"summary","summary":"KuzuDB Cypher Migration Script Syntax Check","leafUuid":"1b84aeca-f725-4ff3-8270-9ffa8225e0b6"}
+{"type":"summary","summary":"Neo4j Schema Migration: Rename ImplementationURI","leafUuid":"9bf03593-7d31-4989-be35-992d7953b98b"}
+{"type":"summary","summary":"Cypher Migration: Verifying Naming Unification","leafUuid":"4170c201-ccd4-4e34-be51-18ca90469d12"}
+{"type":"summary","summary":"Kuzu Database Migration Guide: Comprehensive Execution Steps","leafUuid":"3cd89d48-4fe4-4856-a5d1-6e6caafd9edd"}
+{"type":"summary","summary":"KuzuDB Migration Script Dry Run and Environment Setup","leafUuid":"5ecc5253-bd45-4797-91fb-91da43428e53"}
+{"type":"summary","summary":"Architecture Graph DB Schema Migration and Dependency Management","leafUuid":"1fd3f0b3-9704-4099-9e9a-803668ebf240"}
+{"type":"summary","summary":"Architecture Test Infrastructure Evaluation","leafUuid":"4daf2b53-54bc-4271-9119-1f2220dcf368"}
+{"type":"summary","summary":"KuzuDB Connection Test: Nix Env, Path Issues, Partial Success","leafUuid":"fd711327-3787-458f-8b84-5669773ee4ea"}
+{"type":"summary","summary":"KuzuDB Connection Test: Comments and Table Name Fix","leafUuid":"83065d4f-290e-49de-b6fd-3b38e0157b68"}
+{"type":"summary","summary":"Nix Shell QueryExecutor Tests: All Passed Successfully","leafUuid":"2b241761-48ac-405a-bdd1-53cdcd9c9f73"}
+{"type":"summary","summary":"Architecture Tool: Kuzu Migration Snapshot Implementation and Flake Integration","leafUuid":"c82165a6-f5ba-4c4c-bbab-6d087960eb82"}
+{"type":"summary","summary":"DDL Testing: Validating Schema Integrity and Design","leafUuid":"e37ccd78-9064-44c2-aaa2-92fa51679d4c"}
+{"type":"summary","summary":"DDL Migration: URI Rename and Requirement Entity","leafUuid":"de252fb9-5169-4a66-9afd-f11414333b0b"}
+{"type":"summary","summary":"DDL Migration Analysis: Schema Evolution and Naming","leafUuid":"121b2033-eaf5-49b3-9a6f-c80e95f18954"}
+{"type":"summary","summary":"Cypher Migration: Add RequirementEntity and Relationship","leafUuid":"3cffde16-2547-4d1b-a2df-254bb314a7b8"}
+{"type":"summary","summary":"Neo4j Rollback Migration for Requirement Entity","leafUuid":"cd8689a0-e5f7-4271-a4c2-b1a08a5f5d34"}
+{"type":"summary","summary":"Kuzu DDL Migration Tests: Pytest Validation Framework","leafUuid":"aa9b52f9-a2f3-434a-ba40-180a7f894699"}
+{"type":"summary","summary":"KuzuDB Migration: Naming Unification Attempt","leafUuid":"3db21460-4b13-4cac-97b6-9d2f0a89f08d"}
+{"type":"summary","summary":"Kuzu DB Migration: Unifying Schema and Naming Conventions","leafUuid":"048fdd36-f91d-493e-ad48-43b6014a8609"}
+{"type":"summary","summary":"Kuzu Migration: RequirementEntity Schema Update","leafUuid":"e117b3a2-957b-4552-ad40-d9dab24f9313"}
+{"type":"summary","summary":"Database Snapshot v2.0.0: KuzuDB Schema Migration","leafUuid":"5af23a80-afd1-4626-9f42-0f54cd4031a3"}
+{"type":"summary","summary":"Database Migration Docs: Schema Evolution Snapshot","leafUuid":"062157ae-a29d-41dd-908e-8b160ebe9cd8"}
+{"type":"summary","summary":"Responsibility Table Deletion Migration Steps","leafUuid":"d1bf5b42-5ee2-4846-8526-e89b40b7d6cf"}
+{"type":"summary","summary":"DDL Migration: Responsibility Table Removal and Schema Refinement","leafUuid":"e14c5cd0-3e8a-4677-890e-01a1406c2df8"}
+{"type":"summary","summary":"KuzuDB Migration: Responsibility Table Removal","leafUuid":"7a11dbdf-a584-489c-9299-c8a01ffb53a8"}
+{"type":"summary","summary":"Kuzu Migration Tool Usage and DDL Schema Design for Architecture Management","leafUuid":"ea42f9ae-a95b-4620-8be1-e49289bcb014"}

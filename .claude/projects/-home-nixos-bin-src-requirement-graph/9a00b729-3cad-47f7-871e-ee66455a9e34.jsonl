@@ -1,0 +1,42 @@
+{"type":"summary","summary":"Pytest Test Execution Optimization and Slow Test Handling","leafUuid":"7feb610b-ec14-47a6-ac8b-bb70b574cdb6"}
+{"type":"summary","summary":"Pytest Marker CRUD: Dynamic Test Marking with `own_markers`","leafUuid":"836cfdae-081e-4fc7-abc6-5ff25e64738d"}
+{"type":"summary","summary":"Python Code Convention Violation Detection","leafUuid":"6f2c080d-7e19-48c6-89de-30cbde4954e8"}
+{"type":"summary","summary":"Requirement Graph Project: Refactoring Code Violations","leafUuid":"8ece1080-d205-4ec2-be8f-7350e183abc4"}
+{"type":"summary","summary":"Logging System Analysis: Telemetry, Logger, and Usage Patterns","leafUuid":"cdbebdc1-23cf-4b0b-b20d-5e4bbf9d1717"}
+{"type":"summary","summary":"Refactor print to structured logging in search_adapter.py","leafUuid":"ac3660c8-8e92-4290-8174-6a67452df7e5"}
+{"type":"summary","summary":"Refactor print to structured logging in template_processor.py","leafUuid":"97fa983d-1f3a-480f-988f-127abf182a47"}
+{"type":"summary","summary":"Conftest.py Print Statements to Structured Logging","leafUuid":"3a27e7a0-ca4d-4e1f-af5d-f65304d0c147"}
+{"type":"summary","summary":"Logging Refactoring: Print to Structured Logs","leafUuid":"b85f66b6-6843-4a38-821d-db7652ab7802"}
+{"type":"summary","summary":"Print Statements Removed from Test Files","leafUuid":"2542b9f0-6bab-4793-80b7-71ea8d125814"}
+{"type":"summary","summary":"Code Compliance Review: OOP and Raise Statements","leafUuid":"f2518d22-68ef-4ff9-86ef-3ac09567d23e"}
+{"type":"summary","summary":"Print Removal in requirement/graph Directory","leafUuid":"c72fde99-2981-4d70-97aa-9271e3851252"}
+{"type":"summary","summary":"Graph Test Architecture Analysis & Design Review","leafUuid":"d070bcd4-e6f6-480c-9ed3-dddb883412d9"}
+{"type":"summary","summary":"Graph Test Consistency Check in Nix Environment","leafUuid":"73cea9d9-2cdb-4809-bfb8-a94ecba02257"}
+{"type":"summary","summary":"RGL: Graph-Based Requirement Management System","leafUuid":"d7477147-fe2f-4c23-90ae-42ee22021ef6"}
+{"type":"summary","summary":"Pytest, Nix, and VSS/FTS Integration Troubleshooting","leafUuid":"6f259df2-364a-4d48-887d-6ec91f5bfd09"}
+{"type":"summary","summary":"VSS and FTS Module Import Investigation","leafUuid":"8c64ecbe-3ce3-450d-8aa8-1eccf5caecf9"}
+{"type":"summary","summary":"VSS Duplicate Detection: Debugging Similarity Score Issue","leafUuid":"f8d61a94-8d67-4f9d-a13b-29900fb32464"}
+{"type":"summary","summary":"Debugging Requirement Duplicate Detection Similarity Issue","leafUuid":"2523d809-a41a-4e53-9c00-8a2fa3e37b5b"}
+{"type":"summary","summary":"Tracing Duplicate Detection: Database Connection Isolation","leafUuid":"4bf86997-d877-47cc-88da-cbe60e6fc464"}
+{"type":"summary","summary":"Kuzu Repository Connection Tracing and Validation","leafUuid":"eee5d9bc-afdd-495d-8334-8f2422143a7c"}
+{"type":"summary","summary":"VSS/FTS Module Initialization and Fallback Removal","leafUuid":"4cd1616f-4033-4e56-846a-128de7fb1bd2"}
+{"type":"summary","summary":"PYTHONPATH Export Analysis in Nix Flake Configuration","leafUuid":"b9b3337d-4422-4aa8-af04-ecdbaee4a8b3"}
+{"type":"summary","summary":"Nix Python Package: Requirement Graph Packaging","leafUuid":"6f10a967-531d-4448-8c87-d5adb31583c4"}
+{"type":"summary","summary":"Nix Flake: Fixing Python Package Entry Points","leafUuid":"0dce7c96-1f53-472d-a78e-fbe297ec6b2a"}
+{"type":"summary","summary":"Nix Flake Config: Requirement Graph Package Setup","leafUuid":"2117f046-d8c2-4bce-9df9-a9e2e6372f25"}
+{"type":"summary","summary":"Requirement Graph Import Analysis and Package Structure Review","leafUuid":"4f8000e6-f010-4cc9-88ac-aac0a55acd22"}
+{"type":"summary","summary":"Nix Flake to Bun Package Migration Challenges","leafUuid":"37292a4a-2e17-4db4-804a-0d079d557359"}
+{"type":"summary","summary":"Requirement Graph: VSS/FTS Test Removal Strategy Discussion","leafUuid":"6d34a4a3-357f-41c8-9290-790235fab465"}
+{"type":"summary","summary":"Requirement Graph: VSS/FTS Test Migration and Responsibility Separation","leafUuid":"15983270-a09a-4d29-8539-71752feadfe7"}
+{"type":"summary","summary":"Test File Cleanup in requirement/graph Directory","leafUuid":"279a71fc-479e-4f5f-a4b2-fd6b2a30696f"}
+{"type":"summary","summary":"Test File Cleanup: Removing Specific Python Test Scripts","leafUuid":"6b30ee5f-0a8b-4ef5-8fe9-40bce77164e9"}
+{"type":"summary","summary":"Nix Test Suite: Import Error in Duplicate Detection Test","leafUuid":"15389d06-b818-4139-8c6c-470e38eda4ea"}
+{"type":"summary","summary":"Fixing E2E Test Import and Duplicate Detection Functionality","leafUuid":"00ca9c1a-7751-48d5-a5b9-095dacc6705a"}
+{"type":"summary","summary":"Cleanup of E2E Duplicate Detection Test Mocks","leafUuid":"e181a33c-af67-4e21-827a-acee7f168a25"}
+{"type":"summary","summary":"Nix Test Suite Verification: 126 Tests, E2E Checks","leafUuid":"9f11825d-f0b0-48ef-a1ef-f089f0e61d2c"}
+{"type":"summary","summary":"Test Policy Doc: Cleanup, Guidelines, Integration Strategy","leafUuid":"214bc942-0452-4ba6-b2d6-3c6618854aad"}
+{"type":"summary","summary":"Test Migration and Performance Optimization for Requirement Graph System","leafUuid":"1a4e6cef-7a0d-4d22-92f4-8aefd5a0f8e1"}
+{"type":"summary","summary":"VSS/FTS Init Optimization via Session Fixture","leafUuid":"069aab21-1ec4-41c9-b2f9-32708c238466"}
+{"type":"summary","summary":"E2E Test Parallelization for Faster Development Cycle","leafUuid":"e623c0f6-d400-402c-8769-803efef584d9"}
+{"type":"summary","summary":"Nix Shell vs Nix Run: Test Performance Optimization and Execution Strategy","leafUuid":"aa35d5f4-37f4-4fec-bb9f-6c5aeef99dce"}
+{"type":"summary","summary":"Nix Test Performance: Shell vs Develop Optimization","leafUuid":"96e2316d-2ec6-4c78-a429-2c18b1129aa3"}
