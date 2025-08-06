@@ -407,8 +407,8 @@ status_command() {
         error_with_hint "DDL directory not found: $ddl_dir" "run 'init'"
     fi
     
-    # Check if database exists
-    if [[ ! -d "$db_path" ]]; then
+    # Check if database exists (file or directory)
+    if [[ ! -e "$db_path" ]]; then
         info "Database not found at: $db_path"
         info "No migrations have been applied yet."
         return 0
@@ -579,8 +579,8 @@ snapshot_command() {
         error_with_hint "DDL directory not found: $ddl_dir" "run 'init'"
     fi
     
-    # Check if database exists
-    if [[ ! -d "$db_path" ]]; then
+    # Check if database exists (file or directory)
+    if [[ ! -e "$db_path" ]]; then
         error_with_hint "Database not found at: $db_path" "run 'apply' first"
     fi
     
@@ -957,12 +957,12 @@ diff_command() {
         error_with_hint "command not found: kuzu" "check PATH"
     fi
     
-    # Validate database paths
-    if [[ ! -d "$db_path" ]]; then
+    # Validate database paths (file or directory)
+    if [[ ! -e "$db_path" ]]; then
         error_with_hint "Source database not found: $db_path" "check database path"
     fi
     
-    if [[ ! -d "$target_path" ]]; then
+    if [[ ! -e "$target_path" ]]; then
         error_with_hint "Target database not found: $target_path" "check --target path"
     fi
     
