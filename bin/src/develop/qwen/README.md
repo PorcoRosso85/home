@@ -40,8 +40,35 @@ cd qwen-code
 npm install
 ```
 
-## Nix Flakeでの提供予定
+## Nix Flakeでの提供
 
 - `packages.qwen-code`: メインパッケージ
 - `devShells.default`: 開発環境
 - `apps.qwen-code`: 実行可能アプリケーション
+
+## 使用方法
+
+### 1. 直接実行（推奨）
+
+```bash
+# OpenRouter APIキーがスクリプトに設定済みの場合
+./qwen-code.sh
+
+# 環境変数でカスタマイズする場合
+OPENAI_API_KEY="your-key" OPENAI_MODEL="qwen/qwen3-235b-a22b:free" ./qwen-code.sh
+```
+
+### 2. 環境変数の設定
+
+`qwen-code.sh`にはデフォルトのOpenRouter設定が含まれています：
+- `OPENAI_API_KEY`: OpenRouter APIキー
+- `OPENAI_BASE_URL`: `https://openrouter.ai/api/v1`
+- `OPENAI_MODEL`: `qwen/qwen3-coder`
+
+これらは環境変数で上書き可能です。`.env.example`を参考にしてください。
+
+### 3. OpenRouterの利用
+
+[OpenRouter](https://openrouter.ai/)に$10以上デポジットすると、無料モデル（*-free）を1日1000リクエストまで使用できます。
+
+詳細は`docs/`ディレクトリ内の記事を参照してください。
