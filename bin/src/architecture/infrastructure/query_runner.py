@@ -12,8 +12,13 @@ import os
 import sys
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 import argparse
+
+# kuzu_pyのquery_loaderを使用
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "persistence" / "kuzu_py"))
+from query_loader import load_typed_query, execute_query
+from errors import FileOperationError, ValidationError, NotFoundError
 
 
 class QueryRunner:
@@ -23,22 +28,24 @@ class QueryRunner:
         self.base_path = base_path
         self.dql_path = base_path / "dql"
     
-    def load_query(self, query_path: str) -> str:
-        """クエリファイルを読み込み"""
-        full_path = self.dql_path / query_path
+    def load_query(self, query_path: str) -> Union[str, Dict[str, Any]]:
+        """クエリファイルを読み込み（kuzu_pyのload_typed_queryを使用）"""
+        # クエリ名を抽出（.cypherを除く）
+        query_name = Path(query_path).stem
         
-        if not full_path.exists():
-            raise FileNotFoundError(f"クエリファイルが見つかりません: {full_path}")
+        # load_typed_queryを使用
+        result = load_typed_query(
+            query_name=query_name,
+            query_type="dql",  # architectureはDQLに特化
+            base_dir=str(self.base_path)
+        )
         
-        with open(full_path, 'r', encoding='utf-8') as f:
-            # コメント行を除外してクエリを返す
-            lines = []
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('//'):
-                    lines.append(line)
-            
-            return ' '.join(lines)
+        # エラーチェック
+        if isinstance(result, (FileOperationError, ValidationError, NotFoundError)):
+            error_dict = result.dict() if hasattr(result, 'dict') else result
+            raise FileNotFoundError(f"クエリファイルの読み込みエラー: {error_dict.get('message', str(result))}")
+        
+        return result
     
     def parse_parameters(self, param_strings: List[str]) -> Dict[str, Any]:
         """パラメータを解析"""
@@ -131,28 +138,25 @@ class QueryRunner:
             print(f"パラメータ: {params}")
             print("-" * 80)
             
-            # 注意: 実際のKuzuDB実行はここで行う
-            # 現在は移行可能性の検証のため、ダミー結果を返す
+            # KuzuDBに接続して実行
+            # architectureのdb.connectionを使用
+            from architecture.db.connection import KuzuConnectionManager
             
-            # ダミー結果（実際の実装では削除）
-            dummy_results = [
-                {
-                    "requirement_id": "req_001",
-                    "requirement_title": "ユーザー認証機能",
-                    "max_dependency_depth": 3,
-                    "total_dependencies": 5
-                },
-                {
-                    "requirement_id": "req_002", 
-                    "requirement_title": "データベース接続",
-                    "max_dependency_depth": 1,
-                    "total_dependencies": 2
-                }
-            ]
+            db_path = self.base_path / "data" / "kuzu.db"
+            conn_manager = KuzuConnectionManager(str(db_path))
             
-            # 結果をフォーマットして出力
-            formatted_result = self.format_result(dummy_results, format_type)
-            print(formatted_result)
+            with conn_manager.get_connection() as conn:
+                # クエリ実行
+                result = conn.execute(query, params)
+                
+                # 結果を辞書のリストに変換
+                results = []
+                while result.has_next():
+                    results.append(result.get_next())
+                
+                # 結果をフォーマットして出力
+                formatted_result = self.format_result(results, format_type)
+                print(formatted_result)
             
         except Exception as e:
             print(f"エラー: {str(e)}", file=sys.stderr)
