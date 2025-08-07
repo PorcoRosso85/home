@@ -751,6 +751,10 @@ def index_flakes_func(state: VSSState, flakes: List[Dict[str, Any]]) -> VSSState
             # Persist to KuzuDB
             state['kuzu_adapter'].store_embedding(flake_id, embedding_data)
             
+            # Update VSS timestamp if the adapter has this method
+            if hasattr(state['kuzu_adapter'], 'update_vss_timestamp'):
+                state['kuzu_adapter'].update_vss_timestamp(flake_id, datetime.now())
+            
         except Exception as e:
             log("ERROR", {
                 "uri": "/flake_graph/vss/index_func",
@@ -903,15 +907,21 @@ def search_func(state: VSSState, query: str, limit: int = 5) -> tuple[Union[Sear
             results = []
             for flake_id, flake_embedding in state['embeddings'].items():
                 score = compute_cosine_similarity(query_embedding, flake_embedding)
+                
+                # Try to get flake data from kuzu_adapter
+                flake_data = None
+                if hasattr(state['kuzu_adapter'], 'get_flake_vss_data'):
+                    flake_data = state['kuzu_adapter'].get_flake_vss_data(flake_id)
+                
                 results.append(
                     SearchResult(
                         id=flake_id,
                         content="",
                         score=score,
-                        path=None,
-                        description=None,
-                        language=None,
-                        vss_analyzed_at=None
+                        path=flake_data.get("path") if flake_data else None,
+                        description=flake_data.get("description") if flake_data else None,
+                        language=flake_data.get("language") if flake_data else None,
+                        vss_analyzed_at=flake_data.get("vss_analyzed_at").isoformat() if flake_data and flake_data.get("vss_analyzed_at") else None
                     )
                 )
             
@@ -1018,27 +1028,47 @@ def update_embeddings_func(state: VSSState, flakes: List[Dict[str, Any]]) -> tup
         else:
             flake_id = str(flake.get("path", "unknown"))
         
-        # Compute content hash
-        current_hash = hashlib.md5(
-            (flake.get("description", "") + flake.get("readme_content", "")).encode()
-        ).hexdigest()
+        # Check if we should skip this flake based on timestamps
+        should_skip = False
         
-        # Check if embedding exists
-        existing = state['kuzu_adapter'].get_embedding(flake_id)
+        # For test compatibility: check vss_analyzed_at vs last_modified
+        if "vss_analyzed_at" in flake and "last_modified" in flake:
+            vss_analyzed_at = flake.get("vss_analyzed_at")
+            last_modified = flake.get("last_modified")
+            
+            # If analyzed after last modification, skip
+            if vss_analyzed_at and last_modified and vss_analyzed_at > last_modified:
+                should_skip = True
         
-        if existing:
-            if existing.get("content_hash") == current_hash:
-                stats["unchanged"] += 1
-            else:
+        # If not skipped by timestamp, check content hash
+        if not should_skip:
+            # Compute content hash
+            current_hash = hashlib.md5(
+                (flake.get("description", "") + flake.get("readme_content", "")).encode()
+            ).hexdigest()
+            
+            # Check if embedding exists
+            existing = state['kuzu_adapter'].get_embedding(flake_id)
+            
+            if existing and existing.get("content_hash") == current_hash:
+                should_skip = True
+        
+        if should_skip:
+            stats["unchanged"] += 1
+        else:
+            # Check if embedding exists to determine if new or update
+            existing = state['kuzu_adapter'].get_embedding(flake_id)
+            
+            if existing:
                 # Re-generate embedding
                 current_state = index_flakes_func(current_state, [flake])
                 stats["updated"] += 1
                 stats["total_processed"] += 1
-        else:
-            # New flake
-            current_state = index_flakes_func(current_state, [flake])
-            stats["new"] += 1
-            stats["total_processed"] += 1
+            else:
+                # New flake
+                current_state = index_flakes_func(current_state, [flake])
+                stats["new"] += 1
+                stats["total_processed"] += 1
     
     return stats, current_state
 
@@ -1134,6 +1164,7 @@ class VSSAdapter:
         self.vss_db_path = self._state['vss_db_path']
         self.model_version = model_version
         self._embedding_func = embedding_func
+        self._embedding_generation_count = 0  # Track embeddings generated
     
     @property
     def embeddings(self) -> Dict[str, List[float]]:
@@ -1142,7 +1173,10 @@ class VSSAdapter:
     
     def index_flakes(self, flakes: List[Dict[str, Any]]) -> None:
         """Generate and store embeddings for flakes."""
+        old_count = len(self._state['embeddings'])
         self._state = index_flakes_func(self._state, flakes)
+        new_count = len(self._state['embeddings'])
+        self._embedding_generation_count += (new_count - old_count)
     
     def index_flakes_with_persistence(
         self,
@@ -1187,7 +1221,14 @@ class VSSAdapter:
     
     def update_embeddings(self, flakes: List[Dict[str, Any]]) -> Dict[str, int]:
         """Update only changed embeddings."""
+        old_embedding_count = len(self._state['embeddings'])
         stats, self._state = update_embeddings_func(self._state, flakes)
+        new_embedding_count = len(self._state['embeddings'])
+        
+        # Track embeddings generated based on what was actually processed
+        # This includes both new embeddings and re-generated embeddings for updates
+        self._embedding_generation_count += stats["total_processed"]
+        
         return stats
     
     def check_embedding_compatibility(self) -> Dict[str, Any]:
@@ -1197,5 +1238,28 @@ class VSSAdapter:
     def get_embeddings_needing_update(self) -> List[Dict[str, str]]:
         """Get list of embeddings that need regeneration."""
         return get_embeddings_needing_update_func(self._state)
+    
+    def index_flakes_incremental(self, flakes: List[Dict[str, Any]], use_content_hash: bool = True) -> Dict[str, int]:
+        """Index flakes incrementally, skipping unchanged ones.
+        
+        This is an alias for update_embeddings to maintain compatibility with tests.
+        Note: use_content_hash parameter is included for test compatibility but is always enabled.
+        """
+        stats = self.update_embeddings(flakes)
+        # Note: embedding generation count is already tracked in update_embeddings
+        # Convert stats to match expected format
+        return {
+            "skipped": stats["unchanged"],
+            "processed": stats["total_processed"],
+            "new": stats["new"],
+            "updated": stats["updated"]
+        }
+    
+    def get_embedding_generation_count(self) -> int:
+        """Get the number of embeddings generated in the current session.
+        
+        Returns the count of embeddings generated since initialization.
+        """
+        return self._embedding_generation_count
 
 

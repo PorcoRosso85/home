@@ -478,12 +478,12 @@ def create_test_kuzu_adapter(fresh=False, with_test_data=False):
     from flake_graph.kuzu_adapter import KuzuAdapter
     
     if fresh:
-        db_path = Path("/tmp/test_vss_persistence.db")
+        db_path = Path("/tmp/test_vss_persistence")
         if db_path.exists():
             import shutil
             shutil.rmtree(db_path)
     else:
-        db_path = Path("/tmp/test_vss_persistence_existing.db")
+        db_path = Path("/tmp/test_vss_persistence_existing")
     
     adapter = KuzuAdapter(str(db_path))
     
@@ -496,7 +496,7 @@ def create_test_kuzu_adapter(fresh=False, with_test_data=False):
 
 def create_test_vss_adapter(kuzu_adapter, load_existing=False, current_model_version="1.0.0"):
     """Create a test VSS adapter instance."""
-    from flake_graph.vss_adapter import VSSAdapter
+    from flake_graph.vss_adapter_class import VSSAdapter
     
     # Use actual VSSAdapter implementation
     return VSSAdapter(
