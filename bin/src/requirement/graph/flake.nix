@@ -144,7 +144,7 @@
               fi
               
               # 初期化実行
-              echo '{"type": "init", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/requirement-graph
+              echo '{"type": "schema", "action": "apply", "create_test_data": true}' | ${pythonEnv}/bin/python -m requirement.graph.main
             ''}";
           };
           
