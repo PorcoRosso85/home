@@ -297,19 +297,24 @@ def persist_duplicate_relationships_spec(duplicate_groups: List[Dict[str, Any]])
     
     # Validate input
     if not duplicate_groups:
-        return {"ok": False, "error_type": "validation_error", "message": "No groups provided"}
+        return {"ok": False, "error_type": "validation_error", "message": "No groups provided", "edges_created": 0}
     
     for group in duplicate_groups:
         if not group.get("flakes") or len(group["flakes"]) < 2:
-            return {"ok": False, "error_type": "validation_error", "message": "Invalid group data"}
+            return {"ok": False, "error_type": "validation_error", "message": "Invalid group data", "edges_created": 0}
+        
+        # Validate description
+        if not group.get("description"):
+            return {"ok": False, "error_type": "validation_error", "message": "Missing group description", "edges_created": 0}
         
         # Check for invalid data
         for flake in group["flakes"]:
             if not flake.get("path") or not flake.get("description"):
-                return {"ok": False, "error_type": "validation_error", "message": "Invalid flake data"}
+                return {"ok": False, "error_type": "validation_error", "message": "Invalid flake data", "edges_created": 0}
         
-        if group.get("similarity_score", 0) < 0:
-            return {"ok": False, "error_type": "validation_error", "message": "Invalid similarity score"}
+        similarity_score = group.get("similarity_score")
+        if similarity_score is None or similarity_score < 0:
+            return {"ok": False, "error_type": "validation_error", "message": "Invalid similarity score", "edges_created": 0}
     
     # Calculate expected edges (complete graph for each group, bidirectional)
     total_edges = 0
@@ -330,7 +335,7 @@ def persist_duplicate_relationships_spec(duplicate_groups: List[Dict[str, Any]])
                         "source_path": str(flake1["path"]),
                         "target_path": str(flake2["path"]),
                         "relationship_type": "DUPLICATES_WITH",
-                        "similarity_score": group["similarity_score"],
+                        "similarity_score": group.get("similarity_score", 0.0),
                         "group_id": f"dup_group_{group_idx}",
                         "detected_at": "2025-08-07T10:00:00Z",
                         "detection_method": "vss_similarity"
@@ -465,22 +470,148 @@ def find_component_containing_path(components: List[Dict[str, Any]], path_substr
 # Edge case and error handling tests
 
 def test_empty_duplicate_groups_handling():
-    """空の重複グループリストの処理"""
+    """空の重複グループリストの処理
+    
+    ビジネス価値: システムの堅牢性を保証し、不正な入力での
+    予期しない動作や例外を防ぐ
+    """
     result = persist_duplicate_relationships_spec([])
     assert result["ok"] is False
     assert result["error_type"] == "validation_error"
+    assert result["edges_created"] == 0
+    assert "No groups provided" in result["message"]
 
 
 def test_single_flake_group_rejection():
-    """単一flakeのグループを拒否"""
+    """単一flakeのグループを拒否
+    
+    ビジネス価値: 重複の概念に合わない無効なデータを適切に処理し、
+    データ品質を保証する
+    """
     invalid_groups = [{"flakes": [{"path": Path("/single"), "description": "Single flake"}], "similarity_score": 0.9}]
     result = persist_duplicate_relationships_spec(invalid_groups)
     assert result["ok"] is False
     assert result["error_type"] == "validation_error"
 
 
+def test_empty_duplicate_groups_with_valid_structure():
+    """有効な構造だが空のflakeリストを持つグループの処理
+    
+    ビジネス価値: データ構造は正しいが内容が不完全な場合の
+    適切なエラーハンドリングにより、デバッグ効率を向上させる
+    """
+    # Given: Valid structure but empty flakes list
+    empty_groups = [
+        {
+            "description": "Empty logging utilities group",
+            "flakes": [],  # Empty flakes list
+            "similarity_score": 0.95
+        }
+    ]
+    
+    # When: Attempting to persist empty group
+    result = persist_duplicate_relationships_spec(empty_groups)
+    
+    # Then: Should fail with specific validation error
+    assert result["ok"] is False, "Should reject empty flakes list"
+    assert result["error_type"] == "validation_error"
+    assert "Invalid group data" in result["message"]
+    assert result["edges_created"] == 0, "Should not create any edges"
+
+
+def test_mixed_valid_and_empty_duplicate_groups():
+    """有効なグループと空のグループが混在する場合の処理
+    
+    ビジネス価値: 部分的に破損したデータでもシステムが適切に
+    エラーを報告し、どの部分が問題かを明確にする
+    """
+    # Given: Mixed valid and invalid groups
+    mixed_groups = [
+        {
+            "description": "Valid Redis caching group",
+            "flakes": [
+                {"path": Path("/cache/redis"), "description": "Redis cache layer"},
+                {"path": Path("/storage/redis"), "description": "Redis storage"}
+            ],
+            "similarity_score": 0.91
+        },
+        {
+            "description": "Empty email group", 
+            "flakes": [],  # Empty - should cause failure
+            "similarity_score": 0.88
+        },
+        {
+            "description": "Valid HTTP group",
+            "flakes": [
+                {"path": Path("/http/client"), "description": "HTTP client"},
+                {"path": Path("/net/requests"), "description": "Request handler"}
+            ],
+            "similarity_score": 0.93
+        }
+    ]
+    
+    # When: Processing mixed groups
+    result = persist_duplicate_relationships_spec(mixed_groups)
+    
+    # Then: Should fail due to invalid group in batch
+    assert result["ok"] is False, "Should fail due to empty group"
+    assert result["error_type"] == "validation_error"
+    assert result["edges_created"] == 0, "Should not create any edges due to validation failure"
+    
+    # Should provide helpful error context
+    assert "Invalid group data" in result["message"]
+
+
+def test_null_and_missing_group_attributes():
+    """null値や欠落した属性を持つグループの処理
+    
+    ビジネス価値: データの完全性検証により、不完全なデータによる
+    システム障害を防ぎ、運用の安定性を保証する
+    """
+    # Given: Groups with missing or null attributes
+    invalid_groups = [
+        {
+            # Missing description
+            "flakes": [
+                {"path": Path("/test/1"), "description": "Test flake 1"},
+                {"path": Path("/test/2"), "description": "Test flake 2"}
+            ],
+            "similarity_score": 0.85
+        },
+        {
+            "description": "Group with null similarity",
+            "flakes": [
+                {"path": Path("/test/3"), "description": "Test flake 3"},
+                {"path": Path("/test/4"), "description": "Test flake 4"}
+            ],
+            "similarity_score": None  # Null similarity score
+        },
+        {
+            "description": "Group with missing flakes",
+            # Missing flakes attribute entirely
+            "similarity_score": 0.90
+        }
+    ]
+    
+    # When: Processing groups with missing attributes
+    results = []
+    for group in invalid_groups:
+        result = persist_duplicate_relationships_spec([group])
+        results.append(result)
+    
+    # Then: All should fail with validation errors
+    for i, result in enumerate(results):
+        assert result["ok"] is False, f"Group {i} should fail validation"
+        assert result["error_type"] == "validation_error"
+        assert result["edges_created"] == 0
+
+
 def test_preserves_existing_relationships():
-    """既存の関係（DEPENDS_ON等）を保持"""
+    """既存の関係（DEPENDS_ON等）を保持
+    
+    ビジネス価値: 複数種類の関係性を同一グラフ内で共存させ、
+    包括的な依存関係分析を可能にする
+    """
     # This test would verify that creating DUPLICATES_WITH relationships
     # doesn't interfere with existing DEPENDS_ON relationships
     # Implementation would query both relationship types and verify coexistence
@@ -488,7 +619,11 @@ def test_preserves_existing_relationships():
 
 
 def test_similarity_score_range_validation():
-    """類似度スコアの範囲検証（0.0-1.0）"""
+    """類似度スコアの範囲検証（0.0-1.0）
+    
+    ビジネス価値: 類似度スコアの妥当性を保証し、
+    機械学習モデルの出力品質を検証する
+    """
     # Test would verify that similarity scores outside valid range are rejected
     # or normalized appropriately
     pass

@@ -481,9 +481,23 @@ def create_test_kuzu_adapter(fresh=False, with_test_data=False):
         db_path = Path("/tmp/test_vss_persistence")
         if db_path.exists():
             import shutil
-            shutil.rmtree(db_path)
+            # Check if it's a file or directory and remove appropriately
+            if db_path.is_file():
+                db_path.unlink()
+                # Also remove lock file if exists
+                lock_file = Path(str(db_path) + ".lock")
+                if lock_file.exists():
+                    lock_file.unlink()
+            else:
+                shutil.rmtree(db_path)
     else:
         db_path = Path("/tmp/test_vss_persistence_existing")
+        # Clean up existing files if they are not directories
+        if db_path.exists() and db_path.is_file():
+            db_path.unlink()
+            lock_file = Path(str(db_path) + ".lock")
+            if lock_file.exists():
+                lock_file.unlink()
     
     adapter = KuzuAdapter(str(db_path))
     
