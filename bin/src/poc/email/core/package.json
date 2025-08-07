@@ -1,0 +1,18 @@
+{
+  "name": "core",
+  "module": "src/main.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run src/main.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.19",
+    "@types/node": "^24.2.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
