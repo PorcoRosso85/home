@@ -4,18 +4,26 @@
  */
 
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
-import type { Email, EmailSenderPort, SendOptions, SendResult } from '../../domain/ports.js';
+import type { Email } from '../../domain/email.js';
+import type { EmailSenderPort, SendOptions, SendResult } from '../../domain/ports.js';
 
 /**
  * Configuration for AWS SES client
  */
-export interface SESConfig {
+export type SESConfig = {
   readonly region: string;
   readonly credentials: {
     readonly accessKeyId: string;
     readonly secretAccessKey: string;
   };
 }
+
+/**
+ * Result type for SES Email Sender factory function
+ */
+export type SESEmailSenderResult = 
+  | { success: true; sender: SESEmailSender }
+  | { success: false; error: string };
 
 /**
  * SES Email Sender implementation
@@ -177,5 +185,39 @@ export class SESEmailSender implements EmailSenderPort {
       success: false, 
       error: 'Unknown error occurred while sending email' 
     };
+  }
+}
+
+/**
+ * Factory function to create SESEmailSender with validation
+ * Returns Result type instead of throwing exceptions
+ * @param config - AWS SES configuration including region and credentials
+ * @returns Result with SESEmailSender instance or error message
+ */
+export function createSESEmailSender(config: SESConfig): SESEmailSenderResult {
+  try {
+    // Validate configuration before creating instance
+    if (!config.region || config.region.trim() === '') {
+      return { success: false, error: 'Region is required' };
+    }
+    
+    if (!config.credentials.accessKeyId || config.credentials.accessKeyId.trim() === '') {
+      return { success: false, error: 'Access key ID is required' };
+    }
+    
+    if (!config.credentials.secretAccessKey || config.credentials.secretAccessKey.trim() === '') {
+      return { success: false, error: 'Secret access key is required' };
+    }
+
+    // Create SESEmailSender instance
+    const sender = new SESEmailSender(config);
+    
+    return { success: true, sender };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    
+    return { success: false, error: 'Unknown error occurred while creating SES Email Sender' };
   }
 }

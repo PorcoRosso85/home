@@ -4,10 +4,11 @@
  * Provides dry run testing and real email sending capabilities
  */
 
-import { createEmail } from './domain/email.js';
-import { InMemoryStorage } from './adapters/storage/memory.js';
-import { SESEmailSender } from './adapters/sender/ses.js';
+import { createEmail, Email } from './domain/email.js';
+import { InMemoryStorage } from './infrastructure/storage/memory.js';
+import { createSESEmailSender } from './infrastructure/sender/ses.js';
 import { SendService } from './application/send-service.js';
+import { SendOptions, SendResult } from './domain/ports.js';
 
 /**
  * Parse command line arguments
@@ -28,7 +29,7 @@ function showHelp(): void {
 Email Send Service CLI
 
 USAGE:
-  bun run src/index.ts [OPTIONS]
+  bun run src/main.ts [OPTIONS]
 
 OPTIONS:
   --dry-run    Test email sending without actually sending (recommended for testing)
@@ -36,10 +37,10 @@ OPTIONS:
 
 EXAMPLES:
   # Test email sending without sending real emails
-  bun run src/index.ts --dry-run
+  bun run src/main.ts --dry-run
 
   # Send real emails (requires AWS SES configuration)
-  bun run src/index.ts
+  bun run src/main.ts
 
 ENVIRONMENT VARIABLES (required for real sending):
   AWS_REGION              AWS region (e.g., us-east-1)
@@ -97,7 +98,7 @@ This email demonstrates the dry run and real sending capabilities of the service
  * Mock email sender for dry run mode
  */
 class MockEmailSender {
-  async send(email: any, options?: any) {
+  async send(email: Email, options?: SendOptions): Promise<SendResult> {
     if (options?.dryRun) {
       console.log('🧪 DRY RUN - Email would be sent with the following details:');
       console.log('   To:', email.to);
@@ -151,13 +152,15 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
-    try {
-      emailSender = new SESEmailSender(sesConfig);
-      console.log('✅ AWS SES configuration loaded successfully\n');
-    } catch (error) {
-      console.error('❌ ERROR: Failed to initialize AWS SES:', error instanceof Error ? error.message : error);
+    const senderResult = createSESEmailSender(sesConfig);
+    
+    if (!senderResult.success) {
+      console.error('❌ ERROR: Failed to initialize AWS SES:', senderResult.error);
       process.exit(1);
     }
+    
+    emailSender = senderResult.sender;
+    console.log('✅ AWS SES configuration loaded successfully\n');
   }
 
   // Initialize send service

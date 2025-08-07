@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, mock, spyOn } from 'bun:test';
-import { SESEmailSender } from '../../src/adapters/sender/ses.js';
+import { SESEmailSender, createSESEmailSender } from '../../src/infrastructure/sender/ses.js';
 import { createEmail } from '../../src/domain/email.js';
 import type { SendOptions } from '../../src/domain/ports.js';
 import type { Email } from '../../src/domain/email.js';
@@ -17,7 +17,7 @@ const mockSESClient = {
 // Mock the AWS SDK module
 mock.module('@aws-sdk/client-ses', () => ({
   SESClient: mock(() => mockSESClient),
-  SendEmailCommand: mock((params: any) => ({ input: params }))
+  SendEmailCommand: mock((params: unknown) => ({ input: params }))
 }));
 
 describe('SESEmailSender', () => {
@@ -42,64 +42,22 @@ describe('SESEmailSender', () => {
     
     testEmail = result.email;
     
-    // Create SES sender with test config
-    sesEmailSender = new SESEmailSender({
+    // Create SES sender with test config using factory function
+    const senderResult = createSESEmailSender({
       region: 'us-east-1',
       credentials: {
         accessKeyId: 'test-access-key',
         secretAccessKey: 'test-secret-key'
       }
     });
+    
+    if (!senderResult.success) {
+      throw new Error(`Failed to create SES sender: ${senderResult.error}`);
+    }
+    
+    sesEmailSender = senderResult.sender;
   });
 
-  describe('constructor', () => {
-    it('should create SES client with provided configuration', () => {
-      const config = {
-        region: 'us-west-2',
-        credentials: {
-          accessKeyId: 'test-key',
-          secretAccessKey: 'test-secret'
-        }
-      };
-
-      const sender = new SESEmailSender(config);
-      expect(sender).toBeInstanceOf(SESEmailSender);
-    });
-
-    it('should throw error for invalid region', () => {
-      expect(() => {
-        new SESEmailSender({
-          region: '',
-          credentials: {
-            accessKeyId: 'test-key',
-            secretAccessKey: 'test-secret'
-          }
-        });
-      }).toThrow('Region is required');
-    });
-
-    it('should throw error for missing credentials', () => {
-      expect(() => {
-        new SESEmailSender({
-          region: 'us-east-1',
-          credentials: {
-            accessKeyId: '',
-            secretAccessKey: 'test-secret'
-          }
-        });
-      }).toThrow('Access key ID is required');
-
-      expect(() => {
-        new SESEmailSender({
-          region: 'us-east-1',
-          credentials: {
-            accessKeyId: 'test-key',
-            secretAccessKey: ''
-          }
-        });
-      }).toThrow('Secret access key is required');
-    });
-  });
 
   describe('send method', () => {
     describe('dry run mode', () => {
@@ -384,6 +342,185 @@ describe('SESEmailSender', () => {
         }
 
         expect(mockSend).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
+  describe('createSESEmailSender factory function', () => {
+    describe('validation errors', () => {
+      it('should return error result for invalid region', () => {
+        const config = {
+          region: '',
+          credentials: {
+            accessKeyId: 'test-access-key',
+            secretAccessKey: 'test-secret-key'
+          }
+        };
+
+        const result = createSESEmailSender(config);
+        
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe('Region is required');
+        }
+      });
+
+      it('should return error result for whitespace-only region', () => {
+        const config = {
+          region: '   ',
+          credentials: {
+            accessKeyId: 'test-access-key',
+            secretAccessKey: 'test-secret-key'
+          }
+        };
+
+        const result = createSESEmailSender(config);
+        
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe('Region is required');
+        }
+      });
+
+      it('should return error result for invalid access key', () => {
+        const config = {
+          region: 'us-east-1',
+          credentials: {
+            accessKeyId: '',
+            secretAccessKey: 'test-secret-key'
+          }
+        };
+
+        const result = createSESEmailSender(config);
+        
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe('Access key ID is required');
+        }
+      });
+
+      it('should return error result for whitespace-only access key', () => {
+        const config = {
+          region: 'us-east-1',
+          credentials: {
+            accessKeyId: '   ',
+            secretAccessKey: 'test-secret-key'
+          }
+        };
+
+        const result = createSESEmailSender(config);
+        
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe('Access key ID is required');
+        }
+      });
+
+      it('should return error result for invalid secret key', () => {
+        const config = {
+          region: 'us-east-1',
+          credentials: {
+            accessKeyId: 'test-access-key',
+            secretAccessKey: ''
+          }
+        };
+
+        const result = createSESEmailSender(config);
+        
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe('Secret access key is required');
+        }
+      });
+
+      it('should return error result for whitespace-only secret key', () => {
+        const config = {
+          region: 'us-east-1',
+          credentials: {
+            accessKeyId: 'test-access-key',
+            secretAccessKey: '   '
+          }
+        };
+
+        const result = createSESEmailSender(config);
+        
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe('Secret access key is required');
+        }
+      });
+    });
+
+    describe('successful creation', () => {
+      it('should return success result with SESEmailSender instance for valid config', () => {
+        const config = {
+          region: 'us-east-1',
+          credentials: {
+            accessKeyId: 'test-access-key',
+            secretAccessKey: 'test-secret-key'
+          }
+        };
+
+        const result = createSESEmailSender(config);
+        
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.sender).toBeInstanceOf(SESEmailSender);
+        }
+      });
+
+      it('should return success result for different valid regions', () => {
+        const config = {
+          region: 'eu-west-1',
+          credentials: {
+            accessKeyId: 'test-access-key',
+            secretAccessKey: 'test-secret-key'
+          }
+        };
+
+        const result = createSESEmailSender(config);
+        
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.sender).toBeInstanceOf(SESEmailSender);
+        }
+      });
+
+      it('should create functional SESEmailSender that can send emails', async () => {
+        const config = {
+          region: 'us-east-1',
+          credentials: {
+            accessKeyId: 'test-access-key',
+            secretAccessKey: 'test-secret-key'
+          }
+        };
+
+        const result = createSESEmailSender(config);
+        
+        expect(result.success).toBe(true);
+        if (result.success) {
+          // Test that the created sender can actually send emails (dry run)
+          const emailResult = createEmail({
+            to: 'test@example.com',
+            subject: 'Test Subject',
+            body: 'Test Body'
+          });
+          
+          if (!emailResult.success) {
+            throw new Error('Failed to create test email');
+          }
+
+          const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+          
+          const sendResult = await result.sender.send(emailResult.email, { dryRun: true });
+          
+          expect(sendResult.success).toBe(true);
+          if (sendResult.success) {
+            expect(sendResult.messageId).toMatch(/^ses-dry-run-/);
+          }
+          
+          consoleSpy.mockRestore();
+        }
       });
     });
   });

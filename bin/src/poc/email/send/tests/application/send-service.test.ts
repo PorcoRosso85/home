@@ -214,8 +214,8 @@ describe('SendService', () => {
 
     test('should handle null/undefined draft ID', async () => {
       // Act
-      const result1 = await sendService.sendDraft(null as any);
-      const result2 = await sendService.sendDraft(undefined as any);
+      const result1 = await sendService.sendDraft(null as unknown as string);
+      const result2 = await sendService.sendDraft(undefined as unknown as string);
 
       // Assert
       expect(result1.success).toBe(false);

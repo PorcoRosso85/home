@@ -2,13 +2,14 @@
  * Usage example demonstrating SendService integration with storage and sender
  */
 
-import { createEmail } from '../domain/email.js';
-import { InMemoryStorage } from '../adapters/storage/memory.js';
+import { createEmail, Email } from '../domain/email.js';
+import { InMemoryStorage } from '../infrastructure/storage/memory.js';
 import { SendService } from '../application/send-service.js';
+import { SendOptions, SendResult } from '../domain/ports.js';
 
 // Mock email sender for demonstration
 class MockEmailSender {
-  async send(email: any, options?: any) {
+  async send(email: Email, options?: SendOptions): Promise<SendResult> {
     if (options?.dryRun) {
       console.log('DRY RUN - Would send email:', email);
       return { success: true, messageId: 'dry-run-message-id' };

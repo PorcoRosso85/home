@@ -8,7 +8,7 @@ import { Email } from './email.js';
 /**
  * Options for email sending operations
  */
-export interface SendOptions {
+export type SendOptions = {
   readonly dryRun: boolean;
 }
 
@@ -30,7 +30,7 @@ export type StorageResult<T> =
  * Port interface for email sending operations
  * Implementations should handle the actual email delivery
  */
-export interface EmailSenderPort {
+export type EmailSenderPort = {
   /**
    * Send an email with optional send options
    * @param email - The email to send
@@ -44,7 +44,7 @@ export interface EmailSenderPort {
  * Port interface for email storage operations
  * Implementations should handle draft email persistence and retrieval
  */
-export interface StoragePort {
+export type StoragePort = {
   /**
    * Retrieve a draft email by ID
    * @param draftId - The unique identifier for the draft

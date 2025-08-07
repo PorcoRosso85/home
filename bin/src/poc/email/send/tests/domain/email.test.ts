@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { createEmail, type Email } from "../../src/domain/email";
+import { createEmail, type Email, type EmailInput } from "../../src/domain/email";
 
 describe("Email Domain Model", () => {
   describe("createEmail", () => {
@@ -84,9 +84,9 @@ describe("Email Domain Model", () => {
       const emailData = {
         subject: "Test Subject",
         body: "Test body content"
-      } as any;
+      } as Partial<EmailInput>;
 
-      const result = createEmail(emailData);
+      const result = createEmail(emailData as EmailInput);
       
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -98,9 +98,9 @@ describe("Email Domain Model", () => {
       const emailData = {
         to: "recipient@example.com",
         body: "Test body content"
-      } as any;
+      } as Partial<EmailInput>;
 
-      const result = createEmail(emailData);
+      const result = createEmail(emailData as EmailInput);
       
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -112,9 +112,9 @@ describe("Email Domain Model", () => {
       const emailData = {
         to: "recipient@example.com",
         subject: "Test Subject"
-      } as any;
+      } as Partial<EmailInput>;
 
-      const result = createEmail(emailData);
+      const result = createEmail(emailData as EmailInput);
       
       expect(result.success).toBe(false);
       if (!result.success) {

@@ -2,7 +2,7 @@
  * Email domain model with validation
  */
 
-export interface Email {
+export type Email = {
   readonly to: string;
   readonly subject: string;
   readonly body: string;
@@ -12,7 +12,7 @@ export interface Email {
   readonly replyTo?: string;
 }
 
-export interface EmailInput {
+export type EmailInput = {
   to: string;
   subject: string;
   body: string;

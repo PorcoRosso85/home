@@ -44,13 +44,13 @@ send/
 │   ├── domain/
 │   │   ├── email.ts       # メールエンティティ
 │   │   └── ports.ts       # アダプターインターフェース
-│   ├── adapters/
+│   ├── infrastructure/
 │   │   ├── storage/       # ストレージアダプター実装
 │   │   └── sender/
 │   │       └── ses.ts     # AWS SES送信アダプター
 │   ├── application/
 │   │   └── send-service.ts # メール送信サービス
-│   └── index.ts           # エントリポイント
+│   └── main.ts            # エントリポイント
 └── tests/                 # テストコード
 ```
 
@@ -60,7 +60,7 @@ send/
 
 - **Domain層**: メールエンティティと送信ルール
 - **Ports**: ストレージと送信のインターフェース定義
-- **Adapters**: AWS SESなどの具体的な実装
+- **Infrastructure**: AWS SESなどの具体的な実装
 - **Application層**: ユースケースの実装
 
 ## 依存関係
@@ -86,7 +86,7 @@ bun install
 # ドライランでのテスト実行
 bun run dry-run
 # または
-bun run src/index.ts --dry-run
+bun run src/main.ts --dry-run
 ```
 
 ### 実際のメール送信
@@ -102,7 +102,7 @@ export AWS_SECRET_ACCESS_KEY="your-secret-access-key"
 # 実際のメール送信
 bun run start
 # または
-bun run src/index.ts
+bun run src/main.ts
 ```
 
 ### ヘルプの表示
@@ -110,7 +110,7 @@ bun run src/index.ts
 ```bash
 bun run help
 # または
-bun run src/index.ts --help
+bun run src/main.ts --help
 ```
 
 ## 開発環境

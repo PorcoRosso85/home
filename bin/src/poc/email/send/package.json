@@ -2,13 +2,13 @@
   "name": "@poc/email-send",
   "version": "1.0.0",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "src/main.ts",
   "scripts": {
-    "start": "bun run src/index.ts",
-    "dry-run": "bun run src/index.ts --dry-run",
-    "help": "bun run src/index.ts --help",
+    "start": "bun run src/main.ts",
+    "dry-run": "bun run src/main.ts --dry-run",
+    "help": "bun run src/main.ts --help",
     "test": "bun test",
-    "build": "bun build src/index.ts --outdir=dist --target=bun"
+    "build": "bun build src/main.ts --outdir=dist --target=bun"
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.632.0"

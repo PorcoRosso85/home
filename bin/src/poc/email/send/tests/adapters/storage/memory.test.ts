@@ -4,7 +4,7 @@
 
 import { describe, test, expect, beforeEach } from 'bun:test';
 import { Email, createEmail } from '../../../src/domain/email.js';
-import { InMemoryStorage } from '../../../src/adapters/storage/memory.js';
+import { InMemoryStorage } from '../../../src/infrastructure/storage/memory.js';
 
 describe('InMemoryStorage', () => {
   let storage: InMemoryStorage;
