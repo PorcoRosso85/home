@@ -1,0 +1,29 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Multipart Email
+Message-ID: <multipart-789@example.com>
+Date: Mon, 15 Jan 2024 14:20:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="alt-boundary"
+
+--alt-boundary
+Content-Type: text/plain; charset=UTF-8
+
+This is the plain text version of the multipart email.
+
+It should be used as fallback when HTML is not supported.
+
+Visit: https://example.com
+
+--alt-boundary
+Content-Type: text/html; charset=UTF-8
+
+<html>
+<body>
+<p>This is the <em>HTML version</em> of the multipart email.</p>
+<p>It contains <strong>rich formatting</strong> and links.</p>
+<p>Visit: <a href="https://example.com">Example Website</a></p>
+</body>
+</html>
+
+--alt-boundary--

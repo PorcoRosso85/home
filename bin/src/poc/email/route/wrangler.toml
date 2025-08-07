@@ -1,0 +1,59 @@
+name = "email-archive-worker"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+node_compat = true
+
+# Environment variables for MinIO connection
+[vars]
+MINIO_ENDPOINT = "http://localhost:9000"
+BUCKET_NAME = "email-archive"
+# Development mode flag
+DEV_MODE = "false"
+
+# Secrets (set these with: wrangler secret put SECRET_NAME)
+# MINIO_ACCESS_KEY - MinIO access key
+# MINIO_SECRET_KEY - MinIO secret key
+
+# Email routing configuration
+[[email_routing_rules]]
+type = "all"
+actions = [
+  { type = "worker", value = "email-archive-worker" }
+]
+
+# Development environment overrides
+[env.development]
+main = "src/dev/email-endpoint.js"
+vars = { 
+  MINIO_ENDPOINT = "http://localhost:9000", 
+  BUCKET_NAME = "email-archive",
+  DEV_MODE = "true",
+  # Development MinIO credentials (default credentials)
+  MINIO_ACCESS_KEY = "minioadmin",
+  MINIO_SECRET_KEY = "minioadmin"
+}
+
+# Development-specific route patterns for HTTP endpoints
+[[env.development.routes]]
+pattern = "*/__email"
+zone_name = ""
+
+[[env.development.routes]]
+pattern = "*/__health"
+zone_name = ""
+
+# Production environment
+[env.production]
+vars = { 
+  MINIO_ENDPOINT = "https://your-minio-endpoint.com", 
+  BUCKET_NAME = "email-archive",
+  DEV_MODE = "false"
+}
+
+# Resource limits
+[limits]
+cpu_ms = 30000  # 30 seconds max execution time
+
+# Development-specific settings
+[env.development.limits]
+cpu_ms = 60000  # Allow longer execution time in development (60 seconds)
