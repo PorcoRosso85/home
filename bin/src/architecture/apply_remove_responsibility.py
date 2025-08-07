@@ -2,7 +2,15 @@
 """Apply migration to remove Responsibility table."""
 
 from pathlib import Path
+import logging
 import kuzu_py
+
+# ログ設定
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def main():
     # Connect to database directly
@@ -13,47 +21,47 @@ def main():
     conn = kuzu_py.Connection(db)
     
     # Check current tables
-    print("=== Current tables before migration ===")
+    logger.info("=== Current tables before migration ===")
     result = conn.execute("CALL show_tables() RETURN *")
     while result.has_next():
         row = result.get_next()
-        print(f"  {row[1]} ({row[2]})")
+        logger.info(f"  {row[1]} ({row[2]})")
     
     # Apply migration statements one by one
-    print("\n=== Applying migration 003_remove_responsibility.cypher ===")
+    logger.info("=== Applying migration 003_remove_responsibility.cypher ===")
     
     # Step 1: Delete HAS_RESPONSIBILITY relationships
     try:
-        print("1. Deleting HAS_RESPONSIBILITY relationships...")
+        logger.info("1. Deleting HAS_RESPONSIBILITY relationships...")
         conn.execute("MATCH ()-[r:HAS_RESPONSIBILITY]->() DELETE r")
-        print("   ✓ Success")
+        logger.info("   ✓ Success")
     except Exception as e:
-        print(f"   ✗ Error: {e}")
+        logger.error(f"   ✗ Error: {e}")
     
     # Step 2: Drop HAS_RESPONSIBILITY table
     try:
-        print("2. Dropping HAS_RESPONSIBILITY table...")
+        logger.info("2. Dropping HAS_RESPONSIBILITY table...")
         conn.execute("DROP TABLE HAS_RESPONSIBILITY CASCADE")
-        print("   ✓ Success")
+        logger.info("   ✓ Success")
     except Exception as e:
-        print(f"   ✗ Error: {e}")
+        logger.error(f"   ✗ Error: {e}")
     
     # Step 3: Drop Responsibility table
     try:
-        print("3. Dropping Responsibility table...")
+        logger.info("3. Dropping Responsibility table...")
         conn.execute("DROP TABLE Responsibility CASCADE")
-        print("   ✓ Success")
+        logger.info("   ✓ Success")
     except Exception as e:
-        print(f"   ✗ Error: {e}")
+        logger.error(f"   ✗ Error: {e}")
     
     # Verify results
-    print("\n=== Tables after migration ===")
+    logger.info("=== Tables after migration ===")
     result = conn.execute("CALL show_tables() RETURN *")
     while result.has_next():
         row = result.get_next()
-        print(f"  {row[1]} ({row[2]})")
+        logger.info(f"  {row[1]} ({row[2]})")
     
-    print("\n✅ Migration completed!")
+    logger.info("✅ Migration completed!")
 
 if __name__ == "__main__":
     main()

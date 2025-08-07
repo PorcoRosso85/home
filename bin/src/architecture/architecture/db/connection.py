@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Optional
 import kuzu_py
+from infrastructure.types.result import Result, Ok, Err
 
 
 class KuzuConnectionManager:
@@ -33,34 +34,61 @@ class KuzuConnectionManager:
             self._conn = kuzu_py.Connection(self._db)
         return self._conn
     
-    def execute_ddl_file(self, ddl_path: Path) -> None:
+    def execute_ddl_file(self, ddl_path: Path) -> Result[int, str]:
         """Execute DDL statements from a file.
         
         Args:
             ddl_path: Path to DDL file containing Cypher statements
-        """
-        conn = self.get_connection()
-        
-        # Read DDL file
-        with open(ddl_path, 'r') as f:
-            ddl_content = f.read()
-        
-        # Split by semicolons and execute each statement
-        statements = [stmt.strip() for stmt in ddl_content.split(';') if stmt.strip()]
-        
-        for statement in statements:
-            # Skip comments and empty lines
-            lines = [line for line in statement.split('\n') 
-                    if line.strip() and not line.strip().startswith('--')]
             
-            if lines:
-                clean_statement = '\n'.join(lines)
-                try:
-                    conn.execute(clean_statement)
-                except Exception as e:
-                    # Some statements might fail if tables already exist
-                    if "already exists" not in str(e):
-                        raise
+        Returns:
+            Result[int, str]: Ok(number_of_executed_statements) on success, 
+                            Err(error_message) on failure
+        """
+        try:
+            conn = self.get_connection()
+            
+            # Check if file exists
+            if not ddl_path.exists():
+                return Err(f"DDL file not found: {ddl_path}")
+            
+            # Read DDL file
+            try:
+                with open(ddl_path, 'r') as f:
+                    ddl_content = f.read()
+            except Exception as e:
+                return Err(f"Failed to read DDL file: {e}")
+            
+            # Split by semicolons and execute each statement
+            statements = [stmt.strip() for stmt in ddl_content.split(';') if stmt.strip()]
+            executed_count = 0
+            
+            for statement in statements:
+                # Remove comments and clean up the statement
+                lines = []
+                for line in statement.split('\n'):
+                    # Remove inline comments (--) and trim
+                    if '--' in line:
+                        line = line[:line.index('--')]
+                    line = line.strip()
+                    if line:
+                        lines.append(line)
+                
+                if lines:
+                    clean_statement = '\n'.join(lines)
+                    try:
+                        conn.execute(clean_statement)
+                        executed_count += 1
+                    except Exception as e:
+                        # Some statements might fail if tables already exist
+                        if "already exists" not in str(e):
+                            return Err(f"DDL execution failed: {e}")
+                        # If it's an "already exists" error, count it as executed
+                        executed_count += 1
+            
+            return Ok(executed_count)
+            
+        except Exception as e:
+            return Err(f"DDL execution failed: {e}")
     
     def close(self) -> None:
         """Close the database connection."""
