@@ -5,10 +5,10 @@ KuzuDB Repository - グラフデータベース永続化
 """
 from typing import List, Dict, Optional, Any, Union
 
-# 相対インポートのみ使用
-from .variables import get_db_path, should_skip_schema_check
-from .logger import debug, info
-from ..domain.errors import DatabaseError, ValidationError, NotFoundError
+# 絶対インポートに変更
+from requirement.graph.infrastructure.variables import get_db_path, should_skip_schema_check
+from requirement.graph.infrastructure.logger import debug, info
+from requirement.graph.domain.errors import DatabaseError, ValidationError, NotFoundError
 
 
 def create_kuzu_repository(db_path: str = None) -> Union[Dict, Dict[str, Any]]:
@@ -24,7 +24,7 @@ def create_kuzu_repository(db_path: str = None) -> Union[Dict, Dict[str, Any]]:
         Repository関数の辞書
     """
     # データベースファクトリーを使用
-    from .database_factory import create_database, create_connection
+    from requirement.graph.infrastructure.database_factory import create_database, create_connection
 
     # db_pathが明示的に指定されていない場合、環境変数から取得
     if db_path is None:
@@ -130,7 +130,7 @@ def create_kuzu_repository(db_path: str = None) -> Union[Dict, Dict[str, Any]]:
                 })
 
             # LocationURIの処理
-            from ..domain.version_tracking import create_location_uri
+            from requirement.graph.domain.version_tracking import create_location_uri
             location_uri = create_location_uri(decision["id"])
 
             if is_new:

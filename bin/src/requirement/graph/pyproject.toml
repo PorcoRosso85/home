@@ -8,15 +8,15 @@ dependencies = [
 ]
 
 [project.scripts]
-requirement-graph = "main:main"
+requirement-graph = "requirement.graph.main:main"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["*"]
+where = [".."]
+include = ["requirement*"]
 exclude = ["tests*", "docs*", "*.log", "*.txt", "debug_*", "test_*"]
 
 [tool.setuptools.package-data]

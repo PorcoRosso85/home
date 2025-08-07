@@ -12,11 +12,11 @@ from typing import Optional
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 sys.path.insert(0, project_root)
 
-from .variables import RGL_DB_PATH
+from requirement.graph.infrastructure.variables import RGL_DB_PATH
 
-from .ddl_schema_manager import DDLSchemaManager
-from .logger import debug, info, warn, error
-from .database_factory import create_database, create_connection
+from requirement.graph.infrastructure.ddl_schema_manager import DDLSchemaManager
+from requirement.graph.infrastructure.logger import debug, info, warn, error
+from requirement.graph.infrastructure.database_factory import create_database, create_connection
 
 
 def apply_ddl_schema(db_path: Optional[str] = None, create_test_data: bool = False) -> bool:

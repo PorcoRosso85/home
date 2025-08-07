@@ -21,11 +21,20 @@
         vssKuzuPkg = vss-kuzu.packages.${system}.vssKuzu;
         ftsKuzuPkg = fts-kuzu.packages.${system}.default;  # FTSパッケージを有効化
         
-        # requirement-graph パッケージのビルド
+        # requirement-graph パッケージのビルド（src/requirement全体を使用）
+        requirementSrc = pkgs.runCommand "requirement-src" {} ''
+          mkdir -p $out/requirement/graph
+          cp -r ${self} $out/requirement/graph
+          # 親のrequirement/__init__.pyも作成
+          echo "# requirement package" > $out/requirement/__init__.py
+          # pyproject.tomlを最上位にコピー
+          cp ${self}/pyproject.toml $out/
+        '';
+        
         requirementGraphPkg = pkgs.python312.pkgs.buildPythonPackage {
           pname = "requirement-graph";
           version = "0.1.0";
-          src = self;
+          src = requirementSrc;
           format = "pyproject";
           
           nativeBuildInputs = with pkgs.python312.pkgs; [
@@ -75,6 +84,7 @@
         # 共通の実行ラッパー
         mkRunner = name: script: pkgs.writeShellScript name ''
           cd ${projectDir}
+          export PYTHONPATH="/home/nixos/bin/src:${projectDir}/..:$PYTHONPATH"
           ${script}
         '';
         
@@ -87,6 +97,9 @@
           
           shellHook = ''
             echo "Requirement Graph Logic (RGL) Development Environment"
+            echo "Setting up PYTHONPATH for requirement.graph module..."
+            export PYTHONPATH="/home/nixos/bin/src:${projectDir}/..:$PYTHONPATH"
+            echo "PYTHONPATH set to: $PYTHONPATH"
             echo "Environment ready!"
           '';
         };
@@ -113,7 +126,7 @@
             type = "app";
             program = "${mkRunner "run" ''
               export RGL_DB_PATH="''${RGL_DB_PATH:-./rgl_db}"
-              exec ${pythonEnv}/bin/requirement-graph "$@"
+              exec ${pythonEnv}/bin/python ${projectDir}/main.py "$@"
             ''}";
           };
           

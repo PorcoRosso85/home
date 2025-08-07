@@ -5,7 +5,7 @@ Search Adapter - requirement/graphとsemantic searchの統合レイヤー
 モジュールが利用できない場合は、グレースフルにフォールバックする。
 """
 from typing import List, Dict, Any, Optional
-from ..infrastructure.logger import debug, info, warn, error
+from requirement.graph.infrastructure.logger import debug, info, warn, error
 
 # Try to import semantic search modules
 VSS_MODULES_AVAILABLE = False

@@ -24,27 +24,27 @@
 """
 
 # Domain層
-from .domain.constraints import (
+from requirement.graph.domain.constraints import (
     ConstraintViolationError,
     validate_no_circular_dependency,
     validate_max_depth,
     validate_implementation_completeness
 )
 
-from .domain.types import (
+from requirement.graph.domain.types import (
     QueryError,
     QuerySuccess,
     QueryResult
 )
 
-from .domain.error_types import (
+from requirement.graph.domain.error_types import (
     ErrorExample,
     ErrorGuidance,
     UserFriendlyError,
     RecoveryGuidance
 )
 
-from .domain.errors import (
+from requirement.graph.domain.errors import (
     EnvironmentConfigError,
     DatabaseError,
     FileOperationError,
@@ -54,16 +54,16 @@ from .domain.errors import (
 )
 
 # Application層
-from .application.search_adapter import SearchAdapter
-from .application.template_processor import process_template
-from .application.error_handler import create_error_handler
+from requirement.graph.application.search_adapter import SearchAdapter
+from requirement.graph.application.template_processor import process_template
+from requirement.graph.application.error_handler import create_error_handler
 
 # Infrastructure層
-from .infrastructure.kuzu_repository import create_kuzu_repository
-from .infrastructure.jsonl_repository import create_jsonl_repository
-from .infrastructure.apply_ddl_schema import apply_ddl_schema
-from .infrastructure.ddl_schema_manager import DDLSchemaManager
-# from .infrastructure.hierarchy_validator import HierarchyValidator  # 削除済み
+from requirement.graph.infrastructure.kuzu_repository import create_kuzu_repository
+from requirement.graph.infrastructure.jsonl_repository import create_jsonl_repository
+from requirement.graph.infrastructure.apply_ddl_schema import apply_ddl_schema
+from requirement.graph.infrastructure.ddl_schema_manager import DDLSchemaManager
+# from requirement.graph.infrastructure.hierarchy_validator import HierarchyValidator  # 削除済み
 
 __all__ = [
     # Domain - Constraints

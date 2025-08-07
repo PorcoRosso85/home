@@ -1,7 +1,7 @@
 """
 パッケージのエントリーポイント
 """
-from .main import main
+from requirement.graph.main import main
 
 if __name__ == "__main__":
     main()

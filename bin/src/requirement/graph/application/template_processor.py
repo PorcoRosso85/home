@@ -9,9 +9,9 @@ Template Processor - テンプレート入力をCypherクエリに変換
 - layered_architecture.md: アプリケーション層からインフラ層への適切な依存
 """
 from typing import Dict, Any
-from ..query import execute_query
-from ..domain.errors import NotFoundError
-from ..infrastructure.logger import debug, info, warn, error
+from requirement.graph.query import execute_query
+from requirement.graph.domain.errors import NotFoundError
+from requirement.graph.infrastructure.logger import debug, info, warn, error
 
 
 def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], search_factory=None) -> Dict[str, Any]:
@@ -143,7 +143,7 @@ def process_template(input_data: Dict[str, Any], repository: Dict[str, Any], sea
         reason = params.get("reason", "")
 
         # 循環依存チェック
-        from ..domain.constraints import validate_no_circular_dependency
+        from requirement.graph.domain.constraints import validate_no_circular_dependency
 
         # 既存の依存関係を取得
         dep_result = execute_query(repository, "get_dependencies", {}, "dql")
