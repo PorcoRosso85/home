@@ -70,6 +70,49 @@ send/
 - @aws-sdk/client-ses (AWS SDK v3 for SES)
 - 下書きストレージサービス（../draft）
 
+## CLI使用方法
+
+### ドライラン（テスト）モード
+
+AWS認証情報なしでメール送信をテストできます：
+
+```bash
+# Nix開発環境の起動
+nix develop
+
+# 依存関係のインストール
+bun install
+
+# ドライランでのテスト実行
+bun run dry-run
+# または
+bun run src/index.ts --dry-run
+```
+
+### 実際のメール送信
+
+AWS SES経由で実際にメールを送信：
+
+```bash
+# 環境変数の設定
+export AWS_REGION="us-east-1"
+export AWS_ACCESS_KEY_ID="your-access-key-id"
+export AWS_SECRET_ACCESS_KEY="your-secret-access-key"
+
+# 実際のメール送信
+bun run start
+# または
+bun run src/index.ts
+```
+
+### ヘルプの表示
+
+```bash
+bun run help
+# または
+bun run src/index.ts --help
+```
+
 ## 開発環境
 
 ```bash
@@ -79,12 +122,42 @@ nix develop
 # 依存関係のインストール
 bun install
 
-# 開発サーバーの起動
-bun run dev
-
 # テストの実行
 bun test
 
 # ビルド
 bun build
+```
+
+## CLI出力例
+
+### ドライランモード
+```
+📧 Email Send Service CLI
+
+🔧 Initializing in-memory storage...
+🧪 Running in DRY RUN mode - no real emails will be sent
+
+📝 Creating sample email...
+✅ Sample email created
+   To: recipient@example.com
+   Subject: Test Email from CLI
+   Body length: 123 characters
+
+💾 Saving email as draft...
+✅ Email saved as draft with ID: cli-demo-draft-1691234567890
+
+🧪 Sending draft in DRY RUN mode...
+🧪 DRY RUN - Email would be sent with the following details:
+   To: recipient@example.com
+   From: sender@example.com
+   Subject: Test Email from CLI
+   Body Preview: This is a test email sent via the Email Send Service CLI...
+✅ Email sent successfully!
+   Message ID: dry-run-abc123def456
+
+💡 This was a dry run. No real email was sent.
+   Run without --dry-run to send real emails (requires AWS SES setup)
+
+✨ CLI execution completed successfully!
 ```
