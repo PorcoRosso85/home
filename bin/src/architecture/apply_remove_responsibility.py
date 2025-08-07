@@ -2,13 +2,15 @@
 """Apply migration to remove Responsibility table."""
 
 from pathlib import Path
-from architecture.db import KuzuConnectionManager
+import kuzu_py
 
 def main():
-    # Connect to database
+    # Connect to database directly
     db_path = Path("./data/kuzu.db")
-    conn_manager = KuzuConnectionManager(db_path=db_path)
-    conn = conn_manager.get_connection()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    db = kuzu_py.Database(str(db_path / "kuzu.db"))
+    conn = kuzu_py.Connection(db)
     
     # Check current tables
     print("=== Current tables before migration ===")

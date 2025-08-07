@@ -1,5 +1,5 @@
 """Query execution module for architecture tool."""
 
-from .executor import QueryExecutor
+# QueryExecutor functionality is now integrated into infrastructure.query_runner
 
-__all__ = ["QueryExecutor"]
+__all__ = []

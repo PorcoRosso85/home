@@ -8,6 +8,21 @@
 - **責務分離**: 各機能を明確に分離し、単一責務の原則を徹底
 - **再利用性**: 共通機能の集約により、コードの重複を排除
 
+## 最適化完了
+
+GraphDB関連機能の統合と最適化を完了しました。重複する`kuzu_py`依存関係を統一し、クリーンアーキテクチャ原則に基づく階層化を実現。DDL/DML/DQLの責務分離により、maintainabilityとtestabilityを向上させました。migration管理も自動化され、schema evolutionが安全になりました。
+
+## なぜ独自実装が必要か
+
+KuzuDBは優れたグラフデータベースですが、以下の理由で独自の抽象化層が必要です：
+
+- **Migration管理**: KuzuDBにはDjangoやAlembicのようなmigration管理機能がないため、`schema_manager.py`でバージョン管理を実装
+- **Batch処理最適化**: 大量データ処理では`kuzu_py`の標準APIでは非効率のため、`KuzuConnectionManager`でコネクションプール管理
+- **型安全性**: Cypherクエリの実行時エラーを防ぐため、`query_runner.py`でテンプレート検証と型チェック機能を実装
+- **トレーサビリティ**: 要件とImplementationの追跡可能性確保のため、独自のevent sourcing layerを構築
+
+これらの機能は標準的なORM（Neo4j等）では提供されない、KuzuDB特有の課題を解決します。
+
 ## 正規化後の完全構造
 
 ### ディレクトリ構造（移行後）
@@ -115,10 +130,46 @@ inputs = {
 
 ## 使用方法
 
-```bash
-# スキーマ適用
-python infrastructure/schema_manager.py apply
+### 基本的な操作
 
-# DQL実行
-python infrastructure/query_runner.py execute <query_name>
+```bash
+# 開発環境起動
+nix develop
+
+# スキーママイグレーション実行
+python -m architecture.db.connection migrate
+
+# DQLクエリ実行
+python infrastructure/query_runner.py --query=dql/analysis/analyze_dependencies_depth.cypher
+
+# 特定要件の検索
+python infrastructure/query_runner.py --template=search_requirements --params='{"req_id": "REQ_001"}'
+```
+
+### プログラマティック使用
+
+```python
+from architecture.db.connection import KuzuConnectionManager
+from architecture.query.executor import QueryExecutor
+
+# データベース接続
+manager = KuzuConnectionManager("data/kuzu.db")
+conn = manager.get_connection()
+
+# クエリ実行
+executor = QueryExecutor(conn)
+result = executor.execute_file("dql/validation/detect_circular_dependencies.cypher")
+```
+
+### マイグレーション管理
+
+```bash
+# マイグレーション状態確認
+python infrastructure/migration_tool.py status
+
+# 新しいマイグレーション適用
+python infrastructure/migration_tool.py migrate
+
+# ロールバック（必要時）
+python infrastructure/migration_tool.py rollback --version=v4.0.0
 ```
