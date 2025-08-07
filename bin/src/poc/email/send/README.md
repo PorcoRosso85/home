@@ -37,16 +37,20 @@
 ```
 send/
 ├── flake.nix              # Nix環境定義
+├── package.json           # Bunプロジェクト設定
+├── tsconfig.json          # TypeScript設定
+├── bun.lockb              # Bunロックファイル
 ├── src/
 │   ├── domain/
-│   │   ├── email.py       # メールエンティティ
-│   │   └── ports.py       # アダプターインターフェース
+│   │   ├── email.ts       # メールエンティティ
+│   │   └── ports.ts       # アダプターインターフェース
 │   ├── adapters/
 │   │   ├── storage/       # ストレージアダプター実装
 │   │   └── sender/
-│   │       └── ses.py     # AWS SES送信アダプター
-│   └── application/
-│       └── send_service.py # メール送信サービス
+│   │       └── ses.ts     # AWS SES送信アダプター
+│   ├── application/
+│   │   └── send-service.ts # メール送信サービス
+│   └── index.ts           # エントリポイント
 └── tests/                 # テストコード
 ```
 
@@ -61,6 +65,26 @@ send/
 
 ## 依存関係
 
-- Python 3.11+
-- boto3 (AWS SDK)
+- Bun 1.0+
+- TypeScript 5.0+
+- @aws-sdk/client-ses (AWS SDK v3 for SES)
 - 下書きストレージサービス（../draft）
+
+## 開発環境
+
+```bash
+# Nix開発環境の起動
+nix develop
+
+# 依存関係のインストール
+bun install
+
+# 開発サーバーの起動
+bun run dev
+
+# テストの実行
+bun test
+
+# ビルド
+bun build
+```
