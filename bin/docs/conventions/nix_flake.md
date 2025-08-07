@@ -229,7 +229,6 @@ outputs = { self, nixpkgs, flake-utils, python-flake }:
 ```bash
 bin/src/poc/readability/
 ├── flake.nix    # npm CLIツールのラッパー
-├── .envrc       # use flake
 └── .gitignore   # node_modules/, .direnv/
 ```
 
@@ -241,8 +240,7 @@ nix run ~/bin/src/poc/readability -- -o article.md https://example.com
 ## 必須ファイル
 
 1. `flake.nix` - Flake定義
-2. `.envrc` - direnv統合（内容: `use flake`）
-3. `.gitignore` - Nix/Python関連の除外設定
+2. `.gitignore` - Nix/Python関連の除外設定
    ```
    .direnv/
    __pycache__/
