@@ -313,6 +313,10 @@ devShells.default = pkgs.mkShell {
 ```
 
 ### 必須コマンド
+
+プロジェクトタイプ別の必須構成は[entry.md](./entry.md)を参照。
+
+### 実装要件
 - `nix run .` - デフォルトアプリケーション実行（利用可能なアプリ一覧を動的に表示）
 - `nix run .#test` - テスト実行（単体・統合・E2E統合実行）
 - `nix run .#readme` - README.mdを表示
