@@ -1,212 +1,15 @@
 """
-Requirement Graph - 要件管理CLI
+Requirement Graph - 要件管理システム
 
 使い方:
-    # CLI形式
-    python -m requirement.graph.main init
-    python -m requirement.graph.main add
-    python -m requirement.graph.main search "検索クエリ"
-    
-    # JSON形式（後方互換）
     echo '{"type": "schema", "action": "apply"}' | python -m requirement.graph.main
-    echo '{"type": "template", "template": "create_requirement"}' | python -m requirement.graph.main
+    echo '{"type": "template", "template": "create_requirement", "parameters": {...}}' | python -m requirement.graph.main
 
 戻り値:
     {"status": "success|error", "message": "..."}
 """
 import sys
 import json
-import argparse
-
-
-def handle_cli_command(db_path: str):
-    """CLIコマンドを処理する"""
-    from requirement.graph.infrastructure.logger import info, error, result
-    
-    parser = argparse.ArgumentParser(
-        prog='requirement-graph',
-        description='要件管理システム'
-    )
-    subparsers = parser.add_subparsers(dest='command', help='利用可能なコマンド')
-    
-    # initコマンド
-    init_parser = subparsers.add_parser('init', help='データベースを初期化')
-    init_parser.add_argument('--with-test-data', action='store_true', 
-                            help='テストデータも作成する')
-    
-    # addコマンド
-    add_parser = subparsers.add_parser('add', help='要件を追加')
-    add_parser.add_argument('--id', type=str, help='要件ID')
-    add_parser.add_argument('--title', type=str, help='要件タイトル')
-    add_parser.add_argument('--description', type=str, help='要件説明')
-    
-    # searchコマンド
-    search_parser = subparsers.add_parser('search', help='要件を検索')
-    search_parser.add_argument('query', type=str, help='検索クエリ')
-    search_parser.add_argument('--limit', type=int, default=10, help='検索結果の上限')
-    
-    args = parser.parse_args()
-    
-    if args.command == 'init':
-        handle_init_command(db_path, args.with_test_data)
-    elif args.command == 'add':
-        handle_add_command(db_path, args)
-    elif args.command == 'search':
-        handle_search_command(db_path, args)
-    else:
-        parser.print_help()
-        error("Unknown command", details={"command": args.command if args.command else "None"})
-
-
-def handle_init_command(db_path: str, with_test_data: bool = False):
-    """initコマンドの処理"""
-    from requirement.graph.infrastructure.apply_ddl_schema import apply_ddl_schema
-    from requirement.graph.infrastructure.logger import info, result
-    import os
-    
-    info("rgl.init", "Initializing database", db_path=db_path)
-    
-    # データベースが既に存在するかチェック
-    if os.path.exists(db_path) and os.path.exists(os.path.join(db_path, "catalog.kz")):
-        result({
-            "status": "info",
-            "message": f"データベースは既に存在します: {db_path}",
-            "details": "再初期化する場合は、データベースディレクトリを削除してから実行してください"
-        })
-        return
-    
-    # スキーマ適用
-    apply_ddl_schema(db_path, with_test_data)
-    result({
-        "status": "success",
-        "message": "データベースを初期化しました",
-        "db_path": db_path,
-        "test_data": with_test_data
-    })
-
-
-def handle_add_command(db_path: str, args):
-    """addコマンドの処理"""
-    from requirement.graph.infrastructure.logger import info, result, error
-    
-    # 対話的入力
-    if not args.id:
-        args.id = input("要件ID: ")
-    if not args.title:
-        args.title = input("要件タイトル: ")
-    if not args.description:
-        args.description = input("要件説明: ")
-    
-    if not all([args.id, args.title, args.description]):
-        error("すべてのフィールドが必要です", details={
-            "missing": [f for f, v in [("id", args.id), ("title", args.title), ("description", args.description)] if not v]
-        })
-        return
-    
-    info("rgl.add", "Adding requirement", id=args.id, title=args.title)
-    
-    try:
-        # 重複チェックと要件作成
-        from requirement.graph.infrastructure.kuzu_repository import create_kuzu_repository
-        from requirement.graph.application.template_processor import process_template
-        
-        repository = create_kuzu_repository(db_path)
-        
-        # 重複チェック
-        duplicate_check_data = {
-            "type": "template",
-            "template": "find_requirement",
-            "parameters": {
-                "id": args.id
-            }
-        }
-        
-        check_result = process_template(duplicate_check_data, repository, None)
-        
-        if check_result and check_result.get("results"):
-            error("要件IDが既に存在します", details={
-                "id": args.id,
-                "existing": check_result["results"][0] if check_result["results"] else None
-            })
-            return
-        
-        # 要件作成
-        create_data = {
-            "type": "template",
-            "template": "create_requirement",
-            "parameters": {
-                "id": args.id,
-                "title": args.title,
-                "description": args.description
-            }
-        }
-        
-        create_result = process_template(create_data, repository, None)
-        
-        if "error" in create_result:
-            error("要件の作成に失敗しました", details=create_result)
-        else:
-            result({
-                "status": "success",
-                "message": "要件を作成しました",
-                "requirement": {
-                    "id": args.id,
-                    "title": args.title,
-                    "description": args.description
-                }
-            })
-            
-    except Exception as e:
-        error("要件作成中にエラーが発生しました", details={"error": str(e)})
-
-
-def handle_search_command(db_path: str, args):
-    """searchコマンドの処理"""
-    from requirement.graph.infrastructure.logger import info, result, error
-    
-    info("rgl.search", "Searching requirements", query=args.query, limit=args.limit)
-    
-    try:
-        from requirement.graph.infrastructure.kuzu_repository import create_kuzu_repository
-        from requirement.graph.application.template_processor import process_template
-        
-        repository = create_kuzu_repository(db_path)
-        
-        # 検索実行
-        search_data = {
-            "type": "template",
-            "template": "list_requirements",
-            "parameters": {
-                "limit": args.limit
-            }
-        }
-        
-        search_result = process_template(search_data, repository, None)
-        
-        if "error" in search_result:
-            error("検索に失敗しました", details=search_result)
-        else:
-            # 検索クエリでフィルタリング（簡単なマッチング）
-            results = search_result.get("results", [])
-            if args.query and results:
-                filtered_results = []
-                query_lower = args.query.lower()
-                for req in results:
-                    if (query_lower in req.get("title", "").lower() or
-                        query_lower in req.get("description", "").lower() or
-                        query_lower in req.get("id", "").lower()):
-                        filtered_results.append(req)
-                results = filtered_results
-            
-            result({
-                "status": "success",
-                "message": f"{len(results)}件の要件が見つかりました",
-                "query": args.query,
-                "results": results[:args.limit]
-            })
-            
-    except Exception as e:
-        error("検索中にエラーが発生しました", details={"error": str(e)})
 
 
 def safe_main():
@@ -238,12 +41,7 @@ def safe_main():
             error("rgl.main", f"Environment configuration error: {db_path['message']}")
             sys.exit(1)
 
-        # CLIコマンドの処理
-        if len(sys.argv) > 1:
-            handle_cli_command(db_path)
-            return
-
-        # JSON形式の処理（後方互換）
+        # JSON形式の処理
         input_data = json.load(sys.stdin)
         input_type = input_data.get("type", "cypher")
 
