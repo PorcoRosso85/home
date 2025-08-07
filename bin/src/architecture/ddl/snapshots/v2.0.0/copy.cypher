@@ -1,0 +1,12 @@
+COPY `LocationURI` (`id`) FROM "LocationURI.parquet" ;
+COPY `Responsibility` (`id`,`name`,`description`,`category`) FROM "Responsibility.parquet" ;
+COPY `VersionState` (`id`,`timestamp`,`description`,`change_reason`,`operation`,`author`) FROM "VersionState.parquet" ;
+COPY `ImplementationEntity` (`id`,`type`,`signature`,`embedding`,`status`) FROM "ImplementationEntity.parquet" ;
+COPY `RequirementEntity` (`id`,`title`,`description`,`embedding`,`status`) FROM "RequirementEntity.parquet" ;
+COPY `IMPLEMENTS` FROM "IMPLEMENTS_ImplementationEntity_RequirementEntity.parquet" (to='RequirementEntity', from='ImplementationEntity');
+COPY `DEPENDS_ON` (`dependency_type`,`reason`) FROM "DEPENDS_ON_ImplementationEntity_ImplementationEntity.parquet" (to='ImplementationEntity', from='ImplementationEntity');
+COPY `CONTAINS_LOCATION` FROM "CONTAINS_LOCATION_LocationURI_LocationURI.parquet" (to='LocationURI', from='LocationURI');
+COPY `HAS_RESPONSIBILITY` FROM "HAS_RESPONSIBILITY_LocationURI_Responsibility.parquet" (to='Responsibility', from='LocationURI');
+COPY `SIMILAR_TO` (`similarity_score`,`similarity_type`) FROM "SIMILAR_TO_ImplementationEntity_ImplementationEntity.parquet" (to='ImplementationEntity', from='ImplementationEntity');
+COPY `TRACKS_STATE_OF` (`entity_type`) FROM "TRACKS_STATE_OF_VersionState_LocationURI.parquet" (to='LocationURI', from='VersionState');
+COPY `LOCATES` (`entity_type`,`current`) FROM "LOCATES_LocationURI_ImplementationEntity.parquet" (to='ImplementationEntity', from='LocationURI');

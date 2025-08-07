@@ -1,52 +1,25 @@
-"""DDL Helper functions for KuzuDB operations."""
 
+'DDL Helper functions for KuzuDB operations.'
 import re
 from typing import Any
-
+import logging
+logger = logging.getLogger(__name__)
 
 def execute_ddl_file(conn: Any, path: str) -> None:
-    """Execute DDL file with multiple statements.
-    
-    Args:
-        conn: KuzuDB connection object
-        path: Path to DDL file
-        
-    Features:
-    - Split statements by semicolon
-    - Remove comments (-- and /* */)
-    - Ignore "already exists" errors
-    """
+    'Execute DDL file with multiple statements.\n    \n    Args:\n        conn: KuzuDB connection object\n        path: Path to DDL file\n        \n    Features:\n    - Split statements by semicolon\n    - Remove comments (-- and /* */)\n    - Ignore "already exists" errors\n    '
     with open(path, 'r', encoding='utf-8') as f:
         content = f.read()
-    
-    # Remove comments
     content = _remove_comments(content)
-    
-    # Split by semicolon and execute each statement
     statements = [stmt.strip() for stmt in content.split(';') if stmt.strip()]
-    
     for statement in statements:
         try:
             conn.execute(statement)
         except Exception as e:
-            # Ignore "already exists" errors
-            if "already exists" not in str(e).lower():
+            if ('already exists' not in str(e).lower()):
                 raise
 
-
 def _remove_comments(content: str) -> str:
-    """Remove SQL comments from content.
-    
-    Args:
-        content: SQL content with comments
-        
-    Returns:
-        Content with comments removed
-    """
-    # Remove single-line comments (--)
-    content = re.sub(r'--.*?(?=\n|$)', '', content)
-    
-    # Remove multi-line comments (/* */)
-    content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
-    
+    'Remove SQL comments from content.\n    \n    Args:\n        content: SQL content with comments\n        \n    Returns:\n        Content with comments removed\n    '
+    content = re.sub('--.*?(?=\\n|$)', '', content)
+    content = re.sub('/\\*.*?\\*/', '', content, flags=re.DOTALL)
     return content
