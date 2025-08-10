@@ -1,7 +1,24 @@
 // Public API exports
 import { createInvitationLink, type InvitationLink } from "./domain";
+import { createInvitationUseCase, type UseCaseResult } from "./application";
+import type { 
+  InvitationLinkRepository, 
+  EmailService, 
+  IdGenerator, 
+  UrlBuilder 
+} from "./infrastructure";
+import { config, type EnvironmentConfig } from "./variables";
 
-export type { InvitationLink };
+export type { 
+  InvitationLink, 
+  UseCaseResult,
+  InvitationLinkRepository,
+  EmailService,
+  IdGenerator,
+  UrlBuilder,
+  EnvironmentConfig
+};
+export { createInvitationUseCase, config };
 
 export type Result<T, E = Error> = 
   | { ok: true; data: T }

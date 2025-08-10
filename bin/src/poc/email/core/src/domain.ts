@@ -1,5 +1,7 @@
 // Business logic
 
+import { config } from './variables.js';
+
 export interface InvitationLink {
   id: string;
   inviterId: string;
@@ -19,7 +21,7 @@ export function createInvitationLink(params: CreateInvitationLinkParams): Invita
     id,
     inviterId: params.inviterId,
     campaignId: params.campaignId,
-    url: `https://invite.example.com/${params.inviterId}/${params.campaignId}/${id}`,
+    url: `${config.inviteBaseUrl}/${params.inviterId}/${params.campaignId}/${id}`,
     createdAt: new Date()
   };
 }
