@@ -7,17 +7,23 @@ set -euo pipefail
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# MCP server URIs - easy to add new servers here
-declare -A MCP_SERVERS=(
-  ["lsmcp"]="/home/nixos/bin/src/develop/lsp/lsmcp"
-  # Add more servers as needed:
-  # ["my-server"]="/path/to/my-server"
-)
-
-# Export MCP server paths as environment variables for launch-claude to use
-for server_name in "${!MCP_SERVERS[@]}"; do
-  export "MCP_SERVER_${server_name^^}=${MCP_SERVERS[$server_name]}"
-done
+# Check if MCP servers are configured in ~/.claude.json
+if [[ -f "$HOME/.claude.json" ]]; then
+  if ! jq -e '.mcpServers.lsmcp' "$HOME/.claude.json" >/dev/null 2>&1; then
+    echo "MCP servers not configured. Running setup-mcp-user.sh..."
+    "$SCRIPT_DIR/setup-mcp-user.sh" || {
+      echo "Setup failed. Please run ./setup-mcp-user.sh manually."
+      exit 1
+    }
+  fi
+else
+  # First time using Claude Code
+  echo "Initial setup required. Running setup-mcp-user.sh..."
+  "$SCRIPT_DIR/setup-mcp-user.sh" || {
+    echo "Setup failed. Please run ./setup-mcp-user.sh manually."
+    exit 1
+  }
+fi
 
 # Run project selector with nix shell
 project_dir=$(nix shell \

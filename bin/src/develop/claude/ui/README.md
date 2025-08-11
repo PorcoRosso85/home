@@ -45,6 +45,9 @@ The system consists of three main components:
 git clone <repository-url> claude-launcher
 cd claude-launcher
 
+# One-time setup: Configure MCP servers at user scope
+./setup-mcp-user.sh
+
 # Launch Claude (0.1s startup)
 ./claude-shell.sh
 ```
@@ -199,6 +202,28 @@ Environment:
 4. **Maintainability**: Clear separation of concerns
 5. **Reusability**: Components can be used in other projects
 
+## MCP Server Configuration
+
+### User Scope Setup (Recommended)
+
+MCP servers are configured at user scope, making them available across all projects:
+
+```bash
+# One-time setup
+./setup-mcp-user.sh
+
+# This configures:
+# - lsmcp: Language Server MCP at /home/nixos/bin/src/develop/lsp/lsmcp
+# - Add more servers by modifying setup-mcp-user.sh
+```
+
+### Why User Scope?
+
+- **Global availability**: Configured once, available everywhere
+- **No project pollution**: No `.mcp.json` files in your projects
+- **Centralized management**: Update servers in one place
+- **Dynamic configuration**: No static files to maintain
+
 ## Common Use Cases
 
 ### CI/CD Integration
@@ -210,17 +235,17 @@ Use `launch-claude` directly when the project directory is known:
 ### Interactive Development
 Use the full launcher for interactive project selection:
 ```bash
-nix run .#claude-launcher
+./claude-shell.sh
 ```
 
 ### Custom Project Organization
 Create wrappers that use `select-project` with different roots:
 ```bash
 # Work projects
-alias claude-work='nix run .#select-project -- -r ~/work | xargs nix run .#launch-claude --'
+alias claude-work='./scripts/select-project -r ~/work | xargs ./scripts/launch-claude'
 
 # Personal projects  
-alias claude-personal='nix run .#select-project -- -r ~/personal | xargs nix run .#launch-claude --'
+alias claude-personal='./scripts/select-project -r ~/personal | xargs ./scripts/launch-claude'
 ```
 
 ## License
