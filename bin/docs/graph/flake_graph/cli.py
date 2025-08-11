@@ -11,6 +11,8 @@ from .duplicate_detector import find_duplicate_flakes
 from .readme_checker import generate_missing_readme_report
 from .scanner import scan_flake_description, scan_readme_content
 from .exporter import FlakeExporter
+from .search_command import search_flakes, format_search_results
+from .dependency_command import cmd_dependencies
 
 
 def cmd_analyze(args: argparse.Namespace) -> int:
@@ -215,6 +217,37 @@ def cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_search(args: argparse.Namespace) -> int:
+    """Search for flakes by description and path."""
+    target_path = Path(args.path)
+    if not target_path.exists():
+        sys.stderr.write(f"Error: Path {target_path} does not exist\n")
+        return 1
+    
+    try:
+        # Perform search
+        results = search_flakes(
+            query=args.query,
+            search_path=str(target_path),
+            use_vss=args.use_vss,
+            db_path=args.db_path,
+            limit=args.limit if hasattr(args, 'limit') else 10
+        )
+        
+        # Format and output results
+        output = format_search_results(results, output_json=args.json)
+        sys.stdout.write(output)
+        
+        # Add newline if not JSON
+        if not args.json:
+            sys.stdout.write("\n")
+        
+        return 0
+    except Exception as e:
+        sys.stderr.write(f"Error during search: {e}\n")
+        return 1
+
+
 def main() -> int:
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
@@ -335,6 +368,82 @@ def main() -> int:
         help="Output file path for the exported data"
     )
     
+    # Search command
+    search_parser = subparsers.add_parser(
+        "search",
+        help="Search for flakes by description and path"
+    )
+    search_parser.add_argument(
+        "query",
+        help="Search query (keywords to search for)"
+    )
+    search_parser.add_argument(
+        "--path",
+        default=".",
+        help="Path to search for flakes (default: current directory)"
+    )
+    search_parser.add_argument(
+        "--use-vss",
+        action="store_true",
+        help="Use VSS for similarity-based search"
+    )
+    search_parser.add_argument(
+        "--db-path",
+        default="vss.db",
+        help="Path to VSS database (default: vss.db)"
+    )
+    search_parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Maximum number of results to return (default: 10)"
+    )
+    search_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON"
+    )
+    
+    # Dependencies command
+    deps_parser = subparsers.add_parser(
+        "deps",
+        help="Analyze flake dependencies"
+    )
+    deps_parser.add_argument(
+        "flake_path",
+        help="Path to the flake to analyze"
+    )
+    deps_parser.add_argument(
+        "--path",
+        default=".",
+        help="Root path to search for flakes (default: current directory)"
+    )
+    deps_parser.add_argument(
+        "--reverse",
+        action="store_true",
+        help="Show reverse dependencies (what depends on this flake)"
+    )
+    deps_parser.add_argument(
+        "--tree",
+        action="store_true",
+        help="Display dependencies in tree format"
+    )
+    deps_parser.add_argument(
+        "--depth",
+        type=int,
+        help="Maximum depth for tree traversal"
+    )
+    deps_parser.add_argument(
+        "--check-cycles",
+        action="store_true",
+        help="Check for circular dependencies"
+    )
+    deps_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON"
+    )
+    
     # Architecture analyze shortcut (for backward compatibility)
     arch_parser = subparsers.add_parser(
         "architecture-analyze",
@@ -385,6 +494,10 @@ def main() -> int:
         return cmd_detect_duplicates(args)
     elif args.command == "export":
         return cmd_export(args)
+    elif args.command == "search":
+        return cmd_search(args)
+    elif args.command == "deps":
+        return cmd_dependencies(args)
     else:
         parser.print_help()
         return 1

@@ -709,9 +709,9 @@ def store_embedding(connection: KuzuConnection, flake_id: str, embedding_data: E
         # First ensure the flake exists
         flake_path = f"/src/{flake_id}"  # Construct path from ID
         
-        # Update flake with embedding data
+        # Update flake with embedding data, creating node if it doesn't exist
         query = """
-            MATCH (f:Flake {path: $path})
+            MERGE (f:Flake {path: $path})
             SET f.vss_embedding = $embedding_vector,
                 f.embedding_model = $embedding_model,
                 f.model_version = $model_version,
