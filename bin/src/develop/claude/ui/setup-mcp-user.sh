@@ -33,9 +33,10 @@ existing_servers=$(run_claude mcp list 2>/dev/null || echo "")
 # Format: ["server-name"]="command args..."
 declare -A MCP_SERVERS=(
   ["lsmcp-ts"]="/home/nixos/bin/src/develop/lsp/lsmcp/lsmcp.sh -p typescript"
-  ["lsmcp-rust"]="/home/nixos/bin/src/develop/lsp/lsmcp/lsmcp.sh -p rust-analyzer"
   ["lsmcp-go"]="/home/nixos/bin/src/develop/lsp/lsmcp/lsmcp.sh -p gopls"
   ["lsmcp-python"]="/home/nixos/bin/src/develop/lsp/lsmcp/lsmcp.sh -p pyright"
+  # Rust-analyzer temporarily disabled due to nix package hash issue
+  # ["lsmcp-rust"]="/home/nixos/bin/src/develop/lsp/lsmcp/lsmcp.sh -p rust-analyzer"
   # Add more servers here:
   # ["github-mcp"]="/home/nixos/bin/src/develop/mcp/github"
   # ["filesystem-mcp"]="/home/nixos/bin/src/develop/mcp/filesystem"

@@ -6,7 +6,6 @@ exec nix shell \
   nixpkgs#nodejs_22 \
   nixpkgs#nodePackages.typescript-language-server \
   nixpkgs#nodePackages.typescript \
-  nixpkgs#rust-analyzer \
   nixpkgs#gopls \
   nixpkgs#pyright \
   nixpkgs#nodePackages.vscode-langservers-extracted \
