@@ -1,14 +1,13 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -i bash
-#!nix-shell -p nodejs_20
-#!nix-shell -p nodePackages.typescript-language-server
-#!nix-shell -p nodePackages.typescript  
-#!nix-shell -p rust-analyzer
-#!nix-shell -p gopls
-#!nix-shell -p pyright
-#!nix-shell -p nodePackages.vscode-langservers-extracted
-
+#!/usr/bin/env bash
 # lsmcp - Language Service MCP server
-# Direct execution without flake.nix
+# Uses nix shell for dependency management (following conventions/nix_flake.md)
 
-exec npx -y @mizchi/lsmcp "$@"
+exec nix shell \
+  nixpkgs#nodejs_20 \
+  nixpkgs#nodePackages.typescript-language-server \
+  nixpkgs#nodePackages.typescript \
+  nixpkgs#rust-analyzer \
+  nixpkgs#gopls \
+  nixpkgs#pyright \
+  nixpkgs#nodePackages.vscode-langservers-extracted \
+  --command npx -y @mizchi/lsmcp "$@"

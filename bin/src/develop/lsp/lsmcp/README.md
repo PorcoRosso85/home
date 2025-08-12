@@ -6,9 +6,10 @@ lsmcp（Language Service MCP）を簡単に実行できるシェルスクリプ�
 
 ## 特徴
 
-- **インストール不要**: nix-shellで必要な依存関係を自動解決
-- **高速起動**: flake評価のオーバーヘッドなし（0.1秒）
-- **多言語対応**: TypeScript、Rust、Go、Python等の言語サーバーを同梱
+- **完全な独立環境**: Node.jsや言語サーバーのシステムインストール不要
+- **バージョン保証**: Node.js v20、各言語サーバーの動作確認済みバージョンを提供
+- **高速起動**: 2回目以降は0.1秒で起動（Nixキャッシュ利用）
+- **多言語対応**: TypeScript、Rust、Go、Python等の言語サーバーを自動提供
 
 ## 背景
 
@@ -46,16 +47,55 @@ curl -sL https://raw.githubusercontent.com/user/lsmcp/main/lsmcp.sh | bash -s --
 
 ### Claude Codeとの統合
 
-`.mcp.json`ファイルを作成して、Claude Codeから利用できます：
+#### 方法1: グローバル設定（推奨）
 
+CLIコマンドで全プロジェクトで利用可能に設定：
+
+```bash
+# このリポジトリをクローン
+git clone https://github.com/user/lsmcp ~/bin/lsmcp
+cd ~/bin/lsmcp
+chmod +x lsmcp.sh
+
+# Claude Codeにグローバル登録（言語別に登録可能）
+claude mcp add lsmcp-ts ~/bin/lsmcp/lsmcp.sh -- -p typescript
+claude mcp add lsmcp-rust ~/bin/lsmcp/lsmcp.sh -- -p rust-analyzer
+claude mcp add lsmcp-go ~/bin/lsmcp/lsmcp.sh -- -p gopls
+claude mcp add lsmcp-python ~/bin/lsmcp/lsmcp.sh -- -p pyright
+```
+
+登録後、Claude Codeを再起動すると、すべてのプロジェクトで利用可能になります。
+
+#### 方法2: プロジェクト単位の設定
+
+特定のプロジェクトでのみ使用する場合：
+
+1. プロジェクトにスクリプトをコピー：
+```bash
+curl -o lsmcp.sh https://raw.githubusercontent.com/user/lsmcp/main/lsmcp.sh
+chmod +x lsmcp.sh
+```
+
+2. プロジェクトルートに`.mcp.json`を作成：
 ```json
 {
   "mcpServers": {
-    "typescript": {
+    "lsmcp": {
       "command": "./lsmcp.sh",
       "args": ["-p", "typescript"]
     }
   }
+}
+```
+
+
+#### プロジェクトMCPの自動承認
+
+すべてのプロジェクトの`.mcp.json`を自動的に信頼する場合、`~/.claude/settings.json`に追加：
+
+```json
+{
+  "enableAllProjectMcpServers": true
 }
 ```
 

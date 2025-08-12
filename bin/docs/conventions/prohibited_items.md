@@ -12,6 +12,7 @@
 - **クラスベースOOP**: [設計原則](./design_principles.md) に従い、データと振る舞いを分離した関数型スタイルを優先します。
 - **シェルベースの独自実装**: flake.nix内でのシェルスクリプトによる機能実装。必要な機能は適切なNixパッケージまたはflake inputとして実装すること。
 - **print文の使用**: Pythonでの`print()`使用。構造化ログ出力には`bin/src/telemetry/*/log_py`を使用すること。
+- **`nix-shell`の使用**: レガシーな`nix-shell`コマンドやshebangの使用。代わりに`nix shell`を使用すること（[nix_flake.md](./nix_flake.md)参照）。
 
 ## 言語別
 
