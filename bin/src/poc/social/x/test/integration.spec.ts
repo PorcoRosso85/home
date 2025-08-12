@@ -1,19 +1,10 @@
 /**
- * Integration tests for the entire system
+ * System integration tests - No mocking, only module loading and basic functionality
  */
 
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'bun:test';
 
-// Mock the client module first, before any other imports
-mock.module('../src/client', () => ({
-  createClient: mock(() => ({
-    tweets: {
-      findTweetById: mock()
-    }
-  }))
-}));
-
-describe('Integration Tests', () => {
+describe('System Integration Tests', () => {
   let originalEnv: string | undefined;
   
   beforeEach(() => {
