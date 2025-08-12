@@ -124,10 +124,16 @@ chmod +x lsmcp.sh
 ### 言語サーバーが見つからない
 スクリプト内で言語サーバーがバンドルされているため、別途インストールは不要です。
 
-### 既知の問題
-- **Rust (rust-analyzer)**: 現在タイムアウトが発生する問題があります。調査中です。
-- **Python (pyright)**: 現在タイムアウトが発生する問題があります。調査中です。
-- **TypeScript/Go**: 正常に動作しています。
+### 既知の問題と制限事項
+
+#### 動作確認済み
+- **TypeScript/JavaScript**: 正常に動作
+- **Go (gopls)**: 正常に動作
+- **HTML/CSS/JSON**: 正常に動作
+
+#### 制限事項
+- **Rust (rust-analyzer)**: NixOSのパッケージビルドエラーのため、現在nix shellでの提供ができません。システムにrust-analyzerをインストールするか、rustupを使用してください。
+- **Python (pyright)**: pyrightは含まれていますが、lsmcpとの通信でタイムアウトが発生する場合があります。
 
 ## 参考資料
 - [lsmcp GitHub Repository](https://github.com/mizchi/lsmcp)
