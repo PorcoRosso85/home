@@ -44,14 +44,13 @@
           bun run src/cli.ts "$@"
         '';
 
-        # Test runner application
+        # Test runner application  
         apps.test = {
           type = "app";
           program = "${pkgs.writeShellScript "test" ''
-            cd ${./.}
-            export PATH=${bunDevEnv}/bin:$PATH
             echo "Running X API POC tests..."
-            bun test
+            export PATH=${bunDevEnv}/bin:$PATH
+            exec ${bunDevEnv}/bin/bun test
           ''}";
         };
       });
