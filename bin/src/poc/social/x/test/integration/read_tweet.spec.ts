@@ -33,6 +33,7 @@ describe("Tweet Reading Integration", () => {
   beforeEach(() => {
     originalEnv = process.env.X_BEARER_TOKEN;
     process.env.X_BEARER_TOKEN = "test-bearer-token";
+    mockFindTweetById.mockReset();
   });
 
   afterEach(() => {
@@ -41,6 +42,7 @@ describe("Tweet Reading Integration", () => {
     } else {
       delete process.env.X_BEARER_TOKEN;
     }
+    mockFindTweetById.mockReset();
     mock.restore();
   });
 
