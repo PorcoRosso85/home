@@ -9,6 +9,4 @@ exec nix shell \
   nixpkgs#gopls \
   nixpkgs#pyright \
   nixpkgs#nodePackages.vscode-langservers-extracted \
-  nixpkgs#cargo \
-  nixpkgs#rustc \
   --command npx -y @mizchi/lsmcp "$@"
