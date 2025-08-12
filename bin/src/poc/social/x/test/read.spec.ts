@@ -17,10 +17,10 @@ describe("read module exports", () => {
     expect(typeof getTweet).toBe("function");
   });
 
-  it("should reject invalid input immediately (smoke test)", () => {
+  it("should reject invalid input immediately (smoke test)", async () => {
     // This is a basic smoke test to ensure the function validates input
     // Detailed validation tests are in test/domain/Tweet.spec.ts
     // Integration scenarios are in test/integration/read_tweet.spec.ts
-    expect(async () => await getTweet("")).rejects.toThrow("Tweet ID must be a non-empty string");
+    await expect(getTweet("")).rejects.toThrow("Tweet ID must be a non-empty string");
   });
 });

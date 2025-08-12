@@ -111,11 +111,11 @@ describe("Tweet Reading Integration", () => {
   });
 
   describe("Error scenarios", () => {
-    it("should fail when X_BEARER_TOKEN is not set", async () => {
+    it("should fail when no authentication is provided", async () => {
       delete process.env.X_BEARER_TOKEN;
 
       await expect(getTweet("123456789")).rejects.toThrow(
-        "X_BEARER_TOKEN environment variable is required but not set"
+        "Authentication required"
       );
     });
 

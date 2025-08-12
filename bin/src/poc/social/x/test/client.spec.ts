@@ -32,12 +32,12 @@ describe("createClient", () => {
   it("should throw error when bearer token is missing", () => {
     delete process.env.X_BEARER_TOKEN;
     
-    expect(() => createClient()).toThrow(/X_BEARER_TOKEN environment variable is required/);
+    expect(() => createClient()).toThrow(/Authentication required/);
   });
 
   it("should throw error when bearer token is empty", () => {
     process.env.X_BEARER_TOKEN = "";
     
-    expect(() => createClient()).toThrow(/X_BEARER_TOKEN environment variable is required/);
+    expect(() => createClient()).toThrow(/Authentication required/);
   });
 });

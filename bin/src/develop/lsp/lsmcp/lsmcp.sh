@@ -3,7 +3,7 @@
 # Uses nix shell for dependency management (following conventions/nix_flake.md)
 
 exec nix shell \
-  nixpkgs#nodejs_20 \
+  nixpkgs#nodejs_22 \
   nixpkgs#nodePackages.typescript-language-server \
   nixpkgs#nodePackages.typescript \
   nixpkgs#rust-analyzer \

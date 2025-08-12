@@ -20,3 +20,26 @@
 - 認証フローの実装例
 - APIレスポンスの処理例
 - 実装時の注意点・課題のドキュメント
+
+## 使用方法
+
+### ツイート取得
+```bash
+# Bearer tokenを使用（X Developer Portalから取得）
+X_BEARER_TOKEN=your_token bun run src/cli.ts <tweet_id>
+```
+
+## テスト実行
+
+### 通常のテスト
+```bash
+bun test
+```
+
+### E2Eテスト（実際のAPI呼び出し）
+```bash
+# Bearer tokenを使用（X Developer Portalから取得）
+REAL_API_TEST=true X_BEARER_TOKEN=your_token bun test test/e2e/real_api.spec.ts
+```
+
+**注意**: E2Eテストは実際のAPIを呼び出すため、レート制限とAPI使用料金が発生します。`REAL_API_TEST=true`を設定しない限り自動的にスキップされます。
