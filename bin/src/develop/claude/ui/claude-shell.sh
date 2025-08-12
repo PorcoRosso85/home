@@ -9,7 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Check if MCP servers are configured in ~/.claude.json
 if [[ -f "$HOME/.claude.json" ]]; then
-  if ! jq -e '.mcpServers.lsmcp' "$HOME/.claude.json" >/dev/null 2>&1; then
+  # Check if any lsmcp servers are configured
+  if ! jq -e '.mcpServers | to_entries | any(.key | startswith("lsmcp"))' "$HOME/.claude.json" >/dev/null 2>&1; then
     echo "MCP servers not configured. Running setup-mcp-user.sh..."
     "$SCRIPT_DIR/setup-mcp-user.sh" || {
       echo "Setup failed. Please run ./setup-mcp-user.sh manually."

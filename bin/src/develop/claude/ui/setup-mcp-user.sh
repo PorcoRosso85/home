@@ -29,21 +29,35 @@ run_claude() {
 echo "Checking existing MCP servers..."
 existing_servers=$(run_claude mcp list 2>/dev/null || echo "")
 
-# Add lsmcp server to user scope if not already configured
-if echo "$existing_servers" | grep -q "lsmcp"; then
-  echo "✓ lsmcp server already configured"
-else
-  echo "Adding lsmcp server..."
-  if run_claude mcp add lsmcp --scope user /home/nixos/bin/src/develop/lsp/lsmcp; then
-    echo "✓ lsmcp server added successfully"
-  else
-    echo "✗ Failed to add lsmcp server"
-    exit 1
-  fi
-fi
+# Define MCP servers to configure
+# Format: ["server-name"]="command args..."
+declare -A MCP_SERVERS=(
+  ["lsmcp-ts"]="/home/nixos/bin/src/develop/lsp/lsmcp/lsmcp.sh -p typescript"
+  ["lsmcp-rust"]="/home/nixos/bin/src/develop/lsp/lsmcp/lsmcp.sh -p rust-analyzer"
+  ["lsmcp-go"]="/home/nixos/bin/src/develop/lsp/lsmcp/lsmcp.sh -p gopls"
+  ["lsmcp-python"]="/home/nixos/bin/src/develop/lsp/lsmcp/lsmcp.sh -p pyright"
+  # Add more servers here:
+  # ["github-mcp"]="/home/nixos/bin/src/develop/mcp/github"
+  # ["filesystem-mcp"]="/home/nixos/bin/src/develop/mcp/filesystem"
+)
 
-# Add more servers here as needed:
-# run_claude mcp add my-server --scope user /path/to/my-server
+# Configure each server
+for server_name in "${!MCP_SERVERS[@]}"; do
+  server_cmd="${MCP_SERVERS[$server_name]}"
+  
+  if echo "$existing_servers" | grep -q "$server_name"; then
+    echo "✓ $server_name server already configured"
+  else
+    echo "Adding $server_name server..."
+    # Split command and arguments
+    cmd_array=($server_cmd)
+    if run_claude mcp add "$server_name" --scope user -- "${cmd_array[@]}"; then
+      echo "✓ $server_name server added successfully"
+    else
+      echo "✗ Failed to add $server_name server"
+    fi
+  fi
+done
 
 echo
 echo "Setup complete! MCP servers configured:"
