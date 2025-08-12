@@ -102,7 +102,7 @@ chmod +x lsmcp.sh
 ## 含まれる言語サーバー
 
 - **TypeScript/JavaScript**: typescript-language-server
-- **Rust**: rust-analyzer
+- **Rust**: rust-analyzer (nixos-24.05版)
 - **Go**: gopls
 - **Python**: pyright
 - **HTML/CSS/JSON**: vscode-langservers-extracted
@@ -129,10 +129,10 @@ chmod +x lsmcp.sh
 #### 動作確認済み
 - **TypeScript/JavaScript**: 正常に動作
 - **Go (gopls)**: 正常に動作
+- **Rust (rust-analyzer)**: 正常に動作（nixos-24.05版を使用）
 - **HTML/CSS/JSON**: 正常に動作
 
 #### 制限事項
-- **Rust (rust-analyzer)**: NixOSのパッケージビルドエラーのため、現在nix shellでの提供ができません。システムにrust-analyzerをインストールするか、rustupを使用してください。
 - **Python (pyright)**: pyrightは含まれていますが、lsmcpとの通信でタイムアウトが発生する場合があります。
 
 ## 参考資料
