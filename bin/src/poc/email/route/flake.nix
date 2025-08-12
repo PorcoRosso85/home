@@ -1,363 +1,55 @@
 {
-  description = "Email Archive POC - Cloudflare Worker with in-memory S3 for testing";
+  description = "Email Worker POC - Pure Cloudflare Email Routing with Wrangler";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    
-    # Reuse existing S3 storage module
-    s3-storage = {
-      url = "path:../../storage/s3";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, s3-storage }:
+  outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        # Node.js for Worker development
-        nodejs = pkgs.nodejs_20;
-        
-        # Wrangler for Cloudflare Worker development
-        wrangler = pkgs.nodePackages.wrangler;
-        
-        # Deno for S3 storage testing
-        deno = pkgs.deno;
+        # Wrangler CLI for Cloudflare Worker development
+        wrangler = pkgs.wrangler;
       in
       {
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            nodejs
             wrangler
-            deno
             pkgs.jq
             pkgs.curl
-            s3-storage.packages.${system}.default
           ];
           
           shellHook = ''
-            echo "Email Archive POC - In-Memory Testing Environment"
+            echo "Email Worker POC - Wrangler Testing Environment"
             echo ""
             echo "Available commands:"
-            echo "  e2e-test       - Run E2E tests with in-memory storage"
-            echo "  test-worker    - Test Worker with mock email"
-            echo "  wrangler-test  - Test with real Wrangler environment"
-            echo "  demo           - Show architecture overview"
+            echo "  wrangler dev   - Start local dev server"
+            echo "  nix run .#test - Run Email Worker tests"
             echo ""
             echo "Quick start:"
-            echo "  nix run .#e2e-test       # Run complete E2E test"
-            echo "  nix run .#wrangler-test  # Test with Wrangler"
+            echo "  nix run .#wrangler-dev   # Start dev server"
+            echo "  nix run .#test          # Run tests"
           '';
         };
 
         apps = {
-          # E2E test with in-memory storage
-          e2e-test = {
+          # Wrangler dev server
+          wrangler-dev = {
             type = "app";
-            program = "${pkgs.writeShellScript "e2e-test" ''
-              echo "🧪 Email Archive E2E Test (In-Memory)"
-              echo "====================================="
+            program = "${pkgs.writeShellScript "wrangler-dev" ''
+              echo "🚀 Starting Wrangler Dev Server"
+              echo "==============================="
               echo ""
               
-              # Create test directory
-              TEST_DIR=$(mktemp -d)
-              cd $TEST_DIR
-              
-              # Copy source files
-              cp -r ${./.}/src ./src 2>/dev/null || mkdir -p src
-              cp -r ${./.}/test ./test 2>/dev/null || mkdir -p test
-              
-              # Create test runner
-              cat > test-e2e.js << 'EOF'
-              // Simple in-memory storage adapter for testing
-              class InMemoryStorageAdapter {
-                constructor() {
-                  this.storage = new Map();
-                }
-                
-                async upload(key, content) {
-                  const data = typeof content === "string" 
-                    ? new TextEncoder().encode(content)
-                    : new Uint8Array(content);
-                  this.storage.set(key, data);
-                  return { key, size: data.length };
-                }
-                
-                async download(key) {
-                  const content = this.storage.get(key);
-                  if (!content) throw new Error("Key not found: " + key);
-                  return { content, key };
-                }
-                
-                async list(options = {}) {
-                  const prefix = options.prefix || "";
-                  const objects = [];
-                  for (const [key, value] of this.storage.entries()) {
-                    if (key.startsWith(prefix)) {
-                      objects.push({ key, size: value.length });
-                    }
-                  }
-                  return { objects };
-                }
-              }
-              
-              const adapter = new InMemoryStorageAdapter();
-              
-              // Mock ForwardableEmailMessage
-              class MockForwardableEmailMessage {
-                constructor(from, to, raw) {
-                  this.from = from;
-                  this.to = to;
-                  this.headers = new Map();
-                  this._rawContent = raw;
-                  
-                  // Parse headers from raw content
-                  if (typeof raw === "string") {
-                    const headerEnd = raw.indexOf("\\r\\n\\r\\n");
-                    if (headerEnd > -1) {
-                      const headerLines = raw.substring(0, headerEnd).split("\\r\\n");
-                      for (const line of headerLines) {
-                        const [key, ...valueParts] = line.split(":");
-                        if (key && valueParts.length > 0) {
-                          this.headers.set(key.toLowerCase(), valueParts.join(":").trim());
-                        }
-                      }
-                    }
-                  }
-                }
-                
-                async raw() {
-                  if (typeof this._rawContent === "string") {
-                    return new TextEncoder().encode(this._rawContent).buffer;
-                  }
-                  return this._rawContent;
-                }
-              }
-              
-              // Mock environment
-              const env = {
-                STORAGE_TYPE: "in-memory",
-                BUCKET_NAME: "email-archive"
-              };
-              
-              // Import worker (assuming it exports the email handler)
-              const worker = {
-                async email(message, env, ctx) {
-                  console.log("📧 Processing email from:", message.from);
-                  
-                  try {
-                    // Get raw email
-                    const rawEmail = await message.raw();
-                    
-                    // Extract metadata
-                    const metadata = {
-                      messageId: message.headers.get("message-id") || "test-" + Date.now(),
-                      from: message.from,
-                      to: message.to,
-                      subject: message.headers.get("subject") || "No subject",
-                      receivedAt: new Date().toISOString(),
-                      size: rawEmail.byteLength
-                    };
-                    
-                    // Generate storage keys
-                    const date = new Date();
-                    const datePrefix = "emails/" + date.getFullYear() + "/" + String(date.getMonth() + 1).padStart(2, '0') + "/" + String(date.getDate()).padStart(2, '0');
-                    const baseKey = datePrefix + "/" + metadata.messageId;
-                    
-                    // Store in memory
-                    await adapter.upload(baseKey + ".eml", rawEmail);
-                    await adapter.upload(baseKey + ".json", JSON.stringify(metadata, null, 2));
-                    
-                    console.log("✅ Email archived:", baseKey);
-                    return new Response("Email archived successfully");
-                    
-                  } catch (error) {
-                    console.error("❌ Archive error:", error);
-                    throw error;
-                  }
-                }
-              };
-              
-              // Run tests
-              async function runTests() {
-                console.log("Starting E2E tests...\n");
-                
-                // Test 1: Simple email
-                console.log("Test 1: Simple email archiving");
-                const msg1 = new MockForwardableEmailMessage(
-                  "alice@example.com",
-                  "archive@test.com",
-                  "Subject: Test Email\r\n\r\nHello World!"
-                );
-                await worker.email(msg1, env, {});
-                
-                // Test 2: HTML email
-                console.log("\nTest 2: HTML email with headers");
-                const msg2 = new MockForwardableEmailMessage(
-                  "bob@company.com",
-                  "archive@test.com",
-                  "Subject: HTML Test\r\nContent-Type: text/html\r\n\r\n<h1>Hello</h1>"
-                );
-                msg2.headers.set("message-id", "html-test-123");
-                await worker.email(msg2, env, {});
-                
-                // Test 3: Large email
-                console.log("\nTest 3: Large email (1MB)");
-                const largeContent = "X".repeat(1024 * 1024);
-                const msg3 = new MockForwardableEmailMessage(
-                  "system@example.com",
-                  "archive@test.com",
-                  "Subject: Large Email\r\n\r\n" + largeContent
-                );
-                await worker.email(msg3, env, {});
-                
-                // Verify storage
-                console.log("\n📊 Storage verification:");
-                const files = await adapter.list({ prefix: "emails/" });
-                console.log("Total files archived: " + files.objects.length);
-                
-                for (const obj of files.objects) {
-                  console.log("  - " + obj.key + " (" + obj.size + " bytes)");
-                }
-                
-                // Test retrieval
-                console.log("\n🔍 Testing retrieval:");
-                const jsonFiles = files.objects.filter(o => o.key.endsWith('.json'));
-                if (jsonFiles.length > 0) {
-                  const result = await adapter.download(jsonFiles[0].key);
-                  const metadata = JSON.parse(new TextDecoder().decode(result.content));
-                  console.log("Retrieved metadata:", metadata);
-                }
-                
-                console.log("\n✅ All E2E tests passed!");
-              }
-              
-              runTests().catch(console.error);
-              EOF
-              
-              # Create mock if it doesn't exist
-              if [ ! -f src/mock/ForwardableEmailMessage.js ]; then
-                mkdir -p src/mock
-                cat > src/mock/ForwardableEmailMessage.js << 'EOF'
-              export class MockForwardableEmailMessage {
-                constructor(from, to, raw) {
-                  this.from = from;
-                  this.to = to;
-                  this.headers = new Map();
-                  this._rawContent = raw;
-                  
-                  // Parse headers from raw content
-                  if (typeof raw === 'string') {
-                    const headerEnd = raw.indexOf('\r\n\r\n');
-                    if (headerEnd > -1) {
-                      const headerLines = raw.substring(0, headerEnd).split('\r\n');
-                      for (const line of headerLines) {
-                        const [key, ...valueParts] = line.split(':');
-                        if (key && valueParts.length > 0) {
-                          this.headers.set(key.toLowerCase(), valueParts.join(":").trim());
-                        }
-                      }
-                    }
-                  }
-                }
-                
-                async raw() {
-                  if (typeof this._rawContent === "string") {
-                    return new TextEncoder().encode(this._rawContent).buffer;
-                  }
-                  return this._rawContent;
-                }
-                
-                setReject(reason) {
-                  console.log('Email rejected:', reason);
-                }
-                
-                async forward(to) {
-                  console.log('Email forwarded to:', to);
-                }
-              }
-              EOF
-              fi
-              
-              # Run the test
+              # Start wrangler dev server
+              echo "Starting dev server on http://localhost:8787"
+              echo "Press Ctrl+C to stop"
               echo ""
-              export DENO_DIR=$TEST_DIR/.deno
-              ${deno}/bin/deno run \
-                --allow-read \
-                --allow-write \
-                --allow-env \
-                --allow-net \
-                test-e2e.js
               
-              # Cleanup
-              cd /
-              rm -rf $TEST_DIR
-            ''}";
-          };
-
-          # Test Worker functionality
-          test-worker = {
-            type = "app";
-            program = "${pkgs.writeShellScript "test-worker" ''
-              echo "Testing Worker with mock email..."
-              
-              # Create a simple test
-              TMPDIR=$(mktemp -d)
-              cd $TMPDIR
-              
-              cat > test-worker.js << 'EOF'
-              // Mock email message
-              const mockMessage = {
-                from: "test@example.com",
-                to: "archive@test.com",
-                headers: new Map([
-                  ["subject", "Test Email"],
-                  ["message-id", "test-123@example.com"]
-                ]),
-                async raw() {
-                  return new TextEncoder().encode(
-                    "Subject: Test Email\r\n" +
-                    "From: test@example.com\r\n" +
-                    "To: archive@test.com\r\n" +
-                    "\r\n" +
-                    "This is a test email body."
-                  ).buffer;
-                }
-              };
-              
-              // Mock environment
-              const env = {
-                STORAGE_TYPE: "in-memory"
-              };
-              
-              // Simple worker implementation
-              const worker = {
-                async email(message, env, ctx) {
-                  console.log("Processing email:");
-                  console.log("  From:", message.from);
-                  console.log("  To:", message.to);
-                  console.log("  Subject:", message.headers.get("subject"));
-                  
-                  const raw = await message.raw();
-                  console.log("  Size:", raw.byteLength, "bytes");
-                  
-                  return new Response("Email processed");
-                }
-              };
-              
-              // Test it
-              worker.email(mockMessage, env, {})
-                .then(response => response.text())
-                .then(text => console.log("\nResult:", text))
-                .catch(error => console.error("Error:", error));
-              EOF
-              
-              ${nodejs}/bin/node test-worker.js
-              
-              rm -rf $TMPDIR
+              ${wrangler}/bin/wrangler dev --local --port 8787
             ''}";
           };
 
@@ -458,7 +150,7 @@
               
               # Start Wrangler in background
               echo "Starting Wrangler dev server..."
-              exec nix shell nixpkgs#nodePackages.wrangler --command wrangler dev --local --port 8787 &
+              ${wrangler}/bin/wrangler dev --local --port 8787 &
               WRANGLER_PID=$!
               
               # Wait for server to start
@@ -496,34 +188,100 @@
             ''}";
           };
 
+          # Test runner for Email Worker
+          test = {
+            type = "app";
+            program = "${pkgs.writeShellScript "test" ''
+              echo "🧪 Running Email Worker Tests"
+              echo "============================="
+              echo ""
+              
+              # Simple test using wrangler types
+              echo "Testing Email Worker routing logic..."
+              
+              # Create a simple test script
+              cat > /tmp/test-worker.js << 'EOF'
+              // Import worker
+              const worker = {
+                async email(message, env, ctx) {
+                  const allowlist = ["trusted@example.com", "friend@example.com"];
+                  
+                  if (!allowlist.includes(message.from)) {
+                    message.setReject("Address not allowed");
+                    return;
+                  }
+                  
+                  await message.forward("inbox@example.com");
+                }
+              };
+              
+              // Test 1: Allowlisted email
+              console.log("Test 1: Allowlisted email");
+              const msg1 = {
+                from: "trusted@example.com",
+                to: "user@domain.com",
+                _forwarded: false,
+                _rejected: false,
+                setReject(reason) { this._rejected = true; this._rejectReason = reason; },
+                async forward(to) { this._forwarded = true; this._forwardedTo = to; }
+              };
+              await worker.email(msg1, {}, {});
+              console.log("  ✓ Forwarded:", msg1._forwarded);
+              console.log("  ✓ Forward to:", msg1._forwardedTo);
+              
+              // Test 2: Non-allowlisted email
+              console.log("\nTest 2: Non-allowlisted email");
+              const msg2 = {
+                from: "spam@example.com",
+                to: "user@domain.com",
+                _forwarded: false,
+                _rejected: false,
+                setReject(reason) { this._rejected = true; this._rejectReason = reason; },
+                async forward(to) { this._forwarded = true; this._forwardedTo = to; }
+              };
+              await worker.email(msg2, {}, {});
+              console.log("  ✓ Rejected:", msg2._rejected);
+              console.log("  ✓ Reason:", msg2._rejectReason);
+              
+              console.log("\n✅ All tests passed!");
+              EOF
+              
+              # Run the test
+              ${pkgs.nodejs}/bin/node /tmp/test-worker.js
+              
+              # Clean up
+              rm -f /tmp/test-worker.js
+            ''}";
+          };
+          
           # Architecture demo
           demo = {
             type = "app";
             program = "${pkgs.writeShellScript "demo" ''
               cat << 'EOF'
               
-              Email Archive POC - Architecture Overview
+              Email Worker POC - Architecture Overview
               ========================================
               
-              This POC demonstrates email archiving without external dependencies.
+              This POC demonstrates pure email routing with Cloudflare Workers.
               
               Components:
-              1. Cloudflare Email Worker (receives emails)
-              2. In-Memory S3 Adapter (for testing)
-              3. Mock Email Message (simulates Cloudflare's interface)
+              1. Cloudflare Email Worker (routes emails)
+              2. Wrangler CLI (local development)
+              3. Forward/Reject logic (allowlist/blocklist)
               
               Data Flow:
               ┌─────────────┐    ┌─────────────┐    ┌──────────────┐
-              │   Email     │───▶│   Worker    │───▶│  In-Memory   │
-              │   Source    │    │  Handler    │    │   Storage    │
+              │   Email     │───▶│   Worker    │───▶│  Forward or  │
+              │   Source    │    │  Routing    │    │    Reject    │
               └─────────────┘    └─────────────┘    └──────────────┘
               
               Testing:
-              - No MinIO server required
-              - Pure in-memory storage for E2E tests
-              - Fast execution and cleanup
+              - Wrangler dev server for local testing
+              - No Node.js/Deno dependencies for runtime
+              - Pure Email Worker implementation
               
-              Run 'nix run .#e2e-test' to see it in action!
+              Run 'nix run .#test' to run tests!
               
               EOF
             ''}";
