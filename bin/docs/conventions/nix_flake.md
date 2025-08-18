@@ -318,23 +318,11 @@ devShells.default = pkgs.mkShell {
 
 ### 実装要件
 - `nix run .` - デフォルトアプリケーション実行（利用可能なアプリ一覧を動的に表示）
-- `nix run .#test` - テスト実行（単体・統合・E2E統合実行）
+- `nix run .#test` - テスト実行 → [test_infrastructure.md](./test_infrastructure.md)参照
 - `nix run .#readme` - README.mdを表示
 - `nix develop` - 開発シェル
 
-#### テスト実行の最適化
-開発中の頻繁なテスト実行では`nix shell`を使用可能：
-```bash
-# 開発中の高速テスト実行
-alias test-fast="nix shell . -c pytest"
-
-# 正式なテスト実行（CI/CD同等）
-nix run .#test
-```
-
-**使い分けの指針**：
-- **開発中**: `nix shell`で高速実行（ストアコピーを回避）
-- **最終確認/CI**: `nix run`で完全性確認（パッケージング検証を含む）
+> 📚 **テスト実行の詳細**: テスト実行の最適化（`nix shell`と`nix run`の使い分け）については、[test_infrastructure.md](./test_infrastructure.md#テスト実行の基本方針)を参照してください。
 
 ### エラーハンドリング規約
 - 存在しないアプリケーション指定時：エラーメッセージとともに利用可能なアプリ一覧を表示

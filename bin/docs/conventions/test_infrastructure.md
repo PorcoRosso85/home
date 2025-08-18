@@ -50,36 +50,50 @@
 
 ### Nix統合
 
-すべてのプロジェクトは `nix run .#test` で統一的にテストを実行できるようにする：
+#### テスト実行の基本方針
+
+- **開発・通常利用**: `nix shell . -c pytest` （高速・直接実行）
+- **パッケージ検証**: `nix run .#test` （必要に応じて・CI等）
+
+#### 実装要件
+
+##### 1. packagesでテスト環境を再利用可能に
 
 ```nix
 # flake.nix
 {
+  packages.${system}.testEnv = pkgs.python312.withPackages (ps: [
+    ps.pytest
+    # 必要な依存関係
+  ]);
+  
+  # 補助的位置づけ：パッケージング検証が必要な場合のみ
   apps.${system}.test = {
     type = "app";
     program = "${pkgs.writeShellScript "test" ''
-      # 言語に応じたテストコマンド
-      ${testCommand}
+      ${packages.${system}.testEnv}/bin/pytest
     ''}";
   };
 }
 ```
 
-#### 開発時の高速テスト実行
-
-開発中の頻繁なテスト実行では、`nix shell`を使用してストアコピーを回避できる：
+##### 2. nix shellでの直接実行を標準化
 
 ```bash
-# 高速テスト実行（開発用）
+# 標準的なテスト実行（開発用）
 nix shell . -c pytest              # Python
 nix shell . -c "deno test"         # TypeScript
 nix shell . -c "cargo test"        # Rust
 
 # エイリアスの設定例
-alias test-fast="nix shell . -c pytest"
+alias test="nix shell . -c pytest"
 ```
 
-**注意**: CI/CDや最終確認では必ず`nix run .#test`を使用すること。
+##### 3. nix runの使用場面
+
+- パッケージング検証が必要な場合
+- CI/CDでの完全性確認時
+- リリース前の最終確認
 
 ## テスト環境設定
 
