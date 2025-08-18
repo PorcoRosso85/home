@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node --test queries/dql/*.test.ts",
+    "test:watch": "node --test --watch queries/dql/*.test.ts",
     "test:browser": "echo 'ブラウザで確認: http://localhost:5173 (F12でコンソール確認)'",
     "test:e2e": "node test-e2e.mjs",
     "test:playwright": "node test-playwright.mjs",
@@ -20,6 +22,7 @@
     "@types/react": "^19.1.10",
     "@vitejs/plugin-react": "^4.3.4",
     "playwright-core": "^1.49.1",
+    "tsx": "^4.20.4",
     "typescript": "^5.7.3",
     "vite": "^6.0.6"
   }

@@ -3,6 +3,8 @@
  * .cypherファイルを動的に読み込み、キャッシュ管理を行う
  */
 
+import fs from 'node:fs'
+import path from 'node:path'
 import { log } from '../log.js'
 
 // Result type pattern for consistent error handling
@@ -34,9 +36,9 @@ const queryCache = new Map<string, string>()
  * Cypherクエリを動的にロード
  * @param category - クエリカテゴリ (ddl, dql, dml)
  * @param name - クエリ名（拡張子なし）
- * @returns Promise<LoadQueryResult>
+ * @returns LoadQueryResult
  */
-export const loadQuery = async (category: QueryCategory, name: string): Promise<LoadQueryResult> => {
+export const loadQuery = (category: QueryCategory, name: string): LoadQueryResult => {
   const cacheKey = `${category}/${name}`
   
   // キャッシュチェック
@@ -58,9 +60,9 @@ export const loadQuery = async (category: QueryCategory, name: string): Promise<
       message: `Loading query: ${cacheKey}`
     })
     
-    // 動的import with ?raw to get text content
-    const module = await import(`../queries/${category}/${name}.cypher?raw`) as { default: string }
-    const queryContent = module.default
+    // Build file path and read content synchronously
+    const filePath = path.join(process.cwd(), 'queries', category, `${name}.cypher`)
+    const queryContent = fs.readFileSync(filePath, 'utf-8')
     
     // キャッシュに保存
     queryCache.set(cacheKey, queryContent)
