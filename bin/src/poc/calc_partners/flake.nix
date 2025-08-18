@@ -14,18 +14,19 @@
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            nodejs_20
+            nodejs_24
             nodePackages.pnpm
           ];
 
           shellHook = ''
-            echo "=ƒ Kuzu WASM + Vite + React ∞É"
-            echo "=Ê pnpm install - ùX¢¬§Ûπ»¸Î"
-            echo "=Ä pnpm dev - ãzµ¸–¸w’ (http://localhost:3000)"
+            echo "== Kuzu WASM + Vite + React =="
+            echo "Commands:"
+            echo "  pnpm install - Install dependencies"
+            echo "  pnpm dev - Start dev server (http://localhost:5173)"
             echo ""
-            echo "’\∫ç"
-            echo "1. ÷È¶∂≥ÛΩ¸Î (F12) gKuzuÌ∞∫ç"
-            echo "2. ;bkØ®ÍPúh:"
+            echo "Usage:"
+            echo "1. Open browser console (F12) to see Kuzu WASM logs"
+            echo "2. Check ping.cypher execution result"
           '';
         };
 

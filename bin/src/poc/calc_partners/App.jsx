@@ -10,22 +10,29 @@ function App() {
     const init = async () => {
       try {
         console.log('[Kuzu] 初期化開始')
-        const kuzuModule = await initKuzu()
-        setKuzu(kuzuModule)
+        const kuzu = await initKuzu()
+        setKuzu(kuzu)
         
-        // メモリ内DBで動作確認
-        const db = new kuzuModule.Database()
-        const conn = new kuzuModule.Connection(db)
+        // 公式READMEの例に従う（awaitを使用）
+        const db = await kuzu.Database()  // メモリDB（引数なし）
+        const conn = await kuzu.Connection(db)
         
-        // テスト用のテーブル作成とクエリ
-        await conn.query("CREATE NODE TABLE Person(name STRING, age INT64, PRIMARY KEY (name))")
-        await conn.query("CREATE (p:Person {name: 'Alice', age: 30})")
+        // ping.cypherの内容を実行
+        // queries/dql/ping.cypher: RETURN 'pong' AS response, 1 AS status
+        const pingQuery = "RETURN 'pong' AS response, 1 AS status"
         
-        const result = await conn.query("MATCH (p:Person) RETURN p.name, p.age")
-        const rows = await result.getAllObjects()
+        console.log('[Kuzu] ping.cypherクエリ実行:', pingQuery)
         
-        console.log('[Kuzu] クエリ結果:', rows)
-        setStatus(`動作確認OK: ${JSON.stringify(rows)}`)
+        // 公式READMEではexecuteメソッドを使用
+        const result = await conn.execute(pingQuery)
+        console.log('[Kuzu] クエリ結果:', result)
+        
+        // 結果をJSONに変換（公式READMEの方法）
+        const resultJson = JSON.parse(result.table.toString())
+        console.log('[Kuzu] 結果JSON:', resultJson)
+        
+        console.log('[Kuzu] ping応答:', resultJson)
+        setStatus(`ping確認OK: ${JSON.stringify(resultJson)}`)
         
         await result.close()
         await conn.close()
@@ -34,6 +41,7 @@ function App() {
         console.log('[Kuzu] 初期化完了')
       } catch (error) {
         console.error('[Kuzu] エラー:', error)
+        console.error('[Kuzu] スタック:', error.stack)
         setStatus(`エラー: ${error.message}`)
       }
     }
@@ -43,8 +51,9 @@ function App() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'monospace' }}>
-      <h1>Kuzu WASM 最小動作確認</h1>
+      <h1>Kuzu WASM ping確認</h1>
       <p>ステータス: {status}</p>
+      <p>実行クエリ: queries/dql/ping.cypher</p>
       <p>コンソールログも確認してください (F12)</p>
     </div>
   )
