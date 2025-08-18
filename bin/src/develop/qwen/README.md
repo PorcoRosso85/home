@@ -1,8 +1,8 @@
-# Qwen-Code Flake Integration
+# Qwen-Code Nix Wrapper
 
 ## 責務 (Responsibilities)
 
-このflakeの責務は、[Qwen-Code](https://github.com/QwenLM/qwen-code)リポジトリをNixで使用可能にすることです。
+このディレクトリは、[Qwen-Code](https://github.com/QwenLM/qwen-code)をnixpkgsから実行するシンプルなラッパーを提供します。
 
 ## 概要
 
@@ -21,30 +21,12 @@ Qwen-Codeは、開発者向けのAI駆動型コマンドラインツールで、
 - **API統合**: 複数のプロバイダーとの設定可能なAPI統合
 - **無料APIティア**: ModelScopeとOpenRouterからサポート
 
-## Flake実装の目標
+## 実装方式
 
-1. **依存関係管理**: Node.js v20+環境の提供
-2. **パッケージ化**: `@qwen-code/qwen-code`のNixパッケージ作成
-3. **開発環境**: 開発者向けのNix開発シェル提供
-4. **設定管理**: API設定の適切な管理方法の提供
-
-## インストール方法（通常）
-
-```bash
-# npmグローバルインストール
-npm install -g @qwen-code/qwen-code@latest
-
-# ソースからのインストール
-git clone https://github.com/QwenLM/qwen-code
-cd qwen-code
-npm install
-```
-
-## Nix Flakeでの提供
-
-- `packages.qwen-code`: メインパッケージ
-- `devShells.default`: 開発環境
-- `apps.qwen-code`: 実行可能アプリケーション
+このディレクトリは最小限の実装を提供します：
+- `qwen-code.sh`: nixpkgsから`qwen-code`を直接実行するシェルスクリプト
+- `flake.nix`: 空のflake（互換性のため維持）
+- OpenRouter APIのデフォルト設定を内蔵
 
 ## 使用方法
 
@@ -72,3 +54,16 @@ OPENAI_API_KEY="your-key" OPENAI_MODEL="qwen/qwen3-235b-a22b:free" ./qwen-code.s
 [OpenRouter](https://openrouter.ai/)に$10以上デポジットすると、無料モデル（*-free）を1日1000リクエストまで使用できます。
 
 詳細は`docs/`ディレクトリ内の記事を参照してください。
+
+## 内部動作
+
+`qwen-code.sh`スクリプトは以下を実行します：
+1. OpenRouter API設定を環境変数として設定
+2. `nix shell nixpkgs#qwen-code`でqwen-codeを実行
+3. すべての引数をqwen-codeに渡す
+
+## 注意事項
+
+- nixpkgsにqwen-codeパッケージが存在することが前提です
+- 初回実行時はnixpkgsからのダウンロードが発生します
+- API設定は環境変数で上書き可能です
