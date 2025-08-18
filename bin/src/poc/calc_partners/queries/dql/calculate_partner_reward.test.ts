@@ -5,9 +5,9 @@
 
 import { describe, test, beforeEach } from 'node:test'
 import assert from 'node:assert'
-import { loadQuery } from '../../infrastructure/cypherLoader.js'
-import { getConnection } from '../../infrastructure/db.js'
-import { setupTestData, cleanupTestData } from '../../test/helpers/testDataHelper.js'
+import { loadQuery } from '../../infrastructure/cypherLoader'
+import { getConnection } from '../../infrastructure/db'
+import { setupTestData, cleanupTestData } from '../../test/helpers/testDataHelper'
 import type { Database } from 'kuzu-wasm'
 
 describe('calculate_partner_reward.cypher - Partner Reward Calculation', () => {
@@ -61,9 +61,9 @@ describe('calculate_partner_reward.cypher - Partner Reward Calculation', () => {
     const rows = await result.getAll()
     
     // Verify tiered logic is applied
-    expect(rows[0].calculation_method).toBe('tiered')
-    expect(rows[0].tier_breakdown).toBeDefined()
-    expect(rows[0].tier_breakdown.length).toBeGreaterThan(0)
+    assert.strictEqual(rows[0].calculation_method, 'tiered')
+    assert.ok(rows[0].tier_breakdown !== undefined)
+    assert.ok(rows[0].tier_breakdown.length > 0)
   })
   
   test('should handle network rewards for referrals', async () => {
@@ -78,9 +78,9 @@ describe('calculate_partner_reward.cypher - Partner Reward Calculation', () => {
     const rows = await result.getAll()
     
     // Verify network rewards are included
-    expect(rows[0].network_reward_amount).toBeGreaterThan(0)
-    expect(rows[0].referred_partners_count).toBeGreaterThan(0)
-    expect(rows[0].total_reward).toBe(
+    assert.ok(rows[0].network_reward_amount > 0)
+    assert.ok(rows[0].referred_partners_count > 0)
+    assert.strictEqual(rows[0].total_reward,
       rows[0].direct_reward + rows[0].network_reward_amount
     )
   })
@@ -105,7 +105,7 @@ describe('calculate_partner_reward.cypher - Partner Reward Calculation', () => {
     const rows = await result.getAll()
     
     // Cancelled transaction should not affect reward
-    expect(rows[0].base_amount).toBe(100000) // Original amount only
+    assert.strictEqual(rows[0].base_amount, 100000) // Original amount only
   })
   
   test('should handle date range filtering correctly', async () => {
@@ -136,9 +136,9 @@ describe('calculate_partner_reward.cypher - Partner Reward Calculation', () => {
       const rows = await result.getAll()
       
       if (testCase.expectedTransactions === 0) {
-        expect(rows).toHaveLength(0)
+        assert.strictEqual(rows.length, 0)
       } else {
-        expect(rows[0].transaction_count).toBe(testCase.expectedTransactions)
+        assert.strictEqual(rows[0].transaction_count, testCase.expectedTransactions)
       }
     }
   })
@@ -155,8 +155,8 @@ describe('calculate_partner_reward.cypher - Partner Reward Calculation', () => {
     
     // If reward is below threshold, it should be adjusted or flagged
     if (rows.length > 0) {
-      expect(rows[0].reward_amount).toBeGreaterThanOrEqual(1000)
-      expect(rows[0].threshold_applied).toBe(true)
+      assert.ok(rows[0].reward_amount >= 1000)
+      assert.strictEqual(rows[0].threshold_applied, true)
     }
   })
   
@@ -179,7 +179,7 @@ describe('calculate_partner_reward.cypher - Partner Reward Calculation', () => {
     const rows = await result.getAll()
     
     // Should return empty or default result
-    expect(rows).toHaveLength(0)
+    assert.strictEqual(rows.length, 0)
   })
   
   test('should match Excel calculation for verification', async () => {
@@ -196,7 +196,7 @@ describe('calculate_partner_reward.cypher - Partner Reward Calculation', () => {
     // Known Excel result for this test data
     const excelCalculatedReward = 5000
     
-    expect(rows[0].reward_amount).toBe(excelCalculatedReward)
-    expect(rows[0].verification_status).toBe('verified')
+    assert.strictEqual(rows[0].reward_amount, excelCalculatedReward)
+    assert.strictEqual(rows[0].verification_status, 'verified')
   })
 })

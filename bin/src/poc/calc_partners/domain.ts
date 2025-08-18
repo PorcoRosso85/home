@@ -3,7 +3,7 @@
  * 純粋関数のみ、外部依存なし
  */
 
-import type { KuzuQueryResult, KuzuTable } from '@kuzu/kuzu-wasm';
+import type { KuzuQueryResult, KuzuTable } from 'kuzu-wasm';
 
 /**
  * Ping応答の行データ型

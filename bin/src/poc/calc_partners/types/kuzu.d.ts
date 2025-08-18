@@ -1,4 +1,4 @@
-declare module '@kuzu/kuzu-wasm' {
+declare module 'kuzu-wasm' {
   export interface KuzuDatabase {
     close(): Promise<void>;
   }
@@ -9,7 +9,7 @@ declare module '@kuzu/kuzu-wasm' {
   }
 
   export interface KuzuQueryResult {
-    table: KuzuTable;
+    table: KuzuTable;  // Kuzu WASM 0.7.0では必須
     close(): Promise<void>;
   }
 

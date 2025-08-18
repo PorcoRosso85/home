@@ -13,7 +13,7 @@
     "test:playwright-simple": "node test-playwright-simple.mjs"
   },
   "dependencies": {
-    "@kuzu/kuzu-wasm": "^1.0.4",
+    "kuzu-wasm": "^0.11.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
