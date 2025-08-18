@@ -6,18 +6,17 @@
 
 // Domain exports
 export { 
-  createPingQuery, 
   validatePingResponse, 
   formatPingResult 
-} from './domain.js'
+} from './domain.ts'
 
 // Infrastructure exports
 export { 
   initializeKuzu, 
   executeQuery 
-} from './infrastructure.js'
+} from './infrastructure.ts'
 
 // Application exports
 export { 
   executePingUseCase 
-} from './application.js'
+} from './application.ts'

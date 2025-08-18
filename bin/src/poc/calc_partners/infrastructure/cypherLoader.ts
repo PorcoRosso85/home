@@ -5,16 +5,38 @@
 
 import { log } from '../log.js'
 
+// Result type pattern for consistent error handling
+export interface QueryResult {
+  success: true
+  data: string
+}
+
+export interface QueryError {
+  success: false
+  error: string
+}
+
+export type LoadQueryResult = QueryResult | QueryError
+
+// Cache information type
+interface CacheInfo {
+  size: number
+  keys: string[]
+}
+
+// Valid query categories
+type QueryCategory = 'ddl' | 'dql' | 'dml'
+
 // クエリキャッシュ（メモリ内保持）
-const queryCache = new Map()
+const queryCache = new Map<string, string>()
 
 /**
  * Cypherクエリを動的にロード
- * @param {string} category - クエリカテゴリ (ddl, dql, dml)
- * @param {string} name - クエリ名（拡張子なし）
- * @returns {Promise<{success: boolean, data?: string, error?: string}>}
+ * @param category - クエリカテゴリ (ddl, dql, dml)
+ * @param name - クエリ名（拡張子なし）
+ * @returns Promise<LoadQueryResult>
  */
-export const loadQuery = async (category, name) => {
+export const loadQuery = async (category: QueryCategory, name: string): Promise<LoadQueryResult> => {
   const cacheKey = `${category}/${name}`
   
   // キャッシュチェック
@@ -23,9 +45,10 @@ export const loadQuery = async (category, name) => {
       uri: '/infrastructure/cypherLoader',
       message: `Cache hit for ${cacheKey}`
     })
+    const cachedData = queryCache.get(cacheKey)!
     return {
       success: true,
-      data: queryCache.get(cacheKey)
+      data: cachedData
     }
   }
   
@@ -36,7 +59,7 @@ export const loadQuery = async (category, name) => {
     })
     
     // 動的import with ?raw to get text content
-    const module = await import(`../queries/${category}/${name}.cypher?raw`)
+    const module = await import(`../queries/${category}/${name}.cypher?raw`) as { default: string }
     const queryContent = module.default
     
     // キャッシュに保存
@@ -52,15 +75,17 @@ export const loadQuery = async (category, name) => {
       data: queryContent
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    
     log('ERROR', {
       uri: '/infrastructure/cypherLoader',
       message: `Failed to load query: ${cacheKey}`,
-      error: error.message
+      error: errorMessage
     })
     
     return {
       success: false,
-      error: `Failed to load query ${cacheKey}: ${error.message}`
+      error: `Failed to load query ${cacheKey}: ${errorMessage}`
     }
   }
 }
@@ -68,7 +93,7 @@ export const loadQuery = async (category, name) => {
 /**
  * キャッシュをクリア
  */
-export const clearCache = () => {
+export const clearCache = (): void => {
   queryCache.clear()
   log('INFO', {
     uri: '/infrastructure/cypherLoader',
@@ -78,9 +103,9 @@ export const clearCache = () => {
 
 /**
  * キャッシュ状態を取得
- * @returns {Object} キャッシュ情報
+ * @returns キャッシュ情報
  */
-export const getCacheInfo = () => {
+export const getCacheInfo = (): CacheInfo => {
   return {
     size: queryCache.size,
     keys: Array.from(queryCache.keys())

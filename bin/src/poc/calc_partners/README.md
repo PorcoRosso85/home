@@ -82,6 +82,33 @@ Browser (Client-Side Only):
 **やる**: 計算ロジック集中、精度向上、API自動化
 **やらない**: 機能追加衝動、個別要望、見た目
 
+## テスト
+
+### End-to-End テスト
+Kuzu WASMの初期化と基本動作を確認:
+
+```bash
+# Puppeteerを使用したE2Eテスト実行
+npm run test:e2e
+
+# または直接実行
+node test-e2e.mjs
+```
+
+**テスト内容**:
+- Vite開発サーバーの自動起動
+- Kuzu WASM初期化の確認  
+- ping.cypherクエリの実行テスト
+- 期待値 `[{"response":"pong","status":1}]` の検証
+- 自動クリーンアップ
+
+### ブラウザでの手動確認
+```bash
+npm run dev
+# http://localhost:5173 でブラウザ確認
+# F12コンソールでKuzuログ確認
+```
+
 ## ドキュメント構成
 - **技術仕様詳細**: [docs/TECHNICAL_SPEC.md](docs/TECHNICAL_SPEC.md)
 - **制約事項詳細**: [docs/CONSTRAINTS.md](docs/CONSTRAINTS.md)

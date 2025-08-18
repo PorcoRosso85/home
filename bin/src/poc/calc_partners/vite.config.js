@@ -14,5 +14,11 @@ export default defineConfig({
     exclude: ['@kuzu/kuzu-wasm']
   },
   // .cypherファイルを文字列として読み込み可能にする
-  assetsInclude: ['**/*.cypher']
+  assetsInclude: ['**/*.cypher'],
+  resolve: {
+    alias: {
+      '@': '/src',
+      '@/types': '/types'
+    }
+  }
 })

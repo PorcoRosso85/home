@@ -4,19 +4,29 @@
  */
 
 import initKuzu from '@kuzu/kuzu-wasm'
+import type { KuzuDatabase, KuzuConnection, KuzuModule } from '@kuzu/kuzu-wasm'
 import { log } from './log.js'
 
 /**
- * Kuzu WASMの初期化と接続の確立
- * @returns {Promise<{db: object, conn: object, close: function}>}
+ * Kuzu接続情報を格納するインターフェース
  */
-export const initializeKuzu = async () => {
+export interface KuzuConnectionInfo {
+  db: KuzuDatabase
+  conn: KuzuConnection
+  close: () => Promise<void>
+}
+
+/**
+ * Kuzu WASMの初期化と接続の確立
+ * @returns {Promise<KuzuConnectionInfo>}
+ */
+export const initializeKuzu = async (): Promise<KuzuConnectionInfo> => {
   log('INFO', {
     uri: '/infrastructure/kuzu',
     message: 'Kuzu初期化開始'
   })
   
-  const kuzu = await initKuzu()
+  const kuzu: KuzuModule = await initKuzu()
   const db = await kuzu.Database()  // メモリDB（引数なし）
   const conn = await kuzu.Connection(db)
   
@@ -29,7 +39,7 @@ export const initializeKuzu = async () => {
   return {
     db,
     conn,
-    close: async () => {
+    close: async (): Promise<void> => {
       await conn.close()
       await db.close()
     }
@@ -38,11 +48,11 @@ export const initializeKuzu = async () => {
 
 /**
  * Cypherクエリの実行
- * @param {object} conn - Kuzu接続オブジェクト
+ * @param {KuzuConnection} conn - Kuzu接続オブジェクト
  * @param {string} query - 実行するCypherクエリ
- * @returns {Promise<array>} クエリ結果の配列
+ * @returns {Promise<any[]>} クエリ結果の配列
  */
-export const executeQuery = async (conn, query) => {
+export const executeQuery = async (conn: KuzuConnection, query: string): Promise<any[]> => {
   log('INFO', {
     uri: '/infrastructure/kuzu',
     message: 'Executing query',
@@ -50,7 +60,7 @@ export const executeQuery = async (conn, query) => {
   })
   
   const result = await conn.execute(query)
-  const resultJson = JSON.parse(result.table.toString())
+  const resultJson = JSON.parse(result.table.toString()) as any[]
   
   await result.close()
   
