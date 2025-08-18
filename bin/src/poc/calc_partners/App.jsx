@@ -29,7 +29,7 @@ function App() {
         
         // 結果をJSONに変換（公式READMEの方法）
         const resultJson = JSON.parse(result.table.toString())
-        console.log('[Kuzu] 結果JSON:', resultJson)
+        console.log('[Kuzu] 結果JSON:', JSON.stringify(resultJson))
         
         console.log('[Kuzu] ping応答:', resultJson)
         setStatus(`ping確認OK: ${JSON.stringify(resultJson)}`)
