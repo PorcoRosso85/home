@@ -43,13 +43,22 @@ export const initializeKuzu = async () => {
  * @returns {Promise<array>} クエリ結果の配列
  */
 export const executeQuery = async (conn, query) => {
-  console.log('[Infrastructure] クエリ実行:', query)
+  log('INFO', {
+    uri: '/infrastructure/kuzu',
+    message: 'Executing query',
+    query: query.substring(0, 100) // 最初の100文字のみログ
+  })
   
   const result = await conn.execute(query)
   const resultJson = JSON.parse(result.table.toString())
   
   await result.close()
   
-  console.log('[Infrastructure] クエリ結果:', resultJson)
+  log('INFO', {
+    uri: '/infrastructure/kuzu',
+    message: 'Query executed successfully',
+    resultCount: resultJson.length
+  })
+  
   return resultJson
 }

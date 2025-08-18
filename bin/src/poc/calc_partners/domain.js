@@ -4,14 +4,6 @@
  */
 
 /**
- * pingクエリの生成
- * @returns {string} Cypherクエリ文字列
- */
-export const createPingQuery = () => {
-  return "RETURN 'pong' AS response, 1 AS status"
-}
-
-/**
  * ping応答の検証
  * @param {object} result - クエリ実行結果
  * @returns {boolean} 正常な応答かどうか
