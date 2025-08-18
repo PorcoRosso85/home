@@ -93,12 +93,14 @@
 - 複雑なステート管理ライブラリ（Redux等）
 - UIフレームワークの重複使用
 - 非標準的なビルドツール
+- **tsx等の追加TypeScriptローダー**: Node.js v20+の`--experimental-strip-types`を使用すること
 
 ### 必須要件
 - **nix develop必須**: すべてのコマンドは`nix develop`環境内で実行
 - **nix shell必須**: 一時的なツール使用時は`nix shell nixpkgs#<package>`形式を使用
 - **グローバルコマンド禁止**: `node`, `npm`, `pnpm`等の直接実行は禁止
 - **環境外実行の検証**: nix環境外でのコマンド実行を発見した場合は即座に修正
+- **TypeScript実行**: `node --experimental-strip-types`でネイティブ実行（tsx不要）
 
 ### 推奨
 - 標準ライブラリの活用
