@@ -38,9 +38,10 @@ function getChromiumPath() {
     const chromiumPath = execSync('which chromium', { encoding: 'utf-8' }).trim()
     return chromiumPath
   } catch (error) {
-    // Fallback to just 'chromium' if which command fails
-    console.warn('Could not find chromium path, using fallback:', error.message)
-    return 'chromium'
+    // 規約準拠: フォールバック禁止、明示的に失敗
+    console.error('❌ Could not find chromium. Make sure to run in nix develop shell.')
+    console.error('Error details:', error.message)
+    process.exit(1)
   }
 }
 

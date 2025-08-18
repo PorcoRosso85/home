@@ -4,19 +4,26 @@
  */
 
 import initKuzu from '@kuzu/kuzu-wasm'
+import { log } from './log.js'
 
 /**
  * Kuzu WASMの初期化と接続の確立
  * @returns {Promise<{db: object, conn: object, close: function}>}
  */
 export const initializeKuzu = async () => {
-  console.log('[Infrastructure] Kuzu初期化開始')
+  log('INFO', {
+    uri: '/infrastructure/kuzu',
+    message: 'Kuzu初期化開始'
+  })
   
   const kuzu = await initKuzu()
   const db = await kuzu.Database()  // メモリDB（引数なし）
   const conn = await kuzu.Connection(db)
   
-  console.log('[Infrastructure] Kuzu初期化完了')
+  log('INFO', {
+    uri: '/infrastructure/kuzu',
+    message: 'Kuzu初期化完了'
+  })
   
   // クリーンアップ関数を含むオブジェクトを返す
   return {

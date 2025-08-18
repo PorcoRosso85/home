@@ -27,7 +27,11 @@ export const executePingUseCase = async () => {
     const isValid = validatePingResponse(result)
     
     if (!isValid) {
-      throw new Error('Invalid ping response')
+      // 規約準拠: throwではなくResult型で返す
+      return {
+        success: false,
+        message: 'Invalid ping response'
+      }
     }
     
     // ドメイン層: 結果フォーマット
