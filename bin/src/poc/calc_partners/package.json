@@ -5,15 +5,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --test queries/dql/*.test.ts",
-    "test:watch": "node --test --watch queries/dql/*.test.ts",
+    "test": "node --experimental-strip-types --test queries/dql/*.test.ts",
+    "test:watch": "node --experimental-strip-types --test --watch queries/dql/*.test.ts",
     "test:browser": "echo 'ブラウザで確認: http://localhost:5173 (F12でコンソール確認)'",
     "test:e2e": "node test-e2e.mjs",
     "test:playwright": "node test-playwright.mjs",
     "test:playwright-simple": "node test-playwright-simple.mjs"
   },
   "dependencies": {
-    "@kuzu/kuzu-wasm": "^0.7.0",
+    "@kuzu/kuzu-wasm": "^1.0.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
@@ -22,7 +22,6 @@
     "@types/react": "^19.1.10",
     "@vitejs/plugin-react": "^4.3.4",
     "playwright-core": "^1.49.1",
-    "tsx": "^4.20.4",
     "typescript": "^5.7.3",
     "vite": "^6.0.6"
   }

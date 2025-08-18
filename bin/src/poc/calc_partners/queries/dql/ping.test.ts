@@ -5,8 +5,8 @@
 
 import { describe, test, before, after } from 'node:test'
 import assert from 'node:assert'
-import { loadQuery } from '../../infrastructure/cypherLoader'
-import { getConnection } from '../../infrastructure/db'
+import { loadQuery } from '../../infrastructure/cypherLoader.ts'
+import { getConnection } from '../../infrastructure/db.ts'
 import type { KuzuDatabase } from '@kuzu/kuzu-wasm'
 
 describe('ping.cypher - Database Connectivity Test', () => {
