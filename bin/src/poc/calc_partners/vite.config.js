@@ -11,7 +11,7 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    exclude: ['@kuzu/kuzu-wasm']
+    exclude: ['@kuzu/kuzu-wasm', 'kuzu-wasm']
   },
   // .cypherファイルを文字列として読み込み可能にする
   assetsInclude: ['**/*.cypher'],

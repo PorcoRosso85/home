@@ -3,9 +3,9 @@
  * Kuzu WASM関連の処理
  */
 
-import initKuzu from 'kuzu-wasm'
-import type { KuzuDatabase, KuzuConnection, KuzuModule } from 'kuzu-wasm'
-import { log } from './log.js'
+import kuzuWasm from 'kuzu-wasm'
+import type { KuzuDatabase, KuzuConnection } from 'kuzu-wasm'
+import { log } from '../log.js'
 
 /**
  * Kuzu接続情報を格納するインターフェース
@@ -26,9 +26,13 @@ export const initializeKuzu = async (): Promise<KuzuConnectionInfo> => {
     message: 'Kuzu初期化開始'
   })
   
-  const kuzu: KuzuModule = await initKuzu()
-  const db = await kuzu.Database()  // メモリDB（引数なし）
-  const conn = await kuzu.Connection(db)
+  // kuzu-wasm 0.11.1では、init()を最初に呼び出す必要がある
+  // ブラウザ環境ではWorkerが自動的に設定される
+  await kuzuWasm.init()
+  
+  // その後Database/Connectionを作成（newキーワードが必要）
+  const db = await new kuzuWasm.Database()  // メモリDB（引数なし）
+  const conn = await new kuzuWasm.Connection(db)
   
   log('INFO', {
     uri: '/infrastructure/kuzu',
@@ -59,15 +63,21 @@ export const executeQuery = async (conn: KuzuConnection, query: string): Promise
     query: query.substring(0, 100) // 最初の100文字のみログ
   })
   
-  const result = await conn.execute(query)
+  // 公式exampleに従い、conn.query()を使用
+  const result = await (conn as any).query(query)
   
-  // Kuzu WASM 0.7.0の公式API: result.table.toString()
-  // 注意: APIドキュメントのgetAllRows/getAllObjectsは実際には存在しない
-  // NPM READMEのサンプルコードが正しい
-  // DDL文（CREATE/DROP等）はtableを返さない場合がある
+  // getAllObjects()メソッドで結果を取得
   let resultJson: any[]
-  if (result && result.table) {
-    resultJson = JSON.parse(result.table.toString()) as any[]
+  if (result && typeof result.getAllObjects === 'function') {
+    resultJson = await result.getAllObjects()
+  } else if (result && typeof result.toString === 'function') {
+    // フォールバック：toString()を使用
+    const jsonString = await result.toString()
+    try {
+      resultJson = JSON.parse(jsonString)
+    } catch {
+      resultJson = []
+    }
   } else {
     // DDL文など結果セットがない場合は空配列を返す
     resultJson = []
@@ -85,4 +95,21 @@ export const executeQuery = async (conn: KuzuConnection, query: string): Promise
   })
   
   return resultJson
+}
+
+/**
+ * Initialize database for presentation layer
+ * Wraps initializeKuzu for backward compatibility
+ */
+export const initializeDatabase = async (): Promise<{ db: KuzuDatabase, conn: KuzuConnection }> => {
+  const { db, conn } = await initializeKuzu()
+  return { db, conn }
+}
+
+/**
+ * Execute query with connection for presentation layer
+ * Wraps executeQuery for backward compatibility
+ */
+export const executeQueryWithConnection = async (conn: KuzuConnection, query: string): Promise<any[]> => {
+  return executeQuery(conn, query)
 }
