@@ -3,8 +3,6 @@
  * 純粋関数のみ、外部依存なし
  */
 
-import type { KuzuQueryResult, KuzuTable } from 'kuzu-wasm';
-
 /**
  * Ping応答の行データ型
  */
@@ -28,7 +26,7 @@ export const validatePingResponse = (result: QueryResultData | null | undefined)
   if (result.length !== 1) return false;
   
   const row = result[0];
-  return row.response === 'pong' && row.status === 1;
+  return row !== undefined && row.response === 'pong' && row.status === 1;
 };
 
 /**

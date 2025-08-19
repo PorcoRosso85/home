@@ -4,7 +4,7 @@
  */
 
 import { validatePingResponse, formatPingResult } from './domain.ts'
-import { initializeKuzu, executeQuery, type KuzuConnectionInfo } from './infrastructure.ts'
+import { initializeKuzu, executeQuery, type KuzuConnectionInfo } from './infrastructure/index.js'
 import { loadQuery, type LoadQueryResult } from './infrastructure/cypherLoader.ts'
 import { log } from './log.js'
 
