@@ -10,10 +10,7 @@ const require = createRequire(import.meta.url)
 const kuzu = require('kuzu-wasm/nodejs')
 
 test('ping simple test', async () => {
-  // Initialize
-  await kuzu.init()
-  
-  // Create database and connection
+  // Create database and connection (no init needed for nodejs)
   const db = new kuzu.Database(':memory:', 1 << 30)
   const conn = new kuzu.Connection(db, 4)
   
@@ -30,6 +27,7 @@ test('ping simple test', async () => {
   await result.close()
   await conn.close()
   await db.close()
+  await kuzu.close()  // Critical for clean exit
   
   console.log('✅ Test passed!')
 })

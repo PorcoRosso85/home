@@ -19,9 +19,7 @@ export type TestKuzuConnection = {
  * Initialize Kuzu for testing in Node.js
  */
 export const initializeKuzuForTest = async (): Promise<TestKuzuConnection> => {
-  // Initialize kuzu module first
-  await kuzu.init()
-  
+  // Note: No kuzu.init() needed for nodejs version!
   // In-memory database with 1GB allocation
   const db = new kuzu.Database(':memory:', 1 << 30)
   // Connection with 4 threads
@@ -33,6 +31,8 @@ export const initializeKuzuForTest = async (): Promise<TestKuzuConnection> => {
     close: async () => {
       await conn.close()
       await db.close()
+      // Critical: close kuzu itself to prevent timeout
+      await kuzu.close()
     }
   }
 }
