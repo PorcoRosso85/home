@@ -54,8 +54,16 @@ test('UC7: Attribution Path Analysis - should analyze multi-touchpoint attributi
     
     // Verify results
     assert(rows.length > 0, 'Should have attribution path results')
-    assert(rows[0].customer_name || rows[0].customer_id, 'Should have customer identifier')
-    assert(typeof rows[0].path_length === 'number' || rows[0].touchpoint_count, 'Should have path length or touchpoint count')
+    assert(rows[0].customer_id, 'Should have customer ID')
+    assert(rows[0].campaign_name, 'Should have campaign name')
+    assert(rows[0].partner_name, 'Should have partner name')
+    assert(rows[0].touchpoint_sequence, 'Should have touchpoint sequence')
+    
+    // KuzuDB returns Number objects, so convert to primitive for comparison
+    const campaignScore = Number(rows[0].campaign_attribution_score)
+    const partnerScore = Number(rows[0].partner_attribution_score)
+    assert(!isNaN(campaignScore) && campaignScore >= 0, `Campaign attribution score should be a valid number, got: ${campaignScore}`)
+    assert(!isNaN(partnerScore) && partnerScore >= 0, `Partner attribution score should be a valid number, got: ${partnerScore}`)
     
     console.log('✅ UC7 test passed: Attribution path analysis calculated correctly')
     await result.close()

@@ -45,8 +45,14 @@ test('UC6: Partner Relationship Discovery - should discover partner network rela
     
     // Verify results
     assert(rows.length > 0, 'Should have partner relationship results')
-    assert(rows[0].partner1_name || rows[0].source_partner, 'Should have first partner name')
-    assert(rows[0].partner2_name || rows[0].target_partner, 'Should have second partner name')
+    assert(rows[0].partner1_name, 'Should have first partner name')
+    assert(rows[0].partner2_name, 'Should have second partner name')
+    assert(rows[0].relationship_type, 'Should have relationship type')
+    assert(rows[0].relationship_strength_score !== undefined && rows[0].relationship_strength_score !== null, 'Should have relationship strength score')
+    
+    // KuzuDB returns Number objects, so convert to primitive for comparison
+    const scoreValue = Number(rows[0].relationship_strength_score)
+    assert(!isNaN(scoreValue) && scoreValue > 0, `Relationship strength score should be a positive number, got: ${scoreValue}`)
     
     console.log('✅ UC6 test passed: Partner relationship discovery calculated correctly')
     await result.close()

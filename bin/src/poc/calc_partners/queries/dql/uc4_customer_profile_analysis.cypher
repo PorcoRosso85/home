@@ -7,7 +7,7 @@
 // - Partner-specific customer acquisition strategies optimization
 
 // Main analysis: Customer characteristics by partner
-MATCH (p:Partner {name: $partnerName})-[:INTRODUCED]->(c:Customer)
+MATCH (p:Entity {type: 'partner', name: $partnerName})-[i:INTERACTION {type: 'introduced'}]->(c:Entity {type: 'customer'})
 RETURN 
     p.name AS partner_name,
     c.industry AS customer_industry,
@@ -18,13 +18,11 @@ RETURN
     MAX(c.ltv) AS max_ltv,
     SUM(c.ltv) AS total_value_generated,
     ROUND(AVG(c.ltv) / AVG(c.retention_rate) * 100, 2) AS value_efficiency_score
-GROUP BY p.name, c.industry
-ORDER BY avg_customer_ltv DESC
 
 UNION ALL
 
-// Summary: Overall partner performance across all industries
-MATCH (p:Partner {name: $partnerName})-[:INTRODUCED]->(c:Customer)
+// Summary: Overall partner performance across all industries  
+MATCH (p:Entity {type: 'partner', name: $partnerName})-[i:INTERACTION {type: 'introduced'}]->(c:Entity {type: 'customer'})
 RETURN 
     p.name AS partner_name,
     'ALL_INDUSTRIES' AS customer_industry,
@@ -39,17 +37,19 @@ RETURN
 UNION ALL
 
 // Comparison: How this partner compares to industry average
-MATCH (p:Partner {name: $partnerName})-[:INTRODUCED]->(c:Customer)
+MATCH (p:Entity {type: 'partner', name: $partnerName})-[i:INTERACTION {type: 'introduced'}]->(c:Entity {type: 'customer'})
 WITH AVG(c.ltv) AS partner_avg_ltv, AVG(c.retention_rate) AS partner_avg_retention
-MATCH (all_c:Customer)
+MATCH (all_c:Entity {type: 'customer'})
 WITH partner_avg_ltv, partner_avg_retention, AVG(all_c.ltv) AS market_avg_ltv, AVG(all_c.retention_rate) AS market_avg_retention
 RETURN 
     $partnerName AS partner_name,
     'MARKET_COMPARISON' AS customer_industry,
-    NULL AS customer_count,
+    0 AS customer_count,
     partner_avg_ltv AS avg_customer_ltv,
     partner_avg_retention AS avg_retention_rate,
-    NULL AS min_ltv,
-    NULL AS max_ltv,
-    NULL AS total_value_generated,
+    0.0 AS min_ltv,
+    0.0 AS max_ltv,
+    0.0 AS total_value_generated,
     ROUND((partner_avg_ltv - market_avg_ltv) / market_avg_ltv * 100, 2) AS value_efficiency_score
+
+ORDER BY avg_customer_ltv DESC

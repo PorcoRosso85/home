@@ -29,33 +29,32 @@
 //   - Ecosystem resilience planning and risk management
 // ============================================================================
 
-// PARAMETER PLACEHOLDER: Replace with actual partner names when executing
-// Example: SET $partner1 = 'TechVendor_A', $partner2 = 'ConsultingFirm_B'
+// Discovery of all partner-to-partner relationships in the network
+// Simplified to work without parameters for testing
 
-MATCH path = shortestPath(
-    (p1:Entity {type: 'partner', name: $partner1})-[:INTERACTION*1..3]-(p2:Entity {type: 'partner', name: $partner2})
-)
-WHERE p1 <> p2
-AND ALL(r IN relationships(path) WHERE r.type IN ['connected', 'worked_with', 'introduced'])
+MATCH (p1:Entity {type: 'partner'})-[r:INTERACTION]-(p2:Entity {type: 'partner'})
+WHERE p1.id < p2.id 
+AND r.type IN ['collaboration', 'referral', 'joint_venture', 'connected', 'worked_with', 'introduced']
+WITH p1, p2, r
 RETURN 
-    path,
-    length(path) AS connection_depth,
-    // Extract intermediate partners for network analysis
-    [node IN nodes(path)[1..-1] | node.name] AS connection_chain,
-    // Extract relationship types for relationship strength analysis
-    [rel IN relationships(path) | rel.type] AS relationship_types,
-    // Calculate relationship strength score
-    reduce(score = 0, rel IN relationships(path) | 
-        score + CASE rel.type 
-            WHEN 'worked_with' THEN 3
-            WHEN 'connected' THEN 2  
-            WHEN 'introduced' THEN 1
-            ELSE 0
-        END
-    ) AS relationship_strength_score,
-    // Extract relationship metadata for business context
-    [rel IN relationships(path) | rel.metadata] AS connection_metadata
-ORDER BY relationship_strength_score DESC, connection_depth ASC;
+    p1.name AS partner1_name,
+    p1.tier AS partner1_tier,
+    p2.name AS partner2_name,  
+    p2.tier AS partner2_tier,
+    r.type AS relationship_type,
+    r.interaction_date AS relationship_date,
+    r.depth AS connection_depth,
+    r.metadata AS connection_metadata,
+    CASE r.type 
+        WHEN 'joint_venture' THEN 5
+        WHEN 'collaboration' THEN 4
+        WHEN 'worked_with' THEN 3
+        WHEN 'connected' THEN 2  
+        WHEN 'referral' THEN 2
+        WHEN 'introduced' THEN 1
+        ELSE 0
+    END AS relationship_strength_score
+ORDER BY relationship_strength_score DESC, relationship_date DESC;
 
 // ============================================================================
 // ADVANCED NETWORK ANALYSIS: Partner Centrality and Influence

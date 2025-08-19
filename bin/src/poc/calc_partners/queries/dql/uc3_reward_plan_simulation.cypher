@@ -6,60 +6,52 @@
 // - Compare multiple reward strategies side-by-side
 // - Optimize reward rates for maximum partner engagement vs. profitability
 
-// Simulation Parameters (can be modified for different scenarios)
-WITH {
-    base_rate: 0.15,        // Current baseline rate
-    aggressive_rate: 0.25,  // Higher rate to attract more partners
-    conservative_rate: 0.10, // Lower rate to improve margins
-    tiered_rate_low: 0.12,  // For customers with LTV < 5000
-    tiered_rate_high: 0.18  // For customers with LTV >= 5000
-} AS scenarios
-
-MATCH (c:Customer {source: 'partner'})
+// Baseline scenario (15% rate)
+MATCH (c:Entity {type: 'customer', source: 'partner'})
 RETURN 
     'Current Baseline (15%)' AS scenario_name,
-    scenarios.base_rate AS rate,
-    SUM(c.ltv * scenarios.base_rate) AS predicted_total_payment,
+    0.15 AS rate,
+    SUM(c.ltv * 0.15) AS predicted_total_payment,
     COUNT(c) AS customers_affected,
-    AVG(c.ltv * scenarios.base_rate) AS avg_payment_per_customer
+    AVG(c.ltv * 0.15) AS avg_payment_per_customer
 
 UNION ALL
 
-MATCH (c:Customer {source: 'partner'})
-WITH scenarios, c
+// Aggressive scenario (25% rate)
+MATCH (c:Entity {type: 'customer', source: 'partner'})
 RETURN 
     'Aggressive Rate (25%)' AS scenario_name,
-    scenarios.aggressive_rate AS rate,
-    SUM(c.ltv * scenarios.aggressive_rate) AS predicted_total_payment,
+    0.25 AS rate,
+    SUM(c.ltv * 0.25) AS predicted_total_payment,
     COUNT(c) AS customers_affected,
-    AVG(c.ltv * scenarios.aggressive_rate) AS avg_payment_per_customer
+    AVG(c.ltv * 0.25) AS avg_payment_per_customer
 
 UNION ALL
 
-MATCH (c:Customer {source: 'partner'})
-WITH scenarios, c
+// Conservative scenario (10% rate)
+MATCH (c:Entity {type: 'customer', source: 'partner'})
 RETURN 
     'Conservative Rate (10%)' AS scenario_name,
-    scenarios.conservative_rate AS rate,
-    SUM(c.ltv * scenarios.conservative_rate) AS predicted_total_payment,
+    0.10 AS rate,
+    SUM(c.ltv * 0.10) AS predicted_total_payment,
     COUNT(c) AS customers_affected,
-    AVG(c.ltv * scenarios.conservative_rate) AS avg_payment_per_customer
+    AVG(c.ltv * 0.10) AS avg_payment_per_customer
 
 UNION ALL
 
-MATCH (c:Customer {source: 'partner'})
-WITH scenarios, c
+// Tiered scenario (12% for LTV < 5000, 18% for LTV >= 5000)
+MATCH (c:Entity {type: 'customer', source: 'partner'})
 RETURN 
     'Tiered Structure' AS scenario_name,
-    CASE WHEN c.ltv < 5000 THEN scenarios.tiered_rate_low ELSE scenarios.tiered_rate_high END AS rate,
+    CASE WHEN c.ltv < 5000 THEN 0.12 ELSE 0.18 END AS rate,
     SUM(CASE 
-        WHEN c.ltv < 5000 THEN c.ltv * scenarios.tiered_rate_low 
-        ELSE c.ltv * scenarios.tiered_rate_high 
+        WHEN c.ltv < 5000 THEN c.ltv * 0.12 
+        ELSE c.ltv * 0.18 
     END) AS predicted_total_payment,
     COUNT(c) AS customers_affected,
     AVG(CASE 
-        WHEN c.ltv < 5000 THEN c.ltv * scenarios.tiered_rate_low 
-        ELSE c.ltv * scenarios.tiered_rate_high 
+        WHEN c.ltv < 5000 THEN c.ltv * 0.12 
+        ELSE c.ltv * 0.18 
     END) AS avg_payment_per_customer
 
 ORDER BY predicted_total_payment ASC

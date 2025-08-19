@@ -22,16 +22,8 @@ test('UC2: Partner ROI Analysis - should calculate net profit per partner', asyn
     await insertTestCustomers(conn)
     await createPartnerRelationships(conn)
     
-    // Create rewards data
-    await conn.query(`
-      CREATE (:Entity {id: 301, type: 'reward', entity_id: 1, amount: 5000})
-    `)
-    await conn.query(`
-      CREATE (:Entity {id: 302, type: 'reward', entity_id: 1, amount: 3000})
-    `)
-    await conn.query(`
-      CREATE (:Entity {id: 303, type: 'reward', entity_id: 2, amount: 2000})
-    `)
+    // Note: Query uses estimated rewards (20% of customer LTV)
+    // No need to create actual reward data for this analysis
     
     // Execute query
     const query = loadQuery('./uc2_partner_roi_analysis.cypher')

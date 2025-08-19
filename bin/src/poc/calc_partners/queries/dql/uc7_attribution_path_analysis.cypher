@@ -29,65 +29,51 @@
 //   - Data-driven partnership strategy based on true contribution analysis
 // ============================================================================
 
-MATCH (campaign:Entity {type: 'campaign'})-[click:INTERACTION {type: 'clicked'}]->(c:Entity {type: 'customer'})
+// Multi-touchpoint customer attribution analysis
+// Tracks customers who interacted with both campaigns and partners
+
+MATCH (campaign:Entity {type: 'campaign'})-[click:INTERACTION]->(c:Entity {type: 'customer'})
 MATCH (p:Entity {type: 'partner'})-[intro:INTERACTION {type: 'introduced'}]->(c)
+WHERE click.type IN ['clicked', 'email_opened', 'content_engaged']
 RETURN 
     campaign.name AS campaign_name,
     campaign.campaign_type AS campaign_type,
+    campaign.budget AS campaign_budget,
     p.name AS partner_name,
     p.tier AS partner_tier,
     c.id AS customer_id,
+    c.name AS customer_name,
     c.ltv AS customer_ltv,
     c.industry AS customer_industry,
-    // Touchpoint sequencing for journey analysis
+    click.type AS campaign_interaction_type,
     click.interaction_date AS campaign_touchpoint_date,
     intro.interaction_date AS partner_touchpoint_date,
-    // Determine touchpoint sequence and attribution model
     CASE 
         WHEN click.interaction_date < intro.interaction_date THEN 'Campaign_First'
         WHEN intro.interaction_date < click.interaction_date THEN 'Partner_First'
         ELSE 'Simultaneous'
     END AS touchpoint_sequence,
-    // Calculate time between touchpoints for journey velocity analysis
-    duration.between(
-        CASE WHEN click.interaction_date < intro.interaction_date 
-             THEN click.interaction_date ELSE intro.interaction_date END,
-        CASE WHEN click.interaction_date > intro.interaction_date 
-             THEN click.interaction_date ELSE intro.interaction_date END
-    ).days AS days_between_touchpoints,
-    // Attribution scoring based on touchpoint sequence and timing
     CASE 
-        WHEN click.interaction_date < intro.interaction_date THEN
-            CASE 
-                WHEN duration.between(click.interaction_date, intro.interaction_date).days <= 7 THEN 0.4  -- Campaign gets 40% if within week
-                WHEN duration.between(click.interaction_date, intro.interaction_date).days <= 30 THEN 0.3  -- Campaign gets 30% if within month
-                ELSE 0.2  -- Campaign gets 20% if older
-            END
-        WHEN intro.interaction_date < click.interaction_date THEN
-            CASE 
-                WHEN duration.between(intro.interaction_date, click.interaction_date).days <= 7 THEN 0.6   -- Partner gets 60% if within week
-                WHEN duration.between(intro.interaction_date, click.interaction_date).days <= 30 THEN 0.7  -- Partner gets 70% if within month
-                ELSE 0.8  -- Partner gets 80% if older
-            END
-        ELSE 0.5  -- Equal attribution if simultaneous
-    END AS campaign_attribution_score,
-    // Complementary partner attribution score
-    CASE 
-        WHEN click.interaction_date < intro.interaction_date THEN
-            CASE 
-                WHEN duration.between(click.interaction_date, intro.interaction_date).days <= 7 THEN 0.6
-                WHEN duration.between(click.interaction_date, intro.interaction_date).days <= 30 THEN 0.7
-                ELSE 0.8
-            END
-        WHEN intro.interaction_date < click.interaction_date THEN
-            CASE 
-                WHEN duration.between(intro.interaction_date, click.interaction_date).days <= 7 THEN 0.4
-                WHEN duration.between(intro.interaction_date, click.interaction_date).days <= 30 THEN 0.3
-                ELSE 0.2
-            END
+        WHEN click.interaction_date < intro.interaction_date THEN 0.3
+        WHEN intro.interaction_date < click.interaction_date THEN 0.6
         ELSE 0.5
-    END AS partner_attribution_score
-ORDER BY customer_ltv DESC, days_between_touchpoints ASC;
+    END AS campaign_attribution_score,
+    CASE 
+        WHEN click.interaction_date < intro.interaction_date THEN 0.7
+        WHEN intro.interaction_date < click.interaction_date THEN 0.4
+        ELSE 0.5
+    END AS partner_attribution_score,
+    c.ltv * CASE 
+        WHEN click.interaction_date < intro.interaction_date THEN 0.3
+        WHEN intro.interaction_date < click.interaction_date THEN 0.6
+        ELSE 0.5
+    END AS campaign_attributed_value,
+    c.ltv * CASE 
+        WHEN click.interaction_date < intro.interaction_date THEN 0.7
+        WHEN intro.interaction_date < click.interaction_date THEN 0.4
+        ELSE 0.5
+    END AS partner_attributed_value
+ORDER BY customer_ltv DESC, campaign_touchpoint_date ASC;
 
 // ============================================================================
 // ADVANCED ATTRIBUTION: Multi-Path Customer Journey Analysis
