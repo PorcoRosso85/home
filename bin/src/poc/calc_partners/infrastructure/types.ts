@@ -4,10 +4,10 @@
  */
 
 /**
- * Generic query result interface
+ * Generic query result type
  * Represents the result of a database query execution
  */
-export interface QueryResult {
+export type QueryResult = {
   /** The result data table */
   table: Table;
   /** Cleanup resources */
@@ -15,14 +15,12 @@ export interface QueryResult {
 }
 
 /**
- * Table interface for query results
+ * Table type for query results
  * Provides methods to access and format query result data
  */
-export interface Table {
+export type Table = {
   /** Convert table data to string representation */
   toString(): string;
-  /** Get table data as JSON objects array (optional future extension) */
-  toArray?(): Record<string, any>[];
   /** Get number of rows (optional future extension) */
   getRowCount?(): number;
   /** Get column names (optional future extension) */
@@ -30,10 +28,10 @@ export interface Table {
 }
 
 /**
- * Database interface
+ * Database type
  * Represents a database instance and its lifecycle management
  */
-export interface Database {
+export type Database = {
   /** Close the database connection and cleanup resources */
   close(): Promise<void>;
   /** Optional: Get database path or identifier */
@@ -43,10 +41,10 @@ export interface Database {
 }
 
 /**
- * Connection interface for database operations
+ * Connection type for database operations
  * Provides methods to execute queries and manage the connection
  */
-export interface Connection {
+export type Connection = {
   /** Execute a query and return the result */
   execute(query: string): Promise<QueryResult>;
   /** Close the connection and cleanup resources */
@@ -61,7 +59,7 @@ export interface Connection {
  * Database initialization options
  * Configuration for database setup
  */
-export interface DatabaseOptions {
+export type DatabaseOptions = {
   /** Database path or identifier */
   path?: string;
   /** Read-only mode flag */
@@ -69,14 +67,14 @@ export interface DatabaseOptions {
   /** Memory allocation settings */
   bufferSize?: number;
   /** Custom configuration options */
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 
 /**
- * Connection factory interface
+ * Connection factory type
  * Abstracts the creation of database connections
  */
-export interface ConnectionFactory {
+export type ConnectionFactory = {
   /** Create a new database instance */
   createDatabase(options?: DatabaseOptions): Promise<Database>;
   /** Create a connection to the given database */

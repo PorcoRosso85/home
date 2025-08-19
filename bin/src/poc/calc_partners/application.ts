@@ -11,10 +11,10 @@ import { log } from './log.js'
 /**
  * アプリケーション層の結果型
  */
-export interface ApplicationResult {
+export type ApplicationResult = {
   success: boolean
   message: string
-  data?: any
+  data?: unknown
 }
 
 /**

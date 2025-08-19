@@ -23,9 +23,9 @@ log('INFO', {
 })
 
 /**
- * Kuzu接続情報を格納するインターフェース
+ * Kuzu接続情報を格納する型定義
  */
-export interface KuzuConnectionInfo {
+export type KuzuConnectionInfo = {
   db: KuzuDatabase
   conn: KuzuConnection
   close: () => Promise<void>
@@ -69,9 +69,9 @@ export const initializeKuzu = async (): Promise<KuzuConnectionInfo> => {
  * Cypherクエリの実行
  * @param {KuzuConnection} conn - Kuzu接続オブジェクト
  * @param {string} query - 実行するCypherクエリ
- * @returns {Promise<any[]>} クエリ結果の配列
+ * @returns {Promise<Record<string, unknown>[]>} クエリ結果の配列
  */
-export const executeQuery = async (conn: KuzuConnection, query: string): Promise<any[]> => {
+export const executeQuery = async (conn: KuzuConnection, query: string): Promise<Record<string, unknown>[]> => {
   log('INFO', {
     uri: '/infrastructure/kuzu',
     message: 'Executing query',
@@ -79,10 +79,11 @@ export const executeQuery = async (conn: KuzuConnection, query: string): Promise
   })
   
   // 公式exampleに従い、conn.query()を使用
-  const result = await (conn as any).query(query)
+  // Note: KuzuConnection型定義にquery()メソッドが不足しているため、型アサーションを使用
+  const result = await (conn as unknown as { query: (q: string) => Promise<{ getAllObjects: () => Promise<Record<string, unknown>[]>, close?: () => Promise<void>, toString?: () => Promise<string> }> }).query(query)
   
   // getAllObjects()メソッドで結果を取得
-  let resultJson: any[]
+  let resultJson: Record<string, unknown>[]
   if (result && typeof result.getAllObjects === 'function') {
     resultJson = await result.getAllObjects()
   } else if (result && typeof result.toString === 'function') {
@@ -125,6 +126,6 @@ export const initializeDatabase = async (): Promise<{ db: KuzuDatabase, conn: Ku
  * Execute query with connection for presentation layer
  * Wraps executeQuery for backward compatibility
  */
-export const executeQueryWithConnection = async (conn: KuzuConnection, query: string): Promise<any[]> => {
+export const executeQueryWithConnection = async (conn: KuzuConnection, query: string): Promise<Record<string, unknown>[]> => {
   return executeQuery(conn, query)
 }

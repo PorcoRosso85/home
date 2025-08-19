@@ -8,12 +8,12 @@ import path from 'node:path'
 import { log } from '../log.js'
 
 // Result type pattern for consistent error handling
-export interface QueryResult {
+export type QueryResult = {
   success: true
   data: string
 }
 
-export interface QueryError {
+export type QueryError = {
   success: false
   error: string
 }
