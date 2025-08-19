@@ -8,9 +8,7 @@
     "test": "node --experimental-strip-types --test queries/dql/*.test.ts",
     "test:watch": "node --experimental-strip-types --test --watch queries/dql/*.test.ts",
     "test:browser": "echo 'ブラウザで確認: http://localhost:5173 (F12でコンソール確認)'",
-    "test:e2e": "node test-e2e.mjs",
-    "test:playwright": "node test-playwright.mjs",
-    "test:playwright-simple": "node test-playwright-simple.mjs"
+    "test:e2e": "node test-playwright-simple.mjs"
   },
   "dependencies": {
     "kuzu-wasm": "^0.11.1",

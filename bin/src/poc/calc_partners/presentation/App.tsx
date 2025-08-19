@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
-import { initializeDatabase, executeQueryWithConnection } from './infrastructure/index.js'
+import { initializeDatabase, executeQueryWithConnection } from '../infrastructure/index.js'
 
 function App(): JSX.Element {
   const [status, setStatus] = useState<string>('初期化中...')

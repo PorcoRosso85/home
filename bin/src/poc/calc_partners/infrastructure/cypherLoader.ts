@@ -5,7 +5,8 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { log } from '../log.js'
+// Simple console logging
+const log = console.log.bind(console)
 
 // Result type pattern for consistent error handling
 export type QueryResult = {

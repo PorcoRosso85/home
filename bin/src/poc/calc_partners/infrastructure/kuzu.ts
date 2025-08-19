@@ -5,7 +5,8 @@
 
 import kuzuWasm from 'kuzu-wasm'
 import type { KuzuDatabase, KuzuConnection } from 'kuzu-wasm'
-import { log } from '../log.js'
+// Simple console logging
+const log = console.log.bind(console)
 
 // 環境判定
 const isNode = typeof window === 'undefined'

@@ -8,12 +8,13 @@ import { chromium } from 'playwright-core'
 import { spawn, execSync } from 'child_process'
 
 const TEST_CONFIG = {
-  url: 'http://localhost:3000',
+  url: null, // Will be set dynamically
   expectedResponse: '[{"response":"pong","status":1}]'
 }
 
 let viteProcess = null
 let browser = null
+let actualPort = null
 
 /**
  * Get chromium path for NixOS
@@ -53,6 +54,13 @@ async function startViteServer() {
       console.log('📦 Vite:', output.trim())
       
       if (output.includes('Local:') && output.includes('localhost:')) {
+        // Extract port from output like "Local:   http://localhost:3003/"
+        const portMatch = output.match(/localhost:(\d+)/)
+        if (portMatch) {
+          actualPort = portMatch[1]
+          TEST_CONFIG.url = `http://localhost:${actualPort}`
+          console.log(`🔍 Detected Vite server on port ${actualPort}`)
+        }
         serverReady = true
         clearTimeout(timeout)
         setTimeout(resolve, 2000) // Wait 2 seconds for server to fully initialize

@@ -30,6 +30,10 @@
   "include": [
     "src/**/*",
     "types/**/*",
+    "*.ts",
+    "infrastructure/**/*",
+    "presentation/**/*",
+    "queries/**/*",
     "vite.config.js"
   ],
   "exclude": [
