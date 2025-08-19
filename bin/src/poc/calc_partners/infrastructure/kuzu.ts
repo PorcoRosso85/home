@@ -7,6 +7,21 @@ import kuzuWasm from 'kuzu-wasm'
 import type { KuzuDatabase, KuzuConnection } from 'kuzu-wasm'
 import { log } from '../log.js'
 
+// 環境判定
+const isNode = typeof window === 'undefined'
+const isBrowser = typeof window !== 'undefined'
+
+log('INFO', {
+  uri: '/infrastructure/kuzu',
+  message: `環境判定: ${isNode ? 'Node.js' : 'Browser'}`,
+  environment: {
+    isNode,
+    isBrowser,
+    hasProcess: typeof process !== 'undefined',
+    hasWindow: typeof window !== 'undefined'
+  }
+})
+
 /**
  * Kuzu接続情報を格納するインターフェース
  */
