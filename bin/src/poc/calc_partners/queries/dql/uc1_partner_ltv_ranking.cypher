@@ -8,11 +8,9 @@
 // and investment. This ranking reveals the golden partners who consistently introduce high-value customers.
 
 MATCH (p:Entity {type: 'partner'})-[:INTERACTION {type: 'introduced'}]->(c:Entity {type: 'customer'})
-MATCH (c)-[:HAS_CONTRACT]->(s:Contract {type: 'subscription'})
-WITH p.name AS partner_name, c, s.recurring_amount * s.duration AS ltv_per_contract
-WITH partner_name, COUNT(DISTINCT c) AS customer_count, SUM(ltv_per_contract) AS total_ltv
+WITH p, COUNT(DISTINCT c) AS customer_count, SUM(c.ltv) AS total_ltv
 RETURN 
-    partner_name,
+    p.name AS partner_name,
     customer_count,
     total_ltv
 ORDER BY total_ltv DESC;
