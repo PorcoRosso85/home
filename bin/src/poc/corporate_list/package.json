@@ -1,0 +1,15 @@
+{
+  "name": "corporate-list-scraper",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "scrape": "node scrape.mjs",
+    "test": "node --test test.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "^1.49.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.11.6"
+  }
+}
