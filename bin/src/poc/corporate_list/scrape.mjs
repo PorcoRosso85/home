@@ -9,12 +9,14 @@ import { execSync } from 'child_process'
 
 // ========== 1. 設定 ==========
 const SEARCH_KEYWORDS = [
-  "シリーズA 資金調達",
-  "事業開発 アライアンス"
+  "シリーズA",
+  "資金調達",
+  "事業提携"
 ]
 
+// PR TIMESの検索URL形式
 const TARGET_SITES = {
-  PR_TIMES: 'https://prtimes.jp/main/html/searchrlp/company_id/0/keyword/'
+  PR_TIMES: 'https://prtimes.jp/main/action.php?run=html&page=searchkey&search_word='
 }
 
 // ========== 2. ヘルパー関数 ==========
@@ -54,28 +56,93 @@ async function scrapePRTimes(browser, keyword) {
     console.log(`📰 Searching PR TIMES: ${keyword}`)
     console.log(`   URL: ${searchUrl}`)
     
-    await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 })
-    
-    // 検索結果を待つ
-    await page.waitForSelector('.list-article', { timeout: 10000 }).catch(() => {
-      console.log('   ⚠️ No results found')
+    // ユーザーエージェント設定（より自然なアクセスに）
+    await page.setExtraHTTPHeaders({
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     })
     
-    // 記事リストを取得
+    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    
+    // ページが完全に読み込まれるまで少し待つ
+    await page.waitForTimeout(3000)
+    
+    // 記事リストを取得（PR TIMESの実際の構造に合わせて修正）
     const articles = await page.evaluate(() => {
       const items = []
-      document.querySelectorAll('.list-article__link').forEach(link => {
-        const titleEl = link.querySelector('.list-article__title')
-        const companyEl = link.querySelector('.list-article__company-name')
-        
-        if (titleEl) {
-          items.push({
-            title: titleEl.textContent.trim(),
-            url: link.href,
-            companyText: companyEl ? companyEl.textContent.trim() : ''
+      
+      // 複数のセレクターパターンを試す
+      const selectors = [
+        'article.list-article',
+        '.article-box',
+        'a[href*="/main/html/rd/p/"]',
+        '.release-list a',
+        'h3 a[href*="prtimes.jp"]'
+      ]
+      
+      for (const selector of selectors) {
+        const elements = document.querySelectorAll(selector)
+        if (elements.length > 0) {
+          console.log(`Found ${elements.length} items with selector: ${selector}`)
+          
+          elements.forEach(el => {
+            // リンク要素の取得
+            const link = el.tagName === 'A' ? el : el.querySelector('a')
+            if (!link) return
+            
+            // タイトルの取得（複数パターン）
+            let title = ''
+            const titleSelectors = ['h3', '.list-article__title', '.title', 'h2']
+            for (const ts of titleSelectors) {
+              const titleEl = el.querySelector(ts) || (el.tagName === 'H3' ? el : null)
+              if (titleEl) {
+                title = titleEl.textContent.trim()
+                break
+              }
+            }
+            
+            // タイトルがリンクのテキストから取得
+            if (!title && link) {
+              title = link.textContent.trim()
+            }
+            
+            // 会社名の取得（複数パターン）
+            let company = ''
+            const companySelectors = ['.company-name', '.list-article__company', '.company', 'time']
+            for (const cs of companySelectors) {
+              const companyEl = el.querySelector(cs)
+              if (companyEl) {
+                company = companyEl.textContent.trim()
+                break
+              }
+            }
+            
+            if (title && link.href) {
+              items.push({
+                title: title.substring(0, 200), // タイトルを200文字に制限
+                url: link.href,
+                companyText: company
+              })
+            }
           })
+          
+          if (items.length > 0) break // 結果が見つかったら終了
         }
-      })
+      }
+      
+      // 結果が見つからない場合、ページ全体のリンクを収集
+      if (items.length === 0) {
+        document.querySelectorAll('a[href*="prtimes.jp/main/html/rd/p/"]').forEach(link => {
+          const title = link.textContent.trim()
+          if (title && title.length > 10) { // 短すぎるテキストは除外
+            items.push({
+              title: title.substring(0, 200),
+              url: link.href,
+              companyText: ''
+            })
+          }
+        })
+      }
+      
       return items
     })
     
