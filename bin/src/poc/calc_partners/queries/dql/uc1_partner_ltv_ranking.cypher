@@ -7,11 +7,14 @@
 // Use Case: An executive needs to quickly identify which partner relationships deserve the most attention
 // and investment. This ranking reveals the golden partners who consistently introduce high-value customers.
 
-MATCH (p:Partner)-[:INTRODUCED]->(c:Customer)-[:HAS_SUBSCRIPTION]->(s:Subscription)
+MATCH (p:Entity {type: 'partner'})-[:INTERACTION {type: 'introduced'}]->(c:Entity {type: 'customer'})
+MATCH (c)-[:HAS_CONTRACT]->(s:Contract {type: 'subscription'})
+WITH p.name AS partner_name, c, s.recurring_amount * s.duration AS ltv_per_contract
+WITH partner_name, COUNT(DISTINCT c) AS customer_count, SUM(ltv_per_contract) AS total_ltv
 RETURN 
-    p.name AS partner_name,
-    COUNT(c) AS customer_count,
-    SUM(s.monthlyFee * s.duration) AS total_ltv
+    partner_name,
+    customer_count,
+    total_ltv
 ORDER BY total_ltv DESC;
 
 // Expected Output Example:
