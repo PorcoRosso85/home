@@ -1,0 +1,7 @@
+# Docker
+*.log
+.dockerignore
+
+# Nix
+result
+result-*

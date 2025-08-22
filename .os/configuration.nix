@@ -1,79 +1,68 @@
-{ config, lib, pkgs, pkgs-unstable, ... }:
+{ config, pkgs, ... }:
 
 {
-  imports = [
-    # Hardware configuration will be added when available
-    # ./hardware-configuration.nix
-  ];
+  imports = [ ./hardware-configuration.nix ];
 
-  wsl.enable = true;
-  wsl.defaultUser = "nixos";
-  
-  services = {
-    vscode-server.enable = true;
-    tailscale.enable = true;
-    dbus = {
-      enable = true;
-      implementation = "dbus";
-    };
-  };
-  
-  wsl.wslConf.automount.root = "/mnt";
-  wsl.wslConf.interop.appendWindowsPath = true;
-  wsl.wslConf.network.generateHosts = true;
-  
-  system.stateVersion = "25.05";
-  
   nix = {
     package = pkgs.nix;
     extraOptions = ''
       experimental-features = nix-command flakes
     '';
   };
-  
-  environment.systemPackages = with pkgs-unstable; [
+
+  # Boot loader
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+
+  # Networking
+  networking.hostName = "nixos-vm";
+  networking.networkmanager.enable = true;
+
+  # Time zone and locale
+  time.timeZone = "Asia/Tokyo";
+  i18n.defaultLocale = "en_US.UTF-8";
+
+  # Users
+  users.users.root = {
+    initialPassword = "root";
+  };
+
+  users.users.nixos = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" "networkmanager" "docker" ];
+    initialPassword = "root";
+  };
+
+  # System packages
+  environment.systemPackages = with pkgs; [
+    vim
     wget
     curl
     git
     gh
-    lazygit
+    htop
     helix
+    lazygit
     yazi
     nushell
     bash-language-server
+    fzf
+    fd
+    ripgrep
+    bat
   ];
-  
-  security.sudo.enable = true;
-  security.sudo.extraRules = [
-    {
-      groups = [ "wheel" ];
-      commands = [
-        {
-          command = "ALL";
-          options = [ "SETENV" "NOPASSWD" ];
-        }
-      ];
-    }
-  ];
-  
-  programs = {
-    tmux = {
-      enable = true;
-      clock24 = true;
-      extraConfig = ''
-        set -g status-bg black
-        set -g status-fg white
-        set-window-option -g window-status-current-format '#[fg=colour235,bg=colour27,bold] #I#[fg=colour235,bg=colour238]:#W#[fg=colour238,bg=colour235] '
-      '';
-      plugins = with pkgs.tmuxPlugins; [
-        # sensible
-      ];
-    };
-  };
-  
+
+  # Services
+  services.openssh.enable = true;
+  services.openssh.settings.PermitRootLogin = "yes";
+  services.tailscale.enable = true;
+
+  # Docker
   virtualisation.docker.enable = true;
-  
-  users.users.nixos = {
-    extraGroups = [ "docker" ];
-  };
+
+  # Hyper-V support
+  virtualisation.hypervGuest.enable = true;
+
+  # System state version
+  system.stateVersion = "25.05";
 }
