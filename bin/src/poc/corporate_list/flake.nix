@@ -32,6 +32,7 @@
             nodejs_22
             nodePackages.pnpm
             nodePackages.typescript
+            bun
             chromium
             jq
           ];
@@ -40,8 +41,8 @@
             export PLAYWRIGHT_BROWSERS_PATH=${pkgs.chromium}
             export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
             echo "🚀 Development environment ready!"
-            echo "Available commands: node, pnpm, tsc"
-            echo "Note: Using Node.js --experimental-strip-types for TypeScript"
+            echo "Available commands: node, pnpm, tsc, bun"
+            echo "Note: Migrating from Node.js to Bun for native TypeScript execution"
           '';
         };
         

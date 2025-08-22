@@ -3,9 +3,10 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "scrape": "node scripts/switchover.mjs",
+    "scrape": "bun run src/main.ts",
+    "scrape:node": "node scripts/switchover.mjs",
     "scrape:legacy": "node scrape.mjs",
-    "scrape:ts": "node --experimental-strip-types src/main.ts",
+    "scrape:bun": "bun run src/main.ts",
     "test": "node --test test/golden-master.test.js",
     "test:golden": "node --test test/golden-master.test.js",
     "test:validate": "node test/validate-golden.js",
@@ -22,7 +23,8 @@
     "test:js:extractor": "node --test test/domain/extractor.test.js",
     "test:js:migration": "node --test test/migration.test.js",
     "test:js:all": "npm run test:js:env && npm run test:js:main && npm run test:js:variables && npm run test:js:browser && npm run test:js:scraper && npm run test:js:extractor && npm run test:js:migration",
-    "build": "tsc"
+    "test:bun": "bun test test",
+    "test:bun:simple": "bun test test/variables.test.js test/typescript-env.test.js"
   },
   "dependencies": {
     "playwright-core": "^1.49.1"
