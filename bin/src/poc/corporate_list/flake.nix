@@ -41,7 +41,7 @@
             export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
             echo "🚀 Development environment ready!"
             echo "Available commands: node, pnpm, tsc"
-            echo "Note: tsx available via npm (already installed locally)"
+            echo "Note: Using Node.js --experimental-strip-types for TypeScript"
           '';
         };
         

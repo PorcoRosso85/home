@@ -1,13 +1,25 @@
 /**
- * Unit tests for BrowserManager infrastructure
- * Tests browser lifecycle management and error handling
+ * Unit tests for BrowserManager infrastructure (JavaScript version)
+ * Tests browser lifecycle management and error handling using compiled JS
  */
 
 import { test, describe } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { execSync } from 'child_process'
-import { BrowserManager, BrowserError, createBrowserManager } from '../../src/infrastructure/browser.js'
-import { BROWSER_CONFIG } from '../../src/variables.js'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const projectRoot = dirname(dirname(__dirname))
+const distPath = join(projectRoot, 'dist', 'src')
+
+// Import compiled JavaScript modules
+const browserModule = await import(`${distPath}/infrastructure/browser.js`)
+const variablesModule = await import(`${distPath}/variables.js`)
+
+const { BrowserManager, BrowserError, createBrowserManager } = browserModule
+const { BROWSER_CONFIG } = variablesModule
 
 // Test configuration similar to production but with shorter timeouts
 const testBrowserConfig = {
@@ -16,7 +28,7 @@ const testBrowserConfig = {
   waitTime: 1000
 }
 
-describe('BrowserManager', () => {
+describe('BrowserManager (Compiled JavaScript)', () => {
 
   test('should create BrowserManager instance with factory function', () => {
     const manager = createBrowserManager(testBrowserConfig)
@@ -163,11 +175,20 @@ describe('BrowserManager', () => {
     }
   })
 
+  test('should import correctly from compiled JavaScript', () => {
+    // Test that we can import all needed exports from compiled JS
+    assert.ok(typeof BrowserManager === 'function', 'BrowserManager should be importable')
+    assert.ok(typeof BrowserError === 'function', 'BrowserError should be importable')
+    assert.ok(typeof createBrowserManager === 'function', 'createBrowserManager should be importable')
+    
+    console.log('✅ Browser module imports correctly from compiled JavaScript')
+  })
+
 })
 
-describe('BrowserManager Integration', () => {
+describe('BrowserManager Integration (Compiled JavaScript)', () => {
 
-  test('should work with configuration from variables.ts', () => {
+  test('should work with configuration from compiled variables.js', () => {
     const manager = createBrowserManager(BROWSER_CONFIG)
     
     assert.ok(manager instanceof BrowserManager, 'Should create manager with production config')
@@ -184,4 +205,22 @@ describe('BrowserManager Integration', () => {
     assert.ok(typeof manager.getBrowser === 'function', 'Should have getBrowser method')
   })
 
+  test('should maintain configuration compatibility', () => {
+    // Test that the compiled configuration works with BrowserManager
+    assert.ok(typeof BROWSER_CONFIG === 'object', 'BROWSER_CONFIG should be available')
+    assert.ok(typeof BROWSER_CONFIG.userAgent === 'string', 'userAgent should be string')
+    assert.ok(typeof BROWSER_CONFIG.timeout === 'number', 'timeout should be number')
+    assert.ok(Array.isArray(BROWSER_CONFIG.launchArgs), 'launchArgs should be array')
+    
+    const manager = new BrowserManager(BROWSER_CONFIG)
+    assert.ok(manager instanceof BrowserManager, 'Should create manager with compiled config')
+    
+    console.log('✅ Configuration compatibility maintained in compiled JavaScript')
+  })
+
 })
+
+console.log('\n📋 Browser Infrastructure Test Summary (JavaScript):')
+console.log('🎯 Test purpose: Verify compiled browser infrastructure works correctly')
+console.log('📊 Coverage: Browser lifecycle, error handling, configuration integration')
+console.log('✅ All compiled browser functionality should work correctly')

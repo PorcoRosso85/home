@@ -1,14 +1,25 @@
 #!/usr/bin/env node
 /**
- * Variables Configuration Test
+ * Variables Configuration Test (JavaScript version)
  * 
- * Tests the configuration loading functionality from variables.ts
+ * Tests the compiled configuration loading functionality from dist/src/variables.js
  * including environment variable support and default value fallbacks.
  */
 
 import { test } from 'node:test'
 import { strict as assert } from 'node:assert'
-import { getConfig, SEARCH_KEYWORDS, TARGET_SITES, BROWSER_CONFIG, EXTRACTION_CONFIG, type ScraperConfig } from '../src/variables.js'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const projectRoot = dirname(__dirname)
+
+// Import from compiled JavaScript
+const distPath = join(projectRoot, 'dist', 'src')
+const variablesModule = await import(`${distPath}/variables.js`)
+
+const { getConfig, SEARCH_KEYWORDS, TARGET_SITES, BROWSER_CONFIG, EXTRACTION_CONFIG } = variablesModule
 
 // Save original environment variables to restore later
 const originalEnv = { ...process.env }
@@ -16,7 +27,7 @@ const originalEnv = { ...process.env }
 /**
  * Restore original environment variables
  */
-function restoreEnv(): void {
+function restoreEnv() {
   // Clear any test environment variables
   delete process.env.SCRAPER_KEYWORDS
   delete process.env.SCRAPER_TIMEOUT
@@ -29,7 +40,7 @@ function restoreEnv(): void {
   Object.assign(process.env, originalEnv)
 }
 
-test('Configuration constants are properly exported', async () => {
+test('Configuration constants are properly exported from compiled JS', async () => {
   // Test that default constants exist and have expected structure
   assert.ok(Array.isArray(SEARCH_KEYWORDS), 'SEARCH_KEYWORDS should be an array')
   assert.ok(SEARCH_KEYWORDS.length > 0, 'SEARCH_KEYWORDS should not be empty')
@@ -48,7 +59,7 @@ test('Configuration constants are properly exported', async () => {
   assert.ok(typeof EXTRACTION_CONFIG.maxTitleLength === 'number', 'maxTitleLength should be a number')
   assert.ok(Array.isArray(EXTRACTION_CONFIG.companyPatterns), 'companyPatterns should be an array')
   
-  console.log('✅ All configuration constants are properly structured')
+  console.log('✅ All configuration constants are properly structured in compiled JS')
 })
 
 test('getConfig() returns default configuration without environment variables', async () => {
@@ -74,7 +85,7 @@ test('getConfig() returns default configuration without environment variables', 
   assert.strictEqual(config.extraction.maxTitleLength, EXTRACTION_CONFIG.maxTitleLength, 'Should use default max title length')
   assert.deepStrictEqual(config.extraction.companyPatterns, EXTRACTION_CONFIG.companyPatterns, 'Should use default company patterns')
   
-  console.log('✅ getConfig() returns correct default configuration')
+  console.log('✅ getConfig() returns correct default configuration from compiled JS')
 })
 
 test('getConfig() respects environment variable overrides', async () => {
@@ -100,7 +111,7 @@ test('getConfig() respects environment variable overrides', async () => {
   assert.deepStrictEqual(config.browser.launchArgs, BROWSER_CONFIG.launchArgs, 'Should keep default launch args')
   assert.deepStrictEqual(config.extraction.companyPatterns, EXTRACTION_CONFIG.companyPatterns, 'Should keep default company patterns')
   
-  console.log('✅ getConfig() correctly applies environment variable overrides')
+  console.log('✅ getConfig() correctly applies environment variable overrides in compiled JS')
   
   // Clean up
   restoreEnv()
@@ -121,7 +132,7 @@ test('getConfig() handles malformed environment variables gracefully', async () 
   assert.strictEqual(config.browser.waitTime, -1000, 'Should accept negative wait time (valid integer)')
   assert.strictEqual(config.extraction.maxTitleLength, EXTRACTION_CONFIG.maxTitleLength, 'Should fall back to default max title length for invalid value')
   
-  console.log('✅ getConfig() handles malformed environment variables gracefully')
+  console.log('✅ getConfig() handles malformed environment variables gracefully in compiled JS')
   
   // Clean up
   restoreEnv()
@@ -159,16 +170,16 @@ test('getConfig() properly parses comma-separated keywords', async () => {
     )
   }
   
-  console.log('✅ getConfig() correctly parses comma-separated keywords')
+  console.log('✅ getConfig() correctly parses comma-separated keywords in compiled JS')
   
   // Clean up
   restoreEnv()
 })
 
-test('Configuration maintains type safety', async () => {
+test('Configuration maintains type safety in compiled JavaScript', async () => {
   const config = getConfig()
   
-  // Verify all types match expected ScraperConfig interface
+  // Verify all types are correct in compiled JavaScript
   assert.ok(Array.isArray(config.searchKeywords) && config.searchKeywords.every(k => typeof k === 'string'), 'searchKeywords should be string array')
   assert.ok(typeof config.targetSites === 'object' && typeof config.targetSites.PR_TIMES === 'string', 'targetSites should have proper structure')
   assert.ok(typeof config.browser === 'object', 'browser should be an object')
@@ -180,11 +191,22 @@ test('Configuration maintains type safety', async () => {
   assert.ok(typeof config.extraction.maxTitleLength === 'number', 'maxTitleLength should be number')
   assert.ok(Array.isArray(config.extraction.companyPatterns) && config.extraction.companyPatterns.every(p => p instanceof RegExp), 'companyPatterns should be RegExp array')
   
-  console.log('✅ Configuration maintains proper type safety')
+  console.log('✅ Configuration maintains proper type safety in compiled JavaScript')
+})
+
+test('Module import works correctly', async () => {
+  // Test that we can import the module and access its exports
+  assert.ok(typeof getConfig === 'function', 'getConfig should be a function')
+  assert.ok(SEARCH_KEYWORDS, 'SEARCH_KEYWORDS should be exported')
+  assert.ok(TARGET_SITES, 'TARGET_SITES should be exported')
+  assert.ok(BROWSER_CONFIG, 'BROWSER_CONFIG should be exported')
+  assert.ok(EXTRACTION_CONFIG, 'EXTRACTION_CONFIG should be exported')
+  
+  console.log('✅ Module import works correctly from compiled JavaScript')
 })
 
 // Test Summary
-console.log('\n📋 Variables Configuration Test Summary:')
-console.log('🎯 Test purpose: Verify configuration loading and environment variable support')
+console.log('\n📋 Variables Configuration Test Summary (JavaScript):')
+console.log('🎯 Test purpose: Verify compiled configuration loading and environment variable support')
 console.log('📊 Coverage: Default values, environment overrides, error handling, type safety')
-console.log('✅ All configuration functionality should work correctly')
+console.log('✅ All compiled configuration functionality should work correctly')

@@ -36,9 +36,9 @@ function main() {
     console.log(`🔧 Running: ${command} ${args.join(' ')}`)
   } else {
     // Use TypeScript implementation (default)
-    command = 'npx'
-    scriptPath = 'tsx'
-    args = [scriptPath, join(projectRoot, 'src/main.ts'), ...process.argv.slice(2)]
+    command = 'node'
+    scriptPath = join(projectRoot, 'src/main.ts')
+    args = ['--experimental-strip-types', scriptPath, ...process.argv.slice(2)]
     console.log(`🔧 Running: ${command} ${args.join(' ')}`)
   }
 

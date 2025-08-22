@@ -5,7 +5,7 @@
 
 ## 技術スタック
 - **Nix Flakes**: 再現可能な開発環境
-- **Node.js 22**: APIクライアント実装
+- **Node.js 22**: APIクライアント実装（Native TypeScript support via --experimental-strip-types）
 - **DuckDB**: 高速な分析用データベース
 
 ## 主な機能
@@ -52,7 +52,7 @@ USE_LEGACY=true ./run-scraper.sh
 
 1. **TypeScript実装**（推奨・デフォルト）: `src/main.ts`
    - モジュール化された設計
-   - 型安全性
+   - 型安全性（Node.js native TypeScript support）
    - テスト可能な構造
 
 2. **レガシー実装**: `scrape.mjs`
@@ -155,8 +155,8 @@ corporate_list/
 │   ├── main.ts            # メインエントリーポイント
 │   └── variables.ts       # 設定管理
 ├── test/                  # テストファイル
-│   ├── migration.test.ts  # 移行テスト
-│   └── ...               # その他のテスト
+│   ├── migration.test.js  # 移行テスト
+│   └── *.test.js         # JavaScript テストファイル
 └── README.md              # このファイル
 ```
 

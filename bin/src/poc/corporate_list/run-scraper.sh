@@ -13,7 +13,7 @@ export PLAYWRIGHT_BROWSERS_PATH=$(nix-build --no-out-link '<nixpkgs>' -A chromiu
 export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Check if we're in a nix shell or need to enter one
-if command -v tsx >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+if command -v node >/dev/null 2>&1; then
     # We're in a development shell, use npm script directly
     echo "🚀 Running from development environment"
     exec npm run scrape "$@"
