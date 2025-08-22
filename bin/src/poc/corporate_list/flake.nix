@@ -46,21 +46,20 @@
           '';
         };
         
-        # 環境変数を含むラッパースクリプト（switchover対応）
+        # Bunによる直接実行
         apps.scrape = {
           type = "app";
-          program = "${pkgs.writeShellScript "scrape-with-env" ''
+          program = "${pkgs.writeShellScript "scrape-with-bun" ''
             export PLAYWRIGHT_BROWSERS_PATH=${pkgs.chromium}
             export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
             
-            if [ ! -d node_modules ]; then
-              echo "📦 Installing dependencies..."
-              ${pkgs.nodePackages.pnpm}/bin/pnpm install
+            if [ ! -f bun.lock ]; then
+              echo "📦 Installing dependencies with Bun..."
+              ${pkgs.bun}/bin/bun install
             fi
             
-            # Use switchover script for implementation selection
-            # USE_LEGACY=true uses legacy implementation, default uses TypeScript
-            exec ${pkgs.nodejs_22}/bin/node scripts/switchover.mjs "$@"
+            # Run TypeScript directly with Bun
+            exec ${pkgs.bun}/bin/bun run src/main.ts "$@"
           ''}";
         };
       });

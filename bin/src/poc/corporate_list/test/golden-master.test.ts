@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Golden Master Test for corporate_list scraper
  * 
@@ -6,31 +6,46 @@
  * It compares new runs against a golden master to ensure consistency.
  */
 
-import { test } from 'node:test'
-import { strict as assert } from 'node:assert'
-import { readFileSync, existsSync } from 'node:fs'
-import { execSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { test, expect } from "bun:test"
+import { readFileSync, existsSync } from "node:fs"
+import { execSync } from "node:child_process"
+import { fileURLToPath } from "node:url"
+import { dirname, join } from "node:path"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const projectRoot = dirname(__dirname)
 
+// Define types for our data structures
+interface ScrapedArticle {
+  source: string
+  company_name: string | null
+  title: string
+  url: string
+  scraped_at: string
+}
+
+interface NormalizedArticle {
+  source: string
+  company_name: string | null
+  title: string
+  url: string
+}
+
 // Load golden master data
 const goldenPath = join(__dirname, 'fixtures', 'golden.json')
-let goldenData
+let goldenData: ScrapedArticle[]
 try {
   goldenData = JSON.parse(readFileSync(goldenPath, 'utf8'))
 } catch (error) {
-  console.error('❌ Failed to load golden master data:', error.message)
+  console.error('❌ Failed to load golden master data:', (error as Error).message)
   process.exit(1)
 }
 
 /**
  * Run the scraper and return parsed results
  */
-async function runScraper() {
+async function runScraper(): Promise<ScrapedArticle[]> {
   try {
     // Set environment for chromium
     const env = {
@@ -54,14 +69,14 @@ async function runScraper() {
     
     return JSON.parse(jsonMatch[0])
   } catch (error) {
-    throw new Error(`Failed to run scraper: ${error.message}`)
+    throw new Error(`Failed to run scraper: ${(error as Error).message}`)
   }
 }
 
 /**
  * Normalize data for comparison (remove timestamp fields)
  */
-function normalizeForComparison(data) {
+function normalizeForComparison(data: ScrapedArticle[]): NormalizedArticle[] {
   return data.map(item => ({
     source: item.source,
     company_name: item.company_name,
@@ -74,8 +89,8 @@ function normalizeForComparison(data) {
 /**
  * Compare two datasets with detailed reporting
  */
-function compareDatasets(actual, expected, testName) {
-  const errors = []
+function compareDatasets(actual: NormalizedArticle[], expected: NormalizedArticle[], testName: string): string[] {
+  const errors: string[] = []
   
   // Check total count
   if (actual.length !== expected.length) {
@@ -89,7 +104,7 @@ function compareDatasets(actual, expected, testName) {
     const expectedItem = expected[i]
     
     // Check required fields exist
-    const requiredFields = ['source', 'company_name', 'title', 'url']
+    const requiredFields: (keyof NormalizedArticle)[] = ['source', 'company_name', 'title', 'url']
     for (const field of requiredFields) {
       if (!(field in actualItem)) {
         errors.push(`Item ${i}: Missing field '${field}'`)
@@ -118,9 +133,9 @@ function compareDatasets(actual, expected, testName) {
 /**
  * Check that we have the expected keywords coverage
  */
-function checkKeywordsCoverage(data) {
+function checkKeywordsCoverage(data: ScrapedArticle[]): string[] {
   const expectedKeywords = ["シリーズA", "資金調達", "事業提携"]
-  const errors = []
+  const errors: string[] = []
   
   // We should have around 40 articles per keyword (120 total)
   if (data.length < 90 || data.length > 150) {
@@ -147,17 +162,17 @@ function checkKeywordsCoverage(data) {
 }
 
 // Main Test Suite
-test('Golden Master Test - Corporate List Scraper', async (t) => {
+test('Golden Master Test - Corporate List Scraper', async () => {
   
-  await t.test('Golden master file exists and is valid', () => {
-    assert.ok(existsSync(goldenPath), 'Golden master file should exist')
-    assert.ok(Array.isArray(goldenData), 'Golden master should be an array')
-    assert.ok(goldenData.length > 0, 'Golden master should not be empty')
+  test('Golden master file exists and is valid', () => {
+    expect(existsSync(goldenPath)).toBe(true)
+    expect(Array.isArray(goldenData)).toBe(true)
+    expect(goldenData.length).toBeGreaterThan(0)
     
     console.log(`✅ Golden master loaded: ${goldenData.length} articles`)
   })
   
-  await t.test('Scraper produces consistent structure', async () => {
+  test('Scraper produces consistent structure', async () => {
     console.log('🔄 Running scraper (this may take 1-2 minutes)...')
     const actualData = await runScraper()
     
@@ -179,13 +194,12 @@ test('Golden Master Test - Corporate List Scraper', async (t) => {
     const countDiff = Math.abs(actualData.length - goldenData.length)
     const maxAllowedDiff = 20 // Allow up to 20 articles difference
     
-    assert.ok(countDiff <= maxAllowedDiff, 
-      `Article count difference too large: ${countDiff} (max allowed: ${maxAllowedDiff})`)
+    expect(countDiff).toBeLessThanOrEqual(maxAllowedDiff)
     
     console.log(`✅ Structure validation passed (${structureErrors.length} minor issues)`)
   })
   
-  await t.test('Keywords coverage is maintained', async () => {
+  test('Keywords coverage is maintained', async () => {
     console.log('🔄 Running scraper for keyword coverage test...')
     const actualData = await runScraper()
     
@@ -197,30 +211,30 @@ test('Golden Master Test - Corporate List Scraper', async (t) => {
     }
     
     // This should pass unless there are major issues
-    assert.ok(actualData.length >= 90, 'Should collect at least 90 articles')
-    assert.ok(actualData.length <= 150, 'Should not collect more than 150 articles')
+    expect(actualData.length).toBeGreaterThanOrEqual(90)
+    expect(actualData.length).toBeLessThanOrEqual(150)
     
     console.log(`✅ Keywords coverage validated: ${actualData.length} articles collected`)
   })
   
-  await t.test('Data quality checks', async () => {
+  test('Data quality checks', async () => {
     console.log('🔄 Running scraper for data quality test...')
     const actualData = await runScraper()
     
     // Check that all articles have required fields
-    for (const [index, article] of actualData.entries()) {
-      assert.ok(article.source, `Article ${index}: should have source`)
-      assert.ok(article.title, `Article ${index}: should have title`)
-      assert.ok(article.url, `Article ${index}: should have URL`)
-      assert.ok(article.url.includes('prtimes.jp'), `Article ${index}: URL should be from PR TIMES`)
+    actualData.forEach((article, index) => {
+      expect(article.source).toBeTruthy()
+      expect(article.title).toBeTruthy()
+      expect(article.url).toBeTruthy()
+      expect(article.url).toContain('prtimes.jp')
       
       // company_name can be null (as per original implementation)
-      assert.ok(article.hasOwnProperty('company_name'), `Article ${index}: should have company_name field`)
+      expect(article).toHaveProperty('company_name')
       
       // Should have scraped_at timestamp
-      assert.ok(article.scraped_at, `Article ${index}: should have scraped_at timestamp`)
-      assert.ok(new Date(article.scraped_at).getTime() > 0, `Article ${index}: scraped_at should be valid date`)
-    }
+      expect(article.scraped_at).toBeTruthy()
+      expect(new Date(article.scraped_at).getTime()).toBeGreaterThan(0)
+    })
     
     console.log(`✅ Data quality checks passed for ${actualData.length} articles`)
   })

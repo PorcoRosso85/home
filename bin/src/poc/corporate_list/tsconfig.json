@@ -15,6 +15,7 @@
     "outDir": "./dist",
     "rootDir": "./",
     "types": ["node"],
+    "typeRoots": ["./types", "./node_modules/@types"],
     "lib": ["ES2022"],
     "noEmit": false,
     "isolatedModules": true
@@ -27,12 +28,12 @@
     "**/*.js",
     "**/*.mjs",
     "**/*.cjs",
-    "**/*.jsx"
+    "**/*.jsx",
+    "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "**/*.d.ts"
+    "dist"
   ],
   "ts-node": {
     "esm": true

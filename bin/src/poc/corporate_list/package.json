@@ -4,27 +4,9 @@
   "type": "module",
   "scripts": {
     "scrape": "bun run src/main.ts",
-    "scrape:node": "node scripts/switchover.mjs",
-    "scrape:legacy": "node scrape.mjs",
-    "scrape:bun": "bun run src/main.ts",
-    "test": "node --test test/golden-master.test.js",
-    "test:golden": "node --test test/golden-master.test.js",
-    "test:validate": "node test/validate-golden.js",
-    "test:ts": "node --test test/typescript-env.test.ts",
-    "test:main": "node --test test/main.test.ts",
-    "test:migration": "node --experimental-strip-types --test test/migration.test.ts",
-    "test:switchover": "node --test test/switchover-simple.test.js",
-    "test:all": "npm run test && npm run test:ts && npm run test:main && npm run test:switchover",
-    "test:js:env": "node --test test/typescript-env.test.js",
-    "test:js:main": "node --test test/main.test.js",
-    "test:js:variables": "node --test test/variables.test.js",
-    "test:js:browser": "node --test test/infrastructure/browser.test.js",
-    "test:js:scraper": "node --test test/domain/scraper.test.js",
-    "test:js:extractor": "node --test test/domain/extractor.test.js",
-    "test:js:migration": "node --test test/migration.test.js",
-    "test:js:all": "npm run test:js:env && npm run test:js:main && npm run test:js:variables && npm run test:js:browser && npm run test:js:scraper && npm run test:js:extractor && npm run test:js:migration",
-    "test:bun": "bun test test",
-    "test:bun:simple": "bun test test/variables.test.js test/typescript-env.test.js"
+    "test": "bun test",
+    "test:golden": "bun test test/golden-master.test.ts",
+    "test:watch": "bun test --watch"
   },
   "dependencies": {
     "playwright-core": "^1.49.1"
