@@ -26,7 +26,26 @@
         # パッケージ提供（これだけでOK！）
         packages.default = scrapeTools;
         
-        # 環境変数を含むラッパースクリプト（オプション）
+        # 開発環境
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            nodejs_22
+            nodePackages.pnpm
+            nodePackages.typescript
+            chromium
+            jq
+          ];
+          
+          shellHook = ''
+            export PLAYWRIGHT_BROWSERS_PATH=${pkgs.chromium}
+            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+            echo "🚀 Development environment ready!"
+            echo "Available commands: node, pnpm, tsc"
+            echo "Note: tsx available via npm (already installed locally)"
+          '';
+        };
+        
+        # 環境変数を含むラッパースクリプト（switchover対応）
         apps.scrape = {
           type = "app";
           program = "${pkgs.writeShellScript "scrape-with-env" ''
@@ -38,7 +57,9 @@
               ${pkgs.nodePackages.pnpm}/bin/pnpm install
             fi
             
-            exec ${pkgs.nodejs_22}/bin/node scrape.mjs "$@"
+            # Use switchover script for implementation selection
+            # USE_LEGACY=true uses legacy implementation, default uses TypeScript
+            exec ${pkgs.nodejs_22}/bin/node scripts/switchover.mjs "$@"
           ''}";
         };
       });

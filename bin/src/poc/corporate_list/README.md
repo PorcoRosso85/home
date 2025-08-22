@@ -30,7 +30,74 @@ npm install
 
 ## 使用方法
 
-### データの取得
+### スクレイピング実行
+```bash
+# デフォルト（TypeScript実装）
+npm run scrape
+
+# レガシー実装を使用
+USE_LEGACY=true npm run scrape
+
+# Nix環境での実行
+nix run .#scrape
+
+# シェルスクリプト経由での実行
+./run-scraper.sh
+USE_LEGACY=true ./run-scraper.sh
+```
+
+### 実装の切り替え（Production Migration）
+
+本プロジェクトは安全な本番移行のために、2つの実装を並行実行できる切り替え機能を提供しています：
+
+1. **TypeScript実装**（推奨・デフォルト）: `src/main.ts`
+   - モジュール化された設計
+   - 型安全性
+   - テスト可能な構造
+
+2. **レガシー実装**: `scrape.mjs`
+   - 元の単一ファイル実装
+   - 既存の動作を保持
+
+#### 切り替え方法
+
+**環境変数による切り替え:**
+```bash
+# TypeScript実装（デフォルト）
+npm run scrape
+
+# レガシー実装
+USE_LEGACY=true npm run scrape
+```
+
+**直接実行:**
+```bash
+# TypeScript実装
+npm run scrape:ts
+
+# レガシー実装
+npm run scrape:legacy
+```
+
+#### 移行テスト
+
+両実装の互換性を確認するテストを実行：
+```bash
+# 移行テストのみ
+npm run test:migration
+
+# 全テスト実行
+npm run test:all
+```
+
+#### ロールバック手順
+
+問題が発生した場合、即座にレガシー実装に戻せます：
+```bash
+USE_LEGACY=true npm run scrape
+```
+
+### データの取得（将来実装予定）
 ```bash
 # 全法人データの初期取得
 npm run fetch:initial
@@ -73,15 +140,48 @@ npm run query -- "SELECT * FROM corporations WHERE name LIKE '%株式会社%' LI
 ### ディレクトリ構造
 ```
 corporate_list/
-├── flake.nix          # Nix開発環境定義
-├── package.json       # Node.js依存関係
-├── src/              # ソースコード
-│   ├── api/          # API クライアント
-│   ├── db/           # DuckDB操作
-│   └── utils/        # ユーティリティ
-├── data/             # データ格納ディレクトリ
-│   └── corporate.db  # DuckDBデータベース
-└── README.md         # このファイル
+├── flake.nix              # Nix開発環境定義
+├── package.json           # Node.js依存関係
+├── scrape.mjs             # レガシー実装（単一ファイル）
+├── scripts/
+│   └── switchover.mjs     # 実装切り替えスクリプト
+├── src/                   # TypeScript実装
+│   ├── domain/
+│   │   ├── scraper.ts     # スクレイピングロジック
+│   │   ├── extractor.ts   # データ抽出ロジック
+│   │   └── types.ts       # 型定義
+│   ├── infrastructure/
+│   │   └── browser.ts     # ブラウザ管理
+│   ├── main.ts            # メインエントリーポイント
+│   └── variables.ts       # 設定管理
+├── test/                  # テストファイル
+│   ├── migration.test.ts  # 移行テスト
+│   └── ...               # その他のテスト
+└── README.md              # このファイル
+```
+
+### 技術的詳細
+
+#### 切り替え機能の仕組み
+
+1. **switchover.mjs**: 環境変数 `USE_LEGACY` を検査して適切な実装を起動
+2. **同一の出力形式**: 両実装とも同じJSON形式で結果を出力
+3. **環境変数の継承**: 全ての環境変数が子プロセスに継承される
+4. **シグナル処理**: SIGINT/SIGTERMを適切に子プロセスに転送
+
+#### 出力形式の互換性
+
+両実装は以下の形式でデータを出力します：
+```json
+[
+  {
+    "source": "PR_TIMES",
+    "company_name": "株式会社Example",
+    "title": "記事タイトル",
+    "url": "https://example.com/article",
+    "scraped_at": "2025-08-22T12:34:56.789Z"
+  }
+]
 ```
 
 ### テスト
