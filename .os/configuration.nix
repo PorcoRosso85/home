@@ -41,15 +41,12 @@
     git
     gh
     htop
+    tmux
     helix
     lazygit
     yazi
     nushell
     bash-language-server
-    fzf
-    fd
-    ripgrep
-    bat
   ];
 
   # Services
