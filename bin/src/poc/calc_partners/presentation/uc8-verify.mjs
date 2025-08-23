@@ -60,4 +60,7 @@ async function main() {
   console.log('\n✨ kuzu-wasmによる計算完了（プロセス終了）');
 }
 
-main().catch(console.error);
+main().then(() => process.exit(0)).catch(err => {
+  console.error(err);
+  process.exit(1);
+});
