@@ -6,8 +6,8 @@
 
 import { getConfig, type ScraperConfig } from './variables.js'
 import { createBrowserManager } from './infrastructure/browser.js'
-import { ScraperFactory } from './domain/scraper-factory.js'
-import type { ScrapedResult, ScrapeConfig } from './domain/types.js'
+import { createPRTimesScraperClient } from './infrastructure/scraper-client.js'
+import type { ScrapedResult, ScrapeConfig } from '../../scrape_ts/scraper-core/src/mod.js'
 
 // ========== 1. 設定 ==========
 // Configuration is now loaded from variables.ts with environment variable support
@@ -34,7 +34,7 @@ async function main(): Promise<void> {
     
     // スクレイピング実行
     const allResults: ScrapedResult[] = []
-    const scraper = ScraperFactory.createPRTimesScraper(scrapeConfig)
+    const scraper = createPRTimesScraperClient(scrapeConfig)
     
     for (const keyword of config.searchKeywords) {
       const results = await scraper.scrape(browser, keyword)

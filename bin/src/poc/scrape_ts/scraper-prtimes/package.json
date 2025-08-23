@@ -22,7 +22,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@corporate-list/scraper-core": "workspace:*",
+    "scraper-core": "file:../scraper-core",
     "playwright-core": "^1.40.0"
   },
   "devDependencies": {

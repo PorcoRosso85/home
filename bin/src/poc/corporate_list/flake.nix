@@ -4,12 +4,17 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    scraper.url = "path:../scrape_ts";  # 外部スクレイパーパッケージ
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, scraper }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        
+        # 外部スクレイパーパッケージを参照
+        scraperCore = scraper.packages.${system}.scraper-core;
+        scraperPrtimes = scraper.packages.${system}.scraper-prtimes;
         
         # パッケージ定義（Single Source of Truth）
         scrapeTools = pkgs.buildEnv {

@@ -3,8 +3,9 @@
  * 新パッケージからスクレイパーを取得する責務
  */
 
-import { createPRTimesScraper } from '../../packages/scraper-prtimes/src/mod.js'
-import type { IScraper, BrowserConfig, ScrapeConfig } from '../../packages/scraper-core/src/mod.js'
+// 外部パッケージから読み込み（flake.nixで管理）
+import { createPRTimesScraper } from '../../../scrape_ts/scraper-prtimes/src/mod.js'
+import type { IScraper, BrowserConfig, ScrapeConfig } from '../../../scrape_ts/scraper-core/src/mod.js'
 
 /**
  * ScrapeConfigをBrowserConfigに変換する
