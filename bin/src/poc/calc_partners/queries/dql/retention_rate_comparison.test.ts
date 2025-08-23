@@ -1,5 +1,5 @@
 /**
- * Test for UC5: Retention Rate Comparison
+ * Test for Retention Rate Comparison
  * Business Value: Compare customer retention across different partner channels
  */
 
@@ -13,7 +13,7 @@ import {
   createPartnerRelationships 
 } from './test-helper.ts'
 
-test('UC5: Retention Rate Comparison - should compare retention across partner channels', async () => {
+test('Retention Rate Comparison - should compare retention across partner channels', async () => {
   const { conn, close } = await setupTestDatabase()
   
   try {
@@ -50,7 +50,7 @@ test('UC5: Retention Rate Comparison - should compare retention across partner c
     assert(typeof rows[0].avg_retention_rate === 'number', 'Should have average retention rate')
     assert(rows[0].customer_count !== undefined, 'Should have customer count')
     
-    console.log('✅ UC5 test passed: Retention rate comparison calculated correctly')
+    console.log('✅ Test passed: Retention rate comparison calculated correctly')
     await result.close()
   } finally {
     await close()

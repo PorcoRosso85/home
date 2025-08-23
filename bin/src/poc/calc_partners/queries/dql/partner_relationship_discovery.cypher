@@ -1,5 +1,5 @@
 // ============================================================================
-// UC6: Strategic Partner Network Analysis through Relationship Discovery
+// Strategic Partner Network Analysis through Relationship Discovery
 // ============================================================================
 //
 // BUSINESS OBJECTIVE:

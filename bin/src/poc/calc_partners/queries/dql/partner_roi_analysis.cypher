@@ -1,4 +1,4 @@
-// UC2: Partner ROI Analysis
+// Partner ROI Analysis
 // Business Value: Identifies profitable vs. unprofitable partner relationships
 // Key Insights: 
 // - Which partners generate net positive value after reward payments

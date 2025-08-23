@@ -1,5 +1,5 @@
 /**
- * Test for UC2: Partner ROI Analysis
+ * Test for Partner ROI Analysis
  * Business Value: Calculate net profit per partner considering costs
  */
 
@@ -13,7 +13,7 @@ import {
   createPartnerRelationships 
 } from './test-helper.ts'
 
-test('UC2: Partner ROI Analysis - should calculate net profit per partner', async () => {
+test('Partner ROI Analysis - should calculate net profit per partner', async () => {
   const { conn, close } = await setupTestDatabase()
   
   try {
@@ -36,7 +36,7 @@ test('UC2: Partner ROI Analysis - should calculate net profit per partner', asyn
     assert(typeof rows[0].total_customer_value === 'number', 'Should have total customer value')
     assert(typeof rows[0].net_profit === 'number', 'Should have net profit')
     
-    console.log('✅ UC2 test passed: Partner ROI calculated correctly')
+    console.log('✅ Test passed: Partner ROI calculated correctly')
     await result.close()
   } finally {
     await close()

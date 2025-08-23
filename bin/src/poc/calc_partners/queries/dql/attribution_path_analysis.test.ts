@@ -1,5 +1,5 @@
 /**
- * Test for UC7: Attribution Path Analysis
+ * Test for Attribution Path Analysis
  * Business Value: Track multi-touchpoint customer attribution across channels
  */
 
@@ -15,7 +15,7 @@ import {
   createCampaignInteractions 
 } from './test-helper.ts'
 
-test('UC7: Attribution Path Analysis - should analyze multi-touchpoint attribution paths', async () => {
+test('Attribution Path Analysis - should analyze multi-touchpoint attribution paths', async () => {
   const { conn, close } = await setupTestDatabase()
   
   try {
@@ -65,7 +65,7 @@ test('UC7: Attribution Path Analysis - should analyze multi-touchpoint attributi
     assert(!isNaN(campaignScore) && campaignScore >= 0, `Campaign attribution score should be a valid number, got: ${campaignScore}`)
     assert(!isNaN(partnerScore) && partnerScore >= 0, `Partner attribution score should be a valid number, got: ${partnerScore}`)
     
-    console.log('✅ UC7 test passed: Attribution path analysis calculated correctly')
+    console.log('✅ Test passed: Attribution path analysis calculated correctly')
     await result.close()
   } finally {
     await close()

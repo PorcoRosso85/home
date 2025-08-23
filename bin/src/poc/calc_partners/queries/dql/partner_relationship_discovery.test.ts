@@ -1,5 +1,5 @@
 /**
- * Test for UC6: Partner Relationship Discovery
+ * Test for Partner Relationship Discovery
  * Business Value: Identify partner network relationships and collaboration opportunities
  */
 
@@ -13,7 +13,7 @@ import {
   createPartnerRelationships 
 } from './test-helper.ts'
 
-test('UC6: Partner Relationship Discovery - should discover partner network relationships', async () => {
+test('Partner Relationship Discovery - should discover partner network relationships', async () => {
   const { conn, close } = await setupTestDatabase()
   
   try {
@@ -54,7 +54,7 @@ test('UC6: Partner Relationship Discovery - should discover partner network rela
     const scoreValue = Number(rows[0].relationship_strength_score)
     assert(!isNaN(scoreValue) && scoreValue > 0, `Relationship strength score should be a positive number, got: ${scoreValue}`)
     
-    console.log('✅ UC6 test passed: Partner relationship discovery calculated correctly')
+    console.log('✅ Test passed: Partner relationship discovery calculated correctly')
     await result.close()
   } finally {
     await close()

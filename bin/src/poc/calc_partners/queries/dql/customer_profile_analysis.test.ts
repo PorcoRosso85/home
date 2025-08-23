@@ -1,5 +1,5 @@
 /**
- * Test for UC4: Customer Profile Analysis by Partner
+ * Test for Customer Profile Analysis by Partner
  * Business Value: Understand customer demographics and behavior patterns per partner
  */
 
@@ -13,7 +13,7 @@ import {
   createPartnerRelationships 
 } from './test-helper.ts'
 
-test('UC4: Customer Profile Analysis - should analyze customer demographics by partner', async () => {
+test('Customer Profile Analysis - should analyze customer demographics by partner', async () => {
   const { conn, close } = await setupTestDatabase()
   
   try {
@@ -53,7 +53,7 @@ test('UC4: Customer Profile Analysis - should analyze customer demographics by p
     assert(!isNaN(totalCustomers), 'Total customers should be a valid number')
     assert(!isNaN(avgLtv), 'Average LTV should be a valid number')
     
-    console.log('✅ UC4 test passed: Customer profile analysis calculated correctly')
+    console.log('✅ Test passed: Customer profile analysis calculated correctly')
     await result.close()
   } finally {
     await close()

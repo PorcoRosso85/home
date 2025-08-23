@@ -1,4 +1,4 @@
-// UC3: Reward Plan Simulation (What-If Analysis)
+// Reward Plan Simulation (What-If Analysis)
 // Business Value: Risk-free testing of new reward structures before implementation
 // Key Insights:
 // - Predict financial impact of different reward rates

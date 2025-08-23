@@ -1,4 +1,4 @@
-// UC1: Partner LTV Ranking
+// Partner LTV Ranking
 // Business Value: Identify most profitable partners at a glance
 // 
 // This query answers the critical question: "Which partners are bringing the most valuable customers?"

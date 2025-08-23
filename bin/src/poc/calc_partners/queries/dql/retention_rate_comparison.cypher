@@ -1,5 +1,5 @@
 // ============================================================================
-// UC5: Partner Channel Value Validation through Retention Rate Comparison
+// Partner Channel Value Validation through Retention Rate Comparison
 // ============================================================================
 //
 // BUSINESS OBJECTIVE:

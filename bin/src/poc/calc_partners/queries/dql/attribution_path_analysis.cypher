@@ -1,5 +1,5 @@
 // ============================================================================
-// UC7: Multi-Touchpoint Attribution Analysis for Revenue Optimization
+// Multi-Touchpoint Attribution Analysis for Revenue Optimization
 // ============================================================================
 //
 // BUSINESS OBJECTIVE:

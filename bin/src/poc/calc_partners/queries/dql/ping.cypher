@@ -37,13 +37,13 @@ RETURN
   'KuzuDB' AS database_type,
   CASE 
     WHEN include_stats THEN 
-      STRUCT(
+      {
         partners: partner_count,
         transactions: transaction_count,
         rewards: reward_count,
         rules: rule_count,
         total_nodes: partner_count + transaction_count + reward_count + rule_count
-      )
+      }
     ELSE NULL
   END AS statistics,
   CASE 

@@ -1,4 +1,4 @@
-// UC4: Customer Profile Analysis by Partner
+// Customer Profile Analysis by Partner
 // Business Value: Understand partner specializations and customer quality patterns
 // Key Insights:
 // - Which partners consistently bring high-value customers

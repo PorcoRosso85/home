@@ -1,5 +1,5 @@
 /**
- * UC8: Reward Model Generator Test
+ * Reward Model Generator Test
  * 
  * 経営者の痛み: 「3日間悩んでも最適な報酬モデルが決められない」
  * 解決: 業界標準に基づく3つの明確な選択肢を即座に提示
@@ -9,7 +9,7 @@ import { test } from 'node:test'
 import assert from 'node:assert'
 import { setupTestDatabase, loadQuery } from './test-helper.ts'
 
-test('UC8: 報酬モデル・ジェネレーター - CEOの3日間の悩みを3分で解決', async () => {
+test('報酬モデル・ジェネレーター - CEOの3日間の悩みを3分で解決', async () => {
   const { conn, close } = await setupTestDatabase()
   
   try {
@@ -73,7 +73,7 @@ test('UC8: 報酬モデル・ジェネレーター - CEOの3日間の悩みを3�
   }
 })
 
-test('UC8: CPA超過シナリオでも適切な警告', async () => {
+test('CPA超過シナリオでも適切な警告', async () => {
   const { conn, close } = await setupTestDatabase()
   
   try {

@@ -1,5 +1,5 @@
 /**
- * Test for UC1: Partner LTV Ranking (Entity Structure)
+ * Test for Partner LTV Ranking (Entity Structure)
  * Business Value: Identify most profitable partners at a glance
  * 
  * This test uses the Entity structure instead of separate Partner/Customer tables.
@@ -17,7 +17,7 @@ import {
   createPartnerRelationships 
 } from './test-helper.ts'
 
-test('UC1: Partner LTV Ranking (Entity) - should rank partners by total customer LTV', async () => {
+test('Partner LTV Ranking (Entity) - should rank partners by total customer LTV', async () => {
   const { conn, close } = await setupTestDatabase()
   
   try {
@@ -81,7 +81,7 @@ test('UC1: Partner LTV Ranking (Entity) - should rank partners by total customer
       }
     }
     
-    console.log('✅ UC1 Entity test passed: Query successfully works with Entity structure')
+    console.log('✅ Entity test passed: Query successfully works with Entity structure')
     console.log('📊 Results:')
     rows.forEach((row, i) => {
       console.log(`   ${i + 1}. ${row.partner_name}: ${row.customer_count} customers, $${row.total_ltv} LTV`)

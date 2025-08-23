@@ -1,5 +1,5 @@
 /**
- * Test for UC3: Reward Plan Simulation (What-If Analysis)
+ * Test for Reward Plan Simulation (What-If Analysis)
  * Business Value: Risk-free testing of new reward structures before implementation
  */
 
@@ -13,7 +13,7 @@ import {
   createPartnerRelationships 
 } from './test-helper.ts'
 
-test('UC3: Reward Plan Simulation - should simulate different reward scenarios', async () => {
+test('Reward Plan Simulation - should simulate different reward scenarios', async () => {
   const { conn, close } = await setupTestDatabase()
   
   try {
@@ -46,7 +46,7 @@ test('UC3: Reward Plan Simulation - should simulate different reward scenarios',
     assert(typeof rows[0].predicted_total_payment === 'number', 'Should have predicted total payment')
     assert(rows[0].customers_affected !== undefined || rows[0].customer_count !== undefined, 'Should have customers affected or customer_count')
     
-    console.log('✅ UC3 test passed: Reward plan simulation calculated correctly')
+    console.log('✅ Test passed: Reward plan simulation calculated correctly')
     await result.close()
   } finally {
     await close()
