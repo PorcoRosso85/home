@@ -98,7 +98,7 @@ export function loadQuery(filename: string): string {
              !trimmed.startsWith('/*')
     })
     .filter(line => !line.includes('┌') && !line.includes('│') && !line.includes('└'))
-    .join(' ')
+    .join('\n')  // Use newline instead of space to preserve structure
     .replace(/;.*$/, '')
     .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
 }
