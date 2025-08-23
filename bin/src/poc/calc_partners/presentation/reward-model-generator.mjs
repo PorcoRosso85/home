@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-// UC8専用POC - 「報酬モデル・ジェネレーター」のみ
+// 報酬モデル・ジェネレーター - 3つの最適プランを自動生成
 
 import { createRequire } from 'module';
+import { REWARD_PLANS, DEFAULTS } from './variables.mjs';
+
 const require = createRequire(import.meta.url);
 const kuzu = require('kuzu-wasm/nodejs');
 
@@ -19,7 +21,9 @@ async function main() {
   console.log('- 平均契約期間: 24ヶ月');
   console.log('- 許容CPA: 160,000円\n');
   
-  // ハードコードされた「専門家の初期提案」
+  // variables.mjsから取得したプラン定義を使用
+  const plans = Object.values(REWARD_PLANS);
+  
   const query = `
     WITH 20000 AS monthlyPrice, 
          24 AS avgContractMonths, 
@@ -28,29 +32,29 @@ async function main() {
     // LTV計算
     WITH monthlyPrice * avgContractMonths AS ltv, maxCPA
     
-    // 専門家として提案する3つのプラン（ハードコード = プロの意見）
+    // variables.mjsから取得したプラン定義を基に計算
     WITH ltv, maxCPA,
     [
       {
-        name: '手堅く始める',
-        description: 'リスクを最小限に、成果が出た分だけ支払い',
-        structure: '売上の15%を12ヶ月間',
-        cost: ltv * 0.15 * 0.5,  // 12ヶ月/24ヶ月 = 0.5
-        reason: '初めてのパートナープログラムに最適'
+        name: '${plans[0].name}',
+        description: '${plans[0].tagline}',
+        structure: '${plans[0].structure}',
+        cost: ltv * ${plans[0].formula.revenueShareRate} * ${plans[0].formula.durationMultiplier},
+        reason: '${plans[0].bestFor}'
       },
       {
-        name: '有力パートナー向け',
-        description: '初期インセンティブ＋継続報酬のバランス型',
-        structure: '初期3万円＋売上の10%永続',
-        cost: 30000 + ltv * 0.10,
-        reason: '実績のあるパートナーを引き付ける'
+        name: '${plans[1].name}',
+        description: '${plans[1].tagline}',
+        structure: '${plans[1].structure}',
+        cost: ${plans[1].formula.initialBonus} + ltv * ${plans[1].formula.revenueShareRate},
+        reason: '${plans[1].bestFor}'
       },
       {
-        name: '市場支配を狙う',
-        description: '報酬率を高めに設定し、急速拡大',
-        structure: '月間紹介数に応じて15-35%の階層報酬',
-        cost: ltv * 0.25,  // 平均25%で計算
-        reason: '競合からパートナーを奪い取る'
+        name: '${plans[2].name}',
+        description: '${plans[2].tagline}',
+        structure: '${plans[2].structure}',
+        cost: ltv * ${plans[2].formula.revenueShareRate},
+        reason: '${plans[2].bestFor}'
       }
     ] AS plans
     
