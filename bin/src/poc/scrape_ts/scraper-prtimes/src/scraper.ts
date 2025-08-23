@@ -9,8 +9,8 @@ import {
   createNavigator, 
   withRetry,
   type IScraper 
-} from 'scraper-core'
-import type { ScrapedResult, BrowserConfig } from 'scraper-core'
+} from '../../scraper-core/src/mod.js'
+import type { ScrapedResult, BrowserConfig } from '../../scraper-core/src/mod.js'
 import { parsePRTimesArticles, extractCompanyName, type ArticleData } from './parser.js'
 import { PRTIMES_CONFIG, DEFAULT_MAX_TITLE_LENGTH } from './constants.js'
 
