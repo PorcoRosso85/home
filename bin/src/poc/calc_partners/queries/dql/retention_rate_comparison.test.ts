@@ -39,7 +39,7 @@ test('UC5: Retention Rate Comparison - should compare retention across partner c
     await conn.query(`MATCH (p:Entity {id: 3}), (c:Entity {id: 203}) CREATE (p)-[:INTERACTION {type: 'churned', interaction_date: '2024-01-01'}]->(c)`)
     
     // Execute query
-    const query = loadQuery('./uc5_retention_rate_comparison.cypher')
+    const query = loadQuery('./retention_rate_comparison.cypher')
     const result = await conn.query(query)
     const rows = await result.getAllObjects()
     

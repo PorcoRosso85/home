@@ -48,7 +48,7 @@ test('UC7: Attribution Path Analysis - should analyze multi-touchpoint attributi
     await conn.query(`MATCH (cust:Entity {id: 401}) CREATE (cust)-[:INTERACTION {type: 'converted', interaction_date: '2024-01-15'}]->(cust)`)
     
     // Execute query
-    const query = loadQuery('./uc7_attribution_path_analysis.cypher')
+    const query = loadQuery('./attribution_path_analysis.cypher')
     const result = await conn.query(query)
     const rows = await result.getAllObjects()
     

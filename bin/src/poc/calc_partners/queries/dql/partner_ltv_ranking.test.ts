@@ -38,7 +38,7 @@ test('UC1: Partner LTV Ranking (Entity) - should rank partners by total customer
     
     // Execute the Entity-aware query (this should PASS - GREEN phase of TDD)
     // The query has been updated to use Entity/Contract structure
-    const query = loadQuery('./uc1_partner_ltv_ranking.cypher')
+    const query = loadQuery('./partner_ltv_ranking.cypher')
     
     // Execute query and verify results
     const result = await conn.query(query)

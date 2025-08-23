@@ -26,7 +26,7 @@ test('UC2: Partner ROI Analysis - should calculate net profit per partner', asyn
     // No need to create actual reward data for this analysis
     
     // Execute query
-    const query = loadQuery('./uc2_partner_roi_analysis.cypher')
+    const query = loadQuery('./partner_roi_analysis.cypher')
     const result = await conn.query(query)
     const rows = await result.getAllObjects()
     

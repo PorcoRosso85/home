@@ -34,7 +34,7 @@ test('UC3: Reward Plan Simulation - should simulate different reward scenarios',
     `)
     
     // Execute query
-    const query = loadQuery('./uc3_reward_plan_simulation.cypher')
+    const query = loadQuery('./reward_plan_simulation.cypher')
     const result = await conn.query(query)
     const rows = await result.getAllObjects()
     

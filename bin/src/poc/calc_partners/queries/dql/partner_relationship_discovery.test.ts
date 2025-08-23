@@ -39,7 +39,7 @@ test('UC6: Partner Relationship Discovery - should discover partner network rela
     await conn.query(`MATCH (p:Entity {id: 2}), (c:Entity {id: 201}) CREATE (p)-[:INTERACTION {type: 'introduced', interaction_date: '2024-01-15'}]->(c)`)
     
     // Execute query
-    const query = loadQuery('./uc6_partner_relationship_discovery.cypher')
+    const query = loadQuery('./partner_relationship_discovery.cypher')
     const result = await conn.query(query)
     const rows = await result.getAllObjects()
     

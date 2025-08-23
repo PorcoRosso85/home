@@ -35,7 +35,7 @@ test('UC4: Customer Profile Analysis - should analyze customer demographics by p
     await conn.query(`MATCH (p:Entity {id: 2}), (c:Entity {id: 202}) CREATE (p)-[:INTERACTION {type: 'introduced', interaction_date: '2024-03-05'}]->(c)`)
     
     // Execute query with partner name parameter
-    const query = loadQuery('./uc4_customer_profile_analysis.cypher')
+    const query = loadQuery('./customer_profile_analysis.cypher')
     // Replace parameter placeholder with actual value
     const queryWithParam = query.replace(/\$partnerName/g, "'Partner A'")
     const result = await conn.query(queryWithParam)
