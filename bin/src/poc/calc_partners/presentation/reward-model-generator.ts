@@ -57,7 +57,7 @@ async function generatePlansWithKuzu(userInput: UserInput): Promise<PlanCalculat
     `;
     
     const validationResult = await executeTestQuery(conn, validationQuery);
-    console.log('データ検証:', validationResult[0].result);
+    console.log('  ✔ KuzuDB検証完了:', validationResult[0].result);
     
     // 各プランを計算
     const results: PlanCalculationResult[] = plans.map(plan => {
@@ -107,40 +107,46 @@ async function generatePlansWithKuzu(userInput: UserInput): Promise<PlanCalculat
 }
 
 function displayResults(plans: PlanCalculationResult[]): void {
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  console.log('🎯 あなたの会社に最適な3つのプラン:\n');
+  console.log('\n╔════════════════════════════════════════════╗');
+  console.log('║     🎯 最適な報酬プラン提案結果           ║');
+  console.log('╚════════════════════════════════════════════╝\n');
   
   plans.forEach((plan, i) => {
     const emoji = plan.evaluation.profitMarginRating === 'excellent' ? '⭐' : 
                   plan.evaluation.profitMarginRating === 'good' ? '👍' : 
                   plan.evaluation.profitMarginRating === 'acceptable' ? '✅' : '⚠️';
     
-    console.log(`【プラン${i+1}】${plan.planName} ${emoji}`);
-    console.log(`  ${plan.description}`);
-    console.log(`  主な理由: ${plan.primaryReason}`);
-    console.log(`  報酬体系: ${plan.structure}`);
-    console.log(`  リスクレベル: ${plan.riskLevel}`);
-    console.log(`  パートナーへの支払: ${ENV_CONFIG.currencySymbol}${plan.partnerCost.toLocaleString(ENV_CONFIG.locale)}`);
-    console.log(`  あなたの利益: ${ENV_CONFIG.currencySymbol}${plan.yourProfit.toLocaleString(ENV_CONFIG.locale)}`);
-    console.log(`  利益率: ${plan.profitMargin}% (${plan.evaluation.profitMarginRating})`);
-    console.log(`  ROI: ${plan.roi}% (${plan.evaluation.roiRating})`);
-    console.log(`  投資回収期間: ${plan.paybackPeriod}ヶ月`);
-    console.log(`  推奨シーン: ${plan.bestFor}\n`);
+    console.log(`┌─ プラン${i+1}: ${plan.planName} ${emoji}`);
+    console.log(`│  ${plan.description}`);
+    console.log(`├─ 採用理由: ${plan.primaryReason}`);
+    console.log(`├─ 報酬体系: ${plan.structure}`);
+    console.log(`├─ リスク:   ${plan.riskLevel}`);
+    console.log(`├─ 財務指標:`);
+    console.log(`│  • パートナーコスト: ${ENV_CONFIG.currencySymbol}${plan.partnerCost.toLocaleString(ENV_CONFIG.locale)}`);
+    console.log(`│  • あなたの利益:     ${ENV_CONFIG.currencySymbol}${plan.yourProfit.toLocaleString(ENV_CONFIG.locale)}`);
+    console.log(`│  • 利益率:           ${plan.profitMargin}% (${plan.evaluation.profitMarginRating})`);
+    console.log(`│  • ROI:              ${plan.roi}% (${plan.evaluation.roiRating})`);
+    console.log(`│  • 投資回収:         ${plan.paybackPeriod}ヶ月`);
+    console.log(`└─ 推奨場面: ${plan.bestFor}\n`);
   });
   
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  console.log('📊 月次シミュレーション:\n');
+  console.log('╔════════════════════════════════════════════╗');
+  console.log('║     📊 月次収支シミュレーション           ║');
+  console.log('╚════════════════════════════════════════════╝\n');
   
   plans.forEach(plan => {
-    console.log(`【${plan.planName}】`);
-    console.log(`  月間収益: ${ENV_CONFIG.currencySymbol}${plan.monthlyRevenue.toLocaleString(ENV_CONFIG.locale)}`);
-    console.log(`  月間コスト: ${ENV_CONFIG.currencySymbol}${plan.monthlyCost.toLocaleString(ENV_CONFIG.locale)}`);
-    console.log(`  月間利益: ${ENV_CONFIG.currencySymbol}${plan.monthlyProfit.toLocaleString(ENV_CONFIG.locale)}\n`);
+    console.log(`┌─ ${plan.planName}`);
+    console.log(`│  収益:   ${ENV_CONFIG.currencySymbol}${plan.monthlyRevenue.toLocaleString(ENV_CONFIG.locale)}`);
+    console.log(`│  コスト: ${ENV_CONFIG.currencySymbol}${plan.monthlyCost.toLocaleString(ENV_CONFIG.locale)}`);
+    console.log(`└─ 利益:   ${ENV_CONFIG.currencySymbol}${plan.monthlyProfit.toLocaleString(ENV_CONFIG.locale)}\n`);
   });
 }
 
 async function main(): Promise<void> {
-  console.log('💎 UC8: 報酬モデル・ジェネレーター（TypeScript + infra層統合版）\n');
+  console.log('╔════════════════════════════════════════════╗');
+  console.log('║  💎 UC8: 報酬モデル・ジェネレーター       ║');
+  console.log('║     TypeScript + KuzuDB統合版             ║');
+  console.log('╚════════════════════════════════════════════╝\n');
   
   const userInput: UserInput = {
     monthlyPrice: 20000,
@@ -150,18 +156,24 @@ async function main(): Promise<void> {
     simulationMonths: 6
   };
   
-  console.log('入力パラメータ:');
-  console.log(`- 月額単価: ${ENV_CONFIG.currencySymbol}${userInput.monthlyPrice.toLocaleString(ENV_CONFIG.locale)}`);
-  console.log(`- 平均契約期間: ${userInput.contractMonths}ヶ月`);
-  console.log(`- 許容CPA: ${ENV_CONFIG.currencySymbol}${userInput.maxCPA.toLocaleString(ENV_CONFIG.locale)}`);
-  console.log(`- 想定パートナー数: ${userInput.expectedPartners}社/月`);
-  console.log(`- シミュレーション期間: ${userInput.simulationMonths}ヶ月`);
+  console.log('▼ 入力パラメータ（POC仮設定）');
+  console.log('┌────────────────────────────────────────────');
+  console.log(`│ 月額単価:           ${ENV_CONFIG.currencySymbol}${userInput.monthlyPrice.toLocaleString(ENV_CONFIG.locale)}`);
+  console.log(`│ 平均契約期間:       ${userInput.contractMonths}ヶ月`);
+  console.log(`│ 許容CPA:            ${ENV_CONFIG.currencySymbol}${userInput.maxCPA.toLocaleString(ENV_CONFIG.locale)}`);
+  console.log(`│ 想定パートナー数:   ${userInput.expectedPartners}社/月`);
+  console.log(`│ シミュレーション:   ${userInput.simulationMonths}ヶ月`);
+  console.log('└────────────────────────────────────────────\n');
+  
+  console.log('▼ 計算プロセス');
   
   try {
     const plans = await generatePlansWithKuzu(userInput);
     displayResults(plans);
     
-    console.log('✅ infra層のkuzu実装を使用して正常に動作しました！');
+    console.log('\n════════════════════════════════════════════');
+    console.log('✅ 計算完了: infra層のKuzuDB統合動作確認OK');
+    console.log('════════════════════════════════════════════');
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
