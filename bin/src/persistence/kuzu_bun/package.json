@@ -1,0 +1,33 @@
+{
+  "name": "kuzu-bun",
+  "version": "1.0.0",
+  "description": "KuzuDB and kuzu-wasm for Bun runtime with TypeScript",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "build:browser": "bun build src/browser-test.ts --outdir=dist --target=browser",
+    "serve": "python3 -m http.server 8000",
+    "dev": "bun run build:browser && bun run serve",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "kuzu-wasm": "^0.0.12"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.0.0",
+    "bun-types": "^1.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "kuzu",
+    "kuzudb",
+    "graph",
+    "database",
+    "wasm",
+    "bun",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT"
+}
