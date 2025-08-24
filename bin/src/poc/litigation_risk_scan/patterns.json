@@ -1,0 +1,94 @@
+{
+  "patterns": [
+    {
+      "id": "risk_escalation_001",
+      "description": "リスク表現の段階的エスカレーション",
+      "before": "may be subject to",
+      "after": "are subject to",
+      "score": 85,
+      "precedent": "2021 NIO Holdings - 株主集団訴訟",
+      "outcome": "和解金$1.5M"
+    },
+    {
+      "id": "product_silence_002",
+      "description": "主力製品への言及が突然消える",
+      "before": "our flagship product",
+      "after": "[記述削除]",
+      "score": 92,
+      "precedent": "2019 Theranos - 投資家詐欺訴訟",
+      "outcome": "CEO有罪判決"
+    },
+    {
+      "id": "revenue_recognition_003",
+      "description": "収益認識方針の突然の変更",
+      "before": "revenue is recognized when",
+      "after": "we have revised our revenue recognition",
+      "score": 95,
+      "precedent": "2018 Under Armour - SEC調査",
+      "outcome": "罰金$9M"
+    },
+    {
+      "id": "audit_weakness_004",
+      "description": "内部統制の弱点に関する表現変化",
+      "before": "no material weaknesses",
+      "after": "material weakness identified",
+      "score": 88,
+      "precedent": "2022 Celsius Network - 破産前訴訟",
+      "outcome": "Chapter 11破産"
+    },
+    {
+      "id": "competition_sudden_005",
+      "description": "競合への突然の言及",
+      "before": "[競合への言及なし]",
+      "after": "face significant competition from",
+      "score": 78,
+      "precedent": "2020 Luckin Coffee - 不正会計",
+      "outcome": "NASDAQ上場廃止"
+    },
+    {
+      "id": "guidance_withdrawal_006",
+      "description": "業績予想の撤回・修正",
+      "before": "we expect revenue growth of",
+      "after": "we are withdrawing guidance",
+      "score": 94,
+      "precedent": "2022 Netflix - 株価操作訴訟",
+      "outcome": "係争中"
+    },
+    {
+      "id": "ceo_departure_007",
+      "description": "経営陣の突然の退任",
+      "before": "under the leadership of",
+      "after": "following the departure of",
+      "score": 81,
+      "precedent": "2021 Activision - 経営不正訴訟",
+      "outcome": "和解金$18M"
+    },
+    {
+      "id": "inventory_writedown_008",
+      "description": "在庫評価損の急増",
+      "before": "inventory at lower of cost",
+      "after": "significant inventory writedown",
+      "score": 87,
+      "precedent": "2023 Peloton - 虚偽記載訴訟",
+      "outcome": "係争中"
+    },
+    {
+      "id": "customer_concentration_009",
+      "description": "顧客集中リスクの出現",
+      "before": "diversified customer base",
+      "after": "one customer represents 40%",
+      "score": 76,
+      "precedent": "2019 Symantec - 会計不正",
+      "outcome": "SEC罰金$15M"
+    },
+    {
+      "id": "regulatory_investigation_010",
+      "description": "規制当局調査の開示",
+      "before": "[調査への言及なし]",
+      "after": "subject to regulatory investigation",
+      "score": 96,
+      "precedent": "2020 Wells Fargo - 不正口座訴訟",
+      "outcome": "罰金$3B"
+    }
+  ]
+}
