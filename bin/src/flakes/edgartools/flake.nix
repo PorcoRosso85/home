@@ -1,66 +1,124 @@
 {
-  description = "EdgarTools - SEC EDGAR data extraction";
+  description = "EdgarTools - SEC EDGAR data extraction with uv2nix";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    uv2nix.url = "github:pyproject-nix/uv2nix";
-    pyproject-nix.url = "github:pyproject-nix/pyproject.nix";
+
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.uv2nix.follows = "uv2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, uv2nix, pyproject-nix, ... }:
+  outputs = {
+    self,
+    nixpkgs,
+    uv2nix,
+    pyproject-nix,
+    pyproject-build-systems,
+    ...
+  }:
     let
       inherit (nixpkgs) lib;
       
+      # Support multiple systems
       forAllSystems = lib.genAttrs [ "x86_64-linux" "aarch64-linux" ];
       
     in {
       packages = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          python = pkgs.python312;
           
+          # Load uv workspace
           workspace = uv2nix.lib.workspace.loadWorkspace {
             workspaceRoot = ./.;
           };
           
+          # Create overlay from workspace
           overlay = workspace.mkPyprojectOverlay {
-            sourcePreference = "wheel";
+            sourcePreference = "wheel";  # Prefer binary wheels
           };
           
-          python = pkgs.python312;
+          # Build fixups for missing metadata in uv.lock
+          pyprojectOverrides = _final: _prev: {
+            # Add any necessary build fixups here
+          };
           
+          # Construct Python package set
           pythonSet = (pkgs.callPackage pyproject-nix.build.packages {
             inherit python;
-          }).overrideScope (lib.composeExtensions
-            (final: prev: {
-              # 基本的なビルドツールを追加
-              setuptools = python.pkgs.setuptools;
-              wheel = python.pkgs.wheel;
-            })
-            overlay
+          }).overrideScope (
+            lib.composeManyExtensions [
+              pyproject-build-systems.overlays.default
+              overlay
+              pyprojectOverrides
+            ]
           );
           
         in {
-          default = python.withPackages (_: [
-            pythonSet.edgartools
-          ]);
+          # Package virtual environment with EdgarTools
+          default = pythonSet.mkVirtualEnv "edgartools-env" workspace.deps.default;
+          
+          # Standalone EdgarTools package
+          edgartools = pythonSet.edgartools;
         }
       );
       
       devShells = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          python = pkgs.python312;
+          
         in {
-          default = pkgs.mkShell {
-            buildInputs = [
+          # Pure development using uv2nix
+          default = self.devShells.${system}.uv2nix;
+          
+          # Pure uv2nix managed environment
+          uv2nix = pkgs.mkShell {
+            packages = [
               self.packages.${system}.default
-              pkgs.uv
             ];
             
             shellHook = ''
-              echo "EdgarTools with uv2nix"
-              echo "Python: ${pkgs.python312.version}"
+              echo "EdgarTools environment (uv2nix)"
+              echo "Python: ${python.version}"
               echo "Testing import..."
-              python -c "from edgar import Company; print('✅ EdgarTools imported successfully')" || echo "❌ Import failed"
+              python -c "from edgar import Company; print('✅ EdgarTools ready')" || echo "❌ Import failed"
+            '';
+          };
+          
+          # Impure development using uv directly
+          impure = pkgs.mkShell {
+            packages = [
+              python
+              pkgs.uv
+            ];
+            
+            env = {
+              UV_PYTHON_DOWNLOADS = "never";
+              UV_PYTHON = python.interpreter;
+            } // lib.optionalAttrs pkgs.stdenv.isLinux {
+              LD_LIBRARY_PATH = lib.makeLibraryPath pkgs.pythonManylinuxPackages.manylinux1;
+            };
+            
+            shellHook = ''
+              unset PYTHONPATH
+              echo "EdgarTools environment (impure/uv)"
+              echo "Use 'uv pip install edgartools' to install"
             '';
           };
         }
