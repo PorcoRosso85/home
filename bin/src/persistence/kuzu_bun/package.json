@@ -6,9 +6,7 @@
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "build:browser": "bun build src/browser-test.ts --outdir=dist --target=browser",
-    "serve": "python3 -m http.server 8000",
-    "dev": "bun run build:browser && bun run serve",
+    "test:simulation": "bun test test/browser-simulation.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

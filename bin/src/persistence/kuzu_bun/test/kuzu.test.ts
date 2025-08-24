@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import * as kuzu from "kuzu-wasm";
+
+// For Node.js/Bun environment
+const kuzu = require("kuzu-wasm/nodejs");
 
 describe("KuzuDB with Bun", () => {
   let db: any;
