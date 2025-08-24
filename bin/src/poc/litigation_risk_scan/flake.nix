@@ -1,5 +1,5 @@
 {
-  description = "Litigation Risk Scanner - 4ѿ������";
+  description = "Litigation Risk Scanner - 訴訟パターン検出ツール";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -14,12 +14,32 @@
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
+            # Python環境
+            (python311.withPackages (ps: with ps; [
+              pip
+              setuptools
+              wheel
+            ]))
+            
+            # TypeScript環境
             bun
+            
+            # Database
+            sqlite
           ];
 
           shellHook = ''
-            echo "= Litigation Risk Scanner"
-            echo "�L: bun run main.ts"
+            echo "🔍 Litigation Risk Scanner (MVP)"
+            echo ""
+            echo "Python環境:"
+            echo "  pip install edgartools"
+            echo "  python store/ddl.py"
+            echo "  python store/dml.py"
+            echo ""
+            echo "TypeScript実行:"
+            echo "  bun run main.ts"
+            echo ""
+            echo "DB: risk.db"
           '';
         };
 
