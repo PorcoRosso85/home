@@ -1,0 +1,7 @@
+[project]
+name = "edgartools-flake"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "edgartools==4.8.2"
+]
