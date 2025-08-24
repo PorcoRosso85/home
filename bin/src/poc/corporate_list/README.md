@@ -140,27 +140,60 @@ npm run query -- "SELECT * FROM corporations WHERE name LIKE '%株式会社%' LI
 ### ディレクトリ構造
 ```
 corporate_list/
-├── flake.nix              # Nix開発環境定義
-├── package.json           # Node.js依存関係
-├── scrape.mjs             # レガシー実装（単一ファイル）
-├── scripts/
-│   └── switchover.mjs     # 実装切り替えスクリプト
-├── src/                   # TypeScript実装
-│   ├── domain/
-│   │   ├── scraper.ts     # スクレイピングロジック
-│   │   ├── extractor.ts   # データ抽出ロジック
-│   │   └── types.ts       # 型定義
+├── flake.nix                    # Nix開発環境定義
+├── package.json                 # Workspace設定（モノレポ）
+├── scrape.mjs                   # レガシー実装（単一ファイル）
+├── packages/                    # 新パッケージ構成（Step 5完了）
+│   ├── scraper-core/           # コアスクレイピング機能
+│   │   ├── src/
+│   │   │   ├── browser/        # ブラウザ管理
+│   │   │   ├── scraper/        # 基底スクレイピング機能
+│   │   │   ├── types.ts        # 型定義
+│   │   │   └── mod.ts          # エクスポート
+│   │   └── package.json
+│   └── scraper-prtimes/        # PR Times固有実装
+│       ├── src/
+│       │   ├── constants.ts    # 定数定義
+│       │   ├── parser.ts       # データパース機能
+│       │   ├── scraper.ts      # PR Timesスクレイパー
+│       │   └── mod.ts          # エクスポート
+│       └── package.json
+├── src/                        # アプリケーション層
 │   ├── infrastructure/
-│   │   └── browser.ts     # ブラウザ管理
-│   ├── main.ts            # メインエントリーポイント
-│   └── variables.ts       # 設定管理
-├── test/                  # テストファイル
-│   ├── migration.test.js  # 移行テスト
-│   └── *.test.js         # JavaScript テストファイル
-└── README.md              # このファイル
+│   │   ├── browser.ts          # ブラウザ管理（レガシー）
+│   │   └── scraper-client.ts   # 新パッケージ統合層
+│   ├── main.ts                 # メインエントリーポイント
+│   └── variables.ts            # 設定管理
+├── test/                       # テストファイル
+│   ├── fixtures/               # テストデータ
+│   ├── golden-master.test.ts   # ゴールデンマスター（120記事）
+│   ├── interface.test.ts       # インターフェース仕様
+│   └── *.test.js              # その他テスト
+├── DELETION_CANDIDATES.md      # 削除可能ファイル一覧
+└── README.md                   # このファイル
 ```
 
 ### 技術的詳細
+
+#### パッケージ分離アーキテクチャ（Step 5完了）
+
+1. **scraper-core**: スクレイピングの基底機能（関数型スタイル）
+   - ブラウザ管理、ページナビゲーション
+   - リトライ処理、エラーハンドリング
+   - 共通型定義（IScraper, ScrapedResult, BrowserConfig）
+
+2. **scraper-prtimes**: PR Times固有の実装
+   - パース処理（parsePRTimesArticles, extractCompanyName）
+   - PR Times固有の設定とセレクタ
+   - データ変換ロジック
+
+3. **アプリケーション統合**: src/infrastructure/scraper-client.ts
+   - 依存性注入パターンによるスクレイパー取得
+   - 設定変換（ScrapeConfig → BrowserConfig）
+
+4. **workspace設定**: bun workspacesによるモノレポ管理
+   - パッケージ間の依存関係自動解決
+   - 型安全なパッケージインポート
 
 #### 切り替え機能の仕組み
 
