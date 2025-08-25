@@ -1,0 +1,10 @@
+name = "vite-rsc-ssr-app"
+main = "worker-ssr.js"
+compatibility_date = "2024-01-01"
+
+# No nodejs_compat needed for Edge SSR!
+# Using only Web standard APIs
+
+[assets]
+directory = "./dist/client"
+binding = "ASSETS"

@@ -1,4 +1,5 @@
 import rsc from '@vitejs/plugin-rsc'
+import { cloudflare } from '@cloudflare/vite-plugin'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
@@ -8,6 +9,7 @@ export default defineConfig({
       // In production, use environment variable
       defineEncryptionKey: '"development-encryption-key-12345678"',
     }),
+    cloudflare(),
   ],
 
   environments: {

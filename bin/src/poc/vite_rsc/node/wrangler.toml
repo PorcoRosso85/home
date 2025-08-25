@@ -1,10 +1,12 @@
 name = "vite-rsc-app"
 main = "worker-entry.js"
-compatibility_date = "2024-01-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat_v2"]
 
-[site]
-bucket = "./dist/client"
+# Asset handling
+[assets]
+directory = "./dist/client"
+binding = "ASSETS"
 
 # Routes are configured after deployment
 # [[routes]]
