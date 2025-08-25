@@ -37,13 +37,19 @@ export class UniversalKuzu {
     } else if (typeof process !== 'undefined') {
       // Node.js environment
       console.log('🖥️ Initializing KuzuDB for Node.js...');
-      // @ts-ignore - Dynamic require for Node.js
+      // Use createRequire for Node.js specific module
+      const { createRequire } = await import('module');
+      const require = createRequire(import.meta.url || __filename);
+      // @ts-ignore - Using require for Node.js module
       this.kuzu = require('kuzu-wasm/nodejs');
     } else {
       throw new Error('Unknown runtime environment');
     }
 
     // Create database and connection
+    if (!this.kuzu) {
+      throw new Error('KuzuDB module not loaded');
+    }
     this.db = new this.kuzu.Database(':memory:', memorySize);
     this.conn = new this.kuzu.Connection(this.db, 4);
     this.isInitialized = true;
@@ -155,7 +161,7 @@ export class UniversalKuzu {
       this.db = null;
     }
     
-    if (this.kuzu) {
+    if (this.kuzu && this.kuzu.close) {
       await this.kuzu.close();
       this.kuzu = null;
     }

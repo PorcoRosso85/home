@@ -24,6 +24,5 @@ async function main() {
   await kuzu.close();
 }
 
-if (import.meta.main) {
-  main();
-}
+// Run if executed directly (ESM style)
+main().catch(console.error);

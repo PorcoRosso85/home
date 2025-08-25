@@ -72,9 +72,8 @@ async function runExample() {
   }
 }
 
-// Run the example
-if (import.meta.main || require.main === module) {
-  runExample().catch(console.error);
-}
+// Run the example if executed directly
+// Note: In ESM, we always run when imported as main
+// To prevent execution when imported, export as default instead
 
 export { runExample };

@@ -2,21 +2,34 @@
  * Public API for kuzu_node module
  */
 
-// Infrastructure exports
-export { loadKuzu } from './infrastructure';
-export type { KuzuModule } from './infrastructure';
+// Infrastructure layer exports
+export { 
+  loadKuzu,
+  detectEnvironment,
+  createKuzuDatabase,
+  cleanupKuzu,
+  type KuzuModule,
+  type DatabaseConfig
+} from './infrastructure';
 
-// Domain exports
-export {
-  createDatabase,
-  createConnection,
-  executeQuery
-} from './domain';
-export type {
-  QueryResult,
-  Connection,
-  Database
+// Domain layer exports
+export { 
+  executeQuery,
+  executeQueries,
+  queryOne,
+  createSchema,
+  loadData,
+  beginTransaction,
+  commitTransaction,
+  rollbackTransaction,
+  type QueryResult,
+  type Connection,
+  type Database
 } from './domain';
 
-// Application exports
-export { runInMemoryExample } from './application';
+// Application layer exports
+export { 
+  runInMemoryExample,
+  runMovieExample,
+  runTransactionExample
+} from './application';

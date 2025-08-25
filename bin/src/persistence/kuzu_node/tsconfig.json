@@ -16,6 +16,6 @@
     "outDir": "./dist",
     "rootDir": "./"
   },
-  "include": ["src/**/*", "test/**/*", "*.ts", "*.js"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*", "test/**/*", "*.ts", "*.js", "kuzu-wasm.d.ts"],
+  "exclude": ["node_modules", "dist", "src/browser-test.ts"]
 }

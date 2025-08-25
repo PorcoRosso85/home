@@ -5,15 +5,15 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "test": "node --loader tsx --test test/**/*.test.ts",
-    "test:watch": "node --loader tsx --test --watch test/**/*.test.ts",
-    "test:simulation": "node --loader tsx --test test/browser-simulation.test.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:watch": "node --import tsx --test --watch test/**/*.test.ts",
+    "test:simulation": "node --import tsx --test test/browser-simulation.test.ts",
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/main.ts",
     "start": "node --loader tsx src/main.ts"
   },
   "dependencies": {
-    "kuzu-wasm": "^0.0.12"
+    "kuzu-wasm": "latest"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

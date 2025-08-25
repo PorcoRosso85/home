@@ -12,7 +12,9 @@
         pkgs = nixpkgs.legacyPackages.${system};
         
         nodePkgs = with pkgs; [
-          nodejs_20
+          nodejs_22  # Active LTS (2025年8月現在の推奨)
+          # nodejs_20  # Maintenance LTS (レガシー環境用)
+          # nodejs  # デフォルト版
         ];
 
       in {

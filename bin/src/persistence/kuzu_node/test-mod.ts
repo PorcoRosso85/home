@@ -26,7 +26,9 @@ async function testLibrary() {
   
   await conn.close();
   await db.close();
-  await kuzu.close();
+  if (kuzu.close) {
+    await kuzu.close();
+  }
   console.log('✅ Cleanup complete');
 }
 
