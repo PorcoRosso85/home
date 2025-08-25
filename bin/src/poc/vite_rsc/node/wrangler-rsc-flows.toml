@@ -1,9 +1,0 @@
-name = "rsc-flows-demo"
-main = "worker-rsc-flows.js"
-compatibility_date = "2024-09-23"
-
-# No Node.js compat needed - pure Web Standards!
-
-[assets]
-directory = "./dist/client"
-binding = "ASSETS"
