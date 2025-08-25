@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "node --import tsx --test test/*.test.ts",
+    "test:vitest": "vitest",
     "test:watch": "node --import tsx --test --watch test/**/*.test.ts",
     "test:simulation": "node --import tsx --test test/browser-simulation.test.ts",
     "typecheck": "tsc --noEmit",
@@ -18,7 +19,8 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.8"
   },
   "keywords": [
     "kuzu",
