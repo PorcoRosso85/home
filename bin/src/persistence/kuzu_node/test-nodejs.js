@@ -4,6 +4,8 @@
  * Run with: node test-nodejs.js
  */
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const kuzu = require('kuzu-wasm/nodejs');
 
 async function testNodeJS() {

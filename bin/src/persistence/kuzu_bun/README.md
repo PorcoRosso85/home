@@ -4,8 +4,16 @@ Bun環境でKuzuDBとkuzu-wasmを提供するプロジェクト
 
 ## 目的
 
-- BunランタイムでのKuzuDB提供
-- kuzu-wasmパッケージの提供と配布
+- bunによるkuzu提供, kuzu-wasm提供
+
+## ⚠️ 重要な制約
+
+**kuzu-wasmはNode.jsの`worker_threads`に依存しているため、Bunでは動作しません。**
+
+### 実行環境別サポート状況
+- **Node.js**: ✅ 完全サポート（`node test-nodejs.js`で動作確認可能）
+- **Bun**: ❌ worker_threads非対応のため実行時エラー（`Cannot find module 'threads/worker'`）
+- **Browser**: ✅ 完全サポート
 
 ## ディレクトリ構成
 
