@@ -104,12 +104,17 @@ module_design.md規約に従った3層アーキテクチャ：
 ### テスト実行
 
 ```bash
-# Vitestでのテスト実行
+# Vitestでのテスト実行（単発）
 npm test
 
-# 従来の動作確認（引き続き利用可能）
-node test-nodejs.js
-npx tsx test-mod.ts
+# Vitestでのテスト実行（監視モード）
+npm run test:watch
+
+# カバレッジ付きテスト
+npm run test:coverage
+
+# 型チェック
+npm run typecheck
 ```
 
 ## 技術スタック

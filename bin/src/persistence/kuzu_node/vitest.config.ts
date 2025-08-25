@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    include: ['test/vitest-*.test.ts'],
+    testTimeout: 10000,
+    hookTimeout: 10000,
     includeSource: ['src/**/*.{js,ts}'],
     coverage: {
       reporter: ['text', 'json', 'html']

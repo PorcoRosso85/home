@@ -5,11 +5,12 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "test": "vitest",
-    "test:coverage": "vitest --coverage",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/main.ts",
-    "start": "node --loader tsx src/main.ts"
+    "start": "node --import tsx src/main.ts"
   },
   "dependencies": {
     "kuzu-wasm": "latest"

@@ -3,7 +3,7 @@
  * Test mod.ts library interface
  */
 
-import { loadKuzu, createDatabase, createConnection, executeQuery } from './mod';
+import { loadKuzu, createKuzuDatabase, executeQuery, cleanupKuzu } from './mod';
 
 async function testLibrary() {
   console.log('📚 Testing library interface via mod.ts...');
@@ -11,11 +11,8 @@ async function testLibrary() {
   const kuzu = await loadKuzu();
   console.log('✅ Module loaded');
   
-  const db = createDatabase(kuzu);
-  console.log('✅ Database created');
-  
-  const conn = createConnection(kuzu, db);
-  console.log('✅ Connection established');
+  const { db, conn } = createKuzuDatabase(kuzu);
+  console.log('✅ Database and connection created');
   
   await executeQuery(conn, "CREATE NODE TABLE Test(id INT64, PRIMARY KEY(id))");
   console.log('✅ Schema created');
@@ -24,11 +21,7 @@ async function testLibrary() {
   const results = await executeQuery(conn, "MATCH (t:Test) RETURN t.id");
   console.log('✅ Query executed:', results);
   
-  await conn.close();
-  await db.close();
-  if (kuzu.close) {
-    await kuzu.close();
-  }
+  await cleanupKuzu({ conn, db, kuzu });
   console.log('✅ Cleanup complete');
 }
 
