@@ -1,6 +1,6 @@
 export default {
   async fetch(request: Request): Promise<Response> {
-    return new Response('Hello from Cloudflare Worker!', {
+    return new Response('Built from TypeScript! 🚀', {
       headers: {
         'content-type': 'text/plain',
       },
