@@ -5,6 +5,11 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     
+    // Pass through asset requests to Workers Sites
+    if (url.pathname.startsWith('/assets/')) {
+      return env.ASSETS.fetch(request);
+    }
+    
     // API endpoints to check each dist directory
     if (url.pathname === '/api/check-deployment') {
       return new Response(JSON.stringify({
@@ -15,8 +20,8 @@ export default {
           ssr: '✅ Available (would be imported for SSR rendering)'
         },
         clientAssets: [
-          '/assets/Counter-CqvOPnAk.js',
-          '/assets/index-DVUYCpzz.js'
+          '/assets/Counter-BPR1mKj2.js',
+          '/assets/index-BIf5sdHw.js'
         ],
         rscInfo: {
           location: 'dist/rsc/',
@@ -116,8 +121,8 @@ export default {
               <p class="status">✅ DEPLOYED</p>
               <p>Static assets served via Workers Sites</p>
               <div class="file-list">
-                /assets/Counter-CqvOPnAk.js<br>
-                /assets/index-DVUYCpzz.js
+                /assets/Counter-BPR1mKj2.js<br>
+                /assets/index-BIf5sdHw.js
               </div>
               <p><small>Configured in wrangler.toml [site]</small></p>
             </div>
