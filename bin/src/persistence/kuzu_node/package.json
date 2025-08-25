@@ -5,10 +5,8 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "test": "node --import tsx --test test/*.test.ts",
-    "test:vitest": "vitest",
-    "test:watch": "node --import tsx --test --watch test/**/*.test.ts",
-    "test:simulation": "node --import tsx --test test/browser-simulation.test.ts",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/main.ts",
     "start": "node --loader tsx src/main.ts"

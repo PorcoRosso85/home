@@ -87,10 +87,36 @@ module_design.md規約に従った3層アーキテクチャ：
    - ユースケース実装
    - Infrastructure層とDomain層の統合
 
+## テスト
+
+### テストランナー移行（Node.js → Vitest）
+
+**問題**: Node.jsの組み込みテストランナーでは以下の制限がありました：
+- ES modulesとCommonJSの混在で設定が複雑
+- kuzu-wasmの動的インポート処理でエラー発生
+- TypeScript直接実行における型チェック問題
+
+**解決策**: Vitestに移行することで：
+- ES modules完全サポート
+- WebAssembly動的インポートの安定動作
+- TypeScript統合とVite生態系の活用
+
+### テスト実行
+
+```bash
+# Vitestでのテスト実行
+npm test
+
+# 従来の動作確認（引き続き利用可能）
+node test-nodejs.js
+npx tsx test-mod.ts
+```
+
 ## 技術スタック
 
 - **Node.js**: JavaScriptランタイム
 - **TypeScript**: 型安全な開発
+- **Vitest**: モダンテストランナー（ES modules + WebAssembly対応）
 - **KuzuDB**: 埋め込み型グラフデータベース
 - **kuzu-wasm**: KuzuDBのWebAssembly版
 - **Nix**: 再現可能な開発環境
