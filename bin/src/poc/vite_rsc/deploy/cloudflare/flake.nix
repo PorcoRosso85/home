@@ -14,16 +14,7 @@
       devShells.${system}.default = pkgs.mkShell {
         buildInputs = with pkgs; [
           nodejs_22
-          nodePackages.wrangler
         ];
-
-        shellHook = ''
-          echo "Cloudflare Workers development environment"
-          echo "Available commands:"
-          echo "  wrangler dev    - Start local development server"
-          echo "  wrangler deploy - Deploy to Cloudflare"
-          echo ""
-        '';
       };
     };
 }
