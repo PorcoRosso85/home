@@ -1,0 +1,15 @@
+name = "vite-rsc-app"
+main = "worker-entry.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[site]
+bucket = "./dist/client"
+
+# Routes are configured after deployment
+# [[routes]]
+# pattern = "your-domain.com/*"
+# zone_name = "your-domain.com"
+
+[env.production]
+name = "vite-rsc-app-production"
