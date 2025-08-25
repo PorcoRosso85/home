@@ -18,7 +18,7 @@ function AppWrapper() {
 }
 
 // RSC request handler following @vitejs/plugin-rsc pattern
-export default async function handler(request: Request): Promise<Response> {
+async function handler(request: Request): Promise<Response> {
   // Serialize React VDOM to RSC stream
   const root = <AppWrapper />
   const rscStream = renderToReadableStream(root)
@@ -45,4 +45,11 @@ export default async function handler(request: Request): Promise<Response> {
       'Content-Type': 'text/html',
     },
   })
+}
+
+// Cloudflare Workers entry point
+export default {
+  fetch(request: Request) {
+    return handler(request)
+  },
 }

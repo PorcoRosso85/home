@@ -1,17 +1,5 @@
 name = "vite-rsc-app"
-main = "worker-entry.js"
-compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat_v2"]
-
-# Asset handling
-[assets]
-directory = "./dist/client"
-binding = "ASSETS"
-
-# Routes are configured after deployment
-# [[routes]]
-# pattern = "your-domain.com/*"
-# zone_name = "your-domain.com"
-
-[env.production]
-name = "vite-rsc-app-production"
+main = "./src/framework/entry.rsc.tsx"
+workers_dev = true
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_als"]
