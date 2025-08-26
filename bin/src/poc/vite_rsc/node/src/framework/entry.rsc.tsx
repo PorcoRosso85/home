@@ -37,7 +37,11 @@ async function handler(request: Request): Promise<Response> {
   const ssrEntry = await import.meta.viteRsc.loadModule<
     typeof import('./entry.ssr.tsx')
   >('ssr', 'index')
-  const htmlStream = await ssrEntry.handleSsr(rscStream)
+  
+  // Load bootstrap script for client hydration
+  const bootstrapScriptContent = await import.meta.viteRsc.loadBootstrapScriptContent('index')
+  
+  const htmlStream = await ssrEntry.handleSsr(rscStream, bootstrapScriptContent)
 
   // Return HTML response
   return new Response(htmlStream, {

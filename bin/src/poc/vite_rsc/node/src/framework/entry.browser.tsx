@@ -1,13 +1,14 @@
-import { createFromReadableStream } from '@vitejs/plugin-rsc/browser'
+import { createFromReadableStream, createFromFetch } from '@vitejs/plugin-rsc/browser'
 import { hydrateRoot } from 'react-dom/client'
 import React from 'react'
 
-async function hydrate() {
-  const response = await fetch('/__rsc')
-  const stream = response.body!
-  const root = await createFromReadableStream(stream) as React.ReactElement
+async function main() {
+  // Fetch RSC stream for the current page
+  const rscResponse = await fetch(window.location.href + '.rsc')
+  const root = await createFromReadableStream(rscResponse.body!) as React.ReactElement
   
+  // Hydrate the server-rendered HTML with React
   hydrateRoot(document, root)
 }
 
-hydrate().catch(console.error)
+main().catch(console.error)
