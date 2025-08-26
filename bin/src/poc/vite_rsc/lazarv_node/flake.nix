@@ -16,22 +16,19 @@
           buildInputs = with pkgs; [
             nodejs_22
             pnpm
-            # Cloudflare Workers CLI
-            nodePackages.wrangler
           ];
 
           shellHook = ''
-            echo "=Ä @lazarv/react-server ◊ Node 22 ãz∞É"
-            echo ""
+            echo "@lazarv/react-server with Node 22 Development Environment"
+            echo "==========================================================="
             echo "Node.js: $(node --version)"
             echo "pnpm: $(pnpm --version)"
             echo ""
-            echo "(Ô˝j≥ﬁÛ…:"
-            echo "  pnpm install  - ùX¢¬n§Ûπ»¸Î"
-            echo "  pnpm dev      - ãzµ¸–¸w’"
-            echo "  pnpm build    - ◊Ì¿Ø∑ÁÛ”Î…"
-            echo "  wrangler      - Cloudflare Workers CLI"
-            echo ""
+            echo "Available commands:"
+            echo "  pnpm install  - Install dependencies"
+            echo "  pnpm dev      - Start development server"
+            echo "  pnpm build    - Build for production"
+            echo "==========================================================="
           '';
         };
       }
