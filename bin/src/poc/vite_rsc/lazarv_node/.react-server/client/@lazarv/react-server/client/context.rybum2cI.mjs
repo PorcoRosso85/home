@@ -1,0 +1,1 @@
+"use client";import"../../../react.D0LEv2W_.mjs";import{b as e,c as t,d as n,e as r,f as i,g as a}from"../../../react-server/client/context.DLHwD-Lx.mjs";export{e as ClientContext,t as FlightComponentContext,n as FlightContext,r as PAGE_ROOT,i as useClient,a as useOutlet};
