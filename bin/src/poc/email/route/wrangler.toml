@@ -1,18 +1,11 @@
 name = "email-archive-worker"
-main = "src/index.js"
+main = "src/index.ts"
 compatibility_date = "2024-01-01"
-node_compat = true
 
-# Environment variables for MinIO connection
+# Environment variables for storage
 [vars]
-MINIO_ENDPOINT = "http://localhost:9000"
+STORAGE_TYPE = "in-memory"
 BUCKET_NAME = "email-archive"
-# Development mode flag
-DEV_MODE = "false"
-
-# Secrets (set these with: wrangler secret put SECRET_NAME)
-# MINIO_ACCESS_KEY - MinIO access key
-# MINIO_SECRET_KEY - MinIO secret key
 
 # Email routing configuration
 [[email_routing_rules]]
@@ -21,17 +14,9 @@ actions = [
   { type = "worker", value = "email-archive-worker" }
 ]
 
-# Development environment overrides
+# Development environment
 [env.development]
-main = "src/dev/email-endpoint.js"
-vars = { 
-  MINIO_ENDPOINT = "http://localhost:9000", 
-  BUCKET_NAME = "email-archive",
-  DEV_MODE = "true",
-  # Development MinIO credentials (default credentials)
-  MINIO_ACCESS_KEY = "minioadmin",
-  MINIO_SECRET_KEY = "minioadmin"
-}
+vars = { STORAGE_TYPE = "in-memory", BUCKET_NAME = "email-archive" }
 
 # Development-specific route patterns for HTTP endpoints
 [[env.development.routes]]
@@ -42,13 +27,13 @@ zone_name = ""
 pattern = "*/__health"
 zone_name = ""
 
+[[env.development.routes]]
+pattern = "*/__storage"
+zone_name = ""
+
 # Production environment
 [env.production]
-vars = { 
-  MINIO_ENDPOINT = "https://your-minio-endpoint.com", 
-  BUCKET_NAME = "email-archive",
-  DEV_MODE = "false"
-}
+vars = { STORAGE_TYPE = "in-memory", BUCKET_NAME = "email-archive" }
 
 # Resource limits
 [limits]
