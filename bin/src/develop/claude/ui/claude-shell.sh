@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # claude-shell.sh - Optimized launcher using nix shell
-# Uses standalone scripts directly for maximum performance
+# Usage:
+#   claude-shell.sh               # Launch in current directory
+#   claude-shell.sh /path/to/dir  # Launch in specified directory
+#   claude-shell.sh --flake       # Use fzf to select from flake.nix projects
 
 set -euo pipefail
 
@@ -26,14 +29,27 @@ else
   }
 fi
 
-# Run project selector with nix shell
-project_dir=$(nix shell \
-  nixpkgs#fzf \
-  nixpkgs#findutils \
-  nixpkgs#coreutils \
-  nixpkgs#gnugrep \
-  nixpkgs#bash \
-  --command "$SCRIPT_DIR/scripts/select-project" "$@") || exit 1
+# Parse arguments
+if [[ $# -eq 0 ]]; then
+  # No arguments - use current directory
+  project_dir="$(pwd)"
+elif [[ "$1" == "--flake" ]]; then
+  # --flake option - use fzf selector
+  project_dir=$(nix shell \
+    nixpkgs#fzf \
+    nixpkgs#findutils \
+    nixpkgs#coreutils \
+    nixpkgs#gnugrep \
+    nixpkgs#bash \
+    --command "$SCRIPT_DIR/scripts/select-project" "${@:2}") || exit 1
+else
+  # Path argument - use specified directory
+  project_dir="$(realpath "$1")"
+  if [[ ! -d "$project_dir" ]]; then
+    echo "Error: Directory does not exist: $project_dir"
+    exit 1
+  fi
+fi
 
 # Launch Claude in the selected directory
 if [[ -f "$project_dir/flake.nix" ]]; then

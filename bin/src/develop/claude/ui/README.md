@@ -48,8 +48,14 @@ cd claude-launcher
 # One-time setup: Configure MCP servers at user scope
 ./setup-mcp-user.sh
 
-# Launch Claude (0.1s startup)
+# Launch Claude in current directory (0.1s startup)
 ./claude-shell.sh
+
+# Launch Claude in specific directory
+./claude-shell.sh ~/projects/myproject
+
+# Launch Claude with fzf project selector (for flake.nix projects)
+./claude-shell.sh --flake
 ```
 
 That's it! The launcher uses `nix shell` to provide dependencies on-demand without requiring a complex flake setup.
