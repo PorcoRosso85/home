@@ -26,16 +26,27 @@ export default async function HomePage() {
   const maxItems = maxItemsEnv ? Number.parseInt(maxItemsEnv) : undefined;
 
   return (
-    <div>
+    <div style={{
+      fontFamily: '"GenJyuuGothicL", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    }}>
       <title>{data.title}</title>
-      <h1 className="text-4xl font-bold tracking-tight">{data.headline}</h1>
+      <h1 style={{
+        fontSize: '2.25rem',
+        fontWeight: 'bold',
+        letterSpacing: '-0.025em',
+        fontFamily: '"GenJyuuGothicL", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+      }}>{data.headline}</h1>
       <p>{data.body}</p>
       <p>MAX_ITEMS = {maxItems}.</p>
       <Suspense fallback="Pending...">
         <ServerMessage />
       </Suspense>
       <Counter max={maxItems} />
-      <Link to="/about" className="mt-4 inline-block underline">
+      <Link to="/about" style={{
+        marginTop: '16px',
+        display: 'inline-block',
+        textDecoration: 'underline'
+      }}>
         About page
       </Link>
     </div>

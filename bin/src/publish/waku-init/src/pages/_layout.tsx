@@ -1,5 +1,3 @@
-import '../styles.css';
-
 import type { ReactNode } from 'react';
 
 import { Header } from '../components/header';
@@ -11,12 +9,40 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const data = await getData();
 
   return (
-    <div className="font-['Nunito']">
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <meta name="description" content={data.description} />
       <link rel="icon" type="image/png" href={data.icon} />
+      <style>{`
+        @font-face {
+          font-family: 'GenJyuuGothicL';
+          font-style: normal;
+          font-weight: 400;
+          font-display: swap;
+          src: url('https://cdn.jsdelivr.net/gh/ButTaiwan/genjyuugothic@main/GenJyuuGothicL-Regular.ttf') format('truetype');
+        }
+        @font-face {
+          font-family: 'GenJyuuGothicL';
+          font-style: normal;
+          font-weight: 700;
+          font-display: swap;
+          src: url('https://cdn.jsdelivr.net/gh/ButTaiwan/genjyuugothic@main/GenJyuuGothicL-Bold.ttf') format('truetype');
+        }
+        body {
+          font-family: 'GenJyuuGothicL', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+      `}</style>
       <Header />
-      <main className="m-6 flex items-center *:min-h-64 *:min-w-64 lg:m-0 lg:min-h-svh lg:justify-center">
-        {children}
+      <main style={{
+        flex: 1,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '24px',
+        fontFamily: '"GenJyuuGothicL", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+      }}>
+        <div style={{ minHeight: '256px', minWidth: '256px' }}>
+          {children}
+        </div>
       </main>
       <Footer />
     </div>
