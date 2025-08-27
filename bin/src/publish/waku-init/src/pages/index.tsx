@@ -2,6 +2,7 @@ import { Link } from 'waku';
 import { Suspense } from 'react';
 import { Counter } from '../components/counter';
 import { SimpleForm } from '../components/simple-form';
+import { DonutChart } from '../components/donut-chart';
 import { getHonoContext } from '../../waku.hono-enhancer';
 import { getEnv, isBuild } from '../lib/waku';
 
@@ -44,6 +45,7 @@ export default async function HomePage() {
       </Suspense>
       <Counter max={maxItems} />
       <SimpleForm />
+      <DonutChart />
       <Link to="/about" style={{
         marginTop: '16px',
         display: 'inline-block',
