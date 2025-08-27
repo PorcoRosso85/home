@@ -39,6 +39,7 @@
             # Copy base infrastructure files if not present
             echo "Setting up infrastructure files from base..."
             
+            [ ! -f "package.json" ] && cp ${./package.json} package.json
             [ ! -f "waku.config.ts" ] && cp ${./waku.config.ts} waku.config.ts
             [ ! -f "waku.hono-enhancer.ts" ] && cp ${./waku.hono-enhancer.ts} waku.hono-enhancer.ts
             [ ! -f "waku.cloudflare-middleware.ts" ] && cp ${./waku.cloudflare-middleware.ts} waku.cloudflare-middleware.ts
