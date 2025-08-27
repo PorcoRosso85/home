@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from 'react-aria-components';
 
 export const Counter = ({ max }: { max?: number | undefined }) => {
   const [count, setCount] = useState(0);
@@ -19,8 +20,8 @@ export const Counter = ({ max }: { max?: number | undefined }) => {
       fontFamily: '"GenJyuuGothicL", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     }}>
       <div>Count: {count}</div>
-      <button
-        onClick={handleIncrement}
+      <Button
+        onPress={handleIncrement}
         style={{
           backgroundColor: 'black',
           color: 'white',
@@ -31,11 +32,12 @@ export const Counter = ({ max }: { max?: number | undefined }) => {
           fontSize: '0.875rem',
           borderRadius: '2px',
           border: 'none',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          fontFamily: '"GenJyuuGothicL", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
         }}
       >
         Increment
-      </button>
+      </Button>
     </section>
   );
 };

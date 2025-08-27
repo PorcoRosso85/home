@@ -1,6 +1,7 @@
 import { Link } from 'waku';
 import { Suspense } from 'react';
 import { Counter } from '../components/counter';
+import { SimpleForm } from '../components/simple-form';
 import { getHonoContext } from '../../waku.hono-enhancer';
 import { getEnv, isBuild } from '../lib/waku';
 
@@ -42,6 +43,7 @@ export default async function HomePage() {
         <ServerMessage />
       </Suspense>
       <Counter max={maxItems} />
+      <SimpleForm />
       <Link to="/about" style={{
         marginTop: '16px',
         display: 'inline-block',
