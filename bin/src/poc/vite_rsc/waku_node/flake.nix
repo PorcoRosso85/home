@@ -16,17 +16,15 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
+          buildInputs = [
             nodejs
-            nodejs.pkgs.npm
-            nodejs.pkgs.pnpm
-            wrangler
+            pkgs.wrangler
           ];
 
           shellHook = ''
             echo "Waku base environment loaded"
-            echo "Node: $(node --version)"
-            echo "Wrangler: $(wrangler --version)"
+            echo "Node: $(${nodejs}/bin/node --version)"
+            echo "Wrangler: $(${pkgs.wrangler}/bin/wrangler --version)"
             echo ""
             echo "This is a base environment for Waku + Cloudflare Workers"
             echo "Use this flake as input in your derivative projects"
@@ -38,6 +36,16 @@
             set -e
             echo "Building Waku application..."
             
+            # Copy base infrastructure files if not present
+            echo "Setting up infrastructure files from base..."
+            
+            [ ! -f "waku.config.ts" ] && cp ${./waku.config.ts} waku.config.ts
+            [ ! -f "waku.hono-enhancer.ts" ] && cp ${./waku.hono-enhancer.ts} waku.hono-enhancer.ts
+            [ ! -f "waku.cloudflare-middleware.ts" ] && cp ${./waku.cloudflare-middleware.ts} waku.cloudflare-middleware.ts
+            [ ! -f "waku.cloudflare-dev-server.ts" ] && cp ${./waku.cloudflare-dev-server.ts} waku.cloudflare-dev-server.ts
+            [ ! -f "postcss.config.js" ] && cp ${./postcss.config.js} postcss.config.js
+            [ ! -f "tsconfig.json" ] && cp ${./tsconfig.json} tsconfig.json
+            
             # Install dependencies if needed
             if [ ! -d "node_modules" ]; then
               echo "Installing dependencies..."
@@ -45,7 +53,7 @@
             fi
             
             # Build with Cloudflare support
-            ${nodejs}/bin/npx waku build --with-cloudflare
+            PATH=${nodejs}/bin:$PATH ${nodejs}/bin/npx waku build --with-cloudflare
             
             echo "Build complete. Output in ./dist/"
           '';
