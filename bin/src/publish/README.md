@@ -5,27 +5,23 @@
 - **Purpose**: Deploy to `trst.worker.dev`
 - **Method**: Individual directory deployment  
 - **Infrastructure**: Cloudflare Workers
+- **Scope**: Service directory management only
 
 ## Structure
 
 ```
 publish/
-├── flake.nix          # Deployment tooling
-└── [service-dirs]/    # Each independently deployable
+├── flake.nix          # Directory management tooling
+└── [service-dirs]/    # Each service with own deployment responsibility
 ```
 
-## Framework Base
+## Per-Service Responsibility
 
-- **Input**: `/home/nixos/bin/src/poc/vite_rsc/waku_node`
-- **Method**: flake.input継承
-- **Delegation**: フレームワーク・ビルド・デプロイは先方
-- **Customization**: ロジック・コンポーネントのみこちらで実装
-
-## Per-Service Requirements
-
-- Own deployment config
-- Environment variables
+Each service directory handles:
+- Own framework decisions
+- Deployment configuration
 - Build scripts
+- Environment variables
 - Documentation
 
 ## URL Mapping
