@@ -1,16 +1,28 @@
-# Waku Node RSC Implementation
+# Waku Base Environment
 
-このディレクトリの責務:
+このディレクトリは、Waku + Cloudflare Workers アプリケーションの基底環境を提供します。
 
-- **フレームワーク**: Waku (React Server Components最小実装)
-- **ランタイム**: Node.js 22
-- **デプロイ先**: Cloudflare Workers (参照: ../deploy/cloudflare)
+## 責務
+- **環境提供**: Node.js 22 + Wrangler + Waku
+- **ビルド設定**: waku.config.ts
+- **依存関係**: package.json (Waku, React, Hono)
 
-## 概要
+## 使用方法
 
-WakuフレームワークによるRSC実装の検証環境です。Node.js 22で動作し、Cloudflare Workersへのデプロイが可能です。
+派生プロジェクトのflake.nixで参照:
 
-## 関連ディレクトリ
+```nix
+inputs.waku-base.url = "github:user/repo?dir=bin/src/poc/vite_rsc/waku_node";
+```
 
-- `../deploy/cloudflare`: Cloudflare Workersデプロイ設定
-- `./docs`: Wakuドキュメント（公式サイトからの抽出）
+## 構成
+
+```
+waku_node/
+├── flake.nix         # Nix環境定義
+├── package.json      # 基底依存関係
+├── waku.config.ts    # Waku設定
+└── waku.*.ts        # Cloudflare統合設定
+```
+
+アプリケーション実装は派生側で行います。
