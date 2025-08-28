@@ -2,26 +2,31 @@
 
 React Server Components with Cloudflare Workers and R2 storage integration.
 
-## Prerequisites
+## 責務範囲
 
-This project uses Nix for dependency management. Install Nix:
-```bash
-curl -L https://nixos.org/nix/install | sh
-```
+このプロジェクトは**アプリケーション実装例**です。以下は責務外です：
+
+- **CI/CD設定**: `waku_node` (基盤層) が提供
+- **Nix環境管理**: `waku_node` のflake.nixを参照
+- **ビルドツール**: `nix run .#build` / `nix run .#deploy` を使用
+
+詳細は [waku_node](../../poc/vite_rsc/waku_node/) を参照してください。
 
 ## Quick Start
 
 ```bash
-# Development
+# Install dependencies
 npm install
+
+# Development
 npm run dev         # Waku dev server (port 3000)
 npm run start:nix   # Wrangler dev with R2 (port 8787)
 
 # Build
-npm run build
+nix run .#build
 
-# Deploy to Cloudflare
-nix shell nixpkgs#wrangler -c wrangler deploy
+# Deploy
+nix run .#deploy
 ```
 
 ## Features
@@ -48,13 +53,9 @@ Forms are stored in R2 with timestamp-based paths:
 submissions/YYYY/MM/DD/timestamp-uuid.json
 ```
 
-## Wrangler Commands
+## Development Commands
 
-All wrangler commands require Nix:
 ```bash
-# Type generation
-nix shell nixpkgs#wrangler -c wrangler types
-
 # R2 management
 nix shell nixpkgs#wrangler -c wrangler r2 bucket create waku-data
 nix shell nixpkgs#wrangler -c wrangler r2 object list waku-data
@@ -63,21 +64,8 @@ nix shell nixpkgs#wrangler -c wrangler r2 object list waku-data
 nix shell nixpkgs#wrangler -c wrangler d1 execute init --file=./migrations/ddl.sql
 ```
 
-## CI/CD Setup
-
-For GitHub Actions or other CI:
-```yaml
-- uses: cachix/install-nix-action@v20
-- run: nix shell nixpkgs#nodejs nixpkgs#wrangler -c npm run build
-- run: nix shell nixpkgs#wrangler -c wrangler deploy
-```
-
 ## Environment Variables
 
 - `R2_WASM_URL`: URL for R2-hosted WASM files
 - `ENABLE_WASM_FROM_R2`: Enable R2 WASM loading
 - `MAX_ITEMS`: Counter component max value
-
-## Development
-
-The project intentionally excludes wrangler from node_modules to ensure consistent versions via Nix.
