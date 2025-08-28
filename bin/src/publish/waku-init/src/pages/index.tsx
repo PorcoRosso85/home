@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { Counter } from '../components/counter';
 import { SimpleForm } from '../components/simple-form';
 import { DonutChart } from '../components/donut-chart';
+import { DuckDBR2Demo } from '../components/duckdb-r2-demo';
 import { getHonoContext } from '../../waku.hono-enhancer';
 import { isBuild } from '../lib/waku';
 import { variables } from '../lib/variables';
@@ -26,6 +27,8 @@ export default async function HomePage() {
   );
 
   const maxItems = variables.maxItems();
+  const enableWasmFromR2 = variables.enableWasmFromR2();
+  const r2PublicUrl = variables.r2PublicUrl();
 
   return (
     <div style={{
@@ -46,6 +49,7 @@ export default async function HomePage() {
       <Counter max={maxItems} />
       <SimpleForm />
       <DonutChart />
+      <DuckDBR2Demo enableR2={enableWasmFromR2} r2Url={r2PublicUrl} />
       <Link to="/about" style={{
         marginTop: '16px',
         display: 'inline-block',

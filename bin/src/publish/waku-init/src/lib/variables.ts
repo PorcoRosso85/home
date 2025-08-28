@@ -5,9 +5,9 @@ import { getEnv } from './waku';
  */
 interface EnvironmentVariables {
   MAX_ITEMS: number;
+  ENABLE_WASM_FROM_R2: boolean;
+  R2_PUBLIC_URL: string;
   // Add more environment variables here as needed
-  // EXAMPLE_STRING?: string;
-  // EXAMPLE_BOOLEAN?: boolean;
 }
 
 /**
@@ -57,7 +57,23 @@ const variableConfigs: {
     required: false,
     defaultValue: 10,
   },
-  // Add more configurations here as needed
+  ENABLE_WASM_FROM_R2: {
+    key: 'ENABLE_WASM_FROM_R2',
+    parser: (value) => {
+      const parsed = parsers.boolean(value);
+      return parsed !== undefined ? parsed : false;
+    },
+    required: false,
+    defaultValue: false,
+  },
+  R2_PUBLIC_URL: {
+    key: 'R2_PUBLIC_URL',
+    parser: (value) => {
+      return value || '';
+    },
+    required: false,
+    defaultValue: '',
+  },
 };
 
 /**
@@ -140,7 +156,8 @@ export function config(): EnvironmentVariables {
 // Export individual getters for convenience
 export const variables = {
   maxItems: () => getVariable('MAX_ITEMS'),
-  // Add more getters here as needed
+  enableWasmFromR2: () => getVariable('ENABLE_WASM_FROM_R2'),
+  r2PublicUrl: () => getVariable('R2_PUBLIC_URL'),
 } as const;
 
 // Export utilities

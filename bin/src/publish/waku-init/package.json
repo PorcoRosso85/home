@@ -8,8 +8,12 @@
     "dev": "waku dev",
     "build": "waku build --with-cloudflare",
     "start": "wrangler dev",
+    "start:nix": "nix shell nixpkgs#wrangler nixpkgs#nodejs -c wrangler dev",
     "d1:migrate": "wrangler d1 execute init --file=./migrations/ddl.sql",
     "d1:list": "wrangler d1 execute init --command=\"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;\"",
+    "r2:create": "wrangler r2 bucket create waku-data",
+    "r2:upload-sample": "echo 'Upload parquet files: wrangler r2 object put waku-data/sample.parquet --file=./data/sample.parquet'",
+    "r2:list": "wrangler r2 object list waku-data",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

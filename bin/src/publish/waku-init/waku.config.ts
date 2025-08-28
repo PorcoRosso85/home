@@ -12,5 +12,9 @@ export default defineConfig({
     optimizeDeps: {
       exclude: ['sqlite'],
     },
+    server: {
+      host: '127.0.0.1', // IPv4で明示的にリッスン
+      port: 3000,
+    },
   },
 });
