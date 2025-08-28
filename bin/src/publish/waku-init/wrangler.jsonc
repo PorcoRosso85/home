@@ -11,5 +11,12 @@
   },
   "vars": {
     "MAX_ITEMS": 10
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "init",
+      "database_id": "47887859-95da-4788-9f73-d8b2d0b19995"
+    }
+  ]
 }
