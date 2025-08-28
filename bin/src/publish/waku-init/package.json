@@ -7,7 +7,10 @@
     "cf-typegen": "wrangler types",
     "dev": "waku dev",
     "build": "waku build --with-cloudflare",
-    "start": "wrangler dev"
+    "start": "wrangler dev",
+    "d1:migrate": "wrangler d1 execute init --file=./migrations/ddl.sql",
+    "d1:list": "wrangler d1 execute init --command=\"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;\"",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "hono": "4.9.4",

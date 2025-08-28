@@ -13,6 +13,9 @@
 
   outputs = { self, nixpkgs, flake-utils, waku-base }:
     flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in
       {
         # Inherit development shell from base
         devShells.default = waku-base.devShells.${system}.default;
@@ -22,7 +25,7 @@
           inherit (waku-base.packages.${system}) build deploy;
         };
 
-        # App-specific configuration
+        # App-specific configuration - only build and deploy for nix run
         apps = {
           build = {
             type = "app";
@@ -33,5 +36,10 @@
             program = "${waku-base.packages.${system}.deploy}/bin/waku-deploy";
           };
         };
+        
+        # Development scripts (use with nix shell)
+        # Example: nix shell . -c "npm test"
+        # Example: nix shell . -c "npm run typecheck"
+        # Note: Development commands should be run via nix shell for faster startup
       });
 }

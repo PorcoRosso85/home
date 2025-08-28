@@ -4,7 +4,8 @@ import { Counter } from '../components/counter';
 import { SimpleForm } from '../components/simple-form';
 import { DonutChart } from '../components/donut-chart';
 import { getHonoContext } from '../../waku.hono-enhancer';
-import { getEnv, isBuild } from '../lib/waku';
+import { isBuild } from '../lib/waku';
+import { variables } from '../lib/variables';
 
 export default async function HomePage() {
   const data = await getData();
@@ -24,8 +25,7 @@ export default async function HomePage() {
     }),
   );
 
-  const maxItemsEnv = getEnv('MAX_ITEMS');
-  const maxItems = maxItemsEnv ? Number.parseInt(maxItemsEnv) : undefined;
+  const maxItems = variables.maxItems();
 
   return (
     <div style={{
