@@ -18,7 +18,7 @@ database_id = "YOUR_DATABASE_ID"
 
 # Environment variables
 [vars]
-ENABLE_WASM_FROM_R2 = "false"
-R2_PUBLIC_URL = "https://your-r2-domain.example.com"
-# R2 WASM hosting URL (set after creating custom domain)
-R2_WASM_URL = ""
+ENABLE_WASM_FROM_R2 = "true"
+R2_PUBLIC_URL = "https://pub-4e1b30eb973f4f729bc85c585f273a8e.r2.dev"
+# R2 WASM hosting URL (using R2.dev subdomain for waku-wasm bucket)
+R2_WASM_URL = "https://pub-4e1b30eb973f4f729bc85c585f273a8e.r2.dev"

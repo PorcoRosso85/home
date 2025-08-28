@@ -30,6 +30,7 @@ export default async function HomePage() {
   const maxItems = variables.maxItems();
   const enableWasmFromR2 = variables.enableWasmFromR2();
   const r2PublicUrl = variables.r2PublicUrl();
+  const r2WasmUrl = variables.r2WasmUrl();
 
   return (
     <div style={{
@@ -52,6 +53,7 @@ export default async function HomePage() {
       <DonutChart />
       <DuckDBLoader enableR2={enableWasmFromR2} r2Url={r2PublicUrl} />
       <SQLiteLoader wasmUrl="/wasm/sqlite3.wasm" />
+      {/* R2 URL (CORS設定後に使用): {r2WasmUrl}/sqlite/sqlite3.wasm */}
       <Link to="/about" style={{
         marginTop: '16px',
         display: 'inline-block',

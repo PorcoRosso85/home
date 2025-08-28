@@ -169,7 +169,8 @@ export const SQLiteDemo = ({ wasmUrl = '/wasm/sqlite3.wasm' }: SQLiteDemoProps) 
             <li>NPM: Install package and copy during build</li>
           </ul>
           <p style={{ marginTop: '8px' }}>
-            Current URL: {wasmUrl}
+            Current URL: {wasmUrl}<br/>
+            R2_WASM_URL env: {process.env.R2_WASM_URL || 'not set'}
           </p>
         </div>
     </section>

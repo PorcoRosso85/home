@@ -7,6 +7,7 @@ interface EnvironmentVariables {
   MAX_ITEMS: number;
   ENABLE_WASM_FROM_R2: boolean;
   R2_PUBLIC_URL: string;
+  R2_WASM_URL: string;
   // Add more environment variables here as needed
 }
 
@@ -68,6 +69,14 @@ const variableConfigs: {
   },
   R2_PUBLIC_URL: {
     key: 'R2_PUBLIC_URL',
+    parser: (value) => {
+      return value || '';
+    },
+    required: false,
+    defaultValue: '',
+  },
+  R2_WASM_URL: {
+    key: 'R2_WASM_URL',
     parser: (value) => {
       return value || '';
     },
@@ -158,6 +167,7 @@ export const variables = {
   maxItems: () => getVariable('MAX_ITEMS'),
   enableWasmFromR2: () => getVariable('ENABLE_WASM_FROM_R2'),
   r2PublicUrl: () => getVariable('R2_PUBLIC_URL'),
+  r2WasmUrl: () => getVariable('R2_WASM_URL'),
 } as const;
 
 // Export utilities
