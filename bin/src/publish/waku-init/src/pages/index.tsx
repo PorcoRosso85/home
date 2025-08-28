@@ -4,6 +4,7 @@ import { Counter } from '../components/counter';
 import { SimpleForm } from '../components/simple-form';
 import { DonutChart } from '../components/donut-chart';
 import { DuckDBLoader } from '../components/duckdb-loader';
+import { SQLiteLoader } from '../components/sqlite-loader';
 import { getHonoContext } from '../../waku.hono-enhancer';
 import { isBuild } from '../lib/waku';
 import { variables } from '../lib/variables';
@@ -50,6 +51,7 @@ export default async function HomePage() {
       <SimpleForm />
       <DonutChart />
       <DuckDBLoader enableR2={enableWasmFromR2} r2Url={r2PublicUrl} />
+      <SQLiteLoader wasmUrl="/wasm/sqlite3.wasm" />
       <Link to="/about" style={{
         marginTop: '16px',
         display: 'inline-block',
