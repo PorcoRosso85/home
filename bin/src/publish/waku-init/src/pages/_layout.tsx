@@ -13,20 +13,8 @@ export default async function RootLayout({ children }: RootLayoutProps) {
       <meta name="description" content={data.description} />
       <link rel="icon" type="image/png" href={data.icon} />
       <style>{`
-        @font-face {
-          font-family: 'GenJyuuGothicL';
-          font-style: normal;
-          font-weight: 400;
-          font-display: swap;
-          src: url('https://cdn.jsdelivr.net/gh/ButTaiwan/genjyuugothic@main/GenJyuuGothicL-Regular.ttf') format('truetype');
-        }
-        @font-face {
-          font-family: 'GenJyuuGothicL';
-          font-style: normal;
-          font-weight: 700;
-          font-display: swap;
-          src: url('https://cdn.jsdelivr.net/gh/ButTaiwan/genjyuugothic@main/GenJyuuGothicL-Bold.ttf') format('truetype');
-        }
+        @import url('/fonts/GenJyuuGothicL-Regular.css');
+        @import url('/fonts/GenJyuuGothicL-Bold.css');
         body {
           font-family: 'GenJyuuGothicL', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }

@@ -6,7 +6,7 @@
   "scripts": {
     "cf-typegen": "wrangler types",
     "dev": "waku dev",
-    "build": "waku build --with-cloudflare",
+    "build": "waku build --with-cloudflare && cp -r public/fonts dist/assets/fonts 2>/dev/null || true",
     "start": "wrangler dev",
     "start:nix": "nix shell nixpkgs#wrangler nixpkgs#nodejs -c wrangler dev",
     "d1:migrate": "wrangler d1 execute init --file=./migrations/ddl.sql",
