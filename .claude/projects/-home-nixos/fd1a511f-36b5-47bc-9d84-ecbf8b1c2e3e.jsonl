@@ -1,4 +1,0 @@
-{"type":"summary","summary":"Tmux Workflow: POC Development, Testing, and Refactoring","leafUuid":"c308bda5-c70e-4915-9ce0-d20e9772bbca"}
-{"type":"summary","summary":"TODOリスト管理のための最適な場所を提案します：\n\n## 推奨TODO管理場所\n\n1. **最優先**: `/bin/docs/TODO.md`\n   - プロジェクト全体の大局的なTODOリスト\n   - 技術的負債、改善案を一元管理\n   - マークダウン形式で可読性高い\n\n2. **開発者向け**: `.claude/TODO.md`\n   - AI支援に特化したTODOリスト\n   - Hooks、自動化、コンテキスト管理の詳細\n   - Claude会話から直接更新可能\n\n3. **技術的詳細**: `bin/src/poc/web/ROADMAP.md`\n   - Web技術を活用した改善案の詳細\n   - 具体的な実装方針と優先順位\n   - POC (Proof of Concept) の進捗管理\n\n推奨は`/bin/docs/TODO.md`です。全体を俯瞰しつつ、具体的な改善案を追跡できます。","leafUuid":"6d6f8b3b-1fa1-4a38-b1a5-05e1a13bcf2b"}
-{"type":"summary","summary":"KuzuDB Hybrid Search: VSS/FTS POC Implementation","leafUuid":"071d2997-3a1e-412e-b39a-0afed8a4f269"}
-{"type":"summary","summary":"Nix-Python Package Duplication Detection and Resolution","leafUuid":"f8734e94-c15c-4f49-9275-067c43f15f61"}
