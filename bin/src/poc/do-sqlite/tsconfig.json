@@ -2,6 +2,7 @@
   "compilerOptions": {
     "strict": true,
     "target": "esnext",
+    "lib": ["esnext", "webworker"],
     "noEmit": true,
     "isolatedModules": true,
     "moduleDetection": "force",
@@ -12,7 +13,8 @@
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    "types": ["./worker-configuration.d.ts", "vite/client"],
+    "types": ["@cloudflare/workers-types", "./worker-configuration.d.ts"],
     "jsx": "react-jsx"
-  }
+  },
+  "include": ["src/**/*", "worker-configuration.d.ts"]
 }

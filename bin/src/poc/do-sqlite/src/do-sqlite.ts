@@ -52,7 +52,7 @@ export class SQLiteDurableObject {
         return new Response("Key not found", { status: 404 });
       }
       
-      return new Response(result[0].value as string);
+      return new Response((result[0] as { value: string }).value);
     }
 
     if (request.method === "POST" && path === "/set") {

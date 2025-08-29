@@ -30,7 +30,7 @@ export default {
       }
       
       // Get DO instance
-      const doId = env.SQLITE_DO.idFromName(id);
+      const doId = env.SQLITE_DO.idFromName(id ?? "default");
       const stub = env.SQLITE_DO.get(doId);
       
       // Forward request to DO
