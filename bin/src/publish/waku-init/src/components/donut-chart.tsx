@@ -1,16 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import type { DataPoint, ChartIndex } from '../domain/mod';
 
 export const DonutChart = () => {
-  const data = [
+  const data: DataPoint[] = [
     { label: 'React', value: 35, color: '#61dafb' },
     { label: 'Vue', value: 25, color: '#4fc08d' },
     { label: 'Angular', value: 20, color: '#dd0031' },
     { label: 'Svelte', value: 20, color: '#ff3e00' }
   ];
 
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<ChartIndex | null>(null);
 
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const centerX = 100;

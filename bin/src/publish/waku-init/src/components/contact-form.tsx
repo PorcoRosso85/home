@@ -3,13 +3,7 @@
 import { useState } from 'react';
 import { Button, TextField, Label, Input } from 'react-aria-components';
 import { submitToR2 } from '../server/actions';
-
-interface ContactFormData {
-  name: string;
-  email: string;
-  subject: string;
-  message: string;
-}
+import type { ContactFormData } from '../domain/mod';
 
 export const ContactForm = () => {
   const [formData, setFormData] = useState<ContactFormData>({

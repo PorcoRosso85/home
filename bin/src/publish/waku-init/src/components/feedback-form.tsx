@@ -3,12 +3,7 @@
 import { useState } from 'react';
 import { Button, TextField, Label, Input, FieldError } from 'react-aria-components';
 import { submitToR2 } from '../server/actions';
-
-interface FeedbackFormData {
-  name: string;
-  email: string;
-  message: string;
-}
+import type { FeedbackFormData } from '../domain/mod';
 
 export const FeedbackForm = () => {
   const [formData, setFormData] = useState<FeedbackFormData>({

@@ -1,9 +1,9 @@
-import { getEnv } from './waku';
+import { getEnv } from '../../lib/waku';
 
 /**
  * Type definitions for environment variables
  */
-interface EnvironmentVariables {
+export interface EnvironmentVariables {
   MAX_ITEMS: number;
   ENABLE_WASM_FROM_R2: boolean;
   R2_PUBLIC_URL: string;
@@ -113,8 +113,9 @@ function getVariable<K extends keyof EnvironmentVariables>(
 
 /**
  * Get all environment variables as a typed configuration object
+ * Returns fresh values each time (no caching to avoid global state)
  */
-function getConfig(): EnvironmentVariables {
+export function getConfig(): EnvironmentVariables {
   const config = {} as EnvironmentVariables;
   
   for (const key of Object.keys(variableConfigs) as Array<keyof EnvironmentVariables>) {
@@ -127,7 +128,7 @@ function getConfig(): EnvironmentVariables {
 /**
  * Validate that all required environment variables are present and valid
  */
-function validateEnvironmentVariables(): { valid: boolean; errors: string[] } {
+export function validateEnvironmentVariables(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
   for (const [key, config] of Object.entries(variableConfigs) as Array<
@@ -149,29 +150,15 @@ function validateEnvironmentVariables(): { valid: boolean; errors: string[] } {
   };
 }
 
-// Create a singleton config object for efficient access
-let cachedConfig: EnvironmentVariables | null = null;
+/**
+ * Individual getters for convenience - each returns fresh values
+ */
+export const getMaxItems = (): number => getVariable('MAX_ITEMS');
+export const getEnableWasmFromR2 = (): boolean => getVariable('ENABLE_WASM_FROM_R2');
+export const getR2PublicUrl = (): string => getVariable('R2_PUBLIC_URL');
+export const getR2WasmUrl = (): string => getVariable('R2_WASM_URL');
 
 /**
- * Get the cached configuration object (lazy initialization)
+ * Export variable getter for direct access when needed
  */
-export function config(): EnvironmentVariables {
-  if (cachedConfig === null) {
-    cachedConfig = getConfig();
-  }
-  return cachedConfig;
-}
-
-// Export individual getters for convenience
-export const variables = {
-  maxItems: () => getVariable('MAX_ITEMS'),
-  enableWasmFromR2: () => getVariable('ENABLE_WASM_FROM_R2'),
-  r2PublicUrl: () => getVariable('R2_PUBLIC_URL'),
-  r2WasmUrl: () => getVariable('R2_WASM_URL'),
-} as const;
-
-// Export utilities
-export { getVariable, validateEnvironmentVariables };
-
-// Export types for external use
-export type { EnvironmentVariables };
+export { getVariable };

@@ -7,7 +7,7 @@ import { FeedbackForm } from '../components/feedback-form';
 import { ContactForm } from '../components/contact-form';
 import { getHonoContext } from '../../waku.hono-enhancer';
 import { isBuild } from '../lib/waku';
-import { variables } from '../lib/variables';
+import { getMaxItems, getEnableWasmFromR2, getR2PublicUrl, getR2WasmUrl } from '../infrastructure/mod';
 
 export default async function HomePage() {
   const data = await getData();
@@ -27,10 +27,10 @@ export default async function HomePage() {
     }),
   );
 
-  const maxItems = variables.maxItems();
-  const enableWasmFromR2 = variables.enableWasmFromR2();
-  const r2PublicUrl = variables.r2PublicUrl();
-  const r2WasmUrl = variables.r2WasmUrl();
+  const maxItems = getMaxItems();
+  const enableWasmFromR2 = getEnableWasmFromR2();
+  const r2PublicUrl = getR2PublicUrl();
+  const r2WasmUrl = getR2WasmUrl();
 
   return (
     <div style={{
