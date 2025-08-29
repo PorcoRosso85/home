@@ -24,3 +24,24 @@ ENABLE_WASM_FROM_R2 = "true"
 R2_PUBLIC_URL = "https://pub-4e1b30eb973f4f729bc85c585f273a8e.r2.dev"
 # R2 WASM hosting URL (using R2.dev subdomain for waku-wasm bucket)
 R2_WASM_URL = "https://pub-4e1b30eb973f4f729bc85c585f273a8e.r2.dev"
+
+# Staging environment configuration
+[env.staging]
+name = "stg-waku-init"
+
+[env.staging.vars]
+STAGING_SECRET = "test-staging-secret-2024"
+# R2/D1 not needed for log testing
+# ENABLE_WASM_FROM_R2 = "true"
+# R2_PUBLIC_URL = "https://pub-4e1b30eb973f4f729bc85c585f273a8e.r2.dev"
+# R2_WASM_URL = "https://pub-4e1b30eb973f4f729bc85c585f273a8e.r2.dev"
+
+# R2/D1 bindings commented out for staging log tests
+# [[env.staging.r2_buckets]]
+# binding = "DATA_BUCKET"
+# bucket_name = "waku-data"
+
+# [[env.staging.d1_databases]]
+# binding = "DB"
+# database_name = "init"
+# database_id = "YOUR_DATABASE_ID"
