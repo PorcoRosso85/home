@@ -133,9 +133,33 @@ export default {
 3. **List R2 objects**: `npx wrangler r2 object list waku-data`
 4. **Test scheduled workers**: `npx wrangler dev --test-scheduled`
 
+## Logging Verification Results
+
+### Testing Environments
+
+| Environment | console.log Output | Verification | Cost |
+|------------|-------------------|--------------|------|
+| `npm run dev` | Terminal | Immediate | Free |
+| `wrangler dev` | Terminal | Immediate | Free |
+| `wrangler dev --local=false` | Terminal + CF Dashboard | Both | Free tier available |
+| Production | Cloudflare Logs | `wrangler tail` or Dashboard | Usage-based |
+
+### Quick Test Commands
+
+```bash
+# Local test
+npx wrangler dev
+curl -X POST http://localhost:8787 \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "name=Test&email=test@example.com&subject=Test&message=Testing"
+
+# Production logs
+npx wrangler tail
+```
+
 ## Resources
 
 - [Workers Runtime APIs](https://developers.cloudflare.com/workers/runtime-apis/)
-- [KV Documentation](https://developers.cloudflare.com/workers/runtime-apis/kv/)
 - [R2 Documentation](https://developers.cloudflare.com/r2/)
-- [Scheduled Workers](https://developers.cloudflare.com/workers/configuration/cron-triggers/)
+- [Cloudflare Logs](https://developers.cloudflare.com/workers/observability/logs/)
+- [Logpush Configuration](https://developers.cloudflare.com/logs/about/)

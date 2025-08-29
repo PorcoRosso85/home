@@ -16,15 +16,6 @@ binding = "DB"
 database_name = "init"
 database_id = "YOUR_DATABASE_ID"
 
-# KV Namespace for log buffering
-[[kv_namespaces]]
-binding = "SUBMISSIONS_KV"
-id = "YOUR_KV_NAMESPACE_ID"
-
-# Scheduled trigger for batch processing
-[triggers]
-crons = ["*/30 * * * *"]  # Every 30 minutes
-
 # Environment variables
 [vars]
 ENABLE_WASM_FROM_R2 = "true"
