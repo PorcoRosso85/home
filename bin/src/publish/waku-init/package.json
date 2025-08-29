@@ -7,7 +7,7 @@
     "cf-typegen": "echo 'Run: nix shell nixpkgs#wrangler -c wrangler types'",
     "dev": "waku dev",
     "dev:edge": "wrangler dev --local=false",
-    "build": "waku build --with-cloudflare && cp -r public/fonts/* dist/worker/public/fonts/ 2>/dev/null || true && cp -r public/wasm/* dist/worker/public/wasm/ 2>/dev/null || true && cp -r public/images/* dist/worker/public/images/ 2>/dev/null || true",
+    "build": "waku build --with-cloudflare && cp -r public/fonts/* dist/worker/public/fonts/ 2>/dev/null || true && cp -r public/images/* dist/worker/public/images/ 2>/dev/null || true",
     "start": "echo 'Run: nix shell nixpkgs#wrangler -c wrangler dev'",
     "start:nix": "nix shell nixpkgs#wrangler nixpkgs#nodejs -c wrangler dev",
     "d1:migrate": "echo 'Run: nix shell nixpkgs#wrangler -c wrangler d1 execute init --file=./migrations/ddl.sql'",

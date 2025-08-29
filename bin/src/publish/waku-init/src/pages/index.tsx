@@ -3,7 +3,6 @@ import { Suspense } from 'react';
 import { Counter } from '../components/counter';
 import { DonutChart } from '../components/donut-chart';
 import { DuckDBLoader } from '../components/duckdb-loader';
-import { SQLiteLoader } from '../components/sqlite-loader';
 import { FeedbackForm } from '../components/feedback-form';
 import { ContactForm } from '../components/contact-form';
 import { getHonoContext } from '../../waku.hono-enhancer';
@@ -52,8 +51,6 @@ export default async function HomePage() {
       <Counter max={maxItems} />
       <DonutChart />
       <DuckDBLoader enableR2={enableWasmFromR2} r2Url={r2PublicUrl} />
-      <SQLiteLoader wasmUrl="/wasm/sqlite3.wasm" />
-      {/* R2 URL (CORS設定後に使用): {r2WasmUrl}/sqlite/sqlite3.wasm */}
       
       <h2 style={{
         fontSize: '1.5rem',
