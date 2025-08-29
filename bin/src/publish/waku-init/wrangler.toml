@@ -1,5 +1,7 @@
 name = "waku-init"
 compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+main = "test-many-logs.js"
 
 # Development server configuration
 [dev]
