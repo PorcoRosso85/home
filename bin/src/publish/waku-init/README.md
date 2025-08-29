@@ -62,6 +62,24 @@ nix shell nixpkgs#wrangler -c wrangler r2 object list waku-data
 
 # D1 database
 nix shell nixpkgs#wrangler -c wrangler d1 execute init --file=./migrations/ddl.sql
+
+# Log streaming (JSON output)
+bin/wrangler-tail-json <worker-name>     # Stream logs as JSON
+bin/wrangler-tail-json <worker-name> 10  # Stream for 10 seconds
+```
+
+## Tools
+
+### bin/wrangler-tail-json
+Streams Cloudflare Worker logs as clean JSON for analysis:
+
+```bash
+# Basic usage
+bin/wrangler-tail-json my-worker
+
+# Pipe to analysis tools
+bin/wrangler-tail-json my-worker | jq '.logs | length'
+bin/wrangler-tail-json my-worker | duckdb -c "SELECT * FROM read_json_auto('/dev/stdin')"
 ```
 
 ## Environment Variables
