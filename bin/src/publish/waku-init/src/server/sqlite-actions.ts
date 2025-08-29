@@ -14,10 +14,13 @@ interface DatabaseInfo {
  */
 export async function listDatabases(): Promise<DatabaseInfo[]> {
   const ctx = getHonoContext();
+  console.log('listDatabases called, ctx exists:', !!ctx);
+  
   if (!ctx) return [];
   
   const env = ctx.env as any;
   const bucket = env.DATA_BUCKET;
+  console.log('R2 bucket binding exists:', !!bucket);
   
   if (!bucket) return [];
   
@@ -25,6 +28,12 @@ export async function listDatabases(): Promise<DatabaseInfo[]> {
     const listed = await bucket.list({
       prefix: 'sqlite-databases/',
       limit: 100
+    });
+    
+    console.log('R2 list result:', {
+      objects: listed.objects?.length || 0,
+      truncated: listed.truncated,
+      cursor: listed.cursor
     });
     
     return listed.objects.map((obj: any) => ({
