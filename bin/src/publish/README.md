@@ -7,6 +7,10 @@
 - **Infrastructure**: Cloudflare Workers
 - **Scope**: Service directory management only
 
+## 行動規約
+
+新規プロジェクトの実装・デプロイ手順については [行動規約.md](./行動規約.md) を参照してください。
+
 ## Structure
 
 ```
