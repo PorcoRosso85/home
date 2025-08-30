@@ -6,6 +6,7 @@
   "packageManager": "npm@10.8.2",
   "workspaces": [
     "waku-init",
+    "sf6-combo-lab",
     "keyword-goldmine",
     "poc/*"
   ],
