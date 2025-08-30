@@ -78,7 +78,7 @@ export async function createStorageAdapter(
   try {
     switch (storageType) {
       case 'log':
-        console.log('[StorageFactory] Creating LogAdapter');
+        console.warn('[StorageFactory] Creating LogAdapter');
         return new LogAdapter();
 
       case 'r2':

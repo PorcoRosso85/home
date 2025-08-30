@@ -78,6 +78,9 @@ async function createSubmitFormDependencies(env: any): Promise<SubmitFormDepende
  * This is a thin adapter that delegates business logic to the use case
  */
 export async function submitForm(formData: FormData): Promise<SubmissionResponse> {
+  console.log('[submitForm] Server action called');
+  console.warn('[submitForm] Processing form submission');
+  
   try {
     // Get Hono context to access Cloudflare bindings
     const ctx = getHonoContext();
@@ -103,9 +106,11 @@ export async function submitForm(formData: FormData): Promise<SubmissionResponse
     };
 
     // Create dependencies for the use case using the new storage adapter system
+    console.log('[submitForm] Creating dependencies');
     const dependencies = await createSubmitFormDependencies(env);
 
     // Call the use case with form data and dependencies
+    console.log('[submitForm] Calling submitFormUseCase');
     const result = await submitFormUseCase(feedbackFormData, dependencies);
 
     // Log success for monitoring

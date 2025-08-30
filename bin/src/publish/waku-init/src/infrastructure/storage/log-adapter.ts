@@ -34,14 +34,15 @@ export class LogAdapter implements StorageAdapter {
     const size = new TextEncoder().encode(dataString).length;
 
     // Log the storage operation with structured format
-    console.log(`[STORAGE:${timestamp}] Saving to ${key} (${size} bytes)`);
+    // Using console.warn to ensure visibility in wrangler tail
+    console.warn(`[STORAGE:${timestamp}] Saving to ${key} (${size} bytes)`);
     
     // Log the actual data on a separate line for debugging
-    console.log('Data:', data);
+    console.warn('Data:', data);
     
     // Log metadata if provided
     if (metadata) {
-      console.log('Metadata:', metadata);
+      console.warn('Metadata:', metadata);
     }
   }
 }
