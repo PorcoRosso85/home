@@ -1,0 +1,19 @@
+# Infrastructure files from base
+waku.config.ts
+waku.cloudflare-dev-server.ts
+waku.cloudflare-middleware.ts
+waku.hono-enhancer.ts
+postcss.config.js
+tsconfig.json
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.waku/
+.vercel/
+.wrangler/
+
+# Logs
+*.log
