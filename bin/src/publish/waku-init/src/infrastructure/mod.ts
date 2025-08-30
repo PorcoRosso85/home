@@ -17,9 +17,24 @@ export {
   getEnableWasmFromR2,
   getR2PublicUrl,
   getR2WasmUrl,
+  getStorageType,
   getVariable,
   type EnvironmentVariables,
+  type StorageType,
 } from './variables/env.js';
+
+// Storage adapters
+export { LogAdapter } from './storage/log-adapter.js';
+export { R2Adapter } from './storage/r2-adapter.js';
+export { MultiAdapter } from './storage/multi-adapter.js';
+
+// Storage factory
+export {
+  createStorageAdapter,
+  createStorageAdapterFromEnv,
+  getStorageType as getStorageTypeFromFactory,
+  type CreateStorageAdapterOptions,
+} from './storage/factory.js';
 
 // R2 functionality can be added here in the future
 // export { ... } from './r2/index.js';

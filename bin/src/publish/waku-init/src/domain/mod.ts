@@ -54,6 +54,12 @@ export type {
   ChartDataValidation,
 } from './analytics/types';
 
+// Storage Domain Types
+export type {
+  StorageAdapter,
+  StorageMetadata,
+} from './storage/types';
+
 /**
  * Re-export Timestamp type with alias to avoid conflicts
  * between log and form domains

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button, TextField, Label, Input } from 'react-aria-components';
-import { submitToR2 } from '../server/actions';
+import { submitForm } from '../server/actions';
 import type { ContactFormData } from '../domain/mod';
 
 export const ContactForm = () => {
@@ -32,8 +32,8 @@ export const ContactForm = () => {
       formDataObj.append('subject', formData.subject);
       formDataObj.append('message', formData.message);
 
-      // Submit to R2 using server action
-      const result = await submitToR2(formDataObj);
+      // Submit using server action
+      const result = await submitForm(formDataObj);
       
       if (result.success) {
         console.log('Contact form submitted successfully:', result.filename);

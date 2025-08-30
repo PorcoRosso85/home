@@ -1,6 +1,11 @@
 import { getEnv } from '../../lib/waku';
 
 /**
+ * Valid storage types for the STORAGE_TYPE environment variable
+ */
+export type StorageType = 'r2' | 'log' | 'multi';
+
+/**
  * Type definitions for environment variables
  */
 export interface EnvironmentVariables {
@@ -8,6 +13,7 @@ export interface EnvironmentVariables {
   ENABLE_WASM_FROM_R2: boolean;
   R2_PUBLIC_URL: string;
   R2_WASM_URL: string;
+  STORAGE_TYPE: StorageType;
   // Add more environment variables here as needed
 }
 
@@ -83,6 +89,19 @@ const variableConfigs: {
     required: false,
     defaultValue: '',
   },
+  STORAGE_TYPE: {
+    key: 'STORAGE_TYPE',
+    parser: (value) => {
+      if (!value) return 'r2';
+      const lowerValue = value.toLowerCase();
+      if (lowerValue === 'r2' || lowerValue === 'log' || lowerValue === 'multi') {
+        return lowerValue as StorageType;
+      }
+      throw new Error(`Invalid STORAGE_TYPE: ${value}. Valid values are: r2, log, multi`);
+    },
+    required: false,
+    defaultValue: 'r2' as StorageType,
+  },
 };
 
 /**
@@ -157,6 +176,7 @@ export const getMaxItems = (): number => getVariable('MAX_ITEMS');
 export const getEnableWasmFromR2 = (): boolean => getVariable('ENABLE_WASM_FROM_R2');
 export const getR2PublicUrl = (): string => getVariable('R2_PUBLIC_URL');
 export const getR2WasmUrl = (): string => getVariable('R2_WASM_URL');
+export const getStorageType = (): StorageType => getVariable('STORAGE_TYPE');
 
 /**
  * Export variable getter for direct access when needed

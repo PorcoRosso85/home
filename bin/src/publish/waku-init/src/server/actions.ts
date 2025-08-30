@@ -10,6 +10,7 @@ import type {
   FeedbackFormData, 
   SubmissionId 
 } from '../domain/mod.js';
+import { createStorageAdapterFromEnv } from '../infrastructure/mod.js';
 
 /**
  * Generates a UUID v4 string
@@ -23,13 +24,15 @@ function generateUUID(): SubmissionId {
 }
 
 /**
- * Create dependencies for the submit form use case
+ * Create dependencies for the submit form use case using the new storage adapter system
  */
-function createSubmitFormDependencies(bucket: any): SubmitFormDependencies {
+async function createSubmitFormDependencies(env: any): Promise<SubmitFormDependencies> {
+  const storageAdapter = await createStorageAdapterFromEnv(env);
+  
   return {
     storageService: {
       put: async (key: string, data: string, metadata?: any) => {
-        await bucket.put(key, data, metadata);
+        await storageAdapter.save(key, data, metadata);
       },
     },
     idGenerator: {
@@ -42,10 +45,39 @@ function createSubmitFormDependencies(bucket: any): SubmitFormDependencies {
 }
 
 /**
- * Server action that accepts form data and stores it as JSON in R2
+ * Alternative implementation using R2Adapter (cleaner abstraction):
+ * 
+ * function createSubmitFormDependenciesWithR2Adapter(bucket: any): SubmitFormDependencies {
+ *   const storageAdapter = new R2Adapter(bucket);
+ *   
+ *   return {
+ *     storageService: {
+ *       put: async (key: string, data: string, metadata?: any) => {
+ *         await storageAdapter.save(key, data, metadata);
+ *       },
+ *     },
+ *     idGenerator: {
+ *       generateSubmissionId: () => generateUUID(),
+ *     },
+ *     timeService: {
+ *       now: () => new Date(),
+ *     },
+ *   };
+ * }
+ * 
+ * Benefits of R2Adapter approach:
+ * - Handles JSON stringification automatically
+ * - Proper metadata formatting for R2 (httpMetadata/customMetadata)
+ * - Implements StorageAdapter interface for testability
+ * - Can be easily mocked or replaced with other storage backends
+ * - Reusable across different use cases
+ */
+
+/**
+ * Server action that accepts form data and stores it using the configured storage adapter
  * This is a thin adapter that delegates business logic to the use case
  */
-export async function submitToR2(formData: FormData): Promise<SubmissionResponse> {
+export async function submitForm(formData: FormData): Promise<SubmissionResponse> {
   try {
     // Get Hono context to access Cloudflare bindings
     const ctx = getHonoContext();
@@ -58,28 +90,20 @@ export async function submitToR2(formData: FormData): Promise<SubmissionResponse
       };
     }
 
-    // Access the R2 bucket from Cloudflare environment
+    // Access the environment for storage adapter configuration
     const env = ctx.env as any;
-    const bucket = env.DATA_BUCKET;
-    
-    if (!bucket) {
-      console.error('R2 bucket not found in environment');
-      return {
-        success: false,
-        message: 'Storage service not available'
-      };
-    }
 
     // Extract form data and convert to domain type
-    const feedbackFormData: FeedbackFormData = {
+    // Note: This handles both FeedbackFormData and ContactFormData by accepting optional subject
+    const feedbackFormData = {
       name: formData.get('name')?.toString() || '',
       email: formData.get('email')?.toString() || '',
-      subject: formData.get('subject')?.toString() || '',
+      subject: formData.get('subject')?.toString() || '', // Optional for feedback forms
       message: formData.get('message')?.toString() || '',
     };
 
-    // Create dependencies for the use case
-    const dependencies = createSubmitFormDependencies(bucket);
+    // Create dependencies for the use case using the new storage adapter system
+    const dependencies = await createSubmitFormDependencies(env);
 
     // Call the use case with form data and dependencies
     const result = await submitFormUseCase(feedbackFormData, dependencies);
@@ -92,11 +116,20 @@ export async function submitToR2(formData: FormData): Promise<SubmissionResponse
     return result;
 
   } catch (error) {
-    console.error('Error in submitToR2 server action:', error);
+    console.error('Error in submitForm server action:', error);
     
     return {
       success: false,
       message: 'Failed to submit feedback. Please try again.'
     };
   }
+}
+
+/**
+ * @deprecated Use submitForm instead. This is maintained for backward compatibility.
+ * Will be removed in a future version.
+ */
+export async function submitToR2(formData: FormData): Promise<SubmissionResponse> {
+  console.warn('submitToR2 is deprecated. Please use submitForm instead.');
+  return submitForm(formData);
 }

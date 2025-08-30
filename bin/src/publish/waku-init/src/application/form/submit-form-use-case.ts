@@ -2,6 +2,7 @@ import type {
   SubmissionData,
   SubmissionResponse,
   FormValidationResult,
+  FormValidationError,
   FeedbackFormData,
   SubmissionId,
 } from '../../domain/mod.js';
@@ -32,26 +33,29 @@ export interface SubmitFormDependencies {
 
 /**
  * Form validation utilities
+ * Handles both FeedbackFormData and ContactFormData by accepting optional subject
  */
-function validateFormData(data: FeedbackFormData): FormValidationResult {
-  const errors: string[] = [];
+function validateFormData(data: FeedbackFormData & { subject?: string }): FormValidationResult {
+  const errors: FormValidationError[] = [];
 
   if (!data.name?.trim()) {
-    errors.push('Name is required');
+    errors.push({ field: 'name', message: 'Name is required' });
   }
 
   if (!data.email?.trim()) {
-    errors.push('Email is required');
+    errors.push({ field: 'email', message: 'Email is required' });
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-    errors.push('Email format is invalid');
+    errors.push({ field: 'email', message: 'Email format is invalid' });
   }
 
-  if (!data.subject?.trim()) {
-    errors.push('Subject is required');
+  // Subject validation is optional - only validate if provided
+  // This allows the same function to handle both feedback and contact forms
+  if (data.subject !== undefined && !data.subject?.trim()) {
+    errors.push({ field: 'subject', message: 'Subject is required' });
   }
 
   if (!data.message?.trim()) {
-    errors.push('Message is required');
+    errors.push({ field: 'message', message: 'Message is required' });
   }
 
   return {
@@ -80,9 +84,11 @@ function generateStoragePath(timestamp: Date, submissionId: SubmissionId): strin
  * - Generates submission ID and timestamp
  * - Stores submission data with proper metadata
  * - Returns appropriate response
+ * 
+ * Works with both FeedbackFormData and ContactFormData by accepting optional subject
  */
 export async function submitFormUseCase(
-  formData: FeedbackFormData,
+  formData: FeedbackFormData & { subject?: string },
   dependencies: SubmitFormDependencies
 ): Promise<SubmissionResponse> {
   try {
@@ -91,7 +97,7 @@ export async function submitFormUseCase(
     if (!validation.isValid) {
       return {
         success: false,
-        message: validation.errors.join(', '),
+        message: validation.errors.map(err => err.message).join(', '),
       };
     }
 
@@ -103,7 +109,7 @@ export async function submitFormUseCase(
     const submissionData: SubmissionData = {
       name: formData.name.trim(),
       email: formData.email.trim(),
-      subject: formData.subject.trim(),
+      subject: (formData.subject || '').trim(), // Default to empty string for feedback forms
       message: formData.message.trim(),
       timestamp: timestamp.toISOString(),
       submissionId,
