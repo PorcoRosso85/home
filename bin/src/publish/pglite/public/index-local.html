@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PGlite Demo (Client-side)</title>
+    <title>PGlite Demo (Local Assets)</title>
     <style>
         * {
             margin: 0;
@@ -225,14 +225,14 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🐘 PGlite Demo</h1>
-            <p>PostgreSQL in your browser - Running entirely client-side</p>
+            <h1>🐘 PGlite Demo (Local)</h1>
+            <p>PostgreSQL in your browser - Running from local static assets</p>
         </div>
         
         <div class="content">
             <div id="status" class="status loading">
                 <div class="spinner"></div>
-                <span>Loading PGlite from CDN...</span>
+                <span>Loading PGlite from local assets...</span>
             </div>
             
             <div class="editor-container">
@@ -270,16 +270,32 @@ SELECT * FROM users;</textarea>
             <div class="info">
                 <h4>ℹ️ About this Demo</h4>
                 <p>
-                    This demo runs PGlite entirely in your browser. The PostgreSQL database (WASM) is served 
-                    directly from Cloudflare Workers edge network as static assets. 
-                    Everything executes locally using WebAssembly. No data is sent to any server.
+                    This demo runs PGlite entirely in your browser using local static assets. The PostgreSQL database 
+                    and WASM files are loaded from the local <code>/pglite/</code> directory, providing faster loading 
+                    and offline capability. No data is sent to any server or external CDN.
                 </p>
             </div>
         </div>
     </div>
     
     <script type="module">
-        import { PGlite } from './pglite/index.js';
+        // Enhanced error handling for local file loading
+        function handleLoadError(error, context) {
+            console.error(`Failed to load ${context}:`, error);
+            setStatus('error', `❌ Failed to load ${context}. Please ensure all files are available locally.`);
+            return false;
+        }
+
+        // Import PGlite from local assets with error handling
+        let PGlite;
+        try {
+            const module = await import('./pglite/index.js');
+            PGlite = module.PGlite;
+            console.log('Successfully loaded PGlite from local assets');
+        } catch (error) {
+            handleLoadError(error, 'PGlite module');
+            throw error;
+        }
         
         let db;
         const statusEl = document.getElementById('status');
@@ -326,26 +342,51 @@ SELECT * FROM users;</textarea>
         
         async function initDatabase() {
             try {
-                setStatus('loading', 'Initializing PGlite database...');
+                setStatus('loading', 'Initializing PGlite database from local WASM...');
                 
-                // Initialize PGlite with local WASM files
+                // Initialize PGlite with local WASM files and enhanced error handling
                 db = new PGlite({
+                    // Ensure WASM files are loaded from local directory
                     wasmUrl: './pglite/pglite.wasm',
-                    dataUrl: './pglite/pglite.data'
+                    dataUrl: './pglite/pglite.data',
+                    // Handle WASM loading errors
+                    onReady: () => {
+                        console.log('PGlite WASM loaded successfully from local assets');
+                    },
+                    onError: (error) => {
+                        console.error('PGlite initialization error:', error);
+                        handleLoadError(error, 'WASM initialization');
+                    }
                 });
                 
-                // Test the connection
-                await db.query('SELECT version()');
+                // Test the connection with timeout
+                const testQuery = Promise.race([
+                    db.query('SELECT version()'),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Database initialization timeout')), 10000)
+                    )
+                ]);
                 
-                setStatus('ready', '✅ PGlite is ready! Database running in-memory.');
+                await testQuery;
+                
+                setStatus('ready', '✅ PGlite is ready! Database running with local WASM files.');
                 sqlEditor.disabled = false;
                 executeBtn.disabled = false;
                 clearBtn.disabled = false;
                 
-                console.log('PGlite initialized successfully');
+                console.log('PGlite initialized successfully with local assets');
             } catch (error) {
                 console.error('Failed to initialize PGlite:', error);
-                setStatus('error', `❌ Failed to initialize: ${error.message}`);
+                let errorMessage = error.message;
+                
+                // Provide specific guidance for common local loading issues
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    errorMessage += '. Check that files are served over HTTP(S) and CORS is configured properly.';
+                } else if (error.message.includes('timeout')) {
+                    errorMessage += '. Local WASM loading took too long - try refreshing the page.';
+                }
+                
+                setStatus('error', `❌ Failed to initialize: ${errorMessage}`);
             }
         }
         
@@ -360,20 +401,33 @@ SELECT * FROM users;</textarea>
                 executeBtn.disabled = true;
                 resultContent.innerHTML = '<pre>Executing query...</pre>';
                 
-                // Split multiple statements and execute them
+                // Split multiple statements and execute them with timeout
                 const statements = sql.split(';').filter(s => s.trim());
                 let lastResult = null;
                 
                 for (const statement of statements) {
                     if (statement.trim()) {
-                        lastResult = await db.query(statement.trim());
+                        const queryPromise = Promise.race([
+                            db.query(statement.trim()),
+                            new Promise((_, reject) => 
+                                setTimeout(() => reject(new Error('Query execution timeout')), 30000)
+                            )
+                        ]);
+                        
+                        lastResult = await queryPromise;
                     }
                 }
                 
                 resultContent.innerHTML = formatResults(lastResult);
             } catch (error) {
                 console.error('Query execution failed:', error);
-                resultContent.innerHTML = `<pre style="color: #dc3545;">Error: ${error.message}</pre>`;
+                let errorMessage = error.message;
+                
+                if (error.message.includes('timeout')) {
+                    errorMessage += '. Query took too long to execute.';
+                }
+                
+                resultContent.innerHTML = `<pre style="color: #dc3545;">Error: ${errorMessage}</pre>`;
             } finally {
                 executeBtn.disabled = false;
             }
@@ -393,6 +447,16 @@ SELECT * FROM users;</textarea>
         });
         
         // Initialize the database when page loads
+        // Add additional error handling for module loading issues
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            if (event.reason && event.reason.message && 
+                (event.reason.message.includes('Failed to fetch') || 
+                 event.reason.message.includes('Loading'))) {
+                setStatus('error', '❌ Failed to load local assets. Ensure the server is running and files are accessible.');
+            }
+        });
+        
         initDatabase();
     </script>
 </body>
