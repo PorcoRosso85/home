@@ -72,3 +72,4 @@ coverage
 .wrangler
 
 generated/
+patch-workerd.sh

@@ -6,6 +6,10 @@ export default defineConfig({
   plugins: [
     cloudflare({
       viteEnvironment: { name: "worker" },
+      // Try to use external wrangler binary on NixOS
+      miniflare: {
+        binPath: process.env.WRANGLER_BINARY,
+      }
     }),
     redwood(),
   ],
