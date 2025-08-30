@@ -48,9 +48,10 @@ function validateFormData(data: FeedbackFormData & { subject?: string }): FormVa
     errors.push({ field: 'email', message: 'Email format is invalid' });
   }
 
-  // Subject validation is optional - only validate if provided
+  // Subject validation is optional - only validate if explicitly provided
   // This allows the same function to handle both feedback and contact forms
-  if (data.subject !== undefined && !data.subject?.trim()) {
+  // Skip validation if subject is undefined or empty string (feedback forms don't have subject)
+  if (data.subject && data.subject !== '' && !data.subject.trim()) {
     errors.push({ field: 'subject', message: 'Subject is required' });
   }
 

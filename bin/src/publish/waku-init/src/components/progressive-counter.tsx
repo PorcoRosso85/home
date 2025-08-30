@@ -2,6 +2,7 @@
 // use clientを条件付きで無効化できるか検証
 
 import { useState } from 'react';
+import { getDisableClientJs } from '../infrastructure/mod.js';
 
 // サーバー版（フォールバック）
 export function ServerCounter({ initial = 0 }: { initial?: number }) {
@@ -36,7 +37,7 @@ function ClientCounterInternal({ initial = 0 }: { initial?: number }) {
 // プログレッシブラッパー
 export function ProgressiveCounter({ initial = 0 }: { initial?: number }) {
   // NoJSモードを検出する環境変数やヘッダーをチェック
-  const noJsMode = process.env.DISABLE_CLIENT_JS === 'true';
+  const noJsMode = getDisableClientJs();
   
   if (noJsMode) {
     return <ServerCounter initial={initial} />;

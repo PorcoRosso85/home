@@ -1,6 +1,8 @@
 // Waku ビルドプラグイン: use client自動フォールバック
 // vite.config.tsで使用
 
+import { getProgressiveMode } from '../infrastructure/mod.js';
+
 export function progressiveEnhancementPlugin() {
   return {
     name: 'progressive-enhancement',
@@ -17,7 +19,7 @@ export function progressiveEnhancementPlugin() {
         /^'use client';?\n/m,
         `
 // Progressive Enhancement自動挿入
-if (typeof window === 'undefined' && process.env.PROGRESSIVE_MODE === 'true') {
+if (typeof window === 'undefined' && getProgressiveMode()) {
   // use clientを無効化してサーバーコンポーネントとして扱う
   module.exports = require('./server-fallback');
   return;

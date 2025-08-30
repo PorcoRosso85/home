@@ -14,6 +14,9 @@ export interface EnvironmentVariables {
   R2_PUBLIC_URL: string;
   R2_WASM_URL: string;
   STORAGE_TYPE: StorageType;
+  PROGRESSIVE_MODE: boolean;
+  ENABLE_CLIENT: boolean;
+  DISABLE_CLIENT_JS: boolean;
   // Add more environment variables here as needed
 }
 
@@ -102,6 +105,33 @@ const variableConfigs: {
     required: false,
     defaultValue: 'r2' as StorageType,
   },
+  PROGRESSIVE_MODE: {
+    key: 'PROGRESSIVE_MODE',
+    parser: (value) => {
+      const parsed = parsers.boolean(value);
+      return parsed !== undefined ? parsed : false;
+    },
+    required: false,
+    defaultValue: false,
+  },
+  ENABLE_CLIENT: {
+    key: 'ENABLE_CLIENT',
+    parser: (value) => {
+      const parsed = parsers.boolean(value);
+      return parsed !== undefined ? parsed : true;
+    },
+    required: false,
+    defaultValue: true,
+  },
+  DISABLE_CLIENT_JS: {
+    key: 'DISABLE_CLIENT_JS',
+    parser: (value) => {
+      const parsed = parsers.boolean(value);
+      return parsed !== undefined ? parsed : false;
+    },
+    required: false,
+    defaultValue: false,
+  },
 };
 
 /**
@@ -177,6 +207,9 @@ export const getEnableWasmFromR2 = (): boolean => getVariable('ENABLE_WASM_FROM_
 export const getR2PublicUrl = (): string => getVariable('R2_PUBLIC_URL');
 export const getR2WasmUrl = (): string => getVariable('R2_WASM_URL');
 export const getStorageType = (): StorageType => getVariable('STORAGE_TYPE');
+export const getProgressiveMode = (): boolean => getVariable('PROGRESSIVE_MODE');
+export const getEnableClient = (): boolean => getVariable('ENABLE_CLIENT');
+export const getDisableClientJs = (): boolean => getVariable('DISABLE_CLIENT_JS');
 
 /**
  * Export variable getter for direct access when needed

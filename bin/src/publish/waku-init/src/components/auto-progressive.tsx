@@ -2,6 +2,7 @@
 // use clientを動的に切り替える
 
 import type { ComponentType } from 'react';
+import { getEnableClient } from '../infrastructure/mod.js';
 
 // 条件付きuse clientのラッパー
 export function withAutoProgressive<P extends object>(
@@ -10,7 +11,7 @@ export function withAutoProgressive<P extends object>(
 ) {
   return async function AutoProgressive(props: P) {
     // 実行時条件チェック
-    const enableClient = process.env.ENABLE_CLIENT !== 'false';
+    const enableClient = getEnableClient();
     const userAgent = globalThis.headers?.get('user-agent') || '';
     const isBot = /bot|crawler|spider/i.test(userAgent);
     const acceptsJS = !globalThis.headers?.get('save-data'); // データセーブモード
