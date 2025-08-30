@@ -11,6 +11,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite dev",
+    "dev:nixos": "wrangler dev --port 3000",
+    "dev:vite-only": "vite dev --mode development",
     "dev:init": "rw-scripts dev-init",
     "preview": "vite preview",
     "worker:run": "rw-scripts worker-run",
@@ -24,7 +26,8 @@
     "generate": "rw-scripts ensure-env && prisma generate && wrangler types",
     "check": "npm run generate && npm run types",
     "types": "tsc",
-    "prepare": "vibe-rules install cursor"
+    "prepare": "vibe-rules install cursor",
+    "postinstall": "[ -f ./patch-workerd.sh ] && ./patch-workerd.sh || true"
   },
   "dependencies": {
     "@prisma/adapter-d1": "~6.8.2",
