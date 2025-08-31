@@ -45,36 +45,73 @@ Multiple Claude Code instances management and control orchestration system
 ### 1. Start Worker
 ```bash
 # Start Claude Code in project A
-./cli.sh start-worker /path/to/project-a
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import start_worker_in_directory
+result = start_worker_in_directory('/path/to/project-a')
+if result['ok']:
+    print(f\"Started worker {result['data']['pane_id']} for {result['data']['directory']}\")
+else:
+    print(f\"Error: {result['error']['message']}\")
+"
 
 # Result:
 # - Duplicate check performed
-# - Claude Code launched in new tmux pane
-# - Pane ID recorded in state file
+# - Claude Code launched in new tmux window
+# - Pane ID recorded for tracking
 ```
 
 ### 2. Send Command
 ```bash
 # Send command to project A worker
-./cli.sh send-command /path/to/project-a "Fix bugs in this file"
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import send_command_to_worker_by_directory
+result = send_command_to_worker_by_directory('/path/to/project-a', 'Fix bugs in this file')
+if result['ok']:
+    print('Command sent successfully')
+else:
+    print(f\"Error: {result['error']['message']}\")
+"
 
 # Result:
-# - Identifies Pane ID for directory
+# - Identifies window for directory
 # - Sends command reliably to that pane
 ```
 
 ### 3. Check Status
 ```bash
-# Show all worker status
-./cli.sh status
+# Show all workers status
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import get_all_workers_status
+result = get_all_workers_status()
+if result['ok']:
+    for worker in result['data']['workers']:
+        print(f\"Pane {worker['pane_id']}: {worker['directory']} ({worker['status']})\")
+    print(f\"Total: {result['data']['total']} workers\")
+else:
+    print(f\"Error: {result['error']['message']}\")
+"
 
 # Example output:
 # Pane %0: /path/to/project-a (alive)
 # Pane %1: /path/to/project-b (alive)
 # Pane %2: /path/to/project-c (dead)
+# Total: 3 workers
 ```
 
-### 4. Manual Check (When Needed)
+### 4. Clean Dead Workers
+```bash
+# Remove dead workers from state
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import clean_dead_workers_from_state
+result = clean_dead_workers_from_state()
+if result['ok']:
+    print(f\"Cleaned {result['data']['removed']} dead workers\")
+else:
+    print(f\"Error: {result['error']['message']}\")
+"
+```
+
+### 5. Manual Check (When Needed)
 ```bash
 # Attach to tmux session for direct inspection
 tmux attach-session -t org-system
@@ -133,15 +170,21 @@ tmux attach-session -t org-system
 ### Q: Worker won't start
 A: Check if Claude Code already running in same directory
 ```bash
-./cli.sh status
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import get_all_workers_status
+result = get_all_workers_status()
+if result['ok']:
+    for worker in result['data']['workers']:
+        print(f\"{worker['directory']}: {worker['status']}\")
+"
 ps aux | grep claude
 ```
 
 ### Q: Command not delivered
-A: Verify Pane ID is correct
+A: Verify window exists and pane is alive
 ```bash
-./cli.sh status
-tmux list-panes -F "#{pane_id} #{pane_current_path}"
+tmux list-windows -t org-system -F "#{window_name}"
+tmux list-panes -a -F "#{pane_id} #{pane_current_path}"
 ```
 
 ### Q: State file corrupted
