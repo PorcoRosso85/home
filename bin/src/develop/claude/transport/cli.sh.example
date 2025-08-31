@@ -1,28 +1,36 @@
 #!/usr/bin/env bash
-# Claude Code Transport Module - CLI Usage Examples
-# すべてのユースケースのnix shellコマンドスニペット
+# Transport Module - 実行可能コマンド集
 
 # === 基本操作 ===
 
-# セッション一覧を表示
+# セッション一覧
 nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
-  -c python3 wrapper.py list
+  -c python3 -c "
+from application import MultiSessionOrchestrator
+orchestrator = MultiSessionOrchestrator()
+result = orchestrator.discover_active_sessions()
+print(f'Active sessions: {result[\"sessions\"]}')
+"
 
 # セッション作成（番号指定）
 nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
-  -c python3 wrapper.py create 1
+  -c python3 -c "
+from application import SingleSessionController
+controller = SingleSessionController(1)
+result = controller.start_new_session()
+print(f'Session 1: {\"Created\" if result[\"success\"] else \"Failed\"} - {result.get(\"error\", \"\")}')
+"
 
+# セッション確認
 nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
-  -c python3 wrapper.py create 5
+  -c python3 -c "
+from application import SingleSessionController
+controller = SingleSessionController(1)
+status = controller.get_status()
+print(f'Session 1: State={status[\"state\"]}, Session={status[\"has_session\"]}')
+"
 
-# セッション確認（プロセス存在チェック）
-nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
-  -c python3 wrapper.py check 1
-
-nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
-  -c python3 wrapper.py check 5
-
-# === 高度な使用例（Python直接実行） ===
+# === 高度な使用例 ===
 
 # 複数セッション同時作成
 nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
@@ -78,12 +86,6 @@ discovered = orchestrator.discover_active_sessions()
 print(f'Active sessions: {discovered}')
 "
 
-# === ワンライナーエイリアス（~/.bashrcに追加） ===
-
-# alias transport="nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' -c python3 /home/nixos/bin/src/develop/claude/transport/wrapper.py"
-# 使用例: transport list
-#        transport create 5
-#        transport check 5
 
 # === トラブルシューティング ===
 
