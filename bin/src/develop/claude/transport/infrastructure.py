@@ -6,6 +6,7 @@ pexpectのみでのセッション管理（1 dir : 1 session）
 
 import json
 import glob
+import subprocess
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -23,6 +24,43 @@ except ImportError:
 # === グローバルセッション管理 ===
 # ディレクトリパス -> pexpectセッションのマッピング
 _sessions: Dict[str, pexpect.spawn] = {}
+
+# === プロセス検出 ===
+
+def find_existing_claude_process(work_dir: Path) -> Optional[int]:
+    """指定ディレクトリで動作中のClaude Codeプロセスを検出
+    Returns:
+        PID if found, None otherwise
+    """
+    try:
+        # ps auxでプロセス一覧を取得
+        result = subprocess.run(
+            ["ps", "aux"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        dir_str = str(work_dir.absolute())
+        
+        # Claude Codeプロセスを検索
+        for line in result.stdout.split('\n'):
+            # claude-shell.shまたはclaude関連プロセスを検索
+            if 'claude' in line.lower() and dir_str in line:
+                # コマンドライン引数にディレクトリが含まれているか確認
+                parts = line.split()
+                if len(parts) > 1:
+                    try:
+                        pid = int(parts[1])
+                        # プロセスが生きているか確認
+                        subprocess.run(["kill", "-0", str(pid)], 
+                                     capture_output=True, check=True)
+                        return pid
+                    except (ValueError, subprocess.CalledProcessError):
+                        continue
+        return None
+    except subprocess.CalledProcessError:
+        return None
 
 # === セッション操作 (list/create only) ===
 
@@ -57,6 +95,13 @@ def create_session(work_dir: Path) -> Optional[pexpect.spawn]:
     # 既存セッションがあれば返す
     if dir_str in _sessions and _sessions[dir_str].isalive():
         return _sessions[dir_str]
+    
+    # システムレベルで既存プロセスを検出
+    existing_pid = find_existing_claude_process(work_dir)
+    if existing_pid:
+        # 既存プロセスが見つかった場合は新規作成しない
+        print(f"Warning: Claude Code already running in {work_dir} (PID: {existing_pid})")
+        return None
     
     claude_shell = PATHS["claude_shell"]
     

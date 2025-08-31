@@ -1,52 +1,100 @@
 #!/usr/bin/env bash
-# Transport Module CLI Examples
-# application.pyを直接呼び出すサンプル集
+# Claude Code Transport Module - CLI Usage Examples
+# すべてのユースケースのnix shellコマンドスニペット
 
-# === 単一セッション操作 ===
+# === 基本操作 ===
 
-# セッション1を開始
-nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
-from application import SingleSessionController
-controller = SingleSessionController(1)
-result = controller.start_new_session()
-print(f"Session started: {result['success']}")
-EOF
+# セッション一覧を表示
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 wrapper.py list
 
-# セッション1にコマンド送信
-nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
-from application import SingleSessionController
-controller = SingleSessionController(1)
-result = controller.send_command("pwd")
-print(f"Command sent: {result['success']}")
-EOF
+# セッション作成（番号指定）
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 wrapper.py create 1
 
-# === 複数セッション管理 ===
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 wrapper.py create 5
 
-# アクティブセッション一覧
-nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
-from application import MultiSessionOrchestrator
-orchestrator = MultiSessionOrchestrator()
-discovered = orchestrator.discover_active_sessions()
-print(f"Active sessions: {discovered['count']}")
-for sid, info in discovered['sessions'].items():
-    print(f"  {sid}: {info['state']}")
-EOF
+# セッション確認（プロセス存在チェック）
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 wrapper.py check 1
 
-# 全セッションへブロードキャスト
-nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
-from application import MultiSessionOrchestrator
-orchestrator = MultiSessionOrchestrator()
-result = orchestrator.broadcast_to_all("echo HELLO")
-print(f"Broadcast complete")
-EOF
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 wrapper.py check 5
 
-# === JSON入出力が必要な場合 ===
+# === 高度な使用例（Python直接実行） ===
 
-# JSONでセッション情報取得
-nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
-import json
+# 複数セッション同時作成
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 -c "
+from infrastructure import create_session
+from pathlib import Path
+for i in [1, 2, 3]:
+    work_dir = Path(f'/home/nixos/bin/src/poc/realtime-claudecode/{i:02d}')
+    work_dir.mkdir(parents=True, exist_ok=True)
+    session = create_session(work_dir)
+    print(f'Session {i}: {"Created" if session else "Failed"}')
+"
+
+# プロセス検出（デバッグ用）
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 -c "
+from infrastructure import find_existing_claude_process
+from pathlib import Path
+for i in range(1, 6):
+    work_dir = Path(f'/home/nixos/bin/src/poc/realtime-claudecode/{i:02d}')
+    pid = find_existing_claude_process(work_dir)
+    if pid:
+        print(f'Session {i}: PID {pid}')
+    else:
+        print(f'Session {i}: Not running')
+"
+
+# コマンド送信（セッションへのコマンド実行）
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 -c "
+from infrastructure import send_command
+from pathlib import Path
+work_dir = Path('/home/nixos/bin/src/poc/realtime-claudecode/01')
+result = send_command(work_dir, 'pwd')
+print('Command sent' if result else 'Failed')
+"
+
+# セッション状態詳細（application層使用）
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 -c "
 from application import SingleSessionController
 controller = SingleSessionController(1)
 status = controller.get_status()
-print(json.dumps(status, indent=2))
-EOF
+print(f'Session 1 status: {status}')
+"
+
+# 全セッション発見（orchestrator使用）
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 -c "
+from application import MultiSessionOrchestrator
+orchestrator = MultiSessionOrchestrator()
+discovered = orchestrator.discover_active_sessions()
+print(f'Active sessions: {discovered}')
+"
+
+# === ワンライナーエイリアス（~/.bashrcに追加） ===
+
+# alias transport="nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' -c python3 /home/nixos/bin/src/develop/claude/transport/wrapper.py"
+# 使用例: transport list
+#        transport create 5
+#        transport check 5
+
+# === トラブルシューティング ===
+
+# Python pathの確認
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 -c "import sys; print(sys.path)"
+
+# pexpectバージョン確認
+nix shell --impure --expr '(import <nixpkgs> {}).python312.withPackages (ps: [ps.pexpect])' \
+  -c python3 -c "import pexpect; print(f'pexpect version: {pexpect.__version__}')"
+
+# === 注意事項 ===
+# withPackagesを使用することで、Pythonインタープリタ自体が
+# pexpect込みで再構築されるため、モジュールが正しく認識される
