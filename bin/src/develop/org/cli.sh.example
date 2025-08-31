@@ -91,6 +91,36 @@ for project in projects:
         print(f\"Failed: {project} - {result['error']['message']}\")
 "
 
+# === History and Verification ===
+
+# 5. Check if worker has history (verification)
+nix develop -c python3 -c "
+from application import check_worker_has_history
+result = check_worker_has_history('/path/to/project-a')
+if result['ok']:
+    print(f\"Has history: {result['data']['has_history']}\")
+    print(f\"Message: {result['data']['message']}\")
+else:
+    print(f\"Error: {result['error']['message']}\")
+"
+
+# 6. Get Claude conversation history (search feature)
+nix develop -c python3 -c "
+from application import get_claude_history
+result = get_claude_history('/path/to/project-a', last_n=10)
+if result['ok']:
+    print(f\"Total messages: {result['data']['total_messages']}\")
+    print(f\"Showing last {result['data']['showing']} messages\")
+    # Display last 3 messages
+    for msg in result['data']['messages'][-3:]:
+        if 'content' in msg and isinstance(msg['content'], str):
+            role = msg.get('role', 'unknown')
+            content = msg['content'][:100] + '...' if len(msg['content']) > 100 else msg['content']
+            print(f\"{role}: {content}\")
+else:
+    print(f\"Error: {result['error']['message']}\")
+"
+
 # === Direct tmux Operations (Manual) ===
 
 # Attach to session for manual inspection
