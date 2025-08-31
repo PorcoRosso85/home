@@ -114,11 +114,15 @@ def create_session(work_dir: Path) -> Optional[pexpect.spawn]:
             dimensions=PTY_CONFIG["dimensions"]
         )
         
-        # 起動待機
-        session.expect(PROMPT_PATTERNS, timeout=TIMEOUTS["startup"])
-        _sessions[dir_str] = session
-        return session
-    except (pexpect.TIMEOUT, pexpect.EOF):
+        # 起動待機 - プロセスが生きているかの確認のみ
+        import time
+        time.sleep(2)  # 短い待機でプロセス起動を待つ
+        if session.isalive():
+            _sessions[dir_str] = session
+            return session
+        else:
+            return None
+    except (pexpect.TIMEOUT, pexpect.EOF, Exception):
         return None
 
 def get_session(work_dir: Path) -> Optional[pexpect.spawn]:
