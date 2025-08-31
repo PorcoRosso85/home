@@ -11,9 +11,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Check if MCP servers are configured in ~/.claude.json
+# Always use nix shell to ensure jq is available (system-independent)
 if [[ -f "$HOME/.claude.json" ]]; then
-  # Check if any lsmcp servers are configured
-  if ! jq -e '.mcpServers | to_entries | any(.key | startswith("lsmcp"))' "$HOME/.claude.json" >/dev/null 2>&1; then
+  # Check if any lsmcp servers are configured using nix-provided jq
+  if ! nix shell nixpkgs#jq --command jq -e '.mcpServers | to_entries | any(.key | startswith("lsmcp"))' "$HOME/.claude.json" >/dev/null 2>&1; then
     echo "MCP servers not configured. Running setup-mcp-user.sh..."
     "$SCRIPT_DIR/setup-mcp-user.sh" || {
       echo "Setup failed. Please run ./setup-mcp-user.sh manually."
@@ -44,7 +45,11 @@ elif [[ "$1" == "--flake" ]]; then
     --command "$SCRIPT_DIR/scripts/select-project" "${@:2}") || exit 1
 else
   # Path argument - use specified directory
-  project_dir="$(realpath "$1")"
+  # Use nix-provided realpath for system independence
+  project_dir="$(nix shell nixpkgs#coreutils --command realpath "$1" 2>/dev/null)" || {
+    echo "Error: Invalid path: $1"
+    exit 1
+  }
   if [[ ! -d "$project_dir" ]]; then
     echo "Error: Directory does not exist: $project_dir"
     exit 1

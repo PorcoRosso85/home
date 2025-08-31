@@ -11,8 +11,15 @@ echo "This is a one-time setup - servers will be available in all projects."
 echo
 
 # Check if claude-code is available
-if ! command -v claude-code >/dev/null 2>&1 && ! nix run github:NixOS/nixpkgs/nixos-unstable#claude-code --impure -- --version >/dev/null 2>&1; then
-  echo "Error: claude-code not found. Please ensure Nix is installed."
+# First check if it's in PATH (likely in tmux)
+if command -v claude-code >/dev/null 2>&1; then
+  echo "Using claude-code from PATH"
+# Otherwise check if we can run it via nix
+elif env NIXPKGS_ALLOW_UNFREE=1 nix run github:NixOS/nixpkgs/nixos-unstable#claude-code --impure -- --version >/dev/null 2>&1; then
+  echo "Using claude-code via nix run"
+else
+  echo "Error: claude-code not found. Please ensure Nix is installed and NIXPKGS_ALLOW_UNFREE=1 is set."
+  echo "You can also run: nix profile install nixpkgs#claude-code --impure"
   exit 1
 fi
 
