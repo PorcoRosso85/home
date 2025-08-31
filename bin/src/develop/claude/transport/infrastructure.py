@@ -30,7 +30,7 @@ def send_to_tmux(target: str, command: str) -> Optional[str]:
     """tmux paneにコマンド送信（副作用）"""
     try:
         subprocess.run(
-            ["tmux", "send-keys", "-t", target, command, "Enter"],
+            ["tmux", "send-keys", "-t", target, command, "C-m"],
             check=True,
             capture_output=True,
             text=True
