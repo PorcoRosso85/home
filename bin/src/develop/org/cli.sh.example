@@ -5,7 +5,7 @@
 # === Core Operations ===
 
 # 1. Start Worker - Start Claude Code with duplicate check
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import start_worker_in_directory
 result = start_worker_in_directory('/path/to/project-a')
 if result['ok']:
@@ -15,7 +15,7 @@ else:
 "
 
 # 2. Send Command - Send command to specific worker
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import send_command_to_worker_by_directory
 result = send_command_to_worker_by_directory('/path/to/project-a', 'Fix the bug in main.py')
 if result['ok']:
@@ -25,7 +25,7 @@ else:
 "
 
 # 3. Check Status - Show all workers status
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import get_all_workers_status
 result = get_all_workers_status()
 if result['ok']:
@@ -37,7 +37,7 @@ else:
 "
 
 # 4. Clean Dead Workers - Remove dead workers from state
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import clean_dead_workers_from_state
 result = clean_dead_workers_from_state()
 if result['ok']:
@@ -50,7 +50,7 @@ else:
 
 # Start worker for specific project
 PROJECT="/home/user/my-project"
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import start_worker_in_directory
 result = start_worker_in_directory('$PROJECT')
 if result['ok']:
@@ -62,7 +62,7 @@ else:
 # Send command with variable
 PROJECT="/home/user/my-project"
 COMMAND="npm test"
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import send_command_to_worker_by_directory
 result = send_command_to_worker_by_directory('$PROJECT', '$COMMAND')
 if result['ok']:
@@ -74,7 +74,7 @@ else:
 # === Batch Operations ===
 
 # Start multiple workers
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import start_worker_in_directory
 
 projects = [
@@ -109,7 +109,7 @@ rm ~/.org-state.json
 # Add these to your .bashrc for convenience (NOT required)
 start_worker() {
     local project="${1:-$(pwd)}"
-    nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+    nix develop -c python3 -c "
 from application import start_worker_in_directory
 result = start_worker_in_directory('$project')
 if result['ok']:
@@ -122,7 +122,7 @@ else:
 send_command() {
     local project="${1:-$(pwd)}"
     local command="$2"
-    nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+    nix develop -c python3 -c "
 from application import send_command_to_worker_by_directory
 result = send_command_to_worker_by_directory('$project', '$command')
 if result['ok']:
@@ -133,7 +133,7 @@ else:
 }
 
 show_status() {
-    nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+    nix develop -c python3 -c "
 from application import get_all_workers_status
 result = get_all_workers_status()
 if result['ok']:

@@ -45,7 +45,7 @@ Multiple Claude Code instances management and control orchestration system
 ### 1. Start Worker
 ```bash
 # Start Claude Code in project A
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import start_worker_in_directory
 result = start_worker_in_directory('/path/to/project-a')
 if result['ok']:
@@ -63,7 +63,7 @@ else:
 ### 2. Send Command
 ```bash
 # Send command to project A worker
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import send_command_to_worker_by_directory
 result = send_command_to_worker_by_directory('/path/to/project-a', 'Fix bugs in this file')
 if result['ok']:
@@ -80,7 +80,7 @@ else:
 ### 3. Check Status
 ```bash
 # Show all workers status
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import get_all_workers_status
 result = get_all_workers_status()
 if result['ok']:
@@ -101,7 +101,7 @@ else:
 ### 4. Clean Dead Workers
 ```bash
 # Remove dead workers from state
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import clean_dead_workers_from_state
 result = clean_dead_workers_from_state()
 if result['ok']:
@@ -170,7 +170,7 @@ tmux attach-session -t org-system
 ### Q: Worker won't start
 A: Check if Claude Code already running in same directory
 ```bash
-nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+nix develop -c python3 -c "
 from application import get_all_workers_status
 result = get_all_workers_status()
 if result['ok']:
