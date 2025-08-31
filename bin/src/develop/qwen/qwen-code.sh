@@ -9,5 +9,5 @@ export OPENAI_API_KEY
 export OPENAI_BASE_URL
 export OPENAI_MODEL
 
-# Run qwen-code from nixpkgs
-exec nix shell nixpkgs#qwen-code --command qwen-code "$@"
+# Run qwen-code from nixpkgs (binary name is 'qwen')
+exec nix shell nixpkgs#qwen-code --command qwen "$@"
