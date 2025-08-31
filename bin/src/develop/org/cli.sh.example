@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# org - tmux-based Multi-Agent Orchestration System
+# Command examples using application.py
+
+# === Core Operations ===
+
+# 1. Start Worker - Start Claude Code with duplicate check
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+result = controller.start_worker('/path/to/project-a')
+print(result)
+"
+
+# 2. Send Command - Send command to specific worker
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+result = controller.send_command('/path/to/project-a', 'Fix the bug in main.py')
+print(result)
+"
+
+# 3. Check Status - Show all workers status
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+status = controller.get_status()
+for worker in status['workers']:
+    print(f\"Pane {worker['pane_id']}: {worker['directory']} ({worker['status']})\")
+print(f\"Total: {status['total']} workers\")
+"
+
+# 4. Clean Dead Workers - Remove dead workers from state
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+result = controller.clean_dead_workers()
+print(f\"Cleaned {result['removed']} dead workers\")
+"
+
+# === Usage with Parameters ===
+
+# Start worker for specific project
+PROJECT="/home/user/my-project"
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+result = controller.start_worker('$PROJECT')
+if result['success']:
+    print(f\"Started worker {result['pane_id']} for $PROJECT\")
+else:
+    print(f\"Error: {result['error']}\")
+"
+
+# Send command with variable
+PROJECT="/home/user/my-project"
+COMMAND="npm test"
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+result = controller.send_command('$PROJECT', '$COMMAND')
+if result['success']:
+    print('Command sent successfully')
+else:
+    print(f\"Error: {result['error']}\")
+"
+
+# === Batch Operations ===
+
+# Start multiple workers
+nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+
+projects = [
+    '/home/user/frontend',
+    '/home/user/backend',
+    '/home/user/docs'
+]
+
+for project in projects:
+    result = controller.start_worker(project)
+    if result['success']:
+        print(f\"Started: {project}\")
+    else:
+        print(f\"Failed: {project} - {result['error']}\")
+"
+
+# === Direct tmux Operations (Manual) ===
+
+# Attach to session for manual inspection
+tmux attach-session -t org-system
+# Use Ctrl-b d to detach
+
+# List all panes (debug)
+tmux list-panes -a -F "#{pane_id} #{session_name}:#{window_name} #{pane_current_path}"
+
+# Kill session and clean up
+tmux kill-session -t org-system
+rm ~/.org-state.json
+
+# === Shell Function Helpers (Optional) ===
+
+# Add these to your .bashrc for convenience (NOT required)
+org-start() {
+    local project="${1:-$(pwd)}"
+    nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+result = controller.start_worker('$project')
+print(result['message'])
+"
+}
+
+org-send() {
+    local project="${1:-$(pwd)}"
+    local command="$2"
+    nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+result = controller.send_command('$project', '$command')
+print(result['message'])
+"
+}
+
+org-status() {
+    nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
+from application import OrgController
+controller = OrgController()
+controller.print_status()
+"
+}
+
+# Usage:
+# org-start /path/to/project
+# org-send /path/to/project "test command"
+# org-status
