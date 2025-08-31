@@ -1,41 +1,49 @@
 #!/usr/bin/env bash
-# org - tmux-based Multi-Agent Orchestration System
-# Command examples using application.py
+# tmux-based Multi-Agent Orchestration System
+# Command examples using application.py functions
 
 # === Core Operations ===
 
 # 1. Start Worker - Start Claude Code with duplicate check
 nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
-result = controller.start_worker('/path/to/project-a')
-print(result)
+from application import start_worker_in_directory
+result = start_worker_in_directory('/path/to/project-a')
+if result['ok']:
+    print(f\"Started worker {result['data']['pane_id']} for {result['data']['directory']}\")
+else:
+    print(f\"Error: {result['error']['message']}\")
 "
 
 # 2. Send Command - Send command to specific worker
 nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
-result = controller.send_command('/path/to/project-a', 'Fix the bug in main.py')
-print(result)
+from application import send_command_to_worker_by_directory
+result = send_command_to_worker_by_directory('/path/to/project-a', 'Fix the bug in main.py')
+if result['ok']:
+    print('Command sent successfully')
+else:
+    print(f\"Error: {result['error']['message']}\")
 "
 
 # 3. Check Status - Show all workers status
 nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
-status = controller.get_status()
-for worker in status['workers']:
-    print(f\"Pane {worker['pane_id']}: {worker['directory']} ({worker['status']})\")
-print(f\"Total: {status['total']} workers\")
+from application import get_all_workers_status
+result = get_all_workers_status()
+if result['ok']:
+    for worker in result['data']['workers']:
+        print(f\"Pane {worker['pane_id']}: {worker['directory']} ({worker['status']})\")
+    print(f\"Total: {result['data']['total']} workers\")
+else:
+    print(f\"Error: {result['error']['message']}\")
 "
 
 # 4. Clean Dead Workers - Remove dead workers from state
 nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
-result = controller.clean_dead_workers()
-print(f\"Cleaned {result['removed']} dead workers\")
+from application import clean_dead_workers_from_state
+result = clean_dead_workers_from_state()
+if result['ok']:
+    print(f\"Cleaned {result['data']['removed']} dead workers\")
+else:
+    print(f\"Error: {result['error']['message']}\")
 "
 
 # === Usage with Parameters ===
@@ -43,34 +51,31 @@ print(f\"Cleaned {result['removed']} dead workers\")
 # Start worker for specific project
 PROJECT="/home/user/my-project"
 nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
-result = controller.start_worker('$PROJECT')
-if result['success']:
-    print(f\"Started worker {result['pane_id']} for $PROJECT\")
+from application import start_worker_in_directory
+result = start_worker_in_directory('$PROJECT')
+if result['ok']:
+    print(f\"Started worker {result['data']['pane_id']} for $PROJECT\")
 else:
-    print(f\"Error: {result['error']}\")
+    print(f\"Error: {result['error']['message']}\")
 "
 
 # Send command with variable
 PROJECT="/home/user/my-project"
 COMMAND="npm test"
 nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
-result = controller.send_command('$PROJECT', '$COMMAND')
-if result['success']:
+from application import send_command_to_worker_by_directory
+result = send_command_to_worker_by_directory('$PROJECT', '$COMMAND')
+if result['ok']:
     print('Command sent successfully')
 else:
-    print(f\"Error: {result['error']}\")
+    print(f\"Error: {result['error']['message']}\")
 "
 
 # === Batch Operations ===
 
 # Start multiple workers
 nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
+from application import start_worker_in_directory
 
 projects = [
     '/home/user/frontend',
@@ -79,11 +84,11 @@ projects = [
 ]
 
 for project in projects:
-    result = controller.start_worker(project)
-    if result['success']:
+    result = start_worker_in_directory(project)
+    if result['ok']:
         print(f\"Started: {project}\")
     else:
-        print(f\"Failed: {project} - {result['error']}\")
+        print(f\"Failed: {project} - {result['error']['message']}\")
 "
 
 # === Direct tmux Operations (Manual) ===
@@ -102,36 +107,45 @@ rm ~/.org-state.json
 # === Shell Function Helpers (Optional) ===
 
 # Add these to your .bashrc for convenience (NOT required)
-org-start() {
+start_worker() {
     local project="${1:-$(pwd)}"
     nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
-result = controller.start_worker('$project')
-print(result['message'])
+from application import start_worker_in_directory
+result = start_worker_in_directory('$project')
+if result['ok']:
+    print(f\"Started worker {result['data']['pane_id']} for $project\")
+else:
+    print(f\"Error: {result['error']['message']}\")
 "
 }
 
-org-send() {
+send_command() {
     local project="${1:-$(pwd)}"
     local command="$2"
     nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
-result = controller.send_command('$project', '$command')
-print(result['message'])
+from application import send_command_to_worker_by_directory
+result = send_command_to_worker_by_directory('$project', '$command')
+if result['ok']:
+    print('Command sent successfully')
+else:
+    print(f\"Error: {result['error']['message']}\")
 "
 }
 
-org-status() {
+show_status() {
     nix shell nixpkgs#python312Packages.libtmux --command python3 -c "
-from application import OrgController
-controller = OrgController()
-controller.print_status()
+from application import get_all_workers_status
+result = get_all_workers_status()
+if result['ok']:
+    for worker in result['data']['workers']:
+        print(f\"Pane {worker['pane_id']}: {worker['directory']} ({worker['status']})\")
+    print(f\"Total: {result['data']['total']} workers\")
+else:
+    print(f\"Error: {result['error']['message']}\")
 "
 }
 
 # Usage:
-# org-start /path/to/project
-# org-send /path/to/project "test command"
-# org-status
+# start_worker /path/to/project
+# send_command /path/to/project "test command"
+# show_status
