@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Transport Module CLI Examples
+# application.pyを直接呼び出すサンプル集
+
+# === 単一セッション操作 ===
+
+# セッション1を開始
+nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
+from application import SingleSessionController
+controller = SingleSessionController(1)
+result = controller.start_new_session()
+print(f"Session started: {result['success']}")
+EOF
+
+# セッション1にコマンド送信
+nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
+from application import SingleSessionController
+controller = SingleSessionController(1)
+result = controller.send_command("pwd")
+print(f"Command sent: {result['success']}")
+EOF
+
+# === 複数セッション管理 ===
+
+# アクティブセッション一覧
+nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
+from application import MultiSessionOrchestrator
+orchestrator = MultiSessionOrchestrator()
+discovered = orchestrator.discover_active_sessions()
+print(f"Active sessions: {discovered['count']}")
+for sid, info in discovered['sessions'].items():
+    print(f"  {sid}: {info['state']}")
+EOF
+
+# 全セッションへブロードキャスト
+nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
+from application import MultiSessionOrchestrator
+orchestrator = MultiSessionOrchestrator()
+result = orchestrator.broadcast_to_all("echo HELLO")
+print(f"Broadcast complete")
+EOF
+
+# === JSON入出力が必要な場合 ===
+
+# JSONでセッション情報取得
+nix shell nixpkgs#python3 nixpkgs#python3Packages.pexpect -c python3 <<'EOF'
+import json
+from application import SingleSessionController
+controller = SingleSessionController(1)
+status = controller.get_status()
+print(json.dumps(status, indent=2))
+EOF

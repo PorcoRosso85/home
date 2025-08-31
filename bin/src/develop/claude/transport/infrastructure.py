@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
 Transport Module Infrastructure Layer
-外部システムとの接続（副作用を含む）
+pexpectのみでのセッション管理（1 dir : 1 session）
 """
 
-import subprocess
+import json
 import glob
-import os
-import time
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -17,63 +15,50 @@ try:
 except ImportError:
     from variables import PATHS, TIMEOUTS, PTY_CONFIG, PROMPT_PATTERNS
 
-# pexpectインポート（オプショナル）
 try:
     import pexpect
-    PEXPECT_AVAILABLE = True
 except ImportError:
-    PEXPECT_AVAILABLE = False
+    raise ImportError("pexpect is required for this module")
 
-# === tmux操作 ===
+# === グローバルセッション管理 ===
+# ディレクトリパス -> pexpectセッションのマッピング
+_sessions: Dict[str, pexpect.spawn] = {}
 
-def send_to_tmux(target: str, command: str) -> Optional[str]:
-    """tmux paneにコマンド送信（副作用）"""
-    try:
-        subprocess.run(
-            ["tmux", "send-keys", "-t", target, command, "C-m"],
-            check=True,
-            capture_output=True,
-            text=True
-        )
-        return None
-    except subprocess.CalledProcessError as e:
-        return str(e)
+# === セッション操作 (list/create only) ===
 
-def check_tmux_pane(target: str) -> bool:
-    """tmux paneの存在確認（副作用）"""
-    try:
-        subprocess.run(
-            ["tmux", "list-panes", "-t", target],
-            capture_output=True,
-            check=True
-        )
-        return True
-    except subprocess.CalledProcessError:
-        return False
+def list_sessions() -> Dict[str, bool]:
+    """アクティブなセッション一覧
+    Returns:
+        Dict[dir_path, is_alive]
+    """
+    global _sessions
+    result = {}
+    dead_keys = []
+    
+    for dir_path, session in _sessions.items():
+        if session.isalive():
+            result[dir_path] = True
+        else:
+            result[dir_path] = False
+            dead_keys.append(dir_path)
+    
+    # 死んだセッションを削除
+    for key in dead_keys:
+        del _sessions[key]
+    
+    return result
 
-def capture_tmux_output(target: str, lines: int = 10) -> Optional[str]:
-    """tmux paneの出力取得（副作用）"""
-    try:
-        result = subprocess.run(
-            ["tmux", "capture-pane", "-t", target, "-p"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        output_lines = result.stdout.strip().split('\n')
-        return '\n'.join(output_lines[-lines:])
-    except subprocess.CalledProcessError:
-        return None
-
-# === pexpect操作 ===
-
-def spawn_claude_session(
-    claude_shell: Path,
-    work_dir: Path
-) -> Optional['pexpect.spawn']:
-    """Claude Codeセッションを起動（副作用）"""
-    if not PEXPECT_AVAILABLE:
-        return None
+def create_session(work_dir: Path) -> Optional[pexpect.spawn]:
+    """新規セッション作成（1 dir : 1 session）"""
+    global _sessions
+    
+    dir_str = str(work_dir.absolute())
+    
+    # 既存セッションがあれば返す
+    if dir_str in _sessions and _sessions[dir_str].isalive():
+        return _sessions[dir_str]
+    
+    claude_shell = PATHS["claude_shell"]
     
     try:
         session = pexpect.spawn(
@@ -86,13 +71,24 @@ def spawn_claude_session(
         
         # 起動待機
         session.expect(PROMPT_PATTERNS, timeout=TIMEOUTS["startup"])
+        _sessions[dir_str] = session
         return session
     except (pexpect.TIMEOUT, pexpect.EOF):
         return None
 
-def send_to_pexpect(session: 'pexpect.spawn', command: str) -> bool:
-    """pexpectセッションにコマンド送信（副作用）"""
-    if not PEXPECT_AVAILABLE or not session:
+def get_session(work_dir: Path) -> Optional[pexpect.spawn]:
+    """既存セッション取得"""
+    dir_str = str(work_dir.absolute())
+    session = _sessions.get(dir_str)
+    
+    if session and session.isalive():
+        return session
+    return None
+
+def send_command(work_dir: Path, command: str) -> bool:
+    """セッションにコマンド送信"""
+    session = get_session(work_dir)
+    if not session:
         return False
     
     try:
@@ -104,13 +100,13 @@ def send_to_pexpect(session: 'pexpect.spawn', command: str) -> bool:
 # === ファイルシステム操作 ===
 
 def find_jsonl_files(project_dir: str) -> List[Path]:
-    """JSONLファイルを検索（副作用）"""
+    """JSONLファイルを検索"""
     pattern = str(PATHS["claude_projects"] / project_dir / "*.jsonl")
     files = glob.glob(pattern)
     return [Path(f) for f in files]
 
-def read_jsonl_last_entry(jsonl_path: Path) -> Optional[str]:
-    """JSONLファイルの最終エントリ読み込み（副作用）"""
+def read_jsonl_last_entry(jsonl_path: Path) -> Optional[Dict[str, Any]]:
+    """JSONLファイルの最終エントリ読み込み"""
     if not jsonl_path.exists():
         return None
     
@@ -118,43 +114,32 @@ def read_jsonl_last_entry(jsonl_path: Path) -> Optional[str]:
         with open(jsonl_path, 'r') as f:
             lines = f.readlines()
             if lines:
-                return lines[-1]
-    except IOError:
+                return json.loads(lines[-1].strip())
+    except (IOError, json.JSONDecodeError):
         return None
 
+def get_session_jsonl_path(work_dir: Path) -> Optional[Path]:
+    """作業ディレクトリからJSONLパスを取得"""
+    project_name = str(work_dir).replace('/', '-')
+    project_path = PATHS["claude_projects"] / project_name
+    
+    if not project_path.exists():
+        return None
+    
+    jsonl_files = list(project_path.glob("*.jsonl"))
+    if jsonl_files:
+        # 最新のJSONLファイルを返す
+        return max(jsonl_files, key=lambda p: p.stat().st_mtime)
+    return None
+
 def ensure_directory(path: Path) -> bool:
-    """ディレクトリ作成（副作用）"""
+    """ディレクトリ作成"""
     try:
         path.mkdir(parents=True, exist_ok=True)
         return True
     except OSError:
         return False
 
-# === プロセス管理 ===
-
-def find_claude_processes(work_dir: Path) -> List[int]:
-    """Claude Codeプロセスを検索（副作用）"""
-    try:
-        result = subprocess.run(
-            ["ps", "aux"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        
-        pids = []
-        for line in result.stdout.split('\n'):
-            if "claude" in line and str(work_dir) in line:
-                parts = line.split()
-                if len(parts) > 1:
-                    try:
-                        pids.append(int(parts[1]))
-                    except ValueError:
-                        pass
-        return pids
-    except subprocess.CalledProcessError:
-        return []
-
 def get_current_datetime() -> datetime:
-    """現在時刻取得（副作用）"""
+    """現在時刻取得"""
     return datetime.now()
