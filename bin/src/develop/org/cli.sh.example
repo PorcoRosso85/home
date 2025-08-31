@@ -102,7 +102,6 @@ tmux list-panes -a -F "#{pane_id} #{session_name}:#{window_name} #{pane_current_
 
 # Kill session and clean up
 tmux kill-session -t org-system
-rm ~/.org-state.json
 
 # === Shell Function Helpers (Optional) ===
 

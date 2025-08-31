@@ -123,20 +123,13 @@ tmux attach-session -t org-system
 ### Directory-based Exclusive Control
 - Only one Claude Code instance per directory
 - Always checks existing processes at startup
-- Managed via state file (`~/.org-state.json`)
+- Managed via tmux window naming convention
 
-### Reliable Identification via Pane ID
-```json
-{
-  "workers": {
-    "%0": "/home/user/project-a",
-    "%1": "/home/user/project-b"
-  }
-}
-```
-- Pane IDs (`%0`, `%1`, etc.) are immutable
-- One-to-one mapping of directory to Pane ID
-- Commands always sent by Pane ID
+### Reliable Identification via Window Naming
+- Window names follow pattern: `claude:_path_with_underscores`
+- Example: `/home/user/project` → `claude:_home_user_project`
+- Commands are sent to the correct pane via window lookup
+- No external state file needed - tmux is the single source of truth
 
 ## Design Philosophy
 
@@ -187,12 +180,11 @@ tmux list-windows -t org-system -F "#{window_name}"
 tmux list-panes -a -F "#{pane_id} #{pane_current_path}"
 ```
 
-### Q: State file corrupted
+### Q: Session cleanup needed
 A: Manual reset
 ```bash
-rm ~/.org-state.json
 tmux kill-session -t org-system
-# Restart workers
+# Restart workers as needed
 ```
 
 ## License
