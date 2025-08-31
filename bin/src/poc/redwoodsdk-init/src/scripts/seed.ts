@@ -1,5 +1,6 @@
 import { defineScript } from "rwsdk/worker";
 import { db, setupDb } from "@/db";
+import { logInfo } from "@/utils/logger";
 
 export default defineScript(async ({ env }) => {
   await setupDb(env);
@@ -16,5 +17,5 @@ export default defineScript(async ({ env }) => {
     },
   });
 
-  console.log("🌱 Finished seeding");
+  logInfo("seed-complete", "🌱 Finished seeding");
 });
