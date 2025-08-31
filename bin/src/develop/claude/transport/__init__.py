@@ -1,5 +1,17 @@
-"""Claude Code Transport Layer - セッション間通信管理"""
+"""Claude Transport Module"""
 
-from .mod import ClaudeSession, SessionManager
+from .mod import (
+    SingleSessionController,
+    MultiSessionOrchestrator,
+    connect_to_session,
+    send_command,
+    discover_sessions
+)
 
-__all__ = ['ClaudeSession', 'SessionManager']
+__all__ = [
+    "SingleSessionController",
+    "MultiSessionOrchestrator",
+    "connect_to_session",
+    "send_command",
+    "discover_sessions"
+]
