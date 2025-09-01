@@ -262,6 +262,7 @@ def check_worker_has_history(directory: str) -> Dict[str, Any]:
         return _err(f"Failed to check history: {str(e)}", "check_error")
 
 
+
 def get_claude_history(directory: str, last_n: int = 20) -> Dict[str, Any]:
     """Get Claude conversation history for a directory (search feature).
     

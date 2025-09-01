@@ -2,6 +2,67 @@
 # tmux-based Multi-Agent Orchestration System
 # Command examples using application.py functions
 
+# === Complete Workflow: Find and Query Existing Projects ===
+
+# Step 1: Find projects with specific patterns (using shell tools)
+find ~/bin/src -name "flake.nix" -type f | grep redwood
+# Output: /home/nixos/bin/src/poc/redwoodsdk-init/flake.nix
+
+# Step 2: Check if project has Claude history
+PROJECT="/home/nixos/bin/src/poc/redwoodsdk-init"
+nix develop -c python3 -c "
+from application import check_worker_has_history
+result = check_worker_has_history('$PROJECT')
+if result['ok']:
+    data = result['data']
+    print(f'History exists: {data[\"has_history\"]}')
+    if data['has_history']:
+        print(f'Found {data[\"file_count\"]} conversation files')
+"
+
+# Step 3: Start or reuse worker (with smart handling)
+nix develop -c python3 -c "
+from application import start_worker_in_directory, get_all_workers_status
+
+# Check if worker already exists
+status = get_all_workers_status()
+worker_exists = False
+if status['ok']:
+    for w in status['data']['workers']:
+        if w['directory'] == '$PROJECT':
+            worker_exists = True
+            print(f'Worker already {w[\"status\"]} for {w[\"directory\"]}')
+            break
+
+# Start if needed
+if not worker_exists:
+    result = start_worker_in_directory('$PROJECT')
+    if result['ok']:
+        print(f'Started new worker in pane {result[\"data\"][\"pane_id\"]}')
+"
+
+# Step 4: Send query
+nix develop -c python3 -c "
+from application import send_command_to_worker_by_directory
+result = send_command_to_worker_by_directory(
+    '$PROJECT',
+    'What is the current state of this project?'
+)
+print('Query sent successfully' if result['ok'] else f'Error: {result[\"error\"]}')
+"
+
+# Step 5: Retrieve response (after waiting for Claude to respond)
+sleep 10
+nix develop -c python3 -c "
+from application import get_claude_history
+result = get_claude_history('$PROJECT', last_n=2)
+if result['ok']:
+    for msg in result['data']['messages']:
+        if msg.get('role') == 'assistant':
+            content = msg.get('content', '')
+            print(content[:500] + '...' if len(content) > 500 else content)
+"
+
 # === Core Operations ===
 
 # 1. Start Worker - Start Claude Code with duplicate check
@@ -69,6 +130,46 @@ if result['ok']:
     print('Command sent successfully')
 else:
     print(f\"Error: {result['error']['message']}\")
+"
+
+# === Robust Worker Management (Handle Duplicate/Dead Workers) ===
+
+nix develop -c python3 -c "
+from application import (
+    start_worker_in_directory,
+    get_all_workers_status,
+    clean_dead_workers_from_state
+)
+import time
+
+def ensure_worker(directory):
+    '''Ensure a worker is running for the directory'''
+    
+    # Try to start
+    result = start_worker_in_directory(directory)
+    if result['ok']:
+        return f'Started new worker in {directory}'
+    
+    # If duplicate error, check if really alive
+    if 'duplicate' in str(result.get('error', '')):
+        status = get_all_workers_status()
+        for w in status['data']['workers']:
+            if w['directory'] == directory:
+                if w['status'] == 'alive':
+                    return f'Worker already running and alive'
+                else:
+                    # Dead worker, clean and retry
+                    clean_dead_workers_from_state()
+                    time.sleep(1)
+                    retry = start_worker_in_directory(directory)
+                    if retry['ok']:
+                        return f'Restarted worker after cleanup'
+    
+    return f'Could not start worker: {result}'
+
+# Use it
+message = ensure_worker('/home/nixos/bin/src/develop/org')
+print(message)
 "
 
 # === Batch Operations ===
