@@ -173,8 +173,8 @@ def send_command_to_worker_by_directory(directory: str, command: str) -> Dict[st
         # This helps when the tool is waiting for explicit submission
         if command.strip():  # Only add Enter after non-empty commands
             import time
-            time.sleep(0.05)  # Small delay to ensure command is received
-            pane.send_keys('Enter')
+            time.sleep(0.1)  # Small delay to ensure command is received
+            pane.send_keys('', enter=True)  # Send actual Enter key
         
         return _ok({"directory": directory, "command": command, "pane_id": pane.id})
         
