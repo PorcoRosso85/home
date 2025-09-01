@@ -1,0 +1,32 @@
+{
+  "id": "auth-service",
+  "path": "/test_modules/auth",
+  "purpose": "Handle user authentication and authorization",
+  "type": "service",
+  "dependencies": ["database-layer"],
+  "interfaces": {
+    "inputs": [
+      {
+        "name": "credentials",
+        "type": "object",
+        "description": "User login credentials"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "token",
+        "type": "string",
+        "description": "JWT authentication token"
+      }
+    ]
+  },
+  "responsibilities": [
+    "Validate user credentials",
+    "Generate JWT tokens",
+    "Manage user sessions"
+  ],
+  "constraints": {
+    "security": "Use bcrypt for password hashing",
+    "performance": "Response time < 200ms"
+  }
+}
