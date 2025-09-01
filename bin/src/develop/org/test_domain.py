@@ -1,240 +1,173 @@
-"""Test domain logic for org project - worker existence checking.
+"""Test domain layer - Business rules and domain services.
 
-Following TDD principles: these tests are written first to describe desired behavior.
-They should fail initially and guide implementation.
+Tests for all business logic and domain knowledge functions.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
+from unittest.mock import patch, Mock
 
-from domain import WorkerRegistry, Worker, WorkerNotFoundError, WorkerValidationError
+import domain
 
 
-class TestWorker:
-    """Test suite for Worker entity."""
+class TestClaudeBusinessRules:
+    """Test Claude-specific business rules."""
+    
+    def test_generate_claude_window_name_simple_path(self):
+        """Test window name generation for simple path."""
+        result = domain.generate_claude_window_name("/home/user/project")
+        assert result == "claude:_home_user_project"
+    
+    def test_generate_claude_window_name_complex_path(self):
+        """Test window name generation for complex path."""
+        result = domain.generate_claude_window_name("/home/user/my-project/src")
+        assert result == "claude:_home_user_my-project_src"
+    
+    def test_generate_claude_history_patterns(self):
+        """Test history pattern generation returns multiple patterns."""
+        patterns = domain.generate_claude_history_patterns("/home/user/project")
+        
+        assert len(patterns) == 3
+        assert "home-user-project" in patterns
+        assert "-home-user-project" in patterns
+        assert "-home-user-project" in patterns or "/home-user-project" in patterns
+    
+    def test_get_claude_default_command(self):
+        """Test getting Claude default command."""
+        result = domain.get_claude_default_command()
+        
+        assert result == "claude"
+    
+    
+    def test_get_claude_history_base_path(self):
+        """Test Claude history base path generation."""
+        path = domain.get_claude_history_base_path()
+        assert str(path).endswith(".claude/projects")
+        assert isinstance(path, Path)
 
-    def test_worker_creation_with_valid_data(self):
-        """Test that Worker can be created with valid data."""
-        # This test should fail initially - Worker doesn't exist yet
-        worker = Worker(
-            name="test_worker",
-            path="/home/nixos/bin/src/test",
-            description="Test worker for testing"
+
+class TestGenericWorkerRules:
+    """Test generic worker business rules."""
+    
+    def test_extract_directory_from_window_name_claude(self):
+        """Test extracting directory from Claude window name."""
+        result = domain.extract_directory_from_window_name("claude:_home_user_project")
+        assert result == "/home/user/project"
+    
+    def test_extract_directory_from_window_name_no_prefix(self):
+        """Test extracting directory from window without prefix."""
+        result = domain.extract_directory_from_window_name("random_window")
+        assert result == ""
+    
+    def test_extract_directory_with_custom_prefix(self):
+        """Test extracting directory with custom tool prefix."""
+        result = domain.extract_directory_from_window_name(
+            "codex:_var_lib_app", 
+            tool_prefix="codex:"
+        )
+        assert result == "/var/lib/app"
+    
+    def test_is_worker_window_claude(self):
+        """Test identifying Claude worker window."""
+        assert domain.is_worker_window("claude:_home_user") is True
+        assert domain.is_worker_window("vim") is False
+        assert domain.is_worker_window("main") is False
+    
+    def test_is_worker_window_custom_prefix(self):
+        """Test identifying worker window with custom prefix."""
+        assert domain.is_worker_window("gemini:_test", tool_prefix="gemini:") is True
+        assert domain.is_worker_window("claude:_test", tool_prefix="gemini:") is False
+    
+
+
+class TestWorkerStateRules:
+    """Test worker state business rules."""
+    
+    def test_determine_worker_status_alive(self):
+        """Test determining alive worker status."""
+        status = domain.determine_worker_status(True, "%123", is_pane_alive=True)
+        assert status == "alive"
+    
+    def test_determine_worker_status_dead_pane(self):
+        """Test determining dead worker status when pane is dead."""
+        status = domain.determine_worker_status(True, "%123", is_pane_alive=False)
+        assert status == "dead"
+    
+    def test_determine_worker_status_no_pane(self):
+        """Test determining dead worker status when no pane."""
+        status = domain.determine_worker_status(False, None)
+        assert status == "dead"
+        
+        status = domain.determine_worker_status(True, None)
+        assert status == "dead"
+
+
+class TestHistoryManagementRules:
+    """Test history management business rules."""
+    
+    def test_find_history_directory_found(self, tmp_path):
+        """Test finding history directory when it exists."""
+        # Create test directory structure
+        base = tmp_path / "projects"
+        base.mkdir()
+        history_dir = base / "test-pattern"
+        history_dir.mkdir()
+        
+        result = domain.find_history_directory(
+            "/test/dir",
+            ["test-pattern", "other-pattern"],
+            base
         )
         
-        assert worker.name == "test_worker"
-        assert worker.path == Path("/home/nixos/bin/src/test")
-        assert worker.description == "Test worker for testing"
-        assert worker.is_active is False  # Default state
-
-    def test_worker_creation_requires_name(self):
-        """Test that Worker creation requires a name."""
-        with pytest.raises(WorkerValidationError, match="Worker name is required"):
-            Worker(name="", path="/some/path")
+        assert result == history_dir
+    
+    def test_find_history_directory_not_found(self, tmp_path):
+        """Test finding history directory when none exist."""
+        base = tmp_path / "projects"
+        base.mkdir()
         
-        with pytest.raises(WorkerValidationError, match="Worker name is required"):
-            Worker(name=None, path="/some/path")
-
-    def test_worker_creation_requires_path(self):
-        """Test that Worker creation requires a valid path."""
-        with pytest.raises(WorkerValidationError, match="Worker path is required"):
-            Worker(name="test", path="")
+        result = domain.find_history_directory(
+            "/test/dir",
+            ["missing-pattern"],
+            base
+        )
         
-        with pytest.raises(WorkerValidationError, match="Worker path is required"):
-            Worker(name="test", path=None)
-
-    def test_worker_path_is_converted_to_pathlib_path(self):
-        """Test that worker path is converted to pathlib.Path."""
-        worker = Worker(name="test", path="/home/test")
-        assert isinstance(worker.path, Path)
-        assert str(worker.path) == "/home/test"
-
-    @patch('domain.Path.exists')
-    def test_worker_exists_returns_true_when_path_exists(self, mock_exists):
-        """Test that exists() returns True when worker path exists."""
-        mock_exists.return_value = True
+        assert result is None
+    
+    def test_find_history_directory_base_missing(self, tmp_path):
+        """Test finding history when base path doesn't exist."""
+        base = tmp_path / "nonexistent"
         
-        worker = Worker(name="test", path="/existing/path")
-        assert worker.exists() is True
-        mock_exists.assert_called_once()
-
-    @patch('domain.Path.exists')
-    def test_worker_exists_returns_false_when_path_missing(self, mock_exists):
-        """Test that exists() returns False when worker path doesn't exist."""
-        mock_exists.return_value = False
+        result = domain.find_history_directory(
+            "/test/dir",
+            ["pattern"],
+            base
+        )
         
-        worker = Worker(name="test", path="/missing/path")
-        assert worker.exists() is False
-        mock_exists.assert_called_once()
-
-    def test_worker_activate_changes_state(self):
-        """Test that activate() changes worker state to active."""
-        worker = Worker(name="test", path="/some/path")
-        assert worker.is_active is False
+        assert result is None
+    
+    def test_validate_history_content_with_files(self, tmp_path):
+        """Test validating history with jsonl files."""
+        history_path = tmp_path / "history"
+        history_path.mkdir()
         
-        worker.activate()
-        assert worker.is_active is True
-
-    def test_worker_deactivate_changes_state(self):
-        """Test that deactivate() changes worker state to inactive."""
-        worker = Worker(name="test", path="/some/path")
-        worker.activate()  # First activate
-        assert worker.is_active is True
+        # Create test jsonl files
+        (history_path / "session1.jsonl").touch()
+        (history_path / "session2.jsonl").touch()
         
-        worker.deactivate()
-        assert worker.is_active is False
-
-
-class TestWorkerRegistry:
-    """Test suite for WorkerRegistry."""
-
-    def test_worker_registry_initialization(self):
-        """Test that WorkerRegistry can be initialized."""
-        # This test should fail initially - WorkerRegistry doesn't exist yet
-        registry = WorkerRegistry()
-        assert registry is not None
-        assert len(registry.get_all_workers()) == 0
-
-    def test_register_worker_adds_worker_to_registry(self):
-        """Test that register_worker adds a worker to the registry."""
-        registry = WorkerRegistry()
-        worker = Worker(name="test_worker", path="/test/path")
+        result = domain.validate_history_content(history_path)
         
-        registry.register_worker(worker)
+        assert result["has_history"] is True
+        assert result["file_count"] == 2
+        assert result["latest_file"] == "session2.jsonl"
+    
+    def test_validate_history_content_empty(self, tmp_path):
+        """Test validating empty history directory."""
+        history_path = tmp_path / "history"
+        history_path.mkdir()
         
-        workers = registry.get_all_workers()
-        assert len(workers) == 1
-        assert workers[0] == worker
-
-    def test_register_worker_prevents_duplicate_names(self):
-        """Test that register_worker prevents duplicate worker names."""
-        registry = WorkerRegistry()
-        worker1 = Worker(name="duplicate", path="/path1")
-        worker2 = Worker(name="duplicate", path="/path2")
+        result = domain.validate_history_content(history_path)
         
-        registry.register_worker(worker1)
-        
-        with pytest.raises(WorkerValidationError, match="Worker with name 'duplicate' already exists"):
-            registry.register_worker(worker2)
-
-    def test_get_worker_by_name_returns_existing_worker(self):
-        """Test that get_worker_by_name returns the correct worker."""
-        registry = WorkerRegistry()
-        worker = Worker(name="findable", path="/find/me")
-        registry.register_worker(worker)
-        
-        found_worker = registry.get_worker_by_name("findable")
-        assert found_worker == worker
-
-    def test_get_worker_by_name_raises_error_for_missing_worker(self):
-        """Test that get_worker_by_name raises error for non-existent worker."""
-        registry = WorkerRegistry()
-        
-        with pytest.raises(WorkerNotFoundError, match="Worker 'missing' not found"):
-            registry.get_worker_by_name("missing")
-
-    def test_worker_exists_by_name_returns_true_for_existing(self):
-        """Test that worker_exists_by_name returns True for existing worker."""
-        registry = WorkerRegistry()
-        worker = Worker(name="exists", path="/exists")
-        registry.register_worker(worker)
-        
-        assert registry.worker_exists_by_name("exists") is True
-
-    def test_worker_exists_by_name_returns_false_for_missing(self):
-        """Test that worker_exists_by_name returns False for missing worker."""
-        registry = WorkerRegistry()
-        
-        assert registry.worker_exists_by_name("missing") is False
-
-    @patch('domain.Path.exists')
-    def test_get_active_workers_returns_only_active_existing_workers(self, mock_exists):
-        """Test that get_active_workers returns only active workers that exist."""
-        mock_exists.return_value = True
-        
-        registry = WorkerRegistry()
-        
-        worker1 = Worker(name="active1", path="/path1")
-        worker2 = Worker(name="active2", path="/path2")
-        worker3 = Worker(name="inactive", path="/path3")
-        
-        worker1.activate()
-        worker2.activate()
-        # worker3 stays inactive
-        
-        registry.register_worker(worker1)
-        registry.register_worker(worker2)
-        registry.register_worker(worker3)
-        
-        active_workers = registry.get_active_workers()
-        assert len(active_workers) == 2
-        assert worker1 in active_workers
-        assert worker2 in active_workers
-        assert worker3 not in active_workers
-
-    def test_get_existing_workers_returns_only_workers_with_existing_paths(self):
-        """Test that get_existing_workers returns only workers whose paths exist."""
-        with patch('pathlib.Path.exists') as mock_exists:
-            # Configure mock to track calls and return appropriate values
-            call_results = [True, True, False]  # First 2 paths exist, 3rd doesn't
-            call_index = 0
-            
-            def exists_side_effect(*args, **kwargs):
-                nonlocal call_index
-                result = call_results[call_index] if call_index < len(call_results) else False
-                call_index += 1
-                return result
-            
-            mock_exists.side_effect = exists_side_effect
-            
-            registry = WorkerRegistry()
-            
-            worker1 = Worker(name="existing1", path="/existing1")
-            worker2 = Worker(name="existing2", path="/existing2") 
-            worker3 = Worker(name="missing", path="/missing")
-            
-            registry.register_worker(worker1)
-            registry.register_worker(worker2)
-            registry.register_worker(worker3)
-            
-            existing_workers = registry.get_existing_workers()
-            assert len(existing_workers) == 2
-            assert worker1 in existing_workers
-            assert worker2 in existing_workers
-            assert worker3 not in existing_workers
-
-    def test_remove_worker_removes_from_registry(self):
-        """Test that remove_worker removes worker from registry."""
-        registry = WorkerRegistry()
-        worker = Worker(name="removeme", path="/remove")
-        registry.register_worker(worker)
-        
-        assert registry.worker_exists_by_name("removeme") is True
-        
-        registry.remove_worker("removeme")
-        
-        assert registry.worker_exists_by_name("removeme") is False
-
-    def test_remove_worker_raises_error_for_missing_worker(self):
-        """Test that remove_worker raises error for non-existent worker."""
-        registry = WorkerRegistry()
-        
-        with pytest.raises(WorkerNotFoundError, match="Worker 'missing' not found"):
-            registry.remove_worker("missing")
-
-
-class TestWorkerExceptions:
-    """Test suite for worker-related exceptions."""
-
-    def test_worker_not_found_error_is_exception(self):
-        """Test that WorkerNotFoundError is a proper exception."""
-        error = WorkerNotFoundError("Test not found")
-        assert isinstance(error, Exception)
-        assert str(error) == "Test not found"
-
-    def test_worker_validation_error_is_exception(self):
-        """Test that WorkerValidationError is a proper exception."""
-        error = WorkerValidationError("Test validation error")
-        assert isinstance(error, Exception)
-        assert str(error) == "Test validation error"
+        assert result["has_history"] is False
+        assert result["file_count"] == 0
+        assert result["latest_file"] is None

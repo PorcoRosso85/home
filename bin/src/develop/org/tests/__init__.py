@@ -5,9 +5,7 @@ Tests are organized by module and include both unit and integration tests.
 
 Test Structure:
 - test_infrastructure.py: Tests for tmux connection and infrastructure layer
-- test_domain.py: Tests for worker registry and domain logic
-- test_application.py: Tests for application layer (to be added)
-- test_controller.py: Tests for controller layer (to be added)
+- test_infrastructure_windows.py: Tests for window management functions
 
 Test Categories:
 - Unit tests: Fast, isolated tests of individual components

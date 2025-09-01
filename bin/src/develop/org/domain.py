@@ -1,147 +1,210 @@
-"""Domain layer for org project - worker entities and business logic."""
+"""Domain layer - Business rules and domain services for worker orchestration.
 
+This module contains all business logic and domain knowledge, following
+functional programming principles without classes.
+"""
+
+from typing import Dict, Any, List, Optional
 from pathlib import Path
-from typing import List, Optional, Union
 
 
-class WorkerNotFoundError(Exception):
-    """Exception raised when worker is not found."""
-    pass
+# === Tool-specific Business Rules ===
+
+def generate_claude_window_name(directory: str) -> str:
+    """Generate tmux window name for Claude worker.
+    
+    Business rule: Claude windows use 'claude:' prefix with underscored path.
+    
+    Args:
+        directory: Directory path for the worker
+        
+    Returns:
+        Window name following Claude naming convention
+    """
+    return f"claude:{directory.replace('/', '_')}"
 
 
-class WorkerValidationError(Exception):
-    """Exception raised when worker validation fails."""
-    pass
+def generate_claude_history_patterns(directory: str) -> List[str]:
+    """Generate patterns for finding Claude history directory.
+    
+    Business rule: Claude stores history in various formats, need fuzzy matching.
+    
+    Args:
+        directory: Target directory path
+        
+    Returns:
+        List of possible patterns in priority order
+    """
+    patterns = []
+    # Pattern 1: No leading slash, hyphen separator
+    patterns.append(directory.lstrip('/').replace('/', '-'))
+    # Pattern 2: With leading hyphen
+    patterns.append('-' + directory.lstrip('/').replace('/', '-'))
+    # Pattern 3: Full path version
+    patterns.append(directory.replace('/', '-'))
+    return patterns
 
 
-class Worker:
-    """Represents a worker entity with path and state management."""
+def get_claude_default_command() -> str:
+    """Get default Claude tool command.
     
-    def __init__(self, name: str, path: Union[str, Path], description: Optional[str] = None):
-        """Initialize Worker with name and path.
-        
-        Args:
-            name: Worker name
-            path: Worker path (string or Path object)
-            description: Optional worker description
-            
-        Raises:
-            WorkerValidationError: If name or path is invalid
-        """
-        if not name:
-            raise WorkerValidationError("Worker name is required")
-        if not path:
-            raise WorkerValidationError("Worker path is required")
-            
-        self.name = name
-        self.path = Path(path)
-        self.description = description
-        self.is_active = False
+    Business rule: Claude uses 'claude' as default command.
     
-    def exists(self) -> bool:
-        """Check if worker path exists on filesystem.
-        
-        Returns:
-            bool: True if path exists
-        """
-        return self.path.exists()
-    
-    def activate(self) -> None:
-        """Activate this worker."""
-        self.is_active = True
-    
-    def deactivate(self) -> None:
-        """Deactivate this worker."""
-        self.is_active = False
+    Returns:
+        Default command string
+    """
+    return "claude"
 
 
-class WorkerRegistry:
-    """Registry for managing workers."""
+def get_claude_history_base_path() -> Path:
+    """Get base path for Claude history storage.
     
-    def __init__(self):
-        """Initialize empty worker registry."""
-        self._workers: List[Worker] = []
+    Business rule: Claude stores history in ~/.claude/projects/
     
-    def register_worker(self, worker: Worker) -> None:
-        """Register a worker in the registry.
-        
-        Args:
-            worker: Worker to register
-            
-        Raises:
-            WorkerValidationError: If worker with same name already exists
-        """
-        if self.worker_exists_by_name(worker.name):
-            raise WorkerValidationError(f"Worker with name '{worker.name}' already exists")
-        
-        self._workers.append(worker)
+    Returns:
+        Path to Claude history base directory
+    """
+    return Path.home() / ".claude/projects"
+
+
+def get_claude_launch_command() -> Dict[str, Any]:
+    """Get Claude launch command from variables module or fallback.
     
-    def get_all_workers(self) -> List[Worker]:
-        """Get all registered workers.
-        
-        Returns:
-            List[Worker]: All workers
-        """
-        return self._workers.copy()
+    Business rule: Try variables module first, fallback to simple 'claude' command.
     
-    def get_worker_by_name(self, name: str) -> Worker:
-        """Get worker by name.
-        
-        Args:
-            name: Worker name to find
-            
-        Returns:
-            Worker: The found worker
-            
-        Raises:
-            WorkerNotFoundError: If worker not found
-        """
-        for worker in self._workers:
-            if worker.name == name:
-                return worker
-        
-        raise WorkerNotFoundError(f"Worker '{name}' not found")
+    Returns:
+        Dict with success status and command data
+    """
+    try:
+        import variables
+        return variables.get_claude_launch_command()
+    except ImportError:
+        # Fallback to simple claude command
+        return {
+            'ok': True,
+            'data': {
+                'command': 'claude'
+            }
+        }
+
+
+# === Generic Worker Business Rules ===
+
+def extract_directory_from_window_name(window_name: str, tool_prefix: str = "claude:") -> str:
+    """Extract directory path from window name.
     
-    def worker_exists_by_name(self, name: str) -> bool:
-        """Check if worker exists by name.
-        
-        Args:
-            name: Worker name to check
-            
-        Returns:
-            bool: True if worker exists
-        """
-        try:
-            self.get_worker_by_name(name)
-            return True
-        except WorkerNotFoundError:
-            return False
+    Business rule: Reverse transformation of window naming convention.
     
-    def get_active_workers(self) -> List[Worker]:
-        """Get all active workers that exist on filesystem.
+    Args:
+        window_name: tmux window name
+        tool_prefix: Tool-specific prefix (default: "claude:")
         
-        Returns:
-            List[Worker]: Active workers with existing paths
-        """
-        return [worker for worker in self._workers 
-                if worker.is_active and worker.exists()]
+    Returns:
+        Original directory path
+    """
+    if window_name.startswith(tool_prefix):
+        # Remove prefix and convert underscores back to slashes
+        path_part = window_name[len(tool_prefix):]
+        return path_part.replace('_', '/')
+    return ""
+
+
+def is_worker_window(window_name: str, tool_prefix: str = "claude:") -> bool:
+    """Check if a window name represents a worker.
     
-    def get_existing_workers(self) -> List[Worker]:
-        """Get all workers whose paths exist on filesystem.
-        
-        Returns:
-            List[Worker]: Workers with existing paths
-        """
-        return [worker for worker in self._workers if worker.exists()]
+    Business rule: Worker windows have tool-specific prefixes.
     
-    def remove_worker(self, name: str) -> None:
-        """Remove worker from registry.
+    Args:
+        window_name: tmux window name to check
+        tool_prefix: Tool-specific prefix to look for
         
-        Args:
-            name: Name of worker to remove
-            
-        Raises:
-            WorkerNotFoundError: If worker not found
-        """
-        worker = self.get_worker_by_name(name)  # This will raise if not found
-        self._workers.remove(worker)
+    Returns:
+        True if this is a worker window
+    """
+    return window_name.startswith(tool_prefix)
+
+
+def should_check_pane_alive() -> bool:
+    """Business rule: Determine if pane alive check is needed.
+    
+    Business rule: Always check pane status for worker health.
+    
+    Returns:
+        True (always check pane status)
+    """
+    return True
+
+
+
+
+# === Worker State Business Rules ===
+
+def determine_worker_status(has_pane: bool, pane_id: Optional[str], is_pane_alive: bool = False) -> str:
+    """Determine worker status based on pane state.
+    
+    Business rule: Worker is alive if it has a live pane, dead otherwise.
+    
+    Args:
+        has_pane: Whether worker has any panes
+        pane_id: ID of the pane (if exists)
+        is_pane_alive: Whether the pane is alive (from infrastructure check)
+        
+    Returns:
+        Status string: "alive" or "dead"
+    """
+    if not has_pane or not pane_id:
+        return "dead"
+    return "alive" if is_pane_alive else "dead"
+
+
+# === History Management Business Rules ===
+
+def find_history_directory(directory: str, patterns: List[str], base_path: Path) -> Optional[Path]:
+    """Find history directory using pattern matching.
+    
+    Business rule: Search for history directory using fuzzy pattern matching.
+    
+    Args:
+        directory: Original directory path
+        patterns: List of patterns to try
+        base_path: Base path to search in
+        
+    Returns:
+        Path to history directory if found, None otherwise
+    """
+    if not base_path.exists():
+        return None
+        
+    for pattern in patterns:
+        candidate = base_path / pattern
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+    return None
+
+
+def validate_history_content(history_path: Path) -> Dict[str, Any]:
+    """Validate history directory has actual content.
+    
+    Business rule: History is valid if directory contains .jsonl files.
+    
+    Args:
+        history_path: Path to history directory
+        
+    Returns:
+        Validation result with file count and status
+    """
+    jsonl_files = list(history_path.glob("*.jsonl"))
+    has_history = len(jsonl_files) > 0
+    
+    return {
+        "has_history": has_history,
+        "file_count": len(jsonl_files),
+        "latest_file": jsonl_files[-1].name if jsonl_files else None
+    }
+
+
+# === Future Tool Support ===
+# Add new tool-specific functions here following the same pattern:
+# - generate_{tool}_window_name()
+# - generate_{tool}_history_patterns()
+# - get_{tool}_launch_command()

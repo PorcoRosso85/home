@@ -114,8 +114,9 @@ class TmuxConnection:
         if not self._session:
             self.get_or_create_session()
         
-        # Create window name from directory
-        window_name = f"claude:{directory.replace('/', '_')}"
+        # Create window name from directory using domain function
+        from domain import generate_claude_window_name
+        window_name = generate_claude_window_name(directory)
         
         # Create new window
         window = self._session.new_window(window_name=window_name)
@@ -139,8 +140,9 @@ class TmuxConnection:
         if not self._session:
             self.get_or_create_session()
         
-        # Create expected window name
-        window_name = f"claude:{directory.replace('/', '_')}"
+        # Create expected window name using domain function
+        from domain import generate_claude_window_name
+        window_name = generate_claude_window_name(directory)
         
         # Search for window
         return self._session.find_where({"window_name": window_name})
@@ -160,10 +162,11 @@ class TmuxConnection:
         if not self._session:
             self.get_or_create_session()
         
-        # Filter windows by claude: prefix
+        # Filter windows by claude: prefix using domain function
+        from domain import is_worker_window
         worker_windows = []
         for window in self._session.windows:
-            if window.name.startswith("claude:"):
+            if is_worker_window(window.name):
                 worker_windows.append(window)
         
         return worker_windows

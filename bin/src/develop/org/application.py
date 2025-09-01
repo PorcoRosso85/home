@@ -4,9 +4,10 @@ import os
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Callable
 import functools
+import subprocess
 
-from domain import Worker, WorkerRegistry, WorkerNotFoundError, WorkerValidationError
 from infrastructure import TmuxConnection, TmuxConnectionError
+import domain
 
 
 # Constants
@@ -24,14 +25,30 @@ def _err(message: str, code: str = "error") -> Dict[str, Any]:
 
 
 def _is_pane_alive(pane_id: str) -> bool:
-    """Check if a tmux pane is still alive."""
+    """Check if a tmux pane is alive.
+    
+    Args:
+        pane_id: tmux pane ID (e.g., '%1', '%2')
+        
+    Returns:
+        bool: True if pane exists and is alive, False otherwise
+    """
     try:
-        import subprocess
+        # List all pane IDs to see if this one exists
         result = subprocess.run(
             ["tmux", "list-panes", "-a", "-F", "#{pane_id}"],
-            capture_output=True, text=True, check=False
+            capture_output=True,
+            text=True,
+            check=False
         )
-        return pane_id in result.stdout.split('\n')
+        
+        if result.returncode != 0:
+            return False
+        
+        # Check if our pane_id is in the output
+        pane_ids = result.stdout.strip().split('\n')
+        return pane_id in pane_ids
+        
     except Exception:
         return False
 
@@ -47,27 +64,6 @@ def _is_pane_alive(pane_id: str) -> bool:
 WindowNamer = Callable[[str], str]
 LaunchCommand = Callable[[], Dict[str, Any]]  
 HistoryPatterns = Callable[[str], List[str]]
-
-def _claude_window_name(directory: str) -> str:
-    """Convert directory path to Claude tmux window name."""
-    return f"claude:{directory.replace('/', '_')}"
-
-def _claude_launch_command() -> Dict[str, Any]:
-    """Get Claude launch command."""
-    try:
-        from variables import get_claude_launch_command
-        result = get_claude_launch_command()
-        return result if result['ok'] else {"ok": True, "data": {"command": "claude"}}
-    except ImportError:
-        return {"ok": True, "data": {"command": "claude"}}
-
-def _claude_history_patterns(directory: str) -> List[str]:
-    """Generate Claude history directory patterns."""
-    patterns = []
-    patterns.append(directory.lstrip('/').replace('/', '-'))
-    patterns.append('-' + directory.lstrip('/').replace('/', '-'))
-    patterns.append(directory.replace('/', '-'))
-    return patterns
 
 def _generic_start_worker(directory: str, window_namer: WindowNamer, launch_cmd: LaunchCommand) -> Dict[str, Any]:
     """Generic worker start function."""
@@ -120,46 +116,19 @@ def _generic_find_history_path(directory: str, history_patterns: HistoryPatterns
 
 # === Naming Convention Utilities ===
 
-def _directory_to_window_name(directory: str) -> str:
-    """Convert directory path to tmux window name (our convention)."""
-    return f"claude:{directory.replace('/', '_')}"
-
-
-def _directory_to_jsonl_patterns(directory: str) -> List[str]:
-    """Generate possible Claude history directory patterns.
-    
-    重要：jsonlディレクトリ名は本来一意だが、Claudeの実装が不明なため
-    複数パターンで検索する。見つからないことより、確実に見つけることを優先。
-    この実装は意図的にfuzzy/緩いマッチングを行う。
-    
-    Args:
-        directory: Target directory path
-        
-    Returns:
-        List of possible patterns (in priority order)
-    """
-    patterns = []
-    # Pattern 1: No leading slash, hyphen separator
-    patterns.append(directory.lstrip('/').replace('/', '-'))
-    # Pattern 2: With leading hyphen
-    patterns.append('-' + directory.lstrip('/').replace('/', '-'))
-    # Pattern 3: Full path version
-    patterns.append(directory.replace('/', '-'))
-    return patterns
-
 
 # Create Claude-specific history finder using partial
 _find_claude_history_path = functools.partial(
     _generic_find_history_path,
-    history_patterns=_claude_history_patterns
+    history_patterns=domain.generate_claude_history_patterns
 )
 
 
 # Claude-specific functions using functools.partial for backward compatibility
 start_worker_in_directory = functools.partial(
     _generic_start_worker,
-    window_namer=_claude_window_name,
-    launch_cmd=_claude_launch_command
+    window_namer=domain.generate_claude_window_name,
+    launch_cmd=domain.get_claude_launch_command
 )
 
 
