@@ -1,0 +1,48 @@
+{
+  "id": "broken-service",
+  "version": "1.0.0",
+  "path": "/services/broken",
+  "purpose": "Test invalid configurations",
+  "type": "service",
+  "performance": {
+    "max_latency_ms": -100,
+    "max_memory_mb": 512,
+    "max_cpu_percent": 25
+  },
+  "dependencies": [
+    {
+      "id": "some-service",
+      "required_methods": []
+    }
+  ],
+  "interfaces": {
+    "inputs": [],
+    "outputs": [],
+    "errors": []
+  },
+  "constraints": {
+    "security": {
+      "authentication": "none",
+      "authorization": "rbac",
+      "encryption": {
+        "at_rest": "none",
+        "in_transit": "none"
+      },
+      "token_ttl_seconds": 30
+    },
+    "network": {
+      "timeout_ms": 50,
+      "retry_policy": "none"
+    },
+    "environment": {
+      "allowed": ["production"],
+      "forbidden": ["production"]
+    }
+  },
+  "initialization": {
+    "order": 1,
+    "timeout_ms": 50,
+    "required_services": []
+  },
+  "breaking_changes": []
+}

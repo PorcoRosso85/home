@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# README Graph CLI - module.json検証・クエリツール
+# このファイルをcli.shにコピーして使用: cp cli.sh.example cli.sh && chmod +x cli.sh
+
+set -euo pipefail
+
+# ========================================
+# 使い方
+# ========================================
+# 1. module.jsonファイルを探索
+#    python crawler.py /path/to/project
+#
+# 2. データベース初期化（シンプル版）
+#    python readme_graph.py init
+#
+# 3. モジュール追加（シンプル版）
+#    python readme_graph.py add /src/auth "認証サービス" service
+#
+# ========================================
+
+# 基本的な使用例
+case "${1:-}" in
+  # module.jsonファイルを探索
+  crawl)
+    shift
+    python crawler.py "${1:-.}"
+    ;;
+  
+  # データベース初期化
+  init)
+    python readme_graph.py init
+    ;;
+  
+  # モジュール追加
+  add)
+    shift
+    python readme_graph.py add "$@"
+    ;;
+  
+  # テスト実行
+  test)
+    echo "=== module.json探索テスト ==="
+    python crawler.py .
+    echo ""
+    echo "=== テストモジュール探索 ==="
+    python crawler.py test_modules 2>/dev/null || echo "test_modulesディレクトリなし"
+    ;;
+  
+  # ヘルプ
+  help|--help|-h|"")
+    cat << EOF
+README Graph - module.json検証・クエリツール
+
+使用方法:
+  ./cli.sh crawl [path]     - module.jsonファイルを探索
+  ./cli.sh init             - データベース初期化
+  ./cli.sh add <args>       - モジュール追加
+  ./cli.sh test             - 動作テスト
+  ./cli.sh help             - このヘルプを表示
+
+詳細:
+  crawl: プロジェクト内のmodule.jsonファイルを探索
+    例: ./cli.sh crawl /home/user/project
+  
+  init: KuzuDBデータベースを初期化
+    例: ./cli.sh init
+  
+  add: モジュールをグラフに追加
+    例: ./cli.sh add /src/auth "認証サービス" service
+
+Python直接実行:
+  python crawler.py .                                    # 探索
+  python readme_graph.py init                           # DB初期化
+  python readme_graph.py add <path> <purpose> <type>    # モジュール追加
+
+必要環境:
+  - Python 3.12+
+  - KuzuDB (pip install kuzu)
+  - または: nix develop
+EOF
+    ;;
+  
+  *)
+    echo "不明なコマンド: $1"
+    echo "使用方法: ./cli.sh help"
+    exit 1
+    ;;
+esac
