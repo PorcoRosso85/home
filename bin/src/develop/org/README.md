@@ -2,6 +2,18 @@
 
 Orchestrates multiple AI CLI tool instances via tmux windows with directory-based isolation.
 
+## Orchestrator Pattern
+
+**User → Worker 0 (Orchestrator) → Workers 1,2,3...**
+
+Instead of directly managing multiple Claude instances, you communicate with a single orchestrator (Worker 0) that:
+- Monitors all worker states (`get_all_workers_status()`)
+- Routes commands to any worker (`send_command_to_worker_by_directory()`)
+- Reads worker histories (`get_claude_history()`)
+- Manages worker lifecycle (start/stop/clean)
+
+This eliminates the need to switch between multiple tmux windows manually.
+
 ## Core Specifications
 
 1. **Architecture**: Extensible multi-tool support via function composition
