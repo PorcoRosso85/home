@@ -10,26 +10,23 @@
 - `./aa` - 基本tmuxセッション（shell + watch）
 
 ### 検索ツール
-- `./search-keys` - bashキーバインド検索（bind設定を対話的に検索）
-- `./search-functions` - bash関数検索（宣言済み関数を対話的に検索）
-- `./cat-fzf` - ファイル選択表示（fzfでファイル選択→内容表示）
+- `./unified-search` - 統合検索ツール（ファイル、関数、キーバインドをbatプレビュー付きで検索）
+  - `file:` プレフィックス - ファイル検索とシンタックスハイライト表示
+  - `func:` プレフィックス - bash関数検索と定義表示
+  - `bind:` プレフィックス - bashキーバインド検索
 
 ## 使用方法
 ```bash
 # 直接実行（PATHに追加するか、フルパスで実行）
 /home/nixos/bin/src/develop/terminal/hly
 /home/nixos/bin/src/develop/terminal/aa
-/home/nixos/bin/src/develop/terminal/search-keys
-/home/nixos/bin/src/develop/terminal/search-functions
-/home/nixos/bin/src/develop/terminal/cat-fzf
+/home/nixos/bin/src/develop/terminal/unified-search
 
 # または、PATHに追加
 export PATH="$HOME/bin/src/develop/terminal:$PATH"
 hly                  # 開発環境起動
 aa                   # 基本tmux起動
-search-keys          # キーバインド検索
-search-functions     # 関数検索
-cat-fzf             # ファイル選択表示
+unified-search       # 統合検索（Ctrl+Fでも起動可能）
 ```
 
 ## 特徴
