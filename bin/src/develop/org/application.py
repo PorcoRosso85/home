@@ -169,6 +169,13 @@ def send_command_to_worker_by_directory(directory: str, command: str) -> Dict[st
         # Send command
         pane.send_keys(command)
         
+        # For multi-line tools like Claude, ensure submission with Enter
+        # This helps when the tool is waiting for explicit submission
+        if command.strip():  # Only add Enter after non-empty commands
+            import time
+            time.sleep(0.05)  # Small delay to ensure command is received
+            pane.send_keys('Enter')
+        
         return _ok({"directory": directory, "command": command, "pane_id": pane.id})
         
     except TmuxConnectionError as e:
