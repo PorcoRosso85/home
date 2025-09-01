@@ -180,10 +180,10 @@ class TestWindowManagement:
         
         connection.launch_claude_in_window(mock_window, directory)
         
-        # Verify commands were sent in correct order
+        # Verify commands were sent in correct order - using the actual nix command
         expected_calls = [
             (f"cd {directory}",),
-            ("claude",)
+            ("env NIXPKGS_ALLOW_UNFREE=1 nix run github:NixOS/nixpkgs/nixos-unstable#claude-code --impure -- --dangerously-skip-permissions",)
         ]
         actual_calls = [call[0] for call in mock_pane.send_keys.call_args_list]
         assert actual_calls == expected_calls

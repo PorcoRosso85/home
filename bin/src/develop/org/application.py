@@ -2,7 +2,8 @@
 
 import os
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Callable
+import functools
 
 from domain import Worker, WorkerRegistry, WorkerNotFoundError, WorkerValidationError
 from infrastructure import TmuxConnection, TmuxConnectionError
@@ -35,6 +36,88 @@ def _is_pane_alive(pane_id: str) -> bool:
         return False
 
 
+# === Multi-tool Support ===
+# To add a new tool, create three functions and use functools.partial:
+# 1. window_namer: Callable[[str], str] - converts directory to window name
+# 2. launch_command: Callable[[], Dict[str, Any]] - returns command to launch tool
+# 3. history_patterns: Callable[[str], List[str]] - generates history directory patterns
+# Example: new_tool_start = functools.partial(_generic_start_worker, window_namer=my_namer, launch_cmd=my_cmd)
+
+# Tool-specific function types
+WindowNamer = Callable[[str], str]
+LaunchCommand = Callable[[], Dict[str, Any]]  
+HistoryPatterns = Callable[[str], List[str]]
+
+def _claude_window_name(directory: str) -> str:
+    """Convert directory path to Claude tmux window name."""
+    return f"claude:{directory.replace('/', '_')}"
+
+def _claude_launch_command() -> Dict[str, Any]:
+    """Get Claude launch command."""
+    try:
+        from variables import get_claude_launch_command
+        result = get_claude_launch_command()
+        return result if result['ok'] else {"ok": True, "data": {"command": "claude"}}
+    except ImportError:
+        return {"ok": True, "data": {"command": "claude"}}
+
+def _claude_history_patterns(directory: str) -> List[str]:
+    """Generate Claude history directory patterns."""
+    patterns = []
+    patterns.append(directory.lstrip('/').replace('/', '-'))
+    patterns.append('-' + directory.lstrip('/').replace('/', '-'))
+    patterns.append(directory.replace('/', '-'))
+    return patterns
+
+def _generic_start_worker(directory: str, window_namer: WindowNamer, launch_cmd: LaunchCommand) -> Dict[str, Any]:
+    """Generic worker start function."""
+    try:
+        dir_path = Path(directory).resolve()
+        if not dir_path.exists() or not dir_path.is_dir():
+            return _err(f"Directory does not exist: {directory}", "invalid_directory")
+        
+        directory = str(dir_path)
+        tmux = TmuxConnection(SESSION_NAME)
+        tmux.connect()
+        
+        # Check for duplicates using tool-specific window naming
+        session = tmux.get_or_create_session()
+        window_name = window_namer(directory)
+        existing_window = session.find_where({"window_name": window_name})
+        
+        if existing_window:
+            for pane in existing_window.panes:
+                if _is_pane_alive(pane.id):
+                    return _err(f"Worker window already exists for directory: {directory}", "duplicate_worker")
+        
+        # Create window and launch tool
+        window = session.new_window(window_name=window_name)
+        pane = window.panes[0] if window.panes else None
+        if not pane:
+            return _err("Failed to get pane", "pane_error")
+        
+        pane.send_keys(f"cd {directory}", enter=True)
+        cmd_result = launch_cmd()
+        if cmd_result['ok']:
+            pane.send_keys(cmd_result['data']['command'], enter=True)
+        
+        return _ok({"directory": directory, "pane_id": pane.id, "window_name": window.name})
+        
+    except Exception as e:
+        return _err(f"Unexpected error: {str(e)}", "unexpected_error")
+
+def _generic_find_history_path(directory: str, history_patterns: HistoryPatterns) -> Optional[Path]:
+    """Generic function to find tool history directory."""
+    base_path = Path.home() / ".claude/projects"  # Could be made configurable
+    if not base_path.exists():
+        return None
+        
+    for pattern in history_patterns(directory):
+        candidate = base_path / pattern
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+    return None
+
 # === Naming Convention Utilities ===
 
 def _directory_to_window_name(directory: str) -> str:
@@ -65,75 +148,19 @@ def _directory_to_jsonl_patterns(directory: str) -> List[str]:
     return patterns
 
 
-def _find_claude_history_path(directory: str) -> Optional[Path]:
-    """Find actual Claude history directory.
-    
-    Returns first match found (assumes uniqueness in practice).
-    None means no history exists (not an error).
-    """
-    base_path = Path.home() / ".claude/projects"
-    if not base_path.exists():
-        return None
-        
-    for pattern in _directory_to_jsonl_patterns(directory):
-        candidate = base_path / pattern
-        if candidate.exists() and candidate.is_dir():
-            return candidate
-    return None
+# Create Claude-specific history finder using partial
+_find_claude_history_path = functools.partial(
+    _generic_find_history_path,
+    history_patterns=_claude_history_patterns
+)
 
 
-def start_worker_in_directory(directory: str) -> Dict[str, Any]:
-    """Start Claude Code worker in specified directory.
-    
-    Checks for duplicates, creates tmux window, and launches Claude.
-    
-    Args:
-        directory: Target directory path for the worker
-        
-    Returns:
-        Dict with success/error and worker data including pane_id
-    """
-    try:
-        # Validate directory exists
-        dir_path = Path(directory).resolve()
-        if not dir_path.exists() or not dir_path.is_dir():
-            return _err(f"Directory does not exist: {directory}", "invalid_directory")
-        
-        directory = str(dir_path)
-        
-        # Connect to tmux and check for duplicates
-        tmux = TmuxConnection(SESSION_NAME)
-        tmux.connect()
-        
-        # Check if window already exists
-        existing_window = tmux.find_worker_window_by_directory(directory)
-        if existing_window:
-            # Check if any pane in the window is alive
-            for pane in existing_window.panes:
-                if _is_pane_alive(pane.id):
-                    return _err(f"Worker window already exists for directory: {directory}", "duplicate_worker")
-        
-        # Create new window and launch Claude
-        window = tmux.create_worker_window(directory)
-        tmux.launch_claude_in_window(window, directory)
-        
-        # Get pane ID for tracking
-        pane_id = window.panes[0].id if window.panes else None
-        if not pane_id:
-            return _err("Failed to get pane ID", "pane_error")
-        
-        # Return worker data
-        worker_data = {
-            "directory": directory,
-            "pane_id": pane_id,
-            "window_name": window.name
-        }
-        return _ok(worker_data)
-        
-    except TmuxConnectionError as e:
-        return _err(f"Tmux connection error: {str(e)}", "tmux_error")
-    except Exception as e:
-        return _err(f"Unexpected error: {str(e)}", "unexpected_error")
+# Claude-specific functions using functools.partial for backward compatibility
+start_worker_in_directory = functools.partial(
+    _generic_start_worker,
+    window_namer=_claude_window_name,
+    launch_cmd=_claude_launch_command
+)
 
 
 def send_command_to_worker_by_directory(directory: str, command: str) -> Dict[str, Any]:

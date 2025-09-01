@@ -173,29 +173,36 @@ class TestWorkerRegistry:
         assert worker2 in active_workers
         assert worker3 not in active_workers
 
-    @patch('domain.Path.exists')
-    def test_get_existing_workers_returns_only_workers_with_existing_paths(self, mock_exists):
+    def test_get_existing_workers_returns_only_workers_with_existing_paths(self):
         """Test that get_existing_workers returns only workers whose paths exist."""
-        def mock_exists_side_effect(path_instance):
-            return str(path_instance) in ["/existing1", "/existing2"]
-        
-        mock_exists.side_effect = mock_exists_side_effect
-        
-        registry = WorkerRegistry()
-        
-        worker1 = Worker(name="existing1", path="/existing1")
-        worker2 = Worker(name="existing2", path="/existing2") 
-        worker3 = Worker(name="missing", path="/missing")
-        
-        registry.register_worker(worker1)
-        registry.register_worker(worker2)
-        registry.register_worker(worker3)
-        
-        existing_workers = registry.get_existing_workers()
-        assert len(existing_workers) == 2
-        assert worker1 in existing_workers
-        assert worker2 in existing_workers
-        assert worker3 not in existing_workers
+        with patch('pathlib.Path.exists') as mock_exists:
+            # Configure mock to track calls and return appropriate values
+            call_results = [True, True, False]  # First 2 paths exist, 3rd doesn't
+            call_index = 0
+            
+            def exists_side_effect(*args, **kwargs):
+                nonlocal call_index
+                result = call_results[call_index] if call_index < len(call_results) else False
+                call_index += 1
+                return result
+            
+            mock_exists.side_effect = exists_side_effect
+            
+            registry = WorkerRegistry()
+            
+            worker1 = Worker(name="existing1", path="/existing1")
+            worker2 = Worker(name="existing2", path="/existing2") 
+            worker3 = Worker(name="missing", path="/missing")
+            
+            registry.register_worker(worker1)
+            registry.register_worker(worker2)
+            registry.register_worker(worker3)
+            
+            existing_workers = registry.get_existing_workers()
+            assert len(existing_workers) == 2
+            assert worker1 in existing_workers
+            assert worker2 in existing_workers
+            assert worker3 not in existing_workers
 
     def test_remove_worker_removes_from_registry(self):
         """Test that remove_worker removes worker from registry."""
