@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Example: Comprehensive filesystem permissions test
+# Tests various permission levels and their effects on file operations
+
+echo "====================================="
+echo "Filesystem Permissions Test Suite"
+echo "====================================="
+echo
+
+# Test directory setup
+TEST_DIR="test-dirs"
+mkdir -p "$TEST_DIR"/{readable,writable,executable,forbidden}
+
+# Create test files
+echo "readable content" > "$TEST_DIR/readable/file.txt"
+echo "writable content" > "$TEST_DIR/writable/file.txt"
+echo "executable content" > "$TEST_DIR/executable/file.txt"
+echo "forbidden content" > "$TEST_DIR/forbidden/file.txt"
+
+# Function to test access
+test_access() {
+    local dir=$1
+    local perms=$2
+    
+    echo "Testing $dir with permissions $perms:"
+    chmod "$perms" "$dir"
+    
+    # Test read
+    if cat "$dir/file.txt" &>/dev/null; then
+        echo "  ✓ Read: SUCCESS"
+    else
+        echo "  ✗ Read: DENIED"
+    fi
+    
+    # Test write
+    if echo "test" > "$dir/test-write.txt" 2>/dev/null; then
+        echo "  ✓ Write: SUCCESS"
+        rm "$dir/test-write.txt" 2>/dev/null
+    else
+        echo "  ✗ Write: DENIED"
+    fi
+    
+    # Test list
+    if ls "$dir" &>/dev/null; then
+        echo "  ✓ List: SUCCESS"
+    else
+        echo "  ✗ List: DENIED"
+    fi
+    
+    echo
+}
+
+# Test various permission levels
+echo "=== Permission Level Tests ==="
+echo
+
+test_access "$TEST_DIR/readable" "444"    # Read-only
+test_access "$TEST_DIR/writable" "666"    # Read-write
+test_access "$TEST_DIR/executable" "755"  # Full access
+test_access "$TEST_DIR/forbidden" "000"   # No access
+
+# Test Claude-specific operations
+echo "=== Claude Code Operation Simulation ==="
+echo
+
+# Simulate Claude trying to modify restricted directory
+chmod 000 "$TEST_DIR/forbidden"
+echo "Attempting Claude Code operations on restricted directory:"
+
+# Test 1: Read operation
+echo -n "1. Read file: "
+python3 -c "
+try:
+    with open('$TEST_DIR/forbidden/file.txt', 'r') as f:
+        print('SUCCESS (should not happen!)')
+except PermissionError:
+    print('BLOCKED ✓')
+except Exception as e:
+    print(f'ERROR: {e}')
+" 2>/dev/null || echo "Python not available"
+
+# Test 2: Write operation
+echo -n "2. Write file: "
+python3 -c "
+try:
+    with open('$TEST_DIR/forbidden/newfile.txt', 'w') as f:
+        f.write('test')
+    print('SUCCESS (should not happen!)')
+except PermissionError:
+    print('BLOCKED ✓')
+except Exception as e:
+    print(f'ERROR: {e}')
+" 2>/dev/null || echo "Python not available"
+
+# Cleanup
+echo
+echo "=== Cleanup ==="
+chmod -R 755 "$TEST_DIR" 2>/dev/null
+echo "Permissions restored for cleanup"

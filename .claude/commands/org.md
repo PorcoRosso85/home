@@ -1,60 +1,60 @@
-# /org - Delegate tasks to multiple Claude instances
+# /org - Orchestrate multiple Claude workers via tmux
 
 ## Overview
-Delegates tasks to Claude instances working in parallel using Git worktrees with sparse-checkout.
+Manages multiple Claude Code instances in parallel using tmux windows, with directory-based isolation.
 
 ## Usage
 ```bash
-/org <task_name> <target_directory> <description>
+/org <command> <directory> [message]
 ```
+
+## Commands
+- `start <directory>` - Start new Claude worker in directory
+- `send <directory> <message>` - Send command to worker
+- `status` - Show all workers status
+- `clean` - Remove dead workers
+- `history <directory>` - Get Claude conversation history
 
 ## Example
 ```bash
-/org auth-feature src/auth "Implement JWT authentication with tests"
+# Start worker
+/org start /home/nixos/bin/src/poc/auth-feature
+
+# Send command
+/org send /home/nixos/bin/src/poc/auth-feature "Implement JWT authentication"
+
+# Check status
+/org status
 ```
 
 ## How it works
-0. 禁止事項確認: `bin/docs/conventions/prohibited_items.md`
-1. Creates isolated Git worktree for the task
-2. Sets up sparse-checkout for the target directory
-3. Provides DB_URI environment variable for GraphDB access
-4. Claude works autonomously based on directory context
+1. Uses Python application.py in ~/bin/src/develop/org/
+2. Creates tmux window named `claude:_path_with_underscores`
+3. Launches Claude Code with `nix run` command
+4. Routes commands via tmux pane IDs
+5. Tracks history in ~/.claude/projects/*.jsonl
 
-## Directory-based context
-Each Claude member:
-- Identifies its location via pwd and flake.nix
-- Queries GraphDB for expected state based on directory path
-- Works autonomously to achieve the expected state
-- Explains error context before querying solutions
+## Architecture
+```
+User → org (orchestrator) → tmux windows → Claude instances
+          ├── start_worker_in_directory()
+          ├── send_command_to_worker_by_directory()
+          ├── get_all_workers_status()
+          └── get_claude_history()
+```
 
-## Template locations
+## Implementation
 ```bash
-# Organization coordination template
-cat ~/bin/src/poc/develop/claude/org/main.sh.template
-
-# Member tool templates
-cat ~/bin/src/poc/develop/claude/member/main.sh.template
+cd ~/bin/src/develop/org
+nix develop -c python3 -c "
+from application import start_worker_in_directory
+result = start_worker_in_directory('$TARGET_DIR')
+print(result)
+"
 ```
 
-## Management commands
-- `--list`: List active Claude processes
-- `--cleanup`: Remove zombie worktrees
-- `--status`: Show all task statuses
-- `--resume-task ID`: Force resume specific task
-
-## Directory structure
-```
-poc/develop/claude/
-├── org/                    # Organization coordination
-│   └── main.sh.template   # Minimal environment setup
-└── member/                # Individual member tools
-    ├── sdk/              # Execution environment
-    ├── config/           # Configuration
-    └── main.sh.template  # Directory context tools
-```
-
-## Key principles
-- No spec_id needed (directory path is the context)
-- No graph_context.json (direct GraphDB access via DB_URI)
-- Stream.jsonl is automatically recorded (no explicit logging)
-- Error handling includes background explanation
+## Key features
+- **Isolation**: One directory = One tmux window = One Claude instance
+- **Duplicate prevention**: Checks for existing workers before starting
+- **Dead worker cleanup**: Removes crashed instances
+- **History tracking**: Reads Claude's JSONL conversation logs
