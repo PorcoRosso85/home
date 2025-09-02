@@ -38,11 +38,34 @@ User → org (orchestrator) → tmux windows → Claude instances
 
 ## Implementation
 
+### 重要: 実装例の参照
+**必須**: 以下のファイルを参照して適切なツール使用法を確認：
+```bash
+# 実装例とベストプラクティス
+cat ~/bin/src/develop/org/cli.sh.example
+```
+このファイルには以下が含まれます：
+- application.py関数の使用例
+- ワーカー管理パターン
+- 非同期処理の実装方法
+
+### tmux操作コマンド
+```bash
+# 全ワーカー表示
+tmux list-windows -t org-system
+
+# 特定ワーカーの出力確認
+tmux capture-pane -t org-system:<window番号> -p | tail -50
+
+# ワーカーへ切り替え
+tmux select-window -t org-system:<window番号>
+
+# 全ワーカーの状態確認
+tmux list-windows -t org-system -F "#{window_index}: #{window_name} - #{pane_current_path}"
+```
+
 ### Current System (Python-based)
-For current tmux orchestration examples, see:
-```
-~/bin/src/develop/org/cli.sh.example
-```
+エラー時は必ず cli.sh.example を確認
 
 ### Worktree Integration (Proposed)
 ```bash
