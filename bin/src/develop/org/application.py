@@ -291,23 +291,78 @@ def get_claude_history(directory: str, last_n: int = 20) -> Dict[str, Any]:
         if not history_path:
             return _err(f"No history found for directory: {directory}", "history_not_found")
         
-        # Get latest jsonl file
-        jsonl_files = sorted(history_path.glob("*.jsonl"), key=lambda x: x.stat().st_mtime)
+        # Get all jsonl files, prefer larger ones (more content)
+        jsonl_files = sorted(history_path.glob("*.jsonl"), key=lambda x: x.stat().st_size, reverse=True)
         if not jsonl_files:
             return _err("No conversation files found", "no_jsonl_files")
         
-        latest_file = jsonl_files[-1]
+        # Collect ALL data from ALL files (fuzzy approach)
+        all_messages = []
+        all_raw_data = []
+        files_read = []
         
-        # Read messages from latest file
-        messages = []
-        with open(latest_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        messages.append(json.loads(line))
-                    except json.JSONDecodeError:
+        for jsonl_file in jsonl_files:
+            file_messages = []
+            file_raw = []
+            
+            with open(jsonl_file, 'r', encoding='utf-8') as f:
+                for line_num, line in enumerate(f, 1):
+                    line = line.strip()
+                    if not line:
                         continue
+                    
+                    try:
+                        data = json.loads(line)
+                        file_raw.append(data)  # Keep raw data for diagnostics
+                        
+                        # Try multiple extraction patterns (fuzzy matching)
+                        extracted = None
+                        
+                        # Pattern 1: Claude UI format with message field
+                        if 'message' in data and data['message']:
+                            extracted = data['message']
+                        # Pattern 2: Direct message format
+                        elif 'role' in data:
+                            extracted = data
+                        # Pattern 3: Content with role in separate fields
+                        elif 'content' in data:
+                            extracted = {
+                                'role': data.get('type', 'unknown'),
+                                'content': data['content']
+                            }
+                        
+                        if extracted:
+                            file_messages.append(extracted)
+                            
+                    except json.JSONDecodeError as e:
+                        # Keep going, don't fail on bad lines
+                        continue
+            
+            if file_messages or file_raw:
+                files_read.append({
+                    'file': jsonl_file.name,
+                    'messages': len(file_messages),
+                    'raw_lines': len(file_raw)
+                })
+                all_messages.extend(file_messages)
+                all_raw_data.extend(file_raw)
+        
+        # If no messages extracted, return raw data for debugging
+        if not all_messages and all_raw_data:
+            return _ok({
+                "directory": str(dir_path),
+                "history_path": str(history_path),
+                "files_read": files_read,
+                "messages": [],  # No messages extracted
+                "raw_data": all_raw_data[-last_n:],  # Show raw data for debugging
+                "total_messages": 0,
+                "total_raw_lines": len(all_raw_data),
+                "showing": min(last_n, len(all_raw_data)),
+                "note": "No messages could be extracted, showing raw JSONL data"
+            })
+        
+        # Return messages if found
+        messages = all_messages
         
         # Get last N messages
         recent_messages = messages[-last_n:] if len(messages) > last_n else messages
@@ -315,9 +370,10 @@ def get_claude_history(directory: str, last_n: int = 20) -> Dict[str, Any]:
         return _ok({
             "directory": str(dir_path),
             "history_path": str(history_path),
-            "latest_file": latest_file.name,
+            "files_read": files_read,
             "messages": recent_messages,
             "total_messages": len(messages),
+            "total_raw_lines": len(all_raw_data),
             "showing": len(recent_messages)
         })
         
