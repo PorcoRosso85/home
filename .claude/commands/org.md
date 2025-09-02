@@ -33,8 +33,15 @@ User → org (orchestrator) → tmux windows → Claude instances
           └── get_claude_history()
 ```
 
-## Implementation Example
+## Implementation
 
+### Current System (Python-based)
+For current tmux orchestration examples, see:
+```
+~/bin/src/develop/org/cli.sh.example
+```
+
+### Worktree Integration (Proposed)
 ```bash
 #!/usr/bin/env bash
 # worktree-based org command implementation
