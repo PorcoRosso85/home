@@ -11,8 +11,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Check if MCP servers are configured in ~/.claude.json
-# Always use nix shell to ensure jq is available (system-independent)
-if [[ -f "$HOME/.claude.json" ]]; then
+# Skip if we're already in firejail (detected by checking if /home is read-only)
+if ! touch /home/.firejail-test 2>/dev/null; then
+  # We're in firejail, skip MCP check (already done outside)
+  rm -f /home/.firejail-test 2>/dev/null
+elif [[ -f "$HOME/.claude.json" ]]; then
   # Check if any lsmcp servers are configured using nix-provided jq
   if ! nix shell nixpkgs#jq --command jq -e '.mcpServers | to_entries | any(.key | startswith("lsmcp"))' "$HOME/.claude.json" >/dev/null 2>&1; then
     echo "MCP servers not configured. Running setup-mcp-user.sh..."
