@@ -3,7 +3,9 @@
   "path": "/test_modules/auth",
   "purpose": "Handle user authentication and authorization",
   "type": "service",
-  "dependencies": ["database-layer"],
+  "dependencies": [
+    {"id": "database-layer", "version": ">=1.0.0"}
+  ],
   "interfaces": {
     "inputs": [
       {

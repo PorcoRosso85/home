@@ -1,88 +1,94 @@
 #!/usr/bin/env bash
-# README Graph CLI - module.json検証・クエリツール
-# このファイルをcli.shにコピーして使用: cp cli.sh.example cli.sh && chmod +x cli.sh
-
-set -euo pipefail
+# README Graph CLI Example Template
+# このファイルは実行例のテンプレートです（実行しないでください）
+# Usage examples for readme_graph.py, validator.py, and KuzuDB queries
 
 # ========================================
-# 使い方
-# ========================================
-# 1. module.jsonファイルを探索
-#    python crawler.py /path/to/project
-#
-# 2. データベース初期化（シンプル版）
-#    python readme_graph.py init
-#
-# 3. モジュール追加（シンプル版）
-#    python readme_graph.py add /src/auth "認証サービス" service
-#
+# 1. 基本的な使用方法
 # ========================================
 
-# 基本的な使用例
-case "${1:-}" in
-  # module.jsonファイルを探索
-  crawl)
-    shift
-    python crawler.py "${1:-.}"
-    ;;
-  
-  # データベース初期化
-  init)
-    python readme_graph.py init
-    ;;
-  
-  # モジュール追加
-  add)
-    shift
-    python readme_graph.py add "$@"
-    ;;
-  
-  # テスト実行
-  test)
-    echo "=== module.json探索テスト ==="
-    python crawler.py .
-    echo ""
-    echo "=== テストモジュール探索 ==="
-    python crawler.py test_modules 2>/dev/null || echo "test_modulesディレクトリなし"
-    ;;
-  
-  # ヘルプ
-  help|--help|-h|"")
-    cat << EOF
-README Graph - module.json検証・クエリツール
+# module.jsonファイルの探索
+python crawler.py /path/to/project
 
-使用方法:
-  ./cli.sh crawl [path]     - module.jsonファイルを探索
-  ./cli.sh init             - データベース初期化
-  ./cli.sh add <args>       - モジュール追加
-  ./cli.sh test             - 動作テスト
-  ./cli.sh help             - このヘルプを表示
+# module.jsonの検証
+python validator.py examples/sample_module.json
 
-詳細:
-  crawl: プロジェクト内のmodule.jsonファイルを探索
-    例: ./cli.sh crawl /home/user/project
-  
-  init: KuzuDBデータベースを初期化
-    例: ./cli.sh init
-  
-  add: モジュールをグラフに追加
-    例: ./cli.sh add /src/auth "認証サービス" service
+# ========================================
+# 2. KuzuDB操作
+# ========================================
 
-Python直接実行:
-  python crawler.py .                                    # 探索
-  python readme_graph.py init                           # DB初期化
-  python readme_graph.py add <path> <purpose> <type>    # モジュール追加
+# データベース初期化とインデックス作成
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py index ./example"
 
-必要環境:
-  - Python 3.12+
-  - KuzuDB (pip install kuzu)
-  - または: nix develop
-EOF
-    ;;
-  
-  *)
-    echo "不明なコマンド: $1"
-    echo "使用方法: ./cli.sh help"
-    exit 1
-    ;;
-esac
+# 依存関係グラフ構築
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py deps ./example"
+
+# 階層関係構築
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py hierarchy ./example"
+
+# ========================================
+# 3. クエリ実行例
+# ========================================
+
+# 特定モジュールの依存関係取得
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py get-deps auth-system"
+
+# 特定モジュールに依存するモジュール取得
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py get-dependents database-layer"
+
+# 循環依存の検出
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py circular"
+
+# Cypherクエリ実行
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py query 'MATCH (m:Module) RETURN m.id, m.type, m.purpose'"
+
+# ========================================
+# 4. 高度なクエリ例
+# ========================================
+
+# 全モジュールの階層表示
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py query 'MATCH (m:Module) RETURN m.id, m.path ORDER BY m.path'"
+
+# 依存関係のパス探索
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py query 'MATCH path = (m:Module {id: \"mfa-component\"})-[:DEPENDS_ON*]->(d:Module) RETURN path'"
+
+# 特定タイプのモジュール検索
+nix-shell -p python312Packages.kuzu --run "python readme_graph.py query 'MATCH (m:Module {type: \"service\"}) RETURN m.id, m.purpose'"
+
+# ========================================
+# 5. バリデーション例
+# ========================================
+
+# 単一ファイルの検証
+python validator.py example/auth/module.json
+
+# ディレクトリ内全module.jsonの検証
+for file in $(find example -name "module.json"); do
+    echo "Validating: $file"
+    python validator.py "$file"
+done
+
+# ========================================
+# 6. 統合ワークフロー例
+# ========================================
+
+# 完全なプロジェクト分析
+workflow_example() {
+    # 1. module.json探索
+    python crawler.py ./example
+    
+    # 2. 検証
+    for file in $(find example -name "module.json"); do
+        python validator.py "$file" || exit 1
+    done
+    
+    # 3. KuzuDBインデックス作成
+    nix-shell -p python312Packages.kuzu --run "python readme_graph.py index ./example"
+    
+    # 4. グラフ構築
+    nix-shell -p python312Packages.kuzu --run "python readme_graph.py deps ./example"
+    nix-shell -p python312Packages.kuzu --run "python readme_graph.py hierarchy ./example"
+    
+    # 5. 分析
+    nix-shell -p python312Packages.kuzu --run "python readme_graph.py circular"
+}

@@ -1,0 +1,42 @@
+{
+  "id": "profile-service",
+  "path": "/example/user/profile",
+  "purpose": "ユーザープロファイル管理",
+  "type": "service",
+  "version": "1.0.0",
+  "scope": "profile",
+  "parent": "../",
+  "dependencies": [
+    {"id": "user-management", "version": ">=1.0.0"}
+  ],
+  "interfaces": {
+    "inputs": [
+      {
+        "name": "user_id",
+        "type": "string",
+        "description": "ユーザーID"
+      },
+      {
+        "name": "profile_data",
+        "type": "object",
+        "description": "プロファイルデータ"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "updated_profile",
+        "type": "object",
+        "description": "更新されたプロファイル"
+      }
+    ]
+  },
+  "responsibilities": [
+    "プロファイル情報のCRUD",
+    "アバター画像管理",
+    "プリファレンス設定"
+  ],
+  "constraints": {
+    "security": "個人情報の適切な管理",
+    "performance": "更新は500ms以内"
+  }
+}
