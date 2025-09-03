@@ -1,0 +1,97 @@
+# GitHub Actions Self-hosted Runner POC Test Guide
+# 責務: self-hosted runner登録 + cronジョブ動作確認のみ
+
+#==============================================================================
+# 基本設定
+#==============================================================================
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+API_BASE="/repos/${REPO}/actions/runners"
+
+wait_for() {
+    sleep ${1:-5}
+}
+
+#==============================================================================
+# RUNNER登録（POCの主要責務）
+#==============================================================================
+register_runner() {
+    echo "Getting registration token..."
+    TOKEN=$(gh api --method POST "${API_BASE}/registration-token" -q .token)
+    
+    echo "Registering runner..."
+    github-runner configure \
+        --url "https://github.com/${REPO}" \
+        --token "$TOKEN" \
+        --name "poc-runner-$(hostname)" \
+        --labels "self-hosted,nix,poc-cron" \
+        --unattended \
+        --ephemeral  # 1ジョブ実行後に自動削除
+}
+
+check_runner() {
+    gh api "${API_BASE}" | jq -r '.runners[] | "\(.name): \(.status)"'
+}
+
+#==============================================================================
+# CRONテスト（POCの検証対象）
+#==============================================================================
+test_cron_job() {
+    echo "Starting runner for cron test..."
+    
+    # Runnerをバックグラウンドで起動
+    github-runner run --once &
+    RUNNER_PID=$!
+    
+    echo "Waiting for cron execution (5 minutes)..."
+    wait_for 300
+    
+    # 最新の実行を確認
+    LATEST_RUN=$(gh run list --workflow=cron-test.yml --limit 1 --json conclusion -q '.[0].conclusion')
+    
+    if [[ "$LATEST_RUN" == "success" ]]; then
+        echo "✅ Cron job executed successfully"
+        return 0
+    else
+        echo "❌ Cron job failed or not executed"
+        return 1
+    fi
+}
+
+#==============================================================================
+# クリーンアップ
+#==============================================================================
+cleanup() {
+    echo "Cleaning up..."
+    pkill -f github-runner || true
+    
+    if [[ -f .runner ]]; then
+        TOKEN=$(gh api --method POST "${API_BASE}/remove-token" -q .token)
+        github-runner remove --token "$TOKEN" 2>/dev/null || true
+    fi
+    
+    rm -rf _work _diag .runner .credentials
+}
+
+#==============================================================================
+# 実行例
+#==============================================================================
+example_basic() {
+    register_runner
+    test_cron_job
+    cleanup
+}
+
+example_manual() {
+    register_runner
+    check_runner
+    echo "Monitor at: https://github.com/${REPO}/actions"
+    github-runner run  # Ctrl+Cで停止
+}
+
+#==============================================================================
+# NOTES
+#==============================================================================
+# POC責務: self-hosted runner + cronテストのみ
+# cronは5分ごとに実行される設定
+# ephemeralフラグで自動クリーンアップ
+# 複雑なテストケースは本番実装で検討
