@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 # firejail-claude.sh - Firejail wrapper for claude-shell.sh
 # 起動ディレクトリのみ編集可能にするラッパー
+#
+# TODO: セキュリティ設定の選択肢
+# 
+# 1. オーバーレイファイルシステム（開発作業向け）
+#    - ホーム全体の構造を維持（.gitconfig, .ssh等が使える）
+#    - Claude Codeの設定・キャッシュが正常動作
+#    - 書き込みはオーバーレイ層へ（元は変更されない）
+#    使用例:
+#    --overlay --overlay-named="claude_${PWD//\//_}" \
+#    --bind="$WORK_DIR","$WORK_DIR"
+#
+# 2. プライベートホーム（POC・実験向け）
+#    - 最もシンプルで安全
+#    - 作業ディレクトリを仮想ホームとして使用
+#    - 完全隔離だが設定ファイルが使えない
+#    使用例:
+#    --private="$WORK_DIR" --read-only="$HOME/.gitconfig:ro"
+#
+# 3. 現在の方式（ホワイトリスト）
+#    - /home全体を読み取り専用
+#    - 特定ディレクトリのみ書き込み許可
+#    - Claude Codeのシステムファイル書き込み先を把握する必要あり
 
 set -euo pipefail
 
