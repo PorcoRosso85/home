@@ -1,0 +1,19 @@
+name: POC Push Cowsay Test
+
+on:
+  push:
+    paths:
+      - 'src/poc/gha-self/**'
+
+jobs:
+  cowsay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      
+      - name: Run cowsay
+        run: |
+          nix run nixpkgs#cowsay -- "POC: Push event works! 🐮"
