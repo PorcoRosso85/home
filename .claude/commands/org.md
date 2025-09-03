@@ -64,6 +64,43 @@ tmux select-window -t org-system:<window番号>
 tmux list-windows -t org-system -F "#{window_index}: #{window_name} - #{pane_current_path}"
 ```
 
+### 送信後の動作確認（必須）
+**重要**: タスク送信後は必ず以下の確認を実施すること：
+
+1. **送信直後の確認**（送信から3秒以内）
+```bash
+# 送信先のワーカー出力を確認
+tmux capture-pane -t org-system:<window番号> -p | tail -20
+
+# プロセスが生きているか確認
+tmux list-panes -t org-system:<window番号> -F "#{pane_pid} #{pane_current_command}"
+```
+
+2. **処理開始の確認**（送信から10秒後）
+```bash
+# タスクが実行されているか確認
+tmux capture-pane -t org-system:<window番号> -p | grep -A5 "タスク内容の一部"
+
+# エラーメッセージの有無を確認
+tmux capture-pane -t org-system:<window番号> -p | grep -i "error\|fail\|denied"
+```
+
+3. **定期的な進捗確認**（1分ごと）
+```bash
+# 進捗状況の確認
+while true; do
+  clear
+  echo "=== Worker Status at $(date) ==="
+  tmux capture-pane -t org-system:<window番号> -p | tail -30
+  sleep 60
+done
+```
+
+4. **完了確認のベストプラクティス**
+- 送信したタスクの実行開始を確認してから次のタスクを送信
+- エラーが発生していないことを確認
+- ワーカーが応答可能な状態であることを確認
+
 ### Current System (Python-based)
 エラー時は必ず cli.sh.example を確認
 

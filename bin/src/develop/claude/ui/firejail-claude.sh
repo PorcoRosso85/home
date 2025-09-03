@@ -23,7 +23,8 @@ MCP_DIR="$HOME/.claude"
 # - /nix: 読み取り可能（Nixパッケージ）
 # - /tmp: 読み書き可能（一時ファイル）
 
-firejail \
+# execを使用してfirejailプロセスを置き換え、Claude終了時に自動的にfirejailも終了
+exec firejail \
   --noprofile \
   --read-only=/home \
   --read-write="$WORK_DIR" \
