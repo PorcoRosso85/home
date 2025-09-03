@@ -101,6 +101,60 @@ done
 - エラーが発生していないことを確認
 - ワーカーが応答可能な状態であることを確認
 
+### JSONL確認とワーカー状態報告（必須）
+**重要**: ワーカーの現状確認や報告確認を依頼された際の手順：
+
+1. **JSONL解析の実施**
+```bash
+# cli.sh.exampleに従ってJSONL解析を実行
+cd ~/bin/src/develop/org
+python3 -c "
+import json
+import os
+from pathlib import Path
+
+# 各ワーカーのJSONLファイルを確認
+claude_dir = Path.home() / '.claude' / 'projects'
+for project_dir in claude_dir.glob('*'):
+    if project_dir.is_dir():
+        for jsonl_file in project_dir.glob('*.jsonl'):
+            print(f'\\n=== {jsonl_file.name} ===')
+            with open(jsonl_file) as f:
+                for line in f:
+                    try:
+                        data = json.loads(line)
+                        # タスクの内容と状態を表示
+                        if 'type' in data:
+                            print(f\"Type: {data['type']}\")
+                        if 'content' in data:
+                            print(f\"Content: {data['content'][:100]}...\")
+                    except json.JSONDecodeError:
+                        pass
+"
+```
+
+2. **目的の再理解と確認**
+```bash
+# JSONLの内容から依頼者の意図を理解
+# - 何を達成しようとしているか
+# - 期待される結果は何か
+# - 現在の進捗状況はどうか
+```
+
+3. **期待との差異確認**
+- JSONLから読み取った状況が期待通りでない場合：
+  - 依頼者の本来の目的を再確認
+  - より適切なタスクの再依頼を提案
+  - 例: 「JSONLから○○の状況が確認できました。本来の目的が△△であれば、以下のタスクで対応可能です：...」
+
+4. **cli.sh.exampleの参照**
+```bash
+# エラー時や詳細な実装例が必要な場合
+cat ~/bin/src/develop/org/cli.sh.example
+```
+
+この手順により、ワーカーの実際の状況を理解し、依頼者の真の目的に沿った適切な対応を提案できます。
+
 ### Current System (Python-based)
 エラー時は必ず cli.sh.example を確認
 
