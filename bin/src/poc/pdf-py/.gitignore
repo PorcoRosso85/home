@@ -1,0 +1,56 @@
+# POC実験ファイル
+*.log
+*.txt
+test*.pdf
+*_test.pdf
+*_debug.pdf
+*_extracted.*
+*_improved.*
+*_ocr.*
+
+# 一時ファイル
+tmp/
+temp/
+*.tmp
+
+# 画像ファイル
+*.png
+*.jpg
+*.jpeg
+
+# HTMLダウンロードファイル
+*.html
+
+# JSON出力
+structured_output.json
+result
+
+# Python キャッシュ
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 大容量PDFファイル（サンプル以外）
+embedded_*.pdf
+full_*.pdf
+
+# ダウンロードした官報PDF（サンプル以外）
+kanpo_*.pdf
+20*.pdf
+page0011.pdf
+
+# 実験用スクリプト（保持する3つ以外）
+analyze_*.py
+debug_*.py
+test_*.py
+*_test.py
+extract_*.py
+*_analysis.py
+*_solution.py
+
+# ただし、以下は保持
+!pdf_extractor.py
+!pdf_final.py
+!ocr_detector.py
