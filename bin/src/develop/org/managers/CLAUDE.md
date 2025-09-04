@@ -22,10 +22,12 @@ Orchestratorからタスクを受け、Workerたちへ実装を指示します�
 ## 作業フロー（無限ループ）
 ```
 1. instructions.md を読む
-2. [TODO]タスクを1つ選んで[WIP]に変更  
-3. タスクを実行
-4. [DONE]に変更してstatus.mdに記録
-5. 1に戻る
+2. [TODO]タスクを1つ選んで[WIP]に変更
+3. Workerに実装を指示
+4. Workerの成果物をレビュー
+5. 問題なければ[DONE]に変更
+6. status.mdに記録してOrchestratorに報告
+7. 1に戻る
 ```
 
 ## ファイル構造
