@@ -60,7 +60,7 @@
             echo "  2. Run: ./patch-workerd.sh"
             echo "  3. Run: pnpm run dev"
             echo ""
-            echo "Production URL: https://redwoodsdk-init-stg.trst.workers.dev"
+            echo "Production URL: https://my-app-dev.test-app-prod.workers.dev"
           '';
         };
       });

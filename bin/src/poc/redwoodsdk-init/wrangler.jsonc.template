@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "my-app-dev",
+  "name": "{{PROJECT_NAME}}",
   "main": "src/worker.tsx",
   "compatibility_date": "2025-05-07",
   "compatibility_flags": ["nodejs_compat"],
@@ -19,7 +19,7 @@
     ]
   },
   "vars": {
-    "WEBAUTHN_APP_NAME": "my-app-dev"
+    "WEBAUTHN_APP_NAME": "{{PROJECT_NAME}}"
   },
   "migrations": [
     {
@@ -30,8 +30,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "my-app-dev-db",
-      "database_id": "REPLACE_WITH_DATABASE_ID"
+      "database_name": "{{PROJECT_NAME}}-db",
+      "database_id": "{{DATABASE_ID}}"
     }
   ]
 }
