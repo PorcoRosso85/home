@@ -82,6 +82,26 @@ Orchestrator (window 0)
 - **z**: managers/z/ 第3ワーカー
 - **自動認識**: ユーザーが「x,y,z」「xとy」「全員」と書けば該当ワーカーへ指示
 
+## 同一ウィンドウ内ペインでのmanagers起動
+- **起動スクリプト**: `managers/launch_managers.sh`
+  - pane 1: managers/x のClaude Code
+  - pane 2: managers/y のClaude Code
+  - pane 3: managers/z のClaude Code
+- **起動方法**: 
+  ```bash
+  bash managers/launch_managers.sh
+  ```
+- **確認方法**:
+  ```bash
+  tmux capture-pane -t nixos:2.1 -p | tail -5  # x
+  tmux capture-pane -t nixos:2.2 -p | tail -5  # y
+  tmux capture-pane -t nixos:2.3 -p | tail -5  # z
+  ```
+- **実装詳細**:
+  - Claude Codeの起動には `/home/nixos/bin/src/develop/claude/ui/claude-shell.sh` を使用
+  - 各ペインで対応するmanagersディレクトリに移動後、Claudeを起動
+  - orchestratorはpane 0を使用
+
 ## orchestrator監視責務
 - **managers/CLAUDE.md遵守確認**: ワーカー管理規則の徹底
 - **cli.sh.example準拠確認**: 実装例に沿った動作
