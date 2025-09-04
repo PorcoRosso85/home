@@ -2,28 +2,40 @@
 
 ## 責務
 
-このシステムは、Nix flakesに対する型安全な契約定義とglue機能を提供します。
+このシステムは、レベル3マルチFlake構成に基づく型安全な契約定義を提供します。
 
-### 主要責務
+### アーキテクチャレベル
 
-1. **Flake契約の型定義**
-   - Nix flakeのinputs/outputsをTypeScriptの型システムで表現
-   - 型レベルでflake間の依存関係を保証
-   - **Zodスキーマによる実行時契約検証**
+#### レベル3: 真のマルチFlake構成（推奨）
+- **buildInputsによるPATH自動管理**
+- **パス解決からの完全解放**
+- **コマンド名のみでの実行**
 
-2. **Flake Glue機能**
-   - 複数のflakeを型安全に結合
-   - flake間のインターフェース整合性を実行時に検証
-   - **最小限の薄いglue層による結合**
+### 主要責務の分離
 
-3. **構造データの統合**
-   - **構造データを出力する複数flakeの統合**
-   - **Zod型制約による契約ベースの結合**
-   - **言語非依存のflake実装をサポート**
+1. **Nix層の責務**
+   - 依存Flakeの解決とダウンロード
+   - buildInputsを通じたPATH自動管理
+   - パス解決の完全自動化
+   - 言語非依存のFlake実装をサポート
 
-4. **将来的なCLI拡張**
-   - Bunによる高速実行環境
-   - LLM-firstな操作体系への進化
+2. **Zod契約層の責務**
+   - 純粋な契約定義（パス情報を含まない）
+   - 入出力データの型定義
+   - 実行時契約検証
+   - コマンド名のみの宣言
+
+3. **TypeScript実行層の責務**
+   - コマンド名だけで実行（例: `spawn(['my-go-app'])`）
+   - ビジネスロジックに集中
+   - パス管理から完全に解放
+   - 純粋なデータ変換
+
+4. **Glue層の責務**
+   - 最小限の薄い検証のみ
+   - データ変換なし
+   - ビジネスロジックなし
+   - 契約の整合性確認のみ
 
 ## アーキテクチャ
 
@@ -33,7 +45,8 @@ src/
 │   └── flake-contract.ts         # 基本的なFlake契約の型定義
 ├── contracts/
 │   ├── data-provider.contract.ts # Zodベースのデータプロバイダ契約
-│   └── data-consumer.contract.ts # Zodベースのデータコンシューマ契約
+│   ├── data-consumer.contract.ts # Zodベースのデータコンシューマ契約
+│   └── level3-contract.ts       # レベル3マルチFlake契約定義
 └── glue/
     ├── flake-glue.ts             # フル機能のglue実装
     └── minimal-glue.ts           # 最小限の薄いglue実装
@@ -41,8 +54,12 @@ src/
 examples/
 ├── data-provider-flake/          # 構造データを提供するflake
 │   └── flake.nix                # 言語非依存の実装
-└── data-consumer-flake/          # データを消費・処理するflake
-    └── flake.nix                # jqベースの処理実装
+├── data-consumer-flake/          # データを消費・処理するflake
+│   └── flake.nix                # jqベースの処理実装
+├── level3-producer/              # レベル3: コマンド提供flake
+│   └── flake.nix                # PATH管理されたコマンド
+└── level3-consumer/              # レベル3: コマンド利用flake
+    └── flake.nix                # buildInputsによる自動PATH解決
 ```
 
 ## 契約システムの原則
@@ -95,7 +112,72 @@ cd examples/data-consumer-flake
 nix build
 ```
 
+## レベル3実装例
+
+### Producer Flake (go-app/flake.nix)
+```nix
+{
+  outputs = { self, nixpkgs, ... }:
+    let pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      packages.default = pkgs.buildGoModule {
+        pname = "my-go-app";
+        # コマンド名として 'my-go-app' が PATH に追加される
+        # パスを意識する必要なし
+      };
+    };
+}
+```
+
+### Consumer Flake (bun-app/flake.nix)
+```nix
+{
+  inputs.go-app.url = "github:my-org/go-app";
+  
+  outputs = { self, go-app, ... }:
+    let pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      packages.default = pkgs.stdenv.mkDerivation {
+        buildInputs = [ 
+          go-app.packages.${system}.default  # PATHに自動追加
+          pkgs.bun
+        ];
+        
+        buildPhase = ''
+          # go-appコマンドが既にPATHに存在
+          # パス指定不要
+          bun build ./src/index.ts --outfile dist/bundle.js
+        '';
+      };
+    };
+}
+```
+
+### TypeScript実装 (src/index.ts)
+```typescript
+import { z } from 'zod';
+import { spawn } from 'child_process';
+
+// 契約: コマンド名のみ（パスなし）
+const AppContract = z.object({
+  command: z.literal('my-go-app'),  // パスではなくコマンド名
+  inputs: z.object({ /* ... */ }),
+  outputs: z.object({ /* ... */ })
+});
+
+// 実行: コマンド名だけ
+await spawn(['my-go-app', '--process', data]);
+// パス解決はNixが自動で行う
+```
+
 ## 設計思想
+
+### レベル3マルチFlakeの原則
+
+1. **パス透過性**: アプリケーションコードはパスを意識しない
+2. **責務の純粋性**: 各層は自身の責務のみに集中
+3. **自動管理**: NixがすべてのPATH管理を自動化
+4. **契約の簡潔性**: 契約にパス情報を含めない
 
 ### 薄いGlue層の原則
 
@@ -108,9 +190,9 @@ nix build
 
 ### 契約による設計
 
-- **Zodスキーマ**: 実行時の型安全性を保証
-- **明示的契約**: すべての入出力は契約で定義
+- **Zodスキーマ**: 実行時の型安全性を保証（パス情報を含まない）
+- **明示的契約**: すべての入出力は契約で定義（コマンド名のみ）
 - **コンパイル時検証**: TypeScriptによる静的型チェック
 - **実行時検証**: Zodによる動的検証
 
-このシステムは「契約による設計」の原則に基づき、flake間の接続を明示的かつ型安全にすることで、大規模なNixシステムの構築を支援します。
+このシステムは「契約による設計」と「レベル3マルチFlake構成」の原則に基づき、パス管理から完全に解放された大規模なNixシステムの構築を支援します。
