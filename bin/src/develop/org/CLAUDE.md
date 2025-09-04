@@ -76,6 +76,12 @@ Orchestrator (window 0)
   - 各ワーカーは指定ディレクトリのみアクセス可能
   - orchestratorは指示のみ、実作業は各ワーカーに委譲
 
+## managers/x,y,z ワーカー識別
+- **x**: managers/x/ 第1ワーカー
+- **y**: managers/y/ 第2ワーカー  
+- **z**: managers/z/ 第3ワーカー
+- **自動認識**: ユーザーが「x,y,z」「xとy」「全員」と書けば該当ワーカーへ指示
+
 ## orchestrator監視責務
 - **managers/CLAUDE.md遵守確認**: ワーカー管理規則の徹底
 - **cli.sh.example準拠確認**: 実装例に沿った動作
