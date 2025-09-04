@@ -50,7 +50,7 @@ register_runner() {
     #   --work: Directory for job execution
     #   --unattended: Non-interactive mode
     #   --replace: Replace existing runner with same name
-    github-runner configure \
+    config.sh \
         --url "https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
         --token "$TOKEN" \
         --name "nix-runner-$(hostname)" \
@@ -70,7 +70,7 @@ unregister_runner() {
         -q .token)
     
     # Remove runner
-    github-runner remove --token "$REMOVE_TOKEN"
+    config.sh remove --token "$REMOVE_TOKEN"
 }
 
 #==============================================================================
@@ -80,29 +80,28 @@ unregister_runner() {
 # Run in foreground (for testing/debugging)
 run_foreground() {
     # Simple foreground execution
-    github-runner run
+    ./run.sh
     
     # With custom settings
-    github-runner run --once          # Run one job then exit
-    github-runner run --check         # Check runner health
+    ./run.sh --once          # Run one job then exit
+    Runner.Listener run --check         # Check runner health using the actual binary
 }
 
 # Run as systemd service (for production)
 run_as_service() {
     # Install systemd service
-    sudo github-runner install --user $(whoami)
+    sudo ./svc.sh install --user $(whoami)
     
     # Service management commands
-    sudo systemctl start github-runner   # Start service
-    sudo systemctl stop github-runner    # Stop service
-    sudo systemctl status github-runner  # Check status
-    sudo systemctl enable github-runner  # Auto-start on boot
+    sudo ./svc.sh start   # Start service
+    sudo ./svc.sh stop    # Stop service
+    sudo ./svc.sh status  # Check status
     
     # View logs
-    sudo journalctl -u github-runner -f  # Follow service logs
+    sudo journalctl -u actions.runner.* -f  # Follow service logs
     
     # Uninstall service
-    sudo github-runner uninstall
+    sudo ./svc.sh uninstall
 }
 
 #==============================================================================

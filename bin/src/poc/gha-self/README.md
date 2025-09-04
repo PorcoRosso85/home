@@ -27,6 +27,9 @@ nix develop
 ## 前提条件
 - GitHub repository settingsから生成した登録トークン
 - Docker（nixpkgsから提供）
+- **重要**: Workflowファイル（`.github/workflows/`）の変更はcommit & pushが必須
+  - ローカルの`.github/workflows/`ディレクトリへの変更だけでは反映されない
+  - GitHubはpush後のリポジトリの状態を参照してworkflowを認識する
 
 ## ファイル構成
 ```

@@ -19,7 +19,7 @@ register_runner() {
     TOKEN=$(gh api --method POST "${API_BASE}/registration-token" -q .token)
     
     echo "Registering runner..."
-    github-runner configure \
+    config.sh \
         --url "https://github.com/${REPO}" \
         --token "$TOKEN" \
         --name "poc-runner-$(hostname)" \
@@ -39,7 +39,7 @@ test_cron_job() {
     echo "Starting runner for cron test..."
     
     # Runnerをバックグラウンドで起動
-    github-runner run --once &
+    ./run.sh --once &
     RUNNER_PID=$!
     
     echo "Waiting for cron execution (5 minutes)..."
@@ -58,15 +58,44 @@ test_cron_job() {
 }
 
 #==============================================================================
+# WORKFLOW実行説明
+#==============================================================================
+# 重要: Workflowの手動実行（workflow_dispatch）について
+manual_workflow_trigger() {
+    # 前提条件: workflow YAMLファイルがcommit & push済みであること
+    echo "⚠️ WorkflowはGitHubにpush後に初めて認識されます"
+    
+    # Step 1: Workflowファイルをpush
+    git add .github/workflows/poc-test.yml
+    git commit -m "feat: add poc test workflow"
+    git push origin main
+    
+    # Step 2: 少し待つ（GitHubがworkflowを認識するまで）
+    sleep 5
+    
+    # Step 3: workflow_dispatchで手動実行
+    gh workflow run poc-test.yml \
+        --field test_message="Manual trigger test"
+    
+    # Step 4: 実行状態を確認
+    gh run list --workflow=poc-test.yml
+    
+    # 注意事項:
+    # - ローカルのworkflowファイル変更だけでは実行できない
+    # - 必ずcommit & pushが必要
+    # - workflow_dispatch設定がYAMLに含まれている必要がある
+}
+
+#==============================================================================
 # クリーンアップ
 #==============================================================================
 cleanup() {
     echo "Cleaning up..."
-    pkill -f github-runner || true
+    pkill -f Runner.Listener || true
     
     if [[ -f .runner ]]; then
         TOKEN=$(gh api --method POST "${API_BASE}/remove-token" -q .token)
-        github-runner remove --token "$TOKEN" 2>/dev/null || true
+        config.sh remove --token "$TOKEN" 2>/dev/null || true
     fi
     
     rm -rf _work _diag .runner .credentials
@@ -85,7 +114,7 @@ example_manual() {
     register_runner
     check_runner
     echo "Monitor at: https://github.com/${REPO}/actions"
-    github-runner run  # Ctrl+Cで停止
+    ./run.sh  # Ctrl+Cで停止
 }
 
 #==============================================================================
