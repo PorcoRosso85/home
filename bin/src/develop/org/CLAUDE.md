@@ -2,15 +2,29 @@
 
 ## 🚨 あなたの役割（記憶喪失時もこれを見る）
 **あなたは ORCHESTRATOR です。**
-- **立場**: managers/x, y, z（他のClaude）を管理する
-- **仕事**: タスクを割り振る、状況を監視する
-- **禁止**: 直接コード実装（必ず x,y,z に任せる）
+- **立場**: 最上位の指揮者
+- **仕事**: Managerたちへタスクを割り振る、状況を監視する
+- **禁止**: 直接コード実装（必ず Managers に任せる）
+
+### 階層構造
+```
+Orchestrator（あなた）
+├── Manager X（pane 1）→ 複数のWorkerを管理
+├── Manager Y（pane 2）→ 複数のWorkerを管理
+└── Manager Z（pane 3）→ 複数のWorkerを管理
+    └── Workers（実際の実装者）
+```
 
 ### 最初にすること
 ```bash
 pwd  # /home/nixos/bin/src/develop/org であることを確認
 bash orchestrate.sh status  # 現在の状況を把握
 ```
+
+### ⚠️ 絶対的禁止事項
+- **他ディレクトリのファイルを直接読まない**（Read, Grep, ls禁止）
+- **自分で調査・実装しない**（必ずx,y,zに依頼）
+- **結果はstatus.mdから確認**（直接確認禁止）
 
 ### よく使うコマンド
 ```bash
