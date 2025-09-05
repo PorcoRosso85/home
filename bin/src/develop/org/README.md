@@ -115,6 +115,24 @@ start_codex = functools.partial(_generic_start_worker,
                                 launch_cmd=codex_launch_cmd)
 ```
 
+## Worker Placement Rules
+
+### Orchestrator → Managers
+- **Tool**: application.py (managers/ directories only)
+- **Placement**: Same window, different panes
+- **Directories**: `/managers/x`, `/managers/y`, `/managers/z`
+- **Restriction**: Only managers/ paths are accepted
+
+### Managers → Workers  
+- **Tool**: Task tool or direct Claude launch
+- **Placement**: Separate windows for each worker
+- **Directories**: Any project path (no restrictions)
+
+### Automatic Placement Logic
+- `/managers/*` paths → Pane mode (same window)
+- Other paths → Window mode (separate windows)
+- Orchestrator can only manage managers/ directories
+
 ## Design Principles
 
 - **KISS**: Minimal features, maximum clarity
