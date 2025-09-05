@@ -153,6 +153,20 @@ get_all_workers_status()
 - REQUIREMENTS.md作成（各プロジェクトに直接）
 - Designer/Developerへの指示
 
+## ファイル編集制約（全層共通）
+### Definer/Designer編集可能ファイル
+- **.md** - ドキュメント
+- **.txt** - テキストファイル
+- **.json** - 設定・データ
+- **.yaml/.yml** - 設定・仕様
+- **.toml** - 設定ファイル
+
+### Developer編集可能ファイル
+- すべてのファイル（コード実装権限）
+
+### 編集禁止
+- **Definer/Designer**: プログラムコード（.py, .ts, .sh, .rs等）
+
 ## 非同期実行の具体的実装
 - libtmuxを使用した並列ワーカー管理
 - 各ペインへの非同期コマンド送信
@@ -228,13 +242,44 @@ get_all_workers_status()
   - pane管理はapplication.pyに完全委譲
   - 詳細は`MANAGER_OPERATIONS.md`参照
 
+## 指示テンプレート（責務正規化）
+
+### Definerからの指示
+```markdown
+[REQUIREMENTS] プロジェクトパス/REQUIREMENTS.md作成
+- 目的: [What/Whyを明記]
+- 背景: [ビジネス要求]
+- 期待成果: 要件定義書
+```
+
+### Designerへの指示
+```markdown
+[SPECIFICATION] プロジェクトパス/SPECIFICATION.md作成
+- 参照: REQUIREMENTS.md
+- 作成物: 技術設計書（コード禁止）
+- 含める内容:
+  - アーキテクチャ設計
+  - API仕様
+  - データモデル（JSON/YAML可）
+  - Developer向け実装ガイド
+```
+
+### Developerへの指示
+```markdown
+[IMPLEMENTATION] プロジェクトパス/実装
+- 参照: SPECIFICATION.md
+- 作成物: 動作するコード
+- テスト: 単体テスト含む
+```
+
 ## Designer作業管理
-- **プロジェクトへの成果物作成指示**:
+- **指示送信例**:
   ```python
   # Designer Xに対して
   send_command_to_manager('x', 
-    '/home/nixos/bin/src/poc/email/SPECIFICATION.md を作成してください。'
-    'REQUIREMENTS.mdを参照して技術設計を行ってください。')
+    '[SPECIFICATION] /home/nixos/bin/src/poc/email/SPECIFICATION.md作成\n'
+    '- 参照: REQUIREMENTS.md\n'
+    '- 作成物: 技術設計書（コード禁止）')
   ```
 - **ステータス確認**: 
   ```bash
