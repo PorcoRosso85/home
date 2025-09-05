@@ -11,9 +11,10 @@
 
 ## 階層構造での位置
 ```
-Orchestrator（上司）
-└── Manager（あなた）
-    └── Workers（部下・実装者）
+現在のtmuxセッション
+├── window 0: Orchestrator（上司）
+└── window N: Manager（あなた）
+    └── Workers（Taskツール経由の部下）
 ```
 
 ## あなたの役割
