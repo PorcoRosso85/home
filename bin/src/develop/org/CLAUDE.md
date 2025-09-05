@@ -9,16 +9,16 @@
 ### 階層構造
 ```
 Orchestrator（あなた）
-├── Manager X（pane 1）→ 複数のWorkerを管理
-├── Manager Y（pane 2）→ 複数のWorkerを管理
-└── Manager Z（pane 3）→ 複数のWorkerを管理
+├── Manager X（window）→ 複数のWorkerを管理
+├── Manager Y（window）→ 複数のWorkerを管理
+└── Manager Z（window）→ 複数のWorkerを管理
     └── Workers（実際の実装者）
 ```
 
 ### 最初にすること
 ```bash
 pwd  # /home/nixos/bin/src/develop/org であることを確認
-bash orchestrate.sh status  # 現在の状況を把握
+nix develop -c python3 -c "from application import get_all_workers_status; print(get_all_workers_status())"  # 現在の状況を把握
 ```
 
 ### ⚠️ 絶対的禁止事項
@@ -27,10 +27,18 @@ bash orchestrate.sh status  # 現在の状況を把握
 - **結果はstatus.mdから確認**（直接確認禁止）
 
 ### よく使うコマンド
-```bash
-bash orchestrate.sh add x "タスク内容"  # xにタスク追加
-bash orchestrate.sh notify              # 全員に指示確認を促す
-bash orchestrate.sh status              # 状況確認
+```python
+# Manager起動
+from application import start_worker_in_directory
+start_worker_in_directory('/home/nixos/bin/src/develop/org/managers/x')
+
+# 指示送信
+from application import send_command_to_worker_by_directory
+send_command_to_worker_by_directory('/home/nixos/bin/src/develop/org/managers/x', 'instructions.mdを確認してください')
+
+# ステータス確認
+from application import get_all_workers_status
+get_all_workers_status()
 ```
 
 ## ファイル責務
@@ -57,18 +65,19 @@ bash orchestrate.sh status              # 状況確認
   完了済: [Task0]
   ```
 
-## tmuxセッション構成（org特有）
-- セッション名: org-system
-- window 0: orchestrator本体
-- window 1+: 各ワーカー（永続的Claude UI）
+## tmuxセッション構成（単一セッション）
+- セッション名: 現在のセッション（$TMUX環境変数から取得）
+- window 0: Orchestrator（私たちの対話）
+- window 1+: 各Manager（永続的Claude Code）
 
-## ワーカー管理階層（org特有）
+## ワーカー管理階層
 ```
-Orchestrator (window 0)
-├── サブエージェント（Task/揮発性）
-│   └── 並列実行される各タスク
-└── tmuxワーカー（window 1+/永続的）
-    └── 各プロジェクトのClaude
+現在のセッション
+├── window 0: Orchestrator（あなたと私）
+├── window 1: Manager X
+├── window 2: Manager Y
+└── window 3: Manager Z
+    └── Workers（Taskツール経由）
 ```
 
 ## 報告フォーマット（org標準）
@@ -82,6 +91,11 @@ Orchestrator (window 0)
 - 直接のコード実装（必ずサブエージェント経由）
 - 全タスク完了待機（即時報告・即時割り振り）
 - 順次実行（並列実行を原則）
+
+## orchestratorができること
+- ユーザーとの議論
+- mdもしくはドキュメントファイル、データファイルのCRUD
+- 上記ファイルに伴う変更必要性の指示（Managerへ）
 
 ## 非同期実行の具体的実装
 - libtmuxを使用した並列ワーカー管理
@@ -115,25 +129,26 @@ Orchestrator (window 0)
 - **z**: managers/z/ 第3ワーカー
 - **自動認識**: ユーザーが「x,y,z」「xとy」「全員」と書けば該当ワーカーへ指示
 
-## 同一ウィンドウ内ペインでのmanagers起動
-- **起動スクリプト**: `managers/launch_managers.sh`
-  - pane 1: managers/x のClaude Code
-  - pane 2: managers/y のClaude Code
-  - pane 3: managers/z のClaude Code
-- **起動方法**: 
-  ```bash
-  bash managers/launch_managers.sh
+## Manager起動方法
+- **各Managerを別windowで起動**:
+  ```python
+  # Pythonインタラクティブモード or スクリプト
+  from application import start_worker_in_directory
+  
+  # Manager X起動
+  start_worker_in_directory('/home/nixos/bin/src/develop/org/managers/x')
+  # Manager Y起動
+  start_worker_in_directory('/home/nixos/bin/src/develop/org/managers/y')
+  # Manager Z起動  
+  start_worker_in_directory('/home/nixos/bin/src/develop/org/managers/z')
   ```
 - **確認方法**:
-  ```bash
-  tmux capture-pane -t nixos:2.1 -p | tail -5  # x
-  tmux capture-pane -t nixos:2.2 -p | tail -5  # y
-  tmux capture-pane -t nixos:2.3 -p | tail -5  # z
+  ```python
+  from application import get_all_workers_status
+  result = get_all_workers_status()
+  for worker in result['data']['workers']:
+      print(f"{worker['directory']}: {worker['status']}")
   ```
-- **実装詳細**:
-  - Claude Codeの起動には `/home/nixos/bin/src/develop/claude/ui/claude-shell.sh` を使用
-  - 各ペインで対応するmanagersディレクトリに移動後、Claudeを起動
-  - orchestratorはpane 0を使用
 
 ## orchestrator監視責務
 - **managers/CLAUDE.md遵守確認**: ワーカー管理規則の徹底
@@ -145,15 +160,25 @@ Orchestrator (window 0)
   3. 再実行の指示
 
 ## Manager非同期タスク管理
-- **タスク追加**: `bash managers/append_instruction.sh <x|y|z|all> "タスク内容"`
-- **ステータス確認**: `bash managers/monitor_status.sh`
-- **指示方法**: managerに「/read instructions.md」と送るだけ
+- **タスク追加（手動編集）**: 
+  ```bash
+  # instructions.mdに直接追記
+  echo "[TODO] 新しいタスク" >> managers/x/instructions.md
+  ```
+- **指示送信（application.py経由）**:
+  ```python
+  from application import send_command_to_worker_by_directory
+  send_command_to_worker_by_directory('/home/nixos/bin/src/develop/org/managers/x', 
+                                      'instructions.mdを確認してください')
+  ```
+- **ステータス確認**: 
+  ```bash
+  cat managers/x/status.md  # 直接確認
+  ```
 - **ファイル構造**:
   ```
   managers/
   ├── CLAUDE.md           # manager共通ルール
-  ├── append_instruction.sh  # タスク追加スクリプト
-  ├── monitor_status.sh      # ステータス監視
   ├── x/
   │   ├── instructions.md  # xのタスクリスト
   │   └── status.md        # xの作業記録
@@ -167,4 +192,4 @@ Orchestrator (window 0)
 - **ステートレス通信**: 
   - managerは自律的にinstructions.mdを読んでタスク実行
   - orchestratorは結果をstatus.mdから確認
-  - 直接の対話は最小限に
+  - application.py経由で最小限の指示送信
