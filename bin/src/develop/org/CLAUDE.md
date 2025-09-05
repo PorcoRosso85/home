@@ -159,6 +159,19 @@ get_all_workers_status()
   2. 正しい手順の提示
   3. 再実行の指示
 
+## tmux操作の絶対禁止事項（pane番号誤り防止）
+- **手動tmuxコマンドの使用禁止**:
+  - ❌ `tmux split-window` → ✅ `start_manager('x')`使用
+  - ❌ `tmux send-keys -t 0.2` → ✅ `send_command_to_manager('x', cmd)`使用
+  - ❌ `tmux new-window` → ✅ `start_worker(directory)`使用
+- **pane番号の推測禁止**:
+  - tmuxのpane IDは動的割り当て（%0, %1の次が%51など）
+  - 連番を想定した`0.2`のような指定は必ず失敗
+- **正しい方法**:
+  - すべてのManager/Worker操作はapplication.py API経由
+  - pane管理はapplication.pyに完全委譲
+  - 詳細は`MANAGER_OPERATIONS.md`参照
+
 ## Manager非同期タスク管理
 - **タスク追加（手動編集）**: 
   ```bash

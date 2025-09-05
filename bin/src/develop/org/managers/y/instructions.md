@@ -1,9 +1,12 @@
-# Manager X - タスクリスト
+# Manager Y - タスクリスト
 
 ## 現在のタスク
-[DONE] サンプルタスク1 - READMEの更新
-[DONE] サンプルタスク2 - テストケースの追加
+[WIP] contract-flakeディレクトリのレビュー - /home/nixos/bin/src/example/contract-flake/ の全体構造と実装を確認し、以下の観点でレビュー:
+  - level3からcommandへの名前変更が完全に行われているか
+  - ディレクトリ構造の一貫性
+  - contract実装の妥当性
+  - テストの網羅性
+  - README.mdの記載内容
 
 ## 完了タスク
-（完了したタスクは[DONE]にして、詳細はstatus.mdに記録）[DONE] エラーハンドリング改善
-[DONE] 作成したファイルをすべて削除（README.md, test_manager_y.py, error_handler.sh）
+（完了したタスクは[DONE]にして、詳細はstatus.mdに記録）
