@@ -11,7 +11,30 @@ import domain
 
 
 # Constants
-SESSION_NAME = "org-system"
+def get_session_name() -> str:
+    """Get current tmux session name from environment.
+    
+    Returns the session name from $TMUX environment variable if available,
+    otherwise returns default 'org-system'.
+    """
+    tmux_env = os.environ.get('TMUX', '')
+    if tmux_env:
+        # $TMUX format: /tmp/tmux-1000/default,pid,session_id
+        # Extract session name using tmux command
+        try:
+            result = subprocess.run(
+                ['tmux', 'display-message', '-p', '#{session_name}'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError:
+            pass
+    # Fallback to default
+    return "org-system"
+
+SESSION_NAME = get_session_name()
 
 
 def _ok(data: Any) -> Dict[str, Any]:
@@ -73,6 +96,20 @@ def _generic_start_worker(directory: str, window_namer: WindowNamer, launch_cmd:
             return _err(f"Directory does not exist: {directory}", "invalid_directory")
         
         directory = str(dir_path)
+        
+        # Check if directory is within managers/ subdirectory
+        org_base = Path(__file__).parent.resolve()  # org directory
+        managers_base = org_base / "managers"
+        
+        # Check if the resolved path is within managers/
+        try:
+            dir_path.relative_to(managers_base)
+        except ValueError:
+            # Path is not within managers/
+            return _err(
+                f"Workers can only be started in managers/ subdirectories. Got: {directory}",
+                "invalid_location"
+            )
         tmux = TmuxConnection(SESSION_NAME)
         tmux.connect()
         
@@ -130,6 +167,215 @@ start_worker_in_directory = functools.partial(
     window_namer=domain.generate_claude_window_name,
     launch_cmd=domain.get_claude_launch_command
 )
+
+
+def start_manager(manager_id: str) -> Dict[str, Any]:
+    """Start a Manager in a new pane in the current window.
+    
+    Managers (x, y, z) are started in panes within the orchestrator's window.
+    They run in managers/x, managers/y, or managers/z directories.
+    
+    Args:
+        manager_id: Manager identifier ('x', 'y', or 'z')
+        
+    Returns:
+        Dict with success/error status and pane information
+    """
+    try:
+        # Validate manager_id
+        if manager_id not in ['x', 'y', 'z']:
+            return _err(f"Invalid manager_id: {manager_id}. Must be 'x', 'y', or 'z'", "invalid_manager")
+        
+        # Build manager directory path
+        org_base = Path(__file__).parent.resolve()
+        manager_dir = org_base / "managers" / manager_id
+        
+        if not manager_dir.exists() or not manager_dir.is_dir():
+            return _err(f"Manager directory does not exist: {manager_dir}", "missing_directory")
+        
+        # Connect to tmux
+        tmux = TmuxConnection(SESSION_NAME)
+        tmux.connect()
+        
+        # Get current window (orchestrator window)
+        session = tmux.get_or_create_session()
+        current_window = session.attached_window
+        
+        if not current_window:
+            return _err("No active window found", "no_window")
+        
+        # Check if manager is already running in this window
+        for pane in current_window.panes:
+            try:
+                # Get current directory of the pane
+                pane_cwd = pane.cmd('display-message', '-p', '#{pane_current_path}').stdout[0]
+                if pane_cwd.strip() == str(manager_dir):
+                    if _is_pane_alive(pane.id):
+                        return _err(f"Manager {manager_id} is already running in pane {pane.id}", "duplicate_manager")
+            except:
+                continue
+        
+        # Create new pane in current window
+        new_pane = current_window.split_window(vertical=False)  # Horizontal split
+        
+        # Navigate to manager directory and start Claude
+        new_pane.send_keys(f"cd {manager_dir}", enter=True)
+        
+        # Get Claude launch command
+        cmd_result = domain.get_claude_launch_command()
+        if cmd_result['ok']:
+            new_pane.send_keys(cmd_result['data']['command'], enter=True)
+        else:
+            return _err(f"Failed to get launch command: {cmd_result['error']['message']}", "launch_error")
+        
+        return _ok({
+            "manager_id": manager_id,
+            "directory": str(manager_dir),
+            "pane_id": new_pane.id,
+            "window_id": current_window.id
+        })
+        
+    except TmuxConnectionError as e:
+        return _err(f"Tmux connection error: {str(e)}", "tmux_error")
+    except Exception as e:
+        return _err(f"Unexpected error: {str(e)}", "unexpected_error")
+
+
+def start_worker(task_directory: str) -> Dict[str, Any]:
+    """Start a Worker in a new window for a specific task.
+    
+    Workers are started in new windows for isolated task execution.
+    They can run in any directory (not limited to managers/).
+    
+    Args:
+        task_directory: Directory where the worker should operate
+        
+    Returns:
+        Dict with success/error status and window information
+    """
+    try:
+        # Resolve and validate directory
+        dir_path = Path(task_directory).resolve()
+        if not dir_path.exists() or not dir_path.is_dir():
+            return _err(f"Directory does not exist: {task_directory}", "invalid_directory")
+        
+        directory = str(dir_path)
+        
+        # Connect to tmux
+        tmux = TmuxConnection(SESSION_NAME)
+        tmux.connect()
+        
+        # Generate window name for worker
+        window_name = f"worker:{directory.replace('/', '_')}"
+        
+        # Check for duplicate worker windows
+        session = tmux.get_or_create_session()
+        existing_window = session.find_where({"window_name": window_name})
+        
+        if existing_window:
+            for pane in existing_window.panes:
+                if _is_pane_alive(pane.id):
+                    return _err(f"Worker already exists for directory: {directory}", "duplicate_worker")
+        
+        # Create new window for worker
+        window = session.new_window(window_name=window_name)
+        pane = window.panes[0] if window.panes else None
+        
+        if not pane:
+            return _err("Failed to get pane in new window", "pane_error")
+        
+        # Navigate to task directory and start Claude
+        pane.send_keys(f"cd {directory}", enter=True)
+        
+        # Get Claude launch command
+        cmd_result = domain.get_claude_launch_command()
+        if cmd_result['ok']:
+            pane.send_keys(cmd_result['data']['command'], enter=True)
+        else:
+            return _err(f"Failed to get launch command: {cmd_result['error']['message']}", "launch_error")
+        
+        return _ok({
+            "directory": directory,
+            "window_id": window.id,
+            "window_name": window_name,
+            "pane_id": pane.id
+        })
+        
+    except TmuxConnectionError as e:
+        return _err(f"Tmux connection error: {str(e)}", "tmux_error")
+    except Exception as e:
+        return _err(f"Unexpected error: {str(e)}", "unexpected_error")
+
+
+def send_command_to_manager(manager_id: str, command: str) -> Dict[str, Any]:
+    """Send command to a Manager pane.
+    
+    Sends a command to a Manager (x, y, or z) running in a pane.
+    The Manager must be already running in the current window.
+    
+    Args:
+        manager_id: Manager identifier ('x', 'y', or 'z')
+        command: Command to send to the Manager
+        
+    Returns:
+        Dict with success/error status
+    """
+    try:
+        # Validate inputs
+        if manager_id not in ['x', 'y', 'z']:
+            return _err(f"Invalid manager_id: {manager_id}. Must be 'x', 'y', or 'z'", "invalid_manager")
+        
+        if not command.strip():
+            return _err("Command cannot be empty", "invalid_command")
+        
+        # Build manager directory path
+        org_base = Path(__file__).parent.resolve()
+        manager_dir = org_base / "managers" / manager_id
+        
+        if not manager_dir.exists():
+            return _err(f"Manager directory does not exist: {manager_dir}", "missing_directory")
+        
+        # Connect to tmux
+        tmux = TmuxConnection(SESSION_NAME)
+        tmux.connect()
+        
+        # Get current window
+        session = tmux.get_or_create_session()
+        current_window = session.attached_window
+        
+        if not current_window:
+            return _err("No active window found", "no_window")
+        
+        # Find the Manager pane in current window
+        manager_pane = None
+        for pane in current_window.panes:
+            try:
+                # Get current directory of the pane
+                pane_cwd = pane.cmd('display-message', '-p', '#{pane_current_path}').stdout[0]
+                if pane_cwd.strip() == str(manager_dir):
+                    if _is_pane_alive(pane.id):
+                        manager_pane = pane
+                        break
+            except:
+                continue
+        
+        if not manager_pane:
+            return _err(f"Manager {manager_id} is not running. Start it first with start_manager('{manager_id}')", "manager_not_found")
+        
+        # Send the command to the Manager pane
+        manager_pane.send_keys(command, enter=True)
+        
+        return _ok({
+            "manager_id": manager_id,
+            "command": command,
+            "pane_id": manager_pane.id,
+            "directory": str(manager_dir)
+        })
+        
+    except TmuxConnectionError as e:
+        return _err(f"Tmux connection error: {str(e)}", "tmux_error")
+    except Exception as e:
+        return _err(f"Unexpected error: {str(e)}", "unexpected_error")
 
 
 def send_command_to_worker_by_directory(directory: str, command: str) -> Dict[str, Any]:
