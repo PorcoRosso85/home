@@ -1,0 +1,8 @@
+{
+  "command": "wsl",
+  "args": [
+    "bash",
+    "-c",
+    "BRAVE_API_KEY=BSAcvwSt2uAfq9eG9zm4ElbgwPrLlO- pnpx @modelcontextprotocol/server-brave-search"
+  ]
+}

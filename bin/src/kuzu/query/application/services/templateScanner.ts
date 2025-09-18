@@ -1,0 +1,153 @@
+/**
+ * テンプレートスキャナー
+ * 規約準拠: 高階関数依存性注入、汎用記述方式
+ */
+
+import type { TemplateScannerDependencies } from '../../domain/types/queryTypes';
+import { readFileSync, readdirSync, existsSync } from 'fs';
+import { join } from 'path';
+
+/**
+ * 高階関数によるテンプレートスキャナー作成
+ */
+export function createTemplateScanner(deps: TemplateScannerDependencies) {
+  return {
+    scan: function scanDirectory(directory: string): string[] {
+      if (!deps.fileSystem.exists(directory)) {
+        deps.logger.error("Directory not found", { directory });
+        return [];
+      }
+
+      const files = deps.fileSystem.readDir(directory);
+      if (!files) {
+        deps.logger.error("Failed to read directory", { directory });
+        return [];
+      }
+
+      const cypherFiles = files.filter(file => file.endsWith('.cypher'));
+      
+      deps.logger.info("Scanned templates", { directory, count: cypherFiles.length });
+      return cypherFiles.map(file => file.replace('.cypher', ''));
+    },
+
+    load: function loadTemplate(templateName: string, directory: string): string | null {
+      const filePath = join(directory, `${templateName}.cypher`);
+      if (!deps.fileSystem.exists(filePath)) return null;
+
+      const content = deps.fileSystem.readFile(filePath);
+      if (!content) {
+        deps.logger.error("Template load failed", { templateName });
+        return null;
+      }
+
+      deps.logger.info("Template loaded", { templateName });
+      return content;
+    },
+
+    exists: function templateExists(templateName: string, directory: string): boolean {
+      const filePath = join(directory, `${templateName}.cypher`);
+      return deps.fileSystem.exists(filePath);
+    }
+  };
+}
+
+/**
+ * 完全自動化されたテンプレートスキャナー
+ * DML/DQL両方を自動スキャンし、テンプレートレジストリを作成
+ */
+export function createAutoTemplateScanner() {
+  return {
+    /**
+     * DML/DQL両方を自動スキャン
+     */
+    scanAllTemplates: async (): Promise<TemplateRegistry> => {
+      const dmlDir = join(process.cwd(), 'dml');
+      const dqlDir = join(process.cwd(), 'dql');
+      
+      const registry: TemplateRegistry = {
+        dml: {},
+        dql: {},
+        all: []
+      };
+
+      // DMLテンプレートスキャン
+      if (existsSync(dmlDir)) {
+        const dmlFiles = readdirSync(dmlDir).filter(file => file.endsWith('.cypher'));
+        for (const file of dmlFiles) {
+          const templateName = file.replace('.cypher', '');
+          const content = readFileSync(join(dmlDir, file), 'utf-8');
+          // パラメータ抽出削除: Cypher側で処理
+          
+          registry.dml[templateName] = {
+            name: templateName,
+            type: 'dml',
+            path: join(dmlDir, file),
+            params: [], // 空配列: パラメータはCypher側で管理
+            content
+          };
+          registry.all.push(templateName);
+        }
+      }
+
+      // DQLテンプレートスキャン
+      if (existsSync(dqlDir)) {
+        const dqlFiles = readdirSync(dqlDir).filter(file => file.endsWith('.cypher'));
+        for (const file of dqlFiles) {
+          const templateName = file.replace('.cypher', '');
+          const content = readFileSync(join(dqlDir, file), 'utf-8');
+          // パラメータ抽出削除: Cypher側で処理
+          
+          registry.dql[templateName] = {
+            name: templateName,
+            type: 'dql',
+            path: join(dqlDir, file),
+            params: [], // 空配列: パラメータはCypher側で管理
+            content
+          };
+          registry.all.push(templateName);
+        }
+      }
+
+      return registry;
+    },
+
+    /**
+     * テンプレート名から自動的にタイプ判定
+     */
+    detectTemplateType: (name: string): 'dml' | 'dql' | null => {
+      const dmlPath = join(process.cwd(), 'dml', `${name}.cypher`);
+      const dqlPath = join(process.cwd(), 'dql', `${name}.cypher`);
+      
+      if (existsSync(dmlPath)) return 'dml';
+      if (existsSync(dqlPath)) return 'dql';
+      return null;
+    },
+
+    /**
+     * パラメータ自動抽出（削除済み）
+     * NOTE: パラメータ管理はCypher側に移行
+     */
+    extractParams: (templateContent: string): string[] => {
+      return []; // パラメータ抽出機能を削除
+    }
+  };
+}
+
+/**
+ * テンプレートレジストリの型定義
+ */
+export type TemplateRegistry {
+  dml: Record<string, TemplateInfo>;
+  dql: Record<string, TemplateInfo>;
+  all: string[];
+}
+
+export type TemplateInfo {
+  name: string;
+  type: 'dml' | 'dql';
+  path: string;
+  params: string[];
+  content: string;
+}
+
+// extractTemplateParams関数削除: パラメータ抽出をCypher側に移行

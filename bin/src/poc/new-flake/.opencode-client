@@ -1,0 +1,22 @@
+{
+  "description": "POC for new flake template development and testing",
+  "server": "http://127.0.0.1:5000",
+  "project": "new-flake-poc",
+  "session_strategy": "auto",
+  "context": [
+    "./README.md",
+    "./flake.nix"
+  ],
+  "specialization": [
+    "nix-flakes",
+    "template-development", 
+    "poc-implementation"
+  ],
+  "environment": {
+    "OPENCODE_URL": "http://127.0.0.1:4098",
+    "OPENCODE_PROVIDER": "anthropic",
+    "OPENCODE_MODEL": "claude-3-haiku",
+    "OPENCODE_PROJECT": "new-flake-poc",
+    "OPENCODE_TIMEOUT": "30"
+  }
+}

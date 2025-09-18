@@ -1,0 +1,9 @@
+.direnv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.coverage
+.ruff_cache/
+*.db
+*.kuzu

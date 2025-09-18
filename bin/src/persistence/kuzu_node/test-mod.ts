@@ -1,0 +1,28 @@
+#!/usr/bin/env node
+/**
+ * Test mod.ts library interface
+ */
+
+import { loadKuzu, createKuzuDatabase, executeQuery, cleanupKuzu } from './mod';
+
+async function testLibrary() {
+  console.log('📚 Testing library interface via mod.ts...');
+  
+  const kuzu = await loadKuzu();
+  console.log('✅ Module loaded');
+  
+  const { db, conn } = createKuzuDatabase(kuzu);
+  console.log('✅ Database and connection created');
+  
+  await executeQuery(conn, "CREATE NODE TABLE Test(id INT64, PRIMARY KEY(id))");
+  console.log('✅ Schema created');
+  
+  await executeQuery(conn, "CREATE (:Test {id: 1})");
+  const results = await executeQuery(conn, "MATCH (t:Test) RETURN t.id");
+  console.log('✅ Query executed:', results);
+  
+  await cleanupKuzu({ conn, db, kuzu });
+  console.log('✅ Cleanup complete');
+}
+
+testLibrary().catch(console.error);

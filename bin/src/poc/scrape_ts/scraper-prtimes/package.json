@@ -1,0 +1,35 @@
+{
+  "name": "@corporate-list/scraper-prtimes",
+  "version": "0.1.0",
+  "description": "PR Times specific scraper implementation - functional style",
+  "type": "module",
+  "main": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test test/**/*.test.ts",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "scraper",
+    "prtimes",
+    "functional",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "scraper-core": "file:../scraper-core",
+    "playwright-core": "^1.40.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "playwright-core": "^1.40.0"
+  }
+}

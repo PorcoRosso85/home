@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Sync Demo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .status {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .connected { background: #4caf50; }
+        .disconnected { background: #f44336; }
+        .connecting { background: #ff9800; }
+        
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        /* 共有テキストエディタ */
+        .editor {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        
+        .editor:focus {
+            outline: none;
+            border-color: #2196f3;
+        }
+        
+        /* TODOリスト */
+        .todo-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .todo-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #1976d2;
+        }
+        
+        .todo-list {
+            list-style: none;
+        }
+        
+        .todo-item {
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.2s;
+        }
+        
+        .todo-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .todo-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .todo-item.completed span {
+            text-decoration: line-through;
+            color: #999;
+        }
+        
+        .todo-delete {
+            margin-left: auto;
+            padding: 4px 8px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        /* イベントログ */
+        .event-log {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            background: #f9f9f9;
+        }
+        
+        .event-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid #2196f3;
+            padding-left: 10px;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ブラウザ同期デモ</h1>
+        
+        <div class="info">
+            このページを複数のブラウザやタブで開いて、リアルタイム同期を体験してください。
+        </div>
+        
+        <div class="status">
+            <div>
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">接続中...</span>
+            </div>
+            <div>
+                <small>Client ID: <span id="clientId">-</span></small>
+            </div>
+        </div>
+        
+        <!-- 共有テキストエディタ -->
+        <div class="section">
+            <h2>共有テキストエディタ</h2>
+            <textarea 
+                id="sharedEditor" 
+                class="editor" 
+                placeholder="ここに入力した内容は、すべてのクライアントで同期されます..."
+            ></textarea>
+        </div>
+        
+        <!-- 共有TODOリスト -->
+        <div class="section">
+            <h2>共有TODOリスト</h2>
+            <form class="todo-form" id="todoForm">
+                <input 
+                    type="text" 
+                    id="todoInput" 
+                    class="todo-input" 
+                    placeholder="新しいタスクを入力..."
+                    required
+                >
+                <button type="submit" class="btn">追加</button>
+            </form>
+            <ul class="todo-list" id="todoList"></ul>
+        </div>
+        
+        <!-- イベントログ -->
+        <div class="section">
+            <h2>同期イベントログ</h2>
+            <div class="event-log" id="eventLog"></div>
+        </div>
+    </div>
+    
+    <script src="client.js"></script>
+</body>
+</html>

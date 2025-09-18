@@ -1,0 +1,82 @@
+{ config, lib, pkgs, ... }:
+
+with lib;
+
+let
+  cfg = config.services.sops-app;
+in
+{
+  options.services.sops-app = {
+    enable = mkEnableOption "Self-contained sops application";
+    
+    # NEW: SSH key path abstraction
+    sopsKeyPath = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      description = "Path to SSH key for sops decryption. Auto-detected if null.";
+    };
+    
+    user = mkOption {
+      type = types.str;
+      default = "sops-app";
+      description = "User to run the service as";
+    };
+    
+    group = mkOption {
+      type = types.str;
+      default = "sops-app";
+      description = "Group to run the service as";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # Use abstracted SSH key path
+    sops.age.sshKeyPaths = 
+      if cfg.sopsKeyPath != null
+      then [ cfg.sopsKeyPath ]
+      else 
+        # Auto-detect from OpenSSH config
+        if config.services.openssh.enable
+        then [ config.services.openssh.hostKeys.0.path ]
+        else [ "/etc/ssh/ssh_host_ed25519_key" ]; # Fallback only
+    
+    # Application-specific secrets (unchanged)
+    sops.secrets."api-key" = {
+      sopsFile = ./secrets/app.yaml;
+      owner = cfg.user;
+      group = cfg.group;
+    };
+    
+    sops.secrets."db-password" = {
+      sopsFile = ./secrets/app.yaml;
+      owner = cfg.user;
+      group = cfg.group;
+    };
+
+    # Create service user
+    users.users.${cfg.user} = {
+      isSystemUser = true;
+      group = cfg.group;
+    };
+    users.groups.${cfg.group} = {};
+
+    # systemd service
+    systemd.services.sops-app = {
+      description = "Application with sops-managed secrets";
+      after = [ "network.target" ];
+      wantedBy = [ "multi-user.target" ];
+
+      serviceConfig = {
+        Type = "simple";
+        User = cfg.user;
+        Group = cfg.group;
+        EnvironmentFile = [
+          config.sops.secrets."api-key".path
+          config.sops.secrets."db-password".path
+        ];
+        ExecStart = "${pkgs.bash}/bin/bash -c 'echo App running with secrets; sleep infinity'";
+        Restart = "always";
+      };
+    };
+  };
+}

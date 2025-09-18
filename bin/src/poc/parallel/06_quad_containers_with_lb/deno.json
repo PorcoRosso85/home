@@ -1,0 +1,14 @@
+{
+  "tasks": {
+    "test": "deno test --allow-net --allow-read quad-container-advanced.test.ts",
+    "test:red": "deno test --allow-net --allow-read quad-container-advanced.test.ts",
+    "start": "deno run --allow-net --allow-env app.ts",
+    "test-server": "deno run --allow-net test-server.ts",
+    "load-test": "deno run --allow-net load-test.ts",
+    "chaos-test": "deno run --allow-net chaos-engineering.ts"
+  },
+  "imports": {
+    "@std/assert": "https://deno.land/std@0.208.0/assert/mod.ts",
+    "@std/async": "https://deno.land/std@0.208.0/async/mod.ts"
+  }
+}

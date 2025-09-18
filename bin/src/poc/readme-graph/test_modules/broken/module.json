@@ -1,0 +1,5 @@
+{
+  "id": "broken-module",
+  "purpose": "This JSON is intentionally broken"
+  "type": "test"
+}

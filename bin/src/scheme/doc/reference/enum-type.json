@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EnumType",
+  "description": "列挙型",
+  "$comment": "言語別取り扱い:
+    - Zig: enum として実装、タグ値を自動または明示的に割り当て可能
+    - Lean 4: inductive 型として実装、より強力なADTとして使用可能
+    - Rust: enum として実装、バリアントに値を持つことができるタグ付き共用体としても機能
+    - TypeScript: enum として実装、または文字列リテラル型のunionとしても表現可能",
+  "type": "string",
+  "enum": ["RED", "GREEN", "BLUE"]
+}

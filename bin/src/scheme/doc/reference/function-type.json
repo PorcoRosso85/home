@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FunctionType",
+  "description": "関数型",
+  "$comment": "言語別取り扱い:
+    - Zig: fn(T) T として実装、関数ポインタとして使用
+    - Lean 4: T → U として実装、高階関数として一級市民
+    - Rust: fn(T) -> U として実装、関数ポインタとして、または FnOnce/FnMut/Fn トレイトで高階関数
+    - TypeScript: (T) => U として実装、一級関数として扱える",
+  "type": "object",
+  "properties": {
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" }
+        },
+        "required": ["type"]
+      }
+    },
+    "returnType": {
+      "type": "string"
+    }
+  },
+  "required": ["parameters", "returnType"]
+}

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    
+    <meta name="description" content="# AppArmor and apparmor.d on NixOS ## Resources and general info AppArmor will be shortened as *aa*.">
+    
+    
+    
+    <meta property="og:title" content="AppArmor and apparmor.d on NixOS - HedgeDoc">
+    
+    
+    
+    <meta property="og:type" content="website">
+    
+    <meta property="og:image" content="https://hedgedoc.grimmauld.de/icons/android-chrome-512x512.png">
+    <meta property="og:image:alt" content="HedgeDoc logo">
+    <meta property="og:image:type" content="image/png">
+    
+    <base href="https://hedgedoc.grimmauld.de/">
+    <title>AppArmor and apparmor.d on NixOS - HedgeDoc</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="https://hedgedoc.grimmauld.de/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://hedgedoc.grimmauld.de/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="https://hedgedoc.grimmauld.de/icons/favicon-16x16.png">
+<link rel="manifest" href="https://hedgedoc.grimmauld.de/icons/site.webmanifest">
+<link rel="mask-icon" href="https://hedgedoc.grimmauld.de/icons/safari-pinned-tab.svg" color="#b51f08">
+<link rel="shortcut icon" href="https://hedgedoc.grimmauld.de/icons/favicon.ico">
+<meta name="apple-mobile-web-app-title" content="HedgeDoc - Ideas grow better together">
+<meta name="application-name" content="HedgeDoc - Ideas grow better together">
+<meta name="msapplication-TileColor" content="#b51f08">
+<meta name="msapplication-config" content="https://hedgedoc.grimmauld.de/icons/browserconfig.xml">
+<meta name="theme-color" content="#b51f08">
+
+    <link rel="stylesheet" href='https://hedgedoc.grimmauld.de/build/emojify.js/dist/css/basic/emojify.min.css'>
+    <link href="build/font-pack.4362583c9249021b5028.css" rel="stylesheet"><link href="build/2.15c517ea2148f55c8206.css" rel="stylesheet"><link href="build/3.ec6e7d6280fcd73e729d.css" rel="stylesheet"><link href="build/pretty-styles-pack.2fb0d01138de2df6de0a.css" rel="stylesheet"><link href="build/pretty-styles.8aa1888af7df52aee395.css" rel="stylesheet"><link href="build/1.1666d9d869a0532d9bce.css" rel="stylesheet"><link href="build/pretty.6b8d0fd475bd77f9c4c4.css" rel="stylesheet">
+</head>
+
+<body style="display:none;">
+    <div class="ui-infobar container-fluid unselectable hidden-print">
+        <small>
+            <span>
+                
+                    <span class="ui-lastchangeuser">&thinsp;<i class="ui-user-icon small" style="background-image: url(https://hedgedoc.grimmauld.de/user/grimmauld/avatar.svg);" data-toggle="tooltip" data-placement="right" title="grimmauld"></i></span>
+                
+                &nbsp;<span class="text-uppercase ui-status-lastchange"></span>
+                <span class="ui-lastchange text-uppercase" data-createtime="Mon Oct 14 2024 16:05:34 GMT+0200 (Central European Summer Time)" data-updatetime="Tue Oct 22 2024 10:36:07 GMT+0200 (Central European Summer Time)"></span>
+            </span>
+            <span class="pull-right">8187 views <a href="#" class="ui-edit" title="Edit this note"><i class="fa fa-fw fa-pencil"></i></a></span>
+            <br>
+            
+        </small>
+    </div>
+    <div id="doc" class="container markdown-body" ># AppArmor and apparmor.d on NixOS
+## Resources and general info
+AppArmor will be shortened as *aa*.
+
+AppArmor is a MAC [Mandatory Access Control]. As such, aa is a security-relevant component. This article will *not* guarantee your security. You are responsible for that yourself. This article is meant for people to learn something useful and potentially new.
+
+While researching aa, there have been a few good resources. Incredibly useful was the [SuSe enterprise AppArmor documentation](https://documentation.suse.com/en-us/sles/12-SP5/html/SLES-all/part-apparmor.html).
+
+## AppArmor: Design and Goals
+AppArmor is an attempt to restrict what parts of the OS can be touched by different Programs, enforced by the Linux kernel. For this purpose, a set of rules is defined in `/etc/apparmor.d/` and loaded into use with `aa-complain` or`aa-enforce `. In NixOS, this can be done decoratively. More to NixOS specifics later.
+
+User space programs are by default not very separated from each other. This means (by default) all my installed apps with outdated electron (totally not discord :P) have the capability to access and exfiltrate my ssh and gpg keys. Needless to say, this is *bad*. Controlling what processes my user space apps can launch and what files they can access is generally an improvement.
+
+AppArmor itself comes with *very* minimal rules. This makes sense, as rules differ between Linux distributions, and any rule set will ultimately be opinionated. This is however also a problem: No pre-built rules means aa is very inaccessible to DIY. My personal goal is to get aa to a state where i can start incrementally increasing coverage, while keeping rules quite strict.
+
+### Profiles
+The smallest unit in aa is a *profile*. A profile defines a pattern of an executable path for which the profile is valid, as well as what that profile can access. What profiles are installed on a system can be checked using `aa-status` command.
+
+### Abstractions
+Further, aa supports *abstractions*. Typically (but not necessarily) placed in `/etc/apparmor.d/abstractions`, they are importable reusable snippets that can be reused across profiles. Most important is the abstraction `&lt;abstractions/base&gt;` which is an abstraction typically included in all profiles. For example it might make sense to allow any program on a system to read `/share/zoneinfo`, so that would go into the base abstraction. Other abstractions, for example for graphics or audio, make sense too.
+
+### Tunables
+Tunables are typically stored in `/etc/apparmor.d/tunables` and contain variables. Tunables are a subset of abstractions that can be included but don&#39;t actually contain rules. Rather, the tunables only contain variable definitions. It can for example make sense to define a `@{bin}` variable instead of hard-coding `{/usr,}/bin` everywhere, as the change of the variable is instantly applied about all profiles using that variable.
+
+## Why AppArmor is a better choice than SE Linux on NixOS
+Both SE Linux and AppArmor are in active use to harden Linux systems across the industry. I do not claim either to be more reliable or more secure, but the work required to use those solutions in the nix ecosystem is vastly different.
+SE Linux is label-based, leveraging xattrs. Defining those attributes on the nix store is not trivial, requiring significant work. 
+AppArmor is path-based, with profiles that match patterns against paths. This is the case both for matching which profile to use via arg0, as well as what access is granted via rules defining path access.
+
+## AppArmor on NixOS: A nightmare
+AppArmor on NixOS has one huge issue on NixOS: *LACK OF RULES*. It is obviously absurd to assume rules working on Ubuntu would work on NixOS, right?? Well! apparmor.d is a project with the ultimate goal of thorough and strict rules for a LOT of apps on a LOT of Linux distributions. So getting those rules to work would solve that issue. And it is very much possible to make it work!
+
+Some smaller issues than just lack of rules exist: AppArmor logging is broken by default. However, it plays nicely with `audit.d`. Further, a lot of apps try to read their own resources, or try to load shared object files using `mmap` syscall. Both is by default denied in apparmor. However, the `/nix/store` is world readable anyways, and also not supposed to contain any sensitive information. Thus it makes sense to allow read on the whole store, as well as `mmap` for lib and bin paths in the store. This makes for some configuration in NixOS already:
+```nix
+    security.auditd.enable = true;
+    
+    security.apparmor.packages = [ apparmor-d ];
+    security.apparmor.enable = true;
+    
+    security.apparmor.includes = {
+      &#34;abstractions/base&#34; = &#39;&#39;
+        /nix/store/*/bin/** mr,
+        /nix/store/*/lib/** mr,
+        /nix/store/** r,
+        ${getExe&#39; pkgs.coreutils &#34;coreutils&#34;} rix,
+        ${getExe&#39; pkgs.coreutils-full &#34;coreutils&#34;} rix,
+      &#39;&#39;;
+    };
+```
+Because `security.apparmor.includes.&lt;name&gt;` is a is of strings joined by a newline, we can just add that part without outright overriding the base abstraction [defined in the nixos modules](https://github.com/NixOS/nixpkgs/blob/a3f9ad65a0bf298ed5847629a57808b97e6e8077/nixos/modules/security/apparmor/includes.nix#L61-L69). This *should* be a safe thing to do. I don&#39;t *really* like it personally, but this really should be fine.
+
+Further, a LOT of things depend on coreutils. Therefore i chose to add the coreutils binary as something that can always be executed if staying in the limitations of the original profile (ix = execute inherit).
+
+With auditd, logs will end up in `/var/log/audit/audit.log` which you can tail-follow when doing testing.
+
+Now to fix the lack of rules!
+
+### Basic Rule in NixOS
+
+```
+    security.apparmor.policies = {
+      hello = {
+        enable = true;
+        enforce = true;
+        profile = &#39;&#39;
+          abi &lt;abi/4.0&gt;,
+          include &lt;tunables/global&gt;
+          profile hello ${lib.getExe pkgs.hello} {
+            include &lt;abstractions/base&gt;
+          }
+        &#39;&#39;;
+      };
+```
+
+`include &lt;tunables/global&gt;` imports some useful variables for later. `include &lt;abstractions/base&gt;` is the earlier mentioned base include that should be part of (almost) any profile. `abi &lt;abi/4.0&gt;,` defines the abi version with which that profile is compatible. All my profiles have only been tested on 4.x versions of apparmor, just be aware this breaks on NixOS 24.05 as aa is on 3.x versions there.
+
+
+### Preventing boot issues
+
+Notice the NixOS options enable and enforce. **DO NOT put enforce true for system components without first checking the log is clean using complain mode for a week or so**. Enforcing rules on system components can leave the system unable to boot. This isn&#39;t particularly bad with NixOS keeping old generations around, but you should not tempt fate.
+
+Yes, AppArmor can block important system components. That is the whole point. I&#39;d personally advise to always include an escape hatch for when things go awfully wrong. This can be done with a [NixOS specialisation](https://nixos.wiki/wiki/Specialisation) that just force-disables aa:
+```nix
+specialisation.no-apparmor.configuration = {
+  security.apparmor.enable = lib.mkForce false;
+};
+```
+
+
+## apparmor.d
+The [apparmor.d project](https://github.com/roddhjav/apparmor.d) and its [documentation](https://apparmor.pujol.io/) has been immensely useful. AppArmor requires rules to make any sense. Writing rules by hand is possible, but ideally a set of community-maintained rules would be available on NixOS. apparmor.d is one such set of community-maintained rules, and also structured in a quite extendable way. THis is why i want to try adapting aa.d rules for NixOS, both as a feasibility study as well as to actively use those rules on a daily basis.
+
+### Getting apparmor.d ready for NixOS
+apparmor.d needs a package, that is just the most convenient way to make use of nix tooling. A naive approach is to just take the repo and throw the relevant folder containing all the profiles and abstractions into the store. [An example of this](https://git.grimmauld.de/Grimmauld/grimm-nixos-laptop/src/commit/cebee13139f7c0084e501c69cf96f572fdb08ee1/common/tooling/apparmor/apparmor-d.nix) can be found on my gitea.
+
+This is not enough by itself: apparmor.d assumes `/bin`, `/usr/bin`, `/sbin` or `/usr/sbin` to be the only relevant paths for executables. Similar assumptions were made for libraries. Needles to say, those assumptions do not work on NixOS. This means we have to patch apparmor.d. Conveniently, aa and apparmor.d both support and make use of variables. This means we only have to patch the variable definitions for `@{lib}` and `@{bin}` in apparmor.d, we do not have to patch all the rules individually! The easy patching in a central location is part of why i chose apparmor.d for this. That [patch](https://git.grimmauld.de/Grimmauld/grimm-nixos-laptop/src/commit/f781c73d8d0067e22bc33f6ff40bdcf6b60bcf6e/common/tooling/apparmor/apparmor-d-paths.patch) can also be found on my gitea.
+
+Eventually package and patch will be upstreamed. However, there is more complex issues with this approach that i am currently working on fixing. That includes making use of the intended distribution-specific tooling already provided by aa.d and improving the user experience for people just writing their nixos config.
+
+### using apparmor.d profiles on NixOS
+Following codesnippets assume `apparmor-d` variable in nix to contain the package derivation, e.g. by let-binding `apparmor-d = pkgs.callPackage ./apparmor-d.nix {};`.
+
+First, apparmor.d needs to be added to the include paths of apparmor, or else the apparmor.d abstractionsand tunables would not be importable. This can be achieved by adding the apparmor-d package to the apparmor packages:
+```nix
+security.apparmor.packages = [ apparmor-d ];
+```
+
+Note the simple addition of the package to `security.apparmor.packages` does *not* register and activate the profiles!
+
+Including the profiles into NixOS can be done using (clunky) include useage:
+```nix
+    security.apparmor.policies = {
+      spotify = {
+        enable = true;
+        enforce = true;
+        profile = &#39;&#39;
+          include &#34;${apparmor-d}/etc/apparmor.d/profiles-s-z/spotify&#34;
+        &#39;&#39;;
+      };
+    };
+```
+
+The UX for this is terrible, essentially digging through the apparmor.d github for whether there is a profile for an app, then copying the path over. Ideally this can be improved, but for now this works.
+
+### fixing up profiles that broke
+For spotify, this profile just works. But some other apps might not be so lucky. Let&#39;s take a look into forefox.
+
+First, firefox is actually not one profile, but two. Second, i run the gnupass extension as password manager in firefox. This requires some tricks.
+
+
+```nix
+    security.apparmor.policies = {
+      passff = { # passff profile is the profile of the plugin helper
+        enable = true;
+        enforce = true;
+        profile = &#39;&#39;
+          abi &lt;abi/4.0&gt;,
+          include &lt;tunables/global&gt;
+          profile passff ${pkgs.passff-host}/share/passff-host/passff.py {
+            include &lt;abstractions/base&gt; # read access to /nix/store, basic presets for most apps
+            include &lt;abstractions/python&gt;
+            ${getExe pkgs.pass} Px, # allowed to execute pass and jump into pass profile
+          }
+        &#39;&#39;;
+      };
+      
+      firefox-glxtest = {
+        enable = true;
+        enforce = true;
+        profile = &#39;&#39;
+          include &#34;${apparmor-d}/etc/apparmor.d/groups/browsers/firefox-glxtest&#34;
+        &#39;&#39;;
+      };
+      firefox = {
+        enable = true;
+        enforce = true;
+        profile = &#39;&#39;
+          include &#34;${apparmor-d}/etc/apparmor.d/groups/browsers/firefox&#34;
+        &#39;&#39;;
+      };
+      pass = {
+        enable = true;
+        enforce = true;
+        profile = &#39;&#39;
+          include &#34;${apparmor-d}/etc/apparmor.d/profiles-m-r/pass&#34;
+        &#39;&#39;;
+      };
+    };
+    
+    security.apparmor.includes = {
+      &#34;local/pass&#34; = &#39;&#39;
+        ${getExe&#39; pkgs.pass &#34;.pass-wrapped&#34;} rix, # nix wrapping means we have to allow the wrapper executable to call the wrapped
+      &#39;&#39;;
+      
+      &#34;local/pass_gpg&#34; = &#39;&#39;
+        owner @{PROC}/@{pid}/fd/ r,
+        /nix/store/*/libexec/keyboxd ix, # required for password transfer from askpass
+        owner /run/user/*/gnupg/S.keyboxd wr,
+      &#39;&#39;;
+
+      &#34;local/firefox&#34; = &#39;&#39;
+        ${pkgs.passff-host}/share/** rPx -&gt; passff, # Px means a profile transfer into passff profile
+        @{HOME}/.mozilla/firefox/** mr, # mmap and read access to the ff profile folder
+      &#39;&#39;;
+    };
+```
+
+### Variables, common patterns, common pitfalls
+apparmor.d also comes with a lot of useful variables. For example, `@{pid}` can match process ids. Note it does *not* match a specific PID, only the *format* of a pid. Therefore process access is commonly restricted using `owner @{PROC}/@{pid}/...` to make sure at least the user owning the process matches. The variables `@{bin}` or `@{lib}` were those that were patched earlier. Using the variables can help if the profiles should be upstreamable to aa.d.
+
+Execute flags always contain a note about how profiles should work on executing new subprocesses. `Px` means execute and jump to the profile matching that executable. `Cx -&gt; profile_name` means execute and use the named profile for that executed programm. `ix` means to just inherit the profile of the process starting that program. `ix` is often pretty safe, but might not be sufficient. Or a bad idea if you do not want to further widen the scope of permissions of the main process doing the execute. *Keep in mind execute permission flags can not contradict*. Only specifically defined apps take priority. Because of how we patched `@{bin}` to always contain a glob on the nix store, `@{bin}/hello` is *not* specifically defined. Therefore, be careful when adding specific execute flags. In the case of`hello`, the nix evaluation can be used to make it specific: `${lib.getExe pkgs.hello}`.
+
+Nix has a *lot* of package wrapping, especially in userspace. This causes issues with aa.d, as the wrapped apps might not have a profile: None of the other distros does such extensive wrapping! Typically, apps using wrappers need an addition to their profile, letting them execute the wrapped programm while allowing `ix` (inherit execute).
+
+Another common issue is missing profiles to jump into. Notice firefox and firefox-glxtest being two profiles. This is because of a profile transition defined in the firefox profile. AppArmor *will* complain about transitions into non-existent profiles. Check your logs!
+
+## Making apparmor.d easier to use
+The naive approach or just copying the rule files over does technically work. It does however have a couple significant drawbacks.
+First, just copying over the rule files bypasses any type of platform specific setups. Part of why apparmor.d is so flexible is the fact it has a preprocessor to collect and adjust profiles to conform todistro specifics. The owner of the apparmor.d project has confirmed they are indeed willing to support nixos, assuming the workflow on their side is about comparable to the other supported distros. This means the package should actually call the intended build processes instead of just copying files.
+Second, the patch to match `/nix/store/*/bin` causes a lot of problems with conflicting paths: This being a glob, any rule referring to `@{bin}/something ix,` is potentially a conflicting x flag. This can be fixed by replacing the glob with character matching. This has issues too, most notably apparmor rule parsing will become extremely slow, but it does work.
+Third, the syntax to use apparmor.d profiles on nixos is awkward at best.
+
+To solve those issues, i propose exposing an apparmor.d nixos module that can contain some necessary local overrides, as well as provide decent UI by managing the awkward imports.
+
+An early iteration of this can be found on my gitea at https://git.grimmauld.de/Grimmauld/grimm-nixos-laptop/src/commit/0fc6f9d53bd82aaad7ce9835241c753e2b145b6f/common/tooling/apparmor, but i am still iterating on this. PRs into nixpkgs will come after 24.11 branchoff has happened.
+
+## Closing thoughts
+apparmor.d is very powerful as a repository for aa rules. It currently supports Ubuntu, Debian, Open SUSE and Arch. Getting NixOS support would be nice.
+
+The tooling for using apparmor.d on NixOS is awkward, but *flexible* enough to actually work. (Ab)using local overrides as well as the patching of the bin and lib variables makes the touch-ups minimal. Still necessary, but significantly more manageable than writing everything by hand.
+
+Currently NixOS-defined apparmor *profiles* do not support being in any other path than flat `/etc/apparmor.d/.`. This is a superficial limitation by an assert in the apparmor module of NixOS, i believe that limitation to be bogus. Yes it has an explanatory comment. I still don&#39;t think an arbitrary assert without further thought might not be the right approach.
+
+~~It might be worth to provide a more thorough and easier-to-use integration of apparmor.d into NixOS, but it will likely always require (small) manual fixes for a lot of apps. I am not sure who should reliably maintain those fixes. Up-streaming to apparmor.d might be the best option, but potentially also not viable seeing how nix does a lot of app wrapping.~~
+
+I have been in contact with roddhjav, owner of the apparmor.d project. They have helped a lot in my attempts to bring apparmor rules to NixOS, and are willing to support NixOS with their set of rules. I had many questions, many of which stupid, while working on this project. I am truly grateful this work is actually being appreciated, both by the NixDA community as well as from apparmor.d side, and some other Linux people i talked to. I now fully believe this can work. Obviously with quite some effort, but not unreasonable.
+
+As to which side should support which components: I believe NixOS modules should be responsible for integrating apparmor profiles in a way where a NixOS user can easily switch which profiles are enforced/complaining/disabled. NixOS should further be responsible to keep track of any wrappers that need extra rules (typically wrappers just need to inherit rules).
+Apparmor.d should be responsible for cross-distribution compatibility and maintaining the actual core rules and abstractions, as is the case already.
+This does *not* mean nix should just take these rules as guaranteed: We should expect to also update some rules. Apparmor.d is similarly community-maintained as nix is, using their rules and expecting them to fix everything without interacting with them will not work.</div>
+    <div class="ui-toc dropup unselectable hidden-print" style="display:none;">
+        <div class="pull-right dropdown">
+            <a id="tocLabel" class="ui-toc-label btn btn-default" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false" title="Table of content">
+                <i class="fa fa-bars"></i>
+            </a>
+            <ul id="ui-toc" class="ui-toc-dropdown dropdown-menu" aria-labelledby="tocLabel">
+            </ul>
+        </div>
+    </div>
+    <div id="ui-toc-affix" class="ui-affix-toc ui-toc-dropdown unselectable hidden-print" data-spy="affix" style="display:none;"></div>
+    
+</body>
+
+</html>
+<script src="https://hedgedoc.grimmauld.de/js/mathjax-config-extra.js"></script>
+<script src="https://hedgedoc.grimmauld.de/build/MathJax/MathJax.js" defer></script>
+<script src="https://hedgedoc.grimmauld.de/build/MathJax/config/TeX-AMS-MML_HTMLorMML.js" defer></script>
+<script src="https://hedgedoc.grimmauld.de/build/MathJax/config/Safe.js" defer></script>
+<script src="config"></script><script src="build/vendors~common.6ca6a20d83df19066d96.js" defer="defer"></script><script src="build/common.deaa5ba7add85ca9499b.js" defer="defer"></script><script src="build/vendors~cover~cover-pack~index~index-pack~pretty~pretty-pack~slide~slide-pack.3a55279942375e344a4b.js" defer="defer"></script><script src="build/vendors~index~index-pack~pretty~pretty-pack~slide~slide-pack.00ba21c360fe4ee91e15.js" defer="defer"></script><script src="build/pretty-pack.6e275e1bc24af120eb14.js" defer="defer"></script>
+
+

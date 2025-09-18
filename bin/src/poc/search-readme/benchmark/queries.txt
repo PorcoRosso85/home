@@ -1,0 +1,58 @@
+# Benchmark queries for search-readme performance testing
+# Lines starting with # are comments and will be ignored during benchmarking
+
+# Basic functionality queries
+framework
+database
+cli
+tool
+library
+
+# More complex queries
+web application
+data processing
+machine learning
+user interface
+command line
+
+# Technical terms
+API
+REST
+GraphQL
+microservice
+container
+
+# Project types
+frontend
+backend
+fullstack
+mobile
+desktop
+
+# Language and framework specific
+typescript
+react
+node
+python
+rust
+
+# Specific features
+authentication
+authorization
+validation
+testing
+deployment
+
+# Performance and optimization queries
+performance
+optimization
+cache
+memory
+async
+
+# Documentation and help queries
+readme
+documentation
+tutorial
+example
+guide

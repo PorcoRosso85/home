@@ -1,0 +1,47 @@
+{
+  "tasks": {
+    "test": "deno test --allow-all",
+    "fmt": "deno fmt",
+    "lint": "deno lint",
+    "dev": "deno run --allow-all --watch main.ts",
+    "build": "deno bundle mod.ts dist/mod.js",
+    "check": "deno check **/*.ts",
+    "coverage": "deno test --allow-all --coverage=coverage",
+    "doc": "deno doc mod.ts --json > api.json"
+  },
+  "imports": {
+    "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.0.0"
+  },
+  "nodeModulesDir": "auto",
+  "compilerOptions": {
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "fmt": {
+    "include": ["*.ts", "*.md"],
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "singleQuote": true
+  },
+  "lint": {
+    "include": ["*.ts"],
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "test": {
+    "include": ["**/*.test.ts"]
+  },
+  "exports": {
+    ".": "./mod.ts",
+    "./domain": "./domain.ts",
+    "./adapter": "./adapter.ts",
+    "./application": "./application.ts",
+    "./providers": "./providers/mod.ts",
+    "./providers/aws": "./providers/aws.ts",
+    "./providers/r2": "./providers/r2.ts",
+    "./providers/in-memory": "./providers/in-memory.ts",
+    "./providers/filesystem": "./providers/filesystem.ts"
+  },
+  "lock": false
+}

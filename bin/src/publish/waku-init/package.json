@@ -1,0 +1,36 @@
+{
+  "name": "waku-init",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "cf-typegen": "echo 'Run: nix shell nixpkgs#wrangler -c wrangler types'",
+    "dev": "waku dev",
+    "dev:edge": "wrangler dev --local=false",
+    "build": "waku build --with-cloudflare && cp -r public/fonts/* dist/worker/public/fonts/ 2>/dev/null || true && cp -r public/images/* dist/worker/public/images/ 2>/dev/null || true",
+    "start": "echo 'Run: nix shell nixpkgs#wrangler -c wrangler dev'",
+    "start:nix": "nix shell nixpkgs#wrangler nixpkgs#nodejs -c wrangler dev",
+    "d1:migrate": "echo 'Run: nix shell nixpkgs#wrangler -c wrangler d1 execute init --file=./migrations/ddl.sql'",
+    "d1:list": "echo 'Run: nix shell nixpkgs#wrangler -c wrangler d1 execute init --command=\"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;\"'",
+    "r2:create": "echo 'Run: nix shell nixpkgs#wrangler -c wrangler r2 bucket create waku-data'",
+    "r2:upload-sample": "echo 'Upload parquet files: nix shell nixpkgs#wrangler -c wrangler r2 object put waku-data/sample.parquet --file=./data/sample.parquet'",
+    "r2:list": "echo 'Run: nix shell nixpkgs#wrangler -c wrangler r2 object list waku-data'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "4.9.4",
+    "react": "19.1.1",
+    "react-aria-components": "^1.12.0",
+    "react-dom": "19.1.1",
+    "react-server-dom-webpack": "19.1.1",
+    "uplot": "^1.6.32",
+    "waku": "0.26.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "@types/react": "19.1.10",
+    "@types/react-dom": "19.1.7",
+    "typescript": "5.9.2",
+    "vite": "7.1.3"
+  }
+}

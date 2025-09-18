@@ -1,0 +1,21 @@
+{
+  "name": "@poc/vite-rsc",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@vitejs/plugin-rsc": "^0.4.23",
+    "react": "^19.2.0-canary-6de32a5a-20250822",
+    "react-dom": "^19.2.0-canary-6de32a5a-20250822",
+    "vite": "^7.1.3"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/bun": "^1.0.0",
+    "typescript": "^5.0.0"
+  }
+}

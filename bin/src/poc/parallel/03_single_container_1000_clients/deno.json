@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "test:red": "deno test --allow-net extreme-load.test.ts",
+    "test:all": "deno test --allow-net",
+    "start": "deno run --allow-net --allow-env --allow-read --unstable-net server.ts",
+    "dev": "deno run --watch --allow-net --allow-env --allow-read --unstable-net server.ts",
+    "bench": "deno run --allow-net load-test-extreme.ts"
+  },
+  "imports": {
+    "@std/assert": "https://deno.land/std@0.208.0/assert/mod.ts",
+    "@std/async": "https://deno.land/std@0.208.0/async/mod.ts"
+  }
+}

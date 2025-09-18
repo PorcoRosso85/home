@@ -1,0 +1,16 @@
+{
+  "name": "vite-rsc-cloudflare-poc",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build:ssr": "esbuild src/hello.ts --bundle --outfile=dist/ssr/index.js --format=esm --platform=browser",
+    "build:client": "esbuild src/client.ts --bundle --outfile=dist/client/index.js --format=iife --platform=browser",
+    "build": "npm run build:ssr && npm run build:client",
+    "dev": "wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2",
+    "wrangler": "^3.101.0"
+  }
+}

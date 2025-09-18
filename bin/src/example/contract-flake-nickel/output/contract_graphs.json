@@ -1,0 +1,467 @@
+{
+  "basic": {
+    "edges": [
+      {
+        "contract_requirements": [
+          "data"
+        ],
+        "from": "producer",
+        "to": "transformer",
+        "type": "Dependency"
+      },
+      {
+        "contract_requirements": [
+          "processed_data",
+          "logs"
+        ],
+        "from": "transformer",
+        "to": "consumer",
+        "type": "Transform"
+      }
+    ],
+    "metadata": {
+      "description": "Basic producer-transformer-consumer graph",
+      "name": "basic_contract_graph",
+      "version": "1.0.0"
+    },
+    "nodes": [
+      {
+        "contract": {
+          "input": [],
+          "output": [
+            "data",
+            "metrics"
+          ],
+          "version": "1.0.0"
+        },
+        "id": "producer",
+        "metadata": {
+          "created": "2024-01-01",
+          "description": "Data producer flake",
+          "maintainer": "team@example.com"
+        },
+        "type": "Producer"
+      },
+      {
+        "contract": {
+          "input": [
+            "data"
+          ],
+          "output": [
+            "processed_data",
+            "logs"
+          ],
+          "version": "1.2.0"
+        },
+        "id": "transformer",
+        "metadata": {
+          "created": "2024-01-15",
+          "description": "Data transformation flake",
+          "maintainer": "team@example.com"
+        },
+        "type": "Transformer"
+      },
+      {
+        "contract": {
+          "input": [
+            "processed_data",
+            "logs"
+          ],
+          "output": [],
+          "version": "2.0.0"
+        },
+        "id": "consumer",
+        "metadata": {
+          "created": "2024-02-01",
+          "description": "Data consumer flake",
+          "maintainer": "team@example.com"
+        },
+        "type": "Consumer"
+      }
+    ]
+  },
+  "large_scale": {
+    "edges": [
+      {
+        "contract_requirements": [
+          "raw_data_a"
+        ],
+        "from": "data_source_a",
+        "to": "preprocessor_a",
+        "type": "Dependency"
+      },
+      {
+        "contract_requirements": [
+          "raw_data_b"
+        ],
+        "from": "data_source_b",
+        "to": "preprocessor_b",
+        "type": "Dependency"
+      },
+      {
+        "contract_requirements": [
+          "config"
+        ],
+        "from": "config_provider",
+        "to": "preprocessor_a",
+        "type": "Dependency"
+      },
+      {
+        "contract_requirements": [
+          "config"
+        ],
+        "from": "config_provider",
+        "to": "preprocessor_b",
+        "type": "Dependency"
+      },
+      {
+        "contract_requirements": [
+          "cleaned_data_a"
+        ],
+        "from": "preprocessor_a",
+        "to": "feature_engineer",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "cleaned_data_b"
+        ],
+        "from": "preprocessor_b",
+        "to": "feature_engineer",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "features"
+        ],
+        "from": "feature_engineer",
+        "to": "model_trainer",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "config"
+        ],
+        "from": "config_provider",
+        "to": "model_trainer",
+        "type": "Dependency"
+      },
+      {
+        "contract_requirements": [
+          "trained_model"
+        ],
+        "from": "model_trainer",
+        "to": "model_validator",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "features"
+        ],
+        "from": "feature_engineer",
+        "to": "model_validator",
+        "type": "Dependency"
+      },
+      {
+        "contract_requirements": [
+          "trained_model"
+        ],
+        "from": "model_trainer",
+        "to": "model_deployer",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "validation_results"
+        ],
+        "from": "model_validator",
+        "to": "model_deployer",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "secrets"
+        ],
+        "from": "config_provider",
+        "to": "model_deployer",
+        "type": "Dependency"
+      },
+      {
+        "contract_requirements": [
+          "deployment_logs"
+        ],
+        "from": "model_deployer",
+        "to": "monitor",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "training_metrics"
+        ],
+        "from": "model_trainer",
+        "to": "monitor",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "model_report",
+          "validation_results"
+        ],
+        "from": "model_validator",
+        "to": "analytics_dashboard",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "feature_metadata"
+        ],
+        "from": "feature_engineer",
+        "to": "analytics_dashboard",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "deployed_service"
+        ],
+        "from": "model_deployer",
+        "to": "api_gateway",
+        "type": "Transform"
+      },
+      {
+        "contract_requirements": [
+          "config"
+        ],
+        "from": "config_provider",
+        "to": "api_gateway",
+        "type": "Dependency"
+      }
+    ],
+    "metadata": {
+      "description": "Large-scale ML pipeline with 13 flakes",
+      "name": "ml_pipeline_graph",
+      "version": "1.0.0"
+    },
+    "nodes": [
+      {
+        "contract": {
+          "input": [],
+          "output": [
+            "raw_data_a"
+          ],
+          "version": "1.0.0"
+        },
+        "id": "data_source_a",
+        "metadata": {
+          "created": "2024-01-01",
+          "description": "Primary data source A",
+          "maintainer": "data-team@example.com"
+        },
+        "type": "Producer"
+      },
+      {
+        "contract": {
+          "input": [],
+          "output": [
+            "raw_data_b"
+          ],
+          "version": "1.1.0"
+        },
+        "id": "data_source_b",
+        "metadata": {
+          "created": "2024-01-05",
+          "description": "Secondary data source B",
+          "maintainer": "data-team@example.com"
+        },
+        "type": "Producer"
+      },
+      {
+        "contract": {
+          "input": [],
+          "output": [
+            "config",
+            "secrets"
+          ],
+          "version": "2.0.0"
+        },
+        "id": "config_provider",
+        "metadata": {
+          "created": "2024-01-10",
+          "description": "Configuration and secrets provider",
+          "maintainer": "ops-team@example.com"
+        },
+        "type": "Producer"
+      },
+      {
+        "contract": {
+          "input": [
+            "raw_data_a",
+            "config"
+          ],
+          "output": [
+            "cleaned_data_a"
+          ],
+          "version": "1.5.0"
+        },
+        "id": "preprocessor_a",
+        "metadata": {
+          "created": "2024-01-15",
+          "description": "Data A preprocessing pipeline",
+          "maintainer": "ml-team@example.com"
+        },
+        "type": "Transformer"
+      },
+      {
+        "contract": {
+          "input": [
+            "raw_data_b",
+            "config"
+          ],
+          "output": [
+            "cleaned_data_b"
+          ],
+          "version": "1.3.0"
+        },
+        "id": "preprocessor_b",
+        "metadata": {
+          "created": "2024-01-20",
+          "description": "Data B preprocessing pipeline",
+          "maintainer": "ml-team@example.com"
+        },
+        "type": "Transformer"
+      },
+      {
+        "contract": {
+          "input": [
+            "cleaned_data_a",
+            "cleaned_data_b"
+          ],
+          "output": [
+            "features",
+            "feature_metadata"
+          ],
+          "version": "2.1.0"
+        },
+        "id": "feature_engineer",
+        "metadata": {
+          "created": "2024-02-01",
+          "description": "Feature engineering pipeline",
+          "maintainer": "ml-team@example.com"
+        },
+        "type": "Transformer"
+      },
+      {
+        "contract": {
+          "input": [
+            "features",
+            "config"
+          ],
+          "output": [
+            "trained_model",
+            "training_metrics"
+          ],
+          "version": "3.0.0"
+        },
+        "id": "model_trainer",
+        "metadata": {
+          "created": "2024-02-10",
+          "description": "ML model training pipeline",
+          "maintainer": "ml-team@example.com"
+        },
+        "type": "Transformer"
+      },
+      {
+        "contract": {
+          "input": [
+            "trained_model",
+            "features"
+          ],
+          "output": [
+            "validation_results",
+            "model_report"
+          ],
+          "version": "1.8.0"
+        },
+        "id": "model_validator",
+        "metadata": {
+          "created": "2024-02-15",
+          "description": "Model validation and testing",
+          "maintainer": "qa-team@example.com"
+        },
+        "type": "Transformer"
+      },
+      {
+        "contract": {
+          "input": [
+            "trained_model",
+            "validation_results",
+            "secrets"
+          ],
+          "output": [
+            "deployed_service",
+            "deployment_logs"
+          ],
+          "version": "2.5.0"
+        },
+        "id": "model_deployer",
+        "metadata": {
+          "created": "2024-02-20",
+          "description": "Model deployment service",
+          "maintainer": "ops-team@example.com"
+        },
+        "type": "Transformer"
+      },
+      {
+        "contract": {
+          "input": [
+            "deployment_logs",
+            "training_metrics"
+          ],
+          "output": [],
+          "version": "1.7.0"
+        },
+        "id": "monitor",
+        "metadata": {
+          "created": "2024-02-25",
+          "description": "System monitoring and alerting",
+          "maintainer": "ops-team@example.com"
+        },
+        "type": "Consumer"
+      },
+      {
+        "contract": {
+          "input": [
+            "model_report",
+            "feature_metadata",
+            "validation_results"
+          ],
+          "output": [],
+          "version": "2.2.0"
+        },
+        "id": "analytics_dashboard",
+        "metadata": {
+          "created": "2024-03-01",
+          "description": "Analytics and reporting dashboard",
+          "maintainer": "product-team@example.com"
+        },
+        "type": "Consumer"
+      },
+      {
+        "contract": {
+          "input": [
+            "deployed_service",
+            "config"
+          ],
+          "output": [],
+          "version": "3.1.0"
+        },
+        "id": "api_gateway",
+        "metadata": {
+          "created": "2024-03-05",
+          "description": "External API gateway",
+          "maintainer": "api-team@example.com"
+        },
+        "type": "Consumer"
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "test": "deno test --allow-net dual-server-manual.test.ts",
+    "dev": "deno run --allow-net --allow-env --allow-read --watch dual-server-app.ts",
+    "start": "deno run --allow-net --allow-env --allow-read dual-server-app.ts",
+    "server1": "SERVER_NAME=server-1 PORT=4001 PARTITION_KEY=A-M PEER_SERVER=http://localhost:4002 deno run --allow-net --allow-env --allow-read dual-server-app.ts",
+    "server2": "SERVER_NAME=server-2 PORT=4002 PARTITION_KEY=N-Z PEER_SERVER=http://localhost:4001 deno run --allow-net --allow-env --allow-read dual-server-app.ts"
+  }
+}

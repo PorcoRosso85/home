@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --allow-read --allow-write --watch src/main.ts",
+    "test": "deno test --allow-all",
+    "test:integration": "deno test --allow-all test/integration/",
+    "build": "deno compile --allow-net --allow-read --allow-write --output=contract-service src/main.ts"
+  },
+  "imports": {
+    "@std/": "https://deno.land/std@0.208.0/",
+    "kuzu": "npm:kuzu@0.10.0"
+  },
+  "nodeModulesDir": "auto"
+}

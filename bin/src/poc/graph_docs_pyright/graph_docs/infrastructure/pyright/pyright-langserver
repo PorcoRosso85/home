@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Simple wrapper for pyright langserver
+exec node "$(which pyright)" --langserver "$@"

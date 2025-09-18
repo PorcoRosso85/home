@@ -1,0 +1,37 @@
+{
+  "id": "user-management",
+  "path": "/example/user",
+  "purpose": "ユーザー管理システム",
+  "type": "system",
+  "version": "1.0.0",
+  "scope": "user-management",
+  "parent": null,
+  "dependencies": [
+    {"id": "auth-system", "version": ">=1.0.0"}
+  ],
+  "interfaces": {
+    "inputs": [
+      {
+        "name": "user_data",
+        "type": "object",
+        "description": "ユーザー情報"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "user_profile",
+        "type": "object",
+        "description": "ユーザープロファイル"
+      }
+    ]
+  },
+  "responsibilities": [
+    "ユーザー情報の管理",
+    "プロファイル更新",
+    "アカウント設定管理"
+  ],
+  "constraints": {
+    "security": "PII情報の暗号化",
+    "performance": "読み込みは200ms以内"
+  }
+}

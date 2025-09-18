@@ -1,0 +1,9 @@
+# Never commit unencrypted env.sh
+env.sh
+*.plain
+*.decrypted
+
+# But DO commit these:
+# env.sh.enc (encrypted version)
+# env.sh.example (template)
+# .sops.yaml (encryption config)

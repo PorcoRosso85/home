@@ -1,0 +1,32 @@
+[project]
+name = "kuzu-database-factory-segfault-poc"
+version = "0.1.0"
+description = "POC for investigating KuzuDB database factory segfault"
+requires-python = ">=3.11"
+dependencies = [
+    "kuzu>=0.0.12",
+    "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["."]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-v",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]

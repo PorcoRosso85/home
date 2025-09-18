@@ -1,0 +1,9 @@
+name = "vite-rsc-cloudflare-poc"
+main = "dist/ssr/index.js"
+compatibility_date = "2024-01-01"
+
+[build]
+command = "npm run build"
+
+[env.production]
+name = "vite-rsc-cloudflare-poc"

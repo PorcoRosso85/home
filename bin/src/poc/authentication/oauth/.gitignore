@@ -1,0 +1,53 @@
+# Nix
+.direnv/
+result
+result-*
+
+# 認証情報
+.env
+.env.local
+credentials.json
+token.json
+*.pem
+*.key
+
+# テスト関連
+coverage/
+.coverage
+test-results/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+
+# Node.js
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Deno
+.deno/
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ログ
+*.log
+logs/

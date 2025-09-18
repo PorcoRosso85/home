@@ -1,0 +1,6 @@
+from_version_id,to_version_id
+v1.0.0,v1.1.0
+v1.1.0,v1.2.0
+v1.2.0,v1.2.1
+v0.1.0,v0.1.1
+v1.2.1,v1.3.0

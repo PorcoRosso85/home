@@ -1,0 +1,35 @@
+{
+  "name": "kuzu-node",
+  "version": "1.0.0",
+  "description": "KuzuDB and kuzu-wasm for Node.js runtime with TypeScript",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx src/main.ts",
+    "start": "node --import tsx src/main.ts"
+  },
+  "dependencies": {
+    "kuzu-wasm": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.8"
+  },
+  "keywords": [
+    "kuzu",
+    "kuzudb",
+    "graph",
+    "database",
+    "wasm",
+    "node",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT"
+}

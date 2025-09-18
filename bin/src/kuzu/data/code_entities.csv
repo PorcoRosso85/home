@@ -1,0 +1,22 @@
+persistent_id,name,type,signature,complexity,start_position,end_position
+func_createUser_v1.0,createUser,function,"createUser(data: UserData): User",8,100,200
+func_validateUser_v1.0,validateUserData,function,"validateUserData(data: UserData): boolean",5,50,90
+test_createUser_v1.0,test_createUser,function,"test('creates user successfully')",3,10,40
+test_validateUser_v1.0,test_validateUserData,function,"test('validates user data')",2,50,80
+class_UserService_v1.0,UserService,class,"class UserService",10,1,300
+method_save_v1.0,save,method,"save(user: User): Promise<User>",6,150,180
+test_createInvitation_v1.0,test_createInvitation,function,"test('creates invitation with unique code')",4,10,40
+test_traceInvitation_v1.0,test_traceInvitation,function,"test('traces invitation path from code')",5,50,90
+test_validateInvitation_v1.0,test_validateInvitation,function,"test('validates invitation code')",3,100,130
+test_getAffiliateTree_v1.0,test_getAffiliateTree,function,"test('retrieves affiliate hierarchy')",6,140,180
+func_createInvitation_v1.0,createInvitation,function,"createInvitation(inviterId: string): InvitationResult",8,200,280
+func_traceInvitationPath_v1.0,traceInvitationPath,function,"traceInvitationPath(code: string): InvitationTrace[]",10,300,400
+func_validateInvitation_v1.0,validateInvitation,function,"validateInvitation(code: string): ValidationResult",5,420,470
+func_getAffiliateTree_v1.0,getAffiliateTree,function,"getAffiliateTree(userId: string): AffiliateNode",12,500,600
+class_InvitationService_v1.0,InvitationService,class,"class InvitationService",15,1,650
+test_ocr_lead_email_poc_v1.0,test_ocrLeadEmailPoC,function,"test('OCR名刺解析→リード調査→メール送信のフロー')",8,700,750
+func_ocr_lead_email_poc_v1.0,ocrLeadEmailPoC,function,"ocrLeadEmailPoC(imagePath: string): EmailResult",15,800,950
+test_wasm_idbfs_sync_poc_v1.0,test_wasmIdbfsSyncPoC,function,"test('KuzuDB WASM IDBFSブラウザ間同期のフロー')",10,1000,1080
+func_wasm_idbfs_sync_poc_v1.0,wasmIdbfsSyncPoC,function,"wasmIdbfsSyncPoC(config: SyncConfig): SyncResult",20,1100,1300
+test_fts_vss_search_v1.3.5,test_hybridSearch,function,"test('FTS/VSSハイブリッド検索で類似要件を検出')/* TEST_SPEC: 1.FTS検索で'認証'キーワードマッチを確認 2.VSS検索でコサイン類似度0.85以上の要件を確認 3.ハイブリッド結果の統合スコアを検証 */",10,1400,1500
+func_fts_vss_search_v1.3.5,hybridSearch,function,"hybridSearch(keyword: string, embedding: float[]): SearchResult[]/* IMPLEMENTATION: async function hybridSearch(keyword,embedding){const ftsResults=await db.query(`CALL QUERY_FTS_INDEX('requirement_fts_idx','${keyword}')RETURN node,score`);const vssResults=await db.query(`CALL QUERY_VECTOR_INDEX('requirement_vec_idx',[${embedding}],20)RETURN node,similarity_score`);const combined=new Map();ftsResults.forEach(r=>combined.set(r.node.id,{...r.node,score:r.score}));vssResults.forEach(r=>{if(combined.has(r.node.id)){combined.get(r.node.id).score=Math.max(combined.get(r.node.id).score,r.similarity_score*100)}else{combined.set(r.node.id,{...r.node,score:r.similarity_score*100})}});return Array.from(combined.values()).sort((a,b)=>b.score-a.score)} */",15,1600,1800

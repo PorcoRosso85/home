@@ -1,0 +1,44 @@
+name = "email-archive-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Environment variables for storage
+[vars]
+STORAGE_TYPE = "in-memory"
+BUCKET_NAME = "email-archive"
+
+# Email routing configuration
+[[email_routing_rules]]
+type = "all"
+actions = [
+  { type = "worker", value = "email-archive-worker" }
+]
+
+# Development environment
+[env.development]
+vars = { STORAGE_TYPE = "in-memory", BUCKET_NAME = "email-archive" }
+
+# Development-specific route patterns for HTTP endpoints
+[[env.development.routes]]
+pattern = "*/__email"
+zone_name = ""
+
+[[env.development.routes]]
+pattern = "*/__health"
+zone_name = ""
+
+[[env.development.routes]]
+pattern = "*/__storage"
+zone_name = ""
+
+# Production environment
+[env.production]
+vars = { STORAGE_TYPE = "in-memory", BUCKET_NAME = "email-archive" }
+
+# Resource limits
+[limits]
+cpu_ms = 30000  # 30 seconds max execution time
+
+# Development-specific settings
+[env.development.limits]
+cpu_ms = 60000  # Allow longer execution time in development (60 seconds)

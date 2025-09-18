@@ -1,0 +1,1 @@
+import{createContext as e,useContext as t}from"react";const n=`PAGE_ROOT`,r=e({}),i=e({url:`/`,outlet:null,refresh:()=>{},prefetch:()=>{},navigate:()=>{},replace:()=>{},abort:()=>{}}),a=e({resourceKey:0,error:null});function o(){return t(r)}function s(){return t(i)}export{r as b,a as c,i as d,n as e,o as f,s as g};

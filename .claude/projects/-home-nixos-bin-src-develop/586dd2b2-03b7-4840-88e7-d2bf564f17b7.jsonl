@@ -1,0 +1,2 @@
+{"type":"summary","summary":"Code Refactoring: Reducing Duplication, Improving Modularity","leafUuid":"21f975e7-be98-4a3e-b1a2-54d8d2e238ba"}
+{"parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/home/nixos/bin/src/develop","sessionId":"586dd2b2-03b7-4840-88e7-d2bf564f17b7","version":"1.0.98","gitBranch":"dev","type":"user","message":{"role":"user","content":"think\n\ntmux操作一切不要\n現在worker example削除中\n動作するshファイルあるがそれぞれの意義が知りたい"},"uuid":"fff212bb-f947-4f2e-bdbb-70e37b7fc920","timestamp":"2025-09-05T21:01:56.085Z"}

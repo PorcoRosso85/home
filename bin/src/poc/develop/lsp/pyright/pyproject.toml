@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["test_pyright_lsp.py"]
+python_files = "test_*.py"
+
+[project]
+name = "pyright-lsp-tests"
+version = "0.1.0"
+dependencies = [
+    "pytest>=7.0.0",
+]

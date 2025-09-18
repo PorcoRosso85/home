@@ -1,0 +1,2 @@
+This is a test file in a directory without flake.nix
+Testing --continue behavior

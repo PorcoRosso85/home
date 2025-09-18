@@ -1,0 +1,67 @@
+{
+  "name": "@storage/s3-adapter",
+  "version": "1.0.0",
+  "description": "A TypeScript/Deno implementation providing a unified interface for S3-compatible storage services",
+  "type": "module",
+  "main": "./dist/mod.js",
+  "module": "./dist/mod.js",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/mod.js",
+      "types": "./dist/mod.d.ts"
+    },
+    "./providers": {
+      "import": "./dist/providers/mod.js",
+      "types": "./dist/providers/mod.d.ts"
+    },
+    "./domain": {
+      "import": "./dist/domain.js",
+      "types": "./dist/domain.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "deno task build",
+    "test": "deno task test",
+    "lint": "deno task lint",
+    "fmt": "deno task fmt",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/s3-adapter.git"
+  },
+  "keywords": [
+    "s3",
+    "storage",
+    "aws",
+    "cloudflare-r2",
+    "minio",
+    "object-storage",
+    "typescript",
+    "deno"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/s3-adapter/issues"
+  },
+  "homepage": "https://github.com/yourusername/s3-adapter#readme",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-s3": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,6 @@
+# Nix build result
+result
+result-*
+
+# Nix flake lock
+flake.lock

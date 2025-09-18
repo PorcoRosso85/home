@@ -1,0 +1,9 @@
+version_id,timestamp,description,change_reason
+v1.0.0,2024-01-01T00:00:00Z,Version v1.0.0 release,新規開発
+v1.1.0,2024-01-02T00:00:00Z,Version v1.1.0 release,マイナーアップデート: 新機能追加
+v1.2.0,2024-01-03T00:00:00Z,Version v1.2.0 release,マイナーアップデート: 新機能追加
+v1.2.1,2024-01-04T00:00:00Z,Version v1.2.1 release,パッチリリース: バグフィックス
+v0.1.0,2024-01-05T00:00:00Z,kuzu-browse project v0.1.0 - Initial version management system,初期開発: グラフデータベースブラウザアプリケーション
+v0.1.1,2024-01-06T00:00:00Z,v0.1.1 - アーキテクチャリファクタリング,レイヤー構造整理（Hooks名は維持）
+v1.3.0,2025-01-15T00:00:00Z,招待トレースシステムPoC追加,新機能追加のため
+v1.3.5,2025-01-15T12:00:00Z,FTS/VSSハイブリッド検索機能追加,要件の重複検出と類似性検索のため

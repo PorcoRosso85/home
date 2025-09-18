@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Character",
+  "description": "単一文字を表す型",
+  "$comment": "言語別取り扱い:
+    - Zig: 文字型は基本的にu8（ASCII）として扱う
+    - Lean 4: Char型としてUnicodeをサポート
+    - Rust: char型としてUnicodeをサポート
+    - TypeScript: 専用の文字型はなく、文字は1文字のstringとして扱う",
+  "oneOf": [
+    {
+      "title": "AsciiChar",
+      "type": "string",
+      "maxLength": 1,
+      "minLength": 1,
+      "pattern": "^[\\x00-\\x7F]$"
+    },
+    {
+      "title": "UnicodeChar",
+      "type": "string",
+      "maxLength": 1,
+      "minLength": 1
+    }
+  ]
+}

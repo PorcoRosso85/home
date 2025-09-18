@@ -1,0 +1,200 @@
+{
+  "README.md": {
+    "file": "server/README.D2lAqS7P.mjs",
+    "name": "README",
+    "src": "README.md",
+    "isDynamicEntry": true,
+    "imports": [
+      "_README.BAiLfqXO.mjs"
+    ]
+  },
+  "_2025-08-26_17-18-18_react-server.dev_guide.BnUxdT6s.mjs": {
+    "file": "server/2025-08-26_17-18-18_react-server.dev_guide.BnUxdT6s.mjs",
+    "name": "2025-08-26_17-18-18_react-server.dev_guide",
+    "imports": [
+      "_chunk.uMdRCVvS.mjs"
+    ]
+  },
+  "_2025-08-26_17-26-26_react-server.dev_deploy-adapters.Bjxoactn.mjs": {
+    "file": "server/2025-08-26_17-26-26_react-server.dev_deploy-adapters.Bjxoactn.mjs",
+    "name": "2025-08-26_17-26-26_react-server.dev_deploy-adapters",
+    "imports": [
+      "_chunk.uMdRCVvS.mjs"
+    ]
+  },
+  "_README.BAiLfqXO.mjs": {
+    "file": "server/README.BAiLfqXO.mjs",
+    "name": "README",
+    "imports": [
+      "_chunk.uMdRCVvS.mjs"
+    ]
+  },
+  "_Route.CyFkY9V4.mjs": {
+    "file": "server/Route.CyFkY9V4.mjs",
+    "name": "Route",
+    "imports": [
+      "_request.B5lbIw2_.mjs"
+    ]
+  },
+  "_chunk.uMdRCVvS.mjs": {
+    "file": "server/chunk.uMdRCVvS.mjs",
+    "name": "chunk"
+  },
+  "_page.CDYusKIF.mjs": {
+    "file": "server/page.CDYusKIF.mjs",
+    "name": "page",
+    "imports": [
+      "_chunk.uMdRCVvS.mjs"
+    ]
+  },
+  "_prerender.CZnphcz3.mjs": {
+    "file": "server/prerender.CZnphcz3.mjs",
+    "name": "prerender",
+    "imports": [
+      "_request.B5lbIw2_.mjs"
+    ]
+  },
+  "_request.B5lbIw2_.mjs": {
+    "file": "server/request.B5lbIw2_.mjs",
+    "name": "request"
+  },
+  "_sys.DlKioN1B.mjs": {
+    "file": "server/sys.DlKioN1B.mjs",
+    "name": "sys"
+  },
+  "app/layout.tsx": {
+    "file": "server/layout.DABBy_QI.mjs",
+    "name": "layout",
+    "src": "app/layout.tsx",
+    "isDynamicEntry": true
+  },
+  "app/page.tsx": {
+    "file": "server/page.CtJQenzA.mjs",
+    "name": "page",
+    "src": "app/page.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_page.CDYusKIF.mjs"
+    ]
+  },
+  "docs/2025-08-26_17-18-18_react-server.dev_guide.md": {
+    "file": "server/2025-08-26_17-18-18_react-server.dev_guide.ytAThUSx.mjs",
+    "name": "2025-08-26_17-18-18_react-server.dev_guide",
+    "src": "docs/2025-08-26_17-18-18_react-server.dev_guide.md",
+    "isDynamicEntry": true,
+    "imports": [
+      "_2025-08-26_17-18-18_react-server.dev_guide.BnUxdT6s.mjs"
+    ]
+  },
+  "docs/2025-08-26_17-26-26_react-server.dev_deploy-adapters.md": {
+    "file": "server/2025-08-26_17-26-26_react-server.dev_deploy-adapters.RHsDacjc.mjs",
+    "name": "2025-08-26_17-26-26_react-server.dev_deploy-adapters",
+    "src": "docs/2025-08-26_17-26-26_react-server.dev_deploy-adapters.md",
+    "isDynamicEntry": true,
+    "imports": [
+      "_2025-08-26_17-26-26_react-server.dev_deploy-adapters.Bjxoactn.mjs"
+    ]
+  },
+  "node_modules/.pnpm/@lazarv+react-server@0.0.0-experimental-5f1b575-20250825-f43bdd24_@types+node@24.3.0_ac_f8d99115df16820b39aa56a97a72dcbc/node_modules/@lazarv/react-server/lib/plugins/file-router/entrypoint.jsx": {
+    "file": "server/index.mjs",
+    "name": "server/index",
+    "src": "node_modules/.pnpm/@lazarv+react-server@0.0.0-experimental-5f1b575-20250825-f43bdd24_@types+node@24.3.0_ac_f8d99115df16820b39aa56a97a72dcbc/node_modules/@lazarv/react-server/lib/plugins/file-router/entrypoint.jsx",
+    "isEntry": true,
+    "imports": [
+      "_request.B5lbIw2_.mjs",
+      "_Route.CyFkY9V4.mjs"
+    ],
+    "dynamicImports": [
+      "virtual:__react_server_router_page__/app::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/app/page.tsx::.jsx",
+      "_page.CDYusKIF.mjs",
+      "app/layout.tsx",
+      "virtual:__react_server_router_page__/README::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/README.md::.jsx",
+      "_README.BAiLfqXO.mjs",
+      "virtual:__react_server_router_page__/docs/2025-08-26_17-18-18_react-server::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/docs/2025-08-26_17-18-18_react-server.dev_guide.md::.jsx",
+      "_2025-08-26_17-18-18_react-server.dev_guide.BnUxdT6s.mjs",
+      "virtual:__react_server_router_page__/docs/2025-08-26_17-26-26_react-server::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/docs/2025-08-26_17-26-26_react-server.dev_deploy-adapters.md::.jsx",
+      "_2025-08-26_17-26-26_react-server.dev_deploy-adapters.Bjxoactn.mjs"
+    ]
+  },
+  "node_modules/.pnpm/@lazarv+react-server@0.0.0-experimental-5f1b575-20250825-f43bdd24_@types+node@24.3.0_ac_f8d99115df16820b39aa56a97a72dcbc/node_modules/@lazarv/react-server/server/GlobalError.jsx": {
+    "file": "server/error.mjs",
+    "name": "server/error",
+    "src": "node_modules/.pnpm/@lazarv+react-server@0.0.0-experimental-5f1b575-20250825-f43bdd24_@types+node@24.3.0_ac_f8d99115df16820b39aa56a97a72dcbc/node_modules/@lazarv/react-server/server/GlobalError.jsx",
+    "isEntry": true,
+    "imports": [
+      "_request.B5lbIw2_.mjs",
+      "_sys.DlKioN1B.mjs",
+      "_chunk.uMdRCVvS.mjs"
+    ],
+    "css": [
+      "assets/error-Z5exjX_n.css"
+    ]
+  },
+  "node_modules/.pnpm/@lazarv+react-server@0.0.0-experimental-5f1b575-20250825-f43bdd24_@types+node@24.3.0_ac_f8d99115df16820b39aa56a97a72dcbc/node_modules/@lazarv/react-server/server/render-rsc.jsx": {
+    "file": "server/render.mjs",
+    "name": "server/render",
+    "src": "node_modules/.pnpm/@lazarv+react-server@0.0.0-experimental-5f1b575-20250825-f43bdd24_@types+node@24.3.0_ac_f8d99115df16820b39aa56a97a72dcbc/node_modules/@lazarv/react-server/server/render-rsc.jsx",
+    "isEntry": true,
+    "imports": [
+      "_request.B5lbIw2_.mjs",
+      "_sys.DlKioN1B.mjs"
+    ]
+  },
+  "virtual:__react_server_router_page__/README::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/README.md::.jsx": {
+    "file": "server/README.md__.TU6ZCray.mjs",
+    "name": "README.md__",
+    "src": "virtual:__react_server_router_page__/README::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/README.md::.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_README.BAiLfqXO.mjs",
+      "_request.B5lbIw2_.mjs",
+      "_Route.CyFkY9V4.mjs",
+      "_prerender.CZnphcz3.mjs"
+    ]
+  },
+  "virtual:__react_server_router_page__/app::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/app/page.tsx::.jsx": {
+    "file": "server/page.tsx__.jUtmsifT.mjs",
+    "name": "page.tsx__",
+    "src": "virtual:__react_server_router_page__/app::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/app/page.tsx::.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_page.CDYusKIF.mjs",
+      "_request.B5lbIw2_.mjs",
+      "_Route.CyFkY9V4.mjs",
+      "_prerender.CZnphcz3.mjs"
+    ],
+    "dynamicImports": [
+      "app/layout.tsx"
+    ]
+  },
+  "virtual:__react_server_router_page__/docs/2025-08-26_17-18-18_react-server::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/docs/2025-08-26_17-18-18_react-server.dev_guide.md::.jsx": {
+    "file": "server/2025-08-26_17-18-18_react-server.dev_guide.md__.RlDqVpef.mjs",
+    "name": "2025-08-26_17-18-18_react-server.dev_guide.md__",
+    "src": "virtual:__react_server_router_page__/docs/2025-08-26_17-18-18_react-server::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/docs/2025-08-26_17-18-18_react-server.dev_guide.md::.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_2025-08-26_17-18-18_react-server.dev_guide.BnUxdT6s.mjs",
+      "_request.B5lbIw2_.mjs",
+      "_Route.CyFkY9V4.mjs",
+      "_prerender.CZnphcz3.mjs"
+    ]
+  },
+  "virtual:__react_server_router_page__/docs/2025-08-26_17-26-26_react-server::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/docs/2025-08-26_17-26-26_react-server.dev_deploy-adapters.md::.jsx": {
+    "file": "server/2025-08-26_17-26-26_react-server.dev_deploy-adapters.md__.BVfSZXu7.mjs",
+    "name": "2025-08-26_17-26-26_react-server.dev_deploy-adapters.md__",
+    "src": "virtual:__react_server_router_page__/docs/2025-08-26_17-26-26_react-server::/home/nixos/bin/src/poc/vite_rsc/lazarv_node/docs/2025-08-26_17-26-26_react-server.dev_deploy-adapters.md::.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_2025-08-26_17-26-26_react-server.dev_deploy-adapters.Bjxoactn.mjs",
+      "_request.B5lbIw2_.mjs",
+      "_Route.CyFkY9V4.mjs",
+      "_prerender.CZnphcz3.mjs"
+    ]
+  },
+  "virtual:config/prebuilt": {
+    "file": "server/__react_server_config__/prebuilt.mjs",
+    "name": "server/__react_server_config__/prebuilt",
+    "src": "virtual:config/prebuilt",
+    "isEntry": true
+  }
+}

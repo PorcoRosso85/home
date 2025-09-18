@@ -1,0 +1,175 @@
+# Architecture Graph Database
+
+すべてのGraphDB関連機能（DDL/DML/DQL）を統合管理するアーキテクチャセンター
+
+## 目的
+
+- **統合管理**: DDL（スキーマ定義）、DML（データ操作）、DQL（データ照会）の一元化
+- **責務分離**: 各機能を明確に分離し、単一責務の原則を徹底
+- **再利用性**: 共通機能の集約により、コードの重複を排除
+
+## 最適化完了
+
+GraphDB関連機能の統合と最適化を完了しました。重複する`kuzu_py`依存関係を統一し、クリーンアーキテクチャ原則に基づく階層化を実現。DDL/DML/DQLの責務分離により、maintainabilityとtestabilityを向上させました。migration管理も自動化され、schema evolutionが安全になりました。
+
+## なぜ独自実装が必要か
+
+KuzuDBは優れたグラフデータベースですが、以下の理由で独自の抽象化層が必要です：
+
+- **Migration管理**: KuzuDBにはDjangoやAlembicのようなmigration管理機能がないため、`schema_manager.py`でバージョン管理を実装
+- **Batch処理最適化**: 大量データ処理では`kuzu_py`の標準APIでは非効率のため、`KuzuConnectionManager`でコネクションプール管理
+- **型安全性**: Cypherクエリの実行時エラーを防ぐため、`query_runner.py`でテンプレート検証と型チェック機能を実装
+- **トレーサビリティ**: 要件とImplementationの追跡可能性確保のため、独自のevent sourcing layerを構築
+
+これらの機能は標準的なORM（Neo4j等）では提供されない、KuzuDB特有の課題を解決します。
+
+## 正規化後の完全構造
+
+### ディレクトリ構造（移行後）
+
+```
+architecture/
+├── README.md                          # このファイル
+├── ddl/                              # スキーマ定義層
+│   ├── migrations/                   # マイグレーション管理
+│   └── schemas/                      # スキーマ定義
+├── dml/                              # データ操作層
+│   ├── requirement/                  # 要件データ入力（人間から）
+│   │   ├── application/              # ※requirement/graphから移行
+│   │   │   └── template_processor.py
+│   │   ├── domain/
+│   │   │   └── requirement_entity.py
+│   │   └── infrastructure/
+│   │       └── kuzu_repository.py
+│   └── implementation/               # 実装データ収集（ファイルから）
+│       ├── scanner.py                # ※docs/graph/flake_graphから移行
+│       └── infrastructure/
+│           └── kuzu_writer.py
+└── dql/                              # データ照会層（フラット構造）
+    ├── find_duplicates.cypher        # 重複検出
+    ├── check_circular_deps.cypher    # 循環依存検証
+    ├── search_requirements.cypher    # 要件検索
+    ├── search_implementations.cypher # 実装検索
+    ├── analyze_dependencies.cypher   # 依存関係分析
+    ├── project_stats.cypher          # プロジェクト統計
+    ├── export_graph.cypher           # グラフエクスポート
+    ├── validate_boundaries.cypher    # 境界検証
+    └── generate_reports.cypher       # レポート生成
+```
+
+### 移行前後の対応関係
+
+```
+【移行前】                           【移行後】
+requirement/graph/                → architecture/dml/requirement/
+  - DQL機能を除去                    - 純粋なDML機能のみ
+
+docs/graph/flake_graph/          → architecture/dml/implementation/
+  - DQL機能を除去                    - 純粋なDML機能のみ
+  - 名称変更で役割明確化
+
+両プロジェクトのDQL機能         → architecture/dql/*.cypher
+  - Pythonコードから抽出            - Cypherテンプレートとして再実装
+  - 階層構造を撤廃                  - フラット構造で管理
+```
+
+## 外部依存関係
+
+```nix
+inputs = {
+  # 基本依存
+  nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  flake-utils.url = "github:numtide/flake-utils";
+
+  # Python開発環境
+  python-flake.url = "path:../flakes/python";
+
+  # データベース層
+  kuzu-py.url = "path:../persistence/kuzu_py";  # KuzuDB Pythonバインディング
+
+  # ロギング層
+  log-py.url = "path:../telemetry/log_py";      # 構造化ロギング
+
+  # 検索層
+  vss-kuzu.url = "path:../search/vss_kuzu";     # ベクトル類似検索
+  fts-kuzu.url = "path:../search/fts_kuzu";     # 全文検索
+
+  # 分析層（オプション）
+  similarity.url = "path:../poc/similarity";     # AST分析・コード構造類似性
+};
+```
+
+### 依存関係の使用箇所
+
+- **kuzu-py**: すべてのDML/DQLで使用（DB接続・操作）
+- **log-py**: 全モジュールでロギングに使用
+- **vss-kuzu**: requirement検索、implementation類似性分析で使用
+- **fts-kuzu**: requirement検索で使用
+- **similarity**: implementationのAST分析で使用（将来統合予定）
+
+## 責務の明確化
+
+### DML（Data Manipulation Language）
+- **requirement/**: 人間からの要件データ入力
+  - JSON APIによるテンプレート入力
+  - 要件エンティティの管理
+- **implementation/**: ファイルシステムからの実装データ収集
+  - flake.nixスキャン
+  - README抽出
+  - 自動インデックス生成
+
+### DQL（Data Query Language）
+- すべてのクエリをCypherファイルとして管理
+- 複雑なロジックはquery_runner.pyで処理
+- 純粋な宣言的クエリのみを保持
+
+### DDL（Data Definition Language）
+- スキーマの一元管理
+- マイグレーション戦略の統一
+- kuzu-migrationツールでの管理
+
+## 使用方法
+
+### 基本的な操作
+
+```bash
+# 開発環境起動
+nix develop
+
+# スキーママイグレーション実行
+python -m architecture.db.connection migrate
+
+# DQLクエリ実行
+python infrastructure/query_runner.py --query=dql/analysis/analyze_dependencies_depth.cypher
+
+# 特定要件の検索
+python infrastructure/query_runner.py --template=search_requirements --params='{"req_id": "REQ_001"}'
+```
+
+### プログラマティック使用
+
+```python
+from architecture.db.connection import KuzuConnectionManager
+from architecture.query.executor import QueryExecutor
+
+# データベース接続
+manager = KuzuConnectionManager("data/kuzu.db")
+conn = manager.get_connection()
+
+# クエリ実行
+executor = QueryExecutor(conn)
+result = executor.execute_file("dql/validation/detect_circular_dependencies.cypher")
+```
+
+### マイグレーション管理
+
+```bash
+# マイグレーション状態確認
+python infrastructure/migration_tool.py status
+
+# 新しいマイグレーション適用
+python infrastructure/migration_tool.py migrate
+
+# ロールバック（必要時）
+python infrastructure/migration_tool.py rollback --version=v4.0.0
+```

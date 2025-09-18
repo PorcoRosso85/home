@@ -1,0 +1,15 @@
+{
+  "tasks": {
+    "test": "deno test --allow-all",
+    "test:red": "deno test --allow-all || echo 'Expected failures (TDD Red phase)'",
+    "test:readonly": "deno test --allow-all --filter='readonly'",
+    "test:production": "deno test --allow-all --filter='production'",
+    "test:dev": "deno test --allow-all --filter='development'"
+  },
+  "test": {
+    "include": ["src/**/*.test.ts"]
+  },
+  "fmt": {
+    "include": ["src/**/*.ts", "*.md", "*.json"]
+  }
+}

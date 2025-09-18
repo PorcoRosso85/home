@@ -1,0 +1,2 @@
+# Parse Then Contextual POC Requirements
+# 基本的な型チェックのみ（実際のCCG/LLM統合は別途必要）

@@ -1,0 +1,6 @@
+{
+  "tasks": {
+    "test": "deno test --no-check test_local_sync.ts",
+    "test:watch": "deno test --no-check --watch test_local_sync.ts"
+  }
+}

@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# launch-claude: Standalone script to launch Claude Code with directory and --continue support
+#
+# Usage:
+#   launch-claude <directory>              # Launch Claude in specified directory
+#   launch-claude <directory> --continue   # Resume previous conversation if available
+#   launch-claude --help                   # Show this help message
+#
+# The script will:
+# - Set NIXPKGS_ALLOW_UNFREE=1 environment variable
+# - Change to the specified directory
+# - Handle --continue option with fallback to new session
+# - Launch claude-code with appropriate flags
+
+set -euo pipefail
+
+# Script name for error messages
+SCRIPT_NAME="$(basename "$0")"
+
+# Show usage
+show_usage() {
+  cat << EOF
+Usage: $SCRIPT_NAME <directory> [--continue]
+
+Launch Claude Code in the specified directory.
+
+Arguments:
+  <directory>     The directory to launch Claude in (required)
+  --continue      Resume previous conversation if available (optional)
+  --help          Show this help message
+
+Examples:
+  $SCRIPT_NAME ~/my-project
+  $SCRIPT_NAME ~/my-project --continue
+  $SCRIPT_NAME .
+
+Environment:
+  Sets NIXPKGS_ALLOW_UNFREE=1 automatically for Claude Code
+EOF
+}
+
+# Error handling
+error() {
+  echo "Error: $1" >&2
+  exit 1
+}
+
+# Parse command line arguments
+if [[ $# -eq 0 ]] || [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+  show_usage
+  exit 0
+fi
+
+# Get directory argument
+TARGET_DIR="$1"
+shift
+
+# Check if directory argument is provided
+if [[ -z "$TARGET_DIR" ]]; then
+  error "Directory argument is required"
+fi
+
+# Resolve to absolute path
+TARGET_DIR="$(cd "$TARGET_DIR" 2>/dev/null && pwd)" || error "Directory '$TARGET_DIR' does not exist or is not accessible"
+
+# Check for --continue flag
+CONTINUE_FLAG=""
+if [[ $# -gt 0 ]] && [[ "$1" == "--continue" ]]; then
+  CONTINUE_FLAG="--continue"
+fi
+
+# Display launch information
+echo "Launching Claude Code..."
+echo "Directory: $TARGET_DIR"
+if [[ -n "$CONTINUE_FLAG" ]]; then
+  echo "Mode: Resume previous conversation"
+else
+  echo "Mode: New session"
+fi
+
+# Change to target directory
+cd "$TARGET_DIR"
+
+# MCP servers are configured at user scope - no need for project-specific .mcp.json
+# User-scoped servers are available across all projects
+
+# Function to launch Claude
+launch_claude() {
+  local flags="$1"
+  
+  # Check if claude-code is available in PATH
+  if command -v claude-code >/dev/null 2>&1; then
+    # Use claude-code from PATH
+    # shellcheck disable=SC2086
+    env NIXPKGS_ALLOW_UNFREE=1 claude-code $flags --dangerously-skip-permissions
+  else
+    # Use nix run as fallback
+    # shellcheck disable=SC2086
+    env NIXPKGS_ALLOW_UNFREE=1 nix run github:NixOS/nixpkgs/nixos-unstable#claude-code --impure -- $flags --dangerously-skip-permissions
+  fi
+}
+
+# Launch Claude with appropriate flags
+if [[ -n "$CONTINUE_FLAG" ]]; then
+  # Try to resume conversation
+  if launch_claude "--continue" 2>/dev/null; then
+    echo "Successfully resumed previous conversation"
+  else
+    echo "No conversation history found. Starting new session..."
+    launch_claude ""
+  fi
+else
+  # Start new session
+  launch_claude ""
+fi

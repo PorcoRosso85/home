@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# Definer/Designer/Developer Architecture Command Examples
+# For use by Definer (要件定義者) role
+
+# === アーキテクチャ概要 ===
+# Definer (要件定義) → Designer (技術設計) → Developer (実装)
+# - Definer: REQUIREMENTS.md作成、全体管理
+# - Designer: SPECIFICATION.md作成
+# - Developer: コード実装
+
+# === Designer管理 (pane分割で管理) ===
+
+# 1. Designer起動 (現在のwindowにpane追加)
+nix develop -c python3 -c "
+from application import start_designer
+# Designer Xをpaneで起動
+result = start_designer('x')
+if result['ok']:
+    print(f'Started Designer X in pane {result[\"data\"][\"pane_id\"]}')
+else:
+    print(f'Error: {result[\"error\"][\"message\"]}')
+"
+
+# 2. 複数Designer起動
+nix develop -c python3 -c "
+from application import start_designer
+for designer_id in ['x', 'y', 'z']:
+    result = start_designer(designer_id)
+    if result['ok']:
+        print(f'Started Designer {designer_id}')
+    else:
+        print(f'Failed: {result[\"error\"][\"message\"]}')
+"
+
+# 3. Designerへ指示送信
+nix develop -c python3 -c "
+from application import send_command_to_designer
+result = send_command_to_designer('x', '''[SPECIFICATION] /home/nixos/bin/src/poc/email/SPECIFICATION.md作成
+- 参照: REQUIREMENTS.md
+- 技術設計書作成（コード禁止）
+- API仕様、データモデル含む''')
+if result['ok']:
+    print('Instruction sent to Designer X')
+"
+
+# 4. Designer状態確認
+nix develop -c python3 -c "
+from application import get_all_workers_status
+result = get_all_workers_status()
+if result['ok']:
+    print('Active Designers:')
+    for w in result['data']['workers']:
+        if 'designers' in w['directory']:
+            print(f'  {w[\"directory\"]}: {w[\"status\"]}')
+"
+
+# === 標準的な作業フロー ===
+
+# Step 1: POC動作確認の例
+PROJECT="/home/nixos/bin/src/poc/email"
+
+# Designer起動とVERIFICATION_PLAN作成指示
+nix develop -c python3 -c "
+from application import start_designer, send_command_to_designer
+import time
+
+# Designer X起動
+start_result = start_designer('x')
+if start_result['ok']:
+    print('Designer X started')
+    time.sleep(1)
+    
+    # 動作確認計画作成を指示
+    send_result = send_command_to_designer('x', '''[SPECIFICATION] ${PROJECT}/VERIFICATION_PLAN.md作成
+- 目的: POC動作確認手順書
+- 内容: テスト実行手順、依存関係確認
+- 形式: チェックリスト形式''')
+    
+    if send_result['ok']:
+        print('Verification plan creation requested')
+"
+
+# Step 2: Designerへ実装実行を依頼
+nix develop -c python3 -c "
+from application import send_command_to_designer
+
+# DesignerにDeveloper起動を依頼（Task Tool経由）
+result = send_command_to_designer('x', '''[IMPLEMENTATION] POC動作確認実行
+作業: Task Toolで${PROJECT}にDeveloper起動
+指示内容:
+1. VERIFICATION_PLAN.mdに従って動作確認実行
+2. npm install
+3. npm test実行
+4. 動作確認済みで結果報告
+''')
+print('Designer X に実装実行を依頼しました')
+"
+
+# === ステータス管理 ===
+
+# Designer作業記録確認
+cat designers/x/status.md
+cat designers/y/status.md
+cat designers/z/status.md
+
+# === トラブルシューティング ===
+
+# 誤って新windowで起動したworkerをクリーンアップ
+nix develop -c python3 -c "
+from application import get_all_workers_status, clean_dead_workers_from_state
+
+status = get_all_workers_status()
+if status['ok']:
+    for w in status['data']['workers']:
+        if w['status'] == 'dead':
+            print(f'Cleaning dead worker: {w[\"directory\"]}')
+    
+    result = clean_dead_workers_from_state()
+    if result['ok']:
+        print(f'Cleaned {result[\"data\"][\"removed\"]} dead workers')
+"
+
+# === 役割別テンプレート ===
+
+# [REQUIREMENTS] テンプレート (Definer作成)
+echo "# 要件定義書テンプレート
+## 目的 (What)
+- [ビジネス要求]
+
+## 背景 (Why)
+- [なぜ必要か]
+
+## 期待成果
+- [具体的な成果物]
+" > REQUIREMENTS_TEMPLATE.md
+
+# [SPECIFICATION] 指示テンプレート (Designer宛)
+echo "[SPECIFICATION] プロジェクト/SPECIFICATION.md作成
+- 参照: REQUIREMENTS.md
+- 技術設計書作成
+- 含む内容:
+  - アーキテクチャ設計
+  - API仕様
+  - データモデル
+  - 実装ガイド"
+
+# [IMPLEMENTATION] 指示テンプレート (Designer経由でDeveloper宛)
+echo "[IMPLEMENTATION] プロジェクト/実装依頼
+- Designer経由でTask ToolでDeveloper起動
+- 作業ディレクトリ: [PROJECT_PATH]
+- 参照: SPECIFICATION.md  
+- コード実装・テスト作成・動作確認
+- 動作確認済み報告"
+
+# === よく使う組み合わせ ===
+
+# 完全なプロジェクト立ち上げ
+poc_startup() {
+    local project="$1"
+    echo "Starting POC: $project"
+    
+    # 1. Definerが要件定義
+    echo "Creating REQUIREMENTS.md..."
+    
+    # 2. Designer起動と設計依頼
+    nix develop -c python3 -c "
+from application import start_designer, send_command_to_designer
+start_designer('x')
+send_command_to_designer('x', '[SPECIFICATION] $project/SPECIFICATION.md作成')
+"
+    
+    # 3. Developer実装（Task経由）
+    echo "Developer will implement based on SPECIFICATION.md"
+}
+
+# === 注意事項 ===
+# - start_worker_in_directory()は使用しない（新window作成されるため）
+# - 必ずstart_designer()でpane管理する
+# - Designer/Developerへの指示は明確なテンプレート使用
+# - 役割を超えた作業は行わない（DefinerはREQUIREMENTS.mdのみ）
+
+# === 関連ファイル ===
+# - cli-worker.sh.example: 汎用worker管理（旧cli.sh.example）
+# - CLAUDE.md: Definer役割定義
+# - designers/CLAUDE.md: Designer役割定義
+# - application.py: API実装

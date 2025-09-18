@@ -1,0 +1,24 @@
+{
+  "tasks": {
+    "start": "deno run --allow-net --allow-env --allow-read server.ts",
+    "test": "deno test --allow-net scale-100.test.ts",
+    "load-test": "deno run --allow-net load-test-100.ts",
+    "dev": "deno run --watch --allow-net --allow-env --allow-read server.ts"
+  },
+  "imports": {
+    "@std/assert": "https://deno.land/std@0.208.0/assert/mod.ts",
+    "@std/http": "https://deno.land/std@0.208.0/http/mod.ts",
+    "@std/async": "https://deno.land/std@0.208.0/async/mod.ts"
+  },
+  "fmt": {
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "singleQuote": false,
+    "useTabs": false
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+}

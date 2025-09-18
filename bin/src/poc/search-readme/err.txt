@@ -1,0 +1,25 @@
+warning: Git tree '/home/nixos' is dirty
+warning: updating lock file '"/home/nixos/bin/src/poc/search-readme/flake.lock"':
+• Added input 'ck-local':
+    'path:../../flakes/ck'
+• Added input 'ck-local/flake-parts':
+    'github:hercules-ci/flake-parts/4524271976b625a4a605beefd893f270620fd751?narHash=sha256-%2BuWLQZccFHwqpGqr2Yt5VsW/PbeJVTn9Dk6SHWhNRPw%3D' (2025-09-01)
+• Added input 'ck-local/flake-parts/nixpkgs-lib':
+    'github:nix-community/nixpkgs.lib/a73b9c743612e4244d865a2fdee11865283c04e6?narHash=sha256-x2rJ%2BOvzq0sCMpgfgGaaqgBSwY%2BLST%2BWbZ6TytnT9Rk%3D' (2025-08-10)
+• Added input 'ck-local/nixpkgs':
+    follows 'nixpkgs'
+• Added input 'ck-local/rust-overlay':
+    'github:oxalica/rust-overlay/09442765a05c2ca617c20ed68d9613da92a2d96b?narHash=sha256-Z9u5VszKs8rfEvg2AsFucWEjl7wMtAln9l1b78cfBh4%3D' (2025-09-15)
+• Added input 'ck-local/rust-overlay/nixpkgs':
+    follows 'ck-local/nixpkgs'
+• Added input 'flake-parts':
+    'github:hercules-ci/flake-parts/4524271976b625a4a605beefd893f270620fd751?narHash=sha256-%2BuWLQZccFHwqpGqr2Yt5VsW/PbeJVTn9Dk6SHWhNRPw%3D' (2025-09-01)
+• Added input 'flake-parts/nixpkgs-lib':
+    'github:nix-community/nixpkgs.lib/a73b9c743612e4244d865a2fdee11865283c04e6?narHash=sha256-x2rJ%2BOvzq0sCMpgfgGaaqgBSwY%2BLST%2BWbZ6TytnT9Rk%3D' (2025-08-10)
+• Added input 'flake-readme':
+    'path:../flake-readme'
+• Added input 'flake-readme/nixpkgs':
+    follows 'nixpkgs'
+• Added input 'nixpkgs':
+    'github:NixOS/nixpkgs/c23193b943c6c689d70ee98ce3128239ed9e32d1?narHash=sha256-hLEO2TPj55KcUFUU1vgtHE9UEIOjRcH/4QbmfHNF820%3D' (2025-09-13)
+warning: Git tree '/home/nixos' is dirty

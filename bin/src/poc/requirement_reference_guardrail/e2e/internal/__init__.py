@@ -1,0 +1,1 @@
+"""Internal end-to-end tests for requirement reference guardrail."""

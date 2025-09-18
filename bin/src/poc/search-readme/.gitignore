@@ -1,0 +1,67 @@
+# Nix-related exclusions
+
+# Nix build results
+result
+result-*
+
+# Nix store symlinks
+/nix/store
+
+# Flake lock file (optional - include if you want to pin dependencies)
+# flake.lock
+
+# Nix development shell artifacts
+.direnv/
+.envrc
+
+# Nix profile links
+profile
+profiles/
+
+# Temporary Nix files
+*.nix.tmp
+*.nix.bak
+
+# Nix cache and temporary directories
+.nix-*
+nix-build-*
+/tmp/nix-*
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary directories
+/tmp/
+/temp/
+
+# Test outputs
+test-results/
+coverage/
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Package manager artifacts
+node_modules/
+.npm
+.yarn
+target/
+Cargo.lock

@@ -1,0 +1,41 @@
+[0;32m=== ENV Encryption Test Suite ===[0m
+
+[1;33mTest directory: /tmp/test_env_encryption.vvPP1o[0m
+[0;32m✓ Test environment initialized[0m
+[1;33m=== Test 1: Setup Test ===[0m
+[0;32m✓ setup.sh execution[0m
+[0;32m✓ Age key generation[0m
+[0;32m✓ .sops.yaml creation[0m
+[0;32m✓ source-env.sh helper script creation[0m
+[0;32m✓ encrypt-env.sh helper script creation[0m
+[0;32m✓ env.sh.example creation[0m
+[0;32m✓ setup.sh idempotency[0m
+[0;32m✓ source-env.sh executable permissions - permissions: 755[0m
+[0;32m✓ encrypt-env.sh executable permissions - permissions: 755[0m
+
+[1;33m=== Test 2: Encryption Test ===[0m
+[0;32m✓ encrypt-env.sh execution[0m
+[0;32m✓ env.sh.enc generation[0m
+[0;32m✓ Decryption verification - content matches original[0m
+[0;32m✓ encrypt-env.sh with missing env.sh[0m
+
+[1;33m=== Test 3: Decryption and Sourcing Test ===[0m
+[0;32m✓ source-env.sh execution[0m
+[0;32m✓ Environment variables loaded from encrypted file[0m
+[0;32m✓ source-env.sh fallback to plain env.sh[0m
+[0;32m✓ Warning shown for unencrypted fallback[0m
+[0;32m✓ source-env.sh with no env files[0m
+
+[1;33m=== Test 4: Security Test ===[0m
+[0;31m✗ Temp file permissions not secure[0m
+[0;31m✗ Eval usage detected (security risk)[0m
+[0;32m✓ Secure deletion with shred[0m
+[0;32m✓ Cleanup trap properly configured[0m
+
+[1;33m=== Test 5: Error Handling Test ===[0m
+[0;32m✓ encrypt-env.sh without .sops.yaml[0m
+[0;32m✓ Proper error message for missing .sops.yaml[0m
+[0;32m✓ encrypt-env.sh without age key[0m
+[0;32m✓ source-env.sh with corrupted file[0m
+
+[1;33m=== Test 6: Team Sharing Test ===[0m

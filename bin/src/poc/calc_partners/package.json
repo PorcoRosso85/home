@@ -1,0 +1,30 @@
+{
+  "name": "kuzu-vite-react-minimal",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --experimental-strip-types --test queries/dql/*.test.ts",
+    "test:watch": "node --experimental-strip-types --test --watch queries/dql/*.test.ts",
+    "test:browser": "echo 'ブラウザで確認: http://localhost:5173 (F12でコンソール確認)'",
+    "test:e2e": "node test-playwright-simple.mjs",
+    "test:vitest": "vitest",
+    "test:vitest:run": "vitest run"
+  },
+  "dependencies": {
+    "kuzu-wasm": "^0.11.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.11.6",
+    "@types/react": "^19.1.10",
+    "@vitejs/plugin-react": "^4.3.4",
+    "happy-dom": "^15.11.7",
+    "playwright-core": "^1.49.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.6",
+    "vitest": "^2.1.8"
+  }
+}

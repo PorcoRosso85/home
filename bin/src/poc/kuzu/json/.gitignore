@@ -1,0 +1,3 @@
+.direnv/
+*.db
+__pycache__/

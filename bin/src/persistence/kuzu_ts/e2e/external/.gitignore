@@ -1,0 +1,8 @@
+# Deno
+.deno/
+deno.lock
+node_modules/
+
+# Nix
+result
+result-*

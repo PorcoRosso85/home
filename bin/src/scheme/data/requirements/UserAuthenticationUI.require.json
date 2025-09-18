@@ -1,0 +1,111 @@
+{
+  "$schema": "./data/meta/Requirement.meta.json",
+  "$metaSchema": "Requirement",
+  "id": "UserAuthenticationUI",
+  "title": "ユーザー認証UI層機能",
+  "description": "ユーザー認証機能のUI層コンポーネント",
+  "type": "requirement",
+  "implementationType": "function",
+  "outputPath": {
+    "default": "/src/ui/authentication/UserAuthenticationUI.ts"
+  },
+  "implementation": {
+    "function": {
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "ユーザー名"
+          },
+          "password": {
+            "type": "string",
+            "description": "パスワード"
+          },
+          "options": {
+            "type": "object",
+            "description": "UI認証オプション",
+            "properties": {
+              "rememberMe": {
+                "type": "boolean",
+                "description": "ログイン状態を維持するかどうか"
+              },
+              "redirectUrl": {
+                "type": "string",
+                "description": "ログイン成功後のリダイレクト先URL"
+              }
+            }
+          }
+        },
+        "required": ["username", "password"]
+      },
+      "returnType": {
+        "type": "object",
+        "description": "UI認証結果",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "UI操作が成功したかどうか"
+          },
+          "view": {
+            "type": "string",
+            "description": "表示すべきビュー名",
+            "enum": ["login", "dashboard", "error"]
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "UI表示用エラーメッセージ"
+          }
+        },
+        "required": ["success", "view"]
+      },
+      "async": true,
+      "exceptions": [
+        {
+          "name": "UIRenderError",
+          "description": "UI描画時にエラーが発生した場合"
+        },
+        {
+          "name": "NetworkError",
+          "description": "ネットワーク接続エラーが発生した場合"
+        }
+      ],
+      "sideEffects": true,
+      "examples": [
+        {
+          "description": "ログイン成功時のフロー",
+          "input": {
+            "username": "test_user",
+            "password": "password123",
+            "options": {
+              "rememberMe": true,
+              "redirectUrl": "/dashboard"
+            }
+          },
+          "output": {
+            "success": true,
+            "view": "dashboard"
+          }
+        },
+        {
+          "description": "ログイン失敗時のフロー",
+          "input": {
+            "username": "unknown_user",
+            "password": "wrong_password"
+          },
+          "output": {
+            "success": false,
+            "view": "login",
+            "errorMessage": "無効なユーザー名またはパスワードです"
+          }
+        }
+      ]
+    }
+  },
+  "dependencies": ["UserAuthenticationUsecase"],
+  "status": "draft",
+  "tags": ["auth", "security", "user", "ui"],
+  "priority": "high",
+  "createdAt": "2025-03-23T05:00:00.000Z",
+  "updatedAt": "2025-03-23T05:00:00.000Z"
+}

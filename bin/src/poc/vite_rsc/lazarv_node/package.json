@@ -1,0 +1,16 @@
+{
+  "name": "@lazarv-react-server-node22",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@lazarv/react-server": "latest"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "scripts": {
+    "dev": "react-server",
+    "build": "react-server build",
+    "deploy": "wrangler deploy"
+  }
+}

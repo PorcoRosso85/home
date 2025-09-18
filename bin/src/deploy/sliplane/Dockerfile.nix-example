@@ -1,0 +1,24 @@
+# Nix環境でビルドするDockerfile例
+# flake.nixの設定をDockerfile内で実行
+
+FROM nixos/nix:latest AS builder
+
+# flake.nixとflake.lockをコピー
+WORKDIR /app
+COPY flake.nix flake.lock ./
+
+# Nixの実験的機能を有効化
+RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
+
+# flakeからアプリケーションをビルド
+RUN nix build .#dockerImage --no-link --print-out-paths > /tmp/image-path
+
+# ビルドしたイメージを展開
+FROM scratch
+COPY --from=builder /nix/store /nix/store
+# または、より軽量な実行環境を使用
+# FROM alpine:latest
+# COPY --from=builder /result /app
+
+# エントリーポイント設定
+ENTRYPOINT ["/app/bin/your-app"]

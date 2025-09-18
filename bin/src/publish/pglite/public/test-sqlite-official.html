@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Official SQLite WASM Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .log {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            border: 1px solid #ddd;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Official SQLite WASM Test (ローカル確認用)</h1>
+    
+    <div id="status" class="status info">Initializing...</div>
+    
+    <div>
+        <button onclick="testBasicSQLite()">Test Basic SQLite</button>
+        <button onclick="testMemoryDB()">Test Memory DB</button>
+        <button onclick="testR2Database()">Test R2 Database Load</button>
+    </div>
+    
+    <div id="log" class="log"></div>
+
+    <script>
+        let sqlite3 = null;
+        const log = (msg) => {
+            const logEl = document.getElementById('log');
+            logEl.textContent += msg + '\n';
+            console.log(msg);
+        };
+
+        const setStatus = (msg, type = 'info') => {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = msg;
+        };
+
+        // Step 1: Load SQLite WASM
+        async function initSQLite() {
+            try {
+                log('Loading sqlite3.js...');
+                
+                // Load the SQLite3 JavaScript module
+                const script = document.createElement('script');
+                script.src = '/wasm/sqlite3.js';
+                
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.body.appendChild(script);
+                });
+                
+                log('sqlite3.js loaded, waiting for initialization...');
+                
+                // Wait for sqlite3 to be available
+                while (!window.sqlite3) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                log('sqlite3 object available!');
+                sqlite3 = window.sqlite3;
+                
+                // Initialize SQLite
+                log('Initializing SQLite WASM...');
+                const sqlite3Module = await sqlite3.init({
+                    print: log,
+                    printErr: (msg) => log('ERROR: ' + msg)
+                });
+                
+                log('SQLite WASM initialized successfully!');
+                log('Version: ' + sqlite3Module.version.libVersion);
+                
+                setStatus('SQLite WASM Ready! Version: ' + sqlite3Module.version.libVersion, 'success');
+                
+                window.sqlite3Module = sqlite3Module;
+                return sqlite3Module;
+                
+            } catch (error) {
+                setStatus('Failed to initialize: ' + error.message, 'error');
+                log('Error: ' + error);
+                throw error;
+            }
+        }
+
+        // Step 2: Test basic SQLite functionality
+        async function testBasicSQLite() {
+            try {
+                if (!window.sqlite3Module) {
+                    await initSQLite();
+                }
+                
+                log('\n=== Testing Basic SQLite ===');
+                const sqlite3Module = window.sqlite3Module;
+                
+                // Check available APIs
+                log('Available APIs:');
+                log('- oo1 (Object Oriented API v1): ' + !!sqlite3Module.oo1);
+                log('- capi (C-style API): ' + !!sqlite3Module.capi);
+                log('- wasm: ' + !!sqlite3Module.wasm);
+                
+                setStatus('Basic SQLite test passed!', 'success');
+                
+            } catch (error) {
+                setStatus('Basic test failed: ' + error.message, 'error');
+                log('Error: ' + error);
+            }
+        }
+
+        // Step 3: Test memory database
+        async function testMemoryDB() {
+            try {
+                if (!window.sqlite3Module) {
+                    await initSQLite();
+                }
+                
+                log('\n=== Testing Memory Database ===');
+                const sqlite3Module = window.sqlite3Module;
+                
+                // Create a new database
+                const db = new sqlite3Module.oo1.DB();
+                log('Created new memory database');
+                
+                // Create table
+                db.exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)");
+                log('Created table: test');
+                
+                // Insert data
+                db.exec("INSERT INTO test (name) VALUES ('Alice'), ('Bob'), ('Charlie')");
+                log('Inserted test data');
+                
+                // Query data
+                const results = db.exec({
+                    sql: "SELECT * FROM test",
+                    returnValue: "resultRows",
+                    rowMode: "object"
+                });
+                
+                log('Query results:');
+                results.forEach(row => {
+                    log(`  id: ${row.id}, name: ${row.name}`);
+                });
+                
+                // Clean up
+                db.close();
+                log('Database closed');
+                
+                setStatus('Memory database test passed!', 'success');
+                
+            } catch (error) {
+                setStatus('Memory DB test failed: ' + error.message, 'error');
+                log('Error: ' + error);
+            }
+        }
+
+        // Step 4: Test loading database from R2
+        async function testR2Database() {
+            try {
+                if (!window.sqlite3Module) {
+                    await initSQLite();
+                }
+                
+                log('\n=== Testing R2 Database Load ===');
+                const sqlite3Module = window.sqlite3Module;
+                
+                // Fetch database from R2
+                log('Fetching test.db from R2...');
+                const response = await fetch('/api/sqlite/db/test.db');
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch: ${response.status}`);
+                }
+                
+                const buffer = await response.arrayBuffer();
+                log(`Database fetched: ${buffer.byteLength} bytes`);
+                
+                // Load database using sqlite3_deserialize
+                const p = sqlite3Module.wasm.allocFromTypedArray(buffer);
+                const db = new sqlite3Module.oo1.DB();
+                
+                const rc = sqlite3Module.capi.sqlite3_deserialize(
+                    db.pointer, 'main', p, buffer.byteLength, buffer.byteLength,
+                    sqlite3Module.capi.SQLITE_DESERIALIZE_FREEONCLOSE
+                );
+                
+                if (rc !== sqlite3Module.capi.SQLITE_OK) {
+                    throw new Error(`Failed to deserialize: ${rc}`);
+                }
+                
+                log('Database loaded successfully!');
+                
+                // Query tables
+                const tables = db.exec({
+                    sql: "SELECT name FROM sqlite_master WHERE type='table'",
+                    returnValue: "resultRows",
+                    rowMode: "object"
+                });
+                
+                log('Tables in database:');
+                tables.forEach(table => {
+                    log(`  - ${table.name}`);
+                });
+                
+                // Query sample data
+                if (tables.some(t => t.name === 'users')) {
+                    const users = db.exec({
+                        sql: "SELECT * FROM users LIMIT 3",
+                        returnValue: "resultRows",
+                        rowMode: "object"
+                    });
+                    
+                    log('\nSample users:');
+                    users.forEach(user => {
+                        log(`  - ${user.name} (${user.email})`);
+                    });
+                }
+                
+                db.close();
+                setStatus('R2 database test passed!', 'success');
+                
+            } catch (error) {
+                setStatus('R2 DB test failed: ' + error.message, 'error');
+                log('Error: ' + error);
+            }
+        }
+
+        // Auto-initialize on load
+        window.addEventListener('load', () => {
+            initSQLite().catch(console.error);
+        });
+    </script>
+</body>
+</html>

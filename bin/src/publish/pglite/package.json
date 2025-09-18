@@ -1,0 +1,30 @@
+{
+  "name": "pglite-inmemory-stg",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.7",
+    "hono": "4.9.4",
+    "react": "19.1.1",
+    "react-aria-components": "^1.12.0",
+    "react-dom": "19.1.1",
+    "react-server-dom-webpack": "19.1.1",
+    "uplot": "^1.6.32",
+    "waku": "0.26.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "@types/react": "19.1.10",
+    "@types/react-dom": "19.1.7",
+    "typescript": "5.9.2",
+    "vite": "7.1.3"
+  }
+}

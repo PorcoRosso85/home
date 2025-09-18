@@ -1,0 +1,53 @@
+{ config, lib, pkgs, ... }:
+
+with lib;
+
+let
+  cfg = config.services.sops-app;
+in
+{
+  options.services.sops-app = {
+    enable = mkEnableOption "Self-contained sops application";
+  };
+
+  config = mkIf cfg.enable {
+    # アプリケーション専用の機密情報定義
+    sops.secrets."api-key" = {
+      sopsFile = ./secrets/app.yaml;
+      owner = "sops-app";
+      group = "sops-app";
+    };
+
+    sops.secrets."db-password" = {
+      sopsFile = ./secrets/app.yaml;
+      owner = "sops-app";
+      group = "sops-app";
+    };
+
+    # アプリ専用ユーザー
+    users.users.sops-app = {
+      isSystemUser = true;
+      group = "sops-app";
+    };
+    users.groups.sops-app = {};
+
+    # systemdサービス
+    systemd.services.sops-app = {
+      description = "Application with sops-managed secrets";
+      after = [ "network.target" ];
+      wantedBy = [ "multi-user.target" ];
+
+      serviceConfig = {
+        Type = "simple";
+        User = "sops-app";
+        Group = "sops-app";
+        EnvironmentFile = [
+          config.sops.secrets."api-key".path
+          config.sops.secrets."db-password".path
+        ];
+        ExecStart = "${pkgs.bash}/bin/bash -c 'echo App running with secrets; sleep infinity'";
+        Restart = "always";
+      };
+    };
+  };
+}

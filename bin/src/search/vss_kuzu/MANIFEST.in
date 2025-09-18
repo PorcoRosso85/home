@@ -1,0 +1,4 @@
+include py.typed
+recursive-include vss_kuzu *.py
+recursive-include vss_kuzu/infrastructure *.py
+recursive-include vss_kuzu/infrastructure/variables *.py

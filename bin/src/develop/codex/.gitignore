@@ -1,0 +1,8 @@
+# Local env (contains secrets)
+env.sh
+
+# Nix build outputs
+result
+
+# Node cache
+node_modules

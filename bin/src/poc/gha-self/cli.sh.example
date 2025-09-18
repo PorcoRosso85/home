@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+# GitHub Actions Self-hosted Runner Complete Guide
+# This file provides all commands and examples for managing GitHub Actions self-hosted runners
+# DO NOT EXECUTE THIS FILE - It's for reference only
+
+#==============================================================================
+# 1. SETUP - Prepare environment and authentication
+#==============================================================================
+
+setup_environment() {
+    # Enter the Nix development environment with all required tools
+    nix develop
+    
+    # Authenticate with GitHub (choose one method)
+    gh auth login                           # Interactive login
+    gh auth login --with-token < token.txt  # Token from file
+    export GITHUB_TOKEN="ghp_xxxx"          # Environment variable
+    
+    # Verify authentication
+    gh auth status
+    gh repo view --json nameWithOwner
+}
+
+#==============================================================================
+# 2. RUNNER REGISTRATION - Register runner with GitHub
+#==============================================================================
+
+# Get registration token from GitHub API
+get_registration_token() {
+    # This token is valid for 1 hour and can only be used once
+    TOKEN=$(gh api \
+        --method POST \
+        -H "Accept: application/vnd.github+json" \
+        /repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions/runners/registration-token \
+        -q .token)
+    echo $TOKEN
+}
+
+# Configure runner with registration token
+register_runner() {
+    # Get the token first
+    TOKEN=$(get_registration_token)
+    
+    # Configure the runner
+    # Options:
+    #   --url: Repository or organization URL
+    #   --token: Registration token from GitHub
+    #   --name: Unique name for this runner
+    #   --labels: Comma-separated labels for workflow targeting
+    #   --work: Directory for job execution
+    #   --unattended: Non-interactive mode
+    #   --replace: Replace existing runner with same name
+    config.sh \
+        --url "https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
+        --token "$TOKEN" \
+        --name "nix-runner-$(hostname)" \
+        --labels "self-hosted,nix,flake-gha-self" \
+        --work "_work" \
+        --unattended \
+        --replace
+}
+
+# Remove runner registration
+unregister_runner() {
+    # Get removal token
+    REMOVE_TOKEN=$(gh api \
+        --method POST \
+        -H "Accept: application/vnd.github+json" \
+        /repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions/runners/remove-token \
+        -q .token)
+    
+    # Remove runner
+    config.sh remove --token "$REMOVE_TOKEN"
+}
+
+#==============================================================================
+# 3. RUNNER EXECUTION - Start the runner
+#==============================================================================
+
+# Run in foreground (for testing/debugging)
+run_foreground() {
+    # Simple foreground execution
+    ./run.sh
+    
+    # With custom settings
+    ./run.sh --once          # Run one job then exit
+    Runner.Listener run --check         # Check runner health using the actual binary
+}
+
+# Run as systemd service (for production)
+run_as_service() {
+    # Install systemd service
+    sudo ./svc.sh install --user $(whoami)
+    
+    # Service management commands
+    sudo ./svc.sh start   # Start service
+    sudo ./svc.sh stop    # Stop service
+    sudo ./svc.sh status  # Check status
+    
+    # View logs
+    sudo journalctl -u actions.runner.* -f  # Follow service logs
+    
+    # Uninstall service
+    sudo ./svc.sh uninstall
+}
+
+#==============================================================================
+# 4. WORKFLOW TESTING - Test runner with workflows
+#==============================================================================
+
+# Test with push event
+test_push_workflow() {
+    # Create test branch and push
+    git checkout -b test-runner
+    echo "test" > test.txt
+    git add test.txt
+    git commit -m "test: trigger self-hosted runner"
+    git push origin test-runner
+    
+    # Monitor workflow execution
+    gh workflow view
+    gh run list --workflow=self-hosted-cowsay-test.yml
+    gh run view --log
+}
+
+# Manually trigger workflow
+trigger_workflow_manually() {
+    # List available workflows
+    gh workflow list
+    
+    # Run specific workflow
+    gh workflow run self-hosted-cowsay-test.yml
+    
+    # Run with inputs
+    gh workflow run build.yml \
+        --field version="1.0.0" \
+        --field environment="staging"
+    
+    # Watch execution
+    gh run watch
+}
+
+# Monitor runner and jobs
+monitor_runner() {
+    # List all runners
+    gh api /repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions/runners | jq '.runners[] | {name, status, busy}'
+    
+    # Get specific runner
+    gh api /repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions/runners | jq '.runners[] | select(.name=="nix-runner-$(hostname)")'
+    
+    # List recent jobs
+    gh run list --limit 10
+    
+    # View job logs
+    gh run view --log <run-id>
+}
+
+#==============================================================================
+# 5. TROUBLESHOOTING - Common issues and solutions
+#==============================================================================
+
+troubleshoot() {
+    # Check runner configuration
+    cat .runner 2>/dev/null || echo "Runner not configured"
+    
+    # Check runner credentials
+    cat .credentials 2>/dev/null || echo "No credentials found"
+    
+    # Check work directory
+    ls -la _work/ 2>/dev/null || echo "No work directory"
+    
+    # Check diagnostic logs
+    ls -la _diag/*.log 2>/dev/null || echo "No diagnostic logs"
+    tail -f _diag/Runner_*.log
+    
+    # Common fixes:
+    echo "Common issues and fixes:"
+    echo "1. Permission denied: Check file ownership and permissions"
+    echo "2. Runner offline: Re-register the runner"
+    echo "3. Jobs not picked up: Verify runner labels match workflow"
+    echo "4. Docker issues: Ensure Docker daemon is running"
+    echo "5. Nix command not found: Ensure you're in 'nix develop' shell"
+}
+
+# Clean up runner artifacts
+cleanup_runner() {
+    # Stop runner if running
+    pkill -f github-runner || true
+    
+    # Remove runner registration
+    unregister_runner
+    
+    # Clean up files
+    rm -rf _work _diag _update
+    rm -f .runner .credentials .credentials_rsaparams
+}
+
+# Reset and start fresh
+reset_runner() {
+    cleanup_runner
+    register_runner
+    run_foreground
+}
+
+#==============================================================================
+# QUICK START EXAMPLES
+#==============================================================================
+
+# Example 1: Simple test setup
+example_simple_test() {
+    nix develop
+    gh auth login
+    TOKEN=$(get_registration_token)
+    github-runner configure --url "https://github.com/USER/REPO" --token "$TOKEN"
+    github-runner run
+}
+
+# Example 2: Production setup with systemd
+example_production() {
+    nix develop
+    gh auth login
+    register_runner
+    sudo github-runner install --user $(whoami)
+    sudo systemctl start github-runner
+    sudo systemctl enable github-runner
+}
+
+# Example 3: CI/CD workflow
+example_cicd() {
+    # In workflow file (.github/workflows/build.yml):
+    cat << 'EOF'
+name: Build with Self-hosted Runner
+on: [push]
+jobs:
+  build:
+    runs-on: [self-hosted, nix, flake-gha-self]
+    steps:
+      - uses: actions/checkout@v3
+      - run: nix build
+      - run: nix flake check
+EOF
+}
+
+#==============================================================================
+# NOTES
+#==============================================================================
+# - Runner must be registered before it can be started
+# - Registration tokens expire after 1 hour
+# - Each runner needs a unique name
+# - Labels are used to target specific runners in workflows
+# - The _work directory contains job execution data
+# - The _diag directory contains diagnostic logs
+# - Configuration is stored in .runner and .credentials files
+# - Use 'github-runner run --once' for testing single jobs
+# - Use systemd service for production deployments

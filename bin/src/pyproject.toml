@@ -1,0 +1,13 @@
+[project]
+name = "src"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.3.1",
+    "pytest>=8.4.1",
+]
+
+[tool.uv.workspace]
+members = ["poc/monitor_rules"]

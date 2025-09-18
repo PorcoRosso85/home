@@ -1,0 +1,35 @@
+{
+  "id": "auth-system",
+  "path": "/example/auth",
+  "purpose": "認証システム全体の管理と統合",
+  "type": "system",
+  "version": "1.0.0",
+  "scope": "authentication",
+  "parent": null,
+  "dependencies": [],
+  "interfaces": {
+    "inputs": [
+      {
+        "name": "credentials",
+        "type": "object",
+        "description": "認証情報"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "auth_result",
+        "type": "object",
+        "description": "認証結果"
+      }
+    ]
+  },
+  "responsibilities": [
+    "認証戦略の統合管理",
+    "認証フローの制御",
+    "セッション管理"
+  ],
+  "constraints": {
+    "security": "全通信をHTTPS化",
+    "performance": "認証処理は500ms以内"
+  }
+}

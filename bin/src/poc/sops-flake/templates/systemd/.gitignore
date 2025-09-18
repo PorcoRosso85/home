@@ -1,0 +1,14 @@
+# sops-flake specific
+*.dec
+*.plaintext
+keys.txt
+.decrypted~*
+
+# Nix
+result
+result-*
+
+# Editor
+.vscode/
+.idea/
+*.swp

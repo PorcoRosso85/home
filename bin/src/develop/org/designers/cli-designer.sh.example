@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+# Designer用コマンド例
+# Designer（設計者）が使用するコマンド集
+
+# === 自分の役割確認 ===
+# どのDesignerか確認（x/y/z）
+pwd
+# /home/nixos/bin/src/develop/org/designers/x なら Designer X
+
+# === 自分の履歴確認（jsonlから） ===
+# Designer自身の作業履歴を確認
+nix develop -c python3 -c "
+from application import get_claude_history
+import os
+current_dir = os.getcwd()
+result = get_claude_history(current_dir, last_n=5)
+if result['ok']:
+    print(f'=== Designer履歴 ({current_dir}) ===')
+    for msg in result['data']['messages'][-3:]:
+        role = msg.get('role', 'unknown')
+        content = msg.get('content', '')[:200] + '...'
+        print(f'{role}: {content}')
+"
+
+# === Definerからの指示確認 ===
+# 最新の[SPECIFICATION]指示を探す
+nix develop -c python3 -c "
+from application import get_claude_history
+import os
+current_dir = os.getcwd()
+result = get_claude_history(current_dir, last_n=10)
+if result['ok']:
+    for msg in result['data']['messages']:
+        content = msg.get('content', '')
+        if '[SPECIFICATION]' in content:
+            print('=== 最新のSPECIFICATION指示 ===')
+            print(content[:500])
+            break
+"
+
+# === 成果物作成 ===
+
+# 1. SPECIFICATION.md作成例
+cat << 'EOF' > /tmp/specification_template.md
+# [プロジェクト名] 技術仕様書
+
+## 要件参照
+- REQUIREMENTS.md: [Definerが作成した要件定義]
+
+## アーキテクチャ設計
+[システム構成、コンポーネント関係]
+
+## API仕様
+### エンドポイント
+- GET /api/...
+- POST /api/...
+
+## データモデル
+\`\`\`json
+{
+  "schema": "定義"
+}
+\`\`\`
+
+## 実装ガイド（Developer向け）
+1. 環境セットアップ
+2. 実装手順
+3. テスト方法
+
+## 検証計画
+- 単体テスト項目
+- 統合テスト項目
+EOF
+
+# === Developer新window起動で実装指示 ===
+
+# Developerへ実装依頼（プロジェクトディレクトリ指定）
+python3 -c "
+# Developer新window起動でプロジェクト実装
+from application import start_developer, send_command_to_developer_by_directory
+
+# プロジェクトディレクトリでDeveloper起動
+project_dir = '/home/nixos/bin/src/poc/email/'
+result = start_developer(project_dir)
+
+if result['ok']:
+    print(f'Developer window起動成功: {result[\"data\"][\"window_name\"]}')
+    
+    # 実装指示送信
+    command = '''[IMPLEMENTATION] Project implementation
+    
+    指示:
+    1. SPECIFICATION.mdを参照
+    2. 以下を実装:
+       - 基本機能実装
+       - 単体テスト作成
+       - 動作確認実行
+    3. 「動作確認済み: [結果]」で報告
+    '''
+    
+    send_result = send_command_to_developer_by_directory(project_dir, command)
+    if send_result['ok']:
+        print('実装指示送信完了')
+    else:
+        print(f'指示送信失敗: {send_result[\"error\"][\"message\"]}')
+else:
+    print(f'Developer起動失敗: {result[\"error\"][\"message\"]}')
+"
+
+# === Developer結果確認（Task結果の追跡） ===
+
+# Task実行後の結果を履歴から確認
+sleep 30  # Developerの作業を待つ
+nix develop -c python3 -c "
+from application import get_claude_history
+import os
+
+# 現在のディレクトリの履歴から[IMPLEMENTATION]結果を探す
+current_dir = os.getcwd()
+result = get_claude_history(current_dir, last_n=20)
+
+if result['ok']:
+    print('=== Developer実行結果 ===')
+    found_result = False
+    for msg in result['data']['messages']:
+        content = msg.get('content', '')
+        # Developer完了メッセージを探す
+        if '動作確認' in content and '結果' in content:
+            print(content[:1000])
+            found_result = True
+            break
+    
+    if not found_result:
+        print('まだ結果が返っていません。もう少し待ってください。')
+"
+
+# === status.md更新 ===
+
+# 作業記録をstatus.mdに追記
+echo "[$(date '+%Y-%m-%d %H:%M')] [SPECIFICATION] 仕様書作成完了" >> status.md
+echo "- 成果物: SPECIFICATION.md" >> status.md
+echo "- Developer指示: 新window起動で送信済み" >> status.md
+
+# status.md確認
+tail -10 status.md
+
+# === 成果物の検証 ===
+
+# 作成したSPECIFICATION.mdの確認
+ls -la /home/nixos/bin/src/poc/*/SPECIFICATION.md 2>/dev/null || echo "まだ作成されていません"
+
+# VERIFICATION_PLAN.md等の確認
+ls -la /home/nixos/bin/src/poc/*/VERIFICATION_PLAN.md 2>/dev/null
+
+# === エラー対処 ===
+
+# Developerが失敗した場合の再実行（プロジェクトディレクトリ指定）
+retry_developer() {
+    local project_dir="$1"
+    echo "Developer再実行中: $project_dir"
+    python3 -c "
+from application import send_command_to_developer_by_directory
+command = '''[IMPLEMENTATION] プロジェクト再実行
+
+指示:
+1. 前回のエラーを確認
+2. 問題を修正して再実行
+3. 「動作確認済み: [結果]」で報告
+'''
+
+result = send_command_to_developer_by_directory('$project_dir', command)
+if result['ok']:
+    print('再実行指示送信完了')
+else:
+    print(f'再実行指示失敗: {result[\"error\"][\"message\"]}')
+"
+}
+
+# === よく使うワークフロー ===
+
+# 完全なSPECIFICATION作成フロー
+create_specification() {
+    local project="$1"
+    
+    # 1. REQUIREMENTS.md確認
+    echo "=== REQUIREMENTS.md確認 ==="
+    cat "$project/REQUIREMENTS.md" 2>/dev/null || echo "要件定義がありません"
+    
+    # 2. SPECIFICATION.md作成
+    echo "=== SPECIFICATION.md作成 ==="
+    # ここで実際に作成
+    
+    # 3. Developer指示
+    echo "=== Developer実装依頼 ==="
+    # Task Tool使用
+    
+    # 4. status.md更新
+    echo "[$(date)] SPECIFICATION作成完了: $project" >> status.md
+}
+
+# === チェックリスト ===
+
+echo "
+Designer作業チェックリスト:
+- [ ] Definerからの[SPECIFICATION]指示を確認
+- [ ] REQUIREMENTS.mdを読んだ
+- [ ] SPECIFICATION.mdを作成
+- [ ] データモデルをJSON/YAMLで定義
+- [ ] API仕様を明記
+- [ ] Developer向け実装ガイドを含めた
+- [ ] Developer新windowでの実装指示
+- [ ] status.mdを更新
+- [ ] Developer実行結果を確認
+"
+
+# === 注意事項 ===
+# - コード実装は絶対にしない（.py, .ts, .js等の編集禁止）
+# - SPECIFICATION.mdは技術設計のみ（HOW）
+# - Developer指示は必ず新window起動経由
+# - 成果物は各プロジェクトに直接作成（org/内には作らない）

@@ -1,0 +1,102 @@
+{
+  "id": "readme-graph-validator",
+  "purpose": "構造化READMEのJSONスキーマに基づいた検証を提供し、仕様の一貫性を保証する",
+  "value_proposition": [
+    "スキーマ違反の即座の検出",
+    "仕様の機械的検証",
+    "依存関係の整合性チェック",
+    "制約条件の自動検証"
+  ],
+  "responsibilities": [
+    {
+      "name": "schema_validation",
+      "description": "JSONスキーマに対するモジュール定義の妥当性検証"
+    },
+    {
+      "name": "dependency_check",
+      "description": "モジュール間の依存関係の循環参照チェック"
+    },
+    {
+      "name": "constraint_verification",
+      "description": "定義された制約条件の実装との整合性確認"
+    }
+  ],
+  "dependencies": [],
+  "constraints": [
+    {
+      "type": "technical",
+      "rule": "JSON Schema Draft-07仕様に準拠する",
+      "severity": "must"
+    },
+    {
+      "type": "performance",
+      "rule": "1000モジュールの検証を1秒以内に完了する",
+      "severity": "should"
+    },
+    {
+      "type": "security",
+      "rule": "外部からの入力JSONは必ずサニタイズする",
+      "severity": "must"
+    }
+  ],
+  "interfaces": {
+    "inputs": [
+      {
+        "name": "module_definition",
+        "type": "json_object",
+        "required": true,
+        "description": "検証対象のモジュール定義JSON"
+      },
+      {
+        "name": "schema_path",
+        "type": "string",
+        "required": false,
+        "description": "カスタムスキーマファイルのパス（省略時はデフォルトスキーマ使用）"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "validation_result",
+        "type": "object",
+        "description": "検証結果（valid: boolean, errors: array）"
+      },
+      {
+        "name": "suggestions",
+        "type": "array",
+        "description": "改善提案のリスト"
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "context": "JSON検証ライブラリの選定",
+      "decision": "Python jsonschemaライブラリを採用",
+      "rationale": "標準的で実績があり、Draft-07を完全サポート",
+      "alternatives": [
+        "cerberus",
+        "schema",
+        "valideer"
+      ]
+    },
+    {
+      "context": "エラーメッセージの言語",
+      "decision": "日本語でのエラーメッセージ提供",
+      "rationale": "主要ユーザーが日本語話者であるため",
+      "alternatives": [
+        "英語のみ",
+        "多言語対応"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "created_at": "2025-01-09T00:00:00Z",
+    "updated_at": "2025-01-09T00:00:00Z",
+    "author": "README Graph Team",
+    "tags": [
+      "validation",
+      "schema",
+      "quality-assurance"
+    ]
+  }
+}
