@@ -1,1 +1,13 @@
 flake.lock
+
+# Prevent common plaintext secrets from being tracked
+# (Encrypted files like env.sh.enc remain trackable)
+env.sh
+*.env
+.env
+.env.*
+
+# Secrets working files/backups
+secrets/*.bak
+secrets/*.dec
+secrets/*.tmp

@@ -230,6 +230,17 @@ Each template includes:
 nix flake check ./templates/app-standalone
 ```
 
+## 🛡️ 平文コミット防止（推奨）
+
+- ローカルフックの有効化（Gitフックをこのリポジトリ内に設定）
+  - `git config core.hooksPath scripts/hooks`
+  - 以後、コミット時に `scripts/hooks/pre-commit` が走り、`secrets/` 以下の未暗号化ファイルや `env.sh`/`.env` のコミットをブロックします。
+- 手動チェック（フルスキャン）
+  - `bash scripts/check-no-plaintext-secrets.sh`
+- CIガード（GitHub Actions）
+  - `.github/workflows/secrets-guard.yml` が `push`/`pull_request` で `scripts/check-no-plaintext-secrets.sh` を実行し、平文があると失敗します。
+
+
 ## 🤝 Migration Guide
 
 ### From existing systemd-web-api example:
