@@ -57,6 +57,7 @@ nix run .#opencode-client -- 'different project here'  # Completely separate ses
 **Session Features:**
 - **1x1 Directory Mapping**: Each working directory gets its own unique session
 - **Automatic Resumption**: Return to any directory to continue your previous conversation
+- **Flexible Directory Selection**: Uses `OPENCODE_PROJECT_DIR` if set, otherwise current working directory
 - **Server Validation**: Invalid sessions are automatically recreated
 - **XDG Compliant**: Sessions stored in `${XDG_STATE_HOME:-$HOME/.local/state}/opencode/sessions/`
 - **User Feedback**: Clear indication whether session was resumed or newly created

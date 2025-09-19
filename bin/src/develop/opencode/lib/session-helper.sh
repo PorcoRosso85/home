@@ -60,7 +60,7 @@ oc_session_http_get() {
     shift
     local timeout="${OPENCODE_TIMEOUT:-30}"
     
-    if curl -fsS --max-time "$timeout" "$@" "$url"; then
+    if curl -fsS --max-time "$timeout" -H 'Accept: application/json' "$@" "$url"; then
         return 0
     else
         echo "[error] HTTP GET failed: $url" >&2

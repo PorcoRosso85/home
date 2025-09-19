@@ -37,8 +37,8 @@
             MODEL="''${OPENCODE_MODEL:-}"
             PROJECT_DIR="''${OPENCODE_PROJECT_DIR:-$(pwd)}"
 
-            echo "[client] target: $OPENCODE_URL"
-            echo "[client] project: $PROJECT_DIR"
+            echo "[client] target: $OPENCODE_URL" >&2
+            echo "[client] project: $PROJECT_DIR" >&2
 
             # Early directory validation
             if [ ! -d "$PROJECT_DIR" ]; then
@@ -74,7 +74,7 @@
             # 5) Extract a concise text response when available
             #    Fallback to printing the whole JSON if structure differs.
             if echo "$RESP" | jq -e '.parts? // [] | length > 0' >/dev/null 2>&1; then
-              echo "[client] reply:" && echo "$RESP" | jq -r '(.parts[]? | select(.type=="text") | .text) // empty'
+              echo "[client] reply:" >&2 && echo "$RESP" | jq -r '(.parts[]? | select(.type=="text") | .text) // empty'
             else
               echo "$RESP" | jq
             fi
