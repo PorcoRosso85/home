@@ -31,10 +31,25 @@ oc_session_derive_host_port() {
 
 # Convert absolute path to project key (DRY principle)
 # Usage: oc_session_project_key ABSOLUTE_PATH
-# Converts /path/to/project → path_to_project
+# Converts /path/to/project → path__SLASH__to__SLASH__project
+# Fixed: Uses __SLASH__ delimiter to prevent underscore collisions
+#
+# Examples:
+#   /sops_flake     → sops_flake
+#   /sops/flake     → sops__SLASH__flake
+#   /my_project     → my_project
+#   /my/project     → my__SLASH__project
 oc_session_project_key() {
     local abs_path="$1"
-    echo "$abs_path" | sed 's/\//_/g' | sed 's/^_//'
+
+    # Input validation
+    if [[ -z "${abs_path:-}" ]]; then
+        echo "[error] oc_session_project_key: empty path provided" >&2
+        return 1
+    fi
+
+    # Convert slashes to safe delimiter and remove leading delimiter
+    echo "$abs_path" | sed 's/\//__SLASH__/g' | sed 's/^__SLASH__//'
 }
 
 # HTTP GET request with unified options and timeout (DRY principle)
