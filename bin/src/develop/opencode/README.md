@@ -69,7 +69,74 @@ OPENCODE_PROJECT_DIR=/path/to/project-b \
 - **Server Validation**: Invalid sessions result in clear error (no automatic recreation)
 - **XDG Compliant**: Sessions stored in `${XDG_STATE_HOME:-$HOME/.local/state}/opencode/sessions/`
 - **User Feedback**: Clear indication whether session was resumed or newly created
-- **Operational Enhancement**: SID↔directory bidirectional mapping for diagnostics and cleanup (planned)
+- **Operational Enhancement**: SID↔directory bidirectional mapping for diagnostics and cleanup
+
+#### 📜 Conversation History and Session Management
+
+**New in this version**: Enhanced client with conversation history retrieval and session management capabilities.
+
+**View conversation history:**
+```bash
+# View history for current directory's session
+OPENCODE_PROJECT_DIR=/path/to/project \
+  nix run .#opencode-client -- history
+
+# View history for specific session
+OPENCODE_PROJECT_DIR=/path/to/project \
+  nix run .#opencode-client -- history --sid ses_example123
+
+# Get history in JSON format
+OPENCODE_PROJECT_DIR=/path/to/project \
+  nix run .#opencode-client -- history --format json
+
+# Limit number of messages
+OPENCODE_PROJECT_DIR=/path/to/project \
+  nix run .#opencode-client -- history --limit 10
+```
+
+**Manage sessions:**
+```bash
+# List sessions for current directory
+OPENCODE_PROJECT_DIR=/path/to/project \
+  nix run .#opencode-client -- sessions
+
+# List sessions for different directory
+nix run .#opencode-client -- sessions --dir /other/project
+
+# List all sessions for specific server
+nix run .#opencode-client -- sessions --hostport 127.0.0.1:4096
+
+# Get session list in JSON format
+OPENCODE_PROJECT_DIR=/path/to/project \
+  nix run .#opencode-client -- sessions --format json
+```
+
+**Complete workflow example:**
+```bash
+# 1. Send a message (creates session)
+OPENCODE_PROJECT_DIR=/path/to/my-project \
+  nix run .#opencode-client -- "explain git branching"
+
+# 2. Continue conversation
+OPENCODE_PROJECT_DIR=/path/to/my-project \
+  nix run .#opencode-client -- "show me a practical example"
+
+# 3. View conversation history
+OPENCODE_PROJECT_DIR=/path/to/my-project \
+  nix run .#opencode-client -- history
+
+# 4. List all sessions
+OPENCODE_PROJECT_DIR=/path/to/my-project \
+  nix run .#opencode-client -- sessions
+```
+
+**Available commands:**
+- `send [MESSAGE]` - Send message to current session (default behavior)
+- `history [OPTIONS]` - View conversation history
+- `sessions [OPTIONS]` - List available sessions
+- `help` - Show command usage
+
+**Backward compatibility:** All existing commands continue to work unchanged. The new history and sessions features are additive.
 
 #### Direct HTTP API Usage
 
