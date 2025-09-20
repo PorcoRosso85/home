@@ -228,7 +228,7 @@ TESTING:
   nix flake check                        # CI-friendly check
   nix run . -- --help                   # Test hook directly
 
-CONFIGURATION (Priority: ENV > Git Config > Default):
+CONFIGURATION (Priority: ENV variables > Git Config > Built-in Default):
   git config policy.coreRef refs/heads/main
   git config --add policy.allowedGlob 'flakes/*/**'
 
@@ -238,8 +238,9 @@ CONFIGURATION (Priority: ENV > Git Config > Default):
 
 PATTERN MATCHING RULES:
   - allowedGlobs use bash case patterns (*, ?, [...])
-  - ** requires 'shopt -s globstar' for directory traversal (default: * equivalent)
+  - ** works in bash case patterns WITHOUT shopt -s globstar
   - Patterns work via bash case statement (handles '/' in ** patterns)
+  - NOT standard globstar - pure bash case pattern matching
   - Rename/copy operations: both old and new paths must be allowed (strict mode)
   - Boundary crossing: disabled by default to prevent policy escape
 
@@ -248,6 +249,14 @@ SPECIAL CASES:
   - Rename/copy: old and new paths both must be in allowed globs
   - Delete operations: subject to allowOutsideDelete setting
   - Empty commits: allowed but still subject to path validation
+  - Tags (refs/tags/*): completely ignored by policy enforcement
+
+ERROR CODES:
+  10 - DIRECT: Direct commit to core branch (merge required)
+  11 - PATH: Forbidden path access
+  12 - FF: Non-fast-forward push denied
+  13 - INIT: Initial creation of core branch denied
+  14 - DEL: Deletion of core branch denied
 
 CUSTOMIZATION:
   inputs.worktree-limiter.lib.makeWorktreeLimiter {

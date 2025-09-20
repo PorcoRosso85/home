@@ -207,10 +207,16 @@ declare -a VALIDATORS=(
 # ISP: Branch/tag policy separation
 apply_branch_policy() {
   local old="$1" new="$2" ref="$3"
+  local validation_failed=false
 
+  # Run ALL validators before returning (aggregation within ref)
   for validator in "${VALIDATORS[@]}"; do
-    "$validator" "$old" "$new" "$ref" || return 1
+    "$validator" "$old" "$new" "$ref" || validation_failed=true
   done
+
+  # Return failure if any validator failed
+  [ "$validation_failed" = "true" ] && return 1
+  return 0
 }
 
 apply_tag_policy() {
@@ -229,27 +235,14 @@ validate_update() {
   esac
 }
 
-# SRP: Input parsing
-parse_updates() {
-  while IFS=$' \t' read -r old new ref; do
-    printf "%s\n%s\n%s\n" "$old" "$new" "$ref"
-  done
-}
-
 # Main processing
 main() {
   load_config
 
-  while IFS=$'\n' read -r line_group; do
-    local old new ref
-    {
-      read -r old
-      read -r new
-      read -r ref
-    } <<< "$line_group"
-
-    validate_update "$old" "$new" "$ref"
-  done < <(parse_updates | paste - - -)
+  # Robust input parsing: simple while read without paste complexity
+  while IFS=$' \t' read -r old new ref; do
+    validate_update "$old" "$new" "$ref" || true  # Continue on failure for aggregation
+  done
 
   report_violations
 }
