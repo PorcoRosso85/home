@@ -321,6 +321,36 @@ curl -s -X POST $OPENCODE_URL/session/$SID/message \
   -d '{"parts":[{"type":"text","text":"What AI model are you?"}]}' | jq -r '.parts[0].text'
 ```
 
+### 🔍 TUI vs HTTP API Configuration Differences
+
+**Important**: The TUI and HTTP API may show different provider/model information:
+
+**Configuration Priority** (highest to lowest):
+1. **TUI Settings** - Set via TUI interface (takes precedence)
+2. **Environment Variables** - `OPENCODE_PROVIDER`, `OPENCODE_MODEL`
+3. **Config Files** - `~/.config/opencode/opencode.json` or `./opencode.json`
+4. **Server Defaults** - Fallback when no other config
+
+**Common Scenarios**:
+```bash
+# Scenario 1: TUI shows different models than HTTP API
+curl -s $OPENCODE_URL/config/providers | jq '.providers[].id'  # May show 'opencode' only
+# But actual model responds as 'anthropic/claude-sonnet-4'
+
+# Scenario 2: Check what model actually responds (regardless of API display)
+SID=$(curl -s -X POST $OPENCODE_URL/session -H 'Content-Type: application/json' -d '{}' | jq -r .id)
+curl -s -X POST $OPENCODE_URL/session/$SID/message \
+  -H 'Content-Type: application/json' \
+  -d '{"parts":[{"type":"text","text":"What model are you?"}],"model":{"providerID":"opencode","modelID":"grok-code"}}' | jq -r '.parts[0].text'
+# May return anthropic model name even when requesting opencode/grok-code
+```
+
+**Troubleshooting**: If HTTP API shows limited providers but TUI has more configured, this is normal behavior. The TUI configuration takes precedence for actual model usage.
+
+**🔧 Detailed Troubleshooting**: For comprehensive troubleshooting guidance and diagnostic tools, see:
+- `./check-opencode-status.sh` - Diagnostic script for configuration analysis
+- `docs/TROUBLESHOOTING-TUI-HTTP-API.md` - Complete troubleshooting guide
+
 ### Best Practices
 
 - **🚀 Single server workflow**: Start one server, use it consistently, shut it down cleanly
