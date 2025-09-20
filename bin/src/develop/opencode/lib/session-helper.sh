@@ -714,7 +714,8 @@ oc_session_index_rebuild() {
 
         # Backup existing index if it exists
         if [[ -f "$index_file" ]]; then
-            local backup_file="${index_file}.backup.$(date +%s)"
+            local backup_file
+            backup_file="${index_file}.backup.$(date +%s)"
             cp "$index_file" "$backup_file"
             echo "[oc_session_index_rebuild] info: backed up existing index to $backup_file" >&2
         fi

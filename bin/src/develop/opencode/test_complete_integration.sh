@@ -60,9 +60,19 @@ else
     exit 1
 fi
 
-# Test 6: Final compliance check
+# Test 6: ShellCheck quality gate
 echo
-echo "6. Final flake compliance verification..."
+echo "6. Testing ShellCheck quality gate..."
+if nix develop --command bash -c "./test_shellcheck_quality.sh" 2>&1 | grep -q "Quality gate: PASSED"; then
+    echo "✅ Step 6: ShellCheck quality gate - PASSED"
+else
+    echo "❌ Step 6: ShellCheck quality gate - FAILED"
+    exit 1
+fi
+
+# Test 7: Final compliance check
+echo
+echo "7. Final flake compliance verification..."
 if bash "$REPO_ROOT/tests/flake_compliance_test.sh" 2>&1 | grep -q "All compliance tests PASSED"; then
     echo "✅ Final: Flake compliance - PASSED"
 else
@@ -78,6 +88,7 @@ echo "✅ Step 2: History library (lib/history-helper.sh)"
 echo "✅ Step 3: History subcommand with auto-session selection"
 echo "✅ Step 4: Sessions subcommand with listing functionality"
 echo "✅ Step 5: Documentation and test integration"
+echo "✅ Step 6: ShellCheck quality gate (lib/*.sh validation)"
 echo "✅ Final: Architecture compliance maintained"
 echo
 echo "🎯 OpenCode client now supports:"

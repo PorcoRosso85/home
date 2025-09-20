@@ -15,6 +15,7 @@
             curl
             jq
             netcat-gnu  # Provides 'nc' with GNU-specific options like -c for test compatibility
+            shellcheck  # For shell script quality testing
           ];
           shellHook = ''
             echo "Start server: nix run nixpkgs#opencode -- serve --port 4096"
