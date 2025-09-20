@@ -354,7 +354,8 @@ oc_session_index_append() {
     fi
 
     # Generate timestamp
-    local created=$(date +%s)
+    local created
+    created=$(date +%s)
 
     # Create JSON record (compact for JSONL format)
     local json_record
@@ -658,7 +659,7 @@ oc_session_index_rebuild() {
         echo "[oc_session_index_rebuild] info: processing $session_file" >&2
 
         # Extract directory and host:port from session file path
-        local relative_path="${session_file#$session_base/}"
+        local relative_path="${session_file#"$session_base"/}"
         local hostport="${relative_path%%/*}"
         local project_file="${relative_path#*/}"
         local project_key="${project_file%.session}"
@@ -680,7 +681,8 @@ oc_session_index_rebuild() {
                     # Generate index record
                     local dirHash
                     dirHash=$(oc_session_index_generate_dirhash "$dir_path")
-                    local created=$(stat -c %Y "$session_file" 2>/dev/null || echo "$(date +%s)")
+                    local created
+                    created=$(stat -c %Y "$session_file" 2>/dev/null || date +%s)
 
                     local json_record
                     json_record=$(jq -n -c \
@@ -746,7 +748,6 @@ oc_session_index_validate() {
 
     declare -A index_sessions
     declare -A file_sessions
-    local validation_errors=0
 
     # Read index records
     while IFS= read -r line; do
@@ -766,7 +767,7 @@ oc_session_index_validate() {
         if session_id=$(cat "$session_file" 2>/dev/null); then
             if [[ -n "$session_id" ]]; then
                 # Extract metadata from file path
-                local relative_path="${session_file#$session_base/}"
+                local relative_path="${session_file#"$session_base"/}"
                 local hostport="${relative_path%%/*}"
                 local project_file="${relative_path#*/}"
                 local project_key="${project_file%.session}"
@@ -826,7 +827,8 @@ oc_session_index_validate() {
 
     echo "$report"
 
-    local total_issues=$((missing_in_index + missing_in_files + mismatched))
+    local total_issues
+    total_issues=$((missing_in_index + missing_in_files + mismatched))
     echo "[oc_session_index_validate] info: validation complete - $total_issues issues found" >&2
 
     return 0

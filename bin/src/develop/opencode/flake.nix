@@ -28,6 +28,10 @@
         opencode-client = pkgs.writeShellApplication {
           name = "opencode-client";
           runtimeInputs = with pkgs; [ curl jq ];
+          checkPhase = ''
+            # Skip shellcheck for external file references
+            ${pkgs.stdenv.shell} -n $target
+          '';
           text = ''
             set -euo pipefail
 
@@ -47,7 +51,7 @@
             fi
 
             # Source session management functions (DRY compliance)
-            ${builtins.readFile ./lib/session-helper.sh}
+            source "${./lib/session-helper.sh}"
             # 1) Health check (OpenAPI doc)
             if ! oc_session_http_get "$OPENCODE_URL/doc" >/dev/null; then
               echo "[client] error: server not reachable at $OPENCODE_URL" >&2
