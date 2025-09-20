@@ -30,7 +30,9 @@ nix run nixpkgs#opencode -- serve --port 4096
 
 #### Use the Built-in Client
 
-Required: set `OPENCODE_PROJECT_DIR` to an existing directory. The client errors if it is unset or the path does not exist.
+**Required**: set `OPENCODE_PROJECT_DIR` to an existing directory. The client errors if it is unset or the path does not exist.
+
+**⚠️ Important**: Invalid session IDs result in clear error instead of automatic recreation. If you get a session error, remove the session file or use a different `OPENCODE_PROJECT_DIR`.
 ```bash
 # Quick test with built-in client (unified command)
 OPENCODE_PROJECT_DIR=/path/to/project \n  nix run .#opencode-client -- 'just say hi'
@@ -59,9 +61,10 @@ OPENCODE_PROJECT_DIR=/path/to/project-b \n  nix run .#opencode-client -- 'differ
 - **1x1 Directory Mapping**: Each project directory (from ) gets its own unique session
 - **Automatic Resumption**: Reuse the same  to continue your previous conversation
 - **Mandatory Directory Selection**:  must be set and point to an existing directory (unset or missing paths cause an error)
-- **Server Validation**: Invalid sessions are automatically recreated
+- **Server Validation**: Invalid sessions result in clear error (no automatic recreation)
 - **XDG Compliant**: Sessions stored in `${XDG_STATE_HOME:-$HOME/.local/state}/opencode/sessions/`
 - **User Feedback**: Clear indication whether session was resumed or newly created
+- **Operational Enhancement**: SID↔directory bidirectional mapping for diagnostics and cleanup (planned)
 
 #### Direct HTTP API Usage
 
