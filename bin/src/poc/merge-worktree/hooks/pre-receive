@@ -1,0 +1,269 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+export LC_ALL=C
+
+# DRY: Constants
+declare -r ZERO_OID="0000000000000000000000000000000000000000"
+declare -rA CODES=([DIRECT]=10 [PATH]=11 [FF]=12 [INIT]=13 [DEL]=14)
+
+# DIP: Dependency injection
+GIT_BIN="${GIT_BIN:-git}"
+
+# SRP: Error reporting (DRY)
+declare -a violations=()
+first_code=0
+
+fail() {
+  local msg="$1" code="$2"
+  violations+=("$msg")
+  [[ $first_code -eq 0 ]] && first_code=$code
+}
+
+report_violations() {
+  if [[ ${#violations[@]} -gt 0 ]]; then
+    printf "%s\n" "${violations[@]}" >&2
+    exit "$first_code"
+  fi
+  exit 0
+}
+
+# SRP: Configuration loading (no side effects)
+load_config() {
+  mapfile -t CORE_REFS < <("$GIT_BIN" config --get-all policy.coreRef 2>/dev/null || printf '%s\n' refs/heads/main)
+  mapfile -t ALLOWED_GLOBS < <("$GIT_BIN" config --get-all policy.allowedGlob 2>/dev/null || printf '%s\n' 'flakes/*/**')
+
+  # Environment variable override (priority: ENV > Git Config > Default)
+  if [[ -n "${CORE_REFS_OVERRIDE:-}" ]]; then
+    mapfile -t CORE_REFS <<< "$CORE_REFS_OVERRIDE"
+  fi
+  if [[ -n "${ALLOWED_GLOBS_OVERRIDE:-}" ]]; then
+    mapfile -t ALLOWED_GLOBS <<< "$ALLOWED_GLOBS_OVERRIDE"
+  fi
+}
+
+# DRY: Path validation
+check_path_allowed() {
+  local path="$1"
+  for glob in "${ALLOWED_GLOBS[@]}"; do
+    case "$path" in
+      $glob) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+# DRY: Common I/O - NUL-safe diff reading
+read_diff_entries() {
+  local old="$1" new="$2" callback="$3"
+
+  while read -r -d '' status <&3; do
+    local op="${status:0:1}"
+
+    case "$op" in
+      R|C)
+        # rename/copy: 3 tokens
+        local src_path dst_path
+        read -r -d '' src_path <&3
+        read -r -d '' dst_path <&3
+        "$callback" "$op" "$src_path" "$dst_path"
+        ;;
+      A|M|D)
+        # normal: 2 tokens
+        local path
+        read -r -d '' path <&3
+        "$callback" "$op" "$path"
+        ;;
+    esac
+  done 3< <("$GIT_BIN" diff-tree -z --no-commit-id --name-status -r -M -C --diff-filter=ACDMRT "$old" "$new" 2>/dev/null || true)
+}
+
+# Path validation callback
+validate_path_change() {
+  local op="$1"
+  shift
+  local paths=("$@")
+
+  for path in "${paths[@]}"; do
+    # Submodule check (default deny)
+    if [[ "$op" != "D" ]] && "$GIT_BIN" ls-tree "$new" "$path" 2>/dev/null | grep -q "^160000"; then
+      if [[ "${ALLOW_GITMODULES:-false}" != "true" ]]; then
+        fail "ref=$current_ref: Submodule change denied: $path" "${CODES[PATH]}"
+        return 1
+      fi
+    fi
+
+    # Path permission check
+    if ! check_path_allowed "$path"; then
+      if [[ "$op" == "D" && "${ALLOW_OUTSIDE_DELETE:-false}" == "true" ]]; then
+        continue  # Allow outside deletion
+      fi
+      fail "ref=$current_ref: Forbidden path: $path" "${CODES[PATH]}"
+      return 1
+    fi
+  done
+}
+
+# LSP: Unified validator contract - validate_* "$old" "$new" "$ref" → 0 or (fail + return 1)
+
+check_merge_shape() {
+  local old="$1" new="$2" ref="$3"
+
+  # Check if this is a core ref
+  local is_core_ref=false
+  for core_ref in "${CORE_REFS[@]}"; do
+    [[ "$ref" == "$core_ref" ]] && { is_core_ref=true; break; }
+  done
+  [[ "$is_core_ref" == "true" ]] || return 0
+
+  # Delete denial
+  if [[ "$new" == "$ZERO_OID" ]]; then
+    fail "ref=$ref: Deletion denied" "${CODES[DEL]}"
+    return 1
+  fi
+
+  # Initial creation denial (unless explicitly allowed)
+  if [[ "$old" == "$ZERO_OID" ]]; then
+    if [[ "${ALLOW_INITIAL_CREATE:-}" != "true" ]]; then
+      fail "ref=$ref: Initial creation denied" "${CODES[INIT]}"
+      return 1
+    fi
+    return 0  # Skip merge shape check for initial creation
+  fi
+
+  # Merge shape check (exactly 2 parents)
+  local parents
+  parents=$("$GIT_BIN" cat-file -p "$new" 2>/dev/null | awk '/^parent /{c++} END{print c+0}')
+  if [[ "$parents" -ne 2 ]]; then
+    fail "ref=$ref: Merge commit (parents=2) required" "${CODES[DIRECT]}"
+    return 1
+  fi
+
+  return 0
+}
+
+check_ff() {
+  local old="$1" new="$2" ref="$3"
+
+  # Skip 000... cases
+  [[ "$old" == "$ZERO_OID" || "$new" == "$ZERO_OID" ]] && return 0
+
+  # Skip no-op
+  [[ "$old" != "$new" ]] || return 0
+
+  # FF check
+  if ! "$GIT_BIN" merge-base --is-ancestor "$old" "$new" 2>/dev/null; then
+    fail "ref=$ref: Non-fast-forward denied" "${CODES[FF]}"
+    return 1
+  fi
+
+  return 0
+}
+
+check_paths() {
+  local old="$1" new="$2" ref="$3"
+  current_ref="$ref"  # For callback use
+
+  # Skip 000... cases
+  [[ "$old" != "$ZERO_OID" && "$new" != "$ZERO_OID" ]] || return 0
+
+  read_diff_entries "$old" "$new" validate_path_change
+}
+
+check_special_refs() {
+  local old="$1" new="$2" ref="$3"
+
+  # Boundary crossing check (if enabled)
+  if [[ "${STRICT_BOUNDARY_CHECK:-false}" == "true" ]]; then
+    read_diff_entries "$old" "$new" validate_boundary_crossing
+  fi
+
+  return 0
+}
+
+validate_boundary_crossing() {
+  local op="$1"
+  shift
+  local paths=("$@")
+
+  if [[ "$op" == "R" || "$op" == "C" ]]; then
+    # R/C: Both old and new paths must be in allowed range
+    for path in "${paths[@]}"; do
+      if ! check_path_allowed "$path"; then
+        fail "ref=$current_ref: Boundary crossing denied: $path" "${CODES[PATH]}"
+        return 1
+      fi
+    done
+  fi
+}
+
+# OCP: Extensible validator array
+declare -a VALIDATORS=(
+  "check_merge_shape"
+  "check_ff"
+  "check_paths"
+  "check_special_refs"
+)
+
+# ISP: Branch/tag policy separation
+apply_branch_policy() {
+  local old="$1" new="$2" ref="$3"
+
+  for validator in "${VALIDATORS[@]}"; do
+    "$validator" "$old" "$new" "$ref" || return 1
+  done
+}
+
+apply_tag_policy() {
+  # YAGNI: Tag policy details postponed
+  : # TODO: Tag policy implementation in later phase
+}
+
+# Main validation logic
+validate_update() {
+  local old="$1" new="$2" ref="$3"
+
+  case "$ref" in
+    refs/heads/*) apply_branch_policy "$old" "$new" "$ref" ;;
+    refs/tags/*) apply_tag_policy "$old" "$new" "$ref" ;;
+    *) : ;; # Other refs ignored
+  esac
+}
+
+# SRP: Input parsing
+parse_updates() {
+  while IFS=$' \t' read -r old new ref; do
+    printf "%s\n%s\n%s\n" "$old" "$new" "$ref"
+  done
+}
+
+# Main processing
+main() {
+  load_config
+
+  while IFS=$'\n' read -r line_group; do
+    local old new ref
+    {
+      read -r old
+      read -r new
+      read -r ref
+    } <<< "$line_group"
+
+    validate_update "$old" "$new" "$ref"
+  done < <(parse_updates | paste - - -)
+
+  report_violations
+}
+
+# YAGNI: Future requirements noted (implementation postponed)
+# TODO: Origin branch strict verification → mergebot signature as alternative
+# TODO: Signature/CI requirements → operational phase addition
+# TODO: Tag policy details → after demand confirmation
+# TODO: Windows-specific support → cross-platform requirements phase
+# TODO: Performance optimization → Rust+libgit2 migration decision phase
+
+# KISS: Simplicity maintenance
+# - No rename threshold settings
+# - No complex regex
+# - Comma parsing avoidance (newline delimiter unity)
+
+main "$@"
