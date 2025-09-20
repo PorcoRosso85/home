@@ -35,10 +35,12 @@ nix run nixpkgs#opencode -- serve --port 4096
 **⚠️ Important**: Invalid session IDs result in clear error instead of automatic recreation. If you get a session error, remove the session file or use a different `OPENCODE_PROJECT_DIR`.
 ```bash
 # Quick test with built-in client (unified command)
-OPENCODE_PROJECT_DIR=/path/to/project \n  nix run .#opencode-client -- 'just say hi'
+OPENCODE_PROJECT_DIR=/path/to/project \
+  nix run .#opencode-client -- 'just say hi'
 
 # Backward compatibility (still works)
-OPENCODE_PROJECT_DIR=/path/to/project \n  nix run .#client-hello -- 'just say hi'
+OPENCODE_PROJECT_DIR=/path/to/project \
+  nix run .#client-hello -- 'just say hi'
 
 # With specific provider/model
 OPENCODE_PROJECT_DIR=/path/to/project \
@@ -51,16 +53,19 @@ The built-in client manages session continuity based on the directory you specif
 
 ```bash
 # Sessions are automatically saved and resumed per directory
-OPENCODE_PROJECT_DIR=/path/to/project-a \n  nix run .#opencode-client -- 'help with project A'  # Creates new session
-OPENCODE_PROJECT_DIR=/path/to/project-a \n  nix run .#opencode-client -- 'continue our discussion'  # Resumes same session
+OPENCODE_PROJECT_DIR=/path/to/project-a \
+  nix run .#opencode-client -- 'help with project A'  # Creates new session
+OPENCODE_PROJECT_DIR=/path/to/project-a \
+  nix run .#opencode-client -- 'continue our discussion'  # Resumes same session
 
-OPENCODE_PROJECT_DIR=/path/to/project-b \n  nix run .#opencode-client -- 'different project here'  # Completely separate session
+OPENCODE_PROJECT_DIR=/path/to/project-b \
+  nix run .#opencode-client -- 'different project here'  # Completely separate session
 ```
 
 **Session Features:**
-- **1x1 Directory Mapping**: Each project directory (from ) gets its own unique session
-- **Automatic Resumption**: Reuse the same  to continue your previous conversation
-- **Mandatory Directory Selection**:  must be set and point to an existing directory (unset or missing paths cause an error)
+- **1x1 Directory Mapping**: Each project directory (from OPENCODE_PROJECT_DIR) gets its own unique session
+- **Automatic Resumption**: Reuse the same OPENCODE_PROJECT_DIR to continue your previous conversation
+- **Mandatory Directory Selection**: OPENCODE_PROJECT_DIR must be set and point to an existing directory (unset or missing paths cause an error)
 - **Server Validation**: Invalid sessions result in clear error (no automatic recreation)
 - **XDG Compliant**: Sessions stored in `${XDG_STATE_HOME:-$HOME/.local/state}/opencode/sessions/`
 - **User Feedback**: Clear indication whether session was resumed or newly created
@@ -140,7 +145,8 @@ cd templates/multi-agent/
 #### Built-in Client Development Testing
 ```bash
 # Test the client with development environment
-OPENCODE_PROJECT_DIR=/path/to/project \n  nix run .#client-hello -- 'just say hi'
+OPENCODE_PROJECT_DIR=/path/to/project \
+  nix run .#client-hello -- 'just say hi'
 
 # Environment variables for testing
 export OPENCODE_URL="http://127.0.0.1:4096"
@@ -188,6 +194,9 @@ export OPENCODE_URL="http://127.0.0.1:4096"        # Default server URL
 # Provider/model selection (optional - server defaults used if omitted)
 export OPENCODE_PROVIDER="anthropic"               # AI provider
 export OPENCODE_MODEL="claude-3-5-sonnet"          # Specific model
+
+# Required for client
+export OPENCODE_PROJECT_DIR="/path/to/project"     # Project directory (required)
 
 # Development/testing (Development Usage only)
 export XDG_STATE_HOME="$HOME/.local/state"         # Session storage
