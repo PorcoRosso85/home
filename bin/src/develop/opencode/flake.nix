@@ -47,6 +47,8 @@ Commands:
   send [MESSAGE]     Send message to current session (default)
   history [OPTIONS]  View conversation history
   sessions [OPTIONS] List available sessions
+  status [--probe]   Quick diagnostic check (--probe: test send capability)
+  ps                 Discover running OpenCode servers and show connection URLs
   help, --help       Show this help
 
 Default behavior (no command): send "just say hi"
@@ -56,6 +58,8 @@ Examples:
   opencode-client send "hello world"     # Send message (explicit)
   opencode-client history                 # View current session history
   opencode-client sessions                # List sessions
+  opencode-client status                  # Quick diagnostic check
+  opencode-client status --probe          # Test send capability with structured errors
 
 Environment Variables:
   OPENCODE_URL          Server URL (default: http://127.0.0.1:4096)
@@ -77,7 +81,7 @@ EOF
 
             # Parse first argument as potential subcommand
             case "''${1:-}" in
-              "send"|"history"|"sessions")
+              "send"|"history"|"sessions"|"status"|"ps")
                 SUBCOMMAND="$1"
                 shift
                 ARGS=("$@")
@@ -118,6 +122,8 @@ EOF
             # Source session management functions (DRY compliance)
             source "${./lib/session-helper.sh}"
             source "${./lib/history-helper.sh}"
+            source "${./lib/diagnostic-helper.sh}"
+            source "${./lib/process-discovery.sh}"
 
             # Execute subcommand
             case "$SUBCOMMAND" in
@@ -127,7 +133,7 @@ EOF
                 # 1) Health check (OpenAPI doc)
                 if ! oc_session_http_get "$OPENCODE_URL/doc" >/dev/null; then
                   echo "[client] error: server not reachable at $OPENCODE_URL" >&2
-                  echo "[hint] start: nix run nixpkgs#opencode -- serve --port 4096" >&2
+                  oc_diag_next_connection_help "$OPENCODE_URL"
                   exit 1
                 fi
 
@@ -143,14 +149,101 @@ EOF
                   + (if $p != "" and $m != "" then { model: { providerID: $p, modelID: $m }} else {} end)
                 ')
 
-                # 4) Send message
+                # 4) Send message with enhanced error handling
+                echo "[debug] Sending message to session $SID..." >&2
                 RESP=$(oc_session_http_post "$OPENCODE_URL/session/$SID/message" "$PAYLOAD")
+                POST_EXIT_CODE=$?
+                echo "[debug] POST exit code: $POST_EXIT_CODE" >&2
+                echo "[debug] Response: $RESP" >&2
 
-                # 5) Extract response
-                if echo "$RESP" | jq -e '.parts? // [] | length > 0' >/dev/null 2>&1; then
-                  echo "[client] reply:" >&2 && echo "$RESP" | jq -r '(.parts[]? | select(.type=="text") | .text) // empty'
+                # 5) Enhanced response handling with structured error messages
+                echo "[debug] Starting response analysis..." >&2
+                if [[ $POST_EXIT_CODE -eq 0 ]]; then
+                  echo "[debug] POST was successful (exit 0)" >&2
+                  # Message sent successfully, check for immediate error or wait for response
+                  if echo "$RESP" | jq -e '.name == "ProviderModelNotFoundError"' >/dev/null 2>&1; then
+                    echo "[debug] ProviderModelNotFoundError detected" >&2
+                    # Immediate error response from server
+                    ERROR_DATA=$(echo "$RESP" | jq -r '.data // {}' 2>/dev/null || echo "{}")
+                    PROVIDER_ID=$(echo "$ERROR_DATA" | jq -r '.providerID // "unknown"' 2>/dev/null)
+                    MODEL_ID=$(echo "$ERROR_DATA" | jq -r '.modelID // "unknown"' 2>/dev/null)
+
+                    echo "[Error] ProviderModelNotFoundError: $PROVIDER_ID/$MODEL_ID not available" >&2
+
+                    # Get available providers
+                    oc_diag_show_available "$OPENCODE_URL"
+
+                    echo "[Fix] OPENCODE_PROVIDER=opencode OPENCODE_MODEL=grok-code nix run .#opencode-client -- 'test'" >&2
+                    echo "[Help] See docs/TROUBLESHOOTING-TUI-HTTP-API.md" >&2
+                    exit 1
+                  elif echo "$RESP" | jq -e '.parts? // [] | length > 0' >/dev/null 2>&1; then
+                    # Success: Extract and display response
+                    echo "[client] reply:" >&2 && echo "$RESP" | jq -r '(.parts[]? | select(.type=="text") | .text) // empty'
+                  else
+                    # Message sent but no immediate response, wait for assistant response
+                    echo "[client] waiting for response..." >&2
+
+                    # Poll for assistant response (with timeout)
+                    for attempt in {1..15}; do
+                      sleep 1
+                      MESSAGES=$(curl -s "$OPENCODE_URL/session/$SID/message" 2>/dev/null | jq '.[-2:]' 2>/dev/null || echo '[]')
+
+                      # Check if we have an assistant response
+                      ASSISTANT_MSG=$(echo "$MESSAGES" | jq '.[] | select(.info.role == "assistant")' 2>/dev/null | tail -1)
+
+                      if [[ -n "$ASSISTANT_MSG" ]]; then
+                        # Got assistant response
+                        ASSISTANT_TEXT=$(echo "$ASSISTANT_MSG" | jq -r '.parts[]? | select(.type=="text") | .text' 2>/dev/null || echo "")
+                        if [[ -n "$ASSISTANT_TEXT" ]]; then
+                          echo "[client] reply:" >&2 && echo "$ASSISTANT_TEXT"
+                          exit 0
+                        fi
+                      fi
+                    done
+
+                    # Timeout - no assistant response
+                    echo "[client] timeout: no assistant response received" >&2
+                    echo "[Help] This may indicate a model configuration issue. Try: ./check-opencode-status.sh" >&2
+                    exit 1
+                  fi
+                elif [[ $POST_EXIT_CODE -ne 0 ]] && echo "$RESP" | grep -q "HTTP POST failed"; then
+                  # HTTP error: Provide structured error message
+                  echo "[Error] Request failed. Analyzing error..." >&2
+
+                  # Try to get detailed error from server
+                  DETAILED_ERROR=$(curl -s -X POST "$OPENCODE_URL/session/$SID/message" \
+                    -H 'Content-Type: application/json' \
+                    -d "$PAYLOAD" 2>&1 || echo '{"name":"UnknownError"}')
+
+                  # Parse error type
+                  ERROR_TYPE=$(echo "$DETAILED_ERROR" | jq -r '.name // "UnknownError"' 2>/dev/null || echo "UnknownError")
+                  ERROR_DATA=$(echo "$DETAILED_ERROR" | jq -r '.data // {}' 2>/dev/null || echo "{}")
+
+                  if [[ "$ERROR_TYPE" == "ProviderModelNotFoundError" ]]; then
+                    # Specific error: ProviderModelNotFoundError
+                    PROVIDER_ID=$(echo "$ERROR_DATA" | jq -r '.providerID // "unknown"' 2>/dev/null)
+                    MODEL_ID=$(echo "$ERROR_DATA" | jq -r '.modelID // "unknown"' 2>/dev/null)
+
+                    echo "[Error] ProviderModelNotFoundError: $PROVIDER_ID/$MODEL_ID not available" >&2
+
+                    # Get available providers
+                    oc_diag_show_available "$OPENCODE_URL"
+
+                    echo "[Fix] OPENCODE_PROVIDER=opencode OPENCODE_MODEL=grok-code nix run .#opencode-client -- 'test'" >&2
+                    echo "[Help] See docs/TROUBLESHOOTING-TUI-HTTP-API.md" >&2
+                  else
+                    # Generic error: Show available providers
+                    echo "[Error] Request failed. Checking available providers..." >&2
+
+                    oc_diag_show_available "$OPENCODE_URL"
+
+                    echo "[Fix] Set provider: OPENCODE_PROVIDER=opencode OPENCODE_MODEL=grok-code" >&2
+                    echo "[Help] Use ./check-opencode-status.sh for detailed diagnosis" >&2
+                  fi
+                  exit 1
                 else
-                  echo "$RESP" | jq
+                  # Fallback: Show raw response for debugging
+                  echo "$RESP" | jq 2>/dev/null || echo "$RESP"
                 fi
                 ;;
 
@@ -202,7 +295,7 @@ EOF
                 # Health check
                 if ! oc_session_http_get "$OPENCODE_URL/doc" >/dev/null; then
                   echo "[client] error: server not reachable at $OPENCODE_URL" >&2
-                  echo "[hint] start: nix run nixpkgs#opencode -- serve --port 4096" >&2
+                  oc_diag_next_connection_help "$OPENCODE_URL"
                   exit 1
                 fi
 
@@ -380,6 +473,150 @@ EOF
                       echo "Hint: Send a message first to create a session"
                     fi
                   fi
+                fi
+                ;;
+
+              "status")
+                # Parse status options
+                probe_mode="false"
+
+                # Parse arguments
+                while [[ ''${#ARGS[@]} -gt 0 ]]; do
+                  case "''${ARGS[0]}" in
+                    --probe)
+                      probe_mode="true"
+                      ARGS=("''${ARGS[@]:1}")
+                      ;;
+                    *)
+                      echo "[client] error: unknown option for status: ''${ARGS[0]}" >&2
+                      echo "[hint] use: status [--probe]" >&2
+                      exit 1
+                      ;;
+                  esac
+                done
+
+                if [[ "$probe_mode" == "true" ]]; then
+                  # Lightweight probe mode
+                  echo "[client] 🧪 Probing send capability..." >&2
+
+                  # Quick server check
+                  if ! oc_session_http_get "$OPENCODE_URL/doc" >/dev/null 2>&1; then
+                    echo >&2
+                    echo "[Error] Server not reachable at $OPENCODE_URL" >&2
+                    echo "[Available] Check server status with: curl -s $OPENCODE_URL/doc" >&2
+                    oc_diag_next_start_server
+                    oc_diag_next_full_diagnosis
+                    exit 1
+                  fi
+
+                  # Quick send test
+                  TEST_SID=$(oc_session_get_or_create "$OPENCODE_URL" "$PROJECT_DIR" 2>/dev/null)
+                  if [[ -n "$TEST_SID" ]]; then
+                    # Try sending a minimal probe message
+                    PROBE_RESP=$(oc_session_http_post "$OPENCODE_URL/session/$TEST_SID/message" \
+                      '{"parts":[{"type":"text","text":"probe"}]}' 2>/dev/null)
+                    PROBE_EXIT=$?
+
+                    if [[ $PROBE_EXIT -eq 0 ]]; then
+                      echo "[client] ✅ OK: send probe succeeded" >&2
+                      exit 0
+                    else
+                      echo >&2
+                      echo "[Error] Message sending failed" >&2
+
+                      # Get available providers for structured error
+                      oc_diag_show_available "$OPENCODE_URL"
+                      echo "[Fix] Try: OPENCODE_PROVIDER=opencode OPENCODE_MODEL=grok-code" >&2
+                      echo "[Help] Full diagnosis: ./check-opencode-status.sh" >&2
+                      exit 1
+                    fi
+                  else
+                    echo >&2
+                    echo "[Error] Session creation failed" >&2
+                    echo "[Available] Check server configuration" >&2
+                    echo "[Fix] Verify server: curl -s $OPENCODE_URL/config/providers" >&2
+                    echo "[Help] Full diagnosis: ./check-opencode-status.sh" >&2
+                    exit 1
+                  fi
+                else
+                  # Regular status mode
+                  echo "[client] OpenCode Status Check" >&2
+                  echo "[client] ===================" >&2
+                  echo >&2
+                fi
+
+                # Check 1: Server connectivity
+                echo "[client] 🖥️  Server Status:" >&2
+                if oc_session_http_get "$OPENCODE_URL/doc" >/dev/null 2>&1; then
+                  echo "[client]   ✅ Server online at $OPENCODE_URL" >&2
+
+                  # Get available providers
+                  PROVIDERS=$(curl -s "$OPENCODE_URL/config/providers" 2>/dev/null | \
+                    jq -r '.providers[].id' 2>/dev/null | tr '\n' ', ' | sed 's/,$//' || echo "unknown")
+                  echo "[client]   📋 HTTP API Providers: $PROVIDERS" >&2
+                else
+                  echo "[client]   ❌ Server offline at $OPENCODE_URL" >&2
+                  oc_diag_next_start_server
+                  exit 1
+                fi
+                echo >&2
+
+                # Check 2: Project directory
+                echo "[client] 📁 Project Directory:" >&2
+                echo "[client]   📍 OPENCODE_PROJECT_DIR: $PROJECT_DIR" >&2
+                if [[ -d "$PROJECT_DIR" ]]; then
+                  echo "[client]   ✅ Directory exists" >&2
+                else
+                  echo "[client]   ❌ Directory not found" >&2
+                fi
+                echo >&2
+
+                # Check 3: Session status
+                echo "[client] 🔗 Session Status:" >&2
+                if SID=$(oc_session_get_current_session_id "$PROJECT_DIR" "$OPENCODE_URL" 2>/dev/null); then
+                  echo "[client]   ✅ Active session: $SID" >&2
+                else
+                  echo "[client]   📝 No active session (will create new)" >&2
+                fi
+                echo >&2
+
+                # Check 4: Quick connectivity test
+                echo "[client] 🧪 Connectivity Test:" >&2
+                echo "[client]   📤 Sending test message..." >&2
+                TEST_SID=$(oc_session_get_or_create "$OPENCODE_URL" "$PROJECT_DIR" 2>/dev/null)
+                if [[ -n "$TEST_SID" ]]; then
+                  echo "[client]   ✅ Session creation successful" >&2
+                  echo "[client]   🆔 Test session: $TEST_SID" >&2
+                else
+                  echo "[client]   ❌ Session creation failed" >&2
+                fi
+                echo >&2
+
+                # Summary and recommendations
+                echo "[client] 📋 Quick Actions:" >&2
+                echo "[client]   • Send message: OPENCODE_PROJECT_DIR=\$(pwd) nix run .#opencode-client -- 'hello'" >&2
+                echo "[client]   • View history: OPENCODE_PROJECT_DIR=\$(pwd) nix run .#opencode-client -- history" >&2
+                echo "[client]   • Full diagnosis: ./check-opencode-status.sh" >&2
+                ;;
+
+              "ps")
+                # Process discovery subcommand - find running OpenCode servers
+                echo "[client] Discovering OpenCode servers..." >&2
+
+                # Discover servers using OS-compatible process discovery
+                servers_json=$(oc_ps_discover_servers 2>/dev/null)
+                if [[ $? -eq 0 && -n "$servers_json" ]]; then
+                  # Generate export commands and guidance
+                  if oc_ps_generate_exports "$servers_json"; then
+                    exit 0  # Success with guidance
+                  else
+                    exit 1  # No reachable servers found
+                  fi
+                else
+                  echo "[Error] Process discovery failed" >&2
+                  echo "[Help] Check system permissions or try manual server start:" >&2
+                  oc_diag_next_start_server
+                  exit 1
                 fi
                 ;;
 

@@ -2,6 +2,48 @@
 
 HTTP-only two-server OpenCode development environment with dynamic client capabilities and multi-agent templates.
 
+## ⚡ 30-Second Quick Start
+
+**Want to try OpenCode immediately?** Follow these steps:
+
+```bash
+# 1. Start server (in one terminal)
+nix run nixpkgs#opencode -- serve --port 4096
+
+# 2. Check status (in another terminal) - confirms URL and readiness
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- status
+
+# 3. Send a message (same terminal)
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- 'just say hi'
+```
+
+**That's it!** The status check ensures everything is ready before you send your first message.
+
+**🧪 Verify everything works:** Run our validation script:
+```bash
+./quick-start-test.sh
+```
+
+**🔧 Something not working?** Follow this progression:
+```bash
+# Step 1: Quick built-in check
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- status
+
+# Step 2: If server connection fails, discover running servers
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- ps
+
+# Step 3: Use the export command shown by ps, then verify
+export OPENCODE_URL=http://127.0.0.1:PORT  # Copy from ps output
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- status --probe
+
+# Step 4: If still issues, run comprehensive diagnostics
+./check-opencode-status.sh
+```
+
+**🔍 New: Server Discovery** - The `ps` subcommand finds running OpenCode servers and provides exact export commands. **Note**: `ps` lists servers but does NOT automatically connect - you choose which server to use for predictable, auditable connections.
+
+---
+
 ## 🎯 Which Flake to Use?
 
 **Default:** Use `flake.nix` for all standard usage - it's the unified, single entry point.
@@ -30,22 +72,52 @@ nix run nixpkgs#opencode -- serve --port 4096
 
 #### Use the Built-in Client
 
-**Required**: set `OPENCODE_PROJECT_DIR` to an existing directory. The client errors if it is unset or the path does not exist.
+**📍 Key Requirement**: `OPENCODE_PROJECT_DIR` must be set to an existing directory.
 
-**⚠️ Important**: Invalid session IDs result in clear error instead of automatic recreation. If you get a session error, remove the session file or use a different `OPENCODE_PROJECT_DIR`.
+**💡 Pro Tips:**
+- Use `$(pwd)` for current directory: `OPENCODE_PROJECT_DIR=$(pwd)`
+- Each directory gets its own conversation session
+- Server must be running on port 4096 (default)
+
 ```bash
-# Quick test with built-in client (unified command)
+# ✅ Recommended: Use current directory
+OPENCODE_PROJECT_DIR=$(pwd) \
+  nix run .#opencode-client -- 'just say hi'
+
+# ✅ Alternative: Specific project directory
 OPENCODE_PROJECT_DIR=/path/to/project \
   nix run .#opencode-client -- 'just say hi'
 
-# Backward compatibility (still works)
-OPENCODE_PROJECT_DIR=/path/to/project \
+# ✅ Backward compatibility (still works)
+OPENCODE_PROJECT_DIR=$(pwd) \
   nix run .#client-hello -- 'just say hi'
 
-# With specific provider/model
-OPENCODE_PROJECT_DIR=/path/to/project \
+# ✅ With specific provider/model (advanced)
+OPENCODE_PROJECT_DIR=$(pwd) \
 OPENCODE_PROVIDER=anthropic OPENCODE_MODEL=claude-3-5-sonnet \
   nix run .#opencode-client -- 'explain quantum computing'
+```
+
+**🔧 Troubleshooting Quick Checks:**
+```bash
+# ⚡ All-in-one validation (recommended)
+./quick-start-test.sh
+
+# 🔍 Built-in diagnostics (lightweight)
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- status
+
+# 🔍 Individual checks:
+# Discover running OpenCode servers (new!)
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- ps
+
+# Check if specific server is running
+curl -s http://127.0.0.1:4096/doc >/dev/null && echo "✅ Server OK" || echo "❌ Server not running"
+
+# Test with minimal setup
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- 'test message'
+
+# Check detailed configuration status
+./check-opencode-status.sh
 ```
 
 **🔄 Directory-Based Session Continuity** (New Feature):
@@ -134,9 +206,18 @@ OPENCODE_PROJECT_DIR=/path/to/my-project \
 - `send [MESSAGE]` - Send message to current session (default behavior)
 - `history [OPTIONS]` - View conversation history
 - `sessions [OPTIONS]` - List available sessions
+- `ps` - Discover running OpenCode servers (explicit URLs, no auto-connect)
+- `status [--probe]` - Quick diagnostic check (--probe: test send capability)
 - `help` - Show command usage
 
-**Backward compatibility:** All existing commands continue to work unchanged. The new history and sessions features are additive.
+**🔍 ps Command Design Philosophy:**
+The `ps` command follows explicit design principles for maximum predictability:
+- **Lists servers** but **never automatically connects**
+- **Shows exact export commands** for you to copy and execute
+- **Prevents accidental connections** to wrong servers
+- **Auditable and predictable** - you always know which server you're targeting
+
+**Backward compatibility:** All existing commands continue to work unchanged. The new ps and enhanced status features are additive.
 
 #### Direct HTTP API Usage
 

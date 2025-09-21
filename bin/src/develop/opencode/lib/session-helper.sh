@@ -70,24 +70,57 @@ oc_session_http_get() {
 
 # HTTP POST request with JSON content-type and unified options (DRY principle)
 # Usage: oc_session_http_post URL JSON_DATA [additional_curl_options...]
-# stdout=response body, stderr=error messages, exit 0=success
+# stdout=response body (including error responses), stderr=curl errors, exit 0=HTTP success
 oc_session_http_post() {
     local url="$1"
     local json_data="$2"
     shift 2
     local timeout="${OPENCODE_TIMEOUT:-30}"
-    
-    if curl -fsS --max-time "$timeout" \
+
+    # Use -sS instead of -fsS to get error response bodies
+    local response
+    local http_code
+    local curl_exit_code
+
+    response=$(curl -sS --max-time "$timeout" \
+        -w "HTTPCODE:%{http_code}" \
         -X POST \
         -H 'Content-Type: application/json' \
         -d "$json_data" \
         "$@" \
-        "$url"; then
-        return 0
-    else
-        echo "[error] HTTP POST failed: $url" >&2
+        "$url" 2>&1)
+    curl_exit_code=$?
+
+    # Check for curl command failure first
+    if [[ $curl_exit_code -ne 0 ]]; then
+        echo "[error] HTTP POST failed: $url (curl exit code: $curl_exit_code)" >&2
         return 1
     fi
+
+    # Extract HTTP code and response body
+    if [[ "$response" == *"HTTPCODE:"* ]]; then
+        # Extract HTTP code from the end
+        http_code="${response##*HTTPCODE:}"
+        response="${response%HTTPCODE:*}"
+    else
+        # No HTTP code found - unexpected
+        echo "[error] HTTP POST failed: $url (no HTTP code)" >&2
+        return 1
+    fi
+
+    # Output response body regardless of HTTP status
+    echo "$response"
+
+    # Return success only for 2xx status codes
+    case "$http_code" in
+        2*)
+            return 0
+            ;;
+        *)
+            # HTTP error status - caller can inspect response body for details
+            return 1
+            ;;
+    esac
 }
 
 # Get session file path for directory (main path resolution function)
@@ -167,6 +200,8 @@ oc_session_get_or_create() {
     
     if [[ -n "$existing_session" ]]; then
         if oc_session_validate_api "$url" "$existing_session" 2>/dev/null; then
+            # Ensure the resumed session is present in the index for discoverability
+            oc_session_index_integrate_with_session "$workdir" "$url" "$existing_session" >/dev/null 2>&1 || true
             echo "[client] session: $existing_session (resumed)" >&2
             echo "$existing_session"
             return 0
@@ -182,6 +217,9 @@ oc_session_get_or_create() {
         
         if [[ -n "$new_session" && "$new_session" != "null" ]]; then
             oc_session_save_id "$session_file" "$new_session"
+            # Integrate the newly created session into the index for discoverability
+            # (Tier 0 index handles duplicates gracefully.)
+            oc_session_index_integrate_with_session "$workdir" "$url" "$new_session" >/dev/null 2>&1 || true
             echo "[client] session: $new_session (new)" >&2
             echo "$new_session"
             return 0
