@@ -249,9 +249,9 @@ EOF
 
               "history")
                 # Parse history options
-                local session_id=""
-                local format="text"
-                local limit="20"
+                session_id=""
+                format="text"
+                limit="20"
 
                 # Parse arguments
                 while [[ ''${#ARGS[@]} -gt 0 ]]; do
@@ -311,7 +311,6 @@ EOF
                 fi
 
                 # Get and format messages
-                local messages
                 if messages=$(oc_history_get_messages "$session_id" "$limit" 2>/dev/null); then
                   case "$format" in
                     "text")
@@ -329,9 +328,9 @@ EOF
 
               "sessions")
                 # Parse sessions options
-                local target_dir="$PROJECT_DIR"
-                local hostport=""
-                local format="text"
+                target_dir="$PROJECT_DIR"
+                hostport=""
+                format="text"
 
                 # Parse arguments
                 while [[ ''${#ARGS[@]} -gt 0 ]]; do
@@ -382,13 +381,12 @@ EOF
                 fi
 
                 # Get normalized directory and hostport
-                local normalized_dir
                 if ! normalized_dir=$(oc_session_index_normalize_dir "$target_dir" 2>/dev/null); then
                   echo "[client] error: failed to normalize directory: $target_dir" >&2
                   exit 1
                 fi
 
-                local target_hostport="$hostport"
+                target_hostport="$hostport"
                 if [[ -z "$target_hostport" ]]; then
                   if ! target_hostport=$(oc_session_index_normalize_hostport "$OPENCODE_URL" 2>/dev/null); then
                     echo "[client] error: failed to determine host:port from URL: $OPENCODE_URL" >&2
@@ -400,14 +398,12 @@ EOF
                 if [[ -n "$hostport" ]]; then
                   # Filter by specific hostport
                   echo "[client] info: listing sessions for host:port: $target_hostport" >&2
-                  local dirs
                   if dirs=$(oc_session_index_list_dirs_by_hostport "$target_hostport" 2>/dev/null); then
                     if [[ "$format" == "json" ]]; then
                       echo "{"
                       echo "  \"hostport\": \"$target_hostport\","
                       echo "  \"directories\": ["
                       echo "$dirs" | while IFS= read -r dir; do
-                        local sids
                         if sids=$(oc_session_index_list_sids_by_dir "$dir" 2>/dev/null); then
                           echo "    {"
                           echo "      \"directory\": \"$dir\","
@@ -425,7 +421,6 @@ EOF
                       echo "Sessions for host:port: $target_hostport"
                       echo "$dirs" | while IFS= read -r dir; do
                         echo "Directory: $dir"
-                        local sids
                         if sids=$(oc_session_index_list_sids_by_dir "$dir" 2>/dev/null); then
                           echo "$sids" | while IFS= read -r sid; do
                             echo "  📝 $sid"
@@ -447,7 +442,6 @@ EOF
                 else
                   # List sessions for specific directory
                   echo "[client] info: listing sessions for directory: $normalized_dir" >&2
-                  local sids
                   if sids=$(oc_session_index_list_sids_by_dir "$normalized_dir" 2>/dev/null); then
                     if [[ "$format" == "json" ]]; then
                       echo "{"

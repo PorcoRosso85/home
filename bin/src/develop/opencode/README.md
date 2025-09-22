@@ -2,19 +2,63 @@
 
 HTTP-only two-server OpenCode development environment with dynamic client capabilities and multi-agent templates.
 
-## ⚡ 30-Second Quick Start
+## 🚀 High-Performance Usage (Recommended)
 
-**Want to try OpenCode immediately?** Follow these steps:
+**Best for production use and frequent interactions.** Install once, use everywhere with optimal performance.
 
+### One-Time Setup
+```bash
+# Install opencode-client to your profile (persistent across sessions)
+nix profile install github:PorcoRosso85/home#opencode-client
+```
+
+### Daily Usage
 ```bash
 # 1. Start server (in one terminal)
 nix run nixpkgs#opencode -- serve --port 4096
 
-# 2. Check status (in another terminal) - confirms URL and readiness
-OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- status
+# 2. Use installed client (instant startup)
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'just say hi'
 
-# 3. Send a message (same terminal)
-OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- 'just say hi'
+# 3. Continue working (no startup delays)
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'explain this code'
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'add error handling'
+```
+
+**⚡ Performance Benefits:**
+- **Zero startup time** - client launches instantly
+- **Persistent across terminals** - works in any shell session
+- **Memory efficient** - no repeated dependency resolution
+- **Network optimized** - no repeated downloads
+
+**🔧 Management Commands:**
+```bash
+# Update to latest version
+nix profile upgrade github:PorcoRosso85/home#opencode-client
+
+# Remove if needed
+nix profile remove opencode-client
+
+# Check installation
+which opencode-client && echo "✅ Installed" || echo "❌ Not found"
+```
+
+## ⚡ 30-Second Quick Start (External Users)
+
+**New to OpenCode? Get started immediately with the profile-based workflow:**
+
+```bash
+# Step 1: Install opencode-client (one-time setup)
+nix profile install github:PorcoRosso85/home#opencode-client
+
+# Step 2: Start server (in one terminal)
+nix run nixpkgs#opencode -- serve --port 4096
+
+# Step 3: Check status (in another terminal) - confirms URL and readiness
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client status
+
+# Step 4: Send a message (same terminal)
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'just say hi'
 ```
 
 **That's it!** The status check ensures everything is ready before you send your first message.
@@ -24,23 +68,65 @@ OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- 'just say hi'
 ./quick-start-test.sh
 ```
 
-**🔧 Something not working?** Follow this progression:
+## 🔧 Troubleshooting
+
+**Something not working?** Follow this progression:
 ```bash
 # Step 1: Quick built-in check
-OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- status
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client status
 
 # Step 2: If server connection fails, discover running servers
-OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- ps
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client ps
 
 # Step 3: Use the export command shown by ps, then verify
 export OPENCODE_URL=http://127.0.0.1:PORT  # Copy from ps output
-OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- status --probe
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client status --probe
 
 # Step 4: If still issues, run comprehensive diagnostics
 ./check-opencode-status.sh
 ```
 
+**📍 PATH Troubleshooting:** If `opencode-client` command is not found:
+
+```bash
+# Option 1: Install to profile (recommended for persistent use)
+nix profile install github:PorcoRosso85/home#opencode-client
+
+# Option 2: Use direct nix run (slower, for one-time use)
+OPENCODE_PROJECT_DIR=$(pwd) nix run github:PorcoRosso85/home#opencode-client -- status
+OPENCODE_PROJECT_DIR=$(pwd) nix run github:PorcoRosso85/home#opencode-client -- ps
+OPENCODE_PROJECT_DIR=$(pwd) nix run github:PorcoRosso85/home#opencode-client -- status --probe
+```
+
 **🔍 New: Server Discovery** - The `ps` subcommand finds running OpenCode servers and provides exact export commands. **Note**: `ps` lists servers but does NOT automatically connect - you choose which server to use for predictable, auditable connections.
+
+## 🎛️ Convenience Usage (One-time, No Install)
+
+**For occasional use or when you can't install to profile.** ⚠️ **Performance Note**: Each command has startup overhead.
+
+### Direct Commands (Slower)
+```bash
+# 1. Start server (in one terminal)
+nix run nixpkgs#opencode -- serve --port 4096
+
+# 2. Use client directly (slower startup each time)
+OPENCODE_PROJECT_DIR=$(pwd) nix run github:PorcoRosso85/home#opencode-client -- 'just say hi'
+OPENCODE_PROJECT_DIR=$(pwd) nix run github:PorcoRosso85/home#opencode-client -- status
+OPENCODE_PROJECT_DIR=$(pwd) nix run github:PorcoRosso85/home#opencode-client -- ps
+```
+
+**⚠️ Performance Impact:**
+- **3-5 second startup delay** per command
+- **Network overhead** for dependency resolution
+- **Memory inefficient** for repeated use
+- **Best for**: One-off tasks, testing, systems where profile install isn't available
+
+**💡 Migration Path:** If you find yourself using these commands regularly, consider upgrading to the High-Performance Usage approach:
+```bash
+# Upgrade to persistent installation
+nix profile install github:PorcoRosso85/home#opencode-client
+# Then use: opencode-client [command] (instant startup)
+```
 
 ---
 
@@ -82,20 +168,20 @@ nix run nixpkgs#opencode -- serve --port 4096
 ```bash
 # ✅ Recommended: Use current directory
 OPENCODE_PROJECT_DIR=$(pwd) \
-  nix run .#opencode-client -- 'just say hi'
+  opencode-client 'just say hi'
 
 # ✅ Alternative: Specific project directory
 OPENCODE_PROJECT_DIR=/path/to/project \
-  nix run .#opencode-client -- 'just say hi'
+  opencode-client 'just say hi'
 
 # ✅ Backward compatibility (still works)
 OPENCODE_PROJECT_DIR=$(pwd) \
-  nix run .#client-hello -- 'just say hi'
+  opencode-client 'just say hi'
 
 # ✅ With specific provider/model (advanced)
 OPENCODE_PROJECT_DIR=$(pwd) \
 OPENCODE_PROVIDER=anthropic OPENCODE_MODEL=claude-3-5-sonnet \
-  nix run .#opencode-client -- 'explain quantum computing'
+  opencode-client 'explain quantum computing'
 ```
 
 **🔧 Troubleshooting Quick Checks:**
@@ -104,17 +190,17 @@ OPENCODE_PROVIDER=anthropic OPENCODE_MODEL=claude-3-5-sonnet \
 ./quick-start-test.sh
 
 # 🔍 Built-in diagnostics (lightweight)
-OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- status
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client status
 
 # 🔍 Individual checks:
 # Discover running OpenCode servers (new!)
-OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- ps
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client ps
 
 # Check if specific server is running
 curl -s http://127.0.0.1:4096/doc >/dev/null && echo "✅ Server OK" || echo "❌ Server not running"
 
 # Test with minimal setup
-OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- 'test message'
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'test message'
 
 # Check detailed configuration status
 ./check-opencode-status.sh
@@ -126,12 +212,12 @@ The built-in client manages session continuity based on the directory you specif
 ```bash
 # Sessions are automatically saved and resumed per directory
 OPENCODE_PROJECT_DIR=/path/to/project-a \
-  nix run .#opencode-client -- 'help with project A'  # Creates new session
+  opencode-client 'help with project A'  # Creates new session
 OPENCODE_PROJECT_DIR=/path/to/project-a \
-  nix run .#opencode-client -- 'continue our discussion'  # Resumes same session
+  opencode-client 'continue our discussion'  # Resumes same session
 
 OPENCODE_PROJECT_DIR=/path/to/project-b \
-  nix run .#opencode-client -- 'different project here'  # Completely separate session
+  opencode-client 'different project here'  # Completely separate session
 ```
 
 **Session Features:**
@@ -151,55 +237,55 @@ OPENCODE_PROJECT_DIR=/path/to/project-b \
 ```bash
 # View history for current directory's session
 OPENCODE_PROJECT_DIR=/path/to/project \
-  nix run .#opencode-client -- history
+  opencode-client history
 
 # View history for specific session
 OPENCODE_PROJECT_DIR=/path/to/project \
-  nix run .#opencode-client -- history --sid ses_example123
+  opencode-client history --sid ses_example123
 
 # Get history in JSON format
 OPENCODE_PROJECT_DIR=/path/to/project \
-  nix run .#opencode-client -- history --format json
+  opencode-client history --format json
 
 # Limit number of messages
 OPENCODE_PROJECT_DIR=/path/to/project \
-  nix run .#opencode-client -- history --limit 10
+  opencode-client history --limit 10
 ```
 
 **Manage sessions:**
 ```bash
 # List sessions for current directory
 OPENCODE_PROJECT_DIR=/path/to/project \
-  nix run .#opencode-client -- sessions
+  opencode-client sessions
 
 # List sessions for different directory
-nix run .#opencode-client -- sessions --dir /other/project
+opencode-client sessions --dir /other/project
 
 # List all sessions for specific server
-nix run .#opencode-client -- sessions --hostport 127.0.0.1:4096
+opencode-client sessions --hostport 127.0.0.1:4096
 
 # Get session list in JSON format
 OPENCODE_PROJECT_DIR=/path/to/project \
-  nix run .#opencode-client -- sessions --format json
+  opencode-client sessions --format json
 ```
 
 **Complete workflow example:**
 ```bash
 # 1. Send a message (creates session)
 OPENCODE_PROJECT_DIR=/path/to/my-project \
-  nix run .#opencode-client -- "explain git branching"
+  opencode-client "explain git branching"
 
 # 2. Continue conversation
 OPENCODE_PROJECT_DIR=/path/to/my-project \
-  nix run .#opencode-client -- "show me a practical example"
+  opencode-client "show me a practical example"
 
 # 3. View conversation history
 OPENCODE_PROJECT_DIR=/path/to/my-project \
-  nix run .#opencode-client -- history
+  opencode-client history
 
 # 4. List all sessions
 OPENCODE_PROJECT_DIR=/path/to/my-project \
-  nix run .#opencode-client -- sessions
+  opencode-client sessions
 ```
 
 **Available commands:**
@@ -294,7 +380,7 @@ cd templates/multi-agent/
 ```bash
 # Test the client with development environment
 OPENCODE_PROJECT_DIR=/path/to/project \
-  nix run .#client-hello -- 'just say hi'
+  opencode-client 'just say hi'
 
 # Environment variables for testing
 export OPENCODE_URL="http://127.0.0.1:4096"
@@ -308,13 +394,38 @@ export OPENCODE_MODEL="claude-3-5-sonnet"
 
 | **Your Goal** | **Recommended Approach** |
 |---------------|-------------------------|
-| Quick API testing or one-off requests | **Basic Usage** |
-| Integrating OpenCode into existing scripts | **Basic Usage** |
-| Learning the HTTP API | **Basic Usage** |
-| Developing multi-agent systems | **Development Usage** |
-| Running template tests | **Development Usage** |
-| Contributing to OpenCode templates | **Development Usage** |
-| Using GNU netcat for testing | **Development Usage** |
+| **Regular OpenCode usage** | **High-Performance Usage** (profile install) |
+| **Quick testing or evaluation** | **30-Second Quick Start** |
+| **One-off tasks or restricted environments** | **Convenience Usage** |
+| **Template development and testing** | **Development Usage** |
+| **Learning the HTTP API directly** | **Direct HTTP API Usage** |
+| **Contributing to OpenCode templates** | **Development Usage** |
+| **Multi-agent system development** | **Development Usage** |
+
+## 📦 Migration Guide for Existing Users
+
+**Upgrading from manual nix run commands?** Here's your migration path:
+
+### Before (Slow)
+```bash
+# Old way - startup delay every time
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- 'message'
+OPENCODE_PROJECT_DIR=$(pwd) nix run .#opencode-client -- status
+```
+
+### After (Fast)
+```bash
+# 1. One-time upgrade
+nix profile install github:PorcoRosso85/home#opencode-client
+
+# 2. New way - instant startup
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'message'
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client status
+```
+
+**🔄 All your existing workflows remain compatible** - just replace the `nix run` prefix with the installed `opencode-client` command.
+
+**📍 Local Development**: If you're working on the OpenCode codebase itself, you can still use `nix run .#opencode-client` for testing local changes.
 
 ## 📋 Available Templates
 
@@ -369,8 +480,8 @@ export OPENCODE_URL_A="http://127.0.0.1:4096"     # Server A (e.g., Claude)
 export OPENCODE_URL_B="http://127.0.0.1:4097"     # Server B (e.g., GPT)
 
 # Switch between servers explicitly
-OPENCODE_URL=$OPENCODE_URL_A nix run .#client-hello -- 'test with server A'
-OPENCODE_URL=$OPENCODE_URL_B nix run .#client-hello -- 'test with server B'
+OPENCODE_PROJECT_DIR=$(pwd) OPENCODE_URL=$OPENCODE_URL_A opencode-client 'test with server A'
+OPENCODE_PROJECT_DIR=$(pwd) OPENCODE_URL=$OPENCODE_URL_B opencode-client 'test with server B'
 ```
 
 **📍 Port management guidelines**:
@@ -455,7 +566,7 @@ curl -s -X POST $OPENCODE_URL/session/$SID/message \
 ### Test Basic Usage (No nix develop)
 ```bash
 # This should work without any special setup:
-nix run .#client-hello -- 'test message'
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'test message'
 ```
 
 ### Test Development Usage  
@@ -464,7 +575,7 @@ nix run .#client-hello -- 'test message'
 nix develop
 
 # Verify all tools are available
-which nc curl jq opencode
+which nc curl jq opencode-client
 
 # Verify GNU netcat (critical for template tests)
 nc --help | head -3  # Should show "GNU netcat"
@@ -474,10 +585,35 @@ cd templates/multi-agent
 ./tests/test-session-manager.sh
 ```
 
+## 🤖 CI/Ephemeral Environment Note
+
+**For specialized use cases only** - CI pipelines, containers, or environments where profile persistence isn't suitable.
+
+**⚠️ Important**: Regular usage should use the [High-Performance Usage](#-high-performance-usage-recommended) approach with profile install. This section is for scenarios where profiles can't be used.
+
+### One-Shot Execution
+```bash
+# Start server and run single command (no persistent state)
+nix shell github:PorcoRosso85/home#opencode-client -c opencode-client status
+
+# With environment variables for CI
+OPENCODE_PROJECT_DIR=/workspace \
+OPENCODE_URL=http://127.0.0.1:4096 \
+  nix shell github:PorcoRosso85/home#opencode-client -c opencode-client 'analyze code'
+
+# Multiple commands in CI context
+OPENCODE_PROJECT_DIR=/workspace \
+  nix shell github:PorcoRosso85/home#opencode-client -c opencode-client ps
+OPENCODE_PROJECT_DIR=/workspace \
+  nix shell github:PorcoRosso85/home#opencode-client -c opencode-client 'run tests'
+```
+
+**Performance Note**: Each `nix shell` invocation has 3-5 second startup overhead. For any interactive or repeated usage, install to profile instead.
+
 ## 📚 More Information
 
 - **Template Documentation:** See `templates/*/README.md` for detailed template usage
-- **API Reference:** Start a server and visit `http://127.0.0.1:4096/doc` for OpenAPI documentation  
+- **API Reference:** Start a server and visit `http://127.0.0.1:4096/doc` for OpenAPI documentation
 - **Multi-Agent Details:** See `templates/multi-agent/README.md` for comprehensive multi-agent system documentation
 
 ---
