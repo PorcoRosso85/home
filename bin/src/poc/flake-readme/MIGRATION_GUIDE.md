@@ -8,8 +8,8 @@ flake-readme has been simplified to use only Git-standard behavior and ignore-on
 
 ### What Changed in Step 1.5
 
-**Previous Behavior (.nix-only documentable detection)**:
-- Only directories containing `.nix` files (excluding `readme.nix`) required documentation
+**Previous Behavior (mixed fact-policy detection)**:
+- Complex conditional logic determined which directories required documentation
 - Non-.nix directories were automatically exempt from documentation requirements
 
 **New Behavior (ignore-only policy)**:
@@ -40,7 +40,7 @@ flake-readme has been simplified to use only Git-standard behavior and ignore-on
 ### ✅ Preserved Features  
 - Core readme.nix validation and schema enforcement
 - Git boundary filtering (via `inputs.self.outPath`)
-- .nix-only documentable detection
+- Mixed fact-policy detection logic
 - `ignoreExtra` configuration for manual overrides
 - All existing validation and reporting functionality
 
@@ -178,7 +178,7 @@ cat result | jq '.missingReadmes'
 
 ### Expected Behavior
 - ✅ Untracked directories automatically excluded
-- ✅ Binary/image directories ignored (.nix-only logic)
+- ✅ Binary/image directories ignored (ignore-only logic)
 - ✅ Manual overrides via `ignoreExtra` work as before
 - ✅ All validation and schema enforcement preserved
 
