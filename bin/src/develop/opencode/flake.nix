@@ -151,7 +151,7 @@ EOF
 
                 # 4) Send message with enhanced error handling
                 echo "[debug] Sending message to session $SID..." >&2
-                RESP=$(oc_session_http_post "$OPENCODE_URL/session/$SID/message" "$PAYLOAD")
+                RESP=$(oc_session_http_post "$OPENCODE_URL/session/$SID/message?directory=$(printf '%s' "$PROJECT_DIR" | jq -sRr @uri)" "$PAYLOAD")
                 POST_EXIT_CODE=$?
                 echo "[debug] POST exit code: $POST_EXIT_CODE" >&2
                 echo "[debug] Response: $RESP" >&2
