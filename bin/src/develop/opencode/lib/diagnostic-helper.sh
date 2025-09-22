@@ -67,7 +67,7 @@ oc_diag_next_export_probe() {
 # Usage: oc_diag_next_start_server [PORT]
 oc_diag_next_start_server() {
     local port="${1:-4096}"
-    oc_diag_next_action "Start server: nix run nixpkgs#opencode -- serve --port $port"
+    oc_diag_next_action "Start server: nix profile install nixpkgs#opencode; opencode serve --port $port"
 }
 
 # Output comprehensive [Next] guidance for connection issues
@@ -80,7 +80,7 @@ oc_diag_next_connection_help() {
     if [[ "$url" != "http://127.0.0.1:4096" ]]; then
         oc_diag_next_export_probe "$url"
     else
-        oc_diag_next_action "If no servers found, start one: nix run nixpkgs#opencode -- serve --port 4096"
+        oc_diag_next_action "If no servers found, start one: nix profile install nixpkgs#opencode; opencode serve --port 4096"
         oc_diag_next_export_probe
     fi
 }

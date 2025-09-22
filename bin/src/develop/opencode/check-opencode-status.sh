@@ -286,7 +286,7 @@ format_text_output_simple() {
         echo "  Actual Model Response: $model_response"
     else
         echo "  Status: ❌ OFFLINE"
-        echo "  Suggestion: Check if server is running with 'nix run nixpkgs#opencode -- serve --port 4096'"
+        echo "  Suggestion: Check if server is running with 'nix profile install nixpkgs#opencode; opencode serve --port 4096'"
     fi
     echo
 
@@ -328,7 +328,7 @@ format_text_output_simple() {
     # Quick Troubleshooting
     echo "🔧 Quick Troubleshooting"
     if ! test_server_connectivity; then
-        echo "  ❌ Server offline - Start with: nix run nixpkgs#opencode -- serve"
+        echo "  ❌ Server offline - Start with: nix profile install nixpkgs#opencode; opencode serve"
     else
         echo "  ✅ Server online - TUI configuration takes precedence"
     fi

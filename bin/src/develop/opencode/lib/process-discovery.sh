@@ -171,7 +171,7 @@ oc_ps_generate_exports() {
             echo "  No reachable servers found"
         fi
         echo
-        echo "[Next] Start a server: nix run nixpkgs#opencode -- serve --port 4096"
+        echo "[Next] Start a server: nix profile install nixpkgs#opencode; opencode serve --port 4096"
         echo "[Next] Then try: export OPENCODE_URL=http://127.0.0.1:4096"
         return 1
     elif [[ $reachable_count -eq 1 ]]; then

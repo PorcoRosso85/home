@@ -57,7 +57,7 @@
             # Health check
             if ! curl -fsS "$OPENCODE_URL/doc" >/dev/null; then
               echo "[client] error: server not reachable at $OPENCODE_URL" >&2
-              echo "[hint] start: nix run nixpkgs#opencode -- serve --port 4096" >&2
+              echo "[hint] start: nix profile install nixpkgs#opencode; opencode serve --port 4096" >&2
               exit 1
             fi
             

@@ -18,7 +18,7 @@
 
             # Health check
             curl -fsS "$OPENCODE_URL/doc" >/dev/null || {
-              echo "Server not reachable. Start: nix run nixpkgs#opencode -- serve --port 4096" >&2
+              echo "Server not reachable. Start: nix profile install nixpkgs#opencode; opencode serve --port 4096" >&2
               exit 1
             }
 

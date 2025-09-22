@@ -25,9 +25,9 @@ if ! grep -q "Development Usage" README.md; then
     exit 1
 fi
 
-# Test 4: Basic Usage section should mention 'nix run' without 'nix develop'
-if ! grep -A 30 "Basic Usage" README.md | grep -q "nix run nixpkgs#opencode"; then
-    echo "❌ FAIL: Basic Usage section doesn't mention 'nix run nixpkgs#opencode'"
+# Test 4: Help section should mention profile install approach
+if ! grep -A 30 "Help" README.md | grep -q "nix profile install nixpkgs#opencode"; then
+    echo "❌ FAIL: Help section doesn't mention profile install approach"
     exit 1
 fi
 

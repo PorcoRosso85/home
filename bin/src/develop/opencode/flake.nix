@@ -18,13 +18,13 @@
             shellcheck  # For shell script quality testing
           ];
           shellHook = ''
-            echo "Start server: nix run nixpkgs#opencode -- serve --port 4096"
+            echo "Start server: nix profile install nixpkgs#opencode; opencode serve --port 4096"
             echo "See README.md for usage details and templates"
           '';
         };
       });
 
-      # HTTP client: nix run .#opencode-client -- 'just say hi' (or .#client-hello for backward compatibility)
+      # HTTP client: opencode-client 'just say hi' (install via: nix profile install .#opencode-client)
       packages = forAllSystems (pkgs: {
         opencode-client = pkgs.writeShellApplication {
           name = "opencode-client";
@@ -173,7 +173,7 @@ EOF
                     # Get available providers
                     oc_diag_show_available "$OPENCODE_URL"
 
-                    echo "[Fix] OPENCODE_PROVIDER=opencode OPENCODE_MODEL=grok-code nix run .#opencode-client -- 'test'" >&2
+                    echo "[Fix] OPENCODE_PROVIDER=opencode OPENCODE_MODEL=grok-code opencode-client 'test'" >&2
                     echo "[Help] See docs/TROUBLESHOOTING-TUI-HTTP-API.md" >&2
                     exit 1
                   elif echo "$RESP" | jq -e '.parts? // [] | length > 0' >/dev/null 2>&1; then
@@ -229,7 +229,7 @@ EOF
                     # Get available providers
                     oc_diag_show_available "$OPENCODE_URL"
 
-                    echo "[Fix] OPENCODE_PROVIDER=opencode OPENCODE_MODEL=grok-code nix run .#opencode-client -- 'test'" >&2
+                    echo "[Fix] OPENCODE_PROVIDER=opencode OPENCODE_MODEL=grok-code opencode-client 'test'" >&2
                     echo "[Help] See docs/TROUBLESHOOTING-TUI-HTTP-API.md" >&2
                   else
                     # Generic error: Show available providers
@@ -588,8 +588,8 @@ EOF
 
                 # Summary and recommendations
                 echo "[client] 📋 Quick Actions:" >&2
-                echo "[client]   • Send message: OPENCODE_PROJECT_DIR=\$(pwd) nix run .#opencode-client -- 'hello'" >&2
-                echo "[client]   • View history: OPENCODE_PROJECT_DIR=\$(pwd) nix run .#opencode-client -- history" >&2
+                echo "[client]   • Send message: OPENCODE_PROJECT_DIR=\$(pwd) opencode-client 'hello'" >&2
+                echo "[client]   • View history: OPENCODE_PROJECT_DIR=\$(pwd) opencode-client history" >&2
                 echo "[client]   • Full diagnosis: ./check-opencode-status.sh" >&2
                 ;;
 
