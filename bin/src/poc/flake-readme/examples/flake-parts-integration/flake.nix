@@ -23,7 +23,6 @@
           ignoreExtra = [ "build" ];
           policy = {
             strict = false;
-            driftMode = "none";
             failOnUnknownOutputKeys = false;
           };
         };

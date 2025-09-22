@@ -133,5 +133,5 @@ When you encounter v1 extension field warnings, you have several options:
 When using flake-parts integration, additional policy options are available:
 
 - **strict**: Treat warnings as errors
-- **driftMode**: Control output drift detection (`"none"`, `"warn"`, `"strict"`)
+- ~~**driftMode**~~: Removed in v2.0 (YAGNI principle) - Use static validation instead
 - **failOnUnknownOutputKeys**: Fail when unknown output keys are found

@@ -104,7 +104,7 @@ The system automatically reduces "indiscriminate readme requirements" through:
 - Follows standard Git behavior - predictable and familiar
 
 **2. Directory Filtering:**
-- Only directories containing `.nix` files (other than `readme.nix`) require documentation
+- ALL directories require `readme.nix` documentation unless explicitly ignored
 - Binary/image/build artifact directories are automatically excluded
 - Focuses documentation effort where it matters most
 

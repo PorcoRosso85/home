@@ -1,7 +1,7 @@
 {
   description = "Pure Nix core that collects and validates readme.nix with Git-tracked boundary and ignore-based filtering";
   goal = [
-    "Detect missing readme.nix only in Git-tracked directories containing non-readme .nix files"
+    "Detect missing readme.nix in ALL Git-tracked directories unless explicitly ignored"
     "Validate v1 schema and report errors/warnings"
     "Provide flake-parts module outputs (checks + readme-report)"
     "Keep core 100% Pure Nix with a single predictable behavior"
@@ -13,14 +13,8 @@
   ];
   meta = {
     version = "0.1.0";
-    design = {
-      rootBoundary = "self.outPath";
-      documentableRule = "ignore-based filtering (excluding readme.nix)";
-      defaultIgnore = [ ".git" ".direnv" "node_modules" "result" "dist" "target" ".cache" ];
-    };
     policy = {
       strict = false;
-      driftMode = "none";
       failOnUnknownOutputKeys = false;
     };
     usage = {

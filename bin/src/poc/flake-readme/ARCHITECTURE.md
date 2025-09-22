@@ -35,7 +35,7 @@ defaultIgnore = name: type:
 
 ### Architectural Separation
 1. **Fact Collection (`isDocumentable`)**:
-   - Tracks directories containing .nix files
+   - Tracks ALL directories unless explicitly ignored
    - Pure fact, no policy decisions
    - Available for future policy extensions
 

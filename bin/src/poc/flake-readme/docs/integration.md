@@ -6,7 +6,7 @@
 
 flake-readme now uses a simplified ignore-only policy where:
 - **ALL directories require readme.nix** unless explicitly ignored
-- **Root directory (".")**  now requires readme.nix (changed from previous .nix-only logic)
+- **Root directory (".")**  now requires readme.nix (changed from previous mixed fact-policy logic)
 - **examples/ directories** are ignored by default in both core-docs and flake-module
 - **Only exclusion mechanism**: ignore patterns (no special documentable detection)
 
@@ -14,8 +14,8 @@ For complete system capabilities and scope, see the main [README.md](../README.m
 
 ### Key Changes from Previous Versions
 
-**Before:** .nix-only documentable detection
-- Only directories containing .nix files (excluding readme.nix) required documentation
+**Before:** Mixed fact-policy logic
+- Complex conditional logic based on directory contents
 - Complex logic to determine "documentable" directories
 - Root directory had special handling
 
@@ -75,7 +75,6 @@ Add to your `flake.nix`:
          #   ignoreExtra = [ "build" "dist" ];
          #   policy = {
          #     strict = false;
-         #     driftMode = "none";        # Note: Currently not implemented (no warnings/failures)
          #     failOnUnknownOutputKeys = false;
          #   };
          # };
@@ -243,11 +242,11 @@ The `readme.enable = true` configuration automatically adds documentation checks
 
 Note: `nix flake check` also runs `checks.invalid-examples` which verifies that validation logic correctly detects errors in the invalid samples (success = detection works).
 
-### Migration from .nix-only to Ignore-Only Policy
+### Migration from Mixed Fact-Policy to Ignore-Only Policy
 
 **If migrating from an older version**, you may encounter new validation requirements:
 
-**Before (old .nix-only logic)**:
+**Before (old mixed logic)**:
 ```bash
 # Only directories with .nix files needed readme.nix
 myproject/
