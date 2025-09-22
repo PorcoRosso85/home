@@ -15,7 +15,7 @@ OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'your message here'
 ## Help & Documentation
 
 - **Client help**: `opencode-client help`
-- **OpenCode help**: `nix profile install nixpkgs#opencode; opencode --help`
+- **OpenCode help**: `nix run nixpkgs#opencode -- --help`
 - **API documentation**: Visit `http://server:port/doc` when server is running
 - **Templates**: `nix develop` then explore `templates/` directory
 

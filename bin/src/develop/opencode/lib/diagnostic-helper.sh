@@ -52,7 +52,7 @@ oc_diag_next_action() {
 # Output [Next] action for process discovery
 # Usage: oc_diag_next_ps
 oc_diag_next_ps() {
-    oc_diag_next_action "Run: nix run .#opencode-client -- ps"
+    oc_diag_next_action "Run: opencode-client ps"
 }
 
 # Output [Next] action for export and probe
@@ -60,14 +60,14 @@ oc_diag_next_ps() {
 oc_diag_next_export_probe() {
     local url="${1:-http://127.0.0.1:4096}"
     oc_diag_next_action "Then: export OPENCODE_URL=\"$url\""
-    oc_diag_next_action "Then: nix run .#opencode-client -- status --probe"
+    oc_diag_next_action "Then: opencode-client status --probe"
 }
 
 # Output [Next] action for server start
 # Usage: oc_diag_next_start_server [PORT]
 oc_diag_next_start_server() {
     local port="${1:-4096}"
-    oc_diag_next_action "Start server: nix profile install nixpkgs#opencode; opencode serve --port $port"
+    oc_diag_next_action "Start server: nix run nixpkgs#opencode -- serve --port $port"
 }
 
 # Output comprehensive [Next] guidance for connection issues
@@ -80,7 +80,7 @@ oc_diag_next_connection_help() {
     if [[ "$url" != "http://127.0.0.1:4096" ]]; then
         oc_diag_next_export_probe "$url"
     else
-        oc_diag_next_action "If no servers found, start one: nix profile install nixpkgs#opencode; opencode serve --port 4096"
+        oc_diag_next_action "If no servers found, start one: nix run nixpkgs#opencode -- serve --port 4096"
         oc_diag_next_export_probe
     fi
 }
