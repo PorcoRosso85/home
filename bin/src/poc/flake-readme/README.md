@@ -22,6 +22,31 @@ nix run github:your-org/flake-readme#readme-check
 
 4. **Integrate with flake-parts** (see [Integration Guide](docs/integration.md))
 
+## 📋 Documentation Policy: ignore-only
+
+**flake-readme uses an ignore-only policy**: ALL directories require `readme.nix` unless explicitly ignored.
+
+### Default Ignored Directories
+- `.git/` - Git repository data
+- `.direnv/` - Development environment
+- `node_modules/`, `target/`, `dist/` - Build artifacts
+- `.cache/` - Cache directories
+- `examples/` - Example code (often contains intentionally broken samples)
+
+### Custom Ignore Configuration
+```nix
+perSystem.readme = {
+  enable = true;
+  ignoreExtra = ["custom-dir" "temp-files"];  # Additional directories to ignore
+};
+```
+
+### Why ignore-only?
+- **Predictable**: Clear rule - all directories need documentation unless ignored
+- **Comprehensive**: Ensures documentation coverage across your project
+- **Flexible**: Easy to extend ignore list for special cases
+- **Maintainable**: No complex detection logic, simple ignore patterns
+
 ## Documentation
 
 - 📋 **[Schema Reference](docs/schema.md)** - Complete v1 schema specification with extension field warnings

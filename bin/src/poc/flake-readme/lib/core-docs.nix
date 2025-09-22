@@ -59,7 +59,8 @@ let
     else
       { isValid = false; error = "Cannot read file for syntax check"; };
 
-  # Default ignore patterns  
+  # Default ignore patterns for ignore-only policy
+  # All directories require readme.nix unless explicitly ignored here
   defaultIgnore = name: type:
     builtins.elem name [
       ".git" ".direnv" "node_modules" "result" "dist" "target" ".cache"
@@ -143,23 +144,24 @@ let
     in
     lib.foldl' lib.recursiveUpdate here children;
 
+  # ignore-only policy implementation: All directories require readme.nix unless explicitly ignored
   listMissingReadmes = { root, ignore, missingIgnoreExtra ? null }:
     let
       dirs = listDirsRecursive { inherit root ignore; };
       # 必須判定用のignore関数（missingIgnoreExtraが指定されていれば追加適用）
-      missingIgnore = if missingIgnoreExtra == null 
-                     then ignore 
+      missingIgnore = if missingIgnoreExtra == null
+                     then ignore
                      else (name: type: ignore name type || missingIgnoreExtra name type);
-      
+
       # 必須判定でmissingIgnoreを適用
-      missing = lib.mapAttrsToList (p: v: 
+      missing = lib.mapAttrsToList (p: v:
         let
           # パスからディレクトリ名を取得（"." は "." のまま、"foo/bar" は "bar"）
           dirName = if p == "." then "." else builtins.baseNameOf p;
           # パスの親ディレクトリを取得してtypeを"directory"として判定
           shouldIgnore = missingIgnore dirName "directory";
         in
-        # Policy: All directories require readme.nix unless explicitly ignored
+        # IGNORE-ONLY POLICY: All directories require readme.nix unless explicitly ignored
         # Architectural change: Removed isDocumentable from policy to achieve SRP separation
         if (!v.hasReadme) && (!shouldIgnore) then p else null
       ) dirs;
