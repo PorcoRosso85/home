@@ -507,7 +507,7 @@ EOF
                   TEST_SID=$(oc_session_get_or_create "$OPENCODE_URL" "$PROJECT_DIR" 2>/dev/null)
                   if [[ -n "$TEST_SID" ]]; then
                     # Try sending a minimal probe message
-                    PROBE_RESP=$(oc_session_http_post "$OPENCODE_URL/session/$TEST_SID/message" \
+                    PROBE_RESP=$(oc_session_http_post "$OPENCODE_URL/session/$TEST_SID/message?directory=$(printf '%s' "$PROJECT_DIR" | jq -sRr @uri)" \
                       '{"parts":[{"type":"text","text":"probe"}]}' 2>/dev/null)
                     PROBE_EXIT=$?
 
