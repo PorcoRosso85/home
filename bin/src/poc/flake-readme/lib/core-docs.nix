@@ -381,8 +381,6 @@ let
 in
 {
   inherit collect normalizeDoc validateDoc index;
-  # also expose internal helpers if needed later
-  _internal = {
-    inherit listDirsRecursive listMissingReadmes;
-  };
+  # API minimized to 4 core functions (SOLID principle)
+  # _internal exposure removed - no external dependencies confirmed
 }

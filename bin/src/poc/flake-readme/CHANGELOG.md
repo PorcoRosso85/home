@@ -5,19 +5,27 @@ All notable changes to the flake-readme project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - Major Version (SemVer MAJOR)
 
-### Breaking Changes
+### BREAKING CHANGES
 - **BREAKING CHANGE: Ignore-Only Policy Transition (Fact-Policy Separation)**: Complete architectural change from mixed fact-policy logic to Single Responsibility Principle separation
   - **Policy Change**: Missing detection no longer uses `.nix-only documentable detection` logic
   - **Impact**: All directories (except explicitly ignored) now require `readme.nix` files
   - **Architecture**: `isDocumentable` function preserved as fact collection only, removed from missing detection logic
+  - **SemVer Treatment**: MAJOR version bump required due to breaking behavioral changes
   - **Migration Paths**:
     - **Temporary exclusions**: Use `ignoreExtra = [ "dir1" "dir2" ]` configuration
     - **Permanent exclusions**: Use `git rm -r --cached unwanted-dir/` then `.gitignore`
   - **Timeline**: Effective immediately - all non-.nix directories now subject to documentation requirements
   - **API Preservation**: `isDocumentable` function remains available for fact collection and future extensibility
   - **Benefits**: Clear separation between system facts (what exists) and policy decisions (what requires documentation)
+
+### Removed
+- **Legacy Test Files**: Removed `test-nix-only-*.nix` and `test-documentable-nix-only.nix` files
+  - **Replacement**: New unified `test-ignore-only-comprehensive.nix` covers all representative cases
+  - **Coverage**: 4 key scenarios (non-.nix/has-.nix/ignore/root) maintained in single test
+- **Backup Files**: Cleaned up `readme.nix.bak-*` backup files from development
+- **Legacy Documentation**: Moved outdated specifications to `DEPRECATED_SPECS/` directory
 - **Removed .no-readme Marker Support**: The `.no-readme` marker file functionality has been completely removed to simplify the codebase
   - **Migration Required**: Directories using `.no-readme` markers must migrate to alternative approaches:
     - **Option 1**: Add directories to `.gitignore` to exclude them from documentation processing

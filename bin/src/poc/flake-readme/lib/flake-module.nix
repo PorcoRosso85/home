@@ -29,11 +29,8 @@ in {
           description = "Enable strict mode (fail on warnings)";
         };
         
-        driftMode = mkOption {
-          type = types.enum ["none" "warn" "strict"];
-          default = "none";
-          description = "Output drift detection mode";
-        };
+# driftMode removed - YAGNI principle (unimplemented placeholder)
+        # Future drift detection can be added when requirement is clear
         
         failOnUnknownOutputKeys = mkOption {
           type = types.bool;
@@ -121,23 +118,8 @@ in {
           fi
           ''}
 
-          # driftMode policy (placeholder for future drift detection)
-          ${lib.optionalString (cfg.policy.driftMode == "warn") ''
-          # TODO: Implement drift detection warnings
-          # DRIFT_COUNT=$(echo "$REPORT" | jq -r '.driftCount // 0')
-          # if [ "$DRIFT_COUNT" != "0" ]; then
-          #   echo "Warning: Output drift detected" >&2
-          # fi
-          ''}
-          
-          ${lib.optionalString (cfg.policy.driftMode == "strict") ''
-          # TODO: Implement drift detection errors  
-          # DRIFT_COUNT=$(echo "$REPORT" | jq -r '.driftCount // 0')
-          # if [ "$DRIFT_COUNT" != "0" ]; then
-          #   echo "Error: Output drift detected (strict mode)" >&2
-          #   exit 1
-          # fi
-          ''}
+# driftMode implementation removed - YAGNI principle
+          # Placeholder code eliminated to maintain code quality
 
           echo "✓ Documentation structure is valid"
           touch $out
