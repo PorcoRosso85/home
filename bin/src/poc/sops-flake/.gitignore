@@ -1,13 +1,41 @@
 flake.lock
 
-# Prevent common plaintext secrets from being tracked
-# (Encrypted files like env.sh.enc remain trackable)
+# Secret-First: Prevent plaintext secrets from being tracked
+# (Encrypted .yaml files in secrets/ should be tracked)
 env.sh
 *.env
 .env
 .env.*
+!.env.example
 
-# Secrets working files/backups
+# Age keys (should NEVER be committed)
+age.key
+*.key
+keys.txt
+.age/
+.config/sops/age/
+
+# SOPS working files and temporary decrypted content
 secrets/*.bak
 secrets/*.dec
 secrets/*.tmp
+secrets/.dec*
+.sops.pub
+.sops.priv
+
+# Pre-commit cache
+.pre-commit-config.yaml.bak
+
+# Secret-First working files
+.secrets-allowlist.bak
+scripts/check-*.log
+
+# Development artifacts that might contain secrets
+.vscode/settings.json
+.idea/
+*.log
+.DS_Store
+
+# Nix build artifacts
+result
+result-*
