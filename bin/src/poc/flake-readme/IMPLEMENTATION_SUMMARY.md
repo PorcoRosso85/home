@@ -26,6 +26,13 @@
 - **移行ガイド**: 既存ユーザー向けの段階的移行手順
 - **仕様書**: Git追跡動作の完全な限界と代替手段を明記
 
+### ✅ Step 1.5: Fact-Policy Separation (MANDATORY BREAKING CHANGE)
+- **Architecture Achievement**: Complete Single Responsibility Principle implementation
+- **Code Change**: Removed `v.isDocumentable &&` from missing detection logic (1 critical line)
+- **API Preservation**: `isDocumentable` function maintained for fact collection and future extensibility
+- **Policy Clarification**: All directories now require readme.nix unless explicitly ignored
+- **Breaking Change Documentation**: Comprehensive migration guidance and impact assessment completed
+
 ## 技術的な成果
 
 ### 大幅なシンプル化達成
@@ -36,9 +43,12 @@
 
 ### アーキテクチャ優位性確立
 - ✅ **Pure Nix原則**: 完全な評価時完結性維持
-- ✅ **Git標準準拠**: 100%標準動作との整合性  
+- ✅ **Git標準準拠**: 100%標準動作との整合性
 - ✅ **ゼロ外部依存**: shell script処理完全除去
 - ✅ **保守性向上**: テスト・文書・機能数の大幅削減
+- ✅ **Single Responsibility Principle**: Fact collection completely separated from policy decisions
+- ✅ **API Stability**: Breaking changes in policy layer while preserving fact collection interfaces
+- ✅ **Future Extensibility**: Policy variations can now leverage stable fact infrastructure
 
 ### ユーザー体験の質的向上
 - ✅ **学習コスト最小化**: 単一の明確な動作モデル
@@ -84,15 +94,17 @@
 **大規模簡素化成功**: 「無差別readme要求」問題をGit標準動作と.nix限定判定で解決。
 
 **定量的成果**:
-- コード削減: 48行（15%減）
+- コード削減: 48行（15%減）+ 1行の重要なアーキテクチャ分離
 - 依存削除: 外部ツール完全除去
 - 設定簡素化: 複雑オプション撤廃
 - 動作統一: 単一の予測可能パス
+- **SRP実装**: Fact-policy完全分離による保守性向上
 
 **質的成果**:
 - 学習コスト最小化
 - 保守負荷大幅減
 - Git標準準拠
 - アーキテクチャ純度向上
+- **Breaking Change管理**: 完全な移行ガイド・影響評価・API保持戦略の確立
 
 flake-readmeは**KISS原則の完全な体現**として、最小の複雑性で最大の価値を提供するシステムに生まれ変わりました。

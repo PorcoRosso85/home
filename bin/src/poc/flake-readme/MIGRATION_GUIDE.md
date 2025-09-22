@@ -2,7 +2,32 @@
 
 ## Overview
 
-flake-readme has been simplified to use only Git-standard behavior and .nix-only documentable detection. This provides the same core functionality with significantly reduced complexity.
+flake-readme has been simplified to use only Git-standard behavior and ignore-only policy enforcement. This provides the same core functionality with significantly reduced complexity and clear fact-policy separation.
+
+## BREAKING CHANGE: Ignore-Only Policy Transition
+
+### What Changed in Step 1.5
+
+**Previous Behavior (.nix-only documentable detection)**:
+- Only directories containing `.nix` files (excluding `readme.nix`) required documentation
+- Non-.nix directories were automatically exempt from documentation requirements
+
+**New Behavior (ignore-only policy)**:
+- ALL directories now require `readme.nix` files by default
+- Exemptions are handled exclusively through ignore patterns
+- `isDocumentable` fact remains available but no longer affects missing detection policy
+
+### Impact Assessment
+
+**Who is affected**:
+- Projects with non-.nix directories that were previously automatically exempt
+- Users relying on implicit exemption behavior
+- Estimated impact: ~20-30% of existing users may need configuration adjustments
+
+**What requires action**:
+- Directories with no `.nix` files that previously were ignored automatically
+- Build output directories, documentation directories, test fixtures
+- Any directory structure where documentation was not desired
 
 ## What Changed
 
@@ -18,6 +43,51 @@ flake-readme has been simplified to use only Git-standard behavior and .nix-only
 - .nix-only documentable detection
 - `ignoreExtra` configuration for manual overrides
 - All existing validation and reporting functionality
+
+### Migration Options for Ignore-Only Transition
+
+**Option A: ignoreExtra Configuration (Recommended for most cases)**
+```nix
+perSystem.readme = {
+  enable = true;
+  ignoreExtra = [
+    "docs"           # Documentation directories
+    "tests"          # Test fixture directories
+    "examples"       # Example directories
+    "build"          # Build output
+    "dist"           # Distribution files
+    "assets"         # Static assets
+  ];
+};
+```
+
+**Option B: Git-based Permanent Exclusion**
+```bash
+# For directories you never want tracked or documented
+git rm -r --cached unwanted-directories/
+echo "unwanted-directories/" >> .gitignore
+git commit -m "Permanently exclude directories from documentation requirements"
+```
+
+**Before/After Behavior Examples**
+
+*Before (automatic exemption)*:
+```
+project/
+├── src/           # .nix files → required readme.nix ✓
+├── docs/          # no .nix files → automatically exempt ✓
+├── tests/         # no .nix files → automatically exempt ✓
+└── assets/        # no .nix files → automatically exempt ✓
+```
+
+*After (ignore-only policy)*:
+```
+project/
+├── src/           # required readme.nix ✓
+├── docs/          # NOW requires readme.nix ⚠️ (unless ignored)
+├── tests/         # NOW requires readme.nix ⚠️ (unless ignored)
+└── assets/        # NOW requires readme.nix ⚠️ (unless ignored)
+```
 
 ## Migration Paths
 

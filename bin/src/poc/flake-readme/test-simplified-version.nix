@@ -27,10 +27,10 @@ let
 in {
   # Simplified system capabilities test
   simplifiedCapabilities = {
-    # Core feature: .nix-only documentable detection
-    nixOnlyWorks = ! (lib.any (dir: 
+    # Core feature: ignore-only policy (ALL directories require readme.nix unless ignored)
+    ignoreOnlyWorks = lib.any (dir:
       builtins.elem dir result.missingReadmes
-    ) ["test-non-nix-dir"]);  # Should be excluded due to no .nix files
+    ) ["test-non-nix-dir"];  # Should be included (NEW behavior - ALL dirs require readme)
     
     # Git tracking: untracked directories auto-excluded
     gitTrackingWorks = ! (lib.any (dir: 
@@ -68,8 +68,8 @@ in {
     errorCount = result.errorCount;
     warningCount = result.warningCount;
     
-    # Should work correctly with just Git tracking + .nix-only logic
-    systemWorking = result.errorCount == 0 && builtins.length result.missingReadmes == 1;  # Only the tracked-then-ignored test case
+    # Should work correctly with Git tracking + ignore-only policy
+    systemWorking = result.errorCount == 0 && builtins.length result.missingReadmes > 0;  # Test dirs should appear in missing list
   };
   
   # Migration path for users

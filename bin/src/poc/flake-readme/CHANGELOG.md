@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Breaking Changes
+- **BREAKING CHANGE: Ignore-Only Policy Transition (Fact-Policy Separation)**: Complete architectural change from mixed fact-policy logic to Single Responsibility Principle separation
+  - **Policy Change**: Missing detection no longer uses `.nix-only documentable detection` logic
+  - **Impact**: All directories (except explicitly ignored) now require `readme.nix` files
+  - **Architecture**: `isDocumentable` function preserved as fact collection only, removed from missing detection logic
+  - **Migration Paths**:
+    - **Temporary exclusions**: Use `ignoreExtra = [ "dir1" "dir2" ]` configuration
+    - **Permanent exclusions**: Use `git rm -r --cached unwanted-dir/` then `.gitignore`
+  - **Timeline**: Effective immediately - all non-.nix directories now subject to documentation requirements
+  - **API Preservation**: `isDocumentable` function remains available for fact collection and future extensibility
+  - **Benefits**: Clear separation between system facts (what exists) and policy decisions (what requires documentation)
 - **Removed .no-readme Marker Support**: The `.no-readme` marker file functionality has been completely removed to simplify the codebase
   - **Migration Required**: Directories using `.no-readme` markers must migrate to alternative approaches:
     - **Option 1**: Add directories to `.gitignore` to exclude them from documentation processing

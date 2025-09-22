@@ -131,8 +131,9 @@ let
       entries = builtins.readDir dir;
       thisPath = if path == "" then "." else path;
       hasReadme = entries ? "readme.nix" && entries."readme.nix" == "regular";
-      # Consider a directory "documentable" if it has any .nix file other than readme.nix
       names = builtins.attrNames entries;
+      # isDocumentable tracks which directories contain .nix files (fact collection only)
+      # This fact is preserved for future policy extensions but not used in current missing detection
       isDocumentable = lib.any (n: entries.${n} == "regular" && n != "readme.nix" && lib.hasSuffix ".nix" n) names;
       here = { "${thisPath}" = { inherit hasReadme isDocumentable; }; };
       children = lib.mapAttrsToList (name: type:
@@ -158,7 +159,9 @@ let
           # パスの親ディレクトリを取得してtypeを"directory"として判定
           shouldIgnore = missingIgnore dirName "directory";
         in
-        if v.isDocumentable && (!v.hasReadme) && (!shouldIgnore) then p else null
+        # Policy: All directories require readme.nix unless explicitly ignored
+        # Architectural change: Removed isDocumentable from policy to achieve SRP separation
+        if (!v.hasReadme) && (!shouldIgnore) then p else null
       ) dirs;
     in
     lib.filter (x: x != null) missing;

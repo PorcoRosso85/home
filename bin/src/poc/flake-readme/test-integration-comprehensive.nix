@@ -12,34 +12,34 @@ let
   };
   
 in {
-  # Test all scenarios:
-  # 1. Root directory (has flake.nix) → documentable, has readme.nix → not missing
-  # 2. test-non-nix-dir (only .bin, .png files) → NOT documentable → not missing  
-  # 3. test-no-readme-marker (has .nix + .no-readme) → IS documentable (.no-readme ignored) → appears in missing
-  # 4. Any directory with .nix files but no readme.nix → should be missing
+  # Test all scenarios under NEW ignore-only policy:
+  # 1. Root directory (has flake.nix + readme.nix) → has readme → not missing
+  # 2. test-non-nix-dir (only .bin, .png files) → ALL dirs require readme (NEW) → appears in missing
+  # 3. test-no-readme-marker (has .nix + .no-readme) → ALL dirs require readme (.no-readme ignored) → appears in missing
+  # 4. Any directory without readme.nix → should be missing (unless ignored)
   
   allResults = {
     missing = result.missingReadmes;
     errorCount = result.errorCount;
     warningCount = result.warningCount;
     
-    # Specific tests
+    # Specific tests under NEW ignore-only policy
     rootIsNotMissing = ! (builtins.elem "." result.missingReadmes);
-    nonNixDirNotMissing = ! (builtins.elem "test-non-nix-dir" result.missingReadmes);
-    noReadmeMarkerInMissing = builtins.elem "test-no-readme-marker" result.missingReadmes;  # Now appears in missing (marker ignored)
+    nonNixDirNowMissing = builtins.elem "test-non-nix-dir" result.missingReadmes;  # NEW: now requires readme
+    noReadmeMarkerInMissing = builtins.elem "test-no-readme-marker" result.missingReadmes;  # Still missing (marker ignored)
   };
   
-  # Integration test success criteria
-  integrationTestPasses = 
+  # Integration test success criteria under NEW ignore-only policy
+  integrationTestPasses =
     result.errorCount == 0  # No validation errors
     && (! (builtins.elem "." result.missingReadmes))  # Root has readme.nix
-    && (! (builtins.elem "test-non-nix-dir" result.missingReadmes))  # Non-.nix dirs ignored
-    && (builtins.elem "test-no-readme-marker" result.missingReadmes);  # .no-readme marker ignored (current spec)
+    && (builtins.elem "test-non-nix-dir" result.missingReadmes)  # ALL dirs require readme (NEW)
+    && (builtins.elem "test-no-readme-marker" result.missingReadmes);  # .no-readme marker ignored
   
-  # Summary of Pure Nix improvements working correctly
-  pureNixImprovementsWorking = {
-    gitFilteringViaFlake = true;  # Verified in Step 1
-    nixOnlyDocumentable = ! (builtins.elem "test-non-nix-dir" result.missingReadmes);  # .nix-only logic
-    nixOnlySpecification = builtins.elem "test-no-readme-marker" result.missingReadmes;  # .nix-only spec (markers ignored)
+  # Summary of architectural changes working correctly
+  architecturalChangesWorking = {
+    gitFilteringViaFlake = true;  # Verified in previous steps
+    ignoreOnlyPolicyActive = builtins.elem "test-non-nix-dir" result.missingReadmes;  # NEW: ALL dirs require readme
+    markersIgnoredCorrectly = builtins.elem "test-no-readme-marker" result.missingReadmes;  # ignore-only spec (markers ignored)
   };
 }

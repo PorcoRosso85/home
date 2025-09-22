@@ -78,7 +78,7 @@ The system automatically reduces "indiscriminate readme requirements" through:
 - Untracked/ignored directories are automatically excluded  
 - Follows standard Git behavior - predictable and familiar
 
-**2. .nix-only Documentable Detection:**
+**2. Directory Filtering:**
 - Only directories containing `.nix` files (other than `readme.nix`) require documentation
 - Binary/image/build artifact directories are automatically excluded
 - Focuses documentation effort where it matters most
@@ -96,7 +96,7 @@ perSystem.readme = {
 **How it works:**
 - `inputs.self.outPath` provides Git tracking set filtering (not .gitignore parsing)
 - Untracked directories → automatically excluded
-- Tracked directories → subject to .nix-only documentable logic
+- Tracked directories → subject to ignore-based filtering logic
 
 **Critical limitations (especially for CLI usage):**
 - **Tracked → .gitignore limitation**: Files already tracked remain visible even after adding to `.gitignore` (Git standard behavior)

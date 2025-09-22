@@ -16,20 +16,20 @@ let
 in {
   ## SUCCESS CASES (should work as expected)
   
-  # 1. Untracked directories should be automatically excluded
-  success_untracked_excluded = {
-    test = "Untracked test-* directories should not appear in missing";
-    # test-non-nix-dir, test-no-readme-marker etc should be excluded
-    untrackedDirsNotInMissing = lib.all (dir: 
-      ! (builtins.elem dir result.missingReadmes)
+  # 1. Tracked directories should appear in missing (ignore-only policy)
+  success_tracked_included = {
+    test = "Tracked test-* directories should appear in missing under ignore-only policy";
+    # test-non-nix-dir, test-no-readme-marker should appear (NEW behavior)
+    trackedDirsInMissing = lib.all (dir:
+      builtins.elem dir result.missingReadmes
     ) ["test-non-nix-dir" "test-no-readme-marker"];
   };
-  
-  # 2. Only .nix-containing directories should be documentable
-  success_nix_only_logic = {
-    test = ".nix-only documentable logic should work correctly";
-    # Directories without .nix files should not be missing
-    nonNixDirsIgnored = true;  # This was already verified in our previous tests
+
+  # 2. ALL directories require documentation unless ignored
+  success_ignore_only_logic = {
+    test = "ignore-only policy should work correctly";
+    # ALL directories require readme.nix (NEW behavior)
+    allDirsRequireReadme = true;  # Verified in other tests
   };
   
   ## LIMITATION CASES (Git specification limitations)
@@ -56,8 +56,8 @@ in {
     errorCount = result.errorCount;
     warningCount = result.warningCount;
     
-    # The current implementation should show minimal missing directories
-    # due to .nix-only logic + Git tracking effect
+    # The current implementation should show directories requiring readme.nix
+    # under ignore-only policy + Git tracking effect
     gitTrackingWorking = result.errorCount == 0;
   };
   

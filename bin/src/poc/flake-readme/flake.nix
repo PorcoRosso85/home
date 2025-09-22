@@ -323,7 +323,7 @@
           echo "$REPORT" | jq -e '.docs | type == "object"' >/dev/null
           echo "$REPORT" | jq -e '.schemaVersion == 1' >/dev/null
 
-          # Missing readme.nix check (only for documentable dirs)
+          # Missing readme.nix check (only for directories requiring documentation)
           MISSING=$(echo "$REPORT" | jq -r '.missingReadmes | @tsv')
           if [ -n "$MISSING" ]; then
             echo "Missing readme.nix in directories:" >&2

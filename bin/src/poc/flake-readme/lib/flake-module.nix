@@ -53,7 +53,7 @@ in {
       # Default ignore patterns
       defaultIgnore = name: type:
         builtins.elem name ([
-          ".git" ".direnv" "node_modules" "result" "dist" "target" ".cache"
+          ".git" ".direnv" "node_modules" "result" "dist" "target" ".cache" "examples"
         ] ++ cfg.ignoreExtra);
       
       # Generate documentation report  

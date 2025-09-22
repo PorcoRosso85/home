@@ -27,7 +27,7 @@ in {
   # This demonstrates the critical Git limitation
   
   tracked_then_ignored_constraint = {
-    test_name = "Tracked directory added to .gitignore should still appear as documentable";
+    test_name = "Tracked directory added to .gitignore should still require documentation";
     
     # Git specification behavior: once tracked, .gitignore has no effect
     git_behavior = "Files tracked then added to .gitignore remain in Git tracking set";
@@ -165,9 +165,9 @@ in {
         status = "✅ Verified working";
       };
       
-      nix_only_logic = {
-        behavior = "Only .nix-containing directories are documentable";
-        mechanism = ".nix-only documentable detection";
+      ignore_only_logic = {
+        behavior = "ALL directories require documentation unless explicitly ignored";
+        mechanism = "ignore-only policy (architectural change)";
         status = "✅ Verified working";
       };
     };

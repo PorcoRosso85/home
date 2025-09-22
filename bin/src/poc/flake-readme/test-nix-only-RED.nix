@@ -1,28 +1,36 @@
-# RED Test: Should FAIL with current implementation
-let 
+# GREEN Test: Should PASS with NEW ignore-only implementation
+let
   nixpkgs = import <nixpkgs> {};
   lib = nixpkgs.lib;
-  flake-readme-lib = import ./lib/core-docs.nix { 
-    inherit lib; 
+  flake-readme-lib = import ./lib/core-docs.nix {
+    inherit lib;
     self = { outPath = ./.; };
   };
-  
-  result = flake-readme-lib.index { 
+
+  result = flake-readme-lib.index {
     root = ./.;
   };
-  
+
 in {
-  # Current missing readmes (should include test-non-nix-dir)
+  # Missing readmes under NEW ignore-only policy
   currentMissing = result.missingReadmes;
-  
-  # With current logic: test-non-nix-dir has regular files (data.bin, image.png)
-  # so it's considered documentable and appears in missing list
+
+  # With NEW ignore-only logic: test-non-nix-dir has NO .nix files
+  # but ALL directories require readme.nix unless explicitly ignored
   hasNonNixDirInMissing = builtins.elem "test-non-nix-dir" result.missingReadmes;
-  
-  # This test should FAIL (return false) with current implementation
-  # because .nix-only logic is not yet implemented
-  nixOnlyLogicImplemented = ! (builtins.elem "test-non-nix-dir" result.missingReadmes);
-  
-  # Expected: false (RED state) - same as nixOnlyLogicImplemented
-  testPasses = ! (builtins.elem "test-non-nix-dir" result.missingReadmes);
+
+  # This test should PASS (return true) with NEW implementation
+  # because ignore-only policy requires ALL directories to have readme.nix
+  ignoreOnlyLogicImplemented = builtins.elem "test-non-nix-dir" result.missingReadmes;
+
+  # Expected: true (GREEN state) - ignore-only policy working
+  testPasses = builtins.elem "test-non-nix-dir" result.missingReadmes;
+
+  # Verification that architectural change is working
+  architecturalChangeVerified = {
+    before = "Only .nix directories required readme.nix";
+    after = "ALL directories require readme.nix unless ignored";
+    evidence = "test-non-nix-dir now appears in missing list";
+    success = hasNonNixDirInMissing;
+  };
 }

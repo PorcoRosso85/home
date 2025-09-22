@@ -1,35 +1,51 @@
-# Test for .nix-only documentable judgment
-let 
+# Test for ignore-only policy (NEW architectural change)
+let
   nixpkgs = import <nixpkgs> {};
   lib = nixpkgs.lib;
-  flake-readme-lib = import ./lib/core-docs.nix { 
-    inherit lib; 
+  flake-readme-lib = import ./lib/core-docs.nix {
+    inherit lib;
     self = { outPath = ./.; };
   };
-  
-  # Test current behavior vs expected behavior with .nix-only logic
-  result = flake-readme-lib.index { 
-    root = ./test-fd-integration;
+
+  # Test with actual test directories in current repo
+  result = flake-readme-lib.index {
+    root = ./.;
   };
-  
+
 in {
-  # Current missing readmes
+  # Current missing readmes under new ignore-only policy
   currentMissing = result.missingReadmes;
-  
-  # Expected behavior: non-.nix directories should not be considered documentable
-  # In test-fd-integration:
-  # - ignored-dir: has test.txt (not .nix) → should NOT be documentable
-  # - normal-dir: has test.txt (not .nix) → should NOT be documentable  
-  # - root: has .gitignore, flake.nix, readme.nix → should be documentable (has .nix files)
-  
-  # This test should FAIL with current implementation
-  # Expected: ignored-dir and normal-dir should not be in missing list
+
+  # NEW ignore-only policy: ALL directories require readme.nix unless explicitly ignored
+  # In current repo:
+  # - test-non-nix-dir: has only .bin/.png files → SHOULD require documentation (NEW behavior)
+  # - test-no-readme-marker: has .nix file + .no-readme → SHOULD require documentation (.no-readme ignored)
+  # - root ".": has flake.nix + readme.nix → should NOT be missing (has readme.nix)
+
   expectedBehavior = {
-    shouldNotBeMissing = [ "test-fd-integration/ignored-dir" "test-fd-integration/normal-dir" ];
-    shouldRemainDocumentable = [ "test-fd-integration" ];  # has flake.nix
+    # Under NEW ignore-only policy, these should appear in missing list
+    shouldBeMissing = [ "test-non-nix-dir" "test-no-readme-marker" ];
+    # Root has readme.nix, so should not be missing
+    shouldNotBeMissing = [ "." ];
   };
   
-  # Verification (should fail with current logic)
-  nixOnlyLogicWorks = ! (lib.any (dir: builtins.elem dir result.missingReadmes) 
-    [ "test-fd-integration/ignored-dir" "test-fd-integration/normal-dir" ]);
+  # Verification of new ignore-only logic
+  ignoreOnlyLogicWorks =
+    (builtins.elem "test-non-nix-dir" result.missingReadmes) &&  # non-.nix dir now requires readme
+    (builtins.elem "test-no-readme-marker" result.missingReadmes) &&  # .no-readme markers ignored
+    (! (builtins.elem "." result.missingReadmes));  # root has readme.nix
+
+  # Representative test cases for new policy
+  representativeCases = {
+    nonNixDirRequiresReadme = builtins.elem "test-non-nix-dir" result.missingReadmes;  # NEW: now required
+    nixDirRequiresReadme = builtins.elem "test-no-readme-marker" result.missingReadmes;  # Still required
+    rootWithReadmeNotMissing = ! (builtins.elem "." result.missingReadmes);  # Has readme.nix
+  };
+
+  # Summary of architectural change
+  architecturalChange = {
+    old = "Only directories with .nix files required documentation (isDocumentable-based)";
+    new = "All directories require readme.nix unless explicitly ignored (ignore-only policy)";
+    impact = "test-non-nix-dir now appears in missing list (behavior change)";
+  };
 }

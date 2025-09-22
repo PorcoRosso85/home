@@ -1,5 +1,31 @@
 # Integration Guide
 
+## Policy Overview
+
+**Current Policy: Ignore-Only System**
+
+flake-readme now uses a simplified ignore-only policy where:
+- **ALL directories require readme.nix** unless explicitly ignored
+- **Root directory (".")**  now requires readme.nix (changed from previous .nix-only logic)
+- **examples/ directories** are ignored by default in both core-docs and flake-module
+- **Only exclusion mechanism**: ignore patterns (no special documentable detection)
+
+For complete system capabilities and scope, see the main [README.md](../README.md). For schema requirements, see [Schema Reference](schema.md).
+
+### Key Changes from Previous Versions
+
+**Before:** .nix-only documentable detection
+- Only directories containing .nix files (excluding readme.nix) required documentation
+- Complex logic to determine "documentable" directories
+- Root directory had special handling
+
+**After:** Ignore-only policy
+- Simple rule: All directories need readme.nix unless ignored
+- Ignore patterns are the only exclusion mechanism
+- Consistent behavior across all directories including root
+
+For detailed change history and impact assessment, see [CHANGELOG.md](../CHANGELOG.md).
+
 ## Quick Start for New Projects
 
 1. **Initialize readme.nix:**
@@ -84,35 +110,123 @@ Add to your `flake.nix`:
 }
 ```
 
+## Directory Requirements Under Ignore-Only Policy
+
+### Root Directory Requirement
+
+**Important Change**: The root directory (".") now requires readme.nix under the ignore-only policy:
+
+```bash
+# This will now fail validation:
+myproject/
+├── flake.nix
+├── lib/
+│   ├── core.nix
+│   └── readme.nix
+# Missing: readme.nix at root level
+```
+
+```bash
+# Correct structure:
+myproject/
+├── flake.nix
+├── readme.nix          # Required at root level
+├── lib/
+│   ├── core.nix
+│   └── readme.nix
+```
+
+### examples/ Directory Policy
+
+**Default Behavior**: examples/ directories are automatically ignored to prevent invalid samples from requiring documentation:
+
+```
+myproject/
+├── readme.nix          # Root documentation (required)
+├── lib/
+│   ├── core.nix
+│   └── readme.nix      # Library documentation (required)
+└── examples/           # Automatically ignored - no readme.nix needed
+    ├── basic/
+    │   └── main.nix    # No readme.nix required in examples/
+    └── advanced/
+        └── demo.nix    # No readme.nix required in examples/
+```
+
+**Override Examples Ignoring** (if you want examples documented):
+
+```nix
+# In flake.nix perSystem configuration
+readme = {
+  enable = true;
+  # Remove "examples" from default ignore list
+  ignoreExtra = [];  # Only add other directories you want to ignore
+};
+
+# Then you'd need:
+examples/
+├── readme.nix          # Now required
+├── basic/
+│   ├── main.nix
+│   └── readme.nix      # Now required
+└── advanced/
+    ├── demo.nix
+    └── readme.nix      # Now required
+```
+
 ## Best Practices
 
-### Directory Structure
+### Directory Structure Under Ignore-Only Policy
 
-Ensure every directory with implementation files has a readme.nix:
+Under the ignore-only system, ALL directories require readme.nix unless explicitly ignored:
+
 ```
 myproject/
 ├── flake.nix
-├── readme.nix          # Root documentation
+├── readme.nix          # Required (root directory)
 ├── lib/
 │   ├── core.nix
-│   └── readme.nix      # Library documentation
-└── examples/
-    ├── basic/
-    │   ├── main.nix
-    │   └── readme.nix  # Example documentation
-    └── readme.nix      # Examples overview
+│   └── readme.nix      # Required (all directories need docs)
+├── src/
+│   ├── main.nix
+│   └── readme.nix      # Required (all directories need docs)
+├── tests/
+│   ├── unit/
+│   │   ├── test.nix
+│   │   └── readme.nix  # Required (unless tests/ is ignored)
+│   └── readme.nix      # Required (unless tests/ is ignored)
+└── examples/           # Ignored by default - no readme.nix needed
+    └── basic/
+        └── main.nix
 ```
 
 ### Ignoring Directories
 
-If you need to ignore the `docs/` directory (or others) from readme.nix requirements:
+**Primary Exclusion Mechanism**: Use `ignoreExtra` to exclude directories from readme.nix requirements:
 
-**With flake-parts:**
 ```nix
+# Common ignore patterns
 readme = {
   enable = true;
-  ignoreExtra = [ "docs" "build" "dist" ];
+  ignoreExtra = [
+    "docs"          # Documentation directories
+    "build"         # Build output
+    "dist"          # Distribution files
+    "test-data"     # Test fixtures
+    "temp"          # Temporary directories
+    "cache"         # Cache directories
+    "artifacts"     # Build artifacts
+  ];
 };
+```
+
+**Default Ignored Directories**:
+```nix
+# These are ignored by default (no need to add to ignoreExtra):
+[
+  ".git" ".direnv" "node_modules" "result"
+  "dist" "target" ".cache" "examples"
+]
 ```
 
 
@@ -129,7 +243,97 @@ The `readme.enable = true` configuration automatically adds documentation checks
 
 Note: `nix flake check` also runs `checks.invalid-examples` which verifies that validation logic correctly detects errors in the invalid samples (success = detection works).
 
+### Migration from .nix-only to Ignore-Only Policy
+
+**If migrating from an older version**, you may encounter new validation requirements:
+
+**Before (old .nix-only logic)**:
+```bash
+# Only directories with .nix files needed readme.nix
+myproject/
+├── flake.nix           # Root didn't always require readme.nix
+├── lib/                # Required readme.nix (has .nix files)
+│   ├── core.nix
+│   └── readme.nix
+└── docs/               # Didn't require readme.nix (no .nix files)
+    └── guide.md
+```
+
+**After (ignore-only policy)**:
+```bash
+# ALL directories require readme.nix unless ignored
+myproject/
+├── flake.nix
+├── readme.nix          # Now required at root
+├── lib/
+│   ├── core.nix
+│   └── readme.nix      # Still required
+└── docs/               # Now requires readme.nix OR needs to be ignored
+    ├── guide.md
+    └── readme.nix      # Either add this...
+```
+
+**Migration Strategy**:
+```nix
+# Option 1: Add readme.nix to newly required directories
+# Option 2: Ignore directories that shouldn't need documentation
+readme = {
+  enable = true;
+  ignoreExtra = [ "docs" "build" "temp" ];  # Ignore non-code directories
+};
+```
+
 ## Troubleshooting
+
+### Policy-Related Issues
+
+**Issue**: "Root directory now requires readme.nix"
+```json
+{
+  "missingReadmes": ["."],
+  "errorCount": 1
+}
+```
+
+**Solution**: Create readme.nix at the project root:
+```bash
+nix run github:your-org/flake-readme#readme-init
+```
+
+**Issue**: "examples/ directories requiring readme.nix unexpectedly"
+
+This happens if you've overridden the default ignore list. Examples are ignored by default.
+
+**Solutions**:
+```nix
+# Ensure examples is in your ignore list
+readme = {
+  enable = true;
+  ignoreExtra = [ "examples" "other-dirs" ];  # Explicitly ignore examples if overriding defaults
+};
+```
+
+**Issue**: "More directories requiring documentation than expected"
+
+Under ignore-only policy, ALL directories need readme.nix unless explicitly ignored.
+
+**Solutions**:
+```bash
+# Identify which directories need readme.nix
+nix run github:your-org/flake-readme#readme-check
+
+# Add ignore patterns for non-code directories
+```
+
+```nix
+readme = {
+  enable = true;
+  ignoreExtra = [
+    "test-data" "fixtures" "temp" "cache"
+    "build" "artifacts" "docs"
+  ];
+};
+```
 
 ### Cross-Project CLI Usage
 
@@ -209,13 +413,17 @@ git commit -m "Exclude test data from readme validation"
 
 ### Common Validation Errors
 
-Check the [invalid examples](../examples/invalid/) directory for patterns:
+**Policy-Related Errors**:
+- `missing-readme/` - Directory without readme.nix file (now applies to ALL directories unless ignored)
+- Root directory missing readme.nix (new requirement under ignore-only policy)
 
+**Schema-Related Errors** (see [invalid examples](../examples/invalid/)):
 - `missing-description.nix` - Missing required description field
 - `empty-goal.nix` - Empty goal array (not allowed)
-- `empty-nongoal.nix` - Empty nonGoal array (not allowed) 
+- `empty-nongoal.nix` - Empty nonGoal array (not allowed)
 - `invalid-goal-type.nix` - Wrong data type for goal field
 - `unknown-output-keys.nix` - Unknown keys in output section
-- `missing-readme/` - Directory without readme.nix file
 
-These examples demonstrate validation failures and help you understand error messages. Note: Invalid examples are excluded from the main project's validation checks.
+For comprehensive error examples and validation patterns, see the [Learning Pathway](../examples/LEARNING_PATHWAY.md) and [invalid examples](../examples/invalid/) directory.
+
+**Note**: Invalid examples are excluded from the main project's validation checks by the default `examples` ignore pattern.
