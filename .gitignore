@@ -20,6 +20,8 @@
 !.config/claudedesktop/**
 !.config/goose/
 !.config/goose/**
+!.mcp
+!.mcp/**
 !*.profile
 !.*_profile
 !/.git*
