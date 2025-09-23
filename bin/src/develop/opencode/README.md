@@ -26,11 +26,30 @@ OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'your message here'
 | `OPENCODE_PROJECT_DIR` | Project directory (required) | current directory |
 | `OPENCODE_URL` | Server URL | `http://127.0.0.1:4096` |
 
+## Nixpkgs Input Options
+
+This flake uses fixed revision (`?rev=`) for maximum reproducibility. Alternative approaches:
+
+| Input Type | Example | Benefits | Tradeoffs |
+|------------|---------|----------|-----------|
+| **Fixed revision** (current) | `?rev=8eaee110344796db060382e15d3af0a9fc396e0e` | 🔒 Ironclad reproducibility<br>✅ CI guarantees same build | ⚠️ No automatic security updates<br>📅 Manual revision updates required |
+| **Stable branch** | `?ref=nixos-24.11` | 🛡️ Security updates included<br>📈 Stable feature progression | ⚠️ Builds may change over time<br>🔄 Requires CI monitoring |
+| **Unstable branch** | `?ref=nixos-unstable` | 🚀 Latest OpenCode features<br>⚡ Fast bug fixes | ⚠️ Potential breaking changes<br>🧪 Requires extensive CI |
+
+**Recommendation**: Keep fixed revision for production/teams. Consider stable branch for personal development with CI monitoring.
+
 ## Troubleshooting
 
 1. **Server not found**: `opencode-client ps` to discover running servers
 2. **Connection issues**: `opencode-client status --probe` for diagnostics
 3. **Command not found**: Install with `nix profile install github:PorcoRosso85/home#opencode-client`
+4. **OpenCode serve unavailable**:
+   - **Recommended**: Use this flake's pinned version: `nix develop --command opencode serve --port 4096`
+   - **Alternative**: Use flake inputs: `nix run --inputs-from . nixpkgs#opencode -- serve --port 4096`
+5. **PATH conflicts with old opencode**:
+   - Check which opencode: `command -v opencode`
+   - Verify serve availability: `opencode --help | grep -i serve`
+   - Remove old versions: `nix profile list | grep -i opencode` then `nix profile remove <INDEX>`
 
 For detailed usage and options, run `opencode-client help`.
 

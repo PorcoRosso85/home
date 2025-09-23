@@ -1,7 +1,8 @@
 {
   description = "HTTP-only two-server opencode dev env. Includes dynamic client, templates: opencode-client and multi-agent (session/message/orchestrator). Pre-auth assumed.";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs";
+  # Fixed revision for ironclad reproducibility - ensures opencode serve is always available
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs?rev=8eaee110344796db060382e15d3af0a9fc396e0e";
 
   outputs = { self, nixpkgs }:
     let
@@ -18,7 +19,7 @@
             shellcheck  # For shell script quality testing
           ];
           shellHook = ''
-            echo "Start server: nix profile install nixpkgs#opencode; opencode serve --port 4096"
+            echo "Start server: nix develop --command opencode serve --port 4096"
             echo "See README.md for usage details and templates"
           '';
         };
@@ -210,10 +211,9 @@ EOF
                   # HTTP error: Provide structured error message
                   echo "[Error] Request failed. Analyzing error..." >&2
 
-                  # Try to get detailed error from server
-                  DETAILED_ERROR=$(curl -s -X POST "$OPENCODE_URL/session/$SID/message" \
-                    -H 'Content-Type: application/json' \
-                    -d "$PAYLOAD" 2>&1 || echo '{"name":"UnknownError"}')
+                  # Try to get detailed error from server (unified with other HTTP calls)
+                  DETAILED_ERROR=$(oc_session_http_post "$OPENCODE_URL/session/$SID/message?directory=$(printf '%s' "$PROJECT_DIR" | jq -sRr @uri)" "$PAYLOAD" || true)
+                  DETAILED_ERROR=$${DETAILED_ERROR:-'{"name":"UnknownError"}'}
 
                   # Parse error type
                   ERROR_TYPE=$(echo "$DETAILED_ERROR" | jq -r '.name // "UnknownError"' 2>/dev/null || echo "UnknownError")
