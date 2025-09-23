@@ -4,7 +4,7 @@
 
 ## 概要
 
-MCP Unified Management Tool は、複数のAI開発ツール（Claude Desktop、Cursor、OpenCode）のMCPサーバー設定を統一管理するProduction-Perfect実装です。マスター設定ファイル（`~/.mcp/servers.json`）から各クライアントの既定場所・形式へ安全に配布します。
+MCP Unified Management Tool は、複数のAI開発ツール（Claude Code/CLI、Cursor、OpenCode）のMCPサーバー設定を統一管理するProduction-Perfect実装です。マスター設定ファイル（`~/.mcp/servers.json`）から各クライアントの既定場所・形式へ安全に配布します。
 
 ## 主要機能・安全改善
 
@@ -29,7 +29,7 @@ MCP Unified Management Tool は、複数のAI開発ツール（Claude Desktop、
 
 | クライアント | 出力先 | 対応状況 | 制限事項 |
 |-------------|--------|----------|----------|
-| **Claude Desktop** | `./.claude/mcp.json` | ✅ 完全対応 | プロジェクト内（.git存在）のみ |
+| **Claude Code/CLI** | `./.claude/mcp.json` | ✅ 完全対応 | プロジェクト内（.git存在）のみ |
 | **Cursor/Codex** | `~/.codex/config.toml` | ✅ 完全対応 | - |
 | **OpenCode** | `~/.config/opencode/opencode.json` | ⚠️ 暫定SKIP | 仕様確証まで対応保留 |
 
@@ -298,7 +298,7 @@ mcp-sync --clean --quarantine --apply     # 生成ファイル隔離
 └── README.md                 # このファイル
 
 # 出力先
-./.claude/mcp.json                     # Claude Desktop設定
+./.claude/mcp.json                     # Claude Code/CLI設定
 ~/.codex/config.toml                   # Cursor/Codex設定
 ~/.config/opencode/opencode.json       # OpenCode設定（将来）
 ```
