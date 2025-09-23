@@ -1,0 +1,182 @@
+name: OpenCode CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run full integration tests daily at 02:00 UTC
+    - cron: '0 2 * * *'
+
+env:
+  # Detect test mode: mock for PR/push, server for scheduled
+  CI_TEST_MODE: ${{ github.event_name == 'schedule' && 'server' || 'mock' }}
+
+jobs:
+  quick-tests:
+    name: Quick Tests (Mock Mode)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: cachix/install-nix-action@v27
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+
+    - name: 🔍 Verify Environment
+      run: |
+        echo "🎯 Test Mode: $CI_TEST_MODE"
+        echo "📅 Event: ${{ github.event_name }}"
+        echo "🌿 Branch: ${{ github.ref_name }}"
+
+    - name: ⚡ Quick Build Verification
+      run: |
+        echo "🚀 Building core components..."
+        nix build .#opencode-client
+        echo "✅ opencode-client build successful"
+
+    - name: 🔒 Lock Integrity Check
+      run: |
+        if [ ! -f flake.lock ]; then
+          echo "❌ flake.lock is missing - required for reproducibility"
+          exit 1
+        fi
+        echo "✅ flake.lock exists"
+
+        # Check if lock was modified (detect unintended changes)
+        expected_rev="8eaee110344796db060382e15d3af0a9fc396e0e"
+        actual_rev=$(jq -r '.nodes.nixpkgs.locked.rev' flake.lock)
+        if [ "$actual_rev" != "$expected_rev" ]; then
+          echo "⚠️ flake.lock nixpkgs revision changed:"
+          echo "   Expected: $expected_rev"
+          echo "   Actual:   $actual_rev"
+          echo "   This may be intentional (nix flake update) or unintended"
+          echo "   Please verify this change was intended"
+        else
+          echo "✅ flake.lock nixpkgs revision matches expected"
+        fi
+
+    - name: 🏗️ Flake Syntax Verification
+      run: nix flake check
+
+    - name: 🎯 Quick Feature Validation
+      run: |
+        echo "🧪 Running quick validation suite..."
+        export CI_TEST_MODE=mock
+        export OPENCODE_TIMEOUT=10
+
+        # Run comprehensive quick validation (no external dependencies)
+        if ./test_ci_quick_validation.sh; then
+          echo "✅ Quick validation tests passed"
+        else
+          echo "❌ Quick validation tests failed"
+          exit 1
+        fi
+
+    - name: 📊 Quick Test Summary
+      run: |
+        echo "🎉 Quick Test Summary"
+        echo "===================="
+        echo "✅ Build verification: PASSED"
+        echo "✅ Lock integrity: PASSED"
+        echo "✅ Flake syntax: PASSED"
+        echo "✅ Quick validation: PASSED"
+        echo "✅ Acceptance criteria: VALIDATED"
+        echo ""
+        echo "⚡ Total time: ~30-60 seconds"
+        echo "🎯 Performance target: Sub-2-minute CI"
+
+  comprehensive-tests:
+    name: Comprehensive Tests (Server Mode)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: cachix/install-nix-action@v27
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+
+    - name: 🔍 Verify Environment
+      run: |
+        echo "🎯 Test Mode: $CI_TEST_MODE"
+        echo "📅 Event: ${{ github.event_name }}"
+        echo "🌿 Branch: ${{ github.ref_name }}"
+
+    - name: 🚀 Full Build Verification
+      run: |
+        echo "🏗️ Building all components..."
+        nix build .#opencode-client
+        echo "✅ opencode-client build successful"
+
+        # Verify opencode serve is available
+        if ! nix develop --command opencode --help | grep -i serve; then
+          echo "❌ opencode serve command not available"
+          exit 1
+        fi
+        echo "✅ opencode serve command available"
+
+    - name: 🔒 Comprehensive Lock Verification
+      run: |
+        echo "🔍 Running comprehensive lock reproducibility tests..."
+        if ./test_reproducibility_suite.sh; then
+          echo "✅ Reproducibility suite passed"
+        else
+          echo "❌ Reproducibility suite failed"
+          exit 1
+        fi
+
+    - name: ⏱️ Timeout Behavior Verification
+      run: |
+        echo "⏱️ Testing timeout behavior..."
+        export OPENCODE_TIMEOUT=5
+        if ./test_timeout_behavior.sh; then
+          echo "✅ Timeout behavior tests passed"
+        else
+          echo "❌ Timeout behavior tests failed"
+          exit 1
+        fi
+
+    - name: 🎯 Complete Integration Tests
+      run: |
+        echo "🧪 Running complete integration test suite..."
+        export CI_TEST_MODE=server
+        export OPENCODE_TIMEOUT=30
+
+        if ./test_complete_integration.sh; then
+          echo "✅ Complete integration tests passed"
+        else
+          echo "❌ Complete integration tests failed"
+          exit 1
+        fi
+
+    - name: 🚀 Quick Start Validation
+      run: |
+        echo "🚀 Running quick start validation..."
+        # This test requires a real server, so we'll run it in a background job
+        (nix develop --command opencode serve --port 4096 &)
+        sleep 10  # Give server time to start
+
+        export OPENCODE_URL="http://127.0.0.1:4096"
+        export OPENCODE_PROJECT_DIR="$(pwd)"
+
+        if ./quick-start-test.sh; then
+          echo "✅ Quick start validation passed"
+        else
+          echo "❌ Quick start validation failed"
+          exit 1
+        fi
+
+    - name: 📊 Comprehensive Test Summary
+      run: |
+        echo "🎉 Comprehensive Test Summary"
+        echo "============================="
+        echo "✅ Full build verification: PASSED"
+        echo "✅ Lock reproducibility: PASSED"
+        echo "✅ Timeout behavior: PASSED"
+        echo "✅ Integration tests: PASSED"
+        echo "✅ Quick start validation: PASSED"
+        echo ""
+        echo "⏱️ Total time: ~3-5 minutes"
