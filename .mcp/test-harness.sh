@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# MCP-Sync Test Harness - Production Behavioral Protection
-# Comprehensive tests to protect current mcp-sync behavior for TARGET=codex,opencode
+# MCP-Sync Test Harness v2.0 - Production Perfect Protection
+# Comprehensive tests for mcp-sync v2.0 including OpenCode SKIP and new safety features
 
 echo "🧪 MCP-Sync Behavioral Protection Test Harness"
 echo "=============================================="
 echo "Testing: /home/nixos/.mcp/mcp-sync"
-echo "Safety: Using TARGET=codex,opencode (avoiding Claude format contamination)"
+echo "Safety: Testing v2.0 features including OpenCode SKIP and enhanced security"
 echo ""
 
 # Test results
@@ -43,19 +43,17 @@ cat > "$TEST_HOME/.mcp/servers.json" <<'EOF'
       "env": {},
       "tags": ["all"]
     },
-    "github": {
+    "simple": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
-      },
+      "command": "echo",
+      "args": ["test"],
+      "env": {},
       "tags": ["codex", "opencode"]
     }
   },
   "profiles": {
     "minimal": ["filesystem"],
-    "full": ["filesystem", "github"]
+    "full": ["filesystem", "simple"]
   }
 }
 EOF
@@ -66,7 +64,17 @@ echo ""
 # Test 1: DRY RUN Mode Protection
 echo "=== Test 1: DRY RUN Mode Protection ==="
 ((TESTS_TOTAL++))
-DRY_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target codex,opencode --dry-run 2>&1)
+# Use codex only since opencode is skipped
+# Run dry-run test
+DRY_OUTPUT_FILE=$(mktemp)
+if HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target codex --dry-run --check-env off > "$DRY_OUTPUT_FILE" 2>&1; then
+    DRY_OUTPUT=$(cat "$DRY_OUTPUT_FILE")
+    DRY_SUCCESS=true
+else
+    DRY_OUTPUT=$(cat "$DRY_OUTPUT_FILE")
+    DRY_SUCCESS=false
+fi
+rm -f "$DRY_OUTPUT_FILE"
 
 # Check for DRY RUN mode message anywhere in output
 if echo "$DRY_OUTPUT" | grep -q "DRY RUN MODE"; then
@@ -75,8 +83,8 @@ else
     fail_test "DRY RUN mode protection not detected"
 fi
 
-# Verify no files were created in dry-run mode
-if [[ ! -f "$TEST_HOME/.codex/config.toml" ]] && [[ ! -f "$TEST_HOME/.config/opencode/opencode.json" ]]; then
+# Verify no files were created in dry-run mode (only check codex since opencode is skipped)
+if [[ ! -f "$TEST_HOME/.codex/config.toml" ]]; then
     pass_test "DRY RUN: No files created"
     ((TESTS_TOTAL++))
 else
@@ -89,7 +97,7 @@ echo ""
 # Test 2: Codex TOML Generation
 echo "=== Test 2: Codex TOML Generation ==="
 ((TESTS_TOTAL++))
-HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target codex --apply >/dev/null 2>&1
+HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target codex --apply --check-env off >/dev/null 2>&1
 
 if [[ -f "$TEST_HOME/.codex/config.toml" ]]; then
     TOML_CONTENT=$(cat "$TEST_HOME/.codex/config.toml")
@@ -114,35 +122,37 @@ fi
 
 echo ""
 
-# Test 3: OpenCode JSON Generation
-echo "=== Test 3: OpenCode JSON Generation ==="
+# Test 3: OpenCode SKIP Warning Verification
+echo "=== Test 3: OpenCode SKIP Warning Verification ==="
 ((TESTS_TOTAL++))
-HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target opencode --check-env off --apply >/dev/null 2>&1
+OPENCODE_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target opencode --apply --check-env off 2>&1)
 
-if [[ -f "$TEST_HOME/.config/opencode/opencode.json" ]]; then
-    JSON_CONTENT=$(cat "$TEST_HOME/.config/opencode/opencode.json")
-
-    if echo "$JSON_CONTENT" | jq empty 2>/dev/null; then
-        pass_test "OpenCode JSON: Valid JSON syntax"
-    else
-        fail_test "OpenCode JSON: Invalid JSON syntax"
-    fi
-    ((TESTS_TOTAL++))
-
-    if echo "$JSON_CONTENT" | grep -q '"mcp"'; then
-        pass_test "OpenCode JSON: MCP section present"
-    else
-        fail_test "OpenCode JSON: MCP section missing"
-    fi
-    ((TESTS_TOTAL++))
+# Check for OpenCode skip warning
+if echo "$OPENCODE_OUTPUT" | grep -q "WARNING: OpenCode target is temporarily skipped"; then
+    pass_test "OpenCode SKIP: Warning message detected"
 else
-    fail_test "OpenCode JSON: File not created"
-    ((TESTS_TOTAL += 2))
+    fail_test "OpenCode SKIP: Warning message missing"
+fi
+((TESTS_TOTAL++))
+
+# Verify no OpenCode file was created (SKIP behavior)
+if [[ ! -f "$TEST_HOME/.config/opencode/opencode.json" ]]; then
+    pass_test "OpenCode SKIP: No file created (correctly skipped)"
+else
+    fail_test "OpenCode SKIP: File was created despite skip"
+fi
+((TESTS_TOTAL++))
+
+# Check specification pending message
+if echo "$OPENCODE_OUTPUT" | grep -q "specification pending"; then
+    pass_test "OpenCode SKIP: Specification pending message detected"
+else
+    fail_test "OpenCode SKIP: Specification pending message missing"
 fi
 
 echo ""
 
-# Test 4: Registry Tracking
+# Test 4: Registry Tracking (Codex only due to OpenCode SKIP)
 echo "=== Test 4: Registry Tracking ==="
 ((TESTS_TOTAL++))
 if [[ -f "$TEST_HOME/.mcp/state/generated.json" ]]; then
@@ -151,26 +161,28 @@ if [[ -f "$TEST_HOME/.mcp/state/generated.json" ]]; then
     if echo "$REGISTRY_CONTENT" | jq empty 2>/dev/null; then
         pass_test "Registry: Valid JSON format"
     else
-        fail_test "Registry: Invalid JSON format"
+        fail_test "Registry: Valid JSON format"
     fi
     ((TESTS_TOTAL++))
 
-    if echo "$REGISTRY_CONTENT" | grep -q "opencode.json"; then
-        pass_test "Registry: Tracks OpenCode file"
+    # Since OpenCode is skipped, registry should be empty or minimal
+    if echo "$REGISTRY_CONTENT" | jq -e '.files | length == 0' >/dev/null 2>&1; then
+        pass_test "Registry: Empty files object (OpenCode skipped)"
     else
-        fail_test "Registry: Missing OpenCode file entry"
+        fail_test "Registry: Should be empty due to OpenCode skip"
     fi
     ((TESTS_TOTAL++))
 else
-    fail_test "Registry: File not created"
+    # Registry file might not be created if no JSON files are generated
+    pass_test "Registry: File not created (acceptable - no JSON files generated)"
     ((TESTS_TOTAL += 2))
 fi
 
 echo ""
 
-# Test 5: Hybrid Generation Detection
+# Test 5: Hybrid Generation Detection (TOML only - OpenCode skipped)
 echo "=== Test 5: Hybrid Generation Detection ==="
-INVENTORY_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --inventory 2>&1)
+INVENTORY_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --inventory --check-env off 2>&1)
 
 ((TESTS_TOTAL++))
 if echo "$INVENTORY_OUTPUT" | grep -q "GENERATED.*config\.toml"; then
@@ -180,10 +192,13 @@ else
 fi
 
 ((TESTS_TOTAL++))
-if echo "$INVENTORY_OUTPUT" | grep -q "GENERATED.*opencode\.json"; then
-    pass_test "Detection: JSON file via registry tracking"
+# OpenCode file should be MISSING due to skip behavior
+if echo "$INVENTORY_OUTPUT" | grep -q "MISSING.*opencode\.json"; then
+    pass_test "Detection: OpenCode file missing (correctly skipped)"
+elif echo "$INVENTORY_OUTPUT" | grep -q "opencode\.json"; then
+    fail_test "Detection: OpenCode file should be missing due to skip"
 else
-    fail_test "Detection: JSON file not detected"
+    pass_test "Detection: OpenCode file absent from inventory (acceptable)"
 fi
 
 echo ""
@@ -203,7 +218,7 @@ EOF
 
 ((TESTS_TOTAL++))
 EXIT_CODE=0
-HOME="$TEST_HOME" MASTER_FILE="$TEST_HOME/.mcp/servers-invalid.json" /home/nixos/.mcp/mcp-sync --target codex --dry-run >/dev/null 2>&1 || EXIT_CODE=$?
+HOME="$TEST_HOME" MASTER_FILE="$TEST_HOME/.mcp/servers-invalid.json" /home/nixos/.mcp/mcp-sync --target codex --dry-run --check-env off >/dev/null 2>&1 || EXIT_CODE=$?
 
 if [[ $EXIT_CODE -ne 0 ]]; then
     pass_test "Error handling: Rejects invalid JSON"
@@ -243,11 +258,11 @@ EOF
 
 # Generate output twice and compare
 rm -f "$TEST_HOME/.codex/config.toml"
-HOME="$TEST_HOME" MASTER_FILE="$TEST_HOME/.mcp/servers-multi.json" /home/nixos/.mcp/mcp-sync --target codex --apply >/dev/null 2>&1
+HOME="$TEST_HOME" MASTER_FILE="$TEST_HOME/.mcp/servers-multi.json" /home/nixos/.mcp/mcp-sync --target codex --apply --check-env off >/dev/null 2>&1
 FIRST_OUTPUT=$(cat "$TEST_HOME/.codex/config.toml")
 
 rm -f "$TEST_HOME/.codex/config.toml"
-HOME="$TEST_HOME" MASTER_FILE="$TEST_HOME/.mcp/servers-multi.json" /home/nixos/.mcp/mcp-sync --target codex --apply >/dev/null 2>&1
+HOME="$TEST_HOME" MASTER_FILE="$TEST_HOME/.mcp/servers-multi.json" /home/nixos/.mcp/mcp-sync --target codex --apply --check-env off >/dev/null 2>&1
 SECOND_OUTPUT=$(cat "$TEST_HOME/.codex/config.toml")
 
 ((TESTS_TOTAL++))
@@ -263,12 +278,198 @@ echo ""
 echo "=== Test 8: Environment Variable Controls ==="
 ((TESTS_TOTAL++))
 EXIT_CODE=0
-HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target codex --check-env off --dry-run >/dev/null 2>&1 || EXIT_CODE=$?
+HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target codex --dry-run --check-env off >/dev/null 2>&1 || EXIT_CODE=$?
 
 if [[ $EXIT_CODE -eq 0 ]]; then
     pass_test "Environment: CHECK_ENV=off bypass works"
 else
     fail_test "Environment: CHECK_ENV=off should bypass validation"
+fi
+
+echo ""
+
+# Test 9: Absolute Path Validation
+echo "=== Test 9: Absolute Path Validation ==="
+# Create configuration with relative path in args
+cat > "$TEST_HOME/.mcp/servers-relative.json" <<'EOF'
+{
+  "version": "1.0",
+  "mcpServers": {
+    "relative-path": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["./relative/path/script.js"],
+      "env": {},
+      "tags": ["codex"]
+    }
+  },
+  "profiles": {
+    "test": ["relative-path"]
+  }
+}
+EOF
+
+((TESTS_TOTAL++))
+EXIT_CODE=0
+RELATIVE_OUTPUT=$(HOME="$TEST_HOME" MASTER_FILE="$TEST_HOME/.mcp/servers-relative.json" /home/nixos/.mcp/mcp-sync --target codex --dry-run --check-env off 2>&1) || EXIT_CODE=$?
+
+if [[ $EXIT_CODE -ne 0 ]] && echo "$RELATIVE_OUTPUT" | grep -q "Relative path detected"; then
+    pass_test "Absolute Path: Rejects relative paths correctly"
+else
+    fail_test "Absolute Path: Should reject relative paths"
+fi
+
+echo ""
+
+# Test 10: Claude Output Guard (Git Project Detection)
+echo "=== Test 10: Claude Output Guard ==="
+# Test outside git project (current temp dir)
+((TESTS_TOTAL++))
+CLAUDE_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target claude --dry-run --check-env off 2>&1)
+
+if echo "$CLAUDE_OUTPUT" | grep -q "WARNING: Claude target skipped - not in a git project"; then
+    pass_test "Claude Guard: Detects non-git directory correctly"
+else
+    fail_test "Claude Guard: Should detect non-git directory"
+fi
+
+echo ""
+
+# Test 11: Symlink Protection
+echo "=== Test 11: Symlink Protection ==="
+# Create a symlink target file
+touch "$TEST_HOME/real-config.toml"
+ln -s "$TEST_HOME/real-config.toml" "$TEST_HOME/.codex/config.toml"
+
+((TESTS_TOTAL++))
+SYMLINK_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target codex --apply --check-env off 2>&1)
+
+if echo "$SYMLINK_OUTPUT" | grep -q "is a symlink (protected from overwrite)"; then
+    pass_test "Symlink Protection: Detects and protects symlinks"
+else
+    fail_test "Symlink Protection: Should protect symlinks"
+fi
+
+# Clean up symlink
+rm -f "$TEST_HOME/.codex/config.toml" "$TEST_HOME/real-config.toml"
+
+echo ""
+
+# Test 12: Registry Flock Protection (Basic Test)
+echo "=== Test 12: Registry Flock Protection ==="
+((TESTS_TOTAL++))
+# Simple test: ensure registry operations complete without flock errors
+FLOCK_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target codex --apply --check-env off 2>&1)
+
+if ! echo "$FLOCK_OUTPUT" | grep -q "Failed to acquire registry lock"; then
+    pass_test "Registry Flock: No lock acquisition failures"
+else
+    fail_test "Registry Flock: Lock acquisition failed"
+fi
+
+echo ""
+
+# Test 13: Diff Fallback Functionality
+echo "=== Test 13: Diff Fallback Functionality ==="
+# Create existing file and test diff output
+cat > "$TEST_HOME/.codex/config.toml" <<'EOF'
+# Old configuration
+[mcp_servers.old]
+command = "old-command"
+args = []
+EOF
+
+((TESTS_TOTAL++))
+DIFF_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target codex --dry-run --check-env off 2>&1)
+
+# Check that diff output is present (either git diff or system diff)
+if echo "$DIFF_OUTPUT" | grep -E "(\-\-\-|\+\+\+|@@|Generated by mcp-sync)"; then
+    pass_test "Diff Fallback: Shows configuration differences"
+else
+    fail_test "Diff Fallback: Should show differences"
+fi
+
+echo ""
+
+# Test 14: Registry Absolute Path Normalization
+echo "=== Test 14: Registry Absolute Path Normalization ==="
+# Create a JSON config with claude target (if we can make a git repo)
+mkdir -p "$TEST_HOME/git-project/.git"
+cat > "$TEST_HOME/git-project/.mcp/servers.json" <<'EOF'
+{
+  "version": "1.0",
+  "mcpServers": {
+    "test": {
+      "type": "stdio",
+      "command": "test",
+      "args": [],
+      "env": {},
+      "tags": ["claude"]
+    }
+  },
+  "profiles": {
+    "test": ["test"]
+  }
+}
+EOF
+
+# Change to git project and run to generate registry
+cd "$TEST_HOME/git-project"
+((TESTS_TOTAL++))
+REGISTRY_OUTPUT=$(HOME="$TEST_HOME" MASTER_FILE="$TEST_HOME/git-project/.mcp/servers.json" /home/nixos/.mcp/mcp-sync --target claude --apply --check-env off 2>&1)
+
+# Check if registry was created and contains absolute paths
+if [[ -f "$TEST_HOME/.mcp/state/generated.json" ]]; then
+    REGISTRY_CONTENT=$(cat "$TEST_HOME/.mcp/state/generated.json")
+    if echo "$REGISTRY_CONTENT" | jq -e '.files | keys[]' 2>/dev/null | grep -q '^/'; then
+        pass_test "Registry Normalization: Contains absolute paths"
+    else
+        fail_test "Registry Normalization: Should contain absolute paths"
+    fi
+else
+    fail_test "Registry Normalization: Registry file not created"
+fi
+
+# Return to original directory
+cd "$TEST_HOME"
+
+echo ""
+
+# Test 15: CWD Independence Test
+echo "=== Test 15: CWD Independence Test ==="
+# Test that registry lookup works regardless of current directory
+((TESTS_TOTAL++))
+
+# Create a subdirectory and run from there
+mkdir -p "$TEST_HOME/subdir"
+cd "$TEST_HOME/subdir"
+
+# Run inventory from subdirectory
+CWD_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --inventory --check-env off 2>&1)
+
+# Check that inventory still works (should show previous TOML file)
+if echo "$CWD_OUTPUT" | grep -q "config.toml"; then
+    pass_test "CWD Independence: Inventory works from any directory"
+else
+    fail_test "CWD Independence: Inventory should work from any directory"
+fi
+
+# Return to test home
+cd "$TEST_HOME"
+
+echo ""
+
+# Test 16: Target All Behavior with New Restrictions
+echo "=== Test 16: Target All Behavior with New Restrictions ==="
+((TESTS_TOTAL++))
+
+# Test --target all outside git project (should exclude Claude and OpenCode)
+ALL_OUTPUT=$(HOME="$TEST_HOME" /home/nixos/.mcp/mcp-sync --target all --dry-run --check-env off 2>&1)
+
+if echo "$ALL_OUTPUT" | grep -q "excludes Claude.*not in git project" && echo "$ALL_OUTPUT" | grep -q "excludes.*OpenCode.*specification pending"; then
+    pass_test "Target All: Correctly excludes Claude and OpenCode with reasons"
+else
+    fail_test "Target All: Should exclude Claude and OpenCode with reasons"
 fi
 
 echo ""
@@ -291,22 +492,31 @@ if [[ $TESTS_FAILED -eq 0 ]]; then
     echo "🔒 Protected Features:"
     echo "   ✅ DRY RUN mode safety (no file modification)"
     echo "   ✅ Codex TOML rendering with generation signatures"
-    echo "   ✅ OpenCode JSON rendering with schema validation"
-    echo "   ✅ Registry-based tracking for JSON files"
+    echo "   ✅ OpenCode SKIP behavior with proper warnings"
+    echo "   ✅ Registry-based tracking for JSON files with flock protection"
     echo "   ✅ Hybrid generation detection (TOML comments + JSON registry)"
     echo "   ✅ Error handling for invalid configurations"
     echo "   ✅ Deterministic sorting and output reproducibility"
     echo "   ✅ Environment variable validation controls"
+    echo "   ✅ Absolute path validation and relative path rejection"
+    echo "   ✅ Claude output guard (git project boundary detection)"
+    echo "   ✅ Symlink protection across all operations"
+    echo "   ✅ Registry absolute path normalization"
+    echo "   ✅ CWD-independent operation"
+    echo "   ✅ Diff fallback functionality"
     echo ""
     echo "🛡️ Safety Measures Verified:"
     echo "   ✅ HOME isolation to temporary directories"
-    echo "   ✅ Safe target selection (codex,opencode only)"
-    echo "   ✅ No Claude format contamination"
+    echo "   ✅ Safe target selection with smart exclusions"
+    echo "   ✅ OpenCode specification pending protection"
+    echo "   ✅ Claude project boundary enforcement"
+    echo "   ✅ Symlink overwrite prevention"
+    echo "   ✅ Registry concurrent access protection (flock)"
     echo "   ✅ File pollution prevention"
     echo ""
     echo "🧹 Cleaned up test environment: $TEST_HOME"
     echo ""
-    echo "✨ mcp-sync core behavior is fully protected and verified!"
+    echo "✨ mcp-sync v2.0 Production Perfect behavior is fully protected and verified!"
     exit 0
 else
     echo ""

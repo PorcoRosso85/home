@@ -186,7 +186,10 @@ detect_generated_file() {
             # JSON files: check registry + hash
             local current_hash expected_hash
             current_hash=$(sha256sum "$file" | cut -d' ' -f1)
-            expected_hash=$(get_registry_hash "$file")
+            # Normalize file path for registry lookup
+            local normalized_file
+            normalized_file=$(realpath -m "$file")
+            expected_hash=$(get_registry_hash "$normalized_file")
 
             if [[ "$current_hash" == "$expected_hash" && "$expected_hash" != "unknown" ]]; then
                 return 0  # Generated and hash matches
@@ -794,7 +797,10 @@ write_safe_with_registry() {
     if [[ -f "$target" ]]; then
         local file_hash
         file_hash=$(sha256sum "$target" | cut -d' ' -f1)
-        update_registry "$target" "$file_hash"
+        # Normalize target path to absolute before registry update
+        local normalized_target
+        normalized_target=$(realpath -m "$target")
+        update_registry "$normalized_target" "$file_hash"
     fi
 }
 
