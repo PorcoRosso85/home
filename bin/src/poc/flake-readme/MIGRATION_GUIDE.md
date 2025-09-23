@@ -40,7 +40,6 @@ flake-readme has been simplified to use only Git-standard behavior and ignore-on
 ### ✅ Preserved Features  
 - Core readme.nix validation and schema enforcement
 - Git boundary filtering (via `inputs.self.outPath`)
-- Mixed fact-policy detection logic
 - `ignoreExtra` configuration for manual overrides
 - All existing validation and reporting functionality
 
