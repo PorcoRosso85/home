@@ -47,36 +47,122 @@ validate_absolute_path() {
     [[ "$path" = /* ]] || error "Path must be absolute: $path"
 }
 
-# Registry management for tracking generated files
-ensure_registry() {
+# Registry management for tracking generated files with flock protection
+
+# Shared flock helper function with timeout and error handling
+with_registry_lock() {
+    local operation="$1"
+    shift
+    local lock_file="${REGISTRY_FILE}.lock"
+    local timeout=10
+    local fd
+
+    # Ensure lock file directory exists
+    mkdir -p "$(dirname "$lock_file")"
+
+    # Open lock file for writing (creates if doesn't exist)
+    exec {fd}>"$lock_file" || {
+        error "Failed to open lock file: $lock_file"
+    }
+
+    # Try to acquire exclusive lock with timeout
+    if ! timeout "$timeout" flock "$fd" 2>/dev/null; then
+        exec {fd}>&-  # Close file descriptor
+        error "Failed to acquire registry lock within ${timeout}s (another mcp-sync process may be running)"
+    fi
+
+    # Execute the operation with lock held
+    local result=0
+    case "$operation" in
+        "ensure")
+            _ensure_registry_locked "$@" || result=$?
+            ;;
+        "update")
+            _update_registry_locked "$@" || result=$?
+            ;;
+        "get_hash")
+            _get_registry_hash_locked "$@" || result=$?
+            ;;
+        *)
+            error "Unknown registry operation: $operation"
+            ;;
+    esac
+
+    # Release lock and close file descriptor
+    exec {fd}>&-
+    return $result
+}
+
+# Internal function: ensure registry exists (called with lock held)
+_ensure_registry_locked() {
     mkdir -p "$(dirname "$REGISTRY_FILE")"
     if [[ ! -f "$REGISTRY_FILE" ]]; then
-        echo '{"files": {}}' > "$REGISTRY_FILE"
+        echo '{"files": {}}' > "$REGISTRY_FILE" || {
+            error "Failed to initialize registry file: $REGISTRY_FILE"
+        }
     fi
+}
+
+# Internal function: update registry (called with lock held)
+_update_registry_locked() {
+    local file="$1" sha256="$2"
+
+    # Ensure registry exists
+    _ensure_registry_locked
+
+    local temp_registry
+    temp_registry=$(mktemp) || {
+        error "Failed to create temporary file for registry update"
+    }
+
+    # Set up cleanup trap for temporary file
+    trap "rm -f '$temp_registry'" RETURN
+
+    # Update registry with new entry
+    if ! jq --arg path "$file" \
+           --arg hash "$sha256" \
+           --arg ver "v2.0" \
+           --arg ts "$(date -Iseconds)" \
+           '.files[$path] = {sha256: $hash, toolVersion: $ver, timestamp: $ts}' \
+           "$REGISTRY_FILE" > "$temp_registry"; then
+        error "Failed to update registry JSON for: $file"
+    fi
+
+    # Atomic move to replace registry file
+    if ! mv "$temp_registry" "$REGISTRY_FILE"; then
+        error "Failed to replace registry file: $REGISTRY_FILE"
+    fi
+
+    log "Updated registry for: $file"
+}
+
+# Internal function: get registry hash (called with lock held)
+_get_registry_hash_locked() {
+    local file="$1"
+
+    # Ensure registry exists
+    _ensure_registry_locked
+
+    # Get hash from registry (output to stdout)
+    jq -r --arg f "$file" '.files[$f].sha256 // "unknown"' "$REGISTRY_FILE" 2>/dev/null || {
+        echo "unknown"
+        return 1
+    }
+}
+
+# Public API functions with flock protection
+ensure_registry() {
+    with_registry_lock "ensure"
 }
 
 update_registry() {
     local file="$1" sha256="$2"
-    ensure_registry
-
-    local temp_registry
-    temp_registry=$(mktemp)
-
-    jq --arg path "$file" \
-       --arg hash "$sha256" \
-       --arg ver "v2.0" \
-       --arg ts "$(date -Iseconds)" \
-       '.files[$path] = {sha256: $hash, toolVersion: $ver, timestamp: $ts}' \
-       "$REGISTRY_FILE" > "$temp_registry"
-
-    mv "$temp_registry" "$REGISTRY_FILE"
-    log "Updated registry for: $file"
+    with_registry_lock "update" "$file" "$sha256"
 }
 
 get_registry_hash() {
     local file="$1"
-    ensure_registry
-    jq -r --arg f "$file" '.files[$f].sha256 // "unknown"' "$REGISTRY_FILE" 2>/dev/null
+    with_registry_lock "get_hash" "$file"
 }
 
 # Hybrid detection system for TOML (comment) and JSON (registry+hash)
@@ -225,9 +311,10 @@ validate_schema() {
 expand_server_configs() {
     local servers_json="$1"
 
+    local expanded_result
     if [[ "$EXPAND_ENV" == "on" ]]; then
         # Expand environment variables safely - only ${env:VAR} patterns
-        echo "$servers_json" | jq --argjson expand_env true '
+        expanded_result=$(echo "$servers_json" | jq --argjson expand_env true '
             def expand_env_vars:
                 if type == "string" then
                     gsub("\\$\\{env:(?<var>[A-Z_][A-Z0-9_]*)\\}"; env[.var] // "${env:\(.var)}")
@@ -254,13 +341,46 @@ expand_server_configs() {
             ) | from_entries |
             # Ensure deterministic ordering
             to_entries | sort_by(.key) | from_entries
-        '
+        ')
     else
         # No expansion, but ensure deterministic ordering
-        echo "$servers_json" | jq '
+        expanded_result=$(echo "$servers_json" | jq '
             to_entries | sort_by(.key) | from_entries
-        '
+        ')
     fi
+
+    # Validate all paths in args arrays are absolute after expansion
+    local server_names
+    server_names=$(echo "$expanded_result" | jq -r 'keys[]')
+
+    for server_name in $server_names; do
+        local args_json
+        args_json=$(echo "$expanded_result" | jq -c ".\"$server_name\".args")
+
+        # Check each argument that looks like a file path (not NPM packages or env vars)
+        # Skip NPM package names, environment variables, and command flags
+        local arg
+        while IFS= read -r arg; do
+            # Skip if it's an NPM package (starts with @, or contains only alphanumeric/dash/underscore)
+            if [[ "$arg" =~ ^@ ]] || [[ "$arg" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+                continue
+            fi
+            # Skip if it's an environment variable (contains $)
+            if [[ "$arg" =~ \$ ]]; then
+                continue
+            fi
+            # Skip if it's a command flag (starts with -)
+            if [[ "$arg" =~ ^- ]]; then
+                continue
+            fi
+            # Check if it looks like a relative file path (contains / or . but not absolute)
+            if [[ "$arg" =~ (\./|\.\./) ]] || [[ "$arg" =~ ^[^/].*/ ]]; then
+                error "Relative path detected in server '$server_name' args: $arg (use absolute paths or environment variables like \$HOME)"
+            fi
+        done < <(echo "$args_json" | jq -r '.[]')
+    done
+
+    echo "$expanded_result"
 }
 
 # Filter servers by profile and tags
@@ -370,7 +490,11 @@ render_codex() {
     done
 }
 
-# Render for OpenCode (correct format, ultra-deterministic)
+# Render for OpenCode (DISABLED - 仮説実装のため暫定無効化)
+# NOTE: この関数は仕様確定後に再有効化予定
+# WARNING: 現在の実装は以下の未確証仮説に基づく:
+#   - $schema: https://opencode.ai/config.json (根拠未提示)
+#   - ルートレベルmcpマップ形式 (公式仕様未確認)
 render_opencode() {
     local servers="$1"
 
@@ -400,55 +524,101 @@ render_opencode() {
     '
 }
 
-# Safe atomic write with backup
+# Safe atomic write with backup and symlink protection
 write_safe() {
     local target="$1"
     local content="$2"
 
+    # Symlink protection: skip if target is a symlink
+    if [[ -L "$target" ]]; then
+        log "SKIP: $target is a symlink (protected from overwrite)"
+        return 0
+    fi
+
     # Create directory if it doesn't exist
     mkdir -p "$(dirname "$target")"
 
-    # Create temporary file
+    # Create temporary file in same directory for atomic move
     local temp_file
-    temp_file=$(mktemp)
+    temp_file=$(mktemp -p "$(dirname "$target")" "$(basename "$target").XXXXXX")
+
+    # Set up cleanup trap for error cases
+    trap "rm -f '$temp_file'" EXIT
+
     echo "$content" > "$temp_file"
+    chmod 600 "$temp_file"
 
     # Check if content is different
     if cmp -s "$temp_file" "$target" 2>/dev/null; then
         log "No changes needed for $target"
         rm -f "$temp_file"
+        trap - EXIT
         return 0
     fi
 
-    # Backup existing file if it exists
-    if [[ -f "$target" ]]; then
+    # Backup existing file if it exists and is not a symlink
+    if [[ -f "$target" && ! -L "$target" ]]; then
         cp "$target" "$target.bak"
         log "Backed up $target to $target.bak"
     fi
 
-    # Atomic move
-    install -m 600 "$temp_file" "$target"
-    rm -f "$temp_file"
+    # Atomic move (single system call)
+    mv "$temp_file" "$target"
+    trap - EXIT
 
     log "Updated $target"
 }
 
-# Show diff between files
+# Show diff between files with fallback to system diff
 show_diff() {
     local old_file="$1"
     local new_file="$2"
 
     if [[ -f "$old_file" ]]; then
-        git --no-pager diff --no-index --color -- "$old_file" "$new_file" 2>/dev/null || true
+        # Try git diff first, fallback to system diff if git fails
+        if ! git --no-pager diff --no-index --color -- "$old_file" "$new_file" 2>/dev/null; then
+            # Git diff failed, try system diff
+            if command -v diff >/dev/null 2>&1; then
+                diff -u "$old_file" "$new_file" 2>/dev/null || true
+            else
+                # No diff available, show files separately
+                echo "=== Comparison (no diff tool available) ==="
+                echo "--- Old file: $old_file ---"
+                cat "$old_file"
+                echo ""
+                echo "--- New file: $new_file ---"
+                cat "$new_file"
+            fi
+        fi
     else
         echo "=== New file: $new_file ==="
         cat "$new_file"
     fi
 }
 
+# Check if current directory is inside a git project
+is_git_project() {
+    # Check if .git directory exists in current or parent directories
+    local dir="$PWD"
+    while [[ "$dir" != "/" ]]; do
+        if [[ -d "$dir/.git" ]]; then
+            return 0  # Found .git directory
+        fi
+        dir=$(dirname "$dir")
+    done
+    return 1  # No .git directory found
+}
+
 # Ultra-safe cleaning: quarantine or remove generated files
 quarantine_file() {
     local file="$1"
+
+    # Symlink protection: skip if file is a symlink
+    if [[ -L "$file" ]]; then
+        log "SKIP: $file is a symlink (protected from quarantine)"
+        return 0
+    fi
+
     local quarantine_dir
     quarantine_dir="$(dirname "$file")/.invalid"
 
@@ -472,6 +642,12 @@ clean_generated_files() {
     for target in "${!TARGET_PATHS[@]}"; do
         local file_path
         file_path=$(expand_path "${TARGET_PATHS[$target]}")
+
+        # Symlink protection: skip if target is a symlink
+        if [[ -L "$file_path" ]]; then
+            log "SKIP: $file_path is a symlink (protected from deletion)"
+            continue
+        fi
 
         if [[ -f "$file_path" ]]; then
             if detect_generated_file "$file_path"; then
@@ -503,6 +679,12 @@ clean_generated_files() {
         local file_path
         file_path=$(expand_path "${TARGET_PATHS[$target]}")
         local backup_path="$file_path.bak"
+
+        # Symlink protection: skip if backup is a symlink
+        if [[ -L "$backup_path" ]]; then
+            log "SKIP: $backup_path is a symlink (protected from deletion)"
+            continue
+        fi
 
         if [[ -f "$backup_path" ]]; then
             if detect_generated_file "$backup_path"; then
@@ -557,13 +739,22 @@ deploy_target() {
 
     case "$target" in
         claude)
+            # Claude CLI出力ガード: プロジェクト境界検出
+            if ! is_git_project; then
+                echo "WARNING: Claude target skipped - not in a git project (.git directory not found)" >&2
+                echo "INFO: Claude configuration requires being inside a git project to prevent accidental file creation" >&2
+                return 0
+            fi
             rendered_content=$(render_claude "$expanded_servers")
             ;;
         codex)
             rendered_content=$(render_codex "$expanded_servers")
             ;;
         opencode)
-            rendered_content=$(render_opencode "$expanded_servers")
+            # OpenCode暫定スキップ - 仕様確定待ち
+            echo "WARNING: OpenCode target is temporarily skipped (specification pending)" >&2
+            echo "INFO: OpenCode configuration will be supported once official specification is confirmed" >&2
+            return 0
             ;;
         *)
             error "Unknown target: $target"
@@ -669,6 +860,7 @@ STANDARD OPTIONS:
     --profile PROFILE   Profile to use (default: full)
     --target TARGETS    Comma-separated targets (default: all)
                        Available: claude, codex, opencode, all
+                       Note: opencode is temporarily skipped (specification pending)
     --dry-run          Show changes without applying them (default)
     --check-env on|off Check environment variables (default: on)
     --expand-env on|off Expand environment variables (default: off)
@@ -680,6 +872,7 @@ EXAMPLES:
     mcp-sync --apply                           # Apply changes
     mcp-sync --profile minimal --apply        # Apply minimal profile
     mcp-sync --target claude,codex --apply    # Apply to specific targets
+    mcp-sync --target opencode --apply        # OpenCode target (shows warning)
     mcp-sync --quarantine --apply             # Quarantine unknown files
     mcp-sync --clean                           # Preview cleanup (dry-run)
     mcp-sync --clean --apply                   # Remove generated files
@@ -699,7 +892,16 @@ EOF
 
     # Process targets
     if [[ "$TARGET" == "all" ]]; then
-        TARGET="claude,codex,opencode"
+        # プロジェクト境界検出によるClaude target除外判定
+        if is_git_project; then
+            # プロジェクト内：Claudeを含む（OpenCodeは仕様確定待ちのため暫定除外）
+            TARGET="claude,codex"
+            echo "INFO: --target all excludes OpenCode (specification pending)" >&2
+        else
+            # プロジェクト外：Claudeを除外
+            TARGET="codex"
+            echo "INFO: --target all excludes Claude (not in git project) and OpenCode (specification pending)" >&2
+        fi
     fi
 
     IFS=',' read -ra TARGETS <<< "$TARGET"
