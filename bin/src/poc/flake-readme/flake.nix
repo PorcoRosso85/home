@@ -308,6 +308,14 @@
         };
       });
 
+      # Test outputs for validation
+      tests = forAllSystems (pkgs: {
+        # Import test files
+        ignore-only-policy = import ./test-ignore-only-policy.nix;
+        performance = import ./test-performance.nix;
+        e2e-workflow = import ./test-e2e-workflow.nix;
+      });
+
       # Checks
       checks = forAllSystems (pkgs: {
         docs-lint = pkgs.runCommand "docs-lint-check"
