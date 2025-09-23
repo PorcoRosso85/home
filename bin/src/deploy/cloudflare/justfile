@@ -1,0 +1,87 @@
+# RedwoodSDK R2 Connection Info Local Completion Tasks
+
+# Initialize encrypted secrets setup
+secrets-init:
+    @echo "🔧 Initializing R2 secrets..."
+    nix run .#secrets-init
+
+# Edit R2 connection secrets
+secrets-edit:
+    @echo "🔐 Editing R2 secrets..."
+    nix run .#secrets-edit -- secrets/r2.yaml
+
+# Generate wrangler.jsonc with R2 configuration
+r2:gen-config:
+    @echo "⚙️ Generating wrangler.jsonc with R2 configuration..."
+    @if [ ! -f secrets/r2.yaml ]; then \
+        echo "❌ R2 secrets not found. Run 'just secrets-init' first."; \
+        exit 1; \
+    fi
+    @echo "Reading encrypted R2 configuration..."
+    nix run .#gen-wrangler-config
+
+# Test R2 connection (local mode only - no external auth required)
+r2:test:
+    @echo "🧪 Testing R2 connection (local mode)..."
+    @echo "Generating test configuration with template values..."
+    nix run .#gen-wrangler-config -- --use-template
+    @if [ ! -f wrangler.jsonc ]; then \
+        echo "❌ wrangler.jsonc generation failed."; \
+        exit 1; \
+    fi
+    @echo "📋 Reviewing generated configuration..."
+    @echo "Account ID: $(cat wrangler.jsonc | grep -o '"account_id"[[:space:]]*:[[:space:]]*"[^"]*' | cut -d'"' -f4)"
+    @echo "R2 Buckets: $(cat wrangler.jsonc | grep -o '"binding"[[:space:]]*:[[:space:]]*"[^"]*' | cut -d'"' -f4 | tr '\n' ', ' | sed 's/,$//')"
+    @echo ""
+    @echo "🚀 Starting local R2 test with miniflare..."
+    nix run .#test-r2-local
+
+# Verify secrets security (no plaintext secrets)
+r2:check-secrets:
+    @echo "🔍 Checking for plaintext secrets..."
+    nix flake check
+
+# Full R2 setup (dry-run only)
+r2:setup-dry-run:
+    @echo "🎯 R2 setup dry-run (authentication-free)..."
+    @echo "This demonstrates the full setup without creating external resources."
+    just secrets-init
+    just r2:gen-config
+    just r2:check-secrets
+    @echo "✅ Dry-run complete. Run 'just r2:test' to test locally."
+
+# Show R2 configuration status
+r2:status:
+    @echo "📊 R2 Configuration Status"
+    @echo "=========================="
+    @echo -n "Age key: "
+    @if [ -f ~/.config/sops/age/keys.txt ]; then echo "✅ Found"; else echo "❌ Missing"; fi
+    @echo -n "SOPS config: "
+    @if [ -f .sops.yaml ]; then echo "✅ Found"; else echo "❌ Missing"; fi
+    @echo -n "R2 secrets: "
+    @if [ -f secrets/r2.yaml ]; then echo "✅ Found"; else echo "❌ Missing"; fi
+    @echo -n "wrangler.jsonc: "
+    @if [ -f wrangler.jsonc ]; then echo "✅ Found"; else echo "❌ Missing"; fi
+    @echo ""
+    @if [ -f wrangler.jsonc ] && [ -f secrets/r2.yaml ]; then \
+        echo "🚀 Ready for local R2 testing!"; \
+    else \
+        echo "⚙️ Run 'just r2:setup-dry-run' to complete setup."; \
+    fi
+
+# Clean up generated files (useful for testing)
+r2:clean:
+    @echo "🧹 Cleaning up generated files..."
+    @if [ -f wrangler.jsonc ]; then rm -f wrangler.jsonc; echo "✅ Removed wrangler.jsonc"; fi
+    @if [ -f wrangler.jsonc.backup ]; then rm -f wrangler.jsonc.backup; echo "✅ Removed wrangler.jsonc.backup"; fi
+    @echo "Note: secrets/ directory preserved for security"
+
+# Development convenience commands
+dev:
+    @echo "🚀 Starting development environment..."
+    nix develop
+
+# Validate flake
+validate:
+    @echo "🔍 Validating Nix flake..."
+    nix flake check --verbose
