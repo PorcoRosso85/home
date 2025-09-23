@@ -4,4 +4,4 @@ keys:
   - &user_age YOUR_AGE_PUBLIC_KEY_WILL_BE_INSERTED_HERE
 creation_rules:
   - path_regex: secrets/.*\.yaml$
-    age: *user_age
+    age: [*user_age]

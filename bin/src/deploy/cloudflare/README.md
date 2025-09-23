@@ -1,3 +1,48 @@
+# RedwoodSDK R2 Connection Info Local Completion System
+
+## Usage
+
+### Quick Start (Local Development)
+
+```bash
+# 1. Enter development environment
+nix develop
+
+# 2. Initialize encrypted secrets
+just secrets-init
+
+# 3. Configure R2 connection (edit with your account details)
+cp r2.yaml.example secrets/r2.yaml
+just secrets-edit
+
+# 4. Test R2 connection locally (uses Miniflare - no authentication required)
+just r2:test
+
+# 5. Check security (no plaintext secrets)
+just r2:check-secrets
+```
+
+### Available Commands
+
+- `just r2:status` - Check configuration status
+- `just r2:gen-config` - Generate wrangler.jsonc with R2 configuration
+- `just r2:test` - Test R2 operations locally via Miniflare
+- `just r2:check-secrets` - Validate secret security
+- `just secrets-init` - Initialize Age encryption
+- `just secrets-edit` - Edit encrypted R2 secrets
+
+### Local-Only Testing
+
+This system uses **local-only** testing via Miniflare (`wrangler dev --local`):
+- ✅ No external API calls or authentication required
+- ✅ R2 operations simulated locally (PUT/GET/HEAD/DELETE)
+- ✅ Side-effect-free development and testing
+- ⚠️  For production use, configure `CLOUDFLARE_API_TOKEN` and use `wrangler dev --remote`
+
+---
+
+## Infrastructure Philosophy
+
   - Pulumi状態: ローカル/自前バックエンドで管理（.pulumi or 自前S3/R2
   等）。チーム共有なしならローカルFSで完結。
   - R2統合: Cloudflare R2をローカル開発で使用。接続情報はSOPS暗号化で管理。

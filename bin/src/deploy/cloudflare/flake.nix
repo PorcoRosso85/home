@@ -33,8 +33,14 @@
           #!${pkgs.bash}/bin/bash
           set -euo pipefail
 
-          # Execute the proper Node.js script for JSONC handling
-          cd "$(dirname "$(readlink -f "$0")")/../.."
+          # Execute the Node.js script from current working directory
+          # This assumes the user runs the command from the project root
+          if [[ ! -f scripts/gen-wrangler-config.js ]]; then
+            echo "❌ Error: scripts/gen-wrangler-config.js not found in current directory"
+            echo "   Please run this command from the project root directory"
+            exit 1
+          fi
+
           ${pkgs.nodejs_20}/bin/node scripts/gen-wrangler-config.js "$@"
         '';
 
@@ -296,7 +302,7 @@
                 - &user_age $AGE_PUBLIC_KEY
               creation_rules:
                 - path_regex: secrets/.*\.yaml$
-                  age: *user_age
+                  age: [*user_age]
               EOF
                 echo " .sops.yaml created"
               else
@@ -443,7 +449,7 @@
 
             # Validate Node.js script syntax
             echo "🔍 Validating Node.js script syntax..."
-            ${pkgs.nodejs_20}/bin/node -c "$REPO_ROOT/scripts/gen-wrangler-config.js"
+            ${pkgs.nodejs_20}/bin/node --check "$REPO_ROOT/scripts/gen-wrangler-config.js"
 
             echo "✅ R2 configuration validation passed"
             touch $out

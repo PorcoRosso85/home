@@ -109,7 +109,7 @@ echo "-------------------------------------"
 
 if command -v node >/dev/null 2>&1; then
     # Test Node.js script syntax
-    if node -c scripts/gen-wrangler-config.js >/dev/null 2>&1; then
+    if node --check scripts/gen-wrangler-config.js >/dev/null 2>&1; then
         test_result "Node.js script syntax" "PASS" "gen-wrangler-config.js is valid"
     else
         test_result "Node.js script syntax" "FAIL" "gen-wrangler-config.js has syntax errors"
