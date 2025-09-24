@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cloudflare-deploy.local/r2-manifest.json",
+  "title": "R2 Connection Manifest",
+  "description": "Schema for R2 environment-specific connection manifests used to configure S3-compatible clients and Cloudflare Workers",
+  "type": "object",
+  "required": [
+    "account_id",
+    "endpoint",
+    "region",
+    "buckets",
+    "connection_mode",
+    "meta"
+  ],
+  "properties": {
+    "account_id": {
+      "type": "string",
+      "description": "Cloudflare Account ID",
+      "pattern": "^[a-f0-9]{32}$",
+      "examples": ["1234567890abcdef1234567890abcdef"]
+    },
+    "endpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "S3-compatible API endpoint URL",
+      "pattern": "^https://[a-f0-9]{32}\\.r2\\.cloudflarestorage\\.com$",
+      "examples": ["https://1234567890abcdef1234567890abcdef.r2.cloudflarestorage.com"]
+    },
+    "region": {
+      "type": "string",
+      "description": "R2 region identifier",
+      "enum": ["auto", "eeur", "enam", "apac", "weur", "wnam"],
+      "default": "auto"
+    },
+    "buckets": {
+      "type": "array",
+      "description": "List of R2 buckets with their configuration",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/R2BucketConfig"
+      }
+    },
+    "connection_mode": {
+      "type": "string",
+      "description": "Connection mode for R2 access",
+      "enum": ["workers-binding", "s3-api", "hybrid"],
+      "default": "workers-binding"
+    },
+    "credentials": {
+      "description": "S3 API credentials (optional - required for s3-api and hybrid modes)",
+      "anyOf": [
+        {"$ref": "#/$defs/R2Credentials"},
+        {"type": "null"}
+      ]
+    },
+    "meta": {
+      "$ref": "#/$defs/R2ManifestMeta"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "connection_mode": {"enum": ["s3-api", "hybrid"]}
+        }
+      },
+      "then": {
+        "required": ["credentials"],
+        "properties": {
+          "credentials": {
+            "$ref": "#/$defs/R2Credentials"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "R2BucketConfig": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Bucket name following S3 naming conventions",
+          "pattern": "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$",
+          "minLength": 3,
+          "maxLength": 63,
+          "not": {
+            "anyOf": [
+              {"pattern": "\\.\\."},
+              {"pattern": "^\\d+\\.\\d+\\.\\d+\\.\\d+$"}
+            ]
+          }
+        },
+        "public": {
+          "type": "boolean",
+          "description": "Whether the bucket should be publicly accessible",
+          "default": false
+        },
+        "custom_domain": {
+          "type": "string",
+          "format": "hostname",
+          "description": "Custom domain for public bucket access"
+        },
+        "cors_origins": {
+          "type": "array",
+          "description": "CORS origins allowed for this bucket",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "R2Credentials": {
+      "type": "object",
+      "required": ["access_key_id", "secret_access_key"],
+      "properties": {
+        "access_key_id": {
+          "type": "string",
+          "description": "R2 Access Key ID",
+          "minLength": 1
+        },
+        "secret_access_key": {
+          "type": "string",
+          "description": "R2 Secret Access Key",
+          "minLength": 1
+        },
+        "session_token": {
+          "type": "string",
+          "description": "Optional session token for temporary credentials"
+        }
+      },
+      "additionalProperties": false
+    },
+    "R2ManifestMeta": {
+      "type": "object",
+      "required": ["environment", "version", "created_at"],
+      "properties": {
+        "environment": {
+          "type": "string",
+          "description": "Environment name (e.g., dev, staging, prod)",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "examples": ["dev", "staging", "prod"]
+        },
+        "version": {
+          "type": "string",
+          "description": "Manifest version using semantic versioning",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "examples": ["1.0.0"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the manifest was created"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the manifest was last updated"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of this configuration",
+          "maxLength": 500
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "account_id": "1234567890abcdef1234567890abcdef",
+      "endpoint": "https://1234567890abcdef1234567890abcdef.r2.cloudflarestorage.com",
+      "region": "auto",
+      "buckets": [
+        {
+          "name": "user-uploads",
+          "public": false
+        },
+        {
+          "name": "static-assets",
+          "public": true,
+          "custom_domain": "assets.example.com",
+          "cors_origins": ["https://example.com"]
+        }
+      ],
+      "connection_mode": "workers-binding",
+      "meta": {
+        "environment": "dev",
+        "version": "1.0.0",
+        "created_at": "2025-01-15T10:00:00Z",
+        "description": "Development environment R2 configuration"
+      }
+    }
+  ]
+}

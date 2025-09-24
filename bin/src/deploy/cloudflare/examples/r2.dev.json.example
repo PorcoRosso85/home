@@ -1,0 +1,38 @@
+{
+  "account_id": "your-account-id-here",
+  "endpoint": "https://your-account-id-here.r2.cloudflarestorage.com",
+  "region": "auto",
+  "buckets": [
+    {
+      "name": "dev-user-uploads",
+      "public": false,
+      "cors_origins": [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://dev.example.com"
+      ]
+    },
+    {
+      "name": "dev-static-assets",
+      "public": true,
+      "custom_domain": "dev-assets.example.com",
+      "cors_origins": [
+        "http://localhost:3000",
+        "https://dev.example.com"
+      ]
+    },
+    {
+      "name": "dev-temp-storage",
+      "public": false
+    }
+  ],
+  "connection_mode": "workers-binding",
+  "credentials": null,
+  "meta": {
+    "environment": "dev",
+    "version": "1.0.0",
+    "created_at": "2025-01-15T10:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z",
+    "description": "Development environment R2 configuration with local development CORS settings and testing buckets"
+  }
+}

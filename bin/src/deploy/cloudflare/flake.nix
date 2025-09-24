@@ -196,7 +196,7 @@
           #!${pkgs.bash}/bin/bash
           set -euo pipefail
 
-          echo "= Validating secret configuration..."
+          echo "= Validating secret configuration..."
 
           # Check for Age key
           if [[ ! -f ~/.config/sops/age/keys.txt ]]; then
@@ -212,20 +212,431 @@
 
           # Check for R2 secrets file
           if [[ -f secrets/r2.yaml ]]; then
-            echo " R2 secrets file found"
+            echo " R2 secrets file found"
 
             # Validate decryption capability
             if ${pkgs.sops}/bin/sops -d secrets/r2.yaml > /dev/null 2>&1; then
-              echo " R2 secrets successfully decryptable"
+              echo " R2 secrets successfully decryptable"
             else
               echo "L R2 secrets decryption failed"
               exit 1
             fi
           else
-            echo "�  R2 secrets file not found - run secrets initialization"
+            echo "�  R2 secrets file not found - run secrets initialization"
           fi
 
-          echo " Secret validation completed successfully"
+          echo " Secret validation completed successfully"
+        '';
+
+        # R2 Connection Manifest Generator (Node.js based)
+        gen-connection-manifest = pkgs.writeScriptBin "gen-connection-manifest" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          # Execute the Node.js manifest generator from current working directory
+          if [[ ! -f scripts/gen-connection-manifest.js ]]; then
+            echo "❌ Error: scripts/gen-connection-manifest.js not found in current directory"
+            echo "   Please run this command from the project root directory"
+            exit 1
+          fi
+
+          ${pkgs.nodejs_20}/bin/node scripts/gen-connection-manifest.js "$@"
+        '';
+
+        # Enhanced R2 Manifest Generator with environment support
+        gen-r2-manifest = pkgs.writeScriptBin "gen-r2-manifest" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          # Enhanced R2 manifest generation with environment support
+          if [[ ! -f scripts/gen-connection-manifest.js ]]; then
+            echo "❌ Error: scripts/gen-connection-manifest.js not found in current directory"
+            echo "   Please run this command from the project root directory"
+            exit 1
+          fi
+
+          # Support for environment parameter
+          ENV_PARAM=""
+          if [[ $# -gt 0 ]] && [[ "$1" == "--env" ]]; then
+            if [[ $# -lt 2 ]]; then
+              echo "❌ Error: --env requires an environment name"
+              echo "Usage: gen-r2-manifest [--env ENV_NAME] [other options]"
+              exit 1
+            fi
+            ENV_PARAM="--env $2"
+            shift 2
+          fi
+
+          echo "🔧 Generating R2 connection manifest..."
+          ${pkgs.nodejs_20}/bin/node scripts/gen-connection-manifest.js $ENV_PARAM "$@"
+        '';
+
+        # Generate R2 manifests for all environments
+        gen-r2-all = pkgs.writeScriptBin "gen-r2-all" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          echo "🔧 Generating R2 connection manifests for all environments..."
+
+          # Check if the generator exists
+          if [[ ! -f scripts/gen-connection-manifest.js ]]; then
+            echo "❌ Error: scripts/gen-connection-manifest.js not found in current directory"
+            echo "   Please run this command from the project root directory"
+            exit 1
+          fi
+
+          # Get list of available environments
+          ENVS=$(${pkgs.nodejs_20}/bin/node scripts/gen-connection-manifest.js --list-envs 2>/dev/null || echo "dev stg prod")
+
+          echo "📋 Available environments: $ENVS"
+          echo ""
+
+          SUCCESS_COUNT=0
+          TOTAL_COUNT=0
+
+          for env in $ENVS; do
+            TOTAL_COUNT=$((TOTAL_COUNT + 1))
+            echo "🔧 Generating manifest for environment: $env"
+
+            if ${pkgs.nodejs_20}/bin/node scripts/gen-connection-manifest.js --env "$env" "$@"; then
+              echo "✅ Successfully generated manifest for $env"
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            else
+              echo "❌ Failed to generate manifest for $env"
+            fi
+            echo ""
+          done
+
+          echo "📊 Summary: $SUCCESS_COUNT/$TOTAL_COUNT environments processed successfully"
+
+          if [[ $SUCCESS_COUNT -eq $TOTAL_COUNT ]]; then
+            echo "🎉 All R2 manifests generated successfully!"
+            exit 0
+          else
+            echo "⚠️ Some environments failed to generate"
+            exit 1
+          fi
+        '';
+
+        # Enhanced Wrangler Configuration Generator with validation
+        gen-wrangler-config-enhanced = pkgs.writeScriptBin "gen-wrangler-config-enhanced" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          # Enhanced wrangler config generation with built-in validation
+          if [[ ! -f scripts/gen-wrangler-config.js ]]; then
+            echo "❌ Error: scripts/gen-wrangler-config.js not found in current directory"
+            echo "   Please run this command from the project root directory"
+            exit 1
+          fi
+
+          # Parse command line arguments
+          VALIDATE_AFTER=true
+          BACKUP_EXISTING=true
+
+          while [[ $# -gt 0 ]]; do
+            case $1 in
+              --no-validate)
+                VALIDATE_AFTER=false
+                shift
+                ;;
+              --no-backup)
+                BACKUP_EXISTING=false
+                shift
+                ;;
+              *)
+                break
+                ;;
+            esac
+          done
+
+          # Backup existing configuration if requested
+          if [[ "$BACKUP_EXISTING" == "true" ]] && [[ -f wrangler.jsonc ]]; then
+            BACKUP_FILE="wrangler.jsonc.backup.$(date +%Y%m%d_%H%M%S)"
+            echo "💾 Backing up existing wrangler.jsonc to $BACKUP_FILE"
+            cp wrangler.jsonc "$BACKUP_FILE"
+          fi
+
+          # Generate configuration
+          echo "🔧 Generating wrangler.jsonc configuration..."
+          if ${pkgs.nodejs_20}/bin/node scripts/gen-wrangler-config.js "$@"; then
+            echo "✅ Configuration generated successfully"
+
+            # Validate if requested
+            if [[ "$VALIDATE_AFTER" == "true" ]] && [[ -f scripts/test-wrangler-config.js ]]; then
+              echo "🧪 Validating generated configuration..."
+              if ${pkgs.nodejs_20}/bin/node scripts/test-wrangler-config.js --quiet; then
+                echo "✅ Configuration validation passed"
+              else
+                echo "⚠️ Configuration validation failed, but file was generated"
+                exit 1
+              fi
+            fi
+          else
+            echo "❌ Configuration generation failed"
+            exit 1
+          fi
+        '';
+
+        # R2 Configuration Validator
+        validate-r2-config = pkgs.writeScriptBin "validate-r2-config" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          echo "🧪 R2 Configuration Validator"
+          echo "============================"
+
+          # Check for required files
+          MISSING_FILES=()
+
+          if [[ ! -f scripts/test-wrangler-config.js ]]; then
+            MISSING_FILES+=("scripts/test-wrangler-config.js")
+          fi
+
+          if [[ ! -f scripts/test-connection-manifest.js ]]; then
+            MISSING_FILES+=("scripts/test-connection-manifest.js")
+          fi
+
+          if [[ ''${#MISSING_FILES[@]} -gt 0 ]]; then
+            echo "❌ Missing required validator scripts:"
+            for file in "''${MISSING_FILES[@]}"; do
+              echo "   - $file"
+            done
+            echo "   Please run this command from the project root directory"
+            exit 1
+          fi
+
+          # Parse environment parameter
+          ENV="dev"
+          VERBOSE=false
+
+          while [[ $# -gt 0 ]]; do
+            case $1 in
+              --env)
+                ENV="$2"
+                shift 2
+                ;;
+              --verbose|-v)
+                VERBOSE=true
+                shift
+                ;;
+              *)
+                echo "Unknown option: $1"
+                echo "Usage: validate-r2-config [--env ENV] [--verbose]"
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "🔍 Validating R2 configuration for environment: $ENV"
+          echo ""
+
+          # Validate wrangler configuration
+          echo "📋 Validating wrangler.jsonc..."
+          if [[ "$VERBOSE" == "true" ]]; then
+            ${pkgs.nodejs_20}/bin/node scripts/test-wrangler-config.js --env "$ENV"
+          else
+            ${pkgs.nodejs_20}/bin/node scripts/test-wrangler-config.js --env "$ENV" --quiet
+          fi
+          WRANGLER_STATUS=$?
+
+          # Validate connection manifest if it exists
+          echo ""
+          echo "📋 Validating connection manifest..."
+          MANIFEST_STATUS=0
+          if [[ -f "generated/r2-connection-manifest-$ENV.json" ]]; then
+            if [[ "$VERBOSE" == "true" ]]; then
+              ${pkgs.nodejs_20}/bin/node scripts/test-connection-manifest.js --env "$ENV"
+            else
+              ${pkgs.nodejs_20}/bin/node scripts/test-connection-manifest.js --env "$ENV" --quiet
+            fi
+            MANIFEST_STATUS=$?
+          else
+            echo "⚠️ Connection manifest not found for $ENV environment"
+            echo "   Run 'nix run .#gen-r2-manifest -- --env $ENV' to generate"
+          fi
+
+          echo ""
+          echo "📊 Validation Summary"
+          echo "===================="
+
+          if [[ $WRANGLER_STATUS -eq 0 ]]; then
+            echo "✅ Wrangler configuration: VALID"
+          else
+            echo "❌ Wrangler configuration: INVALID"
+          fi
+
+          if [[ $MANIFEST_STATUS -eq 0 ]]; then
+            echo "✅ Connection manifest: VALID"
+          else
+            echo "❌ Connection manifest: INVALID"
+          fi
+
+          if [[ $WRANGLER_STATUS -eq 0 ]] && [[ $MANIFEST_STATUS -eq 0 ]]; then
+            echo ""
+            echo "🎉 All R2 configurations are valid!"
+            exit 0
+          else
+            echo ""
+            echo "⚠️ Some configurations are invalid. Check the output above for details."
+            exit 1
+          fi
+        '';
+
+        # R2 Environment Discovery
+        discover-r2-envs = pkgs.writeScriptBin "discover-r2-envs" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          echo "🔍 R2 Environment Discovery"
+          echo "=========================="
+
+          # Check available environments from various sources
+          FOUND_ENVS=()
+
+          # From wrangler config generator
+          if [[ -f scripts/gen-wrangler-config.js ]]; then
+            echo "📋 Checking environments from wrangler config generator..."
+            WRANGLER_ENVS=$(${pkgs.nodejs_20}/bin/node scripts/gen-wrangler-config.js --list-envs 2>/dev/null || echo "")
+            if [[ -n "$WRANGLER_ENVS" ]]; then
+              echo "   Found: $WRANGLER_ENVS"
+              FOUND_ENVS+=($WRANGLER_ENVS)
+            fi
+          fi
+
+          # From connection manifest generator
+          if [[ -f scripts/gen-connection-manifest.js ]]; then
+            echo "📋 Checking environments from connection manifest generator..."
+            MANIFEST_ENVS=$(${pkgs.nodejs_20}/bin/node scripts/gen-connection-manifest.js --list-envs 2>/dev/null || echo "")
+            if [[ -n "$MANIFEST_ENVS" ]]; then
+              echo "   Found: $MANIFEST_ENVS"
+              FOUND_ENVS+=($MANIFEST_ENVS)
+            fi
+          fi
+
+          # From existing generated files
+          echo "📋 Checking for existing generated files..."
+          if [[ -d generated ]]; then
+            for file in generated/r2-connection-manifest-*.json; do
+              if [[ -f "$file" ]]; then
+                ENV_NAME=$(basename "$file" | sed 's/r2-connection-manifest-//; s/.json$//')
+                echo "   Found manifest for: $ENV_NAME"
+                FOUND_ENVS+=("$ENV_NAME")
+              fi
+            done
+          fi
+
+          # Remove duplicates and sort
+          UNIQUE_ENVS=($(printf '%s\n' "''${FOUND_ENVS[@]}" | sort -u))
+
+          echo ""
+          echo "📊 Summary"
+          echo "=========="
+
+          if [[ ''${#UNIQUE_ENVS[@]} -eq 0 ]]; then
+            echo "❌ No environments found"
+            echo "   Default environments: dev, stg, prod"
+            exit 1
+          else
+            echo "✅ Found ''${#UNIQUE_ENVS[@]} environment(s):"
+            for env in "''${UNIQUE_ENVS[@]}"; do
+              echo "   - $env"
+            done
+          fi
+
+          echo ""
+          echo "🛠️ Common commands for discovered environments:"
+          for env in "''${UNIQUE_ENVS[@]}"; do
+            echo "   nix run .#gen-r2-manifest -- --env $env"
+            echo "   nix run .#validate-r2-config -- --env $env"
+            echo "   just r2:gen-config-env $env"
+          done
+        '';
+
+        # R2 Development Workflow Helper
+        r2-dev-workflow = pkgs.writeScriptBin "r2-dev-workflow" ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          echo "🚀 R2 Development Workflow Helper"
+          echo "================================="
+
+          ENV="''${1:-dev}"
+          ACTION="''${2:-full}"
+
+          echo "Environment: $ENV"
+          echo "Action: $ACTION"
+          echo ""
+
+          case "$ACTION" in
+            "validate"|"check")
+              echo "🧪 Running validation workflow..."
+              ${pkgs.nodejs_20}/bin/node scripts/test-wrangler-config.js --env "$ENV" || exit 1
+              if [[ -f "generated/r2-connection-manifest-$ENV.json" ]]; then
+                ${pkgs.nodejs_20}/bin/node scripts/test-connection-manifest.js --env "$ENV" || exit 1
+              fi
+              echo "✅ Validation complete"
+              ;;
+
+            "generate"|"gen")
+              echo "🔧 Running generation workflow..."
+              ${pkgs.nodejs_20}/bin/node scripts/gen-wrangler-config.js "$ENV" || exit 1
+              ${pkgs.nodejs_20}/bin/node scripts/gen-connection-manifest.js --env "$ENV" || exit 1
+              echo "✅ Generation complete"
+              ;;
+
+            "test")
+              echo "🧪 Running test workflow..."
+              if [[ "$ENV" == "dev" ]]; then
+                echo "Running local R2 test..."
+                ${r2-local-test}/bin/test-r2-local
+              else
+                echo "⚠️ Remote testing not implemented for $ENV environment"
+                echo "   Falling back to configuration validation..."
+                ${pkgs.nodejs_20}/bin/node scripts/test-wrangler-config.js --env "$ENV" || exit 1
+              fi
+              ;;
+
+            "full"|"all")
+              echo "🔧 Running full development workflow..."
+              echo ""
+
+              echo "Step 1: Generate configurations"
+              ${pkgs.nodejs_20}/bin/node scripts/gen-wrangler-config.js "$ENV" || exit 1
+              ${pkgs.nodejs_20}/bin/node scripts/gen-connection-manifest.js --env "$ENV" || exit 1
+
+              echo ""
+              echo "Step 2: Validate configurations"
+              ${pkgs.nodejs_20}/bin/node scripts/test-wrangler-config.js --env "$ENV" || exit 1
+              ${pkgs.nodejs_20}/bin/node scripts/test-connection-manifest.js --env "$ENV" || exit 1
+
+              echo ""
+              echo "Step 3: Test (if applicable)"
+              if [[ "$ENV" == "dev" ]]; then
+                echo "Running local R2 test..."
+                ${r2-local-test}/bin/test-r2-local
+              else
+                echo "✅ Configuration ready for $ENV environment"
+              fi
+
+              echo ""
+              echo "🎉 Full workflow complete for $ENV!"
+              ;;
+
+            *)
+              echo "❌ Unknown action: $ACTION"
+              echo "Available actions:"
+              echo "   validate|check  - Validate existing configurations"
+              echo "   generate|gen    - Generate configurations"
+              echo "   test           - Test configurations (local only for dev)"
+              echo "   full|all       - Run complete workflow"
+              echo ""
+              echo "Usage: r2-dev-workflow [ENV] [ACTION]"
+              echo "   ENV defaults to 'dev'"
+              echo "   ACTION defaults to 'full'"
+              exit 1
+              ;;
+          esac
         '';
 
       in
@@ -253,7 +664,7 @@
 
               # Ensure SOPS Age key is configured
               if [[ ! -f ~/.config/sops/age/keys.txt ]]; then
-                echo "�  Age key not found. Run 'just secrets-init' to set up encryption."
+                echo "�  Age key not found. Run 'just secrets-init' to set up encryption."
               fi
 
               # Export SOPS environment
@@ -272,8 +683,50 @@
           };
         };
 
-        # Re-exported apps for easy execution
+        # R2 apps for easy execution
         apps = {
+          # R2 manifest generation
+          gen-connection-manifest = {
+            type = "app";
+            program = "${gen-connection-manifest}/bin/gen-connection-manifest";
+          };
+
+          # Enhanced R2 manifest generation with environment support
+          gen-r2-manifest = {
+            type = "app";
+            program = "${gen-r2-manifest}/bin/gen-r2-manifest";
+          };
+
+          # Generate R2 manifests for all environments
+          gen-r2-all = {
+            type = "app";
+            program = "${gen-r2-all}/bin/gen-r2-all";
+          };
+
+          # Enhanced wrangler config generation with validation
+          gen-wrangler-config-enhanced = {
+            type = "app";
+            program = "${gen-wrangler-config-enhanced}/bin/gen-wrangler-config-enhanced";
+          };
+
+          # R2 configuration validation
+          validate-r2-config = {
+            type = "app";
+            program = "${validate-r2-config}/bin/validate-r2-config";
+          };
+
+          # R2 environment discovery
+          discover-r2-envs = {
+            type = "app";
+            program = "${discover-r2-envs}/bin/discover-r2-envs";
+          };
+
+          # R2 development workflow helper
+          r2-dev-workflow = {
+            type = "app";
+            program = "${r2-dev-workflow}/bin/r2-dev-workflow";
+          };
+
           # Secret management
           secrets-init = {
             type = "app";
@@ -286,11 +739,11 @@
               # Create Age key if not exists
               mkdir -p ~/.config/sops/age
               if [[ ! -f ~/.config/sops/age/keys.txt ]]; then
-                echo "= Generating Age key..."
+                echo "= Generating Age key..."
                 ${pkgs.age}/bin/age-keygen -o ~/.config/sops/age/keys.txt
-                echo " Age key generated at ~/.config/sops/age/keys.txt"
+                echo " Age key generated at ~/.config/sops/age/keys.txt"
               else
-                echo " Age key already exists"
+                echo " Age key already exists"
               fi
 
               # Create .sops.yaml if not exists
@@ -304,9 +757,9 @@
                 - path_regex: secrets/.*\.yaml$
                   age: [*user_age]
               EOF
-                echo " .sops.yaml created"
+                echo " .sops.yaml created"
               else
-                echo " .sops.yaml already exists"
+                echo " .sops.yaml already exists"
               fi
 
               # Create secrets directory
@@ -336,7 +789,7 @@
               # r2_access_key_id: your-access-key-here
               # r2_secret_access_key: your-secret-key-here
               EOF
-                echo " Template created: r2.yaml.example"
+                echo " Template created: r2.yaml.example"
                 echo "   Copy to secrets/r2.yaml and run 'just secrets-edit' to encrypt"
               fi
 
@@ -357,7 +810,7 @@
 
               FILE="''${1:-secrets/r2.yaml}"
 
-              echo "= Editing encrypted secrets: $FILE"
+              echo "= Editing encrypted secrets: $FILE"
 
               if [[ ! -f ~/.config/sops/age/keys.txt ]]; then
                 echo "L Age key not found. Run 'just secrets-init' first."
@@ -374,7 +827,7 @@
             ''}/bin/secrets-edit";
           };
 
-          # Configuration generation
+          # Configuration generation (original)
           gen-wrangler-config = {
             type = "app";
             program = "${wrangler-config-gen}/bin/gen-wrangler-config";
@@ -394,7 +847,7 @@
 
           # Flake format check
           flake-check = pkgs.runCommand "flake-check" {} ''
-            echo " Flake format validation passed"
+            echo " Flake format validation passed"
             touch $out
           '';
 
@@ -516,11 +969,17 @@
 
         # Re-exported packages
         packages = {
-          inherit wrangler-config-gen r2-local-test validate-secrets;
+          inherit wrangler-config-gen r2-local-test validate-secrets gen-connection-manifest
+                  gen-r2-manifest gen-r2-all gen-wrangler-config-enhanced validate-r2-config
+                  discover-r2-envs r2-dev-workflow;
 
           default = pkgs.buildEnv {
             name = "redwoodsdk-r2-tools";
-            paths = [ wrangler-config-gen r2-local-test validate-secrets ];
+            paths = [
+              wrangler-config-gen r2-local-test validate-secrets gen-connection-manifest
+              gen-r2-manifest gen-r2-all gen-wrangler-config-enhanced validate-r2-config
+              discover-r2-envs r2-dev-workflow
+            ];
           };
         };
       });

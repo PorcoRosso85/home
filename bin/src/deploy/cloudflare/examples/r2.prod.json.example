@@ -1,0 +1,45 @@
+{
+  "account_id": "your-production-account-id-here",
+  "endpoint": "https://your-production-account-id-here.r2.cloudflarestorage.com",
+  "region": "auto",
+  "buckets": [
+    {
+      "name": "user-uploads",
+      "public": false,
+      "cors_origins": [
+        "https://example.com",
+        "https://app.example.com"
+      ]
+    },
+    {
+      "name": "static-assets",
+      "public": true,
+      "custom_domain": "cdn.example.com",
+      "cors_origins": [
+        "https://example.com",
+        "https://app.example.com",
+        "https://admin.example.com"
+      ]
+    },
+    {
+      "name": "backups",
+      "public": false
+    },
+    {
+      "name": "logs",
+      "public": false
+    }
+  ],
+  "connection_mode": "hybrid",
+  "credentials": {
+    "access_key_id": "your-r2-access-key-id",
+    "secret_access_key": "your-r2-secret-access-key"
+  },
+  "meta": {
+    "environment": "prod",
+    "version": "1.0.0",
+    "created_at": "2025-01-15T10:00:00Z",
+    "updated_at": "2025-01-15T15:30:00Z",
+    "description": "Production environment R2 configuration with hybrid connection mode for both Workers binding and S3 API access"
+  }
+}

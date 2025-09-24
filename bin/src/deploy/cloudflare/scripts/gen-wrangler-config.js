@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const sopsYaml = require('../helpers/sops-yaml.js');
 
 // Configuration
 const CONFIG = {
@@ -69,64 +70,40 @@ function parseJSONC(content) {
 /**
  * Read R2 configuration from encrypted secrets or templates
  */
-function readR2Config() {
-  if (useTemplate) {
-    console.log('📖 Using template R2 configuration...');
-    return {
-      cf_account_id: 'demo-account-id-12345',
-      r2_buckets: 'user-uploads,static-assets'
-    };
-  }
-
-  // Check prerequisites for encrypted secrets mode
-  const requiredFiles = [
-    '.sops.yaml',
-    'secrets/r2.yaml',
-    path.expandUser('~/.config/sops/age/keys.txt')
-  ];
-
-  for (const file of requiredFiles) {
-    if (!fs.existsSync(file)) {
-      console.error(`❌ ${file} not found.`);
-      if (file === '.sops.yaml' || file === 'secrets/r2.yaml') {
-        console.error('   Run "nix run .#secrets-init" first.');
-      }
-      console.error('   Or use --use-template for testing.');
-      process.exit(1);
-    }
-  }
-
-  console.log('📖 Reading encrypted R2 configuration...');
+async function readR2Config() {
+  // Configure SOPS helper logging level
+  sopsYaml.setLogLevel('WARN'); // Keep quiet for wrangler config generation
 
   try {
-    // Set SOPS environment
-    process.env.SOPS_AGE_KEY_FILE = path.expandUser('~/.config/sops/age/keys.txt');
+    console.log('📖 Reading R2 configuration using shared SOPS helper...');
 
-    // Decrypt and parse R2 configuration
-    const decryptedYaml = execSync('sops -d secrets/r2.yaml', { encoding: 'utf8' });
-
-    // Parse YAML (simple key: value parsing)
-    const config = {};
-    decryptedYaml.split('\n').forEach(line => {
-      const match = line.match(/^([^#:]+):\s*(.+)$/);
-      if (match) {
-        const key = match[1].trim();
-        const value = match[2].trim();
-        config[key] = value;
+    // Use shared helper with environment detection (defaults to 'dev')
+    const environment = 'dev'; // Could be made configurable
+    const config = await sopsYaml.getEnvironmentConfig(
+      'r2',
+      environment,
+      useTemplate,
+      {
+        schema: sopsYaml.schemas.r2,
+        cacheTTL: 10 * 60 * 1000 // 10 minutes cache for wrangler config
       }
-    });
+    );
 
-    const cf_account_id = config.cf_account_id || 'your-account-id-here';
-    const r2_buckets = config.r2_buckets || 'user-uploads,static-assets';
+    console.log(`✓ CF_ACCOUNT_ID: ${config.cf_account_id.substring(0, 10)}...`);
+    console.log(`✓ R2_BUCKETS: ${config.r2_buckets}`);
 
-    if (cf_account_id === 'your-account-id-here') {
-      console.warn('⚠️  Warning: CF_ACCOUNT_ID is placeholder. Update secrets/r2.yaml');
+    return config;
+
+  } catch (error) {
+    console.error('❌ Failed to read R2 configuration:', error.message);
+
+    if (!useTemplate) {
+      console.error('\nSolutions:');
+      console.error('   1. Initialize secrets: nix run .#secrets-init');
+      console.error('   2. Configure secrets: nix run .#secrets-edit -- secrets/r2.yaml');
+      console.error('   3. Or use --use-template for testing');
     }
 
-    return { cf_account_id, r2_buckets };
-  } catch (error) {
-    console.error('❌ Failed to read encrypted secrets:', error.message);
-    console.error('   Run "nix run .#secrets-edit -- secrets/r2.yaml" to set up secrets');
     process.exit(1);
   }
 }
@@ -171,12 +148,11 @@ function readExistingConfig() {
 /**
  * Generate the complete wrangler.jsonc configuration
  */
-function generateConfig() {
-  const { cf_account_id, r2_buckets } = readR2Config();
+async function generateConfig() {
+  const config = await readR2Config();
   const existing = readExistingConfig();
 
-  console.log(`✓ CF_ACCOUNT_ID: ${cf_account_id.substring(0, 10)}...`);
-  console.log(`✓ R2_BUCKETS: ${r2_buckets}`);
+  const { cf_account_id, r2_buckets } = config;
 
   // Generate R2 buckets configuration
   const r2BucketsConfig = generateR2BucketsConfig(r2_buckets);
@@ -222,9 +198,9 @@ function generateConfig() {
 /**
  * Main execution
  */
-function main() {
+async function main() {
   try {
-    const config = generateConfig();
+    const config = await generateConfig();
     const configJson = JSON.stringify(config, null, 2);
 
     if (isDryRun) {
@@ -273,4 +249,7 @@ path.expandUser = function(filePath) {
   return filePath;
 };
 
-main();
+main().catch(error => {
+  console.error('❌ Unexpected error:', error.message);
+  process.exit(1);
+});

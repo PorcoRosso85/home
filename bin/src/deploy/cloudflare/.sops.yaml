@@ -2,6 +2,16 @@
 # Template for SOPS configuration with Age encryption
 keys:
   - &user_age YOUR_AGE_PUBLIC_KEY_WILL_BE_INSERTED_HERE
+
 creation_rules:
+  # Environment-specific R2 configuration files
+  - path_regex: secrets/r2/(dev|prod|stg)\.yaml$
+    age: [*user_age]
+
+  # Legacy single R2 configuration file (for backward compatibility)
+  - path_regex: secrets/r2\.yaml$
+    age: [*user_age]
+
+  # Generic secrets pattern (catch-all for other secret files)
   - path_regex: secrets/.*\.yaml$
     age: [*user_age]

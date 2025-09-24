@@ -1,43 +1,174 @@
-# RedwoodSDK R2 Connection Info Local Completion System
+# RedwoodSDK R2 Connection Management System
 
-## Usage
+A comprehensive system for managing Cloudflare R2 storage connections with clear separation between local development (Miniflare) and production deployment scenarios.
 
-### Quick Start (Local Development)
+## 🎯 Overview
+
+This system provides:
+- **🧪 Local Development**: Miniflare-based testing with no authentication required
+- **🚀 Production Ready**: Full R2 connection management with encrypted secrets
+- **🔒 Security First**: SOPS-encrypted secrets with plaintext detection
+- **🌍 Multi-Environment**: Support for dev, staging, and production environments
+- **📋 Schema Validation**: TypeScript-first configuration with JSON Schema validation
+
+## 🚀 Quick Start
+
+### 📍 Choose Your Development Path
+
+#### 🧪 **Local Development Only** (Recommended for getting started)
+Perfect for development, testing, and learning without any Cloudflare account setup.
 
 ```bash
 # 1. Enter development environment
 nix develop
 
-# 2. Initialize encrypted secrets
-just secrets-init
+# 2. Initialize basic configuration
+just setup
 
-# 3. Configure R2 connection (edit with your account details)
-cp r2.yaml.example secrets/r2.yaml
-just secrets-edit
+# 3. Test R2 operations locally (no authentication needed)
+just r2:test dev
 
-# 4. Test R2 connection locally (uses Miniflare - no authentication required)
-just r2:test
-
-# 5. Check security (no plaintext secrets)
-just r2:check-secrets
+# 4. Start developing with local R2 simulation
+wrangler dev --local
 ```
 
-### Available Commands
+**✅ What this gives you:**
+- Full R2 API simulation via Miniflare
+- No external API calls or authentication
+- Side-effect-free development and testing
+- All CRUD operations (PUT/GET/HEAD/DELETE/LIST)
 
-- `just r2:status` - Check configuration status
-- `just r2:gen-config` - Generate wrangler.jsonc with R2 configuration
-- `just r2:test` - Test R2 operations locally via Miniflare
-- `just r2:check-secrets` - Validate secret security
-- `just secrets-init` - Initialize Age encryption
-- `just secrets-edit` - Edit encrypted R2 secrets
+#### 🚀 **Production R2 Connection** (When you're ready to deploy)
+For connecting to real Cloudflare R2 buckets in production.
 
-### Local-Only Testing
+```bash
+# 1. Set up encrypted secrets
+just secrets-init
 
-This system uses **local-only** testing via Miniflare (`wrangler dev --local`):
-- ✅ No external API calls or authentication required
-- ✅ R2 operations simulated locally (PUT/GET/HEAD/DELETE)
-- ✅ Side-effect-free development and testing
-- ⚠️  For production use, configure `CLOUDFLARE_API_TOKEN` and use `wrangler dev --remote`
+# 2. Configure your R2 connection details
+cp r2.yaml.example secrets/r2.yaml
+just secrets-edit secrets/r2.yaml
+
+# 3. Generate production configuration
+just r2:gen-config prod
+
+# 4. Deploy to Cloudflare Workers
+wrangler deploy
+```
+
+**✅ What this gives you:**
+- Real R2 bucket connections
+- Production-ready configuration
+- Encrypted secret management
+- Multi-environment support
+
+## 📚 Documentation
+
+### Core Guides
+- **[🧪 Local Development Guide](docs/local-development.md)** - Complete Miniflare setup and usage
+- **[🚀 Production Setup Guide](docs/production-setup.md)** - Real R2 connection configuration
+- **[🔧 AWS SDK v3 Integration](docs/aws-sdk-integration.md)** - Using AWS SDK with R2
+- **[🔒 Security Guide](docs/security-guide.md)** - Best practices and security considerations
+
+### Reference Documentation
+- **[📋 Command Reference](docs/command-reference.md)** - All available commands and options
+- **[🌍 Environment Management](docs/environment-management.md)** - Multi-environment configuration
+- **[🔧 Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[📖 Migration Guide](docs/migration-guide.md)** - Upgrading from previous versions
+
+## ⚡ Common Commands
+
+### 🔧 Setup & Configuration
+```bash
+just help                    # Show all available commands
+just setup                   # Complete R2 setup (secrets + config)
+just status                  # Show configuration status
+just clean                   # Clean generated files
+```
+
+### 🔐 Secret Management
+```bash
+just secrets:init            # Initialize encrypted secrets
+just secrets:edit            # Edit R2 secrets securely
+just secrets:check           # Validate secret security
+```
+
+### 🌍 Environment Management
+```bash
+just r2:envs                 # List available environments
+just r2:status dev           # Show dev environment status
+just r2:quick dev            # Quick setup for dev environment
+just r2:deploy-prep prod     # Prepare production deployment
+```
+
+### 🧪 Testing & Validation
+```bash
+just r2:test dev             # Test locally with Miniflare
+just r2:validate prod        # Validate production config
+just r2:validate-all         # Validate all environments
+```
+
+## 🎛️ Configuration Overview
+
+### 🧪 Local Development Configuration
+- **Target**: Local testing and development
+- **Authentication**: None required
+- **R2 Simulation**: Miniflare handles all operations
+- **Files**: Basic `wrangler.jsonc` with local settings
+- **Commands**: `just r2:test dev`, `wrangler dev --local`
+
+### 🚀 Production Configuration
+- **Target**: Real Cloudflare R2 buckets
+- **Authentication**: API tokens and R2 credentials required
+- **Security**: SOPS-encrypted secrets
+- **Files**: Environment-specific manifests and configurations
+- **Commands**: `just r2:deploy-prep prod`, `wrangler deploy`
+
+## 🔒 Security Features
+
+- **📋 Plaintext Detection**: Automatic scanning for exposed credentials
+- **🔐 SOPS Encryption**: Age-based encryption for all secrets
+- **🛡️ Schema Validation**: TypeScript and JSON Schema validation
+- **🔍 Security Auditing**: Built-in security checks and validation
+
+## ⚠️ Important Usage Guidelines
+
+### 🧪 For Local Development (Miniflare)
+```bash
+# ✅ DO: Use for development and testing
+just r2:test dev
+wrangler dev --local
+
+# ❌ DON'T: Use for production deployment
+# ❌ DON'T: Expect real R2 bucket persistence
+```
+
+### 🚀 For Production Deployment
+```bash
+# ✅ DO: Set up proper authentication
+just secrets-edit
+
+# ✅ DO: Validate before deploying
+just r2:validate prod
+
+# ❌ DON'T: Deploy without secret encryption
+# ❌ DON'T: Use dev configuration in production
+```
+
+## 🆘 Need Help?
+
+- **📖 Full Documentation**: Check the `/docs` directory for comprehensive guides
+- **🔧 Troubleshooting**: See [docs/troubleshooting.md](docs/troubleshooting.md) for common issues
+- **💡 Examples**: Browse `/examples` directory for usage patterns
+- **🛠️ Commands**: Run `just help` for all available commands
+
+## 🧩 Integration Points
+
+This system integrates with:
+- **Cloudflare Workers**: Direct R2 binding support
+- **AWS SDK v3**: S3-compatible API integration
+- **TypeScript**: Full type safety and validation
+- **Nix**: Reproducible development environment
 
 ---
 
