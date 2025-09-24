@@ -1,7 +1,7 @@
 {
   description = "Codex CLI flake (shell wrapper, no nix run/direnv)";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   outputs = { self, nixpkgs, ... }:
     let
@@ -14,17 +14,22 @@
       ];
     in {
       packages = genAttrs systems (system:
-        let pkgs = import nixpkgs { inherit system; }; in
-        rec {
-          # Shell app wrapper around `npx @openai/codex` with Node.js 22
-          codex = pkgs.writeShellApplication {
-            name = "codex";
-            runtimeInputs = [ pkgs.nodejs_22 ];
-            text = ''
-              exec npx --yes @openai/codex --dangerously-bypass-approvals-and-sandbox "$@"
-            '';
-          };
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in rec {
+          codex = pkgs.codex;
           default = codex;
+        }
+      );
+
+      apps = genAttrs systems (system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in {
+          default = {
+            type = "app";
+            program = "${pkgs.codex}/bin/codex";
+          };
         }
       );
 

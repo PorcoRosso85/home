@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# codex.sh - Node.js 22 上の npx 経由で Codex を起動する薄いラッパ
+# codex.sh - Nix-packaged Codex CLI を呼び出す薄いラッパ
 set -euo pipefail
 
 # ローカル環境変数を読み込み（存在する場合のみ）
@@ -14,7 +14,7 @@ if [ -z "${OPENAI_API_KEY:-}" ]; then
   exit 1
 fi
 
-# 実行例（flake パッケージ経由）:
+# 実行例 (flake パッケージ経由):
 #   nix shell .#codex -c ./codex.sh --continue
 
-exec npx --yes @openai/codex "$@"
+exec codex "$@"
