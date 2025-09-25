@@ -2,6 +2,20 @@
 
 Simple HTTP client for OpenCode AI assistant with session management.
 
+## 🏗️ Architecture Patterns
+
+- **Pattern 1 (Server→Client→Server)**: `DEPRECATED` - 段階的廃止予定
+  - Location: `tests/simple_mock_server.sh`
+  - Rationale: サーバー非改変前提では価値薄
+  - Migration: Use `opencode-client orchestrate` (Pattern 2)
+
+- **Pattern 2 (Client/Client Orchestration)**: `PROD READY` - 本命実装
+  - Location: `templates/multi-agent/`
+  - Features: 直列/並列・専門性ルーティング・マージ戦略
+  - Usage: クライアント完結でAI協調制御
+
+> 詳細な判断根拠: [`readme.nix`](./readme.nix) の `meta.patterns`
+
 ## Quick Start
 
 ```bash

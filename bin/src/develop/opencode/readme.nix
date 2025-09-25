@@ -14,6 +14,19 @@
   meta = {
     owner = [ "@opencode-dev" ];
     lifecycle = "stable";
+    patterns = {
+      "server-to-client-to-server" = {
+        status = "deprecated";
+        location = "tests/simple_mock_server.sh";
+        rationale = "サーバー非改変前提では価値薄";
+        migration = "opencode-client orchestrate";
+      };
+      "client-orchestration" = {
+        status = "prod-ready";
+        location = "templates/multi-agent/";
+        rationale = "クライアント完結で直列/並列・マージ実現";
+      };
+    };
   };
   output = {
     packages = [ "client-hello" ];
