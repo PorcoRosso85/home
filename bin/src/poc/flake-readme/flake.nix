@@ -318,6 +318,47 @@
 
       # Checks
       checks = forAllSystems (pkgs: {
+        # SSOT verification: readme.nix ↔ README.md consistency
+        ssot-check = pkgs.runCommand "ssot-verification" {
+          buildInputs = with pkgs; [ nix ripgrep ];
+        } ''
+          set -euo pipefail
+          cd ${self}
+
+          echo "🎯 SSOT Verification: readme.nix ↔ README.md consistency"
+
+          # Check 1: readme.nix can be evaluated
+          if ! nix-instantiate --eval readme.nix --attr description >/dev/null 2>&1; then
+            echo "❌ ERROR: readme.nix has evaluation errors"
+            exit 1
+          fi
+
+          # Check 2: README.md exists
+          if [[ ! -f README.md ]]; then
+            echo "❌ ERROR: README.md not found"
+            exit 1
+          fi
+
+          # Check 3: No exact description duplication
+          README_DESC=$(nix-instantiate --eval --strict readme.nix --attr description | tr -d '"')
+          if rg -Fq "$README_DESC" README.md; then
+            echo "❌ ERROR: README.md contains exact duplicate of readme.nix description"
+            echo "Found: $README_DESC"
+            exit 1
+          fi
+
+          # Check 4: No structured data patterns in README.md
+          if rg -q "(goal|nonGoal|output|meta).*=" README.md; then
+            echo "❌ ERROR: README.md contains structured data patterns"
+            echo "These belong in readme.nix, not README.md:"
+            rg "(goal|nonGoal|output|meta).*=" README.md || true
+            exit 1
+          fi
+
+          echo "✅ SSOT verification passed"
+          touch $out
+        '';
+
         docs-lint = pkgs.runCommand "docs-lint-check"
           (let reportFile = pkgs.writeText "docs-report.json" (builtins.toJSON (self.lib.docs.index { root = self.outPath; })); in {
             buildInputs = [ pkgs.jq ];
