@@ -14,6 +14,7 @@
   meta = {
     owner = [ "@opencode-dev" ];
     lifecycle = "stable";
+    summary = "Machine-readable validation hub for OpenCode flake. README.md provides human guidance via references to this file.";
     patterns = {
       "server-to-client-to-server" = {
         status = "deprecated";
@@ -26,6 +27,15 @@
         location = "templates/multi-agent/";
         rationale = "クライアント完結で直列/並列・マージ実現";
       };
+    };
+    links = {
+      readme = "README.md";
+    };
+    verify = {
+      scripts = [
+        "./.opencode/verify-basic.sh"
+        "nix run /home/nixos/bin/src/poc/flake-readme#readme-check"
+      ];
     };
   };
   output = {
