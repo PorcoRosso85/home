@@ -32,6 +32,8 @@ OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'your message here'
 - **OpenCode help**: `nix run nixpkgs#opencode -- --help`
 - **API documentation**: Visit `http://server:port/doc` when server is running
 - **Templates**: `nix develop` then explore `templates/` directory
+- **Git policy**: See [`.opencode/gitignore-policy.md`](.opencode/gitignore-policy.md) for artifact management
+- **Quality verification**: Run `./.opencode/verify-gitignore.sh` to validate .gitignore rules and document protection
 
 ## Environment Variables
 
