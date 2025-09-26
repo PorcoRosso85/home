@@ -39,3 +39,8 @@
 - Prefer `direnv` with `use flake` for shells; verify workflows also run via `nix build`/`nix run`.
 - Reproducibility: document non-obvious system assumptions in `docs/` and prefer Nix-based tooling.
 
+
+## Codex CLI Usage
+- `nix run . -- --help`: run the packaged Codex CLI directly via the flake default app.
+- `nix shell .#codex -c ./codex.sh -- --help`: invoke the wrapper that sources `env.sh` before launching Codex.
+- `OPENAI_API_KEY` must be exported (or provided in `env.sh`); `OPENAI_BASE_URL` is optional for alternate endpoints.

@@ -1,5 +1,5 @@
 {
-  description = "Codex CLI flake (shell wrapper, no nix run/direnv)";
+  description = "Codex CLI flake using nixpkgs codex package with nix run support";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -25,11 +25,13 @@
       apps = genAttrs systems (system:
         let
           pkgs = import nixpkgs { inherit system; };
-        in {
-          default = {
+          codexApp = {
             type = "app";
             program = "${pkgs.codex}/bin/codex";
           };
+        in {
+          default = codexApp;
+          codex = codexApp;
         }
       );
 
