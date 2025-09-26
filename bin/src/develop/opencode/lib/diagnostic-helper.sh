@@ -90,3 +90,11 @@ oc_diag_next_connection_help() {
 oc_diag_next_full_diagnosis() {
     oc_diag_next_action "Full diagnosis: ./check-opencode-status.sh"
 }
+
+# Output [Next] actions for viewing session history
+# Usage: oc_diag_next_history SESSION_ID
+oc_diag_next_history() {
+    local session_id="$1"
+    oc_diag_next_action "View history (text): opencode-client history --sid $session_id --format text"
+    oc_diag_next_action "View history (json): opencode-client history --sid $session_id --format json"
+}

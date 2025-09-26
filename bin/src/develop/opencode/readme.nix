@@ -36,6 +36,11 @@
         "./.opencode/verify-basic.sh"
         "nix run /home/nixos/bin/src/poc/flake-readme#readme-check"
       ];
+      commands = {
+        "sync-default" = "opencode-client \"2+2?\" 1>ai.txt 2>meta.txt; test -s ai.txt && ! test -s meta.txt";
+        "async-no-wait" = "opencode-client send --no-wait \"test message\" 1>ai_nowait.txt 2>meta_nowait.txt; test ! -s ai_nowait.txt && test -s meta_nowait.txt";
+        "ssot-consistency" = "sid=$(grep -o 'ses_[A-Za-z0-9_]\\+' meta_nowait.txt | tail -1); opencode-client history --sid \"$sid\" --format json | jq -r '.[].parts[].text' | head -1";
+      };
     };
   };
   output = {

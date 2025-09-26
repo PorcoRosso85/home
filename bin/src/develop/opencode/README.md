@@ -12,8 +12,11 @@ Simple HTTP client for OpenCode AI assistant with session management.
 # Install once
 nix profile install github:PorcoRosso85/home#opencode-client
 
-# Use anywhere
+# Use anywhere (synchronous - wait for response)
 OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'your message here'
+
+# Asynchronous mode (send and return immediately)
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client send --no-wait 'your message here'
 ```
 
 ## Help & Documentation
@@ -31,6 +34,21 @@ OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'your message here'
 |----------|---------|---------|
 | `OPENCODE_PROJECT_DIR` | Project directory (required) | current directory |
 | `OPENCODE_URL` | Server URL | `http://127.0.0.1:4096` |
+
+## Async Mode (--no-wait)
+
+The `--no-wait` flag allows sending messages without waiting for responses, enabling async workflows:
+
+- **Success**: Returns immediately with session ID and `[Next]` guidance
+- **Error handling**: Exit code determines success/failure (not stderr content)
+- **SSOT**: Use session history API to retrieve responses later
+
+### Error Determination
+
+The client determines success/failure by **exit code only**, not stderr content:
+- **Exit 0**: Success (even if stderr contains warnings like Nix messages)
+- **Exit 1**: Failure (structured error messages provided)
+- **stderr vs stdout**: stderr contains metadata and warnings; stdout contains AI responses
 
 ## Nixpkgs Input Options
 

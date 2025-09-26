@@ -45,18 +45,19 @@ Usage: opencode-client [COMMAND] [OPTIONS]
 OpenCode client for conversation and history management.
 
 Commands:
-  send [MESSAGE]     Send message to current session (default)
-  history [OPTIONS]  View conversation history
-  sessions [OPTIONS] List available sessions
-  status [--probe]   Quick diagnostic check (--probe: test send capability)
-  ps                 Discover running OpenCode servers and show connection URLs
-  help, --help       Show this help
+  send [--no-wait] [MESSAGE]  Send message to current session (default)
+  history [OPTIONS]           View conversation history
+  sessions [OPTIONS]          List available sessions
+  status [--probe]            Quick diagnostic check (--probe: test send capability)
+  ps                          Discover running OpenCode servers and show connection URLs
+  help, --help                Show this help
 
 Default behavior (no command): send "just say hi"
 
 Examples:
   opencode-client "hello world"           # Send message (default)
   opencode-client send "hello world"     # Send message (explicit)
+  opencode-client send --no-wait "hello" # Send message without waiting for response
   opencode-client history                 # View current session history
   opencode-client sessions                # List sessions
   opencode-client status                  # Quick diagnostic check
@@ -73,6 +74,7 @@ EOF
             # Parse subcommand and arguments
             SUBCOMMAND=""
             ARGS=()
+            WAIT_MODE="auto"  # Default wait mode (auto = existing behavior)
 
             # Handle help first
             if [[ "''${1:-}" == "help" || "''${1:-}" == "--help" || "''${1:-}" == "-h" ]]; then
@@ -129,7 +131,24 @@ EOF
             # Execute subcommand
             case "$SUBCOMMAND" in
               "send")
-                MSG="''${ARGS[0]:-just say hi}"
+                # Parse send-specific arguments
+                MSG=""
+                for arg in "''${ARGS[@]}"; do
+                  case "$arg" in
+                    "--no-wait")
+                      WAIT_MODE="none"
+                      ;;
+                    "--wait=none")
+                      WAIT_MODE="none"
+                      ;;
+                    *)
+                      if [ -z "$MSG" ]; then
+                        MSG="$arg"
+                      fi
+                      ;;
+                  esac
+                done
+                MSG="''${MSG:-just say hi}"
 
                 # 1) Health check (OpenAPI doc)
                 if ! oc_session_http_get "$OPENCODE_URL/doc" >/dev/null; then
@@ -181,8 +200,16 @@ EOF
                     # Success: Extract and display response
                     echo "[client] reply:" >&2 && echo "$RESP" | jq -r '(.parts[]? | select(.type=="text") | .text) // empty'
                   else
-                    # Message sent but no immediate response, wait for assistant response
-                    echo "[client] waiting for response..." >&2
+                    # Message sent but no immediate response
+                    if [[ "$WAIT_MODE" == "none" ]]; then
+                      # No-wait mode: Return immediately with session info
+                      echo "[client] session: $SID" >&2
+                      oc_diag_next_history "$SID"
+                      exit 0
+                    else
+                      # Default mode: wait for assistant response
+                      echo "[client] waiting for response..." >&2
+                    fi
 
                     # Poll for assistant response (with timeout)
                     for attempt in {1..15}; do
