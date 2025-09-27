@@ -1,0 +1,73 @@
+# Robots.txt - Programmatic SEO Template
+# Environment: {{ENVIRONMENT}} (staging/production)
+# Generated: {{TIMESTAMP}}
+
+{{#if PRODUCTION}}
+# Production Configuration - Allow indexing
+User-agent: *
+Allow: /
+
+# Sitemap locations
+Sitemap: {{SITE_URL}}/sitemap.xml
+{{#if SITEMAP_INDEX}}
+Sitemap: {{SITE_URL}}/sitemap-index.xml
+{{/if}}
+
+# Standard disallows for production
+Disallow: /admin/
+Disallow: /api/
+Disallow: /private/
+Disallow: /*.json$
+Disallow: /*?*
+{{#if CUSTOM_DISALLOWS}}
+{{#each CUSTOM_DISALLOWS}}
+Disallow: {{this}}
+{{/each}}
+{{/if}}
+
+# Crawl delay (optional)
+{{#if CRAWL_DELAY}}
+Crawl-delay: {{CRAWL_DELAY}}
+{{/if}}
+
+{{else}}
+# Staging/Development Configuration - Disallow all
+User-agent: *
+Disallow: /
+
+# Optional: Allow specific bots for testing
+{{#if ALLOW_TEST_BOTS}}
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+{{/if}}
+{{/if}}
+
+# Security considerations
+{{#if SECURITY_DISALLOWS}}
+# Security-related paths (always disallow)
+Disallow: /.env
+Disallow: /.git/
+Disallow: /node_modules/
+Disallow: /vendor/
+Disallow: /.well-known/
+{{/if}}
+
+# Instructions for environment switching:
+# 1. Replace {{ENVIRONMENT}} with 'staging' or 'production'
+# 2. Set {{PRODUCTION}} to true for production, false for staging
+# 3. Configure {{SITE_URL}} with your domain
+# 4. Customize {{CUSTOM_DISALLOWS}} array as needed
+#
+# Example production values:
+# ENVIRONMENT=production
+# PRODUCTION=true
+# SITE_URL=https://yoursite.com
+# CRAWL_DELAY=1
+#
+# Example staging values:
+# ENVIRONMENT=staging
+# PRODUCTION=false
+# ALLOW_TEST_BOTS=false
