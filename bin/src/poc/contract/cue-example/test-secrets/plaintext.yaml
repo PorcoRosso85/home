@@ -1,0 +1,5 @@
+# This file contains plaintext secrets (violation)
+database:
+  password: "my-secret-password-123"
+api:
+  token: "abc123xyz789"

@@ -4,10 +4,10 @@ set -euo pipefail
 echo "🧪 Testing contract aggregation checks..."
 
 # Test setup: Create test contract files
-mkdir -p test-contracts/duplicate1 test-contracts/duplicate2 test-contracts/unresolved
+mkdir -p test-contracts-temp/duplicate1 test-contracts-temp/duplicate2 test-contracts-temp/unresolved
 
 # Test Case 1: Duplicate namespace/name
-cat > test-contracts/duplicate1/contract.cue << 'EOF'
+cat > test-contracts-temp/duplicate1/contract.cue << 'EOF'
 package duplicate1
 import "example.corp/contract-system/schema"
 
@@ -20,7 +20,7 @@ TestContract1: schema.Contract & {
 }
 EOF
 
-cat > test-contracts/duplicate2/contract.cue << 'EOF'
+cat > test-contracts-temp/duplicate2/contract.cue << 'EOF'
 package duplicate2
 import "example.corp/contract-system/schema"
 
@@ -34,7 +34,7 @@ TestContract2: schema.Contract & {
 EOF
 
 # Test Case 2: Unresolved dependency
-cat > test-contracts/unresolved/contract.cue << 'EOF'
+cat > test-contracts-temp/unresolved/contract.cue << 'EOF'
 package unresolved
 import "example.corp/contract-system/schema"
 
@@ -54,9 +54,9 @@ EOF
 cat > tools/test-index.json << EOF
 [
     "/home/nixos/bin/src/poc/contract/cue-example/contracts/example/contract.cue",
-    "/home/nixos/bin/src/poc/contract/cue-example/test-contracts/duplicate1/contract.cue",
-    "/home/nixos/bin/src/poc/contract/cue-example/test-contracts/duplicate2/contract.cue",
-    "/home/nixos/bin/src/poc/contract/cue-example/test-contracts/unresolved/contract.cue"
+    "/home/nixos/bin/src/poc/contract/cue-example/test-contracts-temp/duplicate1/contract.cue",
+    "/home/nixos/bin/src/poc/contract/cue-example/test-contracts-temp/duplicate2/contract.cue",
+    "/home/nixos/bin/src/poc/contract/cue-example/test-contracts-temp/unresolved/contract.cue"
 ]
 EOF
 
@@ -95,6 +95,6 @@ else
 fi
 
 # Cleanup
-rm -rf test-contracts tools/test-index.json
+rm -rf test-contracts-temp tools/test-index.json
 
 echo "✅ All aggregation tests passed!"
