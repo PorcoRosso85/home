@@ -16,7 +16,7 @@ nix profile install github:PorcoRosso85/home#opencode-client
 OPENCODE_PROJECT_DIR=$(pwd) opencode-client 'your message here'
 
 # Asynchronous mode (send and return immediately)
-OPENCODE_PROJECT_DIR=$(pwd) opencode-client send --no-wait 'your message here'
+OPENCODE_PROJECT_DIR=$(pwd) opencode-client send --wait=none 'your message here'
 ```
 
 ## Help & Documentation
@@ -35,9 +35,9 @@ OPENCODE_PROJECT_DIR=$(pwd) opencode-client send --no-wait 'your message here'
 | `OPENCODE_PROJECT_DIR` | Project directory (required) | current directory |
 | `OPENCODE_URL` | Server URL | `http://127.0.0.1:4096` |
 
-## Async Mode (--no-wait)
+## Async Mode (--wait=none)
 
-The `--no-wait` flag allows sending messages without waiting for responses, enabling async workflows:
+The `--wait=none` flag allows sending messages without waiting for responses, enabling async workflows:
 
 - **Success**: Returns immediately with session ID and `[Next]` guidance
 - **Error handling**: Exit code determines success/failure (not stderr content)
@@ -49,6 +49,8 @@ The client determines success/failure by **exit code only**, not stderr content:
 - **Exit 0**: Success (even if stderr contains warnings like Nix messages)
 - **Exit 1**: Failure (structured error messages provided)
 - **stderr vs stdout**: stderr contains metadata and warnings; stdout contains AI responses
+
+**Note**: `--no-wait` is an alias for `--wait=none` (backward compatibility)
 
 ## Nixpkgs Input Options
 

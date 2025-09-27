@@ -45,23 +45,25 @@ Usage: opencode-client [COMMAND] [OPTIONS]
 OpenCode client for conversation and history management.
 
 Commands:
-  send [--no-wait] [MESSAGE]  Send message to current session (default)
-  history [OPTIONS]           View conversation history
-  sessions [OPTIONS]          List available sessions
-  status [--probe]            Quick diagnostic check (--probe: test send capability)
-  ps                          Discover running OpenCode servers and show connection URLs
-  help, --help                Show this help
+  send [--wait=always|none] [MESSAGE]  Send message to current session (default)
+  history [OPTIONS]                    View conversation history
+  sessions [OPTIONS]                   List available sessions
+  status [--probe]                     Quick diagnostic check (--probe: test send capability)
+  ps                                   Discover running OpenCode servers and show connection URLs
+  help, --help                         Show this help
 
 Default behavior (no command): send "just say hi"
 
 Examples:
-  opencode-client "hello world"           # Send message (default)
-  opencode-client send "hello world"     # Send message (explicit)
-  opencode-client send --no-wait "hello" # Send message without waiting for response
-  opencode-client history                 # View current session history
-  opencode-client sessions                # List sessions
-  opencode-client status                  # Quick diagnostic check
-  opencode-client status --probe          # Test send capability with structured errors
+  opencode-client "hello world"             # Send message (default: --wait=always)
+  opencode-client send "hello world"       # Send message (explicit synchronous)
+  opencode-client send --wait=none "hello" # Send message without waiting for response
+  opencode-client history                   # View current session history
+  opencode-client sessions                  # List sessions
+  opencode-client status                    # Quick diagnostic check
+  opencode-client status --probe            # Test send capability with structured errors
+
+Note: --no-wait is an alias for --wait=none (backward compatibility)
 
 Environment Variables:
   OPENCODE_URL          Server URL (default: http://127.0.0.1:4096)
@@ -74,7 +76,7 @@ EOF
             # Parse subcommand and arguments
             SUBCOMMAND=""
             ARGS=()
-            WAIT_MODE="auto"  # Default wait mode (auto = existing behavior)
+            WAIT_MODE="always"  # Default wait mode (always = explicit synchronous behavior)
 
             # Handle help first
             if [[ "''${1:-}" == "help" || "''${1:-}" == "--help" || "''${1:-}" == "-h" ]]; then
@@ -131,15 +133,30 @@ EOF
             # Execute subcommand
             case "$SUBCOMMAND" in
               "send")
-                # Parse send-specific arguments
+                # Parse send-specific arguments with conflict detection
                 MSG=""
+                NO_WAIT_FLAG=""
+                WAIT_FLAG=""
+
                 for arg in "''${ARGS[@]}"; do
                   case "$arg" in
                     "--no-wait")
+                      NO_WAIT_FLAG="--no-wait"
                       WAIT_MODE="none"
                       ;;
                     "--wait=none")
+                      WAIT_FLAG="--wait=none"
                       WAIT_MODE="none"
+                      ;;
+                    "--wait=always")
+                      WAIT_FLAG="--wait=always"
+                      WAIT_MODE="always"
+                      ;;
+                    "--wait="*)
+                      # Invalid wait value
+                      INVALID_WAIT=$(echo "$arg" | cut -d'=' -f2)
+                      echo "[client] error: invalid wait value '$INVALID_WAIT'; use one of --wait=always|none" >&2
+                      exit 2
                       ;;
                     *)
                       if [ -z "$MSG" ]; then
@@ -148,6 +165,13 @@ EOF
                       ;;
                   esac
                 done
+
+                # Check for conflicting flags
+                if [[ -n "$NO_WAIT_FLAG" && "$WAIT_FLAG" == "--wait=always" ]]; then
+                  echo "[client] error: conflicting wait flags; use one of --wait=always|none" >&2
+                  exit 2
+                fi
+
                 MSG="''${MSG:-just say hi}"
 
                 # 1) Health check (OpenAPI doc)

@@ -38,8 +38,10 @@
       ];
       commands = {
         "sync-default" = "opencode-client \"2+2?\" 1>ai.txt 2>meta.txt; test -s ai.txt && ! test -s meta.txt";
-        "async-no-wait" = "opencode-client send --no-wait \"test message\" 1>ai_nowait.txt 2>meta_nowait.txt; test ! -s ai_nowait.txt && test -s meta_nowait.txt";
+        "async-wait-none" = "opencode-client send --wait=none \"test message\" 1>ai_nowait.txt 2>meta_nowait.txt; test ! -s ai_nowait.txt && test -s meta_nowait.txt";
+        "async-compatibility" = "opencode-client send --no-wait \"test message\" 1>ai_compat.txt 2>meta_compat.txt; test ! -s ai_compat.txt && test -s meta_compat.txt";
         "ssot-consistency" = "sid=$(grep -o 'ses_[A-Za-z0-9_]\\+' meta_nowait.txt | tail -1); opencode-client history --sid \"$sid\" --format json | jq -r '.[].parts[].text' | head -1";
+        "flag-validation" = "opencode-client send --wait=invalid \"test\" 2>&1 | grep -q 'invalid wait value'; test $? -eq 0";
       };
     };
   };
