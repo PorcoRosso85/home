@@ -1,0 +1,6 @@
+[
+    "/home/nixos/bin/src/poc/contract/cue-example/contracts/example/contract.cue",
+    "/home/nixos/bin/src/poc/contract/cue-example/test-contracts/duplicate1/contract.cue",
+    "/home/nixos/bin/src/poc/contract/cue-example/test-contracts/duplicate2/contract.cue",
+    "/home/nixos/bin/src/poc/contract/cue-example/test-contracts/unresolved/contract.cue"
+]

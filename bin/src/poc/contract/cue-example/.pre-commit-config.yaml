@@ -1,0 +1,56 @@
+# Pre-commit configuration for CUE Contract Management System
+# This file works in conjunction with the Nix flake pre-commit setup
+
+repos:
+  - repo: local
+    hooks:
+      - id: cue-fmt
+        name: CUE formatting
+        entry: cue fmt
+        language: system
+        files: \.cue$
+        pass_filenames: false
+
+      - id: cue-vet
+        name: CUE validation
+        entry: cue vet
+        language: system
+        files: \.cue$
+        pass_filenames: false
+
+      - id: secrets-check
+        name: Secrets plaintext detection
+        entry: bash -c 'cd secrets && find . -name "*.yaml" -o -name "*.yml" -o -name "*.json" -o -name "*.env" | xargs grep -l "password\|token\|secret\|key" | grep -v "\.example" | grep -v "\.sops\.yaml" || true | head -1 | grep -q . && echo "secrets: plaintext detected" && exit 1 || echo "secrets: no plaintext detected"'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: nix-fmt
+        name: Nix formatting
+        entry: nixpkgs-fmt
+        language: system
+        files: \.nix$
+
+      - id: shell-fmt
+        name: Shell formatting
+        entry: shfmt -w
+        language: system
+        files: \.(sh|bash)$
+
+      - id: shell-lint
+        name: Shell linting
+        entry: shellcheck
+        language: system
+        files: \.(sh|bash)$
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.patch$
+      - id: end-of-file-fixer
+        exclude: \.patch$
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
