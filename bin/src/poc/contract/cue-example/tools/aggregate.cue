@@ -47,16 +47,38 @@ import (
 
 	// Port conflict detection
 	portCheck: {
-		// Extract all used ports with their owners
+		// Extract all used ports with their owners, including protocol and scope
 		portMappings: [for c in contracts for p in c.provides if p.port != _|_ {
-			port:  p.port
-			owner: c.namespace + "/" + c.name
+			port:     p.port
+			protocol: p.protocol | "tcp"   // Default to tcp if not specified
+			scope:    p.scope | "internal" // Default to internal if not specified
+			owner:    c.namespace + "/" + c.name
 		}]
 
-		// Simple port conflict detection (can be enhanced)
-		conflicts: [] // Simplified for now
+		// Create port keys for conflict detection (port + protocol + scope)
+		portKeys: [for pm in portMappings {
+			key:   "\(pm.port):\(pm.protocol):\(pm.scope)"
+			owner: pm.owner
+		}]
 
-		// No error for now - can be enhanced later
+		// Group by port key to find conflicts
+		portGroups: {for pk in portKeys {(pk.key): []}}
+		groupedPorts: {for pk in portKeys {
+			(pk.key): list.Concat([portGroups[pk.key], [pk.owner]])
+		}}
+
+		// Find conflicts (port keys with multiple owners)
+		conflicts: [for key, owners in groupedPorts if len(owners) > 1 {
+			portBinding:         key
+			conflictingServices: owners
+		}]
+
+		// Create error if port conflicts found
+		if len(conflicts) > 0 {
+			_error: "ports: conflict detected on " + strings.Join([for c in conflicts {c.portBinding + " (" + strings.Join(c.conflictingServices, ", ") + ")"}], ", ")
+			// Force validation failure by creating impossible constraint
+			_fail: false & true
+		}
 	}
 }
 

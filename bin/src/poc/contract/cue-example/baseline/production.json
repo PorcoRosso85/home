@@ -1,0 +1,88 @@
+{
+  "ApiService": {
+    "namespace": "corp.example",
+    "name": "user-api",
+    "role": "service",
+    "version": "3.4.1",
+    "dependsOn": [
+      {
+        "kind": "db",
+        "target": "corp.example/postgres-db",
+        "id": "primary-db",
+        "versionRange": "^1.0.0",
+        "description": "User data storage"
+      },
+      {
+        "kind": "cache",
+        "target": "corp.example/redis-cache",
+        "id": "primary-cache",
+        "versionRange": "^2.0.0",
+        "description": "Session and data caching",
+        "optional": true
+      }
+    ],
+    "description": "REST API service for user management",
+    "provides": [
+      {
+        "kind": "http",
+        "id": "user-api",
+        "port": 8080,
+        "protocol": "https",
+        "scope": "public",
+        "description": "User management REST API"
+      }
+    ],
+    "tags": [
+      "api",
+      "users",
+      "http",
+      "rest"
+    ]
+  },
+  "CacheService": {
+    "namespace": "corp.example",
+    "name": "redis-cache",
+    "role": "infra",
+    "version": "2.1.0",
+    "dependsOn": [],
+    "description": "Redis cache service for application performance",
+    "provides": [
+      {
+        "kind": "cache",
+        "id": "primary-cache",
+        "port": 6379,
+        "protocol": "tcp",
+        "scope": "internal",
+        "description": "Redis cache instance for session and data caching"
+      }
+    ],
+    "tags": [
+      "cache",
+      "redis",
+      "performance"
+    ]
+  },
+  "DatabaseService": {
+    "namespace": "corp.example",
+    "name": "postgres-db",
+    "role": "infra",
+    "version": "1.2.0",
+    "dependsOn": [],
+    "description": "PostgreSQL database service for application data",
+    "provides": [
+      {
+        "kind": "db",
+        "id": "primary-db",
+        "port": 5432,
+        "protocol": "tcp",
+        "scope": "internal",
+        "description": "Main PostgreSQL database instance"
+      }
+    ],
+    "tags": [
+      "database",
+      "postgresql",
+      "storage"
+    ]
+  }
+}

@@ -5,11 +5,6 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
-    # SOPS for secrets management
-    sops-nix = {
-      url = "github:Mic92/sops-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
 
     # Pre-commit hooks
     pre-commit-hooks = {
@@ -18,7 +13,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, sops-nix, pre-commit-hooks }:
+  outputs = { self, nixpkgs, flake-utils, pre-commit-hooks }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -109,7 +104,7 @@
 
         # Production contract validation (strict)
         productionValidation = pkgs.runCommand "production-validation" {
-          buildInputs = [ cuePkg pkgs.jq ];
+          buildInputs = [ cuePkg pkgs.jq pkgs.findutils ];
           src = ./.;
           preferLocalBuild = true;
         } ''
@@ -117,6 +112,42 @@
           cp -r $src /tmp/cue-production
           chmod -R +w /tmp/cue-production
           cd /tmp/cue-production
+
+          # PHASE 2.3: Strict existence checking - every production directory must have contract.cue
+          echo "SSOT Enforcement: Checking contract.cue existence for all production directories..."
+
+          missing_contracts=""
+          if [ -d "contracts/production" ]; then
+            # Find all subdirectories under contracts/production/
+            while IFS= read -r dir; do
+              # Extract directory name (remove contracts/production/ prefix)
+              dir_name=$(basename "$dir")
+              contract_file="$dir/contract.cue"
+
+              if [ ! -f "$contract_file" ]; then
+                echo "ERROR: Missing contract.cue in directory: $dir" >&2
+                missing_contracts="$missing_contracts $dir_name"
+              else
+                echo "✓ Found contract.cue in: $dir"
+              fi
+            done < <(find contracts/production -type d -mindepth 1 -maxdepth 1 | sort)
+          fi
+
+          # Fail fast if any contracts are missing
+          if [ -n "$missing_contracts" ]; then
+            echo "" >&2
+            echo "🚫 SSOT VIOLATION: Missing contract.cue files!" >&2
+            echo "The following production directories lack required contracts:" >&2
+            for missing in $missing_contracts; do
+              echo "  - contracts/production/$missing/contract.cue" >&2
+            done
+            echo "" >&2
+            echo "SSOT principle: Every managed directory must have a contract" >&2
+            echo "Create the missing contract.cue files or remove unused directories" >&2
+            exit 1
+          fi
+
+          echo "✅ Contract existence verified: All production directories have contract.cue"
 
           # Ensure tools directory exists and copy index.json for CUE consumption
           mkdir -p tools
@@ -373,6 +404,258 @@
               echo "systemdVerify: no service files found, skipping"
             fi
 
+            touch $out
+          '';
+
+          # Generated artifacts prevention (SSOT governance)
+          noGeneratedArtifacts = pkgs.runCommand "no-generated-artifacts-check" {
+            buildInputs = [ pkgs.findutils pkgs.gnugrep ];
+            src = ./.;
+          } ''
+            cd $src
+
+            echo "noGeneratedArtifacts: checking for prohibited generated files"
+
+            # Define patterns for generated artifacts that should never be tracked
+            prohibited_files=""
+
+            # Check for tools/index.json (main generated index)
+            if [ -f "tools/index.json" ]; then
+              echo "ERROR: Found prohibited file: tools/index.json" >&2
+              prohibited_files="$prohibited_files tools/index.json"
+            fi
+
+            # Check for any *-index.json files in tools/ directory
+            if find tools -name "*-index.json" -type f 2>/dev/null | grep -q .; then
+              echo "ERROR: Found prohibited generated index files:" >&2
+              find tools -name "*-index.json" -type f 2>/dev/null | sed 's/^/  /' >&2
+              prohibited_files="$prohibited_files $(find tools -name "*-index.json" -type f 2>/dev/null | tr '\n' ' ')"
+            fi
+
+            # Check for contracts-data.cue (injected data file)
+            if [ -f "tools/contracts-data.cue" ]; then
+              echo "ERROR: Found prohibited file: tools/contracts-data.cue" >&2
+              prohibited_files="$prohibited_files tools/contracts-data.cue"
+            fi
+
+            # Check for other common generated artifacts patterns
+            if find . -name "*.generated.*" -type f 2>/dev/null | grep -q .; then
+              echo "ERROR: Found files with .generated. pattern:" >&2
+              find . -name "*.generated.*" -type f 2>/dev/null | sed 's/^/  /' >&2
+              prohibited_files="$prohibited_files $(find . -name "*.generated.*" -type f 2>/dev/null | tr '\n' ' ')"
+            fi
+
+            # Check for .build/ or build/ directories with artifacts
+            for build_dir in .build build; do
+              if [ -d "$build_dir" ] && find "$build_dir" -type f 2>/dev/null | grep -q .; then
+                echo "ERROR: Found build directory with artifacts: $build_dir/" >&2
+                prohibited_files="$prohibited_files $build_dir/"
+              fi
+            done
+
+            # Final verdict
+            if [ -n "$prohibited_files" ]; then
+              echo "" >&2
+              echo "SSOT VIOLATION: Generated artifacts found in source tree!" >&2
+              echo "These files should be generated at build time, not tracked in Git:" >&2
+              echo "$prohibited_files" | tr ' ' '\n' | sed 's/^/  - /' >&2
+              echo "" >&2
+              echo "To fix: Remove these files and ensure .gitignore prevents tracking" >&2
+              exit 1
+            else
+              echo "noGeneratedArtifacts: ✓ No prohibited artifacts found"
+              echo "SSOT principle enforced: source tree contains only source files"
+              touch $out
+            fi
+          '';
+
+          # Breaking changes detection (SSOT governance) - forced rebuild
+          breakingChanges = pkgs.runCommand "breaking-changes-check" {
+            buildInputs = [ cuePkg pkgs.jq ];
+            src = ./.;
+          } ''
+            # Copy source to writable directory
+            cp -r $src /tmp/breaking-changes
+            chmod -R +w /tmp/breaking-changes
+            cd /tmp/breaking-changes
+
+            echo "breakingChanges: checking for breaking changes against baseline"
+
+            # Ensure baseline exists
+            if [ ! -f "baseline/production.json" ]; then
+              echo "ERROR: Missing baseline/production.json for breaking change detection" >&2
+              echo "To create baseline: nix develop --command bash -c 'cue export contracts/production/api/contract.cue > baseline/api.json && cue export contracts/production/database/contract.cue > baseline/database.json && cue export contracts/production/cache/contract.cue > baseline/cache.json && jq -s \".[0] * .[1] * .[2]\" baseline/api.json baseline/cache.json baseline/database.json > baseline/production.json'" >&2
+              exit 1
+            fi
+
+            # Export current production contracts
+            echo "Exporting current production contracts..."
+            mkdir -p tools
+
+            # Export individual contracts
+            if cue export contracts/production/api/contract.cue > tools/current-api.json 2>/dev/null && \
+               cue export contracts/production/database/contract.cue > tools/current-database.json 2>/dev/null && \
+               cue export contracts/production/cache/contract.cue > tools/current-cache.json 2>/dev/null; then
+              echo "✓ Current contracts exported successfully"
+            else
+              echo "ERROR: Failed to export current production contracts" >&2
+              exit 1
+            fi
+
+            # Combine current contracts
+            jq -s '.[0] * .[1] * .[2]' tools/current-api.json tools/current-database.json tools/current-cache.json > tools/current-production.json
+
+            # Simple JSON-based breaking change detection
+            echo "Running breaking change analysis..."
+
+            # Compare baseline vs current using jq
+            breaking_changes=""
+
+            # Check for service removal (service present in baseline but not current)
+            missing_services=$(jq -r 'keys[]' baseline/production.json | while read service; do
+              if ! jq -e ".\"$service\"" tools/current-production.json > /dev/null 2>&1; then
+                echo "$service"
+              fi
+            done)
+
+            if [ -n "$missing_services" ]; then
+              breaking_changes="$breaking_changes\nRemoved services: $missing_services"
+            fi
+
+            # Check for capability reduction in each service
+            capability_changes_file=$(mktemp)
+            jq -r 'keys[]' baseline/production.json | while read service; do
+              if jq -e ".\"$service\"" tools/current-production.json > /dev/null 2>&1; then
+                # Compare provides arrays
+                baseline_provides=$(jq -r ".\"$service\".provides[]?.id" baseline/production.json 2>/dev/null | sort | tr '\n' ' ')
+                current_provides=$(jq -r ".\"$service\".provides[]?.id" tools/current-production.json 2>/dev/null | sort | tr '\n' ' ')
+
+                if [ "$baseline_provides" != "$current_provides" ]; then
+                  echo "Service $service: capability changes detected"
+                  echo "  Baseline: $baseline_provides"
+                  echo "  Current:  $current_provides"
+                  echo "Service $service capability changes" >> "$capability_changes_file"
+                fi
+              fi
+            done
+
+            # Read capability changes from file
+            if [ -s "$capability_changes_file" ]; then
+              breaking_changes="$breaking_changes\n$(cat "$capability_changes_file")"
+            fi
+            rm -f "$capability_changes_file"
+
+            # Check results
+            if [ -n "$breaking_changes" ]; then
+              echo "" >&2
+              echo "🚫 BREAKING CHANGES DETECTED!" >&2
+              echo "The following breaking changes were found:" >&2
+              echo -e "$breaking_changes" | sed 's/^/  - /' >&2
+              echo "" >&2
+              echo "Breaking changes violate SSOT governance rules." >&2
+              echo "Either revert the changes or update the baseline intentionally." >&2
+              exit 1
+            else
+              echo "✅ No breaking changes detected"
+              echo "breakingChanges: all production contracts are backward compatible"
+              touch $out
+            fi
+          '';
+
+          # CUE vendor dependency check (SSOT governance)
+          vendorCheck = pkgs.runCommand "vendor-check" {
+            buildInputs = [ cuePkg pkgs.jq ];
+            src = ./.;
+            preferLocalBuild = true;
+          } ''
+            # Copy source to writable directory
+            cp -r $src /tmp/vendor-check
+            chmod -R +w /tmp/vendor-check
+            cd /tmp/vendor-check
+
+            echo "vendorCheck: verifying CUE module dependency consistency"
+
+            # Check if cue.mod/module.cue exists and is valid
+            if [ ! -f "cue.mod/module.cue" ]; then
+              echo "ERROR: Missing cue.mod/module.cue - CUE module not properly initialized" >&2
+              echo "To fix: Run 'cue mod init <module-name>'" >&2
+              exit 1
+            fi
+
+            # Validate module.cue syntax
+            if ! cue export cue.mod/module.cue >/dev/null 2>&1; then
+              echo "ERROR: Invalid syntax in cue.mod/module.cue" >&2
+              echo "To fix: Check cue.mod/module.cue for syntax errors" >&2
+              exit 1
+            fi
+
+            # Check if we have any external imports that need vendoring
+            external_imports=$(find . -name "*.cue" -not -path "./cue.mod/*" -not -path "./vendor/*" | \
+              xargs grep -l "^import" | \
+              xargs grep "^import" | \
+              grep -v "example.corp/contract-system" | \
+              grep -E '"[^./]' || true)
+
+            if [ -n "$external_imports" ]; then
+              echo "External imports detected that may need vendoring:"
+              echo "$external_imports" | sed 's/^/  /'
+
+              # Check if vendor directory exists
+              if [ ! -d "vendor" ]; then
+                echo "WARNING: External imports found but no vendor/ directory" >&2
+                echo "Consider running 'cue mod vendor' if external dependencies are needed" >&2
+                echo "Or ensure all imports are local to this module" >&2
+              fi
+            fi
+
+            # If vendor directory exists, validate it's consistent
+            if [ -d "vendor" ]; then
+              echo "Vendor directory found - checking consistency..."
+
+              # Check if vendor directory has any content
+              if [ -z "$(find vendor -name "*.cue" 2>/dev/null)" ]; then
+                echo "WARNING: Empty vendor/ directory detected" >&2
+                echo "Consider removing empty vendor/ or running 'cue mod vendor'" >&2
+              else
+                echo "Vendor directory contains CUE files - assuming properly vendored"
+
+                # Verify vendor directory structure is valid
+                if ! find vendor -name "*.cue" | head -1 | xargs cue vet >/dev/null 2>&1; then
+                  echo "ERROR: Invalid CUE files in vendor/ directory" >&2
+                  echo "To fix: Run 'cue mod vendor' to refresh dependencies" >&2
+                  exit 1
+                fi
+              fi
+            fi
+
+            # Check for loose .cue files that might be dependencies
+            loose_deps=$(find . -maxdepth 2 -name "*.cue" -not -path "./cue.mod/*" \
+              -not -path "./vendor/*" -not -path "./schema/*" -not -path "./contracts/*" \
+              -not -path "./tests/*" -not -path "./tools/*" -not -path "./secrets/*" \
+              -not -path "./baseline/*" -not -path "./docs/*" | head -5)
+
+            if [ -n "$loose_deps" ]; then
+              echo "INFO: Found loose .cue files in root - verify they're intentional:"
+              echo "$loose_deps" | sed 's/^/  /'
+            fi
+
+            # Verify current module name matches imports
+            module_name=$(cue export cue.mod/module.cue | jq -r '.module // empty')
+            if [ -n "$module_name" ]; then
+              echo "Module name: $module_name"
+
+              # Check if any imports reference the current module (circular dependency)
+              circular_refs=$(find . -name "*.cue" -not -path "./cue.mod/*" -not -path "./vendor/*" | \
+                xargs grep -l "import.*$module_name" || true)
+
+              if [ -n "$circular_refs" ]; then
+                echo "WARNING: Potential circular dependency - module imports itself:" >&2
+                echo "$circular_refs" | sed 's/^/  /' >&2
+              fi
+            fi
+
+            echo "vendorCheck: ✓ CUE module dependency structure validated"
+            echo "SSOT principle enforced: dependency consistency maintained"
             touch $out
           '';
         };

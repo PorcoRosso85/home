@@ -1,5 +1,8 @@
 # Generated files - not tracked in Git (派生物原則)
 tools/index.json
+tools/*-index.json
+tools/contracts-data.cue
+*.generated.*
 
 # Build artifacts
 result

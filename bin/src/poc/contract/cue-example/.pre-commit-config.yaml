@@ -43,6 +43,49 @@ repos:
         language: system
         files: \.(sh|bash)$
 
+      # SSOT Governance Checks
+      - id: breaking-changes-check
+        name: Breaking changes validation
+        entry: ./tools/governance/check-breaking-changes.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: port-conflicts-check
+        name: Port conflicts detection
+        entry: ./tools/governance/check-port-conflicts.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: vendor-dependencies-check
+        name: Vendor dependencies validation
+        entry: ./tools/governance/check-vendor-deps.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: lockfile-drift-check
+        name: Lock file drift detection
+        entry: ./tools/governance/check-lockfile-drift.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: impure-operations-check
+        name: Impure operations prevention
+        entry: ./tools/governance/check-impure-ops.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: contract-completeness-check
+        name: Contract completeness validation
+        entry: ./tools/governance/check-contract-completeness.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
