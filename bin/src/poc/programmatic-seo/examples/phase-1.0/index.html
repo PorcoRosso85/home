@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programmatic SEO Phase 1.0 - Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007cba;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #005a87;
+        }
+        .outbound-link {
+            color: #0073aa;
+            text-decoration: underline;
+        }
+        .status {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Programmatic SEO Phase 1.0 Test Page</h1>
+
+    <div class="test-section">
+        <h2>1. IIFE Integration Test</h2>
+        <p>This page loads the measurement snippet via IIFE (Immediately Invoked Function Expression) for maximum compatibility.</p>
+        <div class="status" id="iife-status">Loading IIFE snippet...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Outbound Link Testing</h2>
+        <p>Test outbound link tracking with these external links:</p>
+        <ul>
+            <li><a href="https://github.com" class="outbound-link" data-test="github">GitHub</a></li>
+            <li><a href="https://google.com" class="outbound-link" data-test="google">Google</a></li>
+            <li><a href="https://example.com" class="outbound-link" data-test="example">Example.com</a></li>
+        </ul>
+        <p>Internal link (should not be tracked as outbound): <a href="#internal">Internal Section</a></p>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Manual API Testing</h2>
+        <p>Test measurement APIs manually:</p>
+        <button class="test-button" onclick="testPageview()">Track Pageview</button>
+        <button class="test-button" onclick="testCustomClick()">Track Custom Click</button>
+        <button class="test-button" onclick="testDecorateOutbound()">Decorate Outbound Links</button>
+        <div class="status" id="api-status">Ready for testing...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. SSR Safety Test</h2>
+        <p>Measurement snippet should work safely in all environments:</p>
+        <div class="status" id="ssr-status">Checking SSR safety...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Provider Detection</h2>
+        <p>Testing provider availability:</p>
+        <div class="status" id="provider-status">Checking providers...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. JSON-LD Structured Data</h2>
+        <p>This page includes structured data for Rich Results testing.</p>
+        <div class="status">
+            Check structured data:
+            <br>• <a href="https://search.google.com/test/rich-results" target="_blank">Rich Results Test</a>
+            <br>• <a href="https://validator.schema.org/" target="_blank">Schema.org Validator</a>
+        </div>
+    </div>
+
+    <section id="internal">
+        <h2>Internal Section</h2>
+        <p>This is an internal section for testing internal link behavior.</p>
+    </section>
+
+    <!-- JSON-LD Structured Data Examples -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "Programmatic SEO Phase 1.0 Test Page",
+        "description": "Test page for verifying programmatic SEO functionality and measurement tracking",
+        "url": "http://localhost:8080/examples/phase-1.0/",
+        "isAccessibleForFree": true,
+        "dateCreated": "2025-09-27T20:45:00Z",
+        "inLanguage": "en",
+        "author": {
+            "@type": "Organization",
+            "name": "Programmatic SEO Test Suite"
+        }
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "How to Test Programmatic SEO Snippet",
+        "description": "Step-by-step guide for testing the measurement snippet functionality",
+        "totalTime": "PT5M",
+        "step": [
+            {
+                "@type": "HowToStep",
+                "name": "Load the test page",
+                "text": "Open the test page in a web browser and verify that all sections load correctly.",
+                "position": 1
+            },
+            {
+                "@type": "HowToStep",
+                "name": "Test outbound links",
+                "text": "Click on the external links and verify that tracking events are fired.",
+                "position": 2
+            },
+            {
+                "@type": "HowToStep",
+                "name": "Test API functions",
+                "text": "Use the manual testing buttons to verify each API function works correctly.",
+                "position": 3
+            }
+        ]
+    }
+    </script>
+
+    <!-- Load measurement snippet (IIFE version) -->
+    <script src="../../dist/measurement/snippet.iife.js"></script>
+
+    <script>
+        // Initialize measurement with test configuration
+        if (typeof pSEO !== 'undefined') {
+            // Test with no-op provider (since GA4/Plausible not available in test)
+            pSEO.init({
+                provider: 'ga4', // Will be no-op since gtag not available
+                siteId: 'TEST-SITE-ID',
+                enableSPA: true
+            });
+
+            document.getElementById('iife-status').textContent = 'IIFE snippet loaded successfully ✓';
+
+            // Auto-decorate outbound links
+            pSEO.decorateAllOutbound();
+
+        } else {
+            document.getElementById('iife-status').textContent = 'IIFE snippet failed to load ✗';
+        }
+
+        // Test functions
+        function testPageview() {
+            if (typeof pSEO !== 'undefined') {
+                pSEO.trackPageview();
+                document.getElementById('api-status').textContent = 'Pageview tracked ✓';
+            } else {
+                document.getElementById('api-status').textContent = 'pSEO not available ✗';
+            }
+        }
+
+        function testCustomClick() {
+            if (typeof pSEO !== 'undefined') {
+                const testElement = document.createElement('a');
+                testElement.href = 'https://test.example.com';
+                testElement.textContent = 'Test Link';
+
+                pSEO.trackClick(testElement, {
+                    category: 'test',
+                    action: 'manual-click',
+                    label: 'custom-test',
+                    value: 1
+                });
+
+                document.getElementById('api-status').textContent = 'Custom click tracked ✓';
+            } else {
+                document.getElementById('api-status').textContent = 'pSEO not available ✗';
+            }
+        }
+
+        function testDecorateOutbound() {
+            if (typeof pSEO !== 'undefined') {
+                pSEO.decorateAllOutbound();
+                document.getElementById('api-status').textContent = 'Outbound links decorated ✓';
+            } else {
+                document.getElementById('api-status').textContent = 'pSEO not available ✗';
+            }
+        }
+
+        // SSR Safety Test
+        function testSSRSafety() {
+            try {
+                // These should not throw errors even when window is undefined
+                const hasWindow = typeof window !== 'undefined';
+                const hasDocument = typeof document !== 'undefined';
+
+                document.getElementById('ssr-status').textContent =
+                    `SSR safe: window=${hasWindow}, document=${hasDocument} ✓`;
+            } catch (error) {
+                document.getElementById('ssr-status').textContent =
+                    `SSR safety error: ${error.message} ✗`;
+            }
+        }
+
+        // Provider Detection Test
+        function testProviderDetection() {
+            const hasGtag = typeof window.gtag === 'function';
+            const hasPlausible = typeof window.plausible === 'function';
+
+            document.getElementById('provider-status').textContent =
+                `Provider detection: gtag=${hasGtag}, plausible=${hasPlausible} (expected: false, false)`;
+        }
+
+        // Run tests on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            testSSRSafety();
+            testProviderDetection();
+
+            // Add click listeners to outbound links for testing
+            document.querySelectorAll('.outbound-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    console.log('Outbound link clicked:', link.href);
+                    // Prevent actual navigation for testing
+                    e.preventDefault();
+                    alert(`Outbound link clicked: ${link.href}\\nCheck console for tracking events.`);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

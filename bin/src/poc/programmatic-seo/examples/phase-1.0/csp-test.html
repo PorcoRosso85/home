@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSP/Nonce Test - Programmatic SEO</title>
+
+    <!-- Strict Content Security Policy - inline scripts blocked -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'nonce-test123'; object-src 'none'; base-uri 'self';">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .status {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>CSP/Nonce Test Page</h1>
+
+    <div class="test-section">
+        <h2>Content Security Policy Status</h2>
+        <div class="status">
+            CSP Header: script-src 'self' 'nonce-test123'; object-src 'none'; base-uri 'self';
+        </div>
+        <p><strong>Test Conditions:</strong></p>
+        <ul>
+            <li>✓ External scripts from same origin allowed ('self')</li>
+            <li>✓ Scripts with nonce 'test123' allowed</li>
+            <li>✗ Inline scripts without nonce blocked</li>
+            <li>✗ eval() and inline event handlers blocked</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>External IIFE Script Loading</h2>
+        <div id="iife-load-status" class="status">Testing external IIFE loading...</div>
+        <p>The measurement snippet should load successfully as an external script.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Provider Integration (Mock)</h2>
+        <div id="provider-status" class="status">Testing provider availability...</div>
+        <p>Simulating GA4 and Plausible provider environments for integration testing.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>API Functionality</h2>
+        <div id="api-status" class="status">Testing API calls...</div>
+        <button id="test-pageview">Test Pageview</button>
+        <button id="test-click">Test Click Tracking</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Outbound Link Detection</h2>
+        <div id="outbound-status" class="status">Testing outbound link detection...</div>
+        <p>Test links:</p>
+        <ul>
+            <li><a href="https://github.com" id="test-outbound-1">GitHub (outbound)</a></li>
+            <li><a href="/internal-page" id="test-internal">Internal Page</a></li>
+        </ul>
+    </div>
+
+    <!-- Load measurement snippet (external, CSP-compliant) -->
+    <script src="../../dist/measurement/snippet.iife.js"></script>
+
+    <!-- Mock provider scripts (with nonce for CSP compliance) -->
+    <script nonce="test123">
+        // Mock gtag for GA4 testing
+        window.gtag = function(command, targetId, config) {
+            console.log('Mock gtag called:', { command, targetId, config });
+
+            if (command === 'config') {
+                window.mockGtagEvents = window.mockGtagEvents || [];
+                window.mockGtagEvents.push({ type: 'config', data: config });
+            } else if (command === 'event') {
+                window.mockGtagEvents = window.mockGtagEvents || [];
+                window.mockGtagEvents.push({ type: 'event', action: targetId, data: config });
+            }
+        };
+
+        // Mock plausible for Plausible testing
+        window.plausible = function(eventName, options) {
+            console.log('Mock plausible called:', { eventName, options });
+
+            window.mockPlausibleEvents = window.mockPlausibleEvents || [];
+            window.mockPlausibleEvents.push({ event: eventName, options });
+        };
+    </script>
+
+    <!-- Main test script (with nonce for CSP compliance) -->
+    <script nonce="test123">
+        // Test script execution
+        document.addEventListener('DOMContentLoaded', function() {
+            runCSPTests();
+        });
+
+        function runCSPTests() {
+            // Test 1: External IIFE Loading
+            if (typeof pSEO !== 'undefined') {
+                updateStatus('iife-load-status', '✓ External IIFE script loaded successfully', 'success');
+
+                // Initialize with mock GA4 provider
+                pSEO.init({
+                    provider: 'ga4',
+                    siteId: 'CSP-TEST-ID',
+                    enableSPA: true
+                });
+
+                runProviderTests();
+                runAPITests();
+                runOutboundTests();
+            } else {
+                updateStatus('iife-load-status', '✗ External IIFE script failed to load', 'error');
+            }
+        }
+
+        function runProviderTests() {
+            const hasGtag = typeof window.gtag === 'function';
+            const hasPlausible = typeof window.plausible === 'function';
+
+            if (hasGtag && hasPlausible) {
+                updateStatus('provider-status', '✓ Both mock providers available (gtag, plausible)', 'success');
+            } else {
+                updateStatus('provider-status', '✗ Mock providers not available', 'error');
+            }
+        }
+
+        function runAPITests() {
+            if (typeof pSEO === 'undefined') {
+                updateStatus('api-status', '✗ pSEO not available for API testing', 'error');
+                return;
+            }
+
+            // Test pageview tracking
+            document.getElementById('test-pageview').addEventListener('click', function() {
+                pSEO.trackPageview();
+                const events = window.mockGtagEvents || [];
+                const configEvent = events.find(e => e.type === 'config');
+
+                if (configEvent) {
+                    updateStatus('api-status', '✓ Pageview tracked via mock gtag', 'success');
+                } else {
+                    updateStatus('api-status', '⚠ Pageview called but no mock gtag event', 'warning');
+                }
+            });
+
+            // Test click tracking
+            document.getElementById('test-click').addEventListener('click', function() {
+                const testElement = document.createElement('a');
+                testElement.href = 'https://test.example.com';
+                testElement.textContent = 'Test Link';
+
+                pSEO.trackClick(testElement, {
+                    category: 'csp-test',
+                    action: 'manual-click',
+                    label: 'csp-test-link'
+                });
+
+                const events = window.mockGtagEvents || [];
+                const clickEvent = events.find(e => e.type === 'event' && e.action === 'manual-click');
+
+                if (clickEvent) {
+                    updateStatus('api-status', '✓ Click tracked via mock gtag', 'success');
+                } else {
+                    updateStatus('api-status', '⚠ Click called but no mock gtag event', 'warning');
+                }
+            });
+
+            updateStatus('api-status', '✓ API test handlers registered', 'success');
+        }
+
+        function runOutboundTests() {
+            if (typeof pSEO === 'undefined') {
+                updateStatus('outbound-status', '✗ pSEO not available for outbound testing', 'error');
+                return;
+            }
+
+            // Decorate all outbound links
+            pSEO.decorateAllOutbound();
+
+            // Test outbound link detection
+            const outboundLink = document.getElementById('test-outbound-1');
+            const internalLink = document.getElementById('test-internal');
+
+            if (outboundLink && internalLink) {
+                // Check if links have been decorated (would have event listeners)
+                updateStatus('outbound-status', '✓ Outbound link decoration completed', 'success');
+
+                // Add test click handlers
+                outboundLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    alert('Outbound link clicked - tracking should be fired');
+                });
+
+                internalLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    alert('Internal link clicked - no outbound tracking');
+                });
+            } else {
+                updateStatus('outbound-status', '✗ Test links not found', 'error');
+            }
+        }
+
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.className = `status ${type}`;
+            }
+        }
+
+        // CSP Violation Handler
+        window.addEventListener('securitypolicyviolation', function(e) {
+            console.warn('CSP Violation:', e);
+            const violationInfo = `CSP Violation: ${e.directive} - ${e.blockedURI}`;
+
+            // Add violation notice to page
+            const violationDiv = document.createElement('div');
+            violationDiv.className = 'status error';
+            violationDiv.textContent = violationInfo;
+            document.body.appendChild(violationDiv);
+        });
+    </script>
+</body>
+</html>

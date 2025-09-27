@@ -490,7 +490,7 @@ export const createHowTo = (input: HowToInput): HowToProperties => {
   // Transform complex objects
   if (input.image) {
     if (Array.isArray(input.image)) {
-      howTo.image = input.image.map(transformImageObject);
+      howTo.image = input.image.map(transformImageObject) as ImageObject[] | string[];
     } else {
       howTo.image = transformImageObject(input.image);
     }

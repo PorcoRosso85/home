@@ -277,18 +277,19 @@ export const createGalleryImage = (
     authorUrl?: string;
   } = {}
 ): ImageObjectProperties => {
+  const { author, authorUrl, ...restOptions } = options;
   return createImageObject({
     url,
     caption,
     name: caption,
     representativeOfPage: false,
     isAccessibleForFree: true,
-    ...options,
-    ...(options.author && {
+    ...restOptions,
+    ...(author && {
       author: {
         type: 'Person',
-        name: options.author,
-        url: options.authorUrl,
+        name: author,
+        url: authorUrl,
       },
     }),
   });
@@ -305,18 +306,19 @@ export const createHeroImage = (
     authorUrl?: string;
   } = {}
 ): ImageObjectProperties => {
+  const { author, authorUrl, ...restOptions } = options;
   return createImageObject({
     url,
     description,
     name: description,
     representativeOfPage: true,
     isAccessibleForFree: true,
-    ...options,
-    ...(options.author && {
+    ...restOptions,
+    ...(author && {
       author: {
         type: 'Person',
-        name: options.author,
-        url: options.authorUrl,
+        name: author,
+        url: authorUrl,
       },
     }),
   });

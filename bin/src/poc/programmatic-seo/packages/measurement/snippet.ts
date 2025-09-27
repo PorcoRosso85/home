@@ -39,8 +39,8 @@ const getState = (): MeasurementState => {
     };
   }
 
-  if (!(window as Record<string, unknown>).__measurementState) {
-    (window as Record<string, unknown>).__measurementState = {
+  if (!(window as any).__measurementState) {
+    (window as any).__measurementState = {
       initialized: false,
       config: null,
       inflightRequests: new Set(),
@@ -49,14 +49,14 @@ const getState = (): MeasurementState => {
     };
   }
 
-  return (window as Record<string, unknown>).__measurementState as MeasurementState;
+  return (window as any).__measurementState as MeasurementState;
 };
 
 // Provider detection and delegation
 const getProviderFunction = (provider: ProviderType): ((event: string, data: Record<string, unknown>) => void) | null => {
   if (typeof window === 'undefined') return null;
 
-  const win = window as Record<string, unknown>;
+  const win = window as any;
 
   switch (provider) {
     case 'ga4':
@@ -193,9 +193,9 @@ export const trackClick = (element: HTMLElement, meta?: ClickMeta): void => {
 
   try {
     if (state.config.provider === 'ga4') {
-      providerFn('event', meta?.action || 'click', eventData);
+      (providerFn as any)('event', meta?.action || 'click', eventData);
     } else if (state.config.provider === 'plausible') {
-      providerFn(meta?.action || 'click', { props: eventData });
+      (providerFn as any)(meta?.action || 'click', { props: eventData });
     }
   } catch (error) {
     // Silent fail - don't break user experience
@@ -219,7 +219,7 @@ export const decorateOutbound = (element: HTMLElement): void => {
       trackClick(element, { category: 'outbound', action: 'click', label: href });
 
       // Use Beacon API for reliable tracking before navigation
-      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
         // Additional beacon tracking can be added here if needed
       }
     }, { passive: true });
@@ -244,7 +244,7 @@ export const decorateAllOutbound = (): void => {
 
 // Export for IIFE build
 if (typeof window !== 'undefined') {
-  (window as Record<string, unknown>).MeasurementSnippet = {
+  (window as any).MeasurementSnippet = {
     init,
     trackPageview,
     trackClick,
