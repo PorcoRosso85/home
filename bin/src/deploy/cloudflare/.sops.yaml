@@ -4,6 +4,10 @@ keys:
   - &user_age YOUR_AGE_PUBLIC_KEY_WILL_BE_INSERTED_HERE
 
 creation_rules:
+  # SOT (Source of Truth) files in spec directory
+  - path_regex: spec/.*\.yaml$
+    age: [*user_age]
+
   # Environment-specific R2 configuration files
   - path_regex: secrets/r2/(dev|prod|stg)\.yaml$
     age: [*user_age]

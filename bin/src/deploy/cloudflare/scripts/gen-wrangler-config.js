@@ -68,39 +68,42 @@ function parseJSONC(content) {
 }
 
 /**
- * Read R2 configuration from encrypted secrets or templates
+ * Read R2 configuration from SOT or legacy encrypted secrets
  */
 async function readR2Config() {
   // Configure SOPS helper logging level
   sopsYaml.setLogLevel('WARN'); // Keep quiet for wrangler config generation
 
   try {
-    console.log('📖 Reading R2 configuration using shared SOPS helper...');
+    console.log('📖 Reading R2 configuration using SOT-driven approach...');
 
-    // Use shared helper with environment detection (defaults to 'dev')
+    // Use SOT configuration (defaults to 'dev')
     const environment = 'dev'; // Could be made configurable
-    const config = await sopsYaml.getEnvironmentConfig(
-      'r2',
+    const sotConfig = await sopsYaml.getSOTConfig(
       environment,
-      useTemplate,
       {
-        schema: sopsYaml.schemas.r2,
+        schema: sopsYaml.schemas.sot,
         cacheTTL: 10 * 60 * 1000 // 10 minutes cache for wrangler config
       }
     );
 
-    console.log(`✓ CF_ACCOUNT_ID: ${config.cf_account_id.substring(0, 10)}...`);
-    console.log(`✓ R2_BUCKETS: ${config.r2_buckets}`);
+    // Extract R2 configuration from SOT
+    if (!sotConfig.r2 || !sotConfig.r2.buckets) {
+      throw new Error('SOT configuration missing r2.buckets section');
+    }
 
-    return config;
+    console.log(`✓ SOT Version: ${sotConfig.version || 'unknown'}`);
+    console.log(`✓ R2 Buckets: ${sotConfig.r2.buckets.length} configured`);
+
+    return sotConfig;
 
   } catch (error) {
-    console.error('❌ Failed to read R2 configuration:', error.message);
+    console.error('❌ Failed to read SOT configuration:', error.message);
 
     if (!useTemplate) {
       console.error('\nSolutions:');
-      console.error('   1. Initialize secrets: nix run .#secrets-init');
-      console.error('   2. Configure secrets: nix run .#secrets-edit -- secrets/r2.yaml');
+      console.error('   1. Check SOT file exists: spec/dev/cloudflare.yaml');
+      console.error('   2. Validate SOT format with JSON schema');
       console.error('   3. Or use --use-template for testing');
     }
 
@@ -109,17 +112,22 @@ async function readR2Config() {
 }
 
 /**
- * Generate R2 buckets configuration
+ * Generate R2 buckets configuration from SOT format
  */
-function generateR2BucketsConfig(r2BucketsString) {
-  const buckets = r2BucketsString.split(',').map(b => b.trim());
+function generateR2BucketsConfig(sotR2Config) {
+  if (!sotR2Config || !sotR2Config.buckets || !Array.isArray(sotR2Config.buckets)) {
+    throw new Error('Invalid SOT R2 configuration: buckets array missing');
+  }
 
-  return buckets.map(bucket => {
-    const bindingName = bucket.toUpperCase().replace(/-/g, '_');
+  return sotR2Config.buckets.map(bucket => {
+    if (!bucket.name || !bucket.binding) {
+      throw new Error('SOT R2 bucket missing required name or binding field');
+    }
+
     return {
-      binding: bindingName,
-      bucket_name: bucket,
-      preview_bucket_name: `${bucket}-preview`
+      binding: bucket.binding,
+      bucket_name: bucket.name,
+      preview_bucket_name: `${bucket.name}-preview`
     };
   });
 }
@@ -146,25 +154,27 @@ function readExistingConfig() {
 }
 
 /**
- * Generate the complete wrangler.jsonc configuration
+ * Generate the complete wrangler.jsonc configuration from SOT
  */
 async function generateConfig() {
-  const config = await readR2Config();
+  const sotConfig = await readR2Config();
   const existing = readExistingConfig();
 
-  const { cf_account_id, r2_buckets } = config;
+  // Extract R2 configuration from SOT
+  const r2BucketsConfig = generateR2BucketsConfig(sotConfig.r2);
 
-  // Generate R2 buckets configuration
-  const r2BucketsConfig = generateR2BucketsConfig(r2_buckets);
+  // For now, we'll use a placeholder account_id since SOT doesn't include secrets
+  // In production, this would come from encrypted secrets or environment variables
+  const accountId = process.env.CF_ACCOUNT_ID || existing.account_id || 'placeholder-account-id';
 
   // Build the complete configuration
-  const config = {
+  const wranglerConfig = {
     $schema: 'node_modules/wrangler/config-schema.json',
     name: existing.name || CONFIG.defaultName,
     main: existing.main || CONFIG.defaultMain,
     compatibility_date: CONFIG.compatibilityDate,
     compatibility_flags: CONFIG.compatibilityFlags,
-    account_id: cf_account_id,
+    account_id: accountId,
     assets: {
       directory: CONFIG.assetsDirectory,
       binding: CONFIG.assetsBinding
@@ -175,24 +185,30 @@ async function generateConfig() {
     r2_buckets: r2BucketsConfig
   };
 
+  // Add workers configuration if present in SOT
+  if (sotConfig.workers && Array.isArray(sotConfig.workers)) {
+    console.log(`✓ Workers: ${sotConfig.workers.length} configured in SOT`);
+    // Note: workers configuration would be handled separately in multi-worker setups
+  }
+
   // Preserve existing configurations
   if (existing.d1_databases) {
-    config.d1_databases = existing.d1_databases;
+    wranglerConfig.d1_databases = existing.d1_databases;
   }
 
   if (existing.durable_objects) {
-    config.durable_objects = existing.durable_objects;
+    wranglerConfig.durable_objects = existing.durable_objects;
   }
 
   if (existing.vars) {
-    config.vars = existing.vars;
+    wranglerConfig.vars = existing.vars;
   }
 
   if (existing.migrations) {
-    config.migrations = existing.migrations;
+    wranglerConfig.migrations = existing.migrations;
   }
 
-  return config;
+  return wranglerConfig;
 }
 
 /**
@@ -200,8 +216,8 @@ async function generateConfig() {
  */
 async function main() {
   try {
-    const config = await generateConfig();
-    const configJson = JSON.stringify(config, null, 2);
+    const wranglerConfig = await generateConfig();
+    const configJson = JSON.stringify(wranglerConfig, null, 2);
 
     if (isDryRun) {
       console.log('');
@@ -217,13 +233,13 @@ async function main() {
 
       // Write the new configuration
       fs.writeFileSync('wrangler.jsonc', configJson);
-      console.log('✅ Generated wrangler.jsonc with R2 configuration');
+      console.log('✅ Generated wrangler.jsonc with SOT-driven R2 configuration');
     }
 
-    // Show configured buckets
+    // Show configured buckets from SOT
     console.log('');
-    console.log('📋 R2 Buckets configured:');
-    config.r2_buckets.forEach(bucket => {
+    console.log('📋 R2 Buckets configured (from SOT):');
+    wranglerConfig.r2_buckets.forEach(bucket => {
       console.log(`  - Binding: ${bucket.binding} → Bucket: ${bucket.bucket_name}`);
     });
 
@@ -231,12 +247,13 @@ async function main() {
       console.log('');
       console.log('🎯 Next steps:');
       console.log('  1. Review generated wrangler.jsonc');
-      console.log('  2. Run "just r2:test" to test R2 connection locally');
-      console.log('  3. Run "just r2:check-secrets" to verify security');
+      console.log('  2. Set CF_ACCOUNT_ID environment variable if needed');
+      console.log('  3. Run "just r2:test" to test R2 connection locally');
+      console.log('  4. Validate SOT configuration: "just sot:validate dev"');
     }
 
   } catch (error) {
-    console.error('❌ Configuration generation failed:', error.message);
+    console.error('❌ SOT-driven configuration generation failed:', error.message);
     process.exit(1);
   }
 }

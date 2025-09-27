@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.cloudflare-deployment.local/cloudflare.schema.json",
+  "title": "Cloudflare Deployment Configuration",
+  "description": "Schema for Cloudflare deployment SOT (Source of Truth) configuration files",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Version of the configuration format",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "r2": {
+      "type": "object",
+      "description": "R2 storage bucket configurations",
+      "additionalProperties": false,
+      "properties": {
+        "buckets": {
+          "type": "array",
+          "description": "Array of R2 bucket definitions",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "binding"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the R2 bucket",
+                "minLength": 1
+              },
+              "binding": {
+                "type": "string",
+                "description": "Binding name for the R2 bucket",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "workers": {
+      "type": "array",
+      "description": "Array of Cloudflare Worker definitions",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "script"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the Cloudflare Worker",
+            "minLength": 1
+          },
+          "script": {
+            "type": "string",
+            "description": "Path to the worker script file",
+            "minLength": 1
+          },
+          "bindings": {
+            "type": "object",
+            "description": "Bindings configuration for the worker",
+            "additionalProperties": false,
+            "properties": {
+              "r2": {
+                "type": "array",
+                "description": "Array of R2 binding definitions for this worker",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["bucket", "binding"],
+                  "properties": {
+                    "bucket": {
+                      "type": "string",
+                      "description": "Name of the R2 bucket to bind",
+                      "minLength": 1
+                    },
+                    "binding": {
+                      "type": "string",
+                      "description": "Binding name for the R2 bucket in the worker",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

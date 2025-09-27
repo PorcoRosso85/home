@@ -28,6 +28,9 @@
  *
  *   // Environment-specific with template fallback
  *   const config = await sopsYaml.getEnvironmentConfig('r2', 'dev', useTemplate);
+ *
+ *   // SOT (Single Source of Truth) configuration
+ *   const sotConfig = await sopsYaml.getSOTConfig('dev');
  */
 
 const fs = require('fs');
@@ -47,6 +50,7 @@ const CONFIG = {
 
   // File patterns
   secretsBasePath: './secrets',
+  specBasePath: './spec',
   environmentPattern: /^(dev|stg|prod)$/,
 
   // Performance settings
@@ -388,6 +392,129 @@ async function executeSopsDecryption(filePath, options = {}) {
 }
 
 /**
+ * Parse SOT YAML content (simplified parser for known structure)
+ */
+function parseSOTYaml(yamlContent) {
+  const config = {};
+  const lines = yamlContent.split('\n');
+  let currentSection = null;
+  let currentArray = null;
+  let currentObject = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines and comments
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    // Calculate indent level
+    const currentIndent = line.length - line.trimStart().length;
+
+    // Handle top-level keys
+    if (currentIndent === 0 && trimmed.includes(':')) {
+      const [key, value] = trimmed.split(':', 2);
+      const keyName = key.trim();
+      const valuePart = value ? value.trim() : '';
+
+      if (valuePart && valuePart !== '') {
+        // Simple key-value pair
+        config[keyName] = valuePart.replace(/['"]/g, '');
+        currentSection = null;
+        currentArray = null;
+      } else {
+        // Section header
+        currentSection = keyName;
+        currentArray = null;
+        currentObject = null;
+
+        // Check if next line indicates an array
+        if (i + 1 < lines.length) {
+          const nextLine = lines[i + 1];
+          const nextTrimmed = nextLine.trim();
+          if (nextTrimmed.startsWith('-') || (nextTrimmed.includes(':') && !nextTrimmed.split(':')[1].trim())) {
+            // This might be an array at top level (like workers:) or object (like r2:)
+            if (keyName === 'workers') {
+              config[keyName] = [];
+              currentArray = keyName;
+            } else {
+              config[keyName] = {};
+            }
+          } else {
+            config[keyName] = {};
+          }
+        } else {
+          config[keyName] = {};
+        }
+      }
+    }
+    // Handle second-level keys or top-level array items
+    else if (currentIndent === 2) {
+      if (trimmed.startsWith('- ') && currentArray) {
+        // Top-level array item (workers)
+        const itemContent = trimmed.substring(2).trim();
+        if (itemContent.includes(':')) {
+          const [key, value] = itemContent.split(':', 2);
+          const newItem = {};
+          newItem[key.trim()] = value.trim().replace(/['"]/g, '');
+          config[currentArray].push(newItem);
+          currentObject = config[currentArray][config[currentArray].length - 1];
+        }
+      } else if (trimmed.includes(':') && currentSection && config[currentSection]) {
+        // Second-level keys in objects (like r2: buckets:)
+        const [key, value] = trimmed.split(':', 2);
+        const keyName = key.trim();
+        const valuePart = value ? value.trim() : '';
+
+        if (keyName === 'buckets') {
+          config[currentSection][keyName] = [];
+          currentArray = `${currentSection}.${keyName}`;
+        } else if (valuePart) {
+          if (currentObject) {
+            currentObject[keyName] = valuePart.replace(/['"]/g, '');
+          } else {
+            config[currentSection][keyName] = valuePart.replace(/['"]/g, '');
+          }
+        }
+      }
+    }
+    // Handle third-level items (like r2.buckets array items)
+    else if (currentIndent === 4) {
+      if (trimmed.startsWith('- ') && currentArray && currentArray.includes('.')) {
+        // Third-level array item (r2.buckets)
+        const [section, arrayName] = currentArray.split('.');
+        const itemContent = trimmed.substring(2).trim();
+        if (itemContent.includes(':')) {
+          const [key, value] = itemContent.split(':', 2);
+          const newItem = {};
+          newItem[key.trim()] = value.trim().replace(/['"]/g, '');
+          config[section][arrayName].push(newItem);
+          currentObject = config[section][arrayName][config[section][arrayName].length - 1];
+        }
+      } else if (trimmed.includes(':')) {
+        // Additional properties for current array item
+        const [key, value] = trimmed.split(':', 2);
+        if (currentObject) {
+          currentObject[key.trim()] = value.trim().replace(/['"]/g, '');
+        }
+      }
+    }
+    // Handle properties at the same level as array item content (indent 6)
+    else if (currentIndent === 6 && trimmed.includes(':')) {
+      // Additional properties for array items (like binding: on next line after name:)
+      const [key, value] = trimmed.split(':', 2);
+      if (currentObject) {
+        currentObject[key.trim()] = value.trim().replace(/['"]/g, '');
+      }
+    }
+  }
+
+  return config;
+}
+
+/**
  * Parse YAML content with validation
  */
 function parseYamlContent(yamlContent, options = {}) {
@@ -577,6 +704,133 @@ async function getEnvironmentConfig(configType, environment, useTemplate = false
 }
 
 /**
+ * SOT (Single Source of Truth) configuration loader
+ * Reads from spec/{environment}/cloudflare.yaml files with automatic schema validation
+ */
+async function getSOTConfig(environment, options = {}) {
+  // Validate environment
+  if (!CONFIG.environmentPattern.test(environment)) {
+    throw new Error(`Invalid environment: ${environment}. Must be one of: dev, stg, prod`);
+  }
+
+  // SOT files are located at spec/{env}/cloudflare.yaml
+  const sotPath = path.join(CONFIG.specBasePath, environment, 'cloudflare.yaml');
+
+  // Check if SOT file exists
+  if (!fs.existsSync(expandPath(sotPath))) {
+    throw new Error(`SOT configuration file not found: ${sotPath}. Expected at spec/${environment}/cloudflare.yaml`);
+  }
+
+  log(`Loading SOT configuration from ${sotPath}`, 'INFO');
+
+  try {
+    // Check if file is encrypted (contains SOPS metadata) or plain YAML
+    const fileContent = fs.readFileSync(expandPath(sotPath), 'utf8');
+    const isEncrypted = fileContent.includes('sops:') || fileContent.includes('sops_version');
+
+    let config;
+    if (isEncrypted) {
+      log(`SOT file is encrypted, using SOPS decryption`, 'DEBUG');
+      config = await decrypt(sotPath, options);
+    } else {
+      log(`SOT file is plain YAML, reading directly`, 'DEBUG');
+      // For now, use a simple manual parse for the known SOT structure
+      config = parseSOTYaml(fileContent);
+    }
+
+    // Validate SOT format - ensure it has the expected structure
+    if (!config.version) {
+      log('SOT file missing version field, continuing anyway', 'WARN');
+    }
+
+    // Perform JSON Schema validation if enabled (default: true)
+    if (options.skipValidation !== true) {
+      try {
+        // Import schema validator
+        const schemaValidator = require('./schema-validator.js');
+
+        log(`Validating SOT configuration against JSON Schema`, 'DEBUG', {
+          environment,
+          configKeys: Object.keys(config).length
+        });
+
+        const validationResult = schemaValidator.validateSOT(config, {
+          schemaPath: options.schemaPath || './schemas/cloudflare.schema.json',
+          cacheKey: `sot-${environment}`
+        });
+
+        if (!validationResult.valid) {
+          const errorDetails = validationResult.errors.map(err => `  - ${err.message}`).join('\n');
+
+          log(`SOT configuration validation failed`, 'ERROR', {
+            environment,
+            errorCount: validationResult.errors.length,
+            duration: validationResult.duration
+          });
+
+          // Create detailed error message
+          const errorMessage = [
+            `SOT configuration validation failed for ${environment} environment:`,
+            '',
+            'Schema validation errors:',
+            errorDetails,
+            '',
+            `Validation completed in ${validationResult.duration}ms`,
+            `Schema: ${validationResult.schema}`,
+            '',
+            'Please fix the above errors in your SOT configuration file:'
+          ].join('\n');
+
+          throw new Error(`${errorMessage}\n  ${sotPath}`);
+        }
+
+        log(`SOT configuration validation passed`, 'DEBUG', {
+          environment,
+          duration: validationResult.duration,
+          schema: validationResult.schema
+        });
+
+        // Log any warnings if present
+        if (validationResult.warnings && validationResult.warnings.length > 0) {
+          validationResult.warnings.forEach(warning => {
+            log(`SOT validation warning: ${warning.message}`, 'WARN', {
+              environment,
+              path: warning.path
+            });
+          });
+        }
+
+      } catch (validationError) {
+        // If schema validator is not available or has errors, log warning but continue
+        if (validationError.message.includes('AJV not available')) {
+          log('Schema validation skipped: AJV not available. Install with: npm install ajv ajv-formats', 'WARN');
+        } else if (validationError.message.includes('Schema file not found')) {
+          log(`Schema validation skipped: ${validationError.message}`, 'WARN');
+        } else {
+          // Re-throw validation errors (these are actual configuration problems)
+          throw validationError;
+        }
+      }
+    } else {
+      log('SOT schema validation skipped (skipValidation=true)', 'DEBUG');
+    }
+
+    log(`SOT configuration loaded successfully`, 'DEBUG', {
+      environment,
+      version: config.version || 'unknown',
+      hasR2: !!(config.r2),
+      hasWorkers: !!(config.workers),
+      path: sotPath
+    });
+
+    return config;
+
+  } catch (error) {
+    throw new Error(`Failed to load SOT configuration from ${sotPath}: ${error.message}`);
+  }
+}
+
+/**
  * Generate template configuration for testing
  */
 function getTemplateConfig(configType, environment) {
@@ -669,6 +923,55 @@ const schemas = {
         type: 'string'
       }
     }
+  },
+  sot: {
+    name: 'SOT Cloudflare Configuration',
+    required: ['version'],
+    fields: {
+      version: {
+        type: 'string',
+        pattern: '^\\d+\\.\\d+$',
+        validate: (value) => {
+          const supportedVersions = ['1.0'];
+          if (!supportedVersions.includes(value)) {
+            return `Unsupported SOT version: ${value}. Supported versions: ${supportedVersions.join(', ')}`;
+          }
+          return true;
+        }
+      },
+      r2: {
+        type: 'object',
+        validate: (value) => {
+          if (value && value.buckets) {
+            if (!Array.isArray(value.buckets)) {
+              return 'r2.buckets must be an array';
+            }
+            for (const bucket of value.buckets) {
+              if (!bucket.name || !bucket.binding) {
+                return 'Each R2 bucket must have name and binding properties';
+              }
+              if (typeof bucket.name !== 'string' || typeof bucket.binding !== 'string') {
+                return 'R2 bucket name and binding must be strings';
+              }
+            }
+          }
+          return true;
+        }
+      },
+      workers: {
+        type: 'object',
+        validate: (value) => {
+          if (value && Array.isArray(value)) {
+            for (const worker of value) {
+              if (!worker.name || typeof worker.name !== 'string') {
+                return 'Each worker must have a name property (string)';
+              }
+            }
+          }
+          return true;
+        }
+      }
+    }
   }
 };
 
@@ -729,6 +1032,7 @@ module.exports = {
   decrypt,
   decryptWithValidation,
   getEnvironmentConfig,
+  getSOTConfig,
   decryptMultiple,
 
   // Cache management
@@ -775,10 +1079,12 @@ Commands:
   cache-stats                 Show cache statistics
   clear-cache                 Clear cache
   env-config <type> <env>     Get environment config
+  sot-config <env>            Get SOT config from spec/{env}/cloudflare.yaml
 
 Examples:
   node sops-yaml.js decrypt secrets/r2.yaml
   node sops-yaml.js env-config r2 dev
+  node sops-yaml.js sot-config dev
   node sops-yaml.js health
     `);
     process.exit(0);
@@ -803,6 +1109,14 @@ Examples:
           }
           const envResult = await getEnvironmentConfig(args[1], args[2]);
           console.log(JSON.stringify(envResult, null, 2));
+          break;
+
+        case 'sot-config':
+          if (args.length < 2) {
+            throw new Error('Environment required for sot-config command');
+          }
+          const sotResult = await getSOTConfig(args[1]);
+          console.log(JSON.stringify(sotResult, null, 2));
           break;
 
         case 'health':

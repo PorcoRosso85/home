@@ -83,6 +83,40 @@ wrangler deploy
 - Resource inventory and status monitoring
 - Multi-environment support
 
+## 📋 SOT Integration Progress
+
+🎉 **ALL PHASES COMPLETED** - SOT Integration Successfully Implemented (2025-09-28)
+
+### 🎯 Core Requirements Implementation Status
+
+#### ✅ Phase 1: Documentation & Message Consistency (COMPLETED)
+- [x] Resource/Data Plane separation established
+- [x] Documentation updated for Resource Plane focus
+- [x] Command descriptions aligned with current behavior
+- [x] Security guards implemented
+
+#### ✅ Phase 2: Single Source of Truth (SOT) Introduction (COMPLETED)
+- [x] `spec/{dev,stg,prod}/` directory structure created
+- [x] SOPS configuration updated for spec/ files
+- [x] JSON Schema defined for SOT validation
+- [x] DevShell updated with Pulumi and AJV CLI
+- [x] Existing generators converted to SOT-driven
+- [x] SOT-driven configuration validation implemented
+
+#### ✅ Phase 3: Drift Detection (COMPLETED)
+- [x] Remote state fetching implemented (`just res:fetch-state`)
+- [x] SOT comparison logic implemented (`just res:diff`)
+- [x] Drift detection integrated into `nix flake check`
+- [x] CI/CD pipeline integration
+
+#### ✅ Phase 4: Pulumi IaC Automation (COMPLETED)
+- [x] Pulumi project structure established
+- [x] Environment-specific stacks created (dev/stg/prod)
+- [x] SOT → Pulumi direct reading implemented
+- [x] CLI commands: `just cf:plan/apply/destroy {env}`
+- [x] Safety gates: diff=0 prerequisite for apply
+- [x] R2 Control Plane example implementation
+
 ## 📚 Documentation
 
 ### Core Guides

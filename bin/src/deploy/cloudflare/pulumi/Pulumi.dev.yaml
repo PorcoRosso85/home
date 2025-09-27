@@ -1,0 +1,7 @@
+config:
+  cf:accountId:
+    secure: ${CF_ACCOUNT_ID}
+  cf:apiToken:
+    secure: ${CF_API_TOKEN}
+  cloudflare-deployment:environment: dev
+  cloudflare-deployment:previewOnly: true

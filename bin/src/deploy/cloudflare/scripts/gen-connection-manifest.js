@@ -299,7 +299,7 @@ function expandPath(filePath) {
 }
 
 /**
- * Check prerequisites for encrypted secrets mode
+ * Check prerequisites for SOT configuration
  */
 async function checkPrerequisites() {
   if (globalOptions.useTemplate) {
@@ -307,38 +307,34 @@ async function checkPrerequisites() {
     return;
   }
 
-  log('Checking SOPS prerequisites using shared helper', 'verbose');
+  log('Checking SOT prerequisites using shared helper', 'verbose');
 
   try {
-    // Use shared helper's health check
-    const health = await sopsYaml.healthCheck();
+    // Check if SOT file exists for the environment
+    const sotPath = `spec/${globalOptions.environment}/cloudflare.yaml`;
 
-    if (health.errors.length > 0) {
-      console.error('❌ Error: SOPS prerequisites check failed:');
-      health.errors.forEach(error => {
-        console.error(`   - ${error}`);
-      });
+    if (!fs.existsSync(sotPath)) {
+      console.error(`❌ Error: SOT configuration file not found: ${sotPath}`);
       console.error('\nSolutions:');
-      console.error('   1. Initialize secrets: just secrets-init');
-      console.error('   2. Configure environment secrets: just secrets-edit');
+      console.error('   1. Create SOT file: cp spec/dev/cloudflare.yaml spec/{env}/cloudflare.yaml');
+      console.error('   2. Validate SOT format with JSON schema');
       console.error('   3. Or use --use-template for testing');
       process.exit(2);
     }
 
-    log('All SOPS prerequisites verified', 'success');
+    // Use shared helper's health check for SOPS (needed for encrypted SOT files)
+    const health = await sopsYaml.healthCheck();
 
-    // Additional check for environment-specific secrets file
-    const envSecretsPattern = `secrets/r2/${globalOptions.environment}.yaml`;
-    const fallbackSecretsPattern = `secrets/r2.yaml`;
-
-    if (!fs.existsSync(envSecretsPattern) && !fs.existsSync(fallbackSecretsPattern)) {
-      console.error(`❌ Error: No R2 secrets found for environment '${globalOptions.environment}'`);
-      console.error(`   Expected: ${envSecretsPattern} or ${fallbackSecretsPattern}`);
-      console.error('\nSolutions:');
-      console.error('   1. Create secrets: just secrets-edit');
-      console.error('   2. Use --list-environments to see status');
-      process.exit(2);
+    if (health.errors.length > 0) {
+      log('SOPS prerequisites check found issues (may be OK for unencrypted SOT files):', 'warning');
+      health.errors.forEach(error => {
+        log(`   - ${error}`, 'warning');
+      });
+    } else {
+      log('All SOPS prerequisites verified', 'success');
     }
+
+    log(`SOT file exists: ${sotPath}`, 'success');
 
   } catch (error) {
     console.error('❌ Error: Prerequisites check failed:', error.message);
@@ -347,7 +343,7 @@ async function checkPrerequisites() {
 }
 
 /**
- * Read R2 configuration from encrypted secrets or template
+ * Read R2 configuration from SOT (Single Source of Truth)
  */
 async function readR2Configuration() {
   // Configure SOPS helper logging level
@@ -360,30 +356,33 @@ async function readR2Configuration() {
   }
 
   try {
-    log('Reading R2 configuration using shared SOPS helper', 'verbose');
+    log('Reading SOT configuration using shared SOPS helper', 'verbose');
 
-    // Use the shared helper with validation
-    const config = await sopsYaml.getEnvironmentConfig(
-      'r2',
+    // Use SOT configuration instead of legacy environment config
+    const sotConfig = await sopsYaml.getSOTConfig(
       globalOptions.environment,
-      globalOptions.useTemplate,
       {
-        schema: sopsYaml.schemas.r2,
+        schema: sopsYaml.schemas.sot,
         cacheTTL: 2 * 60 * 1000 // 2 minutes cache for connection manifest
       }
     );
 
-    log('R2 configuration loaded successfully', 'verbose');
-    return config;
+    // Validate SOT has R2 configuration
+    if (!sotConfig.r2 || !sotConfig.r2.buckets) {
+      throw new Error('SOT configuration missing r2.buckets section');
+    }
+
+    log('SOT configuration loaded successfully', 'verbose');
+    return sotConfig;
 
   } catch (error) {
-    console.error(`❌ Error: Failed to read R2 configuration`);
+    console.error(`❌ Error: Failed to read SOT configuration`);
     console.error(`   ${error.message}`);
 
     if (!globalOptions.useTemplate) {
       console.error('\nSolutions:');
-      console.error('   1. Initialize secrets: just secrets-init');
-      console.error('   2. Configure environment secrets: just secrets-edit');
+      console.error('   1. Ensure SOT file exists: spec/{env}/cloudflare.yaml');
+      console.error('   2. Validate SOT format with JSON schema');
       console.error('   3. Or use --use-template for testing');
     }
 
@@ -392,14 +391,25 @@ async function readR2Configuration() {
 }
 
 /**
- * Generate R2 bucket configurations
+ * Generate R2 bucket configurations from SOT format
  */
-function generateBucketConfigs(bucketsString) {
-  const buckets = bucketsString.split(',').map(b => b.trim()).filter(b => b);
+function generateBucketConfigs(sotR2Config) {
+  if (!sotR2Config || !sotR2Config.buckets || !Array.isArray(sotR2Config.buckets)) {
+    throw new Error('Invalid SOT R2 configuration: buckets array missing');
+  }
 
-  log(`Generating configurations for ${buckets.length} buckets`, 'verbose');
+  const buckets = sotR2Config.buckets;
+  log(`Generating configurations for ${buckets.length} buckets from SOT`, 'verbose');
 
-  return buckets.map(bucketName => {
+  return buckets.map(bucket => {
+    // Validate required SOT bucket fields
+    if (!bucket.name || !bucket.binding) {
+      console.error(`❌ Error: SOT bucket missing required name or binding field`);
+      process.exit(3);
+    }
+
+    const bucketName = bucket.name;
+
     // Basic validation
     if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(bucketName)) {
       console.error(`❌ Error: Invalid bucket name '${bucketName}'`);
@@ -412,10 +422,11 @@ function generateBucketConfigs(bucketsString) {
       process.exit(3);
     }
 
-    log(`  - ${bucketName}`, 'verbose');
+    log(`  - ${bucketName} (binding: ${bucket.binding})`, 'verbose');
 
     return {
       name: bucketName,
+      binding: bucket.binding,
       public: bucketName.includes('public') || bucketName.includes('static'),
       ...(bucketName.includes('static') && {
         cors_origins: ['https://*.example.com', 'https://localhost:*']
@@ -425,35 +436,59 @@ function generateBucketConfigs(bucketsString) {
 }
 
 /**
- * Generate the complete R2 connection manifest
+ * Generate the complete R2 connection manifest from SOT
  */
 async function generateManifest() {
-  log('Generating R2 connection manifest', 'info');
+  log('Generating R2 connection manifest from SOT', 'info');
 
-  const config = await readR2Configuration();
-  const buckets = generateBucketConfigs(config.r2_buckets);
+  const sotConfig = await readR2Configuration();
+  const buckets = generateBucketConfigs(sotConfig.r2);
+
+  // Account ID should come from environment or encrypted secrets
+  // SOT contains resource definitions, not sensitive credentials
+  const accountId = process.env.CF_ACCOUNT_ID || 'placeholder-account-id';
+
+  if (accountId === 'placeholder-account-id') {
+    log('Using placeholder account ID - set CF_ACCOUNT_ID environment variable for production', 'warning');
+  }
 
   const manifest = {
-    account_id: config.cf_account_id,
-    endpoint: `https://${config.cf_account_id}.r2.cloudflarestorage.com`,
+    account_id: accountId,
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
     region: CONFIG.defaultRegion,
     buckets: buckets,
     connection_mode: CONFIG.defaultConnectionMode,
     meta: {
       environment: globalOptions.environment,
       version: CONFIG.manifestVersion,
+      sot_version: sotConfig.version || 'unknown',
       created_at: new Date().toISOString(),
-      description: `R2 connection manifest for ${globalOptions.environment} environment`
+      description: `R2 connection manifest for ${globalOptions.environment} environment (SOT-driven)`
     }
   };
 
-  // Add credentials for S3 API mode (if available)
-  if (config.r2_access_key_id && config.r2_secret_access_key) {
-    log('Including S3 API credentials', 'verbose');
+  // Add workers information if present in SOT
+  if (sotConfig.workers && Array.isArray(sotConfig.workers)) {
+    log(`Including workers metadata from SOT (${sotConfig.workers.length} workers)`, 'verbose');
+    manifest.meta.workers_count = sotConfig.workers.length;
+    manifest.meta.workers = sotConfig.workers.map(w => ({
+      name: w.name,
+      script: w.script || 'unknown',
+      r2_bindings: w.bindings?.r2?.length || 0
+    }));
+  }
+
+  // Credentials for S3 API mode would come from environment variables or encrypted secrets
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const sessionToken = process.env.R2_SESSION_TOKEN;
+
+  if (accessKeyId && secretAccessKey) {
+    log('Including S3 API credentials from environment', 'verbose');
     manifest.credentials = {
-      access_key_id: config.r2_access_key_id,
-      secret_access_key: config.r2_secret_access_key,
-      ...(config.r2_session_token && { session_token: config.r2_session_token })
+      access_key_id: accessKeyId,
+      secret_access_key: secretAccessKey,
+      ...(sessionToken && { session_token: sessionToken })
     };
     manifest.connection_mode = 'hybrid';
   }
@@ -538,23 +573,32 @@ function writeManifest(manifest) {
  * Display summary information
  */
 function showSummary(manifest) {
-  log('Generation Summary:', 'info');
+  log('SOT-Driven Generation Summary:', 'info');
   log(`  Environment: ${manifest.meta.environment}`, 'info');
-  log(`  Account ID: ${manifest.account_id.substring(0, 10)}...`, 'info');
+  log(`  SOT Version: ${manifest.meta.sot_version}`, 'info');
+  log(`  Account ID: ${manifest.account_id === 'placeholder-account-id' ? 'placeholder (set CF_ACCOUNT_ID)' : manifest.account_id.substring(0, 10) + '...'}`, 'info');
   log(`  Endpoint: ${manifest.endpoint}`, 'info');
   log(`  Connection Mode: ${manifest.connection_mode}`, 'info');
   log(`  Buckets (${manifest.buckets.length}):`, 'info');
 
   manifest.buckets.forEach(bucket => {
     const visibility = bucket.public ? 'public' : 'private';
-    log(`    - ${bucket.name} (${visibility})`, 'info');
+    log(`    - ${bucket.name} (${visibility}, binding: ${bucket.binding})`, 'info');
   });
+
+  if (manifest.meta.workers_count) {
+    log(`  Workers (${manifest.meta.workers_count}):`, 'info');
+    manifest.meta.workers.forEach(worker => {
+      log(`    - ${worker.name} (${worker.r2_bindings} R2 bindings)`, 'info');
+    });
+  }
 
   if (!globalOptions.isDryRun) {
     log('Next Steps:', 'info');
     log(`  1. Review: cat ${path.join(globalOptions.outputPath, `r2.${globalOptions.environment}.json`)}`, 'info');
     log(`  2. Validate: ./scripts/validate-r2-manifest.sh ${path.join(globalOptions.outputPath, `r2.${globalOptions.environment}.json`)}`, 'info');
-    log('  3. Deploy: Use manifest in your application configuration', 'info');
+    log('  3. Set environment variables: CF_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY', 'info');
+    log('  4. Deploy: Use manifest in your application configuration', 'info');
   }
 }
 

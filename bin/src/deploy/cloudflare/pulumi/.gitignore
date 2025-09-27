@@ -1,0 +1,21 @@
+# Pulumi files
+/bin/
+/node_modules/
+
+# Environment variables
+.env
+
+# Pulumi state files (if using local backend)
+/.pulumi/
+/state/
+
+# TypeScript compilation output
+*.js
+*.js.map
+
+# Logs
+*.log
+
+# IDE files
+.vscode/
+.idea/
