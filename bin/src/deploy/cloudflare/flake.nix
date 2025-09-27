@@ -44,152 +44,6 @@
           ${pkgs.nodejs_20}/bin/node scripts/gen-wrangler-config.js "$@"
         '';
 
-        # R2 local test script
-        r2-local-test = pkgs.writeScriptBin "test-r2-local" ''
-          #!${pkgs.bash}/bin/bash
-          set -euo pipefail
-
-          # R2 Local Connection Test
-          # Tests R2 functionality using Cloudflare Workers local development mode (no external auth)
-
-          echo "🧪 R2 Local Connection Test"
-          echo "=========================="
-
-          # Configuration
-          LOCAL_URL="http://localhost:8787"
-          TEST_OBJECT_KEY="test/connection-check-$(date +%s).txt"
-          TEST_CONTENT="R2 connection test from RedwoodSDK - $(date -Iseconds)"
-
-          echo "Testing R2 operations via local Workers environment..."
-          echo "URL: $LOCAL_URL"
-          echo "Test object: $TEST_OBJECT_KEY"
-
-          # Function to cleanup wrangler processes
-          cleanup() {
-              echo "🧹 Cleaning up..."
-              pkill -f "wrangler dev" || true
-              sleep 2
-          }
-
-          # Setup cleanup trap
-          trap cleanup EXIT
-
-          # Start wrangler dev in background
-          echo "🚀 Starting wrangler dev --local..."
-          ${pkgs.nodePackages.wrangler}/bin/wrangler dev --local --port 8787 > /tmp/wrangler.log 2>&1 &
-          WRANGLER_PID=$!
-
-          # Wait for local server to be ready
-          echo "⏳ Waiting for local development server..."
-          for i in {1..15}; do
-              if ${pkgs.curl}/bin/curl -s "$LOCAL_URL" > /dev/null 2>&1; then
-                  echo "✅ Local server is ready"
-                  break
-              fi
-              if [[ $i -eq 15 ]]; then
-                  echo "❌ Local server not responding after 15 attempts"
-                  echo "Wrangler log:"
-                  cat /tmp/wrangler.log
-                  exit 1
-              fi
-              sleep 2
-          done
-
-          # Test basic endpoint
-          echo ""
-          echo "🔍 Testing basic endpoint..."
-          BASIC_RESPONSE=$(${pkgs.curl}/bin/curl -s "$LOCAL_URL/health" || echo "ERROR")
-          if [[ "$BASIC_RESPONSE" == *"healthy"* ]]; then
-              echo "✅ Basic endpoint working"
-          else
-              echo "⚠️  Basic endpoint response: $BASIC_RESPONSE"
-          fi
-
-          # Test R2 functionality
-          echo ""
-          echo "🪣 Testing R2 bucket operations..."
-
-          # Create a simple test endpoint call
-          # Since we're in local mode, this will use Miniflare's R2 simulation
-          cat > /tmp/r2-test-request.json <<EOF
-          {
-            "operation": "test-connection",
-            "key": "$TEST_OBJECT_KEY",
-            "content": "$TEST_CONTENT"
-          }
-          EOF
-
-          echo "Sending R2 test request to /r2-test endpoint..."
-          R2_RESPONSE=$(${pkgs.curl}/bin/curl -s -X POST \
-              -H "Content-Type: application/json" \
-              -d @/tmp/r2-test-request.json \
-              "$LOCAL_URL/r2-test" 2>/dev/null || echo "ENDPOINT_ERROR")
-
-          # Parse the response
-          if [[ "$R2_RESPONSE" == "ENDPOINT_ERROR" ]]; then
-              echo "❌ Failed to connect to R2 test endpoint"
-              R2_SUCCESS=false
-          elif echo "$R2_RESPONSE" | ${pkgs.jq}/bin/jq -e '.success' > /dev/null 2>&1; then
-              SUCCESS=$(echo "$R2_RESPONSE" | ${pkgs.jq}/bin/jq -r '.success')
-              MESSAGE=$(echo "$R2_RESPONSE" | ${pkgs.jq}/bin/jq -r '.message')
-
-              if [[ "$SUCCESS" == "true" ]]; then
-                  echo "✅ R2 operations successful!"
-                  echo "   Message: $MESSAGE"
-
-                  # Check if content was correctly stored and retrieved
-                  RETRIEVED=$(echo "$R2_RESPONSE" | ${pkgs.jq}/bin/jq -r '.retrieved // ""')
-                  if [[ "$RETRIEVED" == "$TEST_CONTENT" ]]; then
-                      echo "✅ Content verification: PASSED"
-                      R2_SUCCESS=true
-                  else
-                      echo "⚠️  Content verification: FAILED"
-                      echo "   Expected: $TEST_CONTENT"
-                      echo "   Retrieved: $RETRIEVED"
-                      R2_SUCCESS=false
-                  fi
-              else
-                  echo "❌ R2 operations failed"
-                  echo "   Message: $MESSAGE"
-                  ERROR=$(echo "$R2_RESPONSE" | ${pkgs.jq}/bin/jq -r '.error // "Unknown error"')
-                  echo "   Error: $ERROR"
-                  R2_SUCCESS=false
-              fi
-          else
-              echo "⚠️  Unexpected response format: $R2_RESPONSE"
-              R2_SUCCESS=false
-          fi
-
-          # Cleanup
-          rm -f /tmp/r2-test-request.json
-
-          echo ""
-          echo "📊 Test Summary"
-          echo "==============="
-          echo "✅ Local development server: Working"
-          echo "✅ Basic Worker endpoint: Working"
-          if [[ "$R2_SUCCESS" == "true" ]]; then
-              echo "✅ R2 bucket operations: Working"
-              echo "✅ R2 content verification: Passed"
-          else
-              echo "❌ R2 bucket operations: Failed"
-          fi
-
-          echo ""
-          if [[ "$R2_SUCCESS" == "true" ]]; then
-              echo "🎉 R2 local testing SUCCESSFUL!"
-              echo "   Your R2 setup is working correctly in local mode."
-          else
-              echo "⚠️  R2 local testing FAILED"
-              echo "   Check wrangler.jsonc r2_buckets configuration."
-          fi
-
-          echo ""
-          echo "📋 Next steps:"
-          echo "   - For production testing, configure CLOUDFLARE_API_TOKEN"
-          echo "   - Use 'wrangler dev --remote' for remote R2 testing"
-          echo "   - Run 'just r2:check-secrets' to verify security"
-        '';
 
         # Secret validation script
         validate-secrets = pkgs.writeScriptBin "validate-secrets" ''
@@ -586,15 +440,13 @@
               ;;
 
             "test")
-              echo "🧪 Running test workflow..."
-              if [[ "$ENV" == "dev" ]]; then
-                echo "Running local R2 test..."
-                ${r2-local-test}/bin/test-r2-local
-              else
-                echo "⚠️ Remote testing not implemented for $ENV environment"
-                echo "   Falling back to configuration validation..."
-                ${pkgs.nodejs_20}/bin/node scripts/test-wrangler-config.js --env "$ENV" || exit 1
+              echo "🧪 Running configuration test workflow..."
+              echo "Running configuration validation..."
+              ${pkgs.nodejs_20}/bin/node scripts/test-wrangler-config.js --env "$ENV" || exit 1
+              if [[ -f "generated/r2-connection-manifest-$ENV.json" ]]; then
+                ${pkgs.nodejs_20}/bin/node scripts/test-connection-manifest.js --env "$ENV" || exit 1
               fi
+              echo "✅ Configuration test complete for $ENV environment"
               ;;
 
             "full"|"all")
@@ -611,13 +463,8 @@
               ${pkgs.nodejs_20}/bin/node scripts/test-connection-manifest.js --env "$ENV" || exit 1
 
               echo ""
-              echo "Step 3: Test (if applicable)"
-              if [[ "$ENV" == "dev" ]]; then
-                echo "Running local R2 test..."
-                ${r2-local-test}/bin/test-r2-local
-              else
-                echo "✅ Configuration ready for $ENV environment"
-              fi
+              echo "Step 3: Configuration test complete"
+              echo "✅ Configuration ready for $ENV environment"
 
               echo ""
               echo "🎉 Full workflow complete for $ENV!"
@@ -833,11 +680,6 @@
             program = "${wrangler-config-gen}/bin/gen-wrangler-config";
           };
 
-          # Testing
-          test-r2-local = {
-            type = "app";
-            program = "${r2-local-test}/bin/test-r2-local";
-          };
         };
 
         # Re-exported checks for validation
@@ -965,18 +807,58 @@
 
             touch $out
           '';
+
+          # Data Plane operations prohibition check
+          no-data-plane-operations = pkgs.runCommand "no-data-plane-operations" {
+            src = self;
+            buildInputs = [ pkgs.ripgrep ];
+          } ''
+            cp -r $src/* .
+            echo "🔍 Checking for prohibited Data Plane operations..."
+
+            # Define Data Plane operation patterns
+            DATA_PLANE_PATTERNS="R2Bucket\\.(put|get|delete|list|createMultipartUpload|head)"
+
+            # Search for Data Plane operations outside examples/ directory
+            FOUND_OPERATIONS=$(rg "$DATA_PLANE_PATTERNS" --type-add 'source:*.{ts,js,jsx,tsx}' -t source . \
+              --exclude-dir=examples --exclude-dir=.git --exclude-dir=result --exclude-dir=nix \
+              --exclude-dir=test-env --exclude-dir=test-modules || true)
+
+            if [[ -n "$FOUND_OPERATIONS" ]]; then
+              echo "❌ SCOPE VIOLATION: Data Plane operations detected outside examples/!"
+              echo "Found the following prohibited operations:"
+              echo "$FOUND_OPERATIONS"
+              echo ""
+              echo "🎯 Scope definition:"
+              echo "  - Resource Plane (allowed): Configuration, secrets, deployment management"
+              echo "  - Data Plane (prohibited): R2 object operations, business logic"
+              echo ""
+              echo "📁 Required actions:"
+              echo "  1. Move Data Plane code to examples/ directory"
+              echo "  2. Keep only Resource Plane operations in main implementation"
+              echo "  3. See SCOPE.md for detailed scope definition"
+              echo ""
+              echo "⚠️  This build MUST fail to maintain architectural integrity."
+              exit 1
+            else
+              echo "✅ No prohibited Data Plane operations found"
+              echo "🎯 Scope compliance: PASSED"
+            fi
+
+            touch $out
+          '';
         };
 
         # Re-exported packages
         packages = {
-          inherit wrangler-config-gen r2-local-test validate-secrets gen-connection-manifest
+          inherit wrangler-config-gen validate-secrets gen-connection-manifest
                   gen-r2-manifest gen-r2-all gen-wrangler-config-enhanced validate-r2-config
                   discover-r2-envs r2-dev-workflow;
 
           default = pkgs.buildEnv {
             name = "redwoodsdk-r2-tools";
             paths = [
-              wrangler-config-gen r2-local-test validate-secrets gen-connection-manifest
+              wrangler-config-gen validate-secrets gen-connection-manifest
               gen-r2-manifest gen-r2-all gen-wrangler-config-enhanced validate-r2-config
               discover-r2-envs r2-dev-workflow
             ];

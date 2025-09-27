@@ -32,8 +32,11 @@ help:
     @echo "  just r2:status [ENV]          - Show environment-specific status"
     @echo "  just r2:list-configs          - List all generated configurations"
     @echo ""
+    @echo "📋 Resource Plane Operations:"
+    @echo "  just res:inventory [ENV]      - Show Cloudflare resource inventory"
+    @echo ""
     @echo "🧪 Testing & Validation:"
-    @echo "  just r2:test [ENV]            - Test R2 connection (local for dev)"
+    @echo "  just r2:test [ENV]            - Test R2 configuration validation"
     @echo "  just r2:validate-all          - Validate all environments"
     @echo "  just r2:check-syntax          - Check TypeScript and JS syntax"
     @echo ""
@@ -86,7 +89,7 @@ status:
     @echo ""
     @if [ -f wrangler.jsonc ] && [ -f secrets/r2.yaml ]; then \
         echo "🎉 Ready for R2 development!"; \
-        echo "   Run 'just r2:test' to test locally"; \
+        echo "   Run 'just r2:test' to validate configuration"; \
     else \
         echo "⚙️ Run 'just setup' to complete configuration."; \
     fi
@@ -184,19 +187,32 @@ r2:list-configs:
     @if [ -f wrangler.jsonc ]; then echo "  - wrangler.jsonc (current)"; else echo "  - None found"; fi
     @find . -name "wrangler.jsonc.backup.*" -type f -exec basename {} \; | sed 's/^/  - /' 2>/dev/null || true
 
+# === RESOURCE PLANE OPERATIONS ===
+
+# Show current Cloudflare resource inventory
+res:inventory ENV=DEFAULT_ENV:
+    @echo "📋 Cloudflare Resource Inventory ({{ENV}})"
+    @echo "========================================"
+    @echo ""
+    @echo "🔍 Account Information:"
+    @wrangler whoami 2>/dev/null || echo "❌ Not authenticated - run 'wrangler login'"
+    @echo ""
+    @echo "🪣 R2 Buckets:"
+    @wrangler r2 bucket list 2>/dev/null | head -20 || echo "❌ Failed to list R2 buckets - check authentication"
+    @echo ""
+    @echo "⚙️  Configuration Status:"
+    @echo -n "  - wrangler.jsonc: "
+    @if [ -f wrangler.jsonc ]; then echo "✅ Present"; else echo "❌ Missing"; fi
+    @echo -n "  - Environment: {{ENV}}"
+    @if [ -f "generated/r2-connection-manifest-{{ENV}}.json" ]; then echo " (✅ manifest exists)"; else echo " (⚠️ no manifest)"; fi
+
 # === TESTING & VALIDATION ===
 
 # Test R2 connection
 r2:test ENV=DEFAULT_ENV:
-    @echo "🧪 Testing R2 connection for {{ENV}}..."
-    @if [ "{{ENV}}" = "dev" ]; then \
-        echo "Running local R2 test..."; \
-        nix run .#test-r2-local; \
-    else \
-        echo "⚠️ Remote testing not available for {{ENV}} environment"; \
-        echo "   Running configuration validation instead..."; \
-        just r2:validate {{ENV}}; \
-    fi
+    @echo "🧪 Testing R2 configuration for {{ENV}}..."
+    @echo "Running configuration validation (Resource Plane operations only)..."
+    nix run .#validate-r2-config -- --env {{ENV}}
 
 # Validate all environments
 r2:validate-all:

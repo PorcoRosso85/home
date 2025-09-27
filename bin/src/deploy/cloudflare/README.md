@@ -2,21 +2,38 @@
 
 A comprehensive system for managing Cloudflare R2 storage connections with clear separation between local development (Miniflare) and production deployment scenarios.
 
+## 🎯 Scope: Resource Plane Operations Only
+
+**This flake focuses exclusively on Resource Plane (infrastructure) operations:**
+- ✅ **Resource management**: R2 bucket configuration, Worker deployment, secret management
+- ✅ **Configuration generation**: wrangler.jsonc, connection manifests, environment setup
+- ✅ **Validation & testing**: Configuration validation, connection testing, security checks
+
+**Data Plane operations are explicitly out of scope:**
+- ❌ **R2 object operations**: PUT/GET/DELETE of actual data files
+- ❌ **Business logic**: Application-specific data processing
+- ❌ **End-user functionality**: HTTP APIs serving application data
+
+> 📚 **See [SCOPE.md](./SCOPE.md) for detailed scope definition and architectural separation.**
+
+Examples of Data Plane operations are provided in the `examples/` directory for educational purposes only.
+
 ## 🎯 Overview
 
-This system provides:
-- **🧪 Local Development**: Miniflare-based testing with no authentication required
-- **🚀 Production Ready**: Full R2 connection management with encrypted secrets
+This system provides Resource Plane management capabilities:
+- **⚙️ Configuration Management**: Generate and validate wrangler.jsonc and connection manifests
+- **🚀 Infrastructure Ready**: R2 bucket and Worker resource configuration
 - **🔒 Security First**: SOPS-encrypted secrets with plaintext detection
 - **🌍 Multi-Environment**: Support for dev, staging, and production environments
 - **📋 Schema Validation**: TypeScript-first configuration with JSON Schema validation
+- **📊 Resource Inventory**: View current Cloudflare resource status
 
 ## 🚀 Quick Start
 
 ### 📍 Choose Your Development Path
 
-#### 🧪 **Local Development Only** (Recommended for getting started)
-Perfect for development, testing, and learning without any Cloudflare account setup.
+#### 🧪 **Configuration Development** (Recommended for getting started)
+Perfect for developing and testing Resource Plane configurations without external dependencies.
 
 ```bash
 # 1. Enter development environment
@@ -25,21 +42,21 @@ nix develop
 # 2. Initialize basic configuration
 just setup
 
-# 3. Test R2 operations locally (no authentication needed)
+# 3. Validate R2 configuration
 just r2:test dev
 
-# 4. Start developing with local R2 simulation
-wrangler dev --local
+# 4. View configuration status
+just status
 ```
 
 **✅ What this gives you:**
-- Full R2 API simulation via Miniflare
-- No external API calls or authentication
-- Side-effect-free development and testing
-- All CRUD operations (PUT/GET/HEAD/DELETE/LIST)
+- Configuration generation and validation
+- Schema validation and syntax checking
+- Security validation (plaintext secret detection)
+- Multi-environment configuration management
 
-#### 🚀 **Production R2 Connection** (When you're ready to deploy)
-For connecting to real Cloudflare R2 buckets in production.
+#### 🚀 **Production Resource Management** (When you're ready to deploy)
+For managing real Cloudflare R2 buckets and Workers in production.
 
 ```bash
 # 1. Set up encrypted secrets
@@ -52,14 +69,18 @@ just secrets-edit secrets/r2.yaml
 # 3. Generate production configuration
 just r2:gen-config prod
 
-# 4. Deploy to Cloudflare Workers
+# 4. View resource inventory
+just res:inventory prod
+
+# 5. Deploy to Cloudflare Workers
 wrangler deploy
 ```
 
 **✅ What this gives you:**
-- Real R2 bucket connections
-- Production-ready configuration
+- Real R2 bucket and Worker resource management
+- Production-ready configuration generation
 - Encrypted secret management
+- Resource inventory and status monitoring
 - Multi-environment support
 
 ## 📚 Documentation
