@@ -50,8 +50,8 @@ import (
 		// Extract all used ports with their owners, including protocol and scope
 		portMappings: [for c in contracts for p in c.provides if p.port != _|_ {
 			port:     p.port
-			protocol: p.protocol | "tcp"   // Default to tcp if not specified
-			scope:    p.scope | "internal" // Default to internal if not specified
+			protocol: (p.protocol | *"tcp") & schema.#Protocol // Concrete default for interpolation
+			scope:    (p.scope | *"internal") & schema.#Scope  // Concrete default for interpolation
 			owner:    c.namespace + "/" + c.name
 		}]
 
