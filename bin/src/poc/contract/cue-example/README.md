@@ -70,7 +70,7 @@ pre-commit install
 ## Documentation
 
 - 📖 **[New Developer Guide](docs/NEW_DEVELOPER_GUIDE.md)** - Complete getting started guide
-- 📋 **[Contract Examples](contracts/examples/README.md)** - Validation examples (normal/duplicate/unresolved)
+- 📋 **[Contract Examples](contracts/examples/README.md)** - Validation examples (basic/anti-patterns)
 - 🔧 **[Testing Scripts](tools/)** - Automated test suite
   - `test-secrets.sh` - Secrets detection validation
   - `test-precommit.sh` - Pre-commit hooks testing
