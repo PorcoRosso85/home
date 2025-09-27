@@ -53,16 +53,16 @@ const getState = (): MeasurementState => {
 };
 
 // Provider detection and delegation
-const getProviderFunction = (provider: ProviderType): ((event: string, data: Record<string, unknown>) => void) | null => {
+const getProviderFunction = (provider: ProviderType): any | null => {
   if (typeof window === 'undefined') return null;
 
   const win = window as any;
 
   switch (provider) {
     case 'ga4':
-      return typeof win.gtag === 'function' ? win.gtag as ((event: string, data: Record<string, unknown>) => void) : null;
+      return typeof win.gtag === 'function' ? win.gtag : null;
     case 'plausible':
-      return typeof win.plausible === 'function' ? win.plausible as ((event: string, data: Record<string, unknown>) => void) : null;
+      return typeof win.plausible === 'function' ? win.plausible : null;
     default:
       return null;
   }
@@ -159,9 +159,11 @@ export const trackPageview = (): void => {
 
   try {
     if (state.config.provider === 'ga4') {
-      providerFn('config', { page_title: document.title, page_location: currentUrl });
+      // GA4 gtag signature: gtag(command: string, event: string, parameters?: object)
+      providerFn('event', 'page_view', { page_title: document.title, page_location: currentUrl });
     } else if (state.config.provider === 'plausible') {
-      providerFn('pageview', pageData);
+      // Plausible signature: plausible(event?: string, options?: object)
+      providerFn('pageview', { props: pageData });
     }
   } catch (error) {
     // Silent fail - don't break user experience
@@ -193,9 +195,11 @@ export const trackClick = (element: HTMLElement, meta?: ClickMeta): void => {
 
   try {
     if (state.config.provider === 'ga4') {
-      (providerFn as any)('event', meta?.action || 'click', eventData);
+      // GA4 gtag signature: gtag(command: string, event: string, parameters?: object)
+      providerFn('event', meta?.action || 'click', eventData);
     } else if (state.config.provider === 'plausible') {
-      (providerFn as any)(meta?.action || 'click', { props: eventData });
+      // Plausible signature: plausible(event: string, options?: object)
+      providerFn(meta?.action || 'click', { props: eventData });
     }
   } catch (error) {
     // Silent fail - don't break user experience
@@ -205,6 +209,9 @@ export const trackClick = (element: HTMLElement, meta?: ClickMeta): void => {
 
 export const decorateOutbound = (element: HTMLElement): void => {
   if (typeof window === 'undefined') return; // SSR safety
+
+  // Check if element has already been decorated
+  if (element.dataset.pseoDecorated) return;
 
   const href = element.getAttribute('href');
   if (!href || !isOutboundLink(href)) return;
@@ -223,6 +230,9 @@ export const decorateOutbound = (element: HTMLElement): void => {
         // Additional beacon tracking can be added here if needed
       }
     }, { passive: true });
+
+    // Mark element as decorated to prevent duplicate listeners
+    element.dataset.pseoDecorated = '1';
   } else if (redirectMode === 'proxy') {
     // Future: Proxy through /r/:id endpoint
     // This will be implemented in Phase 1.2

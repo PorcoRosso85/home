@@ -2,6 +2,57 @@
 
 This guide covers integration with supported analytics providers and CSP (Content Security Policy) considerations.
 
+## Global API Reference
+
+### Primary API: `pSEO`
+
+The measurement snippet exposes a global `pSEO` object when loaded as an IIFE (Immediately Invoked Function Expression). This is the **primary and recommended API** for browser environments.
+
+**Available Methods:**
+```javascript
+// Initialize with provider configuration
+pSEO.init({ provider: 'ga4', siteId: 'GA_MEASUREMENT_ID' });
+
+// Track page views (usually automatic with enableSPA: true)
+pSEO.trackPageview();
+
+// Track click events with optional metadata
+pSEO.trackClick(element, { category: 'button', action: 'signup' });
+
+// Automatically decorate all outbound links with tracking
+pSEO.decorateAllOutbound();
+
+// Decorate a specific element with outbound tracking
+pSEO.decorateOutbound(linkElement);
+```
+
+### Alternative API: `window.MeasurementSnippet`
+
+The snippet also exposes `window.MeasurementSnippet` with identical functionality. This is provided for:
+- **Advanced integration scenarios** where global name conflicts occur
+- **Library authors** who want to avoid potential `pSEO` naming conflicts
+- **Debugging and introspection** of the measurement system
+
+**Usage Example:**
+```javascript
+// Identical functionality to pSEO
+window.MeasurementSnippet.init({ provider: 'ga4', siteId: 'GA_MEASUREMENT_ID' });
+window.MeasurementSnippet.decorateAllOutbound();
+```
+
+### ESM Import API
+
+For modern JavaScript environments, use ESM imports instead of globals:
+
+```javascript
+import { init, trackPageview, trackClick, decorateAllOutbound, decorateOutbound } from './dist/measurement/snippet.esm.js';
+
+init({ provider: 'ga4', siteId: 'GA_MEASUREMENT_ID' });
+decorateAllOutbound();
+```
+
+**Recommendation:** Use ESM imports when possible for better tree-shaking and explicit dependencies. Use `pSEO` global for simple integrations and legacy environments.
+
 ## Supported Providers
 
 ### Google Analytics 4 (GA4)
@@ -35,7 +86,7 @@ This guide covers integration with supported analytics providers and CSP (Conten
 ```
 
 **Events Sent:**
-- Pageviews: `gtag('config', { page_title, page_location })`
+- Pageviews: `gtag('event', 'page_view', { page_title, page_location })`
 - Clicks: `gtag('event', 'click', { event_category, event_label, value })`
 
 ### Plausible Analytics
@@ -63,7 +114,7 @@ This guide covers integration with supported analytics providers and CSP (Conten
 ```
 
 **Events Sent:**
-- Pageviews: `plausible('pageview', { page_location, page_title })`
+- Pageviews: `plausible('pageview')`
 - Clicks: `plausible('click', { props: { event_category, event_label, value } })`
 
 ## Content Security Policy (CSP) Integration

@@ -27,10 +27,26 @@ nix run .#serve-examples
 
 ## Integration
 
+### Global API Options
+
+The measurement snippet exposes two identical APIs:
+- **`pSEO`** - Primary API (recommended for most use cases)
+- **`window.MeasurementSnippet`** - Alternative API (for advanced scenarios with naming conflicts)
+
 ### 1-Line Integration (IIFE)
 ```html
+<!-- Provider's official script (configured separately) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('config', 'GA_MEASUREMENT_ID');
+</script>
+
+<!-- Our measurement snippet (delegates to provider above) -->
 <script src="./dist/measurement/snippet.iife.js"></script>
 <script>
+  // siteId should match the Measurement ID configured in the gtag script above
   pSEO.init({ provider: 'ga4', siteId: 'GA_MEASUREMENT_ID' });
   pSEO.decorateAllOutbound();
 </script>
@@ -38,8 +54,13 @@ nix run .#serve-examples
 
 ### ESM Integration
 ```javascript
+// Ensure provider's official script is loaded separately (e.g., in HTML head)
+// For GA4: gtag script with same GA_MEASUREMENT_ID
+// For Plausible: plausible script with domain matching the siteId
+
 import { init, decorateAllOutbound } from './dist/measurement/snippet.esm.js';
 
+// siteId delegates to the provider's official implementation configured separately
 init({ provider: 'ga4', siteId: 'GA_MEASUREMENT_ID' });
 decorateAllOutbound();
 ```
@@ -48,6 +69,9 @@ decorateAllOutbound();
 
 - **SSR Safe**: No side effects in server environments (window guards)
 - **Provider Delegation**: Uses official GA4/Plausible clients (no-op if unavailable)
+  - The measurement snippet does not directly use siteId for tracking
+  - Instead, it delegates to the provider's official implementation (gtag for GA4, plausible for Plausible)
+  - siteId should match the configuration in the provider's official script
 - **Idempotent**: Duplicate click/pageview prevention
 - **CSP Compatible**: External script distribution for strict CSP environments
 

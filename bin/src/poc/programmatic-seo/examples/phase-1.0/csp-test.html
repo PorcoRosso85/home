@@ -156,9 +156,9 @@
             document.getElementById('test-pageview').addEventListener('click', function() {
                 pSEO.trackPageview();
                 const events = window.mockGtagEvents || [];
-                const configEvent = events.find(e => e.type === 'config');
+                const pageViewEvent = events.find(e => e.type === 'event' && e.action === 'page_view');
 
-                if (configEvent) {
+                if (pageViewEvent) {
                     updateStatus('api-status', '✓ Pageview tracked via mock gtag', 'success');
                 } else {
                     updateStatus('api-status', '⚠ Pageview called but no mock gtag event', 'warning');
