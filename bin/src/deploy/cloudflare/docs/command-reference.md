@@ -176,25 +176,24 @@ just r2:list-configs
 - Wrangler configurations
 - Backup files
 
-## 🧪 Testing & Validation Commands
+## 🧪 Configuration Validation Commands
 
 ### `just r2:test [ENV]`
-Test R2 connection for specified environment.
+Validate R2 configuration for specified environment.
 
 ```bash
-# Test locally with Miniflare (dev environment)
+# Validate dev environment configuration
 just r2:test dev
 
-# Validate production configuration (no actual R2 calls)
+# Validate production environment configuration
 just r2:test prod
 ```
 
-**For dev environment:**
-- Runs local R2 test with Miniflare
-- Tests all CRUD operations
-
-**For other environments:**
-- Runs configuration validation only
+**For all environments:**
+- Performs configuration validation only
+- Validates wrangler.jsonc schema and settings
+- Validates connection manifest if present
+- No actual R2 Control Plane operations
 
 ### `just r2:validate-all`
 Validate all available environments.
@@ -229,14 +228,14 @@ just r2:dev gen dev
 # Validate configurations only
 just r2:dev validate dev
 
-# Test only
+# Validate only
 just r2:dev test dev
 ```
 
 **Available actions:**
 - `gen` - Generate configurations
 - `validate` - Validate configurations
-- `test` - Run tests
+- `test` - Run configuration validation
 - `full` - Complete workflow (default)
 
 ### `just r2:quick [ENV]`
@@ -264,6 +263,71 @@ just r2:deploy-prep prod
 2. Validate configurations
 3. Check syntax and security
 4. Display next steps
+
+## 🏗️ Resource Management Commands
+
+### `just res:inventory [ENV]`
+Show Cloudflare resource inventory for specified environment.
+
+```bash
+just res:inventory prod
+```
+
+**Output:** Current resource state from Cloudflare API
+
+### `just res:fetch-state [ENV]`
+Fetch current remote state from Cloudflare.
+
+```bash
+just res:fetch-state prod
+```
+
+**Downloads:** Latest resource configurations from Cloudflare
+
+### `just res:diff [ENV]`
+Compare SOT configuration with remote state (drift detection).
+
+```bash
+just res:diff prod
+```
+
+**Output:**
+- 0 = No drift (SOT matches remote)
+- 1 = Drift detected (differences found)
+- 2+ = Error (SOT/remote/comparison issues)
+
+### `just cf:plan [ENV]`
+Preview infrastructure changes (CI/CD safe).
+
+```bash
+just cf:plan prod
+```
+
+**Performs:** Pulumi preview operation without applying changes
+
+### `just cf:apply [ENV]`
+Apply infrastructure changes (manual only, drift detection required).
+
+```bash
+just cf:apply prod
+```
+
+**Prerequisites:**
+- SOT configuration must exist
+- Must run `just res:diff [ENV]` first to verify drift status
+- Manual confirmation required
+
+### `just cf:destroy [ENV]`
+Destroy infrastructure resources (manual only, drift detection required).
+
+```bash
+just cf:destroy prod
+```
+
+**Prerequisites:**
+- SOT configuration must exist
+- Must run `just res:diff [ENV]` first to verify current state
+- Manual confirmation required
 
 ## 🛠️ Advanced Tools Commands
 
@@ -426,7 +490,7 @@ just r2:test dev
 ```bash
 nix develop              # Enter development environment
 just setup               # Initialize system
-just r2:test dev         # Test locally
+just r2:test dev         # Validate configuration
 wrangler dev --local     # Start development server
 ```
 
@@ -439,8 +503,11 @@ just r2:validate {env}                    # Validate configuration
 
 ### Production Deployment
 ```bash
-just r2:deploy-prep prod   # Prepare for deployment
-wrangler deploy            # Deploy to Cloudflare
+just r2:deploy-prep prod   # Prepare configuration for deployment
+just res:diff prod         # Check for configuration drift
+just cf:plan prod          # Preview infrastructure changes
+just cf:apply prod         # Apply infrastructure changes
+wrangler deploy            # Deploy application to Cloudflare
 wrangler tail             # Monitor logs
 ```
 
@@ -449,6 +516,7 @@ wrangler tail             # Monitor logs
 just status               # Check system status
 just secrets:check       # Check for plaintext secrets
 just r2:validate-all     # Validate all environments
+just res:diff [env]      # Check for configuration drift
 nix flake check          # Check Nix configuration
 ```
 

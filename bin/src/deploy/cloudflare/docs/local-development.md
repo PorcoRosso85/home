@@ -1,16 +1,16 @@
 # 🧪 Local Development Guide
 
-Complete guide for R2 development using Miniflare - no Cloudflare account required!
+Complete guide for R2 Resource Plane development using Miniflare - no Cloudflare account required!
 
 ## 🎯 What is Miniflare?
 
 Miniflare is a simulator for Cloudflare Workers that runs locally on your machine. It provides:
 
-- **✅ Full R2 API Simulation**: All storage operations work exactly like real R2
+- **✅ Full R2 Configuration Simulation**: All resource management operations work exactly like real R2
 - **✅ Zero Authentication**: No API keys, tokens, or Cloudflare account needed
 - **✅ Instant Feedback**: No network latency, immediate responses
 - **✅ Side-Effect Free**: No real buckets are created or modified
-- **✅ Perfect for Testing**: Ideal for unit tests, integration tests, and development
+- **✅ Perfect for Testing**: Ideal for configuration validation, integration tests, and development
 
 ## 🚀 Quick Setup
 
@@ -27,17 +27,17 @@ just setup
 just status
 ```
 
-### 2. Test R2 Operations Locally
+### 2. Test R2 Configuration Locally
 
 ```bash
-# Run the local R2 test suite
+# Run the local R2 configuration test suite
 just r2:test dev
 
 # This will test:
-# - Bucket operations (create, list, delete)
-# - Object operations (put, get, head, delete)
-# - Error handling
-# - Metadata operations
+# - Bucket configuration validation
+# - Resource settings verification
+# - Configuration error handling
+# - Environment setup validation
 ```
 
 ### 3. Start Development Server
@@ -50,144 +50,148 @@ wrangler dev --local
 # http://localhost:8787
 ```
 
-## 🧪 Testing R2 Operations
+## 🧪 Testing R2 Configuration Management
 
-### Basic CRUD Operations
+### Resource Configuration Validation
 
-Here's how to test all R2 operations locally:
+Here's how to test R2 resource management locally:
 
 ```typescript
-// In your Worker code
+// In your Worker code - Resource Plane operations
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const { R2_BUCKET } = env;
 
-    // PUT: Upload an object
-    await R2_BUCKET.put('test-file.txt', 'Hello, R2!', {
-      metadata: {
-        uploadedAt: new Date().toISOString(),
-        contentType: 'text/plain'
-      }
-    });
+    // Verify bucket binding configuration
+    if (!R2_BUCKET) {
+      return new Response('R2 bucket binding not configured', { status: 500 });
+    }
 
-    // GET: Retrieve an object
-    const object = await R2_BUCKET.get('test-file.txt');
-    const content = await object?.text();
-
-    // HEAD: Get object metadata
-    const metadata = await R2_BUCKET.head('test-file.txt');
-
-    // LIST: List objects in bucket
-    const list = await R2_BUCKET.list();
-
-    // DELETE: Remove an object
-    await R2_BUCKET.delete('test-file.txt');
-
-    return new Response(`Content: ${content}`);
+    // Test bucket accessibility and configuration
+    try {
+      // Simple bucket access test (not data operation)
+      const bucketInfo = await R2_BUCKET.head('config-test-marker');
+      return new Response('Bucket configuration valid', { status: 200 });
+    } catch (error) {
+      return new Response(`Configuration error: ${error.message}`, { status: 500 });
+    }
   }
 };
 ```
 
-### Advanced Operations
+### Configuration Validation Patterns
 
 ```typescript
-// Multipart uploads (simulated)
-const upload = await R2_BUCKET.createMultipartUpload('large-file.bin');
+// Environment and resource validation
+interface ResourceValidation {
+  bucketBinding: boolean;
+  environmentConfig: boolean;
+  secretsAccess: boolean;
+}
 
-// Conditional operations
-const result = await R2_BUCKET.put('file.txt', data, {
-  onlyIf: { etagMatches: 'expected-etag' }
-});
+async function validateResourceConfiguration(env: Env): Promise<ResourceValidation> {
+  return {
+    bucketBinding: !!env.R2_BUCKET,
+    environmentConfig: env.ENVIRONMENT === 'development',
+    secretsAccess: !!env.API_SECRET
+  };
+}
 
-// Custom metadata and HTTP metadata
-await R2_BUCKET.put('document.pdf', pdfData, {
-  customMetadata: {
-    documentType: 'invoice',
-    processedBy: 'system-v2'
-  },
-  httpMetadata: {
-    contentType: 'application/pdf',
-    cacheControl: 'max-age=3600'
+// Configuration deployment verification
+async function verifyDeploymentConfig(env: Env): Promise<Response> {
+  const validation = await validateResourceConfiguration(env);
+
+  if (!validation.bucketBinding) {
+    return new Response('Missing R2 bucket binding', { status: 500 });
   }
-});
+
+  return new Response('Resource configuration verified', { status: 200 });
+}
 ```
 
-## 🧩 Integration Examples
+> **📚 Data Plane Operations**: For actual data operations (PUT/GET/DELETE/LIST), see the educational examples in [`examples/r2-data-operations/`](../examples/r2-data-operations/) directory. This document focuses on Resource Plane management and configuration validation.
 
-### With Hono Framework
+## 🧩 Configuration Integration Examples
+
+### With Hono Framework - Resource Management
 
 ```typescript
 import { Hono } from 'hono';
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.post('/upload', async (c) => {
-  const formData = await c.req.formData();
-  const file = formData.get('file') as File;
+// Resource configuration endpoint
+app.get('/api/config/status', async (c) => {
+  try {
+    const validation = await validateResourceConfiguration(c.env);
 
-  if (!file) {
-    return c.json({ error: 'No file provided' }, 400);
+    return c.json({
+      status: 'healthy',
+      resources: {
+        r2Bucket: validation.bucketBinding ? 'configured' : 'missing',
+        environment: c.env.ENVIRONMENT || 'not-set',
+        secretsAvailable: validation.secretsAccess
+      }
+    });
+  } catch (error) {
+    return c.json({
+      status: 'error',
+      message: error.message
+    }, 500);
   }
-
-  // Upload to R2 (Miniflare simulation)
-  await c.env.R2_BUCKET.put(file.name, file.stream(), {
-    customMetadata: {
-      originalName: file.name,
-      uploadedAt: new Date().toISOString()
-    }
-  });
-
-  return c.json({ message: 'File uploaded successfully' });
 });
 
-app.get('/files/:key', async (c) => {
-  const key = c.req.param('key');
-  const object = await c.env.R2_BUCKET.get(key);
+// Configuration validation endpoint
+app.post('/api/config/validate', async (c) => {
+  const config = await c.req.json();
 
-  if (!object) {
-    return c.json({ error: 'File not found' }, 404);
+  // Validate configuration settings
+  const errors = [];
+  if (!config.bucketName) errors.push('Missing bucket name');
+  if (!config.environment) errors.push('Missing environment');
+
+  if (errors.length > 0) {
+    return c.json({ valid: false, errors }, 400);
   }
 
-  return new Response(object.body, {
-    headers: {
-      'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream'
-    }
-  });
+  return c.json({ valid: true, message: 'Configuration valid' });
 });
 
 export default app;
 ```
 
-### With React/Frontend Integration
+### Resource Verification Integration
 
 ```typescript
-// In your Worker
-app.get('/api/signed-url/:key', async (c) => {
-  const key = c.req.param('key');
-
-  // Note: In Miniflare, presigned URLs are simulated
-  // Real R2 would generate actual presigned URLs
-  const signedUrl = `http://localhost:8787/api/files/${key}`;
-
-  return c.json({ signedUrl, expiresIn: 3600 });
-});
-
-// In your React component
-async function uploadFile(file: File) {
-  // Upload directly through Worker API
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const response = await fetch('/api/upload', {
-    method: 'POST',
-    body: formData
-  });
-
-  if (response.ok) {
-    console.log('File uploaded successfully!');
-  }
+// Configuration verification module
+interface DeploymentConfig {
+  bucketBinding: string;
+  environment: 'development' | 'staging' | 'production';
+  secretsConfigured: boolean;
 }
+
+async function verifyDeploymentReadiness(env: Env): Promise<DeploymentConfig> {
+  return {
+    bucketBinding: env.R2_BUCKET ? 'ready' : 'not-configured',
+    environment: env.ENVIRONMENT as any || 'development',
+    secretsConfigured: !!(env.API_SECRET && env.DEPLOYMENT_KEY)
+  };
+}
+
+// In your application startup
+app.get('/api/health', async (c) => {
+  const config = await verifyDeploymentReadiness(c.env);
+
+  const isReady = config.bucketBinding === 'ready' && config.secretsConfigured;
+
+  return c.json({
+    status: isReady ? 'ready' : 'not-ready',
+    config
+  }, isReady ? 200 : 503);
+});
 ```
+
+> **📚 Data Operations Examples**: For actual file upload/download implementations, see [`examples/r2-data-operations/`](../examples/r2-data-operations/) which contains educational examples for Data Plane operations.
 
 ## 🔧 Development Configuration
 
@@ -226,14 +230,14 @@ echo "ENVIRONMENT=development" >> .dev.vars
 
 ## 🧪 Testing Strategies
 
-### Unit Testing with Miniflare
+### Resource Configuration Testing with Miniflare
 
 ```typescript
-// test/r2-operations.test.ts
+// test/r2-config.test.ts
 import { unstable_dev } from 'wrangler';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-describe('R2 Operations', () => {
+describe('R2 Configuration Management', () => {
   let worker: any;
 
   beforeAll(async () => {
@@ -246,76 +250,103 @@ describe('R2 Operations', () => {
     await worker.stop();
   });
 
-  it('should upload and retrieve files', async () => {
-    // Upload a file
-    const uploadResponse = await worker.fetch('/api/upload', {
-      method: 'POST',
-      body: new FormData().append('file', new File(['test'], 'test.txt'))
-    });
-    expect(uploadResponse.status).toBe(200);
+  it('should validate resource configuration', async () => {
+    const response = await worker.fetch('/api/config/status');
+    expect(response.status).toBe(200);
 
-    // Retrieve the file
-    const downloadResponse = await worker.fetch('/api/files/test.txt');
-    expect(downloadResponse.status).toBe(200);
-    expect(await downloadResponse.text()).toBe('test');
+    const config = await response.json();
+    expect(config.status).toBe('healthy');
+    expect(config.resources.r2Bucket).toBe('configured');
   });
 
-  it('should handle file not found', async () => {
-    const response = await worker.fetch('/api/files/nonexistent.txt');
-    expect(response.status).toBe(404);
+  it('should handle configuration validation', async () => {
+    const response = await worker.fetch('/api/config/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bucketName: 'test-bucket', environment: 'dev' })
+    });
+    expect(response.status).toBe(200);
+
+    const result = await response.json();
+    expect(result.valid).toBe(true);
+  });
+
+  it('should detect missing configuration', async () => {
+    const response = await worker.fetch('/api/config/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}) // Empty configuration
+    });
+    expect(response.status).toBe(400);
+
+    const result = await response.json();
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Missing bucket name');
   });
 });
 ```
 
-### Integration Testing
+### Configuration Integration Testing
 
 ```bash
-# Run comprehensive integration tests
+# Run comprehensive resource configuration tests
 just r2:test dev
 
 # This runs tests for:
-# - Basic CRUD operations
-# - Error conditions
-# - Metadata handling
-# - Concurrent operations
+# - Resource binding validation
+# - Configuration settings verification
+# - Environment setup validation
+# - Deployment readiness checks
 ```
 
-## 🎭 Debugging and Development Tips
+> **📚 Data Operation Testing**: For testing actual data operations, see the test examples in [`examples/r2-data-operations/`](../examples/r2-data-operations/) directory.
 
-### 1. Enable Debug Logging
+## 🎭 Debugging and Configuration Tips
+
+### 1. Enable Configuration Debug Logging
 
 ```typescript
-// In your Worker
-console.log('R2 operation:', {
-  operation: 'PUT',
-  key: 'file.txt',
-  size: data.length
+// In your Worker - Resource configuration debugging
+console.log('Resource configuration:', {
+  operation: 'CONFIG_CHECK',
+  bucketBinding: !!env.R2_BUCKET,
+  environment: env.ENVIRONMENT,
+  secretsCount: Object.keys(env).filter(k => k.includes('SECRET')).length
 });
 
 // Logs will appear in wrangler dev console
 ```
 
-### 2. Inspect Miniflare State
+### 2. Inspect Resource State
 
 ```bash
-# View Miniflare persistence directory (if enabled)
-ls -la .wrangler/state/v3/r2
+# View Miniflare configuration state
+ls -la .wrangler/state/v3/
 
-# Note: By default, Miniflare doesn't persist data between restarts
+# Check environment bindings
+cat .wrangler/state/v3/bindings.json
+
+# Note: Configuration state persists between restarts if enabled
 ```
 
-### 3. Mock Different Scenarios
+### 3. Mock Configuration Scenarios
 
 ```typescript
-// Simulate different R2 responses for testing
+// Simulate different configuration states for testing
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // Simulate errors for testing error handling
-    if (url.pathname.includes('/simulate-error')) {
-      // This will test your error handling code
-      throw new Error('Simulated R2 error');
+    // Simulate missing configuration for testing error handling
+    if (url.pathname.includes('/simulate-config-error')) {
+      // Test configuration error handling
+      return new Response('Missing required configuration', { status: 500 });
+    }
+
+    // Test deployment readiness
+    if (url.pathname.includes('/check-deployment')) {
+      const config = await verifyDeploymentReadiness(env);
+      return Response.json(config);
     }
 
     // Normal operation
@@ -326,25 +357,28 @@ export default {
 
 ## ⚠️ Local Development Limitations
 
-### What Miniflare Simulates Well
-- ✅ All R2 API methods (put, get, head, delete, list)
-- ✅ Metadata operations
-- ✅ Error conditions and status codes
-- ✅ Basic multipart upload simulation
-- ✅ Object streams and binary data
+### What Miniflare Simulates Well for Resource Management
+- ✅ R2 bucket binding configuration
+- ✅ Environment variable access
+- ✅ Resource availability validation
+- ✅ Configuration error simulation
+- ✅ Deployment readiness checks
 
-### What Miniflare Doesn't Simulate
-- ❌ Real presigned URLs (generates mock URLs)
-- ❌ Cloudflare CDN integration
-- ❌ R2 event notifications
-- ❌ Cross-region replication
-- ❌ Real billing and usage metrics
-- ❌ Network latency and real-world performance characteristics
+### What Miniflare Doesn't Simulate for Resource Management
+- ❌ Real Cloudflare account integration
+- ❌ Actual bucket creation/deletion operations
+- ❌ Real billing and quota enforcement
+- ❌ Cross-account resource sharing
+- ❌ Real CDN configuration propagation
+- ❌ Actual secrets manager integration
 
-### Migration Notes
-- Code written for Miniflare works identically with real R2
-- Test thoroughly in staging environment before production
-- Monitor actual usage patterns in production
+### Migration Notes for Resource Management
+- Configuration validation written for Miniflare works identically with real Cloudflare
+- Test resource provisioning thoroughly in staging environment before production
+- Monitor actual resource usage and costs in production
+- Validate IAM and security configurations in real environment
+
+> **📚 Data Operation Limitations**: For information about Data Plane operation limitations in Miniflare, see [`examples/r2-data-operations/README.md`](../examples/r2-data-operations/README.md).
 
 ## 🚀 Ready for Production?
 
@@ -358,7 +392,8 @@ When you're ready to move from local development to production:
 
 ## 📚 Additional Resources
 
-- **[Miniflare Documentation](https://miniflare.dev/)**
-- **[Cloudflare R2 API Reference](https://developers.cloudflare.com/r2/api/)**
-- **[Wrangler Local Development](https://developers.cloudflare.com/workers/wrangler/commands/#dev)**
-- **[Integration Examples](../examples/)** - More code examples
+- **[Miniflare Documentation](https://miniflare.dev/)** - Local Cloudflare Workers simulation
+- **[Cloudflare R2 Configuration](https://developers.cloudflare.com/r2/)** - Resource management documentation
+- **[Wrangler Local Development](https://developers.cloudflare.com/workers/wrangler/commands/#dev)** - Local development setup
+- **[Resource Management Examples](../examples/)** - Configuration and setup examples
+- **[Data Operation Examples](../examples/r2-data-operations/)** - Educational Data Plane operation examples
