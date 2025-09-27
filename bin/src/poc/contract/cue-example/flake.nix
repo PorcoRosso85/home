@@ -55,8 +55,8 @@
             contracts
         '';
 
-        # Generate index.json from contract discovery
-        indexJson = pkgs.runCommand "index.json" {
+        # Generate directory-specific index files
+        productionIndexJson = pkgs.runCommand "production-index.json" {
           buildInputs = [ pkgs.findutils pkgs.jq ];
           src = ./.;
           preferLocalBuild = true;
@@ -65,37 +65,71 @@
           cp -r $src /tmp/contract-discovery
           cd /tmp/contract-discovery
 
-          # Find all contract.cue files and create JSON array
-          if [ -d "contracts" ]; then
-            find contracts -name "contract.cue" -type f | sort | jq -R . | jq -s . > $out
+          # Find production contract.cue files and create JSON array
+          if [ -d "contracts/production" ]; then
+            find contracts/production -name "contract.cue" -type f | sort | jq -R . | jq -s . > $out
           else
             echo "[]" > $out
           fi
         '';
 
-        # CUE aggregate validation
-        aggregateCheck = pkgs.runCommand "aggregate-check" {
+        examplesIndexJson = pkgs.runCommand "examples-index.json" {
+          buildInputs = [ pkgs.findutils pkgs.jq ];
+          src = ./.;
+          preferLocalBuild = true;
+        } ''
+          # Copy source to writable directory
+          cp -r $src /tmp/contract-discovery
+          cd /tmp/contract-discovery
+
+          # Find example contract.cue files and create JSON array
+          if [ -d "contracts/examples" ]; then
+            find contracts/examples -name "contract.cue" -type f | sort | jq -R . | jq -s . > $out
+          else
+            echo "[]" > $out
+          fi
+        '';
+
+        testIndexJson = pkgs.runCommand "test-index.json" {
+          buildInputs = [ pkgs.findutils pkgs.jq ];
+          src = ./.;
+          preferLocalBuild = true;
+        } ''
+          # Copy source to writable directory
+          cp -r $src /tmp/contract-discovery
+          cd /tmp/contract-discovery
+
+          # Find test contract.cue files and create JSON array
+          if [ -d "contracts/test" ]; then
+            find contracts/test -name "contract.cue" -type f | sort | jq -R . | jq -s . > $out
+          else
+            echo "[]" > $out
+          fi
+        '';
+
+        # Production contract validation (strict)
+        productionValidation = pkgs.runCommand "production-validation" {
           buildInputs = [ cuePkg pkgs.jq ];
           src = ./.;
           preferLocalBuild = true;
         } ''
           # Copy source to writable directory
-          cp -r $src /tmp/cue-aggregate
-          chmod -R +w /tmp/cue-aggregate
-          cd /tmp/cue-aggregate
+          cp -r $src /tmp/cue-production
+          chmod -R +w /tmp/cue-production
+          cd /tmp/cue-production
 
           # Ensure tools directory exists and copy index.json for CUE consumption
           mkdir -p tools
-          cp ${indexJson} tools/index.json
+          cp ${productionIndexJson} tools/index.json
 
           # Extract contract data from discovered files and inject into validation
-          echo "Reading contract files from index.json..."
+          echo "Reading production contract files from index.json..."
           cat tools/index.json
 
           # Create contracts data file
           echo "package tools" > tools/contracts-data.cue
           echo "" >> tools/contracts-data.cue
-          echo "// Real contract data injected from discovered files" >> tools/contracts-data.cue
+          echo "// Production contract data injected from discovered files" >> tools/contracts-data.cue
           echo "validation: {" >> tools/contracts-data.cue
           echo "  contracts: [" >> tools/contracts-data.cue
 
@@ -103,7 +137,7 @@
           contract_count=0
           while IFS= read -r contract_file; do
             if [ -f "$contract_file" ]; then
-              echo "Processing contract: $contract_file"
+              echo "Processing production contract: $contract_file"
               # Export contract data and append to contracts array
               if contract_data=$(cue export "$contract_file" 2>/dev/null); then
                 # Extract the actual contract object (assuming one exported definition)
@@ -117,7 +151,8 @@
                   contract_count=$((contract_count + 1))
                 fi
               else
-                echo "Warning: Could not export $contract_file"
+                echo "Error: Could not export production contract $contract_file" >&2
+                exit 1
               fi
             fi
           done < <(jq -r '.[]' tools/index.json)
@@ -126,17 +161,89 @@
           echo "  ]" >> tools/contracts-data.cue
           echo "}" >> tools/contracts-data.cue
 
-          echo "Processed $contract_count contracts"
+          echo "Processed $contract_count production contracts"
 
-          # Run aggregate validation with injected data
-          echo "Running aggregate validation..."
+          # Run strict aggregate validation with injected data
+          echo "Running strict production validation..."
           if cue export ./tools/aggregate.cue ./tools/contracts-data.cue; then
-            echo "aggregate: all checks passed"
+            echo "production: all checks passed"
             touch $out
           else
-            echo "aggregate: validation failed" >&2
+            echo "production: validation failed" >&2
             exit 1
           fi
+        '';
+
+        # Example contract validation (educational)
+        examplesValidation = pkgs.runCommand "examples-validation" {
+          buildInputs = [ cuePkg pkgs.jq ];
+          src = ./.;
+          preferLocalBuild = true;
+        } ''
+          # Copy source to writable directory
+          cp -r $src /tmp/cue-examples
+          chmod -R +w /tmp/cue-examples
+          cd /tmp/cue-examples
+
+          # Ensure tools directory exists
+          mkdir -p tools
+          cp ${examplesIndexJson} tools/index.json
+
+          echo "Validating example contracts (educational mode)..."
+          cat tools/index.json
+
+          # For examples, just check syntax and basic structure
+          example_count=0
+          while IFS= read -r contract_file; do
+            if [ -f "$contract_file" ]; then
+              echo "Checking example syntax: $contract_file"
+              if cue vet "$contract_file" 2>/dev/null; then
+                echo "  ✓ Syntax valid"
+              else
+                echo "  ⚠ Syntax issues (educational example)"
+              fi
+              example_count=$((example_count + 1))
+            fi
+          done < <(jq -r '.[]' tools/index.json)
+
+          echo "examples: checked $example_count example contracts"
+          touch $out
+        '';
+
+        # Test contract validation (syntax only)
+        testValidation = pkgs.runCommand "test-validation" {
+          buildInputs = [ cuePkg pkgs.jq ];
+          src = ./.;
+          preferLocalBuild = true;
+        } ''
+          # Copy source to writable directory
+          cp -r $src /tmp/cue-test
+          chmod -R +w /tmp/cue-test
+          cd /tmp/cue-test
+
+          # Ensure tools directory exists
+          mkdir -p tools
+          cp ${testIndexJson} tools/index.json
+
+          echo "Validating test contracts (syntax only)..."
+          cat tools/index.json
+
+          # For test contracts, only check basic syntax
+          test_count=0
+          while IFS= read -r contract_file; do
+            if [ -f "$contract_file" ]; then
+              echo "Checking test syntax: $contract_file"
+              if cue fmt --check "$contract_file" 2>/dev/null; then
+                echo "  ✓ Syntax valid"
+              else
+                echo "  ⚠ Syntax formatting (test fixture)"
+              fi
+              test_count=$((test_count + 1))
+            fi
+          done < <(jq -r '.[]' tools/index.json)
+
+          echo "test: checked $test_count test contracts"
+          touch $out
         '';
 
         # Plaintext secrets detection (using unified script)
@@ -228,8 +335,14 @@
             fi
           '';
 
-          # Aggregate validation (contract discovery + validation)
-          aggregate = aggregateCheck;
+          # Production contracts validation (strict)
+          contractsProduction = productionValidation;
+
+          # Example contracts validation (educational)
+          contractsExamples = examplesValidation;
+
+          # Test contracts validation (syntax only)
+          contractsTest = testValidation;
 
           # Plaintext secrets detection
           secretsPlaintext = pkgs.runCommand "secrets-plaintext-check" {

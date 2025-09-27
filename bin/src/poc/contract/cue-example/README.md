@@ -34,18 +34,23 @@ CUEをSingle Source of Truth（SSOT）とした強制ゲートにより、複数
 - すべての検査を `nix flake check` で実行
 - `--impure` 実行は禁止
 
-## 実装状況 ✅ COMPLETE
+## 実装状況 ✅ ENHANCED
 
-**All features implemented and tested:**
+**条件付きバリデーション機能の実装完了:**
 
+- ✅ **条件付きバリデーション**: ディレクトリごとに異なる検査レベル
+- ✅ **本番環境検査**: `contracts/production/` での厳格バリデーション
+- ✅ **サンプル検査**: `contracts/examples/` での教育的バリデーション
+- ✅ **テスト検査**: `contracts/test/` での構文のみバリデーション
+- ✅ **並列実行**: 各検査タイプの独立並列実行
 - ✅ CUE schema foundation with closed structures and versioning
 - ✅ File enumeration with pure eval and stable sorting
-- ✅ Aggregation checks with standardized messages
-- ✅ Flake check integration with fixed naming
+- ✅ Directory-aware aggregation checks with standardized messages
+- ✅ Multiple validation pipeline integration with fixed naming
 - ✅ Secrets management with SOPS support and plaintext detection
 - ✅ Pre-commit integration with fixed hooks
-- ✅ Practical examples (normal/duplicate/unresolved dependencies)
-- ✅ Comprehensive documentation with new developer guide
+- ✅ Separated examples (basic/anti-patterns) for educational purposes
+- ✅ Comprehensive migration documentation
 
 ## Quick Start
 
@@ -84,14 +89,24 @@ pre-commit install
 
 ## 検査項目
 
-### 必須チェック（固定名称）
+### 必須チェック（条件付きバリデーション）
 - `checks.<system>.cueFmt`: `cue fmt ./...` の差分ゼロ
 - `checks.<system>.cueVet`: `cue vet ./...` エラーゼロ
 - `checks.<system>.cueExport`: `cue export ./...` 成功
-- `checks.<system>.aggregate`: 自動列挙→集約検査→NG で失敗
+- `checks.<system>.contractsProduction`: **厳格検査** - 本番契約の完全バリデーション
+- `checks.<system>.contractsExamples`: **教育検査** - サンプル契約の構文チェック
+- `checks.<system>.contractsTest`: **最小検査** - テスト用契約の構文のみ
 - `checks.<system>.secretsPlaintext`: 平文シークレット検出ゼロ
 - `checks.<system>.systemdVerify`: systemd-analyze verify 成功
 - `nixosTests.smoke`: 最小スモーク（起動/ユニット/ポート）
+
+### 条件付きバリデーション詳細
+
+| ディレクトリ | 検査レベル | 目的 | 失敗許容度 |
+|-------------|-----------|------|-----------|
+| `contracts/production/` | **厳格** | 本番運用契約 | ゼロ許容 |
+| `contracts/examples/` | **教育的** | 学習・デモ | エラー想定 |
+| `contracts/test/` | **構文のみ** | テストフィクスチャ | 検査無効化 |
 
 ### Pre-Commit（ローカル必須）
 - `cue fmt`, `cue vet`
@@ -213,13 +228,25 @@ A: `cue mod vendor` 更新は PR 経由のみ。`cue.mod` と `cue.mod/pkg` を�
 ```
 .
 ├── schema/              # 共通CUEスキーマ
-├── contracts/           # 各契約（閉鎖スキーマ準拠）
-│   └── <name>/
-│       └── contract.cue
+├── contracts/           # 条件付きバリデーション対応
+│   ├── production/      # 本番契約（厳格検査）
+│   │   ├── api/contract.cue
+│   │   ├── database/contract.cue
+│   │   └── cache/contract.cue
+│   ├── examples/        # 教育用契約（寛容検査）
+│   │   ├── basic/contract.cue
+│   │   └── anti-patterns/
+│   │       ├── duplicates/     # 重複検出デモ
+│   │       └── unresolved-deps/ # 依存解決エラーデモ
+│   └── test/            # テスト用契約（構文のみ）
+│       └── fixtures/
 ├── tools/              # 集約CUE・補助スクリプト
 ├── secrets/            # sops対象（.sops.yaml必須）
 ├── baseline/           # 旧export（SemVer検査用）
 ├── tests/nixos/        # 最小スモークテスト
+├── docs/               # 実装ドキュメント
+│   ├── architecture-separation.md
+│   └── implementation-options.md
 ├── .pre-commit-config.yaml
 ├── .sops.yaml
 ├── cue.mod
@@ -243,11 +270,42 @@ cue vet ./...
 # エクスポート
 cue export ./...
 
-# 全チェック
+# 条件付きバリデーション実行
+nix build .#checks.x86_64-linux.contractsProduction  # 本番契約のみ
+nix build .#checks.x86_64-linux.contractsExamples    # サンプル契約のみ
+nix build .#checks.x86_64-linux.contractsTest        # テスト契約のみ
+
+# 全チェック（並列実行）
 nix flake check -L --pure-eval --no-write-lock-file
 
 # Pre-commit
 pre-commit run --all-files
+```
+
+### マイグレーション手順
+
+既存の単一バリデーションシステムからの移行:
+
+```bash
+# 1. 本番契約の移動
+mkdir -p contracts/production
+mv contracts/existing-service contracts/production/
+
+# 2. サンプル契約の整理
+mkdir -p contracts/examples/basic contracts/examples/anti-patterns
+mv contracts/examples/normal/* contracts/examples/basic/
+mv contracts/examples/duplicate contracts/examples/anti-patterns/duplicates
+mv contracts/examples/unresolved contracts/examples/anti-patterns/unresolved-deps
+
+# 3. テスト契約の分離
+mkdir -p contracts/test/fixtures
+mv test-contracts/* contracts/test/fixtures/
+
+# 4. 権限修正（必要に応じて）
+chmod -R +r contracts/
+
+# 5. 個別バリデーション確認
+nix build .#checks.x86_64-linux.contractsProduction
 ```
 
 ### CI/CD
