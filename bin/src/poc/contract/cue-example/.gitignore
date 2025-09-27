@@ -1,0 +1,10 @@
+# Generated files - not tracked in Git (派生物原則)
+tools/index.json
+
+# Build artifacts
+result
+result-*
+
+# Temporary files
+.tmp/
+tmp/

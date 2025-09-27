@@ -20,7 +20,7 @@ repos:
 
       - id: secrets-check
         name: Secrets plaintext detection
-        entry: bash -c 'cd secrets && find . -name "*.yaml" -o -name "*.yml" -o -name "*.json" -o -name "*.env" | xargs grep -l "password\|token\|secret\|key" | grep -v "\.example" | grep -v "\.sops\.yaml" || true | head -1 | grep -q . && echo "secrets: plaintext detected" && exit 1 || echo "secrets: no plaintext detected"'
+        entry: ./tools/check-secrets.sh
         language: system
         pass_filenames: false
         always_run: true

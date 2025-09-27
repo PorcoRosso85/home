@@ -3,7 +3,7 @@ package example
 import "example.corp/contract-system/schema"
 
 // Example contract following the schema
-ExampleContract: schema.Contract & {
+ExampleContract: schema.#Contract & {
 	namespace: "corp.example"
 	name:      "api-service"
 	role:      "service"

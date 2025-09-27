@@ -20,15 +20,15 @@ FrontendService: schema.#Contract & {
 	}]
 
 	dependsOn: [{
-		kind:           "http"
-		target:         "corp.example/nonexistent-api"  // This service doesn't exist!
-		description:    "Backend API that doesn't exist"
-		versionRange:   "^1.0.0"
+		kind:         "http"
+		target:       "corp.example/nonexistent-api" // This service doesn't exist!
+		description:  "Backend API that doesn't exist"
+		versionRange: "^1.0.0"
 	}, {
-		kind:           "auth"
-		target:         "corp.example/missing-auth-service"  // This also doesn't exist!
-		description:    "Authentication service that's missing"
-		versionRange:   "^2.0.0"
+		kind:         "auth"
+		target:       "corp.example/missing-auth-service" // This also doesn't exist!
+		description:  "Authentication service that's missing"
+		versionRange: "^2.0.0"
 	}]
 
 	tags: ["frontend", "web", "unresolved", "validation-error"]

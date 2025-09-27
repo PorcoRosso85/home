@@ -75,7 +75,7 @@
 
         # CUE aggregate validation
         aggregateCheck = pkgs.runCommand "aggregate-check" {
-          buildInputs = [ cuePkg ];
+          buildInputs = [ cuePkg pkgs.jq ];
           src = ./.;
           preferLocalBuild = true;
         } ''
@@ -88,20 +88,49 @@
           mkdir -p tools
           cp ${indexJson} tools/index.json
 
-          # Check if aggregate.cue exists, if not, create a simple one
-          if [ ! -f "tools/aggregate.cue" ]; then
-            cat > tools/aggregate.cue << 'EOF'
-package tools
+          # Extract contract data from discovered files and inject into validation
+          echo "Reading contract files from index.json..."
+          cat tools/index.json
 
-// Simple aggregate validation that always passes
-validation: {
-  result: "aggregate: all checks passed"
-}
-EOF
-          fi
+          # Create contracts data file
+          echo "package tools" > tools/contracts-data.cue
+          echo "" >> tools/contracts-data.cue
+          echo "// Real contract data injected from discovered files" >> tools/contracts-data.cue
+          echo "validation: {" >> tools/contracts-data.cue
+          echo "  contracts: [" >> tools/contracts-data.cue
 
-          # Run aggregate validation
-          if cue export ./tools/aggregate.cue; then
+          # Process each contract file listed in index.json
+          contract_count=0
+          while IFS= read -r contract_file; do
+            if [ -f "$contract_file" ]; then
+              echo "Processing contract: $contract_file"
+              # Export contract data and append to contracts array
+              if contract_data=$(cue export "$contract_file" 2>/dev/null); then
+                # Extract the actual contract object (assuming one exported definition)
+                contract_name=$(echo "$contract_data" | jq -r 'keys[0]')
+                if [ "$contract_name" != "null" ] && [ -n "$contract_name" ]; then
+                  echo "$contract_data" | jq -r ".$contract_name" >> /tmp/contract_$contract_count.json
+                  if [ $contract_count -gt 0 ]; then
+                    echo "," >> tools/contracts-data.cue
+                  fi
+                  cat /tmp/contract_$contract_count.json >> tools/contracts-data.cue
+                  contract_count=$((contract_count + 1))
+                fi
+              else
+                echo "Warning: Could not export $contract_file"
+              fi
+            fi
+          done < <(jq -r '.[]' tools/index.json)
+
+          echo "" >> tools/contracts-data.cue
+          echo "  ]" >> tools/contracts-data.cue
+          echo "}" >> tools/contracts-data.cue
+
+          echo "Processed $contract_count contracts"
+
+          # Run aggregate validation with injected data
+          echo "Running aggregate validation..."
+          if cue export ./tools/aggregate.cue ./tools/contracts-data.cue; then
             echo "aggregate: all checks passed"
             touch $out
           else
@@ -110,61 +139,12 @@ EOF
           fi
         '';
 
-        # Plaintext secrets detection
-        secretsCheck = pkgs.writeShellScript "secrets-check" ''
-          set -euo pipefail
-
-          # Define sensitive key patterns
-          PATTERNS=(
-            "password"
-            "token"
-            "private_key"
-            "aws_secret_access_key"
-            "api_key"
-            "secret"
-            "credential"
-          )
-
-          VIOLATIONS=()
-
-          # Check secrets/ directory for plaintext
-          if [ -d "secrets" ]; then
-            for pattern in "''${PATTERNS[@]}"; do
-              while IFS= read -r line; do
-                # Skip .example files
-                if [[ "$line" == *.example ]]; then
-                  continue
-                fi
-
-                # Skip .sops.yaml configuration files
-                if [[ "$line" == */.sops.yaml ]] || [[ "$line" == */.sops.yml ]]; then
-                  continue
-                fi
-
-                # Check if file is SOPS encrypted (contains 'sops:' metadata section)
-                if grep -q "^sops:" "$line" 2>/dev/null; then
-                  continue
-                fi
-
-                # Check if file contains ENC[...] pattern (SOPS encrypted values)
-                if grep -q "ENC\[" "$line" 2>/dev/null; then
-                  continue
-                fi
-
-                VIOLATIONS+=("$line")
-              done < <(grep -r -l "$pattern" secrets/ 2>/dev/null || true)
-            done
-          fi
-
-          # Remove duplicates from violations
-          if [ ''${#VIOLATIONS[@]} -gt 0 ]; then
-            UNIQUE_VIOLATIONS=($(printf '%s\n' "''${VIOLATIONS[@]}" | sort -u))
-            echo "secrets: plaintext detected in: ''${UNIQUE_VIOLATIONS[*]}"
-            exit 1
-          else
-            echo "secrets: no plaintext detected"
-          fi
+        # Plaintext secrets detection (using unified script)
+        secretsCheck = ''
+          # Run the unified script with bash explicitly
+          bash tools/check-secrets.sh
         '';
+
 
       in
       {
@@ -203,7 +183,7 @@ EOF
             cd /tmp/cue-check
 
             # Check if files are properly formatted (dry-run)
-            if cue fmt --check ./schema; then
+            if cue fmt --check ./...; then
               echo "cueFmt: all files properly formatted"
               touch $out
             else
@@ -221,7 +201,7 @@ EOF
             cp -r $src /tmp/cue-vet
             cd /tmp/cue-vet
 
-            if cue vet -c=false ./schema; then
+            if cue vet -c=false ./...; then
               echo "cueVet: validation passed"
               touch $out
             else
@@ -239,7 +219,7 @@ EOF
             cp -r $src /tmp/cue-export
             cd /tmp/cue-export
 
-            if cue export ./schema; then
+            if cue export ./...; then
               echo "cueExport: export successful"
               touch $out
             else
@@ -253,7 +233,7 @@ EOF
 
           # Plaintext secrets detection
           secretsPlaintext = pkgs.runCommand "secrets-plaintext-check" {
-            buildInputs = [ pkgs.gnugrep ];
+            buildInputs = [ pkgs.bash pkgs.gnugrep pkgs.findutils ];
             src = ./.;
           } ''
             # Copy source to temporary directory

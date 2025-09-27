@@ -5,7 +5,7 @@ import "example.corp/contract-system/schema"
 // First service with duplicate name (this will cause validation error)
 DuplicateService1: schema.#Contract & {
 	namespace: "corp.example"
-	name:      "duplicate-service"  // Same name as service2
+	name:      "duplicate-service" // Same name as service2
 	role:      "service"
 	version:   "1.0.0"
 
