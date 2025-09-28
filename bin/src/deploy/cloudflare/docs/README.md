@@ -124,23 +124,23 @@ secrets/r2.yaml → [SOPS Encryption] → [Schema Validation] → generated/mani
 ### Essential Commands
 ```bash
 # Setup and initialization
-just setup                    # Complete system setup
-just status                   # Check system status
+nix run .#r2-dev-workflow -- setup # Complete system setup
+nix run .#status # Check system status
 
 # Local development
-just r2:test dev              # Test locally with Miniflare
+nix run .#r2-dev-workflow -- test dev              # Test locally with Miniflare
 wrangler dev --local          # Start development server
 
 # Environment management
-just r2:gen-config prod       # Generate production config
-just r2:validate-all          # Validate all environments
+nix run .#r2:gen-config -- prod       # Generate production config
+nix run .#r2:validate -- -all          # Validate all environments
 
 # Security
-just secrets:edit             # Edit encrypted secrets
-just secrets:check            # Check for plaintext secrets
+nix run .#secrets-edit # Edit encrypted secrets
+nix run .#secrets-check # Check for plaintext secrets
 
 # Production deployment
-just r2:deploy-prep prod      # Prepare production deployment
+nix run .#r2-dev-workflow -- deploy-prep prod      # Prepare production deployment
 wrangler deploy               # Deploy to Cloudflare
 ```
 
@@ -153,12 +153,12 @@ nix develop → just setup → just r2:test dev → wrangler dev --local
 
 **Production Deployment:**
 ```bash
-just secrets:edit → just r2:deploy-prep prod → wrangler deploy → wrangler tail
+nix run .#secrets-edit → just r2:deploy-prep prod → wrangler deploy → wrangler tail
 ```
 
 **Troubleshooting:**
 ```bash
-just status → just r2:validate-all → just secrets:check → docs/troubleshooting.md
+nix run .#status → just r2:validate-all → just secrets:check → docs/troubleshooting.md
 ```
 
 ## 📖 Additional Resources

@@ -330,7 +330,7 @@ async function runAllTests() {
     log('🔧 Recommended Actions:', 'INFO');
     log('- Check that AJV is installed: npm install ajv ajv-formats', 'INFO');
     log('- Verify schema files exist in schemas/ directory', 'INFO');
-    log('- For SOPS tests: run `just secrets-init` to set up encryption', 'INFO');
+    log('- For SOPS tests: run `nix run .#secrets-init` to set up encryption', 'INFO');
   } else {
     log('', 'INFO');
     log('🎉 All tests passed! JSON Schema validation is working correctly.', 'SUCCESS');

@@ -60,7 +60,7 @@ wrangler r2 bucket create my-development-bucket
 
 ```bash
 # Initialize SOPS encryption
-just secrets:init
+nix run .#secrets-init
 
 # This creates:
 # - Age encryption key in ~/.config/sops/age/keys.txt
@@ -74,7 +74,7 @@ just secrets:init
 cp r2.yaml.example secrets/r2.yaml
 
 # Edit with your actual credentials
-just secrets:edit secrets/r2.yaml
+nix run .#secrets-edit secrets/r2.yaml
 ```
 
 ### 3. R2 Configuration Template
@@ -137,7 +137,7 @@ deployment:
 
 ```bash
 # Generate wrangler.jsonc for production
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 
 # This creates a production-ready wrangler.jsonc with:
 # - Your account ID
@@ -150,7 +150,7 @@ just r2:gen-config prod
 
 ```bash
 # Generate connection manifest for external tools
-just r2:gen-manifest prod
+nix run .#r2:gen-manifest -- prod
 
 # Creates: generated/r2-connection-manifest-prod.json
 # Used by: AWS SDK, external services, monitoring tools
@@ -160,7 +160,7 @@ just r2:gen-manifest prod
 
 ```bash
 # Validate all configurations
-just r2:validate prod
+nix run .#r2:validate -- prod
 
 # Check for:
 # - Valid account ID format
@@ -185,7 +185,7 @@ secrets/
 ```bash
 # Set up staging environment
 cp secrets/r2.yaml secrets/r2-staging.yaml
-just secrets:edit secrets/r2-staging.yaml
+nix run .#secrets-edit secrets/r2-staging.yaml
 
 # Update for staging:
 # - Different bucket names (add -staging suffix)
@@ -193,8 +193,8 @@ just secrets:edit secrets/r2-staging.yaml
 # - Less strict security for testing
 
 # Generate staging configuration
-just r2:gen-config stg
-just r2:validate stg
+nix run .#r2:gen-config -- stg
+nix run .#r2:validate -- stg
 ```
 
 ### Development Environment
@@ -202,7 +202,7 @@ just r2:validate stg
 ```bash
 # Set up development environment
 cp secrets/r2.yaml secrets/r2-development.yaml
-just secrets:edit secrets/r2-development.yaml
+nix run .#secrets-edit secrets/r2-development.yaml
 
 # Update for development:
 # - Development bucket names (add -dev suffix)
@@ -210,8 +210,8 @@ just secrets:edit secrets/r2-development.yaml
 # - Debug logging enabled
 
 # Generate development configuration
-just r2:gen-config dev
-just r2:validate dev
+nix run .#r2:gen-config -- dev
+nix run .#r2:validate -- dev
 ```
 
 ## 🔧 Wrangler Authentication
@@ -242,7 +242,7 @@ wrangler r2 bucket list
 
 ```bash
 # Comprehensive pre-deployment check
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 
 # This runs:
 # - Configuration generation
@@ -282,11 +282,11 @@ wrangler tail
 
 ```bash
 # ✅ DO: Use encrypted secrets
-just secrets:edit
+nix run .#secrets-edit
 
 # ✅ DO: Rotate credentials regularly
 # Update secrets/r2.yaml with new credentials
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 wrangler deploy
 
 # ❌ DON'T: Store credentials in plain text
@@ -464,7 +464,7 @@ r2_buckets:
 2. **R2 Access Denied**
    ```bash
    # Verify R2 credentials
-   just r2:validate prod
+   nix run .#r2:validate -- prod
 
    # Check bucket permissions in dashboard
    ```
@@ -472,8 +472,8 @@ r2_buckets:
 3. **CORS Issues**
    ```bash
    # Update CORS configuration
-   just secrets:edit secrets/r2.yaml
-   just r2:gen-config prod
+   nix run .#secrets-edit secrets/r2.yaml
+   nix run .#r2:gen-config -- prod
    wrangler deploy
    ```
 

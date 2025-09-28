@@ -78,10 +78,10 @@ async function testCommandExecutionPerformance(testSuite) {
   const commands = [
     { name: 'just --version', category: 'basic' },
     { name: 'just --list', category: 'basic' },
-    { name: 'just status', category: 'complex' },
-    { name: 'just r2:envs', category: 'complex' },
-    { name: 'just r2:status dev', category: 'complex' },
-    { name: 'just secrets:check', category: 'complex' }
+    { name: 'nix run .#status', category: 'complex' },
+    { name: 'nix run .#r2:envs', category: 'complex' },
+    { name: 'nix run .#r2 -- status dev', category: 'complex' },
+    { name: 'nix run .#secrets -- check', category: 'complex' }
   ];
 
   const performanceResults = [];
@@ -150,7 +150,7 @@ async function testCommandExecutionPerformance(testSuite) {
   // Test cold vs warm start performance
   logger.debug('Testing cold vs warm start performance...');
 
-  const testCommand = 'just r2:status dev';
+  const testCommand = 'nix run .#r2 -- status dev';
 
   // Cold start (first execution)
   const coldStart = await measureExecutionTime(() =>
@@ -459,8 +459,8 @@ async function testConcurrentOperationHandling(testSuite) {
   // Test concurrent command execution
   const commands = [
     'just --version',
-    'just r2:envs',
-    'just status'
+    'nix run .#r2:envs',
+    'nix run .#status'
   ];
 
   for (const concurrency of [2, 3, 5]) {
@@ -640,7 +640,7 @@ async function testResourceUsageMonitoring(testSuite) {
   const networkTests = [
     { name: 'Fast command', command: 'just --version' },
     { name: 'Medium command', command: 'just --list' },
-    { name: 'Complex command', command: 'just status' }
+    { name: 'Complex command', command: 'nix run .#status' }
   ];
 
   for (const test of networkTests) {
@@ -756,7 +756,7 @@ async function testScalabilityTesting(testSuite) {
   // Test command execution scalability
   const commandScalabilityTests = [
     { command: 'just --version', scales: [1, 3, 5] },
-    { command: 'just r2:envs', scales: [1, 2, 3] }
+    { command: 'nix run .#r2:envs', scales: [1, 2, 3] }
   ];
 
   for (const test of commandScalabilityTests) {
@@ -934,7 +934,7 @@ async function testPerformanceRegressionDetection(testSuite) {
   const performanceBaselines = {
     'just --version': { max: 500, avg: 200 }, // milliseconds
     'just --list': { max: 1000, avg: 500 },
-    'just status': { max: 5000, avg: 2000 },
+    'nix run .#status': { max: 5000, avg: 2000 },
     'config-load-dev': { max: 1000, avg: 300 },
     'manifest-generation': { max: 2000, avg: 800 }
   };
@@ -945,7 +945,7 @@ async function testPerformanceRegressionDetection(testSuite) {
   const commandTests = [
     { name: 'just --version', command: 'just --version' },
     { name: 'just --list', command: 'just --list' },
-    { name: 'just status', command: 'just status' }
+    { name: 'nix run .#status', command: 'nix run .#status' }
   ];
 
   for (const test of commandTests) {

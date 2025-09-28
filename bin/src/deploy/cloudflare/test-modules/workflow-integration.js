@@ -347,9 +347,9 @@ async function testDeploymentPreparationWorkflow(testSuite) {
 
   // Step 6: Simulate deployment preparation commands
   const prepCommands = [
-    'just r2:validate prod',
-    'just r2:check-secrets',
-    'just r2:status'
+    'nix run .#r2 -- validate prod',
+    'nix run .#r2 -- check-secrets',
+    'nix run .#r2 -- status'
   ];
 
   for (const command of prepCommands) {

@@ -30,8 +30,8 @@ First, ensure you have R2 credentials configured:
 
 ```bash
 # Set up encrypted secrets
-just secrets:init
-just secrets:edit secrets/r2.yaml
+nix run .#secrets-init
+nix run .#secrets-edit secrets/r2.yaml
 ```
 
 Your `secrets/r2.yaml` should include:
@@ -50,7 +50,7 @@ r2_endpoint: "https://your-account-id.r2.cloudflarestorage.com"
 
 ```bash
 # Generate R2 connection manifest
-just r2:gen-manifest prod
+nix run .#r2:gen-manifest -- prod
 
 # This creates: generated/r2-connection-manifest-prod.json
 # Contains all connection details for external tools

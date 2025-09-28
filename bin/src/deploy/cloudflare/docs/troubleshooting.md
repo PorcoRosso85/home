@@ -8,26 +8,26 @@ Complete troubleshooting guide for common issues with the R2 Connection Manageme
 
 ```bash
 # Check overall system status
-just status
+nix run .#status
 
 # Validate specific environment
-just r2:validate prod
+nix run .#r2:validate -- prod
 
 # Check for plaintext secrets
-just secrets:check
+nix run .#secrets-check
 
 # Verify all configurations
-just r2:validate-all
+nix run .#r2:validate -- -all
 ```
 
 ### Common Quick Fixes
 
 ```bash
 # Regenerate configurations
-just clean && just setup
+nix run .#clean && just setup
 
 # Refresh secrets encryption
-just secrets:edit
+nix run .#secrets-edit
 
 # Reset development environment
 nix develop --refresh
@@ -45,10 +45,10 @@ nix develop --refresh
 **Diagnosis:**
 ```bash
 # Check if credentials are properly encrypted
-just secrets:check
+nix run .#secrets-check
 
 # Verify R2 credentials format
-just secrets:edit secrets/r2.yaml
+nix run .#secrets-edit secrets/r2.yaml
 
 # Test authentication
 curl -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
@@ -63,8 +63,8 @@ curl -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
    # R2 Object Storage → Manage R2 API tokens → Create API token
 
    # Update secrets with new credentials
-   just secrets:edit secrets/r2.yaml
-   just r2:gen-config prod
+   nix run .#secrets-edit secrets/r2.yaml
+   nix run .#r2:gen-config -- prod
    ```
 
 2. **Check Cloudflare API Token:**
@@ -81,7 +81,7 @@ curl -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
    # Ensure account ID is correct 32-character hex string
    # Check in: Cloudflare Dashboard → Right sidebar
 
-   just secrets:edit secrets/r2.yaml
+   nix run .#secrets-edit secrets/r2.yaml
    # Update cf_account_id field
    ```
 
@@ -150,7 +150,7 @@ wrangler whoami
    cat wrangler.jsonc | jq '.r2_buckets'
 
    # Regenerate if missing
-   just r2:gen-config dev
+   nix run .#r2:gen-config -- dev
    ```
 
 2. **Restart Wrangler dev:**
@@ -166,7 +166,7 @@ wrangler whoami
 **Diagnosis:**
 ```bash
 # Run test with verbose output
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # Check test script directly
 nix run .#test-r2-local
@@ -206,8 +206,8 @@ nix run .#test-r2-local
 
    # Compare with Cloudflare Dashboard
    # Update if necessary
-   just secrets:edit secrets/r2.yaml
-   just r2:gen-config prod
+   nix run .#secrets-edit secrets/r2.yaml
+   nix run .#r2:gen-config -- prod
    ```
 
 2. **Check Wrangler authentication:**
@@ -269,7 +269,7 @@ nix run .#test-r2-local
 2. **Update R2 bucket CORS configuration:**
    ```bash
    # Update CORS origins in secrets
-   just secrets:edit secrets/r2.yaml
+   nix run .#secrets-edit secrets/r2.yaml
 
    # Add/update cors_origins for your buckets:
    # r2_buckets:
@@ -278,7 +278,7 @@ nix run .#test-r2-local
    #       - "https://yourdomain.com"
    #       - "https://www.yourdomain.com"
 
-   just r2:gen-config prod
+   nix run .#r2:gen-config -- prod
    wrangler deploy
    ```
 
@@ -294,7 +294,7 @@ nix run .#test-r2-local
 **Diagnosis:**
 ```bash
 # Validate configuration against schema
-just r2:validate prod
+nix run .#r2:validate -- prod
 
 # Check configuration syntax
 cat generated/r2-connection-manifest-prod.json | jq '.'
@@ -305,7 +305,7 @@ cat generated/r2-connection-manifest-prod.json | jq '.'
 1. **Fix configuration format:**
    ```bash
    # Edit raw configuration
-   just secrets:edit secrets/r2.yaml
+   nix run .#secrets-edit secrets/r2.yaml
 
    # Common fixes:
    # - Ensure account_id is 32-character hex string
@@ -317,8 +317,8 @@ cat generated/r2-connection-manifest-prod.json | jq '.'
    ```bash
    # Start fresh from example
    cp r2.yaml.example secrets/r2.yaml
-   just secrets:edit secrets/r2.yaml
-   just r2:gen-config prod
+   nix run .#secrets-edit secrets/r2.yaml
+   nix run .#r2:gen-config -- prod
    ```
 
 ### ❌ Missing Generated Files
@@ -333,9 +333,9 @@ cat generated/r2-connection-manifest-prod.json | jq '.'
 1. **Regenerate all configurations:**
    ```bash
    # Clean and regenerate everything
-   just clean
-   just setup
-   just r2:gen-all prod
+   nix run .#clean
+   nix run .#r2-dev-workflow -- setup
+   nix run .#r2:gen-all -- prod
    ```
 
 2. **Check permissions:**
@@ -357,7 +357,7 @@ cat generated/r2-connection-manifest-prod.json | jq '.'
 **Diagnosis:**
 ```bash
 # Check for plaintext secrets
-just secrets:check
+nix run .#secrets-check
 
 # See detailed output
 nix build .#checks.x86_64-linux.no-plaintext-secrets
@@ -368,7 +368,7 @@ nix build .#checks.x86_64-linux.no-plaintext-secrets
 1. **Encrypt exposed secrets:**
    ```bash
    # Move secrets to encrypted storage
-   just secrets:edit secrets/r2.yaml
+   nix run .#secrets-edit secrets/r2.yaml
 
    # Remove from plain files
    git rm file-with-secrets.txt
@@ -401,7 +401,7 @@ nix build .#checks.x86_64-linux.no-plaintext-secrets
 1. **Initialize Age encryption:**
    ```bash
    # Generate new Age key
-   just secrets:init
+   nix run .#secrets-init
 
    # Verify key exists
    ls -la ~/.config/sops/age/keys.txt
@@ -482,9 +482,9 @@ nix build .#checks.x86_64-linux.no-plaintext-secrets
 1. **Run tests individually:**
    ```bash
    # Test each environment separately
-   just r2:validate dev
-   just r2:validate stg
-   just r2:validate prod
+   nix run .#r2:validate -- dev
+   nix run .#r2:validate -- stg
+   nix run .#r2:validate -- prod
    ```
 
 2. **Check test environment:**
@@ -569,7 +569,7 @@ wrangler dev --local
 
 # Enable debug for testing
 export DEBUG=true
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 ```
 
 ### Check Wrangler Logs
@@ -657,7 +657,7 @@ wsl --set-version Ubuntu 2
 **A:** Yes, but not recommended. Use Miniflare for local development:
 ```bash
 # Local development (recommended)
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 wrangler dev --local
 
 # Real R2 for development (not recommended)
@@ -673,10 +673,10 @@ wrangler dev --remote
 **A:** Yes, configure different environments:
 ```bash
 # Account A (production)
-just secrets:edit secrets/r2-prod.yaml
+nix run .#secrets-edit secrets/r2-prod.yaml
 
 # Account B (development)
-just secrets:edit secrets/r2-dev.yaml
+nix run .#secrets-edit secrets/r2-dev.yaml
 ```
 
 ### Q: How do I backup my R2 data?
@@ -721,10 +721,10 @@ node --version
 nix --version
 
 echo "=== R2 System Status ==="
-just status
+nix run .#status
 
 echo "=== Configuration Status ==="
-just r2:validate-all
+nix run .#r2:validate -- -all
 
 echo "=== Recent Logs ==="
 wrangler tail --lines 50

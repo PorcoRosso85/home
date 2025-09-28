@@ -92,14 +92,14 @@ cd /path/to/new-r2-system
 nix develop
 
 # Initialize the system
-just setup
+nix run .#r2-dev-workflow -- setup
 ```
 
 #### 1.2 Initialize Secret Management
 
 ```bash
 # Setup SOPS encryption
-just secrets:init
+nix run .#secrets-init
 
 # This creates:
 # - Age encryption key in ~/.config/sops/age/keys.txt
@@ -136,7 +136,7 @@ env | grep -E "(CLOUDFLARE|R2)" >> migration-data.txt
 cp r2.yaml.example secrets/r2.yaml
 
 # Edit with your actual values
-just secrets:edit secrets/r2.yaml
+nix run .#secrets-edit secrets/r2.yaml
 ```
 
 **Configuration template with migration notes:**
@@ -193,17 +193,17 @@ monitoring:
 
 ```bash
 # Generate wrangler.jsonc for each environment
-just r2:gen-config dev
-just r2:gen-config stg
-just r2:gen-config prod
+nix run .#r2:gen-config -- dev
+nix run .#r2:gen-config -- stg
+nix run .#r2:gen-config -- prod
 
 # Generate connection manifests
-just r2:gen-manifest dev
-just r2:gen-manifest stg
-just r2:gen-manifest prod
+nix run .#r2:gen-manifest -- dev
+nix run .#r2:gen-manifest -- stg
+nix run .#r2:gen-manifest -- prod
 
 # Validate all configurations
-just r2:validate-all
+nix run .#r2:validate -- -all
 ```
 
 ### Phase 3: Code Migration
@@ -313,10 +313,10 @@ S3_BUCKET=my-bucket
 # Environment-specific settings in generated configs
 
 # For local development
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # For production
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 ```
 
 ### Phase 4: Testing Migration
@@ -325,7 +325,7 @@ just r2:deploy-prep prod
 
 ```bash
 # Test new system locally with Miniflare
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # Start local development server
 wrangler dev --local
@@ -338,7 +338,7 @@ curl -X POST http://localhost:8787/api/test-upload
 
 ```bash
 # Deploy to staging first
-just r2:deploy-prep stg
+nix run .#r2-dev-workflow -- deploy-prep stg
 
 # Deploy staging Worker
 wrangler deploy --env staging
@@ -351,13 +351,13 @@ curl -X POST https://your-worker-staging.workers.dev/api/test
 
 ```bash
 # Validate production config without deploying
-just r2:validate prod
+nix run .#r2:validate -- prod
 
 # Check for any issues
-just secrets:check
+nix run .#secrets-check
 
 # Run comprehensive validation
-just r2:validate-all
+nix run .#r2:validate -- -all
 ```
 
 ### Phase 5: Production Migration
@@ -370,11 +370,11 @@ cp wrangler.toml wrangler.toml.pre-migration
 cp -r .wrangler .wrangler.pre-migration 2>/dev/null || true
 
 # ✅ Test new system in staging
-just r2:deploy-prep stg
+nix run .#r2-dev-workflow -- deploy-prep stg
 wrangler deploy --env staging
 
 # ✅ Validate production configuration
-just r2:validate prod
+nix run .#r2:validate -- prod
 
 # ✅ Ensure Age key is backed up
 cp ~/.config/sops/age/keys.txt ~/backup/
@@ -388,7 +388,7 @@ echo "Migration scheduled for $(date)"
 **Option A: Big Bang Migration**
 ```bash
 # 1. Deploy new production configuration
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 
 # 2. Deploy to production
 wrangler deploy
@@ -436,7 +436,7 @@ wrangler tail --filter error --lines 100
 
 ```bash
 # 1. Setup development environment
-just secrets:edit secrets/r2-dev.yaml
+nix run .#secrets-edit secrets/r2-dev.yaml
 
 # Configure for development:
 r2_buckets:
@@ -453,17 +453,17 @@ security:
   encryption_at_rest: true
 
 # 2. Generate dev configuration
-just r2:gen-config dev
+nix run .#r2:gen-config -- dev
 
 # 3. Test locally
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 ```
 
 ### Staging Environment
 
 ```bash
 # 1. Setup staging environment
-just secrets:edit secrets/r2-stg.yaml
+nix run .#secrets-edit secrets/r2-stg.yaml
 
 # Configure for staging:
 r2_buckets:
@@ -479,7 +479,7 @@ security:
   encryption_at_rest: true
 
 # 2. Generate staging configuration
-just r2:gen-config stg
+nix run .#r2:gen-config -- stg
 
 # 3. Deploy and test
 wrangler deploy --env staging
@@ -489,7 +489,7 @@ wrangler deploy --env staging
 
 ```bash
 # 1. Setup production environment (most secure)
-just secrets:edit secrets/r2-prod.yaml
+nix run .#secrets-edit secrets/r2-prod.yaml
 
 # Configure for production:
 r2_buckets:
@@ -506,10 +506,10 @@ security:
   access_control: "strict"
 
 # 2. Generate production configuration
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 
 # 3. Validate before deployment
-just r2:validate prod
+nix run .#r2:validate -- prod
 ```
 
 ## 🚨 Rollback Procedures
@@ -537,7 +537,7 @@ curl -X GET https://your-worker.workers.dev/health
 wrangler deploy --env staging  # Deploy old staging config
 
 # Keep other environments on new system
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 wrangler deploy --env production
 ```
 
@@ -571,11 +571,11 @@ echo "=== Migration Validation ==="
 
 # Test 1: Configuration validation
 echo "Testing configuration..."
-just r2:validate-all
+nix run .#r2:validate -- -all
 
 # Test 2: Local development
 echo "Testing local development..."
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # Test 3: Basic R2 operations
 echo "Testing R2 operations..."
@@ -585,7 +585,7 @@ curl -X DELETE https://your-worker.workers.dev/api/test-delete
 
 # Test 4: Security checks
 echo "Testing security..."
-just secrets:check
+nix run .#secrets-check
 
 echo "✅ Migration validation complete"
 ```
@@ -677,16 +677,16 @@ wrangler deploy  # Hope it works
 **After Migration:**
 ```bash
 # Automated configuration generation
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 
 # Encrypted secret management
-just secrets:edit
+nix run .#secrets-edit
 
 # Comprehensive validation
-just r2:validate-all
+nix run .#r2:validate -- -all
 
 # Multi-environment support
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 ```
 
 ### Security Improvements

@@ -21,17 +21,17 @@ Miniflare is a simulator for Cloudflare Workers that runs locally on your machin
 nix develop
 
 # Set up basic configuration
-just setup
+nix run .#r2-dev-workflow -- setup
 
 # Verify everything is working
-just status
+nix run .#status
 ```
 
 ### 2. Test R2 Configuration Locally
 
 ```bash
 # Run the local R2 configuration test suite
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # This will test:
 # - Bucket configuration validation
@@ -290,7 +290,7 @@ describe('R2 Configuration Management', () => {
 
 ```bash
 # Run comprehensive resource configuration tests
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # This runs tests for:
 # - Resource binding validation
