@@ -1,0 +1,164 @@
+{
+  "version": "1.1",
+  "generated": "2024-03-15T10:30:00.000Z",
+  "defaultLang": "x-default",
+  "urls": [
+    {
+      "loc": "https://example.com",
+      "lastmod": "2024-03-15T10:00:00.000Z",
+      "lang": "x-default",
+      "alternates": [
+        {
+          "lang": "en",
+          "loc": "https://example.com/en"
+        },
+        {
+          "lang": "ja",
+          "loc": "https://example.com/ja"
+        },
+        {
+          "lang": "es",
+          "loc": "https://example.com/es"
+        }
+      ]
+    },
+    {
+      "loc": "https://example.com/en",
+      "lastmod": "2024-03-15T09:45:00.000Z",
+      "lang": "en",
+      "alternates": [
+        {
+          "lang": "x-default",
+          "loc": "https://example.com"
+        },
+        {
+          "lang": "ja",
+          "loc": "https://example.com/ja"
+        },
+        {
+          "lang": "es",
+          "loc": "https://example.com/es"
+        }
+      ]
+    },
+    {
+      "loc": "https://example.com/ja",
+      "lastmod": "2024-03-15T09:30:00.000Z",
+      "lang": "ja",
+      "alternates": [
+        {
+          "lang": "x-default",
+          "loc": "https://example.com"
+        },
+        {
+          "lang": "en",
+          "loc": "https://example.com/en"
+        },
+        {
+          "lang": "es",
+          "loc": "https://example.com/es"
+        }
+      ]
+    },
+    {
+      "loc": "https://example.com/es",
+      "lastmod": "2024-03-15T09:15:00.000Z",
+      "lang": "es",
+      "alternates": [
+        {
+          "lang": "x-default",
+          "loc": "https://example.com"
+        },
+        {
+          "lang": "en",
+          "loc": "https://example.com/en"
+        },
+        {
+          "lang": "ja",
+          "loc": "https://example.com/ja"
+        }
+      ]
+    },
+    {
+      "loc": "https://example.com/en/products",
+      "lastmod": "2024-03-14T15:20:00.000Z",
+      "lang": "en"
+    },
+    {
+      "loc": "https://example.com/ja/products",
+      "lastmod": "2024-03-14T15:20:00.000Z",
+      "lang": "ja"
+    },
+    {
+      "loc": "https://example.com/en/about",
+      "lastmod": "2024-03-13T11:10:00.000Z",
+      "lang": "en",
+      "alternates": [
+        {
+          "lang": "ja",
+          "loc": "https://example.com/ja/about"
+        }
+      ]
+    },
+    {
+      "loc": "https://example.com/ja/about",
+      "lastmod": "2024-03-13T11:10:00.000Z",
+      "lang": "ja",
+      "alternates": [
+        {
+          "lang": "en",
+          "loc": "https://example.com/en/about"
+        }
+      ]
+    },
+    {
+      "loc": "https://example.com/blog/2024/seo-best-practices",
+      "lastmod": "2024-03-12T08:00:00.000Z"
+    },
+    {
+      "loc": "https://example.com/en-US/support",
+      "lastmod": "2024-03-11T14:30:00.000Z",
+      "lang": "en-US",
+      "alternates": [
+        {
+          "lang": "en-GB",
+          "loc": "https://example.com/en-GB/support"
+        },
+        {
+          "lang": "ja-JP",
+          "loc": "https://example.com/ja-JP/support"
+        }
+      ]
+    },
+    {
+      "loc": "https://example.com/en-GB/support",
+      "lastmod": "2024-03-11T14:30:00.000Z",
+      "lang": "en-GB",
+      "alternates": [
+        {
+          "lang": "en-US",
+          "loc": "https://example.com/en-US/support"
+        },
+        {
+          "lang": "ja-JP",
+          "loc": "https://example.com/ja-JP/support"
+        }
+      ]
+    },
+    {
+      "loc": "https://example.com/ja-JP/support",
+      "lastmod": "2024-03-11T14:30:00.000Z",
+      "lang": "ja-JP",
+      "alternates": [
+        {
+          "lang": "en-US",
+          "loc": "https://example.com/en-US/support"
+        },
+        {
+          "lang": "en-GB",
+          "loc": "https://example.com/en-GB/support"
+        }
+      ]
+    }
+  ]
+}

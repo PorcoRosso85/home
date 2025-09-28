@@ -6,6 +6,16 @@
     <title>JSON-LD Rich Results Test - Programmatic SEO</title>
     <meta name="description" content="Comprehensive test page for JSON-LD structured data validation and Rich Results testing">
 
+    <!-- Phase 1.1 - Hreflang Links for Testing -->
+    <link rel="canonical" href="http://localhost:8080/examples/phase-1.0/json-ld-test.html">
+    <link rel="alternate" hreflang="x-default" href="http://localhost:8080/examples/phase-1.0/">
+    <link rel="alternate" hreflang="en" href="http://localhost:8080/examples/phase-1.0/en/">
+    <link rel="alternate" hreflang="ja" href="http://localhost:8080/examples/phase-1.0/ja/">
+    <link rel="alternate" hreflang="es" href="http://localhost:8080/examples/phase-1.0/es/">
+    <link rel="alternate" hreflang="en-US" href="http://localhost:8080/examples/phase-1.0/en-US/support">
+    <link rel="alternate" hreflang="en-GB" href="http://localhost:8080/examples/phase-1.0/en-GB/support">
+    <link rel="alternate" hreflang="ja-JP" href="http://localhost:8080/examples/phase-1.0/ja-JP/support">
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -91,6 +101,26 @@
         <a href="https://validator.schema.org/" target="_blank">Schema.org Validator</a>
         <a href="https://jsonld.com/validator/" target="_blank">JSON-LD Validator</a>
         <a href="https://developers.facebook.com/tools/debug/" target="_blank">Facebook Debugger</a>
+    </div>
+
+    <div class="test-section">
+        <h2>🌍 Hreflang Testing (Phase 1.1)</h2>
+        <p>This page includes hreflang links in the &lt;head&gt; section for international SEO testing.</p>
+        <div class="schema-preview">
+✓ Canonical URL: http://localhost:8080/examples/phase-1.0/json-ld-test.html
+✓ x-default: http://localhost:8080/examples/phase-1.0/
+✓ BCP47 compliant language tags: en, ja, es, en-US, en-GB, ja-JP
+✓ Self-reference and cross-reference structure
+✓ Browser DevTools inspection ready
+        </div>
+        <h3>How to inspect hreflang links:</h3>
+        <ol>
+            <li>Open browser DevTools (F12)</li>
+            <li>Go to Elements/Inspector tab</li>
+            <li>Expand &lt;head&gt; section</li>
+            <li>Look for &lt;link rel="alternate" hreflang="..."&gt; tags</li>
+            <li>Verify x-default and language-specific links</li>
+        </ol>
     </div>
 
     <div class="test-section">

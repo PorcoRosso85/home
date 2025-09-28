@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hreflang Links Reference</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .page { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .url { font-weight: bold; color: #0066cc; }
+        .links { margin: 10px 0; }
+        .link { display: block; margin: 2px 0; font-family: monospace; }
+        .warning { color: #ff8800; }
+        .error { color: #cc0000; }
+    </style>
+</head>
+<body>
+    <h1>Hreflang Links Reference</h1>
+    <p>Generated: 2025-09-27T21:30:47.194Z</p>
+    <h2 class="warning">Warnings</h2>
+    <ul>
+        <li class="warning">Missing self-reference for https://example.com/blog/2024/seo-best-practices. Each page should include itself in hreflang links.</li>
+        <li class="warning">Multiple URLs found for language &quot;en&quot;: https://example.com/en, https://example.com/en/products, https://example.com/en/about. Each language should have one canonical URL per content slot.</li>
+        <li class="warning">Multiple URLs found for language &quot;ja&quot;: https://example.com/ja, https://example.com/ja/products, https://example.com/ja/about. Each language should have one canonical URL per content slot.</li>
+    </ul>
+    <h2>Hreflang Links by Page</h2>
+    <div class="page">
+        <div class="url">https://example.com</div>
+        <div>Page Language: x-default</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="x-default" href="https://example.com" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="en" href="https://example.com/en" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="es" href="https://example.com/es" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="ja" href="https://example.com/ja" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/en</div>
+        <div>Page Language: en</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="x-default" href="https://example.com" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="en" href="https://example.com/en" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="es" href="https://example.com/es" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="ja" href="https://example.com/ja" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/ja</div>
+        <div>Page Language: ja</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="x-default" href="https://example.com" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="en" href="https://example.com/en" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="es" href="https://example.com/es" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="ja" href="https://example.com/ja" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/es</div>
+        <div>Page Language: es</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="x-default" href="https://example.com" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="en" href="https://example.com/en" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="es" href="https://example.com/es" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="ja" href="https://example.com/ja" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/en/products</div>
+        <div>Page Language: en</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="en" href="https://example.com/en/products" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/ja/products</div>
+        <div>Page Language: ja</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="ja" href="https://example.com/ja/products" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/en/about</div>
+        <div>Page Language: en</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="en" href="https://example.com/en/about" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="ja" href="https://example.com/ja/about" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/ja/about</div>
+        <div>Page Language: ja</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="en" href="https://example.com/en/about" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="ja" href="https://example.com/ja/about" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/blog/2024/seo-best-practices</div>
+        <div class="links">
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/en-US/support</div>
+        <div>Page Language: en-US</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="en-GB" href="https://example.com/en-GB/support" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="en-US" href="https://example.com/en-US/support" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="ja-JP" href="https://example.com/ja-JP/support" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/en-GB/support</div>
+        <div>Page Language: en-GB</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="en-GB" href="https://example.com/en-GB/support" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="en-US" href="https://example.com/en-US/support" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="ja-JP" href="https://example.com/ja-JP/support" /&gt;</div>
+        </div>
+    </div>
+    <div class="page">
+        <div class="url">https://example.com/ja-JP/support</div>
+        <div>Page Language: ja-JP</div>
+        <div class="links">
+            <div class="link">&lt;link rel="alternate" hreflang="en-GB" href="https://example.com/en-GB/support" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="en-US" href="https://example.com/en-US/support" /&gt;</div>
+            <div class="link">&lt;link rel="alternate" hreflang="ja-JP" href="https://example.com/ja-JP/support" /&gt;</div>
+        </div>
+    </div>
+</body>
+</html>

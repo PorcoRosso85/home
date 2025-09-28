@@ -1,5 +1,28 @@
 # Measurement Providers Setup Guide
 
+## Global API Reference
+
+The measurement snippet provides **two identical global APIs** when loaded as an IIFE:
+
+### Primary API: `pSEO` (Recommended)
+```javascript
+// Standard usage - recommended for most integrations
+pSEO.init({ provider: 'ga4', siteId: 'GA_MEASUREMENT_ID' });
+pSEO.decorateAllOutbound();
+```
+
+### Alternative API: `window.MeasurementSnippet`
+```javascript
+// Alternative API - identical functionality, useful for:
+// - Avoiding global name conflicts
+// - Library/framework integrations
+// - Advanced debugging scenarios
+window.MeasurementSnippet.init({ provider: 'ga4', siteId: 'GA_MEASUREMENT_ID' });
+window.MeasurementSnippet.decorateAllOutbound();
+```
+
+**Recommendation:** Use `pSEO` for standard integrations. Use `window.MeasurementSnippet` only when global naming conflicts occur or when integrating into libraries that require namespaced APIs.
+
 ## Provider Policy
 
 ### Delegation Strategy
@@ -41,13 +64,17 @@ Add the measurement snippet to your site:
 <!-- IIFE Build (for simple script tag integration) -->
 <script src="./dist/measurement/snippet.iife.min.js"></script>
 <script>
-  window.MeasurementSnippet.init({
+  // Primary API (recommended)
+  pSEO.init({
     provider: 'ga4',
     siteId: 'GA_MEASUREMENT_ID',
     enableSPA: true,
   });
 
-  window.MeasurementSnippet.decorateAllOutbound();
+  pSEO.decorateAllOutbound();
+
+  // Alternative API (same functionality)
+  // window.MeasurementSnippet.init({ ... });
 </script>
 ```
 
@@ -70,7 +97,7 @@ Add the measurement snippet to your site:
 <!-- 2. Measurement snippet -->
 <script src="./dist/measurement/snippet.iife.min.js"></script>
 <script>
-  window.MeasurementSnippet.init({
+  pSEO.init({
     provider: 'ga4',
     siteId: 'GA_MEASUREMENT_ID',
   });
@@ -88,7 +115,7 @@ Add the measurement snippet to your site:
 <!-- 2. Measurement snippet -->
 <script src="./dist/measurement/snippet.iife.min.js"></script>
 <script>
-  window.MeasurementSnippet.init({
+  pSEO.init({
     provider: 'plausible',
     siteId: 'yourdomain.com',
   });
@@ -104,7 +131,7 @@ if (window.location.hostname === 'localhost') {
   // Skip initialization or use test IDs
   console.log('Analytics disabled in development');
 } else {
-  window.MeasurementSnippet.init({
+  pSEO.init({
     provider: 'ga4',
     siteId: 'GA_MEASUREMENT_ID',
   });
@@ -115,7 +142,7 @@ if (window.location.hostname === 'localhost') {
 ```javascript
 const isProduction = window.location.hostname === 'yourproductionsite.com';
 
-window.MeasurementSnippet.init({
+pSEO.init({
   provider: 'ga4',
   siteId: isProduction ? 'GA_PRODUCTION_ID' : 'GA_STAGING_ID',
 });
@@ -195,7 +222,7 @@ decorateAllOutbound(): void
 
 For single-page applications:
 ```javascript
-window.MeasurementSnippet.init({
+pSEO.init({
   provider: 'ga4',
   siteId: 'GA_MEASUREMENT_ID',
   enableSPA: true, // Automatically tracks navigation
@@ -203,7 +230,7 @@ window.MeasurementSnippet.init({
 
 // Manual tracking for custom routing
 window.addEventListener('route-change', () => {
-  window.MeasurementSnippet.trackPageview();
+  pSEO.trackPageview();
 });
 ```
 
@@ -231,10 +258,13 @@ window.addEventListener('route-change', () => {
 // Enable debug logging (development only)
 window.__measurementDebug = true;
 
-window.MeasurementSnippet.init({
+pSEO.init({
   provider: 'ga4',
   siteId: 'GA_MEASUREMENT_ID',
 });
+
+// Alternative API (same functionality):
+// window.MeasurementSnippet.init({ ... });
 ```
 
 ## Future Roadmap

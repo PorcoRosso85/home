@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hreflang generated="2025-09-27T21:30:47.194Z">
+  <validation>
+    <success>true</success>
+    <warnings>
+      <warning>Missing self-reference for https://example.com/blog/2024/seo-best-practices. Each page should include itself in hreflang links.</warning>
+      <warning>Multiple URLs found for language &quot;en&quot;: https://example.com/en, https://example.com/en/products, https://example.com/en/about. Each language should have one canonical URL per content slot.</warning>
+      <warning>Multiple URLs found for language &quot;ja&quot;: https://example.com/ja, https://example.com/ja/products, https://example.com/ja/about. Each language should have one canonical URL per content slot.</warning>
+    </warnings>
+  </validation>
+  <pages>
+    <page url="https://example.com" lang="x-default">
+      <link hreflang="x-default" href="https://example.com" />
+      <link hreflang="en" href="https://example.com/en" />
+      <link hreflang="es" href="https://example.com/es" />
+      <link hreflang="ja" href="https://example.com/ja" />
+    </page>
+    <page url="https://example.com/en" lang="en">
+      <link hreflang="x-default" href="https://example.com" />
+      <link hreflang="en" href="https://example.com/en" />
+      <link hreflang="es" href="https://example.com/es" />
+      <link hreflang="ja" href="https://example.com/ja" />
+    </page>
+    <page url="https://example.com/ja" lang="ja">
+      <link hreflang="x-default" href="https://example.com" />
+      <link hreflang="en" href="https://example.com/en" />
+      <link hreflang="es" href="https://example.com/es" />
+      <link hreflang="ja" href="https://example.com/ja" />
+    </page>
+    <page url="https://example.com/es" lang="es">
+      <link hreflang="x-default" href="https://example.com" />
+      <link hreflang="en" href="https://example.com/en" />
+      <link hreflang="es" href="https://example.com/es" />
+      <link hreflang="ja" href="https://example.com/ja" />
+    </page>
+    <page url="https://example.com/en/products" lang="en">
+      <link hreflang="en" href="https://example.com/en/products" />
+    </page>
+    <page url="https://example.com/ja/products" lang="ja">
+      <link hreflang="ja" href="https://example.com/ja/products" />
+    </page>
+    <page url="https://example.com/en/about" lang="en">
+      <link hreflang="en" href="https://example.com/en/about" />
+      <link hreflang="ja" href="https://example.com/ja/about" />
+    </page>
+    <page url="https://example.com/ja/about" lang="ja">
+      <link hreflang="en" href="https://example.com/en/about" />
+      <link hreflang="ja" href="https://example.com/ja/about" />
+    </page>
+    <page url="https://example.com/blog/2024/seo-best-practices">
+    </page>
+    <page url="https://example.com/en-US/support" lang="en-US">
+      <link hreflang="en-GB" href="https://example.com/en-GB/support" />
+      <link hreflang="en-US" href="https://example.com/en-US/support" />
+      <link hreflang="ja-JP" href="https://example.com/ja-JP/support" />
+    </page>
+    <page url="https://example.com/en-GB/support" lang="en-GB">
+      <link hreflang="en-GB" href="https://example.com/en-GB/support" />
+      <link hreflang="en-US" href="https://example.com/en-US/support" />
+      <link hreflang="ja-JP" href="https://example.com/ja-JP/support" />
+    </page>
+    <page url="https://example.com/ja-JP/support" lang="ja-JP">
+      <link hreflang="en-GB" href="https://example.com/en-GB/support" />
+      <link hreflang="en-US" href="https://example.com/en-US/support" />
+      <link hreflang="ja-JP" href="https://example.com/ja-JP/support" />
+    </page>
+  </pages>
+</hreflang>

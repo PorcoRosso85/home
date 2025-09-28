@@ -1,0 +1,208 @@
+{
+  "generated": "2025-09-27T21:30:47.194Z",
+  "pages": [
+    {
+      "url": "https://example.com",
+      "lang": "x-default",
+      "links": [
+        {
+          "hreflang": "x-default",
+          "href": "https://example.com"
+        },
+        {
+          "hreflang": "en",
+          "href": "https://example.com/en"
+        },
+        {
+          "hreflang": "es",
+          "href": "https://example.com/es"
+        },
+        {
+          "hreflang": "ja",
+          "href": "https://example.com/ja"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/en",
+      "lang": "en",
+      "links": [
+        {
+          "hreflang": "x-default",
+          "href": "https://example.com"
+        },
+        {
+          "hreflang": "en",
+          "href": "https://example.com/en"
+        },
+        {
+          "hreflang": "es",
+          "href": "https://example.com/es"
+        },
+        {
+          "hreflang": "ja",
+          "href": "https://example.com/ja"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/ja",
+      "lang": "ja",
+      "links": [
+        {
+          "hreflang": "x-default",
+          "href": "https://example.com"
+        },
+        {
+          "hreflang": "en",
+          "href": "https://example.com/en"
+        },
+        {
+          "hreflang": "es",
+          "href": "https://example.com/es"
+        },
+        {
+          "hreflang": "ja",
+          "href": "https://example.com/ja"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/es",
+      "lang": "es",
+      "links": [
+        {
+          "hreflang": "x-default",
+          "href": "https://example.com"
+        },
+        {
+          "hreflang": "en",
+          "href": "https://example.com/en"
+        },
+        {
+          "hreflang": "es",
+          "href": "https://example.com/es"
+        },
+        {
+          "hreflang": "ja",
+          "href": "https://example.com/ja"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/en/products",
+      "lang": "en",
+      "links": [
+        {
+          "hreflang": "en",
+          "href": "https://example.com/en/products"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/ja/products",
+      "lang": "ja",
+      "links": [
+        {
+          "hreflang": "ja",
+          "href": "https://example.com/ja/products"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/en/about",
+      "lang": "en",
+      "links": [
+        {
+          "hreflang": "en",
+          "href": "https://example.com/en/about"
+        },
+        {
+          "hreflang": "ja",
+          "href": "https://example.com/ja/about"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/ja/about",
+      "lang": "ja",
+      "links": [
+        {
+          "hreflang": "en",
+          "href": "https://example.com/en/about"
+        },
+        {
+          "hreflang": "ja",
+          "href": "https://example.com/ja/about"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/blog/2024/seo-best-practices",
+      "links": []
+    },
+    {
+      "url": "https://example.com/en-US/support",
+      "lang": "en-US",
+      "links": [
+        {
+          "hreflang": "en-GB",
+          "href": "https://example.com/en-GB/support"
+        },
+        {
+          "hreflang": "en-US",
+          "href": "https://example.com/en-US/support"
+        },
+        {
+          "hreflang": "ja-JP",
+          "href": "https://example.com/ja-JP/support"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/en-GB/support",
+      "lang": "en-GB",
+      "links": [
+        {
+          "hreflang": "en-GB",
+          "href": "https://example.com/en-GB/support"
+        },
+        {
+          "hreflang": "en-US",
+          "href": "https://example.com/en-US/support"
+        },
+        {
+          "hreflang": "ja-JP",
+          "href": "https://example.com/ja-JP/support"
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/ja-JP/support",
+      "lang": "ja-JP",
+      "links": [
+        {
+          "hreflang": "en-GB",
+          "href": "https://example.com/en-GB/support"
+        },
+        {
+          "hreflang": "en-US",
+          "href": "https://example.com/en-US/support"
+        },
+        {
+          "hreflang": "ja-JP",
+          "href": "https://example.com/ja-JP/support"
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "success": true,
+    "warnings": [
+      "Missing self-reference for https://example.com/blog/2024/seo-best-practices. Each page should include itself in hreflang links.",
+      "Multiple URLs found for language \"en\": https://example.com/en, https://example.com/en/products, https://example.com/en/about. Each language should have one canonical URL per content slot.",
+      "Multiple URLs found for language \"ja\": https://example.com/ja, https://example.com/ja/products, https://example.com/ja/about. Each language should have one canonical URL per content slot."
+    ],
+    "errors": []
+  }
+}
