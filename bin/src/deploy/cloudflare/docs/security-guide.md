@@ -19,7 +19,7 @@ This system implements multiple layers of security:
 **Initialize Age Encryption:**
 ```bash
 # Generate Age key pair
-just secrets:init
+nix run .#secrets-init
 
 # This creates:
 # - Private key: ~/.config/sops/age/keys.txt
@@ -61,13 +61,13 @@ echo "~/.config/sops/age/keys.txt" >> ~/.gitignore
 
 # 1. Generate new R2 credentials in Cloudflare Dashboard
 # 2. Update encrypted secrets
-just secrets:edit secrets/r2.yaml
+nix run .#secrets-edit secrets/r2.yaml
 
 # 3. Test new credentials
-just r2:validate prod
+nix run .#r2:validate -- prod
 
 # 4. Deploy with new credentials
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 wrangler deploy
 
 # 5. Revoke old credentials in Cloudflare Dashboard
@@ -267,7 +267,7 @@ function corsHeaders(origin: string) {
 **Automated Detection:**
 ```bash
 # Run security checks
-just secrets:check
+nix run .#secrets-check
 
 # This scans for patterns like:
 # - AWS Access Keys: AKIA[A-Z0-9]{16}
@@ -573,11 +573,11 @@ async function secureR2Request(url: string, options: RequestInit) {
 # - R2 → API tokens → Revoke R2 credentials
 
 # 2. Generate new credentials
-just secrets:edit secrets/r2.yaml
+nix run .#secrets-edit secrets/r2.yaml
 # Update with new credentials
 
 # 3. Deploy with new credentials
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 wrangler deploy
 
 # 4. Audit access logs
@@ -600,17 +600,17 @@ curl -X GET "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/audit_log
 **Credential Compromise:**
 ```bash
 # 1. Immediate credential rotation
-just secrets:edit secrets/r2.yaml
+nix run .#secrets-edit secrets/r2.yaml
 
 # 2. Update all environments
 for env in dev stg prod; do
-  just r2:gen-config $env
+  nix run .#r2:gen-config -- $env
   # Deploy to each environment
 done
 
 # 3. Verify security
-just secrets:check
-just r2:validate-all
+nix run .#secrets-check
+nix run .#r2:validate -- -all
 ```
 
 **Data Breach Response:**
@@ -620,7 +620,7 @@ wrangler r2 object list bucket-name --prefix sensitive/
 
 # 2. Change access controls
 # Update bucket configurations to private
-just secrets:edit secrets/r2.yaml
+nix run .#secrets-edit secrets/r2.yaml
 
 # 3. Audit and notify stakeholders
 # Generate access report

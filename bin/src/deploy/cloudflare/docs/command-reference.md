@@ -8,14 +8,14 @@ Complete reference for all available commands in the R2 Connection Management Sy
 Show comprehensive help with all available commands and examples.
 
 ```bash
-just help
+nix run .#help
 ```
 
 ### `just setup`
 Complete R2 setup including secrets initialization and basic configuration.
 
 ```bash
-just setup
+nix run .#r2-dev-workflow -- setup
 ```
 
 **What it does:**
@@ -27,7 +27,7 @@ just setup
 Show overall R2 configuration status.
 
 ```bash
-just status
+nix run .#status
 ```
 
 **Output includes:**
@@ -41,7 +41,7 @@ just status
 Clean generated files and backups with confirmation prompt.
 
 ```bash
-just clean
+nix run .#clean
 ```
 
 **Removes:**
@@ -55,7 +55,7 @@ just clean
 Initialize SOPS encryption with Age.
 
 ```bash
-just secrets:init
+nix run .#secrets-init
 ```
 
 **Creates:**
@@ -67,10 +67,10 @@ Edit encrypted secrets securely.
 
 ```bash
 # Edit default R2 secrets
-just secrets:edit
+nix run .#secrets-edit
 
 # Edit specific file
-just secrets:edit secrets/r2-prod.yaml
+nix run .#secrets-edit secrets/r2-prod.yaml
 ```
 
 **Default file:** `secrets/r2.yaml`
@@ -79,7 +79,7 @@ just secrets:edit secrets/r2-prod.yaml
 Validate that no plaintext secrets are present.
 
 ```bash
-just secrets:check
+nix run .#secrets-check
 ```
 
 **Scans for:**
@@ -94,13 +94,13 @@ Generate wrangler.jsonc configuration for specified environment.
 
 ```bash
 # Generate for default environment (dev)
-just r2:gen-config
+nix run .#r2:gen-config
 
 # Generate for production
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 
 # Generate for staging
-just r2:gen-config stg
+nix run .#r2:gen-config -- stg
 ```
 
 **Output:** `wrangler.jsonc`
@@ -109,7 +109,7 @@ just r2:gen-config stg
 Generate R2 connection manifest for external tools.
 
 ```bash
-just r2:gen-manifest prod
+nix run .#r2:gen-manifest -- prod
 ```
 
 **Output:** `generated/r2-connection-manifest-{ENV}.json`
@@ -118,20 +118,20 @@ just r2:gen-manifest prod
 Generate all R2 configurations for an environment.
 
 ```bash
-just r2:gen-all prod
+nix run .#r2:gen-all -- prod
 ```
 
 **Equivalent to:**
 ```bash
-just r2:gen-config prod
-just r2:gen-manifest prod
+nix run .#r2:gen-config -- prod
+nix run .#r2:gen-manifest -- prod
 ```
 
 ### `just r2:validate [ENV]`
 Validate R2 configuration for specified environment.
 
 ```bash
-just r2:validate prod
+nix run .#r2:validate -- prod
 ```
 
 **Validates:**
@@ -146,7 +146,7 @@ just r2:validate prod
 Discover and list available R2 environments.
 
 ```bash
-just r2:envs
+nix run .#r2:envs
 ```
 
 **Output:** List of configured environments with status
@@ -155,7 +155,7 @@ just r2:envs
 Show environment-specific status.
 
 ```bash
-just r2:status prod
+nix run .#r2:status -- prod
 ```
 
 **Shows:**
@@ -168,7 +168,7 @@ just r2:status prod
 List all generated configurations.
 
 ```bash
-just r2:list-configs
+nix run .#r2-list-configs
 ```
 
 **Shows:**
@@ -183,10 +183,10 @@ Validate R2 configuration for specified environment.
 
 ```bash
 # Validate dev environment configuration
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # Validate production environment configuration
-just r2:test prod
+nix run .#r2-dev-workflow -- test prod
 ```
 
 **For all environments:**
@@ -199,7 +199,7 @@ just r2:test prod
 Validate all available environments.
 
 ```bash
-just r2:validate-all
+nix run .#r2:validate -- -all
 ```
 
 **Validates each discovered environment sequentially**
@@ -208,7 +208,7 @@ just r2:validate-all
 Check TypeScript and JavaScript syntax.
 
 ```bash
-just r2:check-syntax
+nix run .#r2-check-syntax
 ```
 
 **Equivalent to:** `nix flake check`
@@ -220,16 +220,16 @@ Development workflow helper with multiple actions.
 
 ```bash
 # Full development workflow (default)
-just r2:dev full dev
+nix run .#r2-dev -- full dev
 
 # Generate configurations only
-just r2:dev gen dev
+nix run .#r2-dev -- gen dev
 
 # Validate configurations only
-just r2:dev validate dev
+nix run .#r2-dev -- validate dev
 
 # Validate only
-just r2:dev test dev
+nix run .#r2-dev -- test dev
 ```
 
 **Available actions:**
@@ -242,20 +242,20 @@ just r2:dev test dev
 Quick setup: generate + validate for an environment.
 
 ```bash
-just r2:quick dev
+nix run .#r2-dev-workflow -- quick dev
 ```
 
 **Equivalent to:**
 ```bash
-just r2:gen-all dev
-just r2:validate dev
+nix run .#r2:gen-all -- dev
+nix run .#r2:validate -- dev
 ```
 
 ### `just r2:deploy-prep [ENV]`
 Prepare environment for deployment validation.
 
 ```bash
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 ```
 
 **Steps performed:**
@@ -270,7 +270,7 @@ just r2:deploy-prep prod
 Show Cloudflare resource inventory for specified environment.
 
 ```bash
-just res:inventory prod
+nix run .#res:inventory -- prod
 ```
 
 **Output:** Current resource state from Cloudflare API
@@ -279,7 +279,7 @@ just res:inventory prod
 Fetch current remote state from Cloudflare.
 
 ```bash
-just res:fetch-state prod
+nix run .#res:fetch-state -- prod
 ```
 
 **Downloads:** Latest resource configurations from Cloudflare
@@ -288,7 +288,7 @@ just res:fetch-state prod
 Compare SOT configuration with remote state (drift detection).
 
 ```bash
-just res:diff prod
+nix run .#res:diff-state -- prod
 ```
 
 **Output:**
@@ -300,7 +300,7 @@ just res:diff prod
 Preview infrastructure changes (CI/CD safe).
 
 ```bash
-just cf:plan prod
+nix run .#cf:plan -- prod
 ```
 
 **Performs:** Pulumi preview operation without applying changes
@@ -309,7 +309,7 @@ just cf:plan prod
 Apply infrastructure changes (manual only, drift detection required).
 
 ```bash
-just cf:apply prod
+nix run .#cf:apply -- prod
 ```
 
 **Prerequisites:**
@@ -321,7 +321,7 @@ just cf:apply prod
 Destroy infrastructure resources (manual only, drift detection required).
 
 ```bash
-just cf:destroy prod
+nix run .#cf:destroy -- prod
 ```
 
 **Prerequisites:**
@@ -335,7 +335,7 @@ just cf:destroy prod
 Backup current wrangler.jsonc with timestamp.
 
 ```bash
-just r2:backup-config
+nix run .#r2-backup-config
 ```
 
 **Creates:** `wrangler.jsonc.backup.YYYYMMDD_HHMMSS`
@@ -344,7 +344,7 @@ just r2:backup-config
 Restore wrangler.jsonc from backup file.
 
 ```bash
-just r2:restore-config wrangler.jsonc.backup.20250101_120000
+nix run .#r2-restore-config -- wrangler.jsonc.backup.20250101_120000
 ```
 
 **Safety features:**
@@ -355,7 +355,7 @@ just r2:restore-config wrangler.jsonc.backup.20250101_120000
 Compare R2 configurations between environments.
 
 ```bash
-just r2:diff-configs dev prod
+nix run .#r2-diff-configs -- dev prod
 ```
 
 **Requirements:**
@@ -413,9 +413,9 @@ Set environment for multiple commands:
 
 ```bash
 export ENV=prod
-just r2:gen-config    # Uses prod
-just r2:validate      # Uses prod
-just r2:deploy-prep   # Uses prod
+nix run .#r2:gen-config -- # Uses prod
+nix run .#r2:validate -- # Uses prod
+nix run .#r2-dev-workflow -- deploy-prep # Uses prod
 ```
 
 ### Command-Specific Options
@@ -423,19 +423,19 @@ just r2:deploy-prep   # Uses prod
 **File specification:**
 ```bash
 # Default file
-just secrets:edit
+nix run .#secrets-edit
 
 # Specific file
-just secrets:edit secrets/r2-staging.yaml
+nix run .#secrets-edit secrets/r2-staging.yaml
 ```
 
 **Environment specification:**
 ```bash
 # Using default environment
-just r2:gen-config
+nix run .#r2:gen-config
 
 # Explicit environment
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 
 # Using environment variable
 ENV=stg just r2:gen-config
@@ -448,27 +448,27 @@ ENV=stg just r2:gen-config
 **"❌ Missing environment"**
 ```bash
 # Solution: Specify environment
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 ```
 
 **"❌ No secrets found"**
 ```bash
 # Solution: Initialize and edit secrets
-just secrets:init
-just secrets:edit
+nix run .#secrets-init
+nix run .#secrets-edit
 ```
 
 **"❌ Configuration validation failed"**
 ```bash
 # Solution: Check and fix configuration
-just secrets:edit
-just r2:validate dev
+nix run .#secrets-edit
+nix run .#r2:validate -- dev
 ```
 
 **"❌ Age key not found"**
 ```bash
 # Solution: Initialize encryption
-just secrets:init
+nix run .#secrets-init
 ```
 
 ### Debug Mode
@@ -481,7 +481,7 @@ export WRANGLER_LOG=debug
 
 # Enable debug for R2 tests
 export DEBUG=true
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 ```
 
 ## 📋 Command Cheat Sheet
@@ -489,41 +489,41 @@ just r2:test dev
 ### Quick Development Setup
 ```bash
 nix develop              # Enter development environment
-just setup               # Initialize system
-just r2:test dev         # Validate configuration
+nix run .#r2-dev-workflow -- setup # Initialize system
+nix run .#r2-dev-workflow -- test dev         # Validate configuration
 wrangler dev --local     # Start development server
 ```
 
 ### Environment Configuration
 ```bash
-just secrets:edit secrets/r2-{env}.yaml  # Edit environment secrets
-just r2:gen-all {env}                     # Generate all configs
-just r2:validate {env}                    # Validate configuration
+nix run .#secrets-edit secrets/r2-{env}.yaml  # Edit environment secrets
+nix run .#r2:gen-all -- {env}                     # Generate all configs
+nix run .#r2:validate -- {env}                    # Validate configuration
 ```
 
 ### Production Deployment
 ```bash
-just r2:deploy-prep prod   # Prepare configuration for deployment
-just res:diff prod         # Check for configuration drift
-just cf:plan prod          # Preview infrastructure changes
-just cf:apply prod         # Apply infrastructure changes
+nix run .#r2-dev-workflow -- deploy-prep prod   # Prepare configuration for deployment
+nix run .#res:diff-state -- prod         # Check for configuration drift
+nix run .#cf:plan -- prod          # Preview infrastructure changes
+nix run .#cf:apply -- prod         # Apply infrastructure changes
 wrangler deploy            # Deploy application to Cloudflare
 wrangler tail             # Monitor logs
 ```
 
 ### Troubleshooting
 ```bash
-just status               # Check system status
-just secrets:check       # Check for plaintext secrets
-just r2:validate-all     # Validate all environments
-just res:diff [env]      # Check for configuration drift
+nix run .#status # Check system status
+nix run .#secrets-check # Check for plaintext secrets
+nix run .#r2:validate -- -all     # Validate all environments
+nix run .#res:diff-state -- [env]      # Check for configuration drift
 nix flake check          # Check Nix configuration
 ```
 
 ### Backup and Restore
 ```bash
-just r2:backup-config                         # Backup current config
-just r2:restore-config wrangler.jsonc.backup.* # Restore from backup
+nix run .#r2-backup-config # Backup current config
+nix run .#r2-restore-config -- wrangler.jsonc.backup.* # Restore from backup
 ```
 
 ## 🔗 Command Relationships

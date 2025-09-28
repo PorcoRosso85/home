@@ -15,16 +15,16 @@ The R2 Connection Manifest Generator CLI creates standardized manifest files tha
 
 ```bash
 # Basic usage - generate development environment manifest
-just r2:gen-manifest dev
+nix run .#r2:gen-manifest -- dev
 
 # Preview production configuration without writing files
-just r2:gen-manifest-preview prod
+nix run .#r2:gen-manifest -- -preview prod
 
 # Generate with template data for testing
-just r2:gen-manifest-template dev
+nix run .#r2:gen-manifest -- -template dev
 
 # List all supported environments
-just r2:list-environments
+nix run .#r2:envs
 ```
 
 ## Installation & Prerequisites
@@ -39,7 +39,7 @@ nix develop
 nix run .#gen-connection-manifest -- --env dev
 
 # Use via Just commands
-just r2:gen-manifest dev
+nix run .#r2:gen-manifest -- dev
 ```
 
 ### Manual Setup
@@ -110,16 +110,16 @@ The CLI is integrated with Just for convenient workflows:
 
 ```bash
 # Generate manifest for specific environment
-just r2:gen-manifest <env>
+nix run .#r2:gen-manifest -- <env>
 
 # Preview manifest without writing
-just r2:gen-manifest-preview <env>
+nix run .#r2:gen-manifest -- -preview <env>
 
 # Generate with template data
-just r2:gen-manifest-template <env>
+nix run .#r2:gen-manifest -- -template <env>
 
 # List supported environments
-just r2:list-environments
+nix run .#r2:envs
 ```
 
 ## Configuration
@@ -155,10 +155,10 @@ All secret files are encrypted using SOPS with Age encryption:
 
 ```bash
 # Initialize secrets system
-just secrets-init
+nix run .#secrets-init
 
 # Edit environment secrets
-just secrets-edit secrets/r2.dev.yaml
+nix run .#secrets-edit secrets/r2.dev.yaml
 ```
 
 ## Output Format
@@ -258,9 +258,9 @@ nix develop -c gen-connection-manifest --env dev
 #### "Missing prerequisites"
 **Solution:** Initialize secrets system
 ```bash
-just secrets-init
+nix run .#secrets-init
 cp secrets/r2.yaml.example secrets/r2.dev.yaml
-just secrets-edit secrets/r2.dev.yaml
+nix run .#secrets-edit secrets/r2.dev.yaml
 ```
 
 #### "Environment not supported"

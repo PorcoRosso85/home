@@ -94,7 +94,7 @@ r2_buckets:
 cp r2.yaml.example secrets/r2-dev.yaml
 
 # Edit development configuration
-just secrets:edit secrets/r2-dev.yaml
+nix run .#secrets-edit secrets/r2-dev.yaml
 ```
 
 **Development configuration template:**
@@ -138,8 +138,8 @@ monitoring:
 
 **Generate development configuration:**
 ```bash
-just r2:gen-config dev
-just r2:validate dev
+nix run .#r2:gen-config -- dev
+nix run .#r2:validate -- dev
 ```
 
 ### 2. Staging Environment Setup
@@ -147,7 +147,7 @@ just r2:validate dev
 **Create staging configuration:**
 ```bash
 cp secrets/r2-dev.yaml secrets/r2-stg.yaml
-just secrets:edit secrets/r2-stg.yaml
+nix run .#secrets-edit secrets/r2-stg.yaml
 ```
 
 **Staging configuration template:**
@@ -193,8 +193,8 @@ monitoring:
 
 **Generate staging configuration:**
 ```bash
-just r2:gen-config stg
-just r2:validate stg
+nix run .#r2:gen-config -- stg
+nix run .#r2:validate -- stg
 ```
 
 ### 3. Production Environment Setup
@@ -202,7 +202,7 @@ just r2:validate stg
 **Create production configuration:**
 ```bash
 cp secrets/r2-stg.yaml secrets/r2-prod.yaml
-just secrets:edit secrets/r2-prod.yaml
+nix run .#secrets-edit secrets/r2-prod.yaml
 ```
 
 **Production configuration template:**
@@ -263,8 +263,8 @@ deployment:
 
 **Generate production configuration:**
 ```bash
-just r2:gen-config prod
-just r2:validate prod
+nix run .#r2:gen-config -- prod
+nix run .#r2:validate -- prod
 ```
 
 ## 🔄 Environment Switching
@@ -273,15 +273,15 @@ just r2:validate prod
 
 ```bash
 # Switch to development
-just r2:gen-config dev
+nix run .#r2:gen-config -- dev
 # Now wrangler.jsonc is configured for dev
 
 # Switch to staging
-just r2:gen-config stg
+nix run .#r2:gen-config -- stg
 # Now wrangler.jsonc is configured for staging
 
 # Switch to production
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 # Now wrangler.jsonc is configured for production
 ```
 
@@ -337,7 +337,7 @@ wrangler deploy --env production
 
 ```bash
 # Test local development setup
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # Start local development server
 wrangler dev --local
@@ -350,10 +350,10 @@ curl -X POST http://localhost:8787/api/upload-test
 
 ```bash
 # Validate staging configuration
-just r2:validate stg
+nix run .#r2:validate -- stg
 
 # Deploy to staging
-just r2:deploy-prep stg
+nix run .#r2-dev-workflow -- deploy-prep stg
 wrangler deploy --env staging
 
 # Test staging deployment
@@ -364,10 +364,10 @@ curl -X POST https://my-app-staging.workers.dev/api/upload-test
 
 ```bash
 # Validate production configuration (no deployment)
-just r2:validate prod
+nix run .#r2:validate -- prod
 
 # Prepare for production deployment
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 
 # Deploy to production (when ready)
 wrangler deploy --env production
@@ -538,10 +538,10 @@ cd my-r2-project
 nix develop
 
 # Start with fresh configuration
-just r2:gen-config dev
+nix run .#r2:gen-config -- dev
 
 # Test locally
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # Start development server
 wrangler dev --local
@@ -557,7 +557,7 @@ git commit -m "Add new feature"
 
 ```bash
 # Prepare staging deployment
-just r2:deploy-prep stg
+nix run .#r2-dev-workflow -- deploy-prep stg
 
 # Deploy to staging
 wrangler deploy --env staging
@@ -575,13 +575,13 @@ wrangler tail --env staging
 
 ```bash
 # Final validation
-just r2:validate-all
+nix run .#r2:validate -- -all
 
 # Backup current production config
-just r2:backup-config
+nix run .#r2-backup-config
 
 # Prepare production deployment
-just r2:deploy-prep prod
+nix run .#r2-dev-workflow -- deploy-prep prod
 
 # Deploy to production
 wrangler deploy --env production
@@ -603,7 +603,7 @@ curl -X GET https://my-app.workers.dev/health
 cat wrangler.jsonc | jq '.account_id'
 
 # Regenerate correct environment
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 
 # Redeploy
 wrangler deploy --env production
@@ -612,33 +612,33 @@ wrangler deploy --env production
 **Environment configuration mismatch:**
 ```bash
 # Compare environment configurations
-just r2:diff-configs dev prod
+nix run .#r2-diff-configs -- dev prod
 
 # Check for differences and update accordingly
-just secrets:edit secrets/r2-prod.yaml
+nix run .#secrets-edit secrets/r2-prod.yaml
 ```
 
 **Missing environment files:**
 ```bash
 # List available environments
-just r2:envs
+nix run .#r2:envs
 
 # Create missing environment
 cp secrets/r2.yaml secrets/r2-missing.yaml
-just secrets:edit secrets/r2-missing.yaml
+nix run .#secrets-edit secrets/r2-missing.yaml
 ```
 
 ### Environment Validation
 
 ```bash
 # Validate specific environment
-just r2:validate stg
+nix run .#r2:validate -- stg
 
 # Validate all environments
-just r2:validate-all
+nix run .#r2:validate -- -all
 
 # Check for environment-specific issues
-just r2:status stg
+nix run .#r2:status -- stg
 ```
 
 ## 📋 Environment Checklist

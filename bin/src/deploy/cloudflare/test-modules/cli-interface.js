@@ -378,11 +378,11 @@ async function testCommandIntegrationChaining(testSuite) {
 
   // Test basic command chaining
   const commandChains = [
-    'just r2:envs',
-    'just r2:status dev',
-    'just secrets:check',
-    'just r2:validate dev --dry-run',
-    'just clean'
+    'nix run .#r2:envs',
+    'nix run .#r2 -- status dev',
+    'nix run .#secrets -- check',
+    'nix run .#r2 -- validate dev --dry-run',
+    'nix run .#clean'
   ];
 
   for (const command of commandChains) {
@@ -405,15 +405,15 @@ async function testCommandIntegrationChaining(testSuite) {
   const dependencyTests = [
     {
       name: 'secrets:init before secrets:edit',
-      commands: ['just secrets:init --dry-run', 'just secrets:edit --dry-run']
+      commands: ['nix run .#secrets -- init --dry-run', 'nix run .#secrets -- edit --dry-run']
     },
     {
       name: 'r2:gen-config before r2:validate',
-      commands: ['just r2:gen-config dev --dry-run', 'just r2:validate dev --dry-run']
+      commands: ['nix run .#r2 -- gen-config dev --dry-run', 'nix run .#r2 -- validate dev --dry-run']
     },
     {
       name: 'setup before status',
-      commands: ['just setup --dry-run', 'just status']
+      commands: ['nix run .#setup -- --dry-run', 'nix run .#status']
     }
   ];
 
@@ -598,7 +598,7 @@ async function testErrorHandlingExitCodes(testSuite) {
 
   // Test invalid Just tasks
   try {
-    const invalidTaskResult = await testSuite.execCommand('just invalid-task-name', { timeout: 10000 });
+    const invalidTaskResult = await testSuite.execCommand('nix run .#invalid-task-name', { timeout: 10000 });
     if (invalidTaskResult.code === 0) {
       throw new Error('Invalid Just task should return non-zero exit code');
     }
@@ -672,7 +672,7 @@ async function testErrorHandlingExitCodes(testSuite) {
   const exitCodeTests = [
     { command: 'just --version', expectedCode: 0 },
     { command: 'just --invalid-option', expectedCode: 'non-zero' },
-    { command: 'just invalid-task', expectedCode: 'non-zero' }
+    { command: 'nix run .#invalid-task', expectedCode: 'non-zero' }
   ];
 
   for (const test of exitCodeTests) {
@@ -704,10 +704,10 @@ async function testInteractiveNonInteractiveModes(testSuite) {
 
   // Test non-interactive mode flags
   const nonInteractiveCommands = [
-    'just setup --dry-run',
-    'just r2:validate dev --dry-run',
-    'just secrets:init --dry-run',
-    'just r2:gen-config dev --dry-run'
+    'nix run .#setup -- --dry-run',
+    'nix run .#r2 -- validate dev --dry-run',
+    'nix run .#secrets -- init --dry-run',
+    'nix run .#r2 -- gen-config dev --dry-run'
   ];
 
   for (const command of nonInteractiveCommands) {
@@ -778,8 +778,8 @@ async function testInteractiveNonInteractiveModes(testSuite) {
 
   // Test batch mode operations
   const batchCommands = [
-    'just r2:validate-all --dry-run',
-    'just clean && just status'
+    'nix run .#r2 -- validate-all --dry-run',
+    'nix run .#clean && nix run .#status'
   ];
 
   for (const command of batchCommands) {
@@ -827,8 +827,8 @@ async function testCommandConfigurationOptions(testSuite) {
 
   // Test environment variable support
   const envVarCommands = [
-    'ENVIRONMENT=dev just r2:status',
-    'DRY_RUN=true just setup'
+    'ENVIRONMENT=dev nix run .#r2 -- status',
+    'DRY_RUN=true nix run .#setup'
   ];
 
   for (const command of envVarCommands) {
@@ -874,8 +874,8 @@ async function testCommandConfigurationOptions(testSuite) {
   // Test option parsing
   const optionTests = [
     { command: 'just --dry-run status', description: 'Global dry-run option' },
-    { command: 'just r2:status --env dev', description: 'Environment option' },
-    { command: 'just setup --force', description: 'Force option' }
+    { command: 'nix run .#r2 -- status --env dev', description: 'Environment option' },
+    { command: 'nix run .#setup -- --force', description: 'Force option' }
   ];
 
   for (const test of optionTests) {
@@ -906,8 +906,8 @@ async function testCommandPerformanceReliability(testSuite) {
   const performanceCommands = [
     'just --version',
     'just --list',
-    'just status',
-    'just r2:envs'
+    'nix run .#status',
+    'nix run .#r2:envs'
   ];
 
   const performanceResults = [];
@@ -994,8 +994,8 @@ async function testCommandPerformanceReliability(testSuite) {
 
   // Test resource usage monitoring
   const resourceCommands = [
-    'just status',
-    'just r2:envs'
+    'nix run .#status',
+    'nix run .#r2:envs'
   ];
 
   for (const command of resourceCommands) {

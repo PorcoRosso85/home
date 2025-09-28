@@ -28,6 +28,16 @@ This system provides Resource Plane management capabilities:
 - **📋 Schema Validation**: TypeScript-first configuration with JSON Schema validation
 - **📊 Resource Inventory**: View current Cloudflare resource status
 
+### 🏗️ 3-System Architecture
+
+Commands are organized into 3 unified dispatchers for improved DX:
+
+- **`cf`** - Cloudflare Infrastructure (3 commands): plan, apply, destroy
+- **`res`** - Resource Management (3 commands): inventory, fetch-state, diff-state
+- **`r2`** - R2 Configuration (17+ commands): config generation, validation, secrets
+
+Usage: `nix run .#[cf|res|r2] -- [command] [env]`
+
 ## 🚀 Quick Start
 
 ### 📍 Choose Your Development Path
@@ -40,13 +50,13 @@ Perfect for developing and testing Resource Plane configurations without externa
 nix develop
 
 # 2. Initialize basic configuration
-just setup
+nix run .#r2-dev-workflow -- setup
 
 # 3. Validate R2 configuration
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 
 # 4. View configuration status
-just status
+nix run .#status
 ```
 
 **✅ What this gives you:**
@@ -60,17 +70,17 @@ For managing real Cloudflare R2 buckets and Workers in production.
 
 ```bash
 # 1. Set up encrypted secrets
-just secrets-init
+nix run .#secrets-init
 
 # 2. Configure your R2 connection details
 cp r2.yaml.example secrets/r2.yaml
-just secrets-edit secrets/r2.yaml
+nix run .#secrets-edit secrets/r2.yaml
 
 # 3. Generate production configuration
-just r2:gen-config prod
+nix run .#r2:gen-config -- prod
 
 # 4. View resource inventory
-just res:inventory prod
+nix run .#res:inventory -- prod
 
 # 5. Deploy to Cloudflare Workers
 wrangler deploy
@@ -133,34 +143,59 @@ wrangler deploy
 
 ## ⚡ Common Commands
 
+### 🚀 Unified Dispatchers (Recommended)
+
+#### 🏗️ Cloudflare Infrastructure (cf)
+```bash
+nix run .#cf -- plan dev         # Preview infrastructure changes
+nix run .#cf -- apply prod       # Apply infrastructure changes
+nix run .#cf -- destroy stg      # Destroy infrastructure resources
+```
+
+#### 📋 Resource Management (res)
+```bash
+nix run .#res -- inventory dev   # Show Cloudflare resource inventory
+nix run .#res -- fetch-state prod # Fetch current remote state
+nix run .#res -- diff-state stg  # Compare SOT with remote (drift detection)
+```
+
+#### 🔧 R2 Configuration (r2)
+```bash
+nix run .#r2 -- gen-config dev   # Generate wrangler.jsonc
+nix run .#r2 -- gen-all prod     # Generate all configurations
+nix run .#r2 -- validate stg     # Validate R2 configurations
+nix run .#r2 -- status dev       # Show environment status
+nix run .#r2 -- secrets-init     # Initialize encrypted secrets
+```
+
 ### 🔧 Setup & Configuration
 ```bash
-just help                    # Show all available commands
-just setup                   # Complete R2 setup (secrets + config)
-just status                  # Show configuration status
-just clean                   # Clean generated files
+nix run .#help                              # Show all available commands
+nix run .#r2-dev-workflow -- setup         # Complete R2 setup (secrets + config)
+nix run .#status                            # Show configuration status
+nix run .#clean                             # Clean generated files
 ```
 
 ### 🔐 Secret Management
 ```bash
-just secrets:init            # Initialize encrypted secrets
-just secrets:edit            # Edit R2 secrets securely
-just secrets:check           # Validate secret security
+nix run .#secrets-init                      # Initialize encrypted secrets
+nix run .#secrets-edit                      # Edit R2 secrets securely
+nix run .#secrets-check                     # Validate secret security
 ```
 
 ### 🌍 Environment Management
 ```bash
-just r2:envs                 # List available environments
-just r2:status dev           # Show dev environment status
-just r2:quick dev            # Quick setup for dev environment
-just r2:deploy-prep prod     # Prepare production deployment
+nix run .#r2:envs                           # List available environments
+nix run .#r2:status -- dev                  # Show dev environment status
+nix run .#r2-dev-workflow -- quick dev      # Quick setup for dev environment
+nix run .#r2-dev-workflow -- deploy-prep prod # Prepare production deployment
 ```
 
 ### 🧪 Testing & Validation
 ```bash
-just r2:test dev             # Test locally with Miniflare
-just r2:validate prod        # Validate production config
-just r2:validate-all         # Validate all environments
+nix run .#r2-dev-workflow -- test dev       # Test locally with Miniflare
+nix run .#r2:validate -- prod               # Validate production config
+nix run .#r2:validate-all                   # Validate all environments
 ```
 
 ## 🎛️ Configuration Overview
@@ -191,7 +226,7 @@ just r2:validate-all         # Validate all environments
 ### 🧪 For Local Development (Miniflare)
 ```bash
 # ✅ DO: Use for development and testing
-just r2:test dev
+nix run .#r2-dev-workflow -- test dev
 wrangler dev --local
 
 # ❌ DON'T: Use for production deployment
@@ -201,10 +236,10 @@ wrangler dev --local
 ### 🚀 For Production Deployment
 ```bash
 # ✅ DO: Set up proper authentication
-just secrets-edit
+nix run .#secrets-edit
 
 # ✅ DO: Validate before deploying
-just r2:validate prod
+nix run .#r2:validate -- prod
 
 # ❌ DON'T: Deploy without secret encryption
 # ❌ DON'T: Use dev configuration in production
@@ -287,4 +322,3 @@ This system integrates with:
   switch --flake。
   - メッシュ先行: 事前鍵＋固定IPを配布→起動即メッシュ→固定エンドポ
   イント通信。
-

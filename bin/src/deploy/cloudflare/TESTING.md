@@ -478,7 +478,7 @@ DEBUG=1 CI=true node test-ci-runner.js
 TEST_CATEGORY=SECURITY node test-ci-runner.js
 
 # Clean environment
-just clean
+nix run .#clean
 rm -rf test-artifacts/
 node test-integration-comprehensive.js
 ```
