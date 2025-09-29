@@ -185,6 +185,9 @@
             } ''
             cp -r ${./.} ./src
             cd src
+            # Make files writable and remove/recreate dist to avoid permission issues
+            chmod -R u+w .
+            rm -rf dist
             mkdir -p dist/measurement
 
             # Build both targets
