@@ -93,4 +93,3 @@ Action Checklist (for the implementer)
 Notes
 - Keeping path‑based reuse (no physical move) is the lowest‑risk split and satisfies SRP/KISS/YAGNI/DRY/SOLID.
 - Physical moves can be postponed until 1.2 is in progress or CI is ready.
-
