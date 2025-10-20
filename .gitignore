@@ -77,6 +77,9 @@ bin/src/.venv/
 
 flake.lock
 
+# contracts-index 生成物（手編集・コミット禁止）
+capsules/index.cue
+
 # Claude org worktrees
 .worktrees/
 
@@ -93,3 +96,25 @@ __pycache__/
 *.egg-info/
 uv.lock
 bin/src/sync/kuzu_ts/deno.lock
+
+# ADR 0.10.5-rc3 directory structure
+!docs/
+!docs/**
+!features/
+!features/**
+!deployables/
+!deployables/**
+!policy/
+!policy/**
+!flakes/
+!flakes/**
+!env/
+!env/**
+!secrets/
+!secrets/**
+!ci/
+!ci/**
+!.github/
+!.github/**
+!platform/
+!platform/**
