@@ -113,3 +113,174 @@ repo/
 ---
 
 必要なら、PoC TTLレポート用の最小スクリプト雛形と、paths-filter を使った changed-only CI例もすぐ出します。
+
+---
+
+## ADR 0.10.10版ツリー（Flake駆動マニフェスト）
+
+> 凡例: ★=必須、◇=生成(非コミット推奨)、△=任意
+
+```
+repo/
+├─ flake.nix                               △  ルート開発環境/DevShell等（任意）
+├─ flake.lock                              △
+├─ .gitignore                              ★  capsules/index.cue, gen/**, .artifacts/** を除外
+├─ .editorconfig                           △
+├─ .pre-commit-config.yaml                 △  cue fmt / secrets 等
+├─ Makefile                                △  `make ci-local` など
+├─ CODEOWNERS                              △
+├─ README.md                               △
+├─ docs/
+│  ├─ adr/
+│  │  ├─ adr-0.10.8.md                     △  既存
+│  │  └─ adr-0.10.10.md                    ★  改善版ADR
+│  └─ tree.md                              △  最新ツリー説明（本ファイル）
+├─ contracts/
+│  └─ ssot/                                ★  仕様本文（人が編集）
+│     ├─ _toc.yaml                         ★  契約ID↔パス索引
+│     ├─ _config.cue                       ★  生成/ゲート設定
+│     ├─ ugc/
+│     │  └─ post@1.2.0/
+│     │     ├─ contract.cue                ★  schema/caps/errors/rateLimit 等
+│     │     ├─ stories/                    ★  正常/失敗/境界 ≥3
+│     │     │  ├─ normal.cue
+│     │     │  ├─ error.cue
+│     │     │  └─ boundary.cue
+│     │     └─ seeds/                      △
+│     │        └─ post.json
+│     └─ ...（他ドメイン）
+├─ features/
+│  └─ <domain>/<feature>/                  ★  1機能=1フレーク
+│     ├─ flake.nix                         ★  meta.manifest.kind="feature", contractRef, owner, stability...
+│     ├─ meta/                             ★  （旧 cue.README/）
+│     │  ├─ impl.resp.cue                  ★  役割/可視性/allowedImports=["capsules/index"]
+│     │  └─ modules.resp.cue               △  modules 共通規約
+│     ├─ modules/                          △  多言語実装（manifestは増やさない）
+│     │  ├─ go-api/
+│     │  │  ├─ go.mod / main.go / ...
+│     │  │  └─ module.resp.cue             ★  intents.provides 等（薄く）
+│     │  ├─ py-jobs/
+│     │  │  ├─ pyproject.toml / jobs/**
+│     │  │  └─ module.resp.cue             ★
+│     │  └─ ts-sdk/
+│     │     ├─ package.json / src/**
+│     │     └─ module.resp.cue             ★
+│     └─ gen/                              ◇  tests/seeds/docs（指紋一致）
+│        ├─ tests/{unit,integration,e2e,uat}/**
+│        ├─ seeds/**
+│        └─ docs/**
+├─ deployables/
+│  └─ <tier>/<name>/                       ★  1デプロイ=1フレーク
+│     ├─ flake.nix                         ★  meta.manifest.kind="deployable", uses=[...], owner...
+│     ├─ meta/
+│     │  ├─ service.resp.cue               ★  ポート/SLO/公開範囲
+│     │  └─ deps.resp.cue                  ★  uses と parity 検証（flakeと部分集合一致）
+│     ├─ modules/
+│     │  ├─ go-service/
+│     │  │  ├─ main.go / ...
+│     │  │  └─ module.resp.cue             ★  intents.uses ⊆ flake.uses
+│     │  ├─ py-migrations/
+│     │  │  ├─ scripts/**
+│     │  │  └─ module.resp.cue             ★
+│     │  └─ ts-proxy/
+│     │     ├─ src/**
+│     │     └─ module.resp.cue             ★
+│     └─ gen/                              ◇
+│        ├─ tests/**
+│        └─ docs/**
+├─ capsules/                               ◇  生成（非コミット）
+│  └─ index.cue
+├─ .artifacts/                             ◇  非コミット生成物の集約
+│  ├─ manifests/
+│  │  ├─ features/<domain>/<feature>/manifest.cue
+│  │  └─ deployables/<tier>/<name>/manifest.cue
+│  └─ reports/
+│     ├─ parity.json
+│     ├─ plan-diff.json
+│     ├─ contract-diff.json
+│     ├─ determinism.json
+│     ├─ license.csv
+│     └─ dag.dot / dag.png
+├─ tools/
+│  ├─ bridge/
+│  │  └─ flake2manifest                    ★  flake→manifest.cue（決定的・非コミット）
+│  ├─ generator/
+│  │  ├─ gen                               ★  SSOT→gen/dist
+│  │  └─ check                             ★  指紋検証
+│  ├─ gates/                               ★  失敗で止める
+│  │  ├─ parity.cue                        # modules ⊆ flake（uses/provides）
+│  │  ├─ plan-diff.cue                     # 孤児/未提供/循環
+│  │  ├─ contract-diff.cue                 # SemVer破壊
+│  │  ├─ cap-dup.cue                       # 提供ID重複
+│  │  ├─ determinism.cue                   # 決定性
+│  │  ├─ mask.cue                          # PII
+│  │  ├─ license.cue                       # ライセンス
+│  │  └─ cve.cue                           # CVE
+│  ├─ runners/
+│  │  ├─ python/runner.sh                  ★  タグ実行（unit/smoke等）
+│  │  └─ go/runner.sh                      ★
+│  ├─ graph/
+│  │  └─ build-graph.sh                    △  契約DAG可視化
+│  └─ paths-filter/
+│     └─ filters.yml                       △  changed-only 実行
+├─ policy/
+│  └─ cue/
+│     ├─ schemas/
+│     │  ├─ manifest.cue                   ★  厳格スキーマ（未知キー禁止）
+│     │  ├─ module.cue                     ★
+│     │  └─ responsibility.cue             ★
+│     └─ rules/
+│        ├─ strict.cue                     ★  直import禁止 等
+│        ├─ determinism.cue                ★
+│        ├─ contract-diff.cue              ★
+│        ├─ plan-diff.cue                  ★
+│        ├─ cap-dup.cue                    ★
+│        ├─ parity.cue                     ★
+│        ├─ mask.cue                       ★
+│        ├─ license.cue                    ★
+│        └─ cve.cue                        ★
+├─ dist/                                   △  リリース時のみ固定化
+│  └─ contracts/{openapi,asyncapi,schema}/**
+├─ sandbox/                                △  PoC（TTL警告・スキャン除外）
+│  └─ feature-x/
+└─ .github/
+   ├─ workflows/
+   │  ├─ ci.yml                            ★  直列: index→flake2manifest→vet→gen→gates→runners→graph→paths-filter
+   │  ├─ nightly.yml                       △
+   │  └─ quarantine.yml                    △
+   ├─ PULL_REQUEST_TEMPLATE.md             △  互換性/PII/SLO チェック欄
+   └─ ISSUE_TEMPLATE/{bug_report.md,feature_request.md}  △
+```
+
+### 使い方の要点（0.10.10版）
+
+**人が編集**:
+- `contracts/ssot/**`
+- `features/**/flake.nix`
+- `deployables/**/flake.nix`
+- 各 `*.resp.cue`
+
+**自動生成**:
+- `capsules/index.cue`
+- `.artifacts/manifests/**`
+- `features|deployables/**/gen/**`
+
+**検証**:
+- CIの`gates/*`で parity / plan-diff / contract-diff / determinism / PII / license / CVE をFail化
+
+### フェーズ実装チェックリスト（0.10.10版）
+
+#### P0で必須
+- [ ] `bridge/flake2manifest`
+- [ ] `gates/parity|strict`
+- [ ] `capsules/index.cue` 生成
+- [ ] `runners` 最小
+
+#### P1で必須
+- [ ] `policy/cue/schemas/{manifest,module,responsibility}.cue`
+- [ ] `gates/{determinism,plan-diff,cap-dup}`
+
+#### P2で必須
+- [ ] `tools/{graph,paths-filter}`
+- [ ] `gates/{license,cve}`
+- [ ] `dist/` 方針
