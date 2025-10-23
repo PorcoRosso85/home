@@ -1,85 +1,73 @@
-# ADR 0.10.8 – タグ駆動SSOT + Generator/Gates + Flake修正
+# ADR 0.10.8 — タグ駆動SSOT / 薄いマニフェスト / 決定的生成 / PoC除外
 
 - **Status**: Accepted
 - **Date**: 2025-10-23 (JST)
 - **Owner**: Platform/Architecture
-- **Related**: adr-0.10.5-rc3.md（旧構成の参考）
+- **Scope**: contracts/ssot, capsules/index, tools/{generator,gates,runners,mask}, CI, dist(任意), sandbox/**
 
-## 0. 結論（要点）
-- **SSOT**：`features|deployables/**/manifest.cue` のみ人が編集可。
-- **タグ駆動**：`unit|integration|e2e|uat` 等はタグで決定（競合時は**最重タグ優先**、降格不可）。
-- **生成一貫**：`gen/tests|seeds|docs` は **生成のみ**。fingerprint不一致は **CI Fail**。
-- **テスト実行**：`pytest` / `go test` は置換せず、**runner（薄いラッパ）** が呼び出す。
-- **contracts-index**：flakeで**決定的生成**、参照は常に `import "capsules/index"`。直 import 禁止。
-- **外部出力**：`dist/contracts/**` に **OpenAPI/AsyncAPI/Schema + Auth/RateLimit/Errors** をCIで書き出し。
-- **ガバナンス**：**PIIマスク必須**、暗号化/TTL/署名は条件付き必須。
-- **flake修正**：ルート`flake.nix`のゴミ文字を除去（P0）。
+## 結論（要点）
+- **SSOT集中**：契約本文（schema/caps/errors/rateLimit/interfaces/stories/seeds）は **contracts/ssot/** のみ。
+- **薄いマニフェスト**：各 `features|deployables/**/manifest.cue` は **contractRef と uses だけ**（参照＋依存）。**schema本文は書かない**。
+- **参照統一**：依存側は **常に** `import "capsules/index"` を参照（**直import禁止**）。
+- **決定的生成**：同一 `flake.lock` で `capsules/index.cue` と生成物は **バイト等価**（順序/TZ/乱数/時刻を固定）。
+- **生成の一方向**：SSOT → index（内部） → gen（各dir）/ dist（外部）。逆流なし。
+- **PoCは除外**：`sandbox/**`（または `_poc/**`）配下や**manifestが無いディレクトリ**は**スキャン対象外**（index/gen/dist/テストに影響なし）。
+- **dist**：外部/別チーム/人向けの配布形（OpenAPI/AsyncAPI/Schema）。**原則コミットせず**、CIアーティファクト or リリース時のみ固定。
 
-## 1. 背景
-- 旧PR（構造雛形）では「phase別ディレクトリ」や未実装のゲートが混在し、決定性・運用基準が弱かった。
-- 本ADRで **タグ駆動SSOT** と **生成一貫**、**品質ゲート** を採用し、変更管理を強化。
+## テスト責務（SSOTで一元）
+- **stories≥3**（正常/失敗/境界、`tags:[unit,integration,e2e,uat,smoke]`）。
+- **非機能**：`p95_ms`, `error_rate` 等。
+- **生成**：generator が各 `gen/tests|seeds|docs/**` を**決定的生成**（fingerprint一致で検証）。
+- **実行**：pytest/go は置換せず **runners** からタグ選択実行。
 
-## 2. 決定（MUST/SHOULD）
-- **MUST**：SSOTはmanifest.cueのみ／`gen/**` 手書き禁止／`capsules/index.cue` 非コミット。
-- **MUST**：flakeでindexを**決定的**生成（同一`flake.lock`でバイト等価）。
-- **MUST**：`import "capsules/index"` のみ許可（直 import 禁止）。
-- **MUST**：各manifestに **cases≥3（正常/失敗/境界）** を含む。
-- **SHOULD**：エラーカタログ・RateLimit・非機能閾値（p95/err率）を明記。
-- **SHOULD**：runnerは言語ごとの**language-pack**から呼び出す（Py/Go）。
+## Quality Gates（Failの代表）
+- `cases≥3` / `banned-tags`（降格不可）
+- `contract-diff`（破壊変更/SemVer整合）
+- `plan-diff`（Uses↔提供の孤児/未提供検出）
+- `determinism`（順序/時刻/TZ/乱数/整形の固定）
+- `parity(index↔dist)`（逆投影の同値確認）
+- `mask/PII` / `golden-ttl`
+- **直import禁止**：`features/**` 直参照はFail
+- **PoC依存禁止**：indexに無いIDへの `uses[]` はFail
 
-## 3. スコープ
-- generator／language-packs／gates／contracts-index（flake）／CI／`dist/contracts/**` 出力。
+## PoC/実験（下書き不要運用）
+- **OK**：ディレクトリだけ先に作ってもよい（manifest未作成のまま可）。
+- **除外規則**：`sandbox/**` または `_poc/**`、**manifest不在**は**自動でスキャン除外**。
+- **TTL**：`sandbox/**` の長期放置は**レポート**（警告）。昇格時は (1) 薄いmanifest追加 → (2) SSOT登録 → (3) index反映。
 
-## 4. 非対象
-- 実行時のURL/資格情報/プロビジョニング詳細。
-- 既存pytest/goテスト本体の置換（ラッパで呼ぶのみ）。
+## CI（骨子・直列固定）
+1. `nix build .#contracts-index` → **index生成（capsules/index.cue）**
+2. `cue vet`（SSOT/薄いmanifestの整合）
+3. `tools/generator gen run` → `gen check`（fingerprint一致）
+4. `tools/gates/*`（直import/存在 → contract-diff/plan-diff/determinism/PII 等）
+5. `tools/runners/*`（PR=unit+smoke / merge=integration / nightly=e2e / release=uat）
+6. （必要時）`export-contracts` → `dist/contracts/**` 生成 → `parity`
 
-## 5. 品質ゲート（例）
-- `quality`：cases≥3、waiverにTTL必須。
-- `banned-tags`：未許可・降格タグ検出。
-- `contract-diff`：SemVer整合／破壊差分検知。
-- `cap-dup`：capability一意制約。
-- `plan-diff`：依存・影響差分。
-- `determinism`：UTC/RNG/ID/TZ/順序/JSON正規化。
-- `golden-ttl`：変動源のゴールデン更新期限。
-- `mask`：**PIIマスク**確認。
-- 旧系：`lint contracts`（L100–L104互換）も維持。
+## 優先度（P0→P1→P2）
+- **P0**：index生成 / plan-diff・changed-only / fingerprint / runner / CI配線
+- **P1**：determinism / PII・golden-ttl
+- **P2**：dist出力（外部需要でP0へ格上げ可）/ シャーディング
 
-## 6. CIパイプライン（骨子）
-- `build(index)` → `cue vet` → `gen run` → `gen check` → `gates` → `runner`
-- PR：`unit + @smoke`／Merge：`integration`／Nightly：`e2e+perf/sec`／Release：`uat`
+## 命名・メタ（生成物共通）
+- 形式：`<subject>--<kind>--<version>@<short-sha>.<ext>`
+- メタ：`x-origin.manifest`, `x-origin.commit`, `x-build.time`
 
-## 7. DoD（受入基準）
-- 同一`flake.lock`で **contracts-indexがバイト等価**。
-- **fingerprint一致**（manifest ↔ gen/**）。
-- L100–L104=0、**PIIマスクOK**、**banned-tagsなし**、**determinism OK**。
-- `dist/contracts/**` が生成され、破壊差分は `contract-diff` でFail。
+## Backout
+- 一時的に `banned-tags`/`determinism` を WARNING 化。
+- `gen check` スキップは期限付き（dist公開は継続）。
 
-## 8. 移行手順（短）
-1. 旧「phase別dir」を廃止し、**タグ駆動**へ統一。
-2. `.gitignore` 強化（`gen/**`, `capsules/index.cue`）。
-3. `flake.nix` のゴミ文字を修正→ `nix build .#contracts-index` が通ること。
-4. `tools/generator` / `tools/language-packs/{python,go}` を追加。
-5. 代表機能（例：`features/ugc/post`）からmanifest→gen→gates→runnerの順で適用。
+## 例（最小）
+```cue
+// SSOT: contracts/ssot/ugc/post@1.2.0/contract.cue
+contract: { id: "ugc.post", version: "1.2.0", owner: "team-ugc" }
+schema:  { req: {...}, res: {...}, _: _|_ }
+stories: [ {id:"POST-101", tags:["integration","smoke"], ...}, ... ]
 
-## 9. バックアウト
-- 一時的に `banned-tags`/`determinism` を **WARNING** 化。
-- generatorの `gen check` を一時スキップ（要期限）。
-- `dist/contracts/**` 出力は継続（公開インタフェースの透明性維持）。
+// 薄いmanifest: deployables/api/public/manifest.cue
+import "capsules/index"
+contractRef: "deployables.api.public"
+uses: ["ugc.post.create","ugc.post.read"]
 
-## 10. セキュリティ/ガバナンス
-- **PIIマスク必須**（検出→Fail）。
-- 暗号化/TTL/署名：データ種別・環境タグに応じて**条件付き必須**。
-- RateLimit・エラーカタログ・連絡先(owner/contact)をmanifestに明記。
-
-## 11. トレードオフ
-- 初期コスト：generator/ゲート整備が必要。
-- 代償：手書き自由度低下。ただし決定性と保守性が向上。
-
-## 12. 用語
-- **SSOT**：Single Source of Truth（manifest.cue）。
-- **language-pack**：テスト実行ラッパ（Py/Go）。
-- **fingerprint**：生成物とmanifestの同一性指紋。
-
-## 13. 変更履歴
-- 2025-10-23: 初版（Accepted）
+// PoC（除外例）
+sandbox/feature-x/   # manifest.cue が無い限りスキャン対象外
+```
