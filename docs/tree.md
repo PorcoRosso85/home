@@ -4,218 +4,262 @@
 > 5原則（SRP/KISS/YAGNI/SOLID/DRY）を徹底。必要になるまで実装しない（YAGNI）。
 
 **Last Updated**: 2025-10-23 (JST)
-**対応ADR**: docs/adr/adr-0.10.12.md
+**対応ADR**: docs/adr/adr-0.11.0.md
+**運用原則**: この tree は宣言。未記載 = 削除。今回は再配置のみでデグレ無しを厳守。
 
 ---
 
-## 最新ツリー（ADR 0.10.12 — Orchestration v4.1b）
+## 最新ツリー（ADR 0.11.0 — 4層＋SSOT）
 
-> 凡例: ★=必須、◇=生成(非コミット推奨)、△=任意、p=フェーズ番号
+> 凡例: # = コメント（各行の責務説明）
 
 ```
-repo/
-├─ README.md                                   △  使い方/流れ
-├─ docs/
-│  ├─ adr/
-│  │  ├─ adr-0.10.8.md                         △  SSOT-first & thin manifest
-│  │  ├─ adr-0.10.10.md                        △  Flake-driven manifest
-│  │  ├─ adr-0.10.11.md                        △  consumes/Secrets/SBOM/CVE
-│  │  └─ adr-0.10.12.md                        ★  本ADR: Orchestration v4.1b + 構成統一リファクタ
-│  ├─ tree.md                                  △  このファイル（最新構成の単一真実）
-│  └─ architecture/
-│     ├─ sequence-temporal.mmd                 △  WF/Signals/Timers シーケンス図
-│     └─ gateway-sequence.mmd                  △  GW 起動/逆プロキシ/内部API シーケンス図
-├─ contracts/
-│  └─ ssot/                                    ★  契約のSSOT（人が編集）
-│     ├─ _toc.yaml                             ★  契約ID↔パス索引
-│     ├─ _config.cue                           ★  生成/ゲート設定
-│     └─ <domain>/<subject>@<semver>/          ★  各契約
-│        ├─ contract.cue                       ★  契約スキーマ/制約
-│        ├─ stories/                           ★  受入シナリオ（normal/error/boundary）
-│        │  ├─ normal.cue
-│        │  ├─ error.cue
-│        │  └─ boundary.cue
-│        └─ seeds/                             △  サンプルデータ
-│           └─ *.json
-├─ capsules/                                   ◇  生成（非コミット）
-│  └─ index.cue                                ◇  SSOT→索引（唯一の参照点）
-├─ features/
-│  └─ opencode-autopilot/                      ★  フラット化（余分層削除）
-│     ├─ flake.nix                             ★  meta.manifest.kind="feature", contractRef...
-│     ├─ application/                          ★  WF本体/ビジネスロジック
-│     │  ├─ workflow.go                        ★  WF本体/SA setStage一極化
-│     │  └─ manifest.cue                       ★  WF契約(SA=4,queue,timeout)
-│     ├─ domain/                               ★  ドメインモデル
-│     │  ├─ types.go                           ★  uri/corr-id/value objects
-│     │  └─ policy.go                          ★  SLA段階/閾値
-│     └─ infrastructure/                       ★  永続化/外部システム
-│        └─ ssotrepo/
-│           └─ libsql.go                       ★  唯一の業務DB書込口(WFのみ使用)
-├─ deployables/
-│  ├─ opencode-gateway/                        ★  src廃止：DDD3層直下
-│  │  ├─ flake.nix                             ★  meta.manifest.kind="deployable", consumes...
-│  │  ├─ manifest.cue                          ★  デプロイ契約
-│  │  ├─ application/                          ★  エントリポイント/配線
-│  │  │  ├─ main.go                            ★  HTTP起動(/api,/internal)
-│  │  │  └─ wiring.go                          ★  DI/設定/ルータ配線
-│  │  ├─ domain/                               △  ビジネスルール（必要時のみ）
-│  │  │  └─ .gitkeep                           △  空層を先行確保
-│  │  └─ infrastructure/                       ★  外部I/O/プロセス管理
-│  │     ├─ ensure.go                          ★  ensureInstance(uri)/TTL/LRU
-│  │     └─ proxy.go                           ★  /w/:wsId/* → OpenCode 逆プロキシ
-│  └─ opencode-worker/                         ★  Temporal Worker
-│     ├─ flake.nix                             ★
-│     ├─ manifest.cue                          ★
-│     ├─ application/                          ★  Worker起動/登録
-│     │  ├─ main.go                            ★  Worker起動/metrics
-│     │  ├─ register.go                        ★  WF/Activity登録
-│     │  └─ activities.go                      ★  /internal 呼出し/冪等送信
-│     ├─ domain/                               △
-│     │  └─ .gitkeep                           △
-│     └─ infrastructure/                       △
-│        └─ .gitkeep                           △
-├─ platform/                                   ★  インフラ定義/初期化
-│  ├─ temporal/                                ★  Temporal設定
-│  │  ├─ search-attributes.hcl                 ★  SA=4キー(space-id/corr-id/stage-no/run-state)
-│  │  ├─ namespace.sh                          ★  Namespace/SA 初期化スクリプト
-│  │  ├─ docker-compose.dev.yml                ★  dev: server+ui
-│  │  └─ README.md                             ★  登録手順/注意事項
-│  └─ libsql/                                  ★  業務DB(SSOT)
-│     ├─ docker-compose.dev.yml                ★  ローカル sqld
-│     ├─ migrate.sh                            ★  migrations 適用スクリプト
-│     └─ migrations/                           ★  DDL履歴
-│        ├─ 0001_init.sql                      ★  runs/events/kpi 基本テーブル
-│        └─ 0002_kpi.sql                       ★  KPI拡張
-├─ .artifacts/                                 ◇  非コミット生成物
-│  ├─ manifests/                               ◇  flake→manifest 生成結果
-│  │  ├─ features/<domain>/<feature>/manifest.cue
-│  │  └─ deployables/<tier>/<name>/manifest.cue
-│  └─ reports/                                 ◇  監査/検証レポート
-│     ├─ summary.json                          ◇  監査サマリ
-│     ├─ sbom.json                             ◇  SBOM（リリース時）
-│     ├─ cve.json                              ◇  CVE（週次+リリース前）
-│     ├─ parity.json                           ◇  パリティ検証結果
-│     ├─ plan-diff.json                        ◇  依存DAG差分
-│     ├─ contract-diff.json                    ◇  契約互換性チェック
-│     ├─ determinism.json                      ◇  決定性検証
-│     └─ secrets.json                          ◇  Secrets検出結果
-├─ tools/                                      ★  ビルド/検証ツール
-│  ├─ bridge/
-│  │  └─ flake2manifest                        ★  flake→manifest.cue決定的生成
-│  ├─ generator/
-│  │  ├─ gen                                   ★  SSOT→gen/dist生成
-│  │  └─ check                                 ★  指紋検証
-│  ├─ security/                                ★  セキュリティツール群
-│  │  ├─ secrets.sh                            ★  Secrets検出（P0必須）
-│  │  ├─ sbom.sh                               ★  SBOM生成（P1）
-│  │  └─ cve_scan.sh                           ★  CVE突合（P2）
-│  ├─ gates/                                   ★  CI検証ゲート（失敗で止める）
-│  │  ├─ parity.cue                            ★  modules ⊆ flake（consumes/provides）
-│  │  ├─ plan-diff.cue                         ★  孤児/未提供/循環
-│  │  ├─ contract-diff.cue                     ★  SemVer破壊検出
-│  │  ├─ cap-dup.cue                           ★  capability重複検出
-│  │  ├─ determinism.cue                       ★  決定性チェック
-│  │  ├─ secrets.cue                           ★  Secrets検出（P0必須）
-│  │  ├─ mask.cue                              ★  PII検出/マスク
-│  │  ├─ license.cue                           ★  ライセンスチェック
-│  │  └─ cve.cue                               ★  CVE突合
-│  ├─ graph/                                   △  可視化
-│  │  └─ build-graph.sh                        △  契約DAG可視化
-│  └─ paths-filter/                            △  変更検出
-│     └─ filters.yml                           △  changed-only 実行ルール
-├─ policy/                                     ★  規約/ルール（CUE）
+repo/                                               # ルート。単一flake/lockの支点
+├─ flake.nix                                        # ルートflake：単一pin・出力集約・forAllSystems
+├─ flake.lock                                       # 唯一のlock（全sub-flakeはfollowsで追随）
+├─ README.md                                        # 規約/層責務/PRチェックリストの要約
+├─ contracts/                                       # 契約ルート（SSOTのみ）
+│  └─ ssot/                                         # SSOT固定ディレクトリ
+│     ├─ video/                                     # video境界づけ文脈の契約
+│     │  ├─ schema.sql                              # DBスキーマ（唯一の正）
+│     │  ├─ events.cue                              # ドメインイベント契約
+│     │  └─ openapi.yaml                            # 外部API契約
+│     └─ search/                                    # search境界づけ文脈の契約
+│        ├─ schema.sql                              # DBスキーマ（唯一の正）
+│        └─ search.proto                            # gRPC/IDL契約
+├─ infra/                                           # 実行基盤・SDK・依存宣言の唯一の場所
+│  ├─ flake.nix                                     # devShells/checks（ruff/pytest/deadnix/statix）を集約提供
+│  ├─ runtimes/                                     # ランタイム束（FW/ツール類を固定）
+│  │  ├─ python-django/                             # Django系ランタイム
+│  │  │  ├─ flake.nix                               # ランタイム出力（packages.runtimes.python-django）
+│  │  │  └─ constraints.txt                         # pip系制約（pin）
+│  │  ├─ python-fastapi/                            # FastAPI系ランタイム
+│  │  │  ├─ flake.nix                               # 出力・devShell
+│  │  │  └─ constraints.txt                         # pin
+│  │  ├─ python-ffmpeg/                             # FFmpeg/映像合成ランタイム
+│  │  │  ├─ flake.nix                               # 出力・devShell
+│  │  │  └─ constraints.txt                         # pin
+│  │  └─ python-ml/                                 # ML/推論ランタイム
+│  │     ├─ flake.nix                               # 出力・devShell
+│  │     └─ constraints.txt                         # pin
+│  └─ adapters/                                     # Port実装（外部I/O）群
+│     ├─ storage/                                   # ストレージAdapter群
+│     │  ├─ r2/                                     # R2実装
+│     │  │  ├─ flake.nix                            # packages.adapters.storage-r2
+│     │  │  └─ requirements.in                      # 依存宣言（constraintsに取り込み）
+│     │  ├─ s3/                                     # S3実装
+│     │  │  ├─ flake.nix                            # packages.adapters.storage-s3
+│     │  │  └─ requirements.in                      # 依存宣言
+│     │  └─ drive/                                  # Drive実装
+│     │     ├─ flake.nix                            # packages.adapters.storage-drive
+│     │     └─ requirements.in                      # 依存宣言
+│     ├─ db/                                        # DBアクセスAdapter群
+│     │  ├─ libsql/                                 # libsql実装
+│     │  │  ├─ flake.nix                            # packages.adapters.db-libsql
+│     │  │  └─ requirements.in                      # 依存宣言
+│     │  └─ postgres/                               # Postgres実装
+│     │     ├─ flake.nix                            # packages.adapters.db-postgres
+│     │     └─ requirements.in                      # 依存宣言
+│     ├─ queue/                                     # キュー/ワークフローAdapter群
+│     │  ├─ temporal/                               # Temporal実装
+│     │  │  ├─ flake.nix                            # packages.adapters.queue-temporal
+│     │  │  └─ requirements.in                      # 依存宣言
+│     │  └─ celery/                                 # Celery実装
+│     │     ├─ flake.nix                            # packages.adapters.queue-celery
+│     │     └─ requirements.in                      # 依存宣言
+│     ├─ tts/                                       # 音声合成Adapter群
+│     │  ├─ azure/                                  # Azure TTS実装
+│     │  │  ├─ flake.nix                            # packages.adapters.tts-azure
+│     │  │  └─ requirements.in                      # 依存宣言
+│     │  └─ polly/                                  # AWS Polly実装
+│     │     ├─ flake.nix                            # packages.adapters.tts-polly
+│     │     └─ requirements.in                      # 依存宣言
+│     ├─ encoder/                                   # エンコードAdapter群
+│     │  └─ ffmpeg/                                 # FFmpeg実装
+│     │     ├─ flake.nix                            # packages.adapters.encoder-ffmpeg
+│     │     └─ requirements.in                      # 依存宣言
+│     ├─ ml/                                        # ML推論Adapter群
+│     │  ├─ openai/                                 # OpenAI実装
+│     │  │  ├─ flake.nix                            # packages.adapters.ml-openai
+│     │  │  └─ requirements.in                      # 依存宣言
+│     │  └─ azure-openai/                           # Azure OpenAI実装
+│     │     ├─ flake.nix                            # packages.adapters.ml-azure-openai
+│     │     └─ requirements.in                      # 依存宣言
+│     └─ opencode/                                  # 旧orchestration相当の実装の受け皿
+│        └─ autopilot/                              # Autopilot実装（名称継承）
+│           ├─ flake.nix                            # packages.adapters.opencode-autopilot
+│           └─ requirements.in                      # 依存宣言
+├─ domains/                                         # 純粋ロジック/Portのみ（外部非接続）
+│  ├─ video/                                        # videoドメイン
+│  │  ├─ flake.nix                                  # nixpkgsのみfollows／devShell禁止
+│  │  ├─ video/                                     # パッケージ直置き（src無し規約）
+│  │  ├─ ports/                                     # 抽象Port定義
+│  │  │  ├─ storage.py                              # Storage Port（put/get等）
+│  │  │  ├─ tts.py                                  # TTS Port（synthesize等）
+│  │  │  └─ encoder.py                              # Encoder Port（compose/transcode等）
+│  │  └─ tests/                                     # ドメイン純ユニットテスト（ポートモック）
+│  └─ search/                                       # searchドメイン
+│     ├─ flake.nix                                  # nixpkgsのみfollows／devShell禁止
+│     ├─ search/                                    # パッケージ直置き
+│     ├─ ports/                                     # 抽象Port定義
+│     │  ├─ index.py                                # Index Port
+│     │  └─ repo.py                                 # Repository Port
+│     └─ tests/                                     # 純ユニットテスト
+├─ apps/                                            # ユースケース/編成（DI対象）
+│  ├─ video/                                        # videoアプリケーション層
+│  │  ├─ flake.nix                                  # apps.<sys>.video（type=app）を出力
+│  │  ├─ usecases/                                  # Command/Query/Handler実装
+│  │  ├─ workflows/                                 # 複数usecaseの編成（旧orchestrationの置き場）
+│  │  ├─ dto.py                                     # アプリ内DTO（Transport非依存）
+│  │  ├─ manifest.cue                               # 入出力/依存宣言（構成）
+│  │  └─ pipeline.cue                               # パイプライン定義（段構成）
+│  └─ search/                                       # searchアプリケーション層
+│     ├─ flake.nix                                  # apps.<sys>.search（type=app）を出力
+│     ├─ usecases/                                  # Command/Query/Handler実装
+│     ├─ dto.py                                     # アプリ内DTO
+│     └─ manifest.cue                               # 構成
+├─ interfaces/                                      # 入口（HTTP/gRPC/CLI/Web）。wireでDI
+│  ├─ http-video-django/                            # Django/DRFエントリ（HTTP）
+│  │  ├─ flake.nix                                  # apps.<sys>.interface.http-video-django（type=app）
+│  │  ├─ project/                                   # Django設定/ASGI
+│  │  │  ├─ settings.py                             # 設定（環境差分はenv overlayで）
+│  │  │  ├─ urls.py                                 # ルーティング
+│  │  │  └─ asgi.py                                 # ASGIエントリ
+│  │  ├─ api/                                       # Transport DTO/Serializer/Views
+│  │  │  ├─ views.py                                # HTTPハンドラ（apps呼び出し）
+│  │  │  ├─ serializers.py                          # 入出力バリデーション
+│  │  │  └─ dto.py                                  # Transport DTO
+│  │  ├─ wire.py                                    # Composition Root（PortへAdapter注入）
+│  │  ├─ generated/                                 # OpenAPI等の生成物
+│  │  └─ tests/                                     # API契約テスト
+│  ├─ grpc-search/                                  # gRPCエントリ
+│  │  ├─ flake.nix                                  # apps.<sys>.interface.grpc-search（type=app）
+│  │  ├─ server/                                    # gRPCサーバ起動
+│  │  │  └─ main.py                                 # メイン
+│  │  ├─ wire.py                                    # DI
+│  │  ├─ generated/                                 # proto生成物
+│  │  └─ tests/                                     # 契約テスト
+│  ├─ cli-video/                                    # CLIエントリ
+│  │  ├─ flake.nix                                  # apps.<sys>.interface.cli-video（type=app）
+│  │  ├─ main.py                                    # CLI本体（apps呼び出し）
+│  │  ├─ wire.py                                    # DI
+│  │  └─ tests/                                     # CLIテスト
+│  └─ web-search-next/                              # Next.js UI
+│     ├─ flake.nix                                  # apps.<sys>.interface.web-search-next（type=app）
+│     ├─ app/                                       # UIコード
+│     ├─ wire.ts                                    # APIクライアント/DI
+│     └─ tests/                                     # E2E/契約テスト
+├─ policy/                                          # 構造ガード（CUE）
 │  └─ cue/
-│     ├─ config.cue                            ★  ポリシーフラグ（fail/warn/off）
-│     ├─ schemas/                              ★  厳格スキーマ
-│     │  ├─ manifest.cue                       ★  manifest厳格スキーマ（未知キー禁止）
-│     │  ├─ module.cue                         ★  module厳格スキーマ
-│     │  └─ responsibility.cue                 ★  responsibility厳格スキーマ
-│     └─ rules/                                ★  検証ルール
-│        ├─ strict.cue                         ★  URI必須/SA4固定/GW-DB書込禁止
-│        ├─ parity.cue                         ★  宣言↔実装の部分集合検証
-│        ├─ determinism.cue                    ★  決定性チェック
-│        ├─ secrets.cue                        ★  Secrets検出（P0必須）
-│        ├─ mask.cue                           ★  PII検出
-│        ├─ license.cue                        ★  ライセンスチェック
-│        └─ cve.cue                            ★  CVE突合
-├─ ci/                                         ★  CI設定/スクリプト
-│  ├─ workflows/                               ★  GitHub Actions workflows
-│  │  ├─ ci.yml                                ★  メインCI（直列: index→flake2manifest→vet→gen→gates→runners）
-│  │  ├─ cve-weekly.yml                        ★  週次CVEスキャン
-│  │  ├─ release-preflight.yml                 ★  リリース前検証（SBOM+CVE）
-│  │  ├─ nightly.yml                           △  夜間ビルド
-│  │  └─ quarantine.yml                        △  隔離テスト
-│  ├─ config/                                  ★  CI設定
-│  │  ├─ phases.yaml                           ★  実行フェーズ定義
-│  │  └─ pipeline.yaml                         ★  パイプライン定義
-│  ├─ e2e/
-│  │  └─ e2e-smoke.sh                          ★  fs:// 最短経路スモークテスト
-│  ├─ reports/                                 ◇  CI実行レポート
-│  └─ artifacts/                               ◇  CI成果物
-└─ env/                                        △  環境テンプレート
-   └─ .gen/                                    ◇  生成された環境設定
-      ├─ dev.env                               ◇
-      └─ prod.env                              ◇
+│     ├─ schemas/                                   # スキーマ定義
+│     │  ├─ manifest.cue                            # manifest型
+│     │  ├─ deps.cue                                # 依存許可リスト
+│     │  ├─ naming.cue                              # 命名規約（ハイフン/出力＝パス）
+│     │  └─ layout.cue                              # 配置規約（宣言ファイルの許可場所等）
+│     └─ rules/                                     # 実際の検査ルール
+│        ├─ strict.cue                              # 依存方向：interfaces→apps→domains→contracts / apps→infra
+│        ├─ no-deps-outside-infra.cue               # 依存宣言はinfra配下のみ許可
+│        ├─ forbidden-imports.cue                   # domainsで外部FW/SDK import禁止
+│        └─ outputs-naming.cue                      # 出力名＝パス名/ハイフン統一
+├─ ci/                                              # CI定義
+│  └─ workflows/
+│     ├─ apps-video.yml                             # apps/video のビルド/テスト
+│     ├─ http-video.yml                             # http-video-django のCI
+│     ├─ grpc-search.yml                            # grpc-search のCI
+│     └─ web-search.yml                             # web-search-next のCI
+└─ docs/                                            # ドキュメント
+   ├─ adr/
+   │  ├─ adr-0.10.8.md                              # SSOT-first & thin manifest
+   │  ├─ adr-0.10.10.md                             # Flake-driven manifest
+   │  ├─ adr-0.10.11.md                             # consumes/Secrets/SBOM/CVE
+   │  ├─ adr-0.10.12.md                             # Status: Superseded（履歴）
+   │  └─ adr-0.11.0.md                              # 本ADR（4層＋SSOT）
+   ├─ tree.md                                       # このファイル（最新構成の単一真実）
+   └─ architecture/
+      ├─ context.mmd                                # コンテキスト図
+      └─ sequence.mmd                               # 代表シーケンス図
 ```
 
 ---
 
-## 構成原則（ADR 0.10.12準拠）
+## 構成原則（ADR 0.11.0準拠）
+
+### 4層構造
+
+```
+interfaces → apps → domains → contracts
+              ↓
+           infra
+```
+
+### 各層の責務
+
+| 層 | 責務 | 依存先 | 禁止事項 |
+|---|------|--------|---------|
+| **interfaces/** | 入口（HTTP/gRPC/CLI/Web）、wire.pyでDI | apps + infra.runtimes | ビジネスロジック記述 |
+| **apps/** | ユースケース/編成、型変換 | domains + infra.adapters | 外部I/O直接呼出 |
+| **domains/** | 純粋ロジック、Port定義 | contracts | 外部FW/SDK import |
+| **contracts/** | DDL/IDL/イベント定義（SSOT） | なし | 実装コード |
+| **infra/** | ランタイム/SDK/Adapter実装 | なし（leaf） | ビジネスロジック |
 
 ### 命名規則
-- **kebab-case** 統一（ディレクトリ・ファイル名）
-- SA（Search Attributes）: `space-id`, `corr-id`, `stage-no`, `run-state`（4キー固定）
 
-### 階層ルール
-- **1 feature = 1 flake**: `features/<name>/flake.nix`
-- **1 deployable = 1 flake**: `deployables/<name>/flake.nix`
-- **DDD3層必須**: `application/`, `domain/`, `infrastructure/`（空なら `.gitkeep`）
-- **`src/` 禁止**: 余分な中間層を排除（KISS/YAGNI）
+- **kebab-case統一**: ディレクトリ/ファイル名
+- **出力名 = パス名**: Flake出力とパス名が一致（ズレはCI fail）
 
-### 責務分離
-- **GW（Gateway）**: 無状態、揮発Map、逆プロキシ、内部API(2本)のみ
-- **WF（Workflow）**: SSOT唯一の書込主体、SA更新一極化（`setStage()`）
-- **Worker（Activity）**: 外部I/O、冪等送信
-- **SSOT（libsql）**: WFのみが書込、runs/events/kpi
+### 依存宣言の一元化
 
-### 禁止事項（CUEポリシで強制）
-- ❌ **dirPath使用禁止**: URI必須（`fs://`, `git://`, etc.）
-- ❌ **SA拡張禁止**: 4キー固定（`space-id/corr-id/stage-no/run-state`）
-- ❌ **GWのDB書込禁止**: 読み取り専用（WFのみが書込）
+**原則**: 依存宣言は `infra/` 配下のみ許可
+
+- `infra/runtimes/*/constraints.txt`
+- `infra/adapters/*/*/requirements.in`
+
+### Flake運用
+
+- **ルート単一flake.lock**: 全sub-flakeは `inputs.nixpkgs.follows = "nixpkgs"`
+- **devShells集約**: `infra/flake.nix` で ruff/pytest/deadnix/statix を提供
+- **domains/のdevShell禁止**: 外部非接続を保証
 
 ---
 
-## API構成（最小化）
+## 再配置ルール（重要）
 
-### 外部API（/api）
-- `POST /jobs/start`: ジョブ開始（uri必須）
-- `POST /sessions/:id/ack`: セッション承認
-- `POST /sessions/:id/snooze`: セッション延期
-- `POST /sessions/:id/cancel`: セッションキャンセル
-- `GET /jobs/:id/status`: ジョブ状態取得
+### 許可される操作
+- ✅ `git mv`（ディレクトリ/ファイル移動）
+- ✅ importパス置換（移動に伴うパス修正）
+- ✅ flake出力名の整合（出力名=パス名）
+- ✅ `wire.py` のDI差し替え（Port→Adapter注入）
 
-### 内部API（/internal）
-- `POST /opencode/ensure`: OpenCodeインスタンス確保（GW→起動管理）
-- `POST /wf/task-completed`: タスク完了通知（Worker→WF、冪等）
+### 禁止される操作
+- ❌ 関数/クラスシグネチャ変更
+- ❌ 新規機能追加
+- ❌ `contracts/ssot/**` の変更（schema.sql/events.cue/openapi.yaml/proto）
+- ❌ 依存追加/更新（constraints.txt/requirements.in）
+
+### CI必須条件
+1. ✅ 全テスト不変緑（ユニット/統合/契約/E2E）
+2. ✅ `nix flake check` 緑
+3. ✅ `policy/cue` 違反0
+4. ✅ `contracts/` 差分なし
 
 ---
 
-## Search Attributes（SA）遷移
+## 移行マッピング（0.10.12 → 0.11.0）
 
-| stage-no | run-state | 意味 |
-|----------|-----------|------|
-| 0 | PENDING | 受付 |
-| 1 | RUNNING | 進行 |
-| 2 | WAITING | 待機（ACK待ち） |
-| 3 | COMPLETED | 完了 |
-| - | REPLACED | 置換済み（`replace: true`時） |
+| 旧パス（0.10.12） | 新パス（0.11.0） | 理由 |
+|-----------------|----------------|------|
+| `features/opencode-autopilot/` | `infra/adapters/opencode/autopilot/` | Port実装（外部システム） |
+| `deployables/opencode-gateway/` | `interfaces/http-opencode-gateway/` | HTTPエントリポイント |
+| `deployables/opencode-worker/` | `apps/video/workflows/` + `infra/adapters/queue/temporal/` | ワークフロー編成+実装分離 |
+| `platform/temporal/` | `infra/adapters/queue/temporal/` | インフラAdapter |
+| `platform/libsql/` | `infra/adapters/db/libsql/` | DB Adapter |
 
 ---
 
 ## 更新履歴
 
-- **2025-10-23**: ADR 0.10.12適用、Orchestration v4.1b構成に全面更新（`src/`削除、DDD3層統一、SA4キー固定）
-- **抽象構造**: ADR 0.10.8-0.10.11に記載（本ファイルは最新の具体構造のみ）
+- **2025-10-23**: ADR 0.11.0適用、4層構造への完全移行（再配置のみ、デグレなし）
+- **Supersedes**: ADR 0.10.12（Orchestration v4.1b）
 
 ---
 
