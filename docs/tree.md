@@ -4,12 +4,12 @@
 > 5原則（SRP/KISS/YAGNI/SOLID/DRY）を徹底。必要になるまで実装しない（YAGNI）。
 
 **Last Updated**: 2025-10-23 (JST)
-**対応ADR**: docs/adr/adr-0.11.0.md
+**対応ADR**: docs/adr/adr-0.11.1.md
 **運用原則**: この tree は宣言。未記載 = 削除。今回は再配置のみでデグレ無しを厳守。
 
 ---
 
-## 最新ツリー（ADR 0.11.0 — 4層＋SSOT）
+## 最新ツリー（ADR 0.11.1 — 4層＋SSOT / R2既定・MinIO for CI）
 
 > 凡例: # = コメント（各行の責務説明）
 
@@ -43,13 +43,10 @@ repo/                                               # ルート。単一flake/lo
 │  │     ├─ flake.nix                               # 出力・devShell
 │  │     └─ constraints.txt                         # pin
 │  └─ adapters/                                     # Port実装（外部I/O）群
-│     ├─ storage/                                   # ストレージAdapter群
-│     │  ├─ r2/                                     # R2実装
+│     ├─ storage/                                   # ストレージAdapter群（既定＝r2/、CI＝MinIO）
+│     │  ├─ r2/                                     # R2実装（本番既定）
 │     │  │  ├─ flake.nix                            # packages.adapters.storage-r2
 │     │  │  └─ requirements.in                      # 依存宣言（constraintsに取り込み）
-│     │  ├─ s3/                                     # S3実装
-│     │  │  ├─ flake.nix                            # packages.adapters.storage-s3
-│     │  │  └─ requirements.in                      # 依存宣言
 │     │  └─ drive/                                  # Drive実装
 │     │     ├─ flake.nix                            # packages.adapters.storage-drive
 │     │     └─ requirements.in                      # 依存宣言
@@ -180,7 +177,8 @@ repo/                                               # ルート。単一flake/lo
    │  ├─ adr-0.10.10.md                             # Flake-driven manifest
    │  ├─ adr-0.10.11.md                             # consumes/Secrets/SBOM/CVE
    │  ├─ adr-0.10.12.md                             # Status: Superseded（履歴）
-   │  └─ adr-0.11.0.md                              # 本ADR（4層＋SSOT）
+   │  ├─ adr-0.11.0.md                              # Status: Superseded（履歴）
+   │  └─ adr-0.11.1.md                              # 本ADR（R2既定・MinIO for CI）
    ├─ tree.md                                       # このファイル（最新構成の単一真実）
    └─ architecture/
       ├─ context.mmd                                # コンテキスト図
@@ -265,8 +263,8 @@ interfaces → apps → domains → contracts
 
 ## 更新履歴
 
-- **2025-10-23**: ADR 0.11.0適用、4層構造への完全移行（再配置のみ、デグレなし）
-- **Supersedes**: ADR 0.10.12（Orchestration v4.1b）
+- **2025-10-23**: ADR 0.11.1適用、ストレージ方針明確化（R2既定・MinIO for CI・S3削除）
+- **Supersedes**: ADR 0.11.0（4層構造）→ ADR 0.10.12（Orchestration v4.1b）
 
 ---
 
