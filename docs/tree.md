@@ -149,7 +149,7 @@ repo/
 │     │  └─ modules.resp.cue               △  modules 共通規約
 │     ├─ modules/                          △  多言語実装（manifestは増やさない）
 │     │  ├─ go-api/
-│     │  │  ├─ go.mod / main.go / ...-
+│     │  │  ├─ go.mod / main.go / ...
 │     │  │  └─ module.resp.cue             ★  intents.provides 等（薄く）
 │     │  ├─ py-jobs/
 │     │  │  ├─ pyproject.toml / jobs/**
