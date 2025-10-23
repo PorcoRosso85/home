@@ -34,7 +34,7 @@
 - **1機能=1フレーク、1デプロイ=1フレーク**。
 - **flake2manifest による manifest.cue 自動生成**（非コミット）。
 - **直 import 禁止**（参照は常に `import "capsules/index"`）。
-- **全ルート/各モジュールに *.resp.cue 必須**（無ければCI Fail）。
+- **全ルート/各モジュールに *.resp.cue 必須**（無ければCI Fail）— ※最終到達時（Phase C完了時）のMUST。段階移行はPhase A→B→C参照。
 - **未知キー禁止**（CUEスキーマで強制）。
 
 ### SHOULD
@@ -150,6 +150,19 @@ Module: {
 ---
 
 ## Phased Rollout
+
+### ゲート段階切替（一覧）
+
+| ゲート/要件 | P0 | P1 | P2 |
+|------------|----|----|-----|
+| 直import禁止 | **Fail** | **Fail** | **Fail** |
+| parity | Warn | **Fail** | **Fail** |
+| resp.cue（ルート） | Warn | **Fail** | **Fail** |
+| resp.cue（モジュール） | Warn | Warn | **Fail** |
+| determinism | - | **Fail** | **Fail** |
+| plan-diff / cap-dup | - | **Fail** | **Fail** |
+| 未知キー禁止 | - | - | **Fail** |
+| license / CVE | - | - | **Fail** |
 
 ### P0（最短・1–2週間）
 
