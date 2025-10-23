@@ -6,117 +6,97 @@
 
 ## 実装順（フェーズと最小到達点）
 
-### P0（必須・最小で動く状態）
+### P0（必須・最小で動く状態・1–2週間）
+
 1. **SSOTを先に作る**（最小1エントリ）
    - `contracts/ssot/_toc.yaml`（id↔パス索引；仮でOK）
    - `contracts/ssot/_config.cue`（基本設定）
    - 例：`contracts/ssot/ugc/post@1.2.0/contract.cue`（schema最小＋stories≥3）
-2. **index生成**
-   - `tools/generator`：SSOT → `capsules/index.cue`（決定的生成）
-   - `.gitignore`：`capsules/index.cue` を除外
+
+2. **flake2manifest**
+   - `tools/bridge/flake2manifest`：flake→manifest.cue を決定的生成
+   - `.gitignore`：`capsules/index.cue`, `.artifacts/**` を除外
    - Gate：**直import禁止**（indexのみ参照）
-3. **薄いmanifest**
-   - `features/**/manifest.cue`：`contractRef` のみ
-   - `deployables/**/manifest.cue`：`import "capsules/index"` + `uses[]`
+
+3. **薄いmanifest（Flake駆動）**
+   - `features/**/flake.nix`：`meta.manifest.kind="feature", contractRef, owner, stability`
+   - `deployables/**/flake.nix`：`meta.manifest.kind="deployable", uses=[], owner`
    - Gate：**存在チェック**（`uses[]` が index にあるか）
-4. **gen 最小**
+
+4. **resp.cue（ルート）**
+   - `features/**/meta/impl.resp.cue`：役割/可視性/allowedImports
+   - `deployables/**/meta/service.resp.cue`：SLO/ポート
+   - Phase A: **Warn**のみ
+
+5. **gen 最小**
    - `tools/generator gen run/check`：`gen/tests|seeds|docs/**` 生成
    - **fingerprint一致**でCI Fail（手書き混入防止）
-5. **CI直列**
-   - `build(index) → cue vet → gen run → gen check → gates(min) → runner(min)`
+
+6. **CI直列**
+   - `build(index) → flake2manifest → cue vet → gen run → gen check → gates(min) → runner(min)`
    - runner最小：`pytest -m "smoke or unit"` / `go test`
-6. **ポリシー最小**
-   - `.pre-commit-config.yaml`：`cue fmt` / 直import禁止
+
+7. **ポリシー最小**
+   - `.pre-commit-config.yaml`：`cue fmt` / 直import禁止 / secrets
    - `CODEOWNERS`：大束で開始（後で細分化）
 
-### P1（堅牢化）
-7. **determinism**
+### P1（堅牢化・2–3週間）
+
+8. **resp.cue（ルート必須化）**
+   - Phase B: ルートresp.cueを**Fail化**
+   - モジュールresp.cueは**Warn**
+
+9. **determinism**
    - `jq -S`/`yq`でキー順固定・時刻/TZ/乱数除去
    - Gate：決定性チェック
-8. **plan-diff強化 / changed-only**
-   - 依存DAG差分（孤児/未提供/循環）→ Fail
-   - 変更パスだけ実行（paths-filter）
-9. **PII / golden-ttl**
-   - `tools/mask`（PII検出・マスク）
-   - ゴールデンの期限チェック
 
-### P2（外部公開・スケール）
-10. **dist（需要が出たら）**
+10. **plan-diff / cap-dup**
+    - 依存DAG差分（孤児/未提供/循環）→ Fail
+    - capability重複検出→ Fail
+
+11. **parity強化**
+    - `⋃modules.intents ⊆ flake.manifest`
+    - Phase B: **Fail化**
+
+12. **PII / golden-ttl**
+    - `tools/mask`（PII検出・マスク）
+    - ゴールデンの期限チェック
+
+### P2（拡張・2週間）
+
+13. **resp.cue（モジュール必須化）**
+    - Phase C: モジュールresp.cueも**Fail化**
+    - 未知キー禁止
+
+14. **license / CVE**
+    - ライセンスチェック
+    - CVE突合
+
+15. **dist（需要が出たら）**
     - `dist/contracts/{openapi,asyncapi,schema}/...` を**CIアーティファクトのみ**出力
     - Gate：`parity(index↔dist)`（逆投影/同値）
-11. **シャーディング（閾値超えたら）**
+
+16. **graph / paths-filter**
+    - 契約DAG可視化
+    - 変更パスだけ実行（changed-only）
+
+17. **シャーディング（閾値超えたら）**
     - index が重くなったら A–M/N–Z 分割→上位で合成
-12. **ドキュ整備（必要になったら）**
+
+18. **ドキュ整備（必要になったら）**
     - Redoc/Pages公開、`contracts/reports/**` 可視化
 
 ---
 
 ## PoC/実験（下書き不要運用）
+
 - `sandbox/**`（または `_poc/**`）配下に自由に作成可。**manifestが無い限り**スキャン対象外。
 - **依存禁止**：indexに無いIDへの `uses[]` はFail。
 - **TTLレポート**：長期放置は警告。昇格は「薄いmanifest追加 → SSOT登録 → index反映」。
 
 ---
 
-## 最新ツリー（役割コメント＋フェーズ）
-
-```
-repo/
-├─ contracts/                                   # 契約ドメインの集約 [P0]
-│  └─ ssot/                                     # ★契約本文（人が編集）[P0]
-│     ├─ _toc.yaml                              # id↔パス索引 [P0]
-│     ├─ _config.cue                            # 生成/ゲートの設定 [P0]
-│     ├─ ugc/
-│     │  └─ post@1.2.0/{contract.cue,stories/**,seeds/**}   # 最小1件から [P0]
-│     ├─ seo/...
-│     └─ media/...
-├─ capsules/                                    # ★内部インデックス（生成・非コミット）[P0]
-│  └─ index.cue                                 # import先（唯一の参照点）[P0]
-├─ features/                                    # 提供側（薄いmanifestのみ）[P0]
-│  ├─ ugc/post/
-│  │  ├─ manifest.cue                           # { contractRef }（schemaはSSOT）[P0]
-│  │  └─ gen/{tests,seeds,docs}/**              # 生成物（fingerprint一致）[P0]
-│  └─ ...
-├─ deployables/                                 # 依存側（薄いmanifest）[P0]
-│  ├─ api/public/
-│  │  ├─ manifest.cue                           # import "capsules/index" + uses[] [P0]
-│  │  └─ gen/{tests,seeds,docs}/**              # 生成物（fingerprint一致）[P0]
-│  └─ ...
-├─ sandbox/                                     # ★PoC/実験（manifestが無い限り完全除外）[随時]
-│  └─ feature-x/…
-├─ tools/                                       # 実行物の集約 [P0→P1]
-│  ├─ generator/**                              # SSOT→index/gen/(opt:dist) [P0]
-│  ├─ gates/**                                  # 直import/存在→determinism/plan-diff/PII [P0→P1]
-│  ├─ runners/{python,go}/**                    # pytest/go test ラッパ [P0]
-│  └─ mask/**                                   # PIIマスク/正規化 [P1]
-├─ policy/                                      # 規約（宣言）[P1]
-│  └─ cue/
-│     ├─ vocab/{caps,errors,ratelimit}.cue      # 語彙 [P1]
-│     └─ rules/{strict,determinism,contract-diff,...}.cue    # ルール [P1]
-├─ dist/                                        # 外部配布（原則アーティファクト）[P2]
-│  └─ contracts/{openapi,asyncapi,schema}/**
-├─ ci/                                          # CI周辺 [P0→P1]
-│  ├─ config/{phases.yaml,pipeline.yaml}        # 実行順/Fail条件 [P0]
-│  ├─ reports/**                                # gates出力（diff/parity 等）[P1→P2]
-│  └─ artifacts/**                              # 中間成果物 [P0]
-├─ env/                                         # 環境テンプレ [P1]
-│  └─ templates/{dev,stg,prod}.env
-├─ .github/workflows/{ci.yml,nightly.yml,quarantine.yml}      # 直列パイプライン [P0]
-├─ CODEOWNERS                                   # 大束で開始→細分化 [P0→P1]
-├─ .pre-commit-config.yaml                      # cue fmt / 直import禁止 / secrets [P0]
-├─ .gitignore                                   # capsules/index.cue, gen/** を除外 [P0]
-└─ docs/
-   ├─ adr/adr-0.10.8.md                         # 本ADR（final表記なし）[P0]
-   └─ tree.md                                   # ←このファイル [P0]
-```
-
----
-
-必要なら、PoC TTLレポート用の最小スクリプト雛形と、paths-filter を使った changed-only CI例もすぐ出します。
-
----
-
-## ADR 0.10.10版ツリー（Flake駆動マニフェスト）
+## 最新ツリー（ADR 0.10.10 — Flake駆動マニフェスト）
 
 > 凡例: ★=必須、◇=生成(非コミット推奨)、△=任意
 
@@ -252,7 +232,9 @@ repo/
    └─ ISSUE_TEMPLATE/{bug_report.md,feature_request.md}  △
 ```
 
-### 使い方の要点（0.10.10版）
+---
+
+## 使い方の要点（0.10.10版）
 
 **人が編集**:
 - `contracts/ssot/**`
@@ -268,19 +250,21 @@ repo/
 **検証**:
 - CIの`gates/*`で parity / plan-diff / contract-diff / determinism / PII / license / CVE をFail化
 
-### フェーズ実装チェックリスト（0.10.10版）
+---
 
-#### P0で必須
+## フェーズ実装チェックリスト（0.10.10版）
+
+### P0で必須
 - [ ] `bridge/flake2manifest`
 - [ ] `gates/parity|strict`
 - [ ] `capsules/index.cue` 生成
 - [ ] `runners` 最小
 
-#### P1で必須
+### P1で必須
 - [ ] `policy/cue/schemas/{manifest,module,responsibility}.cue`
 - [ ] `gates/{determinism,plan-diff,cap-dup}`
 
-#### P2で必須
+### P2で必須
 - [ ] `tools/{graph,paths-filter}`
 - [ ] `gates/{license,cve}`
 - [ ] `dist/` 方針
