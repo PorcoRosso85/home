@@ -144,6 +144,13 @@ repo/                                               # ルート。単一flake/lo
 │  │  ├─ main.py                                    # CLI本体（apps呼び出し）
 │  │  ├─ wire.py                                    # DI
 │  │  └─ tests/                                     # CLIテスト
+│  ├─ http-opencode-gateway/                        # Orchestration HTTPエントリ（旧deployables/opencode-gateway）
+│  │  ├─ flake.nix                                  # apps.<sys>.interface.http-opencode-gateway（type=app）
+│  │  ├─ api/                                       # API handlers（/api, /internal）
+│  │  │  ├─ main.go                                 # HTTPサーバ起動
+│  │  │  └─ routes.go                               # ルーティング定義
+│  │  ├─ wire.go                                    # DI（Port→Adapter注入）
+│  │  └─ tests/                                     # API契約テスト
 │  └─ web-search-next/                              # Next.js UI
 │     ├─ flake.nix                                  # apps.<sys>.interface.web-search-next（type=app）
 │     ├─ app/                                       # UIコード

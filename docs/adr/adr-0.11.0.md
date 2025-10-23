@@ -116,19 +116,26 @@ from abc import ABC, abstractmethod
 
 class StoragePort(ABC):
     @abstractmethod
-    async def put(self, key: str, data: bytes) -> str:
+    def put(self, key: str, data: bytes) -> str:
         """Store data and return URL"""
         pass
 ```
+
+**重要**: Portは同期定義を原則とする。非同期実行が必要な場合はAdapter側で吸収（内部でasyncio.run()等を使用）し、実行モデルをドメイン層に漏らさない。
 
 ### Adapter（infra/adapters/storage/*/）
 ```python
 # infra/adapters/storage/r2/adapter.py
 from domains.video.ports.storage import StoragePort
+import asyncio
 
 class R2StorageAdapter(StoragePort):
-    async def put(self, key: str, data: bytes) -> str:
-        # R2 SDK呼び出し
+    def put(self, key: str, data: bytes) -> str:
+        # 内部で非同期SDKを同期的にラップ
+        return asyncio.run(self._put_async(key, data))
+
+    async def _put_async(self, key: str, data: bytes) -> str:
+        # R2 SDK呼び出し（非同期）
         pass
 ```
 
