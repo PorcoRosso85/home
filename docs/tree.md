@@ -284,3 +284,115 @@ repo/
 - [ ] `tools/{graph,paths-filter}`
 - [ ] `gates/{license,cve}`
 - [ ] `dist/` 方針
+
+---
+
+## ADR 0.10.11版ツリー（consumes採用 / Secrets必須 / SBOM & CVE）
+
+<!-- 責務: リポジトリ全体の構成と各アイテムの役割を一覧で示す最新ツリー -->
+
+```
+repo/
+├─ docs/
+│  └─ adr/
+│     ├─ adr-0.10.8.md                          # 旧ADR（参照）
+│     ├─ adr-0.10.10.md                         # Flake駆動マニフェスト
+│     └─ adr-0.10.11.md                         # 最新ADR（consumes/Secrets/SBOM/CVE）
+├─ contracts/
+│  └─ ssot/                                      # 契約のSSOT（人が編集）
+│     ├─ _toc.yaml                               # 契約ID↔パス索引
+│     ├─ _config.cue                             # 生成/ゲート設定
+│     └─ <domain>/<subject>@<semver>/            # 各契約
+│        ├─ contract.cue                         # 契約スキーマ/制約
+│        ├─ stories/{normal,error,boundary}.cue  # 受入シナリオ
+│        └─ seeds/*.json                         # サンプルデータ（任意）
+├─ features/
+│  └─ <domain>/<feature>/
+│     ├─ flake.nix                               # feature宣言（contractRef等）
+│     ├─ meta/
+│     │  ├─ impl.resp.cue                        # 責務（可視性/所有者/allowedImports）
+│     │  └─ modules.resp.cue                     # モジュール規約（任意）
+│     └─ modules/<lang>-<role>/
+│        └─ module.resp.cue                      # 実装の意図（必要最小のconsumes）
+├─ deployables/
+│  └─ <tier>/<name>/
+│     ├─ flake.nix                               # deployable宣言（consumes/owner等）
+│     ├─ meta/
+│     │  ├─ service.resp.cue                     # SLO等
+│     │  └─ deps.resp.cue                        # consumes集約（任意）
+│     └─ modules/<lang>-<role>/
+│        └─ module.resp.cue                      # 実装のconsumes（宣言の部分集合）
+├─ policy/
+│  └─ cue/
+│     ├─ config.cue                              # ポリシーフラグ（fail/warn/off）
+│     ├─ schemas/
+│     │  ├─ manifest.cue                         # manifest厳格スキーマ
+│     │  ├─ module.cue                           # module厳格スキーマ
+│     │  └─ responsibility.cue                   # responsibility厳格スキーマ
+│     └─ rules/
+│        ├─ strict.cue                           # 直import禁止等
+│        ├─ parity.cue                           # 宣言↔実装の部分集合検証
+│        ├─ determinism.cue                      # 決定性チェック
+│        ├─ secrets.cue                          # Secrets検出（必須）
+│        ├─ license.cue                          # ライセンスチェック
+│        └─ cve.cue                              # CVE突合
+├─ tools/
+│  ├─ bridge/
+│  │  └─ flake2manifest                          # flake→manifest.cue決定的生成
+│  ├─ generator/
+│  │  ├─ gen                                     # SSOT生成
+│  │  └─ check                                   # 指紋検証
+│  ├─ security/
+│  │  ├─ sbom.sh                                 # SBOM生成
+│  │  └─ cve_scan.sh                             # CVE突合
+│  ├─ gates/
+│  │  └─ *.cue                                   # ルール実行エントリ
+│  ├─ paths-filter/
+│  │  └─ filters.yml                             # 変更→再実行対象の最小ルール
+│  └─ graph/
+│     └─ build-graph.sh                          # 契約DAG可視化（任意）
+├─ capsules/
+│  └─ index.cue                                  # SSOT→索引（生成・非コミット）
+├─ .artifacts/
+│  ├─ manifests/                                 # 生成されたmanifest.cue（非コミット）
+│  └─ reports/
+│     ├─ summary.json                            # 監査サマリ
+│     ├─ sbom.json                               # SBOM（リリース時）
+│     ├─ cve.json                                # CVE（週次+リリース前）
+│     ├─ parity.json                             # パリティ検証結果
+│     └─ secrets.json                            # Secrets検出結果
+├─ .github/
+│  └─ workflows/
+│     └─ ci.yml                                  # 直列CI（SBOM=release/CVE=weekly）
+└─ .gitignore                                    # capsules/, .artifacts/ 除外
+```
+
+### Contract ↔ Capability 関係性（0.10.11版）
+
+**1つの contract** = **複数の capability**
+
+```
+contract: ugc/post@1.2.0
+  ├─ capability: ugc.post.create
+  ├─ capability: ugc.post.read
+  ├─ capability: ugc.post.update
+  └─ capability: ugc.post.delete
+```
+
+- **所有権**: capability は contract に一意に紐づく
+- **バージョン**: capability 自体はsemverを持たない（破壊的変更はcontractのsemverで管理）
+- **依存**: deployable は capability ID を `consumes` する
+
+### 主要変更点（0.10.11版）
+
+1. **`uses` → `consumes`**: 依存の表現を統一（`uses`はdeprecated）
+2. **Secrets検出必須**: 高エントロピー・鍵・トークン検出でFail
+3. **SBOM生成**: リリース時に依存台帳を自動生成
+4. **CVE突合**: 週次+リリース前に既知脆弱性をチェック
+5. **監査サマリ**: `.artifacts/reports/summary.json` に集約
+
+### 用語の変更（0.10.11版）
+
+- ❌ **uses** → ✅ **consumes** (deployable/moduleの依存宣言)
+- ✅ **provides** (featureの提供、contractRefから派生)
+- ✅ **capability** (契約が提供する個別機能ID: `domain.subject.verb`)
