@@ -75,6 +75,9 @@
 !bin/**
 bin/src/.venv/
 
+!docs
+!docs/**
+
 flake.lock
 
 # Claude org worktrees
