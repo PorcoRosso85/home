@@ -2,9 +2,12 @@
 
 - **ID**: adr-0.11.2
 - **Date**: 2025-10-23 (JST)
-- **Status**: Accepted
+- **Status**: Superseded
+- **Superseded by**: adr-0.11.3
 - **Supersedes**: adr-0.11.1
 - **Scope**: 命名規則の統一・infra/sdk分割・dist配置ルール（※機能/契約/コードは非変更）
+
+> **Note**: この ADR は adr-0.11.3 により Superseded されました。0.11.3は本ADRの全内容 + IaC統合を含む最終形です。
 
 ---
 
