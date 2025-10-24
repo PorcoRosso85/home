@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2025-10-24 (JST)
-- **Relates**: ADR 0.11.2（命名統一・sdk解体・dist責務固定）
+- **Relates**: ADR 0.11.2（命名統一・sdk解体・dist責務固定）, ADR 0.11.3（IaC統合）
 
 ## 0. 決定（要約）
 1) **Secrets**: sops-nixで暗号化管理。平文はリポ/ストアに残さない。復号はactivation時に実施。
