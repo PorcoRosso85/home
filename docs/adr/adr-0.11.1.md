@@ -2,9 +2,12 @@
 
 - **ID**: adr-0.11.1
 - **Date**: 2025-10-23 (JST)
-- **Status**: Accepted
+- **Status**: Superseded
+- **Superseded by**: adr-0.11.2
 - **Supersedes**: adr-0.11.0
 - **Scope**: 構成・命名・依存宣言の明確化とストレージ方針（※機能/契約/コードは非変更）
+
+> **Note**: この ADR は adr-0.11.2 により Superseded されました。命名統一・infra/sdk解体・dist責務固定により更新。履歴参照用に保持。
 
 ---
 

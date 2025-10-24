@@ -4,88 +4,110 @@
 > 5原則（SRP/KISS/YAGNI/SOLID/DRY）を徹底。必要になるまで実装しない（YAGNI）。
 
 **Last Updated**: 2025-10-23 (JST)
-**対応ADR**: docs/adr/adr-0.11.1.md
+**対応ADR**: docs/adr/adr-0.11.2.md
 **運用原則**: この tree は宣言。未記載 = 削除。今回は再配置のみでデグレ無しを厳守。
 
 ---
 
-## 最新ツリー（ADR 0.11.1 — 4層＋SSOT / R2既定・MinIO for CI）
+## 最新ツリー（ADR 0.11.2 — 命名統一 / sdk解体 / dist責務固定）
 
 > 凡例: # = コメント（各行の責務説明）
 
 ```
-repo/                                               # ルート。単一flake/lockの支点
-├─ flake.nix                                        # ルートflake：単一pin・出力集約・forAllSystems
-├─ flake.lock                                       # 唯一のlock（全sub-flakeはfollowsで追随）
-├─ README.md                                        # 規約/層責務/PRチェックリストの要約
-├─ contracts/                                       # 契約ルート（SSOTのみ）
-│  └─ ssot/                                         # SSOT固定ディレクトリ
-│     ├─ video/                                     # video境界づけ文脈の契約
+repo/                                               # ルート（単一flake/lock）
+├─ flake.nix                                        # ルートflake：出力集約/forAllSystems
+├─ flake.lock                                       # 単一lock（sub-flakeはfollows）
+├─ README.md                                        # 規約/層責務/PRチェックリスト要約
+├─ contracts/                                       # SSOT（実装禁止）
+│  └─ ssot/
+│     ├─ video/                                     # 例：video境界づけ文脈
 │     │  ├─ schema.sql                              # DBスキーマ（唯一の正）
 │     │  ├─ events.cue                              # ドメインイベント契約
 │     │  └─ openapi.yaml                            # 外部API契約
-│     └─ search/                                    # search境界づけ文脈の契約
+│     └─ search/                                    # 例：search境界づけ文脈
 │        ├─ schema.sql                              # DBスキーマ（唯一の正）
 │        └─ search.proto                            # gRPC/IDL契約
-├─ infra/                                           # 実行基盤・SDK・依存宣言の唯一の場所
-│  ├─ flake.nix                                     # devShells/checks（ruff/pytest/deadnix/statix）を集約提供
-│  ├─ runtimes/                                     # ランタイム束（FW/ツール類を固定）
-│  │  ├─ python-django/                             # Django系ランタイム
+├─ infra/                                           # 依存/SDK/ランタイム/アダプタの唯一の置き場
+│  ├─ flake.nix                                     # devShells/checks集約（ruff/pytest等）
+│  ├─ runtimes/                                     # FW/ツール束（pin）
+│  │  ├─ python-django/
 │  │  │  ├─ flake.nix                               # ランタイム出力（packages.runtimes.python-django）
 │  │  │  └─ constraints.txt                         # pip系制約（pin）
-│  │  ├─ python-fastapi/                            # FastAPI系ランタイム
+│  │  ├─ python-fastapi/
 │  │  │  ├─ flake.nix                               # 出力・devShell
 │  │  │  └─ constraints.txt                         # pin
-│  │  ├─ python-ffmpeg/                             # FFmpeg/映像合成ランタイム
+│  │  ├─ python-ffmpeg/
 │  │  │  ├─ flake.nix                               # 出力・devShell
 │  │  │  └─ constraints.txt                         # pin
-│  │  └─ python-ml/                                 # ML/推論ランタイム
+│  │  └─ python-ml/
 │  │     ├─ flake.nix                               # 出力・devShell
 │  │     └─ constraints.txt                         # pin
-│  └─ adapters/                                     # Port実装（外部I/O）群
-│     ├─ storage/                                   # ストレージAdapter群（既定＝r2/、CI＝MinIO）
-│     │  ├─ r2/                                     # R2実装（本番既定）
-│     │  │  ├─ flake.nix                            # packages.adapters.storage-r2
-│     │  │  └─ requirements.in                      # 依存宣言（constraintsに取り込み）
-│     │  └─ drive/                                  # Drive実装
-│     │     ├─ flake.nix                            # packages.adapters.storage-drive
-│     │     └─ requirements.in                      # 依存宣言
-│     ├─ db/                                        # DBアクセスAdapter群
-│     │  ├─ libsql/                                 # libsql実装
-│     │  │  ├─ flake.nix                            # packages.adapters.db-libsql
-│     │  │  └─ requirements.in                      # 依存宣言
-│     │  └─ postgres/                               # Postgres実装
-│     │     ├─ flake.nix                            # packages.adapters.db-postgres
-│     │     └─ requirements.in                      # 依存宣言
-│     ├─ queue/                                     # キュー/ワークフローAdapter群
-│     │  ├─ temporal/                               # Temporal実装
-│     │  │  ├─ flake.nix                            # packages.adapters.queue-temporal
-│     │  │  └─ requirements.in                      # 依存宣言
-│     │  └─ celery/                                 # Celery実装
-│     │     ├─ flake.nix                            # packages.adapters.queue-celery
-│     │     └─ requirements.in                      # 依存宣言
-│     ├─ tts/                                       # 音声合成Adapter群
-│     │  ├─ azure/                                  # Azure TTS実装
-│     │  │  ├─ flake.nix                            # packages.adapters.tts-azure
-│     │  │  └─ requirements.in                      # 依存宣言
-│     │  └─ polly/                                  # AWS Polly実装
-│     │     ├─ flake.nix                            # packages.adapters.tts-polly
-│     │     └─ requirements.in                      # 依存宣言
-│     ├─ encoder/                                   # エンコードAdapter群
-│     │  └─ ffmpeg/                                 # FFmpeg実装
-│     │     ├─ flake.nix                            # packages.adapters.encoder-ffmpeg
-│     │     └─ requirements.in                      # 依存宣言
-│     ├─ ml/                                        # ML推論Adapter群
-│     │  ├─ openai/                                 # OpenAI実装
-│     │  │  ├─ flake.nix                            # packages.adapters.ml-openai
-│     │  │  └─ requirements.in                      # 依存宣言
-│     │  └─ azure-openai/                           # Azure OpenAI実装
-│     │     ├─ flake.nix                            # packages.adapters.ml-azure-openai
-│     │     └─ requirements.in                      # 依存宣言
-│     └─ opencode/                                  # 旧orchestration相当の実装の受け皿
-│        └─ autopilot/                              # Autopilot実装（名称継承）
-│           ├─ flake.nix                            # packages.adapters.opencode-autopilot
-│           └─ requirements.in                      # 依存宣言
+│  ├─ adapters/                                     # Port実装（外部I/O）群
+│  │  ├─ storage/                                   # ストレージAdapter群（既定＝r2/、CI＝MinIO）
+│  │  │  ├─ r2/                                     # R2実装（本番既定）
+│  │  │  │  ├─ flake.nix                            # packages.adapters.storage-r2
+│  │  │  │  └─ requirements.in                      # 依存宣言（constraintsに取り込み）
+│  │  │  └─ drive/                                  # Drive実装
+│  │  │     ├─ flake.nix                            # packages.adapters.storage-drive
+│  │  │     └─ requirements.in                      # 依存宣言
+│  │  ├─ db/                                        # DBアクセスAdapter群
+│  │  │  ├─ libsql/                                 # libsql実装
+│  │  │  │  ├─ flake.nix                            # packages.adapters.db-libsql
+│  │  │  │  └─ requirements.in                      # 依存宣言
+│  │  │  └─ postgres/                               # Postgres実装
+│  │  │     ├─ flake.nix                            # packages.adapters.db-postgres
+│  │  │     └─ requirements.in                      # 依存宣言
+│  │  ├─ queue/                                     # キュー/ワークフローAdapter群
+│  │  │  ├─ temporal/                               # Temporal実装
+│  │  │  │  ├─ flake.nix                            # packages.adapters.queue-temporal
+│  │  │  │  └─ requirements.in                      # 依存宣言
+│  │  │  └─ celery/                                 # Celery実装
+│  │  │     ├─ flake.nix                            # packages.adapters.queue-celery
+│  │  │     └─ requirements.in                      # 依存宣言
+│  │  ├─ tts/                                       # 音声合成Adapter群
+│  │  │  ├─ azure/                                  # Azure TTS実装
+│  │  │  │  ├─ flake.nix                            # packages.adapters.tts-azure
+│  │  │  │  └─ requirements.in                      # 依存宣言
+│  │  │  └─ polly/                                  # AWS Polly実装
+│  │  │     ├─ flake.nix                            # packages.adapters.tts-polly
+│  │  │     └─ requirements.in                      # 依存宣言
+│  │  ├─ encoder/                                   # エンコードAdapter群
+│  │  │  └─ ffmpeg/                                 # FFmpeg実装
+│  │  │     ├─ flake.nix                            # packages.adapters.encoder-ffmpeg
+│  │  │     └─ requirements.in                      # 依存宣言
+│  │  ├─ ml/                                        # ML推論Adapter群
+│  │  │  ├─ openai/                                 # OpenAI実装
+│  │  │  │  ├─ flake.nix                            # packages.adapters.ml-openai
+│  │  │  │  └─ requirements.in                      # 依存宣言
+│  │  │  └─ azure-openai/                           # Azure OpenAI実装
+│  │  │     ├─ flake.nix                            # packages.adapters.ml-azure-openai
+│  │  │     └─ requirements.in                      # 依存宣言
+│  │  └─ opencode/                                  # 旧orchestration相当の実装の受け皿
+│  │     └─ autopilot/                              # Autopilot実装（名称継承）
+│  │        ├─ flake.nix                            # packages.adapters.opencode-autopilot
+│  │        └─ requirements.in                      # 依存宣言
+│  ├─ presentation-runtime/                         # プレゼンテーション表示ランタイム（旧 infra/sdk/ui-wc）
+│  │  └─ x-deck/                                    # Web Componentランタイム
+│  │     ├─ deck.ts                                 # ブラウザで動く表示・遷移制御
+│  │     ├─ deck.css                                # スタイル
+│  │     ├─ tsconfig.json                           # TypeScript設定
+│  │     └─ flake.nix                               # packages.presentation-runtime.x-deck
+│  └─ content-build-tools/                          # コンテンツビルドツール群（旧 infra/sdk/md-tools）
+│     ├─ shared/                                    # 共通ロジック（DRY）
+│     │  ├─ out-path.mjs                            # 出力パス計算
+│     │  ├─ frontmatter.mjs                         # frontmatter解析
+│     │  └─ metadata.mjs                            # メタデータ抽出
+│     ├─ md2html/                                   # MD → HTML/sections 変換
+│     │  ├─ cli.mjs                                 # CLIエントリポイント
+│     │  └─ pipeline/                               # 変換パイプライン
+│     │     ├─ remark-frag.mjs                      # remarkプラグイン（フラグメント分割）
+│     │     ├─ remark-split.mjs                     # remarkプラグイン（セクション分割）
+│     │     ├─ remark-wc-map.mjs                    # remarkプラグイン（WCマッピング）
+│     │     └─ rehype-shiki.mjs                     # rehypeプラグイン（Shiki焼き込み）
+│     ├─ mmd2svg/                                   # Mermaid → SVG 変換
+│     │  └─ cli.mjs                                 # CLIエントリポイント（CI側で生成）
+│     └─ pdf-export/                                # HTML → PDF 変換
+│        └─ cli.mjs                                 # CLIエントリポイント（Playwright使用）
 ├─ domains/                                         # 純粋ロジック/Portのみ（外部非接続）
 │  ├─ video/                                        # videoドメイン
 │  │  ├─ flake.nix                                  # nixpkgsのみfollows／devShell禁止
@@ -148,16 +170,28 @@ repo/                                               # ルート。単一flake/lo
 │  │  │  └─ routes.go                               # ルーティング定義
 │  │  ├─ wire.go                                    # DI（Port→Adapter注入）
 │  │  └─ tests/                                     # API契約テスト
-│  └─ web-search-next/                              # Next.js UI
-│     ├─ flake.nix                                  # apps.<sys>.interface.web-search-next（type=app）
-│     ├─ app/                                       # UIコード
-│     ├─ wire.ts                                    # APIクライアント/DI
-│     └─ tests/                                     # E2E/契約テスト
+│  ├─ web-search-next/                              # Next.js UI
+│  │  ├─ flake.nix                                  # apps.<sys>.interface.web-search-next（type=app）
+│  │  ├─ app/                                       # UIコード
+│  │  ├─ wire.ts                                    # APIクライアント/DI
+│  │  └─ tests/                                     # E2E/契約テスト
+│  ├─ docs-build-cli/                               # ドキュメント生成CLI（旧 cli-docs）
+│  │  ├─ flake.nix                                  # apps.<sys>.interface.docs-build-cli（type=app）
+│  │  └─ main.mjs                                   # content-build-tools の md2html/mmd2svg/pdf-export を呼ぶ
+│  └─ docs-static-site/                             # 静的サイト配信interface（旧 web-docs-vanilla）
+│     ├─ flake.nix                                  # apps.<sys>.interface.docs-static-site（type=app）
+│     ├─ src/
+│     │  └─ index.html                              # エントリHTML
+│     ├─ public/                                    # 静的資産
+│     └─ dist/                                      # CDN/Pages配信用（.gitignore対象）
+│        ├─ index.html                              # 生成されたHTML
+│        ├─ sections/                               # セクション分割HTML
+│        └─ assets/                                 # CSS/JS/画像等
 ├─ policy/                                          # 構造ガード（CUE）
 │  └─ cue/
 │     ├─ schemas/                                   # スキーマ定義
 │     │  ├─ manifest.cue                            # manifest型
-│     │  ├─ deps.cue                                # 依存許可リスト
+│     │  ├─ deps.cue                                # 依存許可リスト（presentation-runtime/content-build-tools追加）
 │     │  ├─ naming.cue                              # 命名規約（ハイフン/出力＝パス）
 │     │  └─ layout.cue                              # 配置規約（宣言ファイルの許可場所等）
 │     └─ rules/                                     # 実際の検査ルール
@@ -170,7 +204,9 @@ repo/                                               # ルート。単一flake/lo
 │     ├─ apps-video.yml                             # apps/video のビルド/テスト
 │     ├─ http-video.yml                             # http-video-django のCI
 │     ├─ grpc-search.yml                            # grpc-search のCI
-│     └─ web-search.yml                             # web-search-next のCI
+│     ├─ web-search.yml                             # web-search-next のCI
+│     ├─ docs-build.yml                             # docs-build-cli を叩いてプリレンダ実行
+│     └─ slides-export.yml                          # pdf-export を叩いてPDF吐く
 └─ docs/                                            # ドキュメント
    ├─ adr/
    │  ├─ adr-0.10.8.md                              # SSOT-first & thin manifest
@@ -178,18 +214,22 @@ repo/                                               # ルート。単一flake/lo
    │  ├─ adr-0.10.11.md                             # consumes/Secrets/SBOM/CVE
    │  ├─ adr-0.10.12.md                             # Status: Superseded（履歴）
    │  ├─ adr-0.11.0.md                              # Status: Superseded（履歴）
-   │  └─ adr-0.11.1.md                              # 本ADR（R2既定・MinIO for CI）
+   │  ├─ adr-0.11.1.md                              # Status: Superseded（履歴）
+   │  └─ adr-0.11.2.md                              # 本ADR（命名統一/sdk解体/dist責務固定）
    ├─ tree.md                                       # このファイル（最新構成の単一真実）
-   └─ architecture/
-      ├─ context.mmd                                # コンテキスト図
-      └─ sequence.mmd                               # 代表シーケンス図
+   ├─ architecture/
+   │  ├─ context.mmd                                # コンテキスト図
+   │  └─ sequence.mmd                               # 代表シーケンス図
+   ├─ slides/                                       # プレゼンテーションソース
+   │  └─ example.md                                 # Markdownスライド
+   └─ dist/                                         # 生成結果（.gitignore対象）
 ```
 
 ---
 
-## 構成原則（ADR 0.11.0準拠）
+## 構成原則（ADR 0.11.2準拠）
 
-### 4層構造
+### 4層構造（変更なし）
 
 ```
 interfaces → apps → domains → contracts
@@ -197,74 +237,57 @@ interfaces → apps → domains → contracts
            infra
 ```
 
-### 各層の責務
+### 命名規則（新規）
 
-| 層 | 責務 | 依存先 | 禁止事項 |
-|---|------|--------|---------|
-| **interfaces/** | 入口（HTTP/gRPC/CLI/Web）、wire.pyでDI | apps + infra.runtimes | ビジネスロジック記述 |
-| **apps/** | ユースケース/編成、型変換 | domains + infra.adapters | 外部I/O直接呼出 |
-| **domains/** | 純粋ロジック、Port定義 | contracts | 外部FW/SDK import |
-| **contracts/** | DDL/IDL/イベント定義（SSOT） | なし | 実装コード |
-| **infra/** | ランタイム/SDK/Adapter実装 | なし（leaf） | ビジネスロジック |
+**原則**: `<ドメイン>-<用途>-<形態>`
 
-### 命名規則
+| 例 | 意味 |
+|----|------|
+| `docs-build-cli` | docsをbuildするCLI |
+| `docs-static-site` | docsを静的サイトとして配信 |
+| `presentation-runtime` | プレゼンテーション表示のランタイム |
+| `content-build-tools` | コンテンツビルドのツール群 |
 
-- **kebab-case統一**: ディレクトリ/ファイル名
-- **出力名 = パス名**: Flake出力とパス名が一致（ズレはCI fail）
+### infra/の新しい構造
 
-### 依存宣言の一元化
+**旧構造**:
+```
+infra/sdk/
+├─ ui-wc/
+└─ md-tools/
+```
 
-**原則**: 依存宣言は `infra/` 配下のみ許可
+**新構造**:
+```
+infra/presentation-runtime/  # ランタイム資産
+infra/content-build-tools/   # ビルドツール
+```
 
-- `infra/runtimes/*/constraints.txt`
-- `infra/adapters/*/*/requirements.in`
+### dist配置ルール（新規明文化）
 
-### Flake運用
-
-- **ルート単一flake.lock**: 全sub-flakeは `inputs.nixpkgs.follows = "nixpkgs"`
-- **devShells集約**: `infra/flake.nix` で ruff/pytest/deadnix/statix を提供
-- **domains/のdevShell禁止**: 外部非接続を保証
-
----
-
-## 再配置ルール（重要）
-
-### 許可される操作
-- ✅ `git mv`（ディレクトリ/ファイル移動）
-- ✅ importパス置換（移動に伴うパス修正）
-- ✅ flake出力名の整合（出力名=パス名）
-- ✅ `wire.py` のDI差し替え（Port→Adapter注入）
-
-### 禁止される操作
-- ❌ 関数/クラスシグネチャ変更
-- ❌ 新規機能追加
-- ❌ `contracts/ssot/**` の変更（schema.sql/events.cue/openapi.yaml/proto）
-- ❌ 依存追加/更新（constraints.txt/requirements.in）
-
-### CI必須条件
-1. ✅ 全テスト不変緑（ユニット/統合/契約/E2E）
-2. ✅ `nix flake check` 緑
-3. ✅ `policy/cue` 違反0
-4. ✅ `contracts/` 差分なし
+- ✅ **interfaces/** の静的配信interface **のみ**が `dist/` を持つ
+- ❌ **infra/** は `dist/` を持たない（配信元ではない）
 
 ---
 
-## 移行マッピング（0.10.12 → 0.11.0）
+## 再配置マッピング（0.11.1 → 0.11.2）
 
-| 旧パス（0.10.12） | 新パス（0.11.0） | 理由 |
-|-----------------|----------------|------|
-| `features/opencode-autopilot/` | `infra/adapters/opencode/autopilot/` | Port実装（外部システム） |
-| `deployables/opencode-gateway/` | `interfaces/http-opencode-gateway/` | HTTPエントリポイント |
-| `deployables/opencode-worker/` | `apps/video/workflows/` + `infra/adapters/queue/temporal/` | ワークフロー編成+実装分離 |
-| `platform/temporal/` | `infra/adapters/queue/temporal/` | インフラAdapter |
-| `platform/libsql/` | `infra/adapters/db/libsql/` | DB Adapter |
+| 旧パス | 新パス | 操作 |
+|-------|--------|------|
+| `infra/sdk/ui-wc/x-deck/` | `infra/presentation-runtime/x-deck/` | `git mv` |
+| `infra/sdk/md-tools/md2html/` | `infra/content-build-tools/md2html/` | `git mv` |
+| `infra/sdk/md-tools/mmd2svg/` | `infra/content-build-tools/mmd2svg/` | `git mv` |
+| `infra/sdk/md-tools/pdf-export/` | `infra/content-build-tools/pdf-export/` | `git mv` |
+| （新規） | `infra/content-build-tools/shared/` | 新規作成 |
+| `interfaces/cli-docs/` | `interfaces/docs-build-cli/` | `git mv` |
+| `interfaces/web-docs-vanilla/` | `interfaces/docs-static-site/` | `git mv` |
 
 ---
 
 ## 更新履歴
 
-- **2025-10-23**: ADR 0.11.1適用、ストレージ方針明確化（R2既定・MinIO for CI・S3削除）
-- **Supersedes**: ADR 0.11.0（4層構造）→ ADR 0.10.12（Orchestration v4.1b）
+- **2025-10-23**: ADR 0.11.2適用、命名統一・infra/sdk解体・dist責務固定
+- **Supersedes**: ADR 0.11.1（ストレージ方針）→ ADR 0.11.0（4層構造）→ ADR 0.10.12（Orchestration v4.1b）
 
 ---
 
