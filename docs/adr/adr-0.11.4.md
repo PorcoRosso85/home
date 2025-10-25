@@ -26,9 +26,10 @@
 - サービス出力は、参照するleafのみを束ねる（最小依存での配布・分離を容易化）。
 
 ### 2.3 Manifest Guard
-- 各サービスの「実使用infraセット」を**flake出力（例: JSON/CUE）として生成**。
-- サービス側の**allowlist**（名称/形式は拘束しない）と**機械比較**し、逸脱を検出（将来CIでfail）。
+- 各サービスの「実使用infraセット」を**flake出力（CUE。flake.nixが生成）**として生成。例：`out/manifest/<svc>.cue`（VCS非追跡）。
+- サービス側の**allowlist**（例: `interfaces/*/infra.allow.cue`）と**機械比較**し、逸脱を検出（将来CIでfail）。
 - これにより"勝手な横依存"や"本番混入"を抑止。
+- **Format**: CUE（JSONは採用しない）。将来のCI実装では `nix build .#manifest.<svc>` → CUEパース → allowlistとdiff で固定化予定。
 
 ### 2.4 IaC（Terranix→OpenTofu + R2 remote state）
 - Terranixで環境別（prod/stg/dev）のOpenTofu入力を生成。

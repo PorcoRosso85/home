@@ -229,7 +229,6 @@ repo/                                               # ルート（単一flake/lo
 ├─ policy/                                          # 構造ガード（CUE）
 │  └─ cue/                                          # リポジトリ構造・依存ルールの静的検証
 │     ├─ schemas/                                   # スキーマ定義
-│     │  ├─ manifest.cue                            # manifest型
 │     │  ├─ deps.cue                                # 依存許可リスト（provisioning追加）
 │     │  ├─ naming.cue                              # 命名規約（ハイフン/出力＝パス）
 │     │  └─ layout.cue                              # 配置規約（宣言ファイルの許可場所等）
@@ -282,6 +281,7 @@ repo/                                               # ルート（単一flake/lo
 - 各サービスの実使用infraは**flake出力(=manifest)**で生成。
 - サービス側の**allowlist**と比較して逸脱を検出（将来CIでfail）。
 - **flakeはleaf出力**へ細分化し、サービスは必要leafのみ束ねる。
+- **※ manifestはflake生成(CUE)。リポに固定ファイルは置かない（VCS非追跡）。**
 
 > 注: 具体的コマンドやコード例は tree には置かない（ADR 0.11.4 を参照）。
 
