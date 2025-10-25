@@ -1,7 +1,0 @@
-# Deployment script encryption configuration
-creation_rules:
-  - path_regex: secrets/.*\.(yaml|json|sh\.enc)$
-    key_groups:
-      - age:
-          # Example age public key - replace with your actual key
-          - age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p

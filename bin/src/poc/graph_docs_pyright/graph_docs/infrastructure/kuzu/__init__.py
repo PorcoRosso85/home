@@ -1,1 +1,0 @@
-"""KuzuDB infrastructure implementation."""

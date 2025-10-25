@@ -1,9 +1,0 @@
-{
-  "tasks": {
-    "test": "deno test --allow-net test/",
-    "start": "./start-demo.sh",
-    "test-envoy": "./test-envoy.sh",
-    "build-image": "nix build .#envoyImage",
-    "stats": "curl -s http://localhost:9901/stats/prometheus | grep -E 'cluster\\.(server[12]|backend)_cluster'"
-  }
-}

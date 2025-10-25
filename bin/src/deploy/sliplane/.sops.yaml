@@ -1,6 +1,0 @@
-# SOPS encryption rules for env files
-creation_rules:
-  - path_regex: .*env\.(sh|sh\.enc)$
-    key_groups:
-      - age:
-          - age1xe09p4793xh9rptl3m7tdhxey5anc7erx8gau440ktt3qsknmq9q3nc3me

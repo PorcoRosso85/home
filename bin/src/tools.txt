@@ -1,7 +1,0 @@
-execute_command.sh
-claude_extension_assistant.sh
-another_aichat.sh
-rclone_backup.sh
-claude_config_builder.js
-sitemcp.sh
-github_repo_info.js

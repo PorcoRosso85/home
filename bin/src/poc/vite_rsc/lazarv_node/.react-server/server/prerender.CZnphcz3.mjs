@@ -1,1 +1,0 @@
-import{P as e,t}from"./request.B5lbIw2_.mjs";import{jsx as n}from"react/jsx-runtime";import{unstable_postpone as r}from"react";function i(n){typeof e(t)?.onPostponed==`function`&&r(n)}function a(e){return function(t){return i(),n(e,{...t})}}export{a as b};

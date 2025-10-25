@@ -1,8 +1,0 @@
-{
-  "command": "wsl",
-  "args": [
-    "bash",
-    "-c",
-    "/home/nixos/bin/src/shell.ts"
-  ]
-}

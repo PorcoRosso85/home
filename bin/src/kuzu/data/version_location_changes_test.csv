@@ -1,6 +1,0 @@
-version_id,id,change_type
-v2.0.0,file:///src/main.ts,UPDATE
-v2.0.0,file:///src/newFeature.ts,CREATE
-v2.0.0,file:///src/oldModule.ts,DELETE
-v2.1.0,file:///src/newFeature.ts,UPDATE
-v2.1.0,file:///src/helpers.ts,CREATE
