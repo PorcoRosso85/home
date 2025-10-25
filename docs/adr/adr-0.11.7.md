@@ -23,7 +23,7 @@ ADR 0.11.4〜0.11.6を通じて以下が確定した：
 | CUEディレクトリ | 責務 | 検証対象 | VCS追跡 |
 |---------------|------|---------|---------|
 | `policy/cue/` | リポジトリ構造・依存ルール・命名規則 | 静的コード構造 | ✅ 全ファイル |
-| `infra/provisioning/cue/` | OpenTofu出力値の型・契約検証 | 実行時インフラ値 | ✅ スキーマのみ |
+| `infra`（Terranix→OpenTofu 入力のCUEスキーマ群） | OpenTofu出力値の型・契約検証 | 実行時インフラ値 | ✅ スキーマのみ |
 | `policy/cue/schemas/manifest_schema.cue` | Manifest Guard型定義 | manifest生成物の型 | ✅ 型のみ |
 
 ### 1.2 整合性確認の範囲
@@ -71,7 +71,7 @@ interfaces/<svc>/infra.allow.cue  # allowlist（VCS追跡）
   - 命名規則
 - **独立性**: provisioning/cueをimportしない
 
-#### infra/provisioning/cue/
+#### infra（Terranix→OpenTofu 入力のCUEスキーマ群）
 - **責務**: IaC出力値検証
 - **検証内容**:
   - `tofu output -json` の型チェック
@@ -172,7 +172,6 @@ interfaces/<svc>/infra.allow.cue  # allowlist（VCS追跡）
 - **ADR 0.11.4**: sops-nix / flake細粒度 / manifest guard / Terranix→OpenTofu（R2）
 - **ADR 0.11.5**: Secrets=唯一入口 / CUE=SSOT / leaf分割 / Guard方針（TODO宣言）
 - **ADR 0.11.6**: 0.11.5のTODO確定（Secrets/Guard/IaC/Zoning policies）
-- **ADR 0.11.7**: 本ADR（CUEガバナンス整合性確認の完了）
 
 ---
 
