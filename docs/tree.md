@@ -4,7 +4,7 @@
 > 5原則（SRP/KISS/YAGNI/SOLID/DRY）を徹底。必要になるまで実装しない（YAGNI）。
 
 **Last Updated**: 2025-10-25 (JST)
-**対応ADR**: docs/adr/adr-0.11.3.md, docs/adr/adr-0.11.4.md, docs/adr/adr-0.11.5.md, docs/adr/adr-0.11.6.md, docs/adr/adr-0.11.7.md, docs/adr/adr-0.11.8.md
+**対応ADR**: docs/adr/adr-0.11.3.md, docs/adr/adr-0.11.4.md, docs/adr/adr-0.11.5.md, docs/adr/adr-0.11.6.md, docs/adr/adr-0.11.7.md, docs/adr/adr-0.11.8.md, docs/adr/adr-0.1.0-spec-impl-mirror-flake-tag.md
 **運用原則**: この tree は宣言。未記載 = 削除。今回は再配置のみでデグレ無しを厳守。
 
 ---
@@ -260,7 +260,8 @@ repo/                                               # ルート（単一flake/lo
    │  ├─ adr-0.11.5.md                              # Secrets=唯一入口 / CUE=SSOT / leaf分割 / Guard方針
    │  ├─ adr-0.11.6.md                              # Finalize Secrets/Guard/IaC/Zoning policies
    │  ├─ adr-0.11.7.md                              # DoD整合性確認の完了（CUEガバナンス）
-   │  └─ adr-0.11.8.md                              # Manifest責務定義 & Capabilityガバナンス方針
+   │  ├─ adr-0.11.8.md                              # Manifest責務定義 & Capabilityガバナンス方針
+   │  └─ adr-0.1.0-spec-impl-mirror-flake-tag.md   # spec/impl mirror + Flakes参照 + 日付タグ
    ├─ tree.md                                       # このファイル（最新構成の単一真実）
    ├─ architecture/
    │  ├─ context.mmd                                # コンテキスト図
@@ -415,6 +416,7 @@ nix develop
 
 ## 更新履歴
 
+- **2025-10-25**: ADR 0.1.0適用、spec/impl mirror構成 + Flakes参照 + 日付タグ運用（docsのみ）
 - **2025-10-25**: ADR 0.11.8適用、Manifest責務定義 & Capabilityガバナンス方針（docsのみ）
 - **2025-10-25**: ADR 0.11.7適用、DoD整合性確認の完了（CUEガバナンス）
 - **2025-10-25**: ADR 0.11.6適用、Finalize Secrets/Guard/IaC/Zoning policies
@@ -429,3 +431,33 @@ nix develop
 **この文書が現行の正（SSOT）であり、過去のADRは履歴用として参照のみ。**
 
 **生成方法**: 手動更新（将来的に `tools/generator` で自動生成予定）
+
+---
+
+## Flakes参照 / mirror方針（ADR 0.1.0準拠）
+
+### 参照入口の統一
+
+- **仕様の入口**: `specification/apps/<name>/`
+- **実装の入口**: `apps/<name>/`
+- 内部は4層構造（interfaces/apps/domains/infra/policy/contracts）に従う
+
+### Flakes参照テンプレート
+
+#### 実装→仕様（契約/方針参照）
+```nix
+inputs.spec.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=apps/<name>";
+```
+
+#### 仕様→実装（必要時）
+```nix
+inputs.app.url = "git+https://github.com/<you>/<repo>?ref=partial/<name>&dir=apps/<name>";
+```
+
+### タグ運用（継続）
+
+- **命名規約**: `spec-<name>-YYYYMMDD[-hhmm]`
+- **役割**: 配布点の明示・ロック更新PRの安全トリガ
+- **例**: `spec-video-20251025`
+
+**詳細**: docs/adr/adr-0.1.0-spec-impl-mirror-flake-tag.md 参照
