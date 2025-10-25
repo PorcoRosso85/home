@@ -1,7 +1,0 @@
-{
-  "tasks": {
-    "test": "deno test --allow-net integration.test.ts",
-    "test:raft": "deno test --allow-net ../raft/raft.test.ts",
-    "test:all": "deno test --allow-net integration.test.ts ../raft/raft.test.ts"
-  }
-}

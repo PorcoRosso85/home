@@ -1,6 +1,0 @@
-=== COMMAND EXIT CODES ===
-Testing commands with --no-write-lock-file protection:
-check: Exit 0
-build-snippet: Exit 0
-build-sitemap: Exit 0
-build-hreflang: Exit 0

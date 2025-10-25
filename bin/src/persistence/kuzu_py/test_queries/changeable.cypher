@@ -1,1 +1,0 @@
-MATCH (n:Person) WHERE n.name = 'Test' RETURN n

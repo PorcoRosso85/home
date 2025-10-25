@@ -1,1 +1,0 @@
-# KuzuDB FTS implementation package

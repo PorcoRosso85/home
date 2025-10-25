@@ -1,1 +1,0 @@
-"""Infrastructure package for graph_docs."""

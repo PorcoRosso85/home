@@ -1,4 +1,0 @@
-for file in $HOME/.sh/*.sh; do
-    source "$file"
-    echo "sourced $file"
-done

@@ -1,7 +1,0 @@
-{
-  "name": "kuzu_ts",
-  "version": "0.1.0",
-  "dependencies": {
-    "kuzu": "^0.10.0"
-  }
-}

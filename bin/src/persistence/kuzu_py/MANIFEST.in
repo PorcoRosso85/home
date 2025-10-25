@@ -1,7 +1,0 @@
-include *.py
-exclude test_*.py
-exclude setup.py
-exclude __pycache__
-prune e2e
-prune test_queries
-prune kuzu_py
