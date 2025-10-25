@@ -41,7 +41,7 @@
 ```
 nix build .#manifest.docs
 ```
-生成物: `out/manifest/docs.json`（例）
+生成物: `out/manifest/docs.cue`（例）
 
 - R2 backendの概念（S3互換を想定）：
 ```hcl
