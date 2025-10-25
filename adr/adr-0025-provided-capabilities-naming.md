@@ -1,4 +1,4 @@
-# ADR-0025: 提供機能 (provided capabilities) の命名規則
+# 提供機能の命名規則
 
 ## ステータス
 Proposed
