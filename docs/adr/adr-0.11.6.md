@@ -1,6 +1,6 @@
 # ADR 0.11.6: Finalize Secrets/Guard/IaC/Zoning policies
 
-- **Status**: Accepted
+- **Status**: Proposed
 - **Date**: 2025-10-25 (JST)
 - **Relates**: ADR 0.11.4（sops-nix / flake細粒度 / manifest guard / Terranix）, ADR 0.11.5（Secrets=唯一入口 / CUE=SSOT / leaf分割 / Guard方針）
 - **Finalizes**: ADR 0.11.5 の TODO 3.1, 3.3, 3.4, 3.5, 3.6
