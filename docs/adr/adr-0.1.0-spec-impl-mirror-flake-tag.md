@@ -1,6 +1,6 @@
-# ADR 0.1.0: spec/impl mirror構成 + Nix Flakes参照 + 日付タグ運用
+# ADR 0.1.0: spec/impl mirror構成 + Nix Flakes参照 + 日付タグ運用（自動ディスカバリ制）
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2025-10-25 (JST)
 - **Relates**: ADR 0.11.3 / 0.11.4 / 0.11.5 / 0.11.6 / 0.11.7 / 0.11.8
 - **Supersedes**: なし（既存ADRと並存、新章の起点）
@@ -12,102 +12,139 @@
 
 ## 0. 背景
 
-- ADR 0.11.3〜0.11.8で4層構造（interfaces/apps/domains/contracts + infra）とCUEガバナンスを確立。
-- 本ADRは「仕様(spec)と実装(impl)の**参照入口**」を明文化し、Flakes参照の統一運用を提供（新章0.1.x系の起点）。
-- 既存の4層構造は維持。mirror構成は**参照入口のみ**を提供。
+- ADR 0.11.3〜0.11.8で4層構造（interfaces/apps/domains/contracts + infra/policy）とCUEガバナンスを確立。
+- 本ADRは「仕様(spec)の**参照入口**」を明文化し、Flakes参照の統一運用を提供（新章0.1.x系の起点）。
+- **repo直下の4層構造は維持**。mirror構成は`specification/`配下の**参照入口のみ**を定義。
 
 ## 1. 原則（5原則準拠）
 
-- **SRP**: 仕様と実装の責務分離。mirror入口と4層内部責務は独立。
-- **KISS**: シンプルなURL参照テンプレート（`dir=apps/<name>`）。
+- **SRP**: 仕様と実装の責務分離。参照入口と4層内部責務は独立。
+- **KISS**: シンプルなURL参照テンプレート（`dir=<entrypath>`自動ディスカバリ制）。
 - **YAGNI**: 実装は必要になるまで行わない。本PRは方針のみ。
 - **SOLID/DRY**: 参照入口を一元化、重複排除。
 
 ## 2. 決定
 
-### 2.1 mirror構成（参照入口）
+### 2.1 参照規約（自動ディスカバリ制）
+
+#### 基本原則
 
 ```
 specification/
-  apps/<name>/        # 仕様の入口（契約/方針/ガイド）
+  apps/<scope>/<service>/   { flake.nix, cue/**, tools/** }
+  contracts/<name>/         { flake.nix, … }
+  infra/<name>/             { flake.nix, … }
+  interfaces/<name>/        { flake.nix, … }
+  domains/<name>/           { flake.nix, … }
 
-apps/
-  <name>/             # 実装の入口（コード/flake等）
-    ↓ 内部は4層構造に従う
-    interfaces/
-    apps/
-    domains/
-    infra/
-    policy/
-    contracts/
+# repo直下の 4層（interfaces/apps/domains/infra/policy/contracts）は現行維持
 ```
 
-**既存4層構造との統合**:
-- 4層（interfaces/apps/domains/infra/policy/contracts）は既存通り維持
-- mirror構成は`apps/<name>`を**参照入口**として提供
-- 内部構造は4層責務に従う（ADR 0.11.3〜0.11.8準拠）
+**`<entrypath>`定義**:
+- `specification/**` 配下で「**直下に flake.nix を持つ任意ディレクトリ**」
+- 例: `apps/core/video`, `contracts/http`, `infra/runtime`, `interfaces/gateway`, `domains/common`
+
+**禁止**:
+- `path:` の常用
+- `specification/**` 外への直参照
+- `flake.nix` 不在パスへの直参照
 
 ### 2.2 Flakes参照テンプレート
 
 #### 実装→仕様（契約/方針参照）
 
 ```nix
-inputs.spec.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=apps/<name>";
+inputs.spec.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=<entrypath>";
+```
+
+**サービス例**:
+```nix
+# <entrypath> = apps/core/video（推奨例。強制ではない）
+inputs.spec.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=apps/core/video";
+```
+
+**共有例**:
+```nix
+# contracts/http, infra/runtime, interfaces/gateway, domains/common など
+inputs.contracts-http.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=contracts/http";
 ```
 
 #### 仕様→実装（必要時のみ）
 
 ```nix
-inputs.app.url = "git+https://github.com/<you>/<repo>?ref=partial/<name>&dir=apps/<name>";
+inputs.app.url = "git+https://github.com/<you>/<repo>?ref=partial/<scope>-<service>&dir=<entrypath>";
 ```
-
-**統一運用**:
-- 入口は常に`dir=apps/<name>`
-- 内部構造は4層責務に従う
 
 ### 2.3 ブランチ戦略
 
 - `main`: 安定。直接push不可
 - `partial/specification`: 仕様系の下書き・集約
-- `partial/<name>`: 個別アプリの部分実装
+- `partial/<scope>-<service>`: 個別アプリの部分実装
 - `partial/*` → `main` はPR経由（CI承認で自動マージ可）
 
-### 2.4 タグ運用（継続）
+### 2.4 タグ運用
 
-- **命名規約**: `spec-<name>-YYYYMMDD[-hhmm]`
-- **役割**: 配布点の明示・ロック更新PRの安全トリガ
-- **例**: `spec-video-20251025`
-
-### 2.5 CI/ローカル実行方針
-
-- **公式運用**: `push→CIでガード`
-- **CIチェック内容**（docs-only想定）:
-  - Markdown/リンク健全性（例: markdownlint, lychee）
-  - Flakes参照の解決性スモーク（`nix flake show`）
-  - 参照例の`dir=apps/<name>`が壊れていないことの簡易チェック
-- **ローカル実行**: 任意（CIと同じコマンドで可、規定はしない）
-
-## 3. specification/apps/<name>の責務（例）
-
-### 3.1 契約のソース
+#### 形式
 ```
-specification/apps/<name>/cue/schema → contracts/（契約SSOT）
+spec-<entrypath ('/'→'-' 変換)>-YYYYMMDD[-hhmm]
 ```
 
-### 3.2 方針・規約
-```
-specification/apps/<name>/policy → policy/（禁止/許可ルール）
-```
+#### 例
+- `spec-apps-core-video-20251026`
+- `spec-contracts-http-20251026-0930`
+- `spec-infra-runtime-20251026`
 
-### 3.3 ツール・補助
-```
-specification/apps/<name>/tools → codegen/CI補助（apps側で利用）
-```
+#### 役割
+- 配布点の明示
+- `flake.lock` 更新PRの安全トリガ（自動化は将来）
+
+### 2.5 命名・入口の指針
+
+#### 重複回避
+- サービスは `apps/<scope>/<service>` を推奨（一意性・可読性）
+- 共有コンポーネントは `contracts/<name>`, `infra/<name>` など
+
+#### 公開の最小契約
+- 各`<entrypath>`の`flake.nix`は **packages/checks（+必要ならdevShells）**のみ公開
+
+### 2.6 CI/ローカル実行方針
+
+#### 公式運用
+- `push→CIでガード`
+
+#### CIチェック内容（docs-only時は将来実装）
+
+1. **ロック整合性**:
+   - `nix flake lock --check`
+   - `nix flake check`
+   - `inputs.*.url` の `path:` 禁止
+
+2. **エントリ検証**:
+   - `dir=<entrypath>` が `specification/**` に存在するか
+   - その直下に `flake.nix` があるか
+   - なければ fail
+
+3. **lock-only原則**:
+   - ロック更新PRは `flake.lock` 以外の差分があれば fail
+
+#### ローカル実行
+- 任意（CIと同じコマンドで可、規定はしない）
+
+## 3. 互換・影響
+
+### 3.1 既存ADRとの関係
+- **非衝突**: 既存0.11.xの方針（4層・ポリシー等）とは独立
+- **責務**: 本ADRは参照入口と参照規約のみを定義
+
+### 3.2 移行
+- 旧テンプレの `dir=apps/<service>` は有効
+- `apps/<scope>/<service>` への段階移行を推奨
 
 ## 4. 非採用（理由）
 
 - **複数リポ分割**: 参照断絶・運用コスト増。初期段階は不採用。
-- **"b方式"表記**: 使用しない。「mirror構成＋dir=apps/<name>直参照」に統一。
+- **略語・"b方式"等**: 使用しない。「mirror構成＋dir=<entrypath>直参照」に統一。
+- **標準/例外の区別**: 不採用。自動ディスカバリ制に一本化。
 
 ## 5. 影響範囲
 
@@ -116,13 +153,12 @@ specification/apps/<name>/tools → codegen/CI補助（apps側で利用）
 
 ## 6. リスクと対策
 
-- **参照切れ**: CIで検出（リンク/flake show）。タグ名に日付必須で追跡容易。
+- **参照切れ**: CIで検出（エントリ検証・flake check）。タグ名に日付必須で追跡容易。
 - **タグ氾濫**: 命名規約＋PRテンプレで整理。
 
 ## 7. 今後の課題（TBD）
 
 - lock-update bot（タグ検出→PR自動化）
-- 仕様→実装の逆参照テンプレ整備
 - 実装の再格納方針（mirror入口を活かしつつ4層維持）を別PR計画として列挙
 
 ## 8. 関連ADR

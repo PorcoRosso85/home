@@ -436,28 +436,36 @@ nix develop
 
 ## Flakes参照 / mirror方針（ADR 0.1.0準拠）
 
-### 参照入口の統一
+### 参照入口（自動ディスカバリ制）
 
-- **仕様の入口**: `specification/apps/<name>/`
-- **実装の入口**: `apps/<name>/`
-- 内部は4層構造（interfaces/apps/domains/infra/policy/contracts）に従う
+```
+specification/
+  apps/<scope>/<service>/   { flake.nix, cue/**, tools/** }
+  contracts/<name>/         { flake.nix, … }
+  infra/<name>/             { flake.nix, … }
+  interfaces/<name>/        { flake.nix, … }
+  domains/<name>/           { flake.nix, … }
+
+# repo直下の 4層（interfaces/apps/domains/infra/policy/contracts）は現行維持
+```
+
+**`<entrypath>`定義**: `specification/**` 配下で「直下に flake.nix を持つ任意ディレクトリ」
 
 ### Flakes参照テンプレート
 
-#### 実装→仕様（契約/方針参照）
 ```nix
-inputs.spec.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=apps/<name>";
+# 実装→仕様
+inputs.spec.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=<entrypath>";
+
+# 例: apps/core/video, contracts/http, infra/runtime など
 ```
 
-#### 仕様→実装（必要時）
-```nix
-inputs.app.url = "git+https://github.com/<you>/<repo>?ref=partial/<name>&dir=apps/<name>";
+### タグ形式
+
+```
+spec-<entrypath ('/'→'-')>-YYYYMMDD[-hhmm]
 ```
 
-### タグ運用（継続）
-
-- **命名規約**: `spec-<name>-YYYYMMDD[-hhmm]`
-- **役割**: 配布点の明示・ロック更新PRの安全トリガ
-- **例**: `spec-video-20251025`
+**例**: `spec-apps-core-video-20251026`, `spec-contracts-http-20251026-0930`
 
 **詳細**: docs/adr/adr-0.1.0-spec-impl-mirror-flake-tag.md 参照
