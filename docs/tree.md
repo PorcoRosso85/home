@@ -3,8 +3,8 @@
 > ADR本文にツリーは書かない。本ファイルのみ最新設計を更新。
 > 5原則（SRP/KISS/YAGNI/SOLID/DRY）を徹底。必要になるまで実装しない（YAGNI）。
 
-**Last Updated**: 2025-10-25 (JST)
-**対応ADR**: docs/adr/adr-0.11.3.md, docs/adr/adr-0.11.4.md, docs/adr/adr-0.11.5.md, docs/adr/adr-0.11.6.md, docs/adr/adr-0.11.7.md, docs/adr/adr-0.11.8.md, docs/adr/adr-0.1.0-spec-impl-mirror-flake-tag.md
+**Last Updated**: 2025-10-26 (JST)
+**対応ADR**: docs/adr/adr-0.11.3.md, docs/adr/adr-0.11.4.md, docs/adr/adr-0.11.5.md, docs/adr/adr-0.11.6.md, docs/adr/adr-0.11.7.md, docs/adr/adr-0.11.8.md, docs/adr/adr-0.1.0-spec-impl-mirror-flake-tag.md, docs/adr/adr-0.1.1-ci-runner-blacksmith.md
 **運用原則**: この tree は宣言。未記載 = 削除。今回は再配置のみでデグレ無しを厳守。
 
 ---
@@ -416,6 +416,7 @@ nix develop
 
 ## 更新履歴
 
+- **2025-10-26**: ADR 0.1.1適用、CI実行基盤: Blacksmith（docsのみ）
 - **2025-10-25**: ADR 0.1.0適用、spec/impl mirror構成 + Flakes参照 + 日付タグ運用（docsのみ）
 - **2025-10-25**: ADR 0.11.8適用、Manifest責務定義 & Capabilityガバナンス方針（docsのみ）
 - **2025-10-25**: ADR 0.11.7適用、DoD整合性確認の完了（CUEガバナンス）
@@ -448,3 +449,4 @@ specification/
 ```
 
 ※ 詳細（参照URLテンプレ／タグ形式／CI要件）は ADR 0.1.0 を参照
+※ CI実行基盤（runner方針）は ADR 0.1.1 を参照（tree.md には詳細を記載しない）
