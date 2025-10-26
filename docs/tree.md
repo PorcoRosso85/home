@@ -434,39 +434,17 @@ nix develop
 
 ---
 
-## Flakes参照 / mirror方針（ADR 0.1.0準拠）
-
-### 参照入口（自動ディスカバリ制）
+## Entrypoints（構成のみ）
 
 ```
 specification/
-  apps/[<scope>/]<name>/       { flake.nix, cue/**, tools/** }
-  contracts/<name>/            { flake.nix, … }
-  infra/<name>/                { flake.nix, … }
-  interfaces/<name>/           { flake.nix, … }
-  domains/<name>/              { flake.nix, … }
+  apps/[<scope>/]<name>/
+  contracts/<name>/
+  infra/<name>/
+  interfaces/<name>/
+  domains/<name>/
 
-# repo直下の 4層（interfaces/apps/domains/infra/policy/contracts）は現行維持
+# repo直下の4層（interfaces/apps/domains/infra/policy/contracts）は現行維持
 ```
 
-**`<entrypath>`定義**: `specification/**` 配下で「直下に flake.nix を持つ任意ディレクトリ」
-**形式**: `<layer>/[<scope>/]<name>` （scopeは任意）
-
-### Flakes参照テンプレート
-
-```nix
-# 実装→仕様
-inputs.spec.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=<entrypath>";
-
-# 例: apps/video, apps/core/video, contracts/http, infra/runtime など
-```
-
-### タグ形式
-
-```
-spec-<entrypath ('/'→'-')>-YYYYMMDD[-hhmm]
-```
-
-**例**: `spec-apps-video-20251026`, `spec-apps-core-video-20251026`, `spec-contracts-http-20251026-0930`
-
-**詳細**: docs/adr/adr-0.1.0-spec-impl-mirror-flake-tag.md 参照
+※ 詳細（参照URLテンプレ／タグ形式／CI要件）は ADR 0.1.0 を参照
