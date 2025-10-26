@@ -31,18 +31,24 @@
 
 ```
 specification/
-  apps/<scope>/<service>/   { flake.nix, cue/**, tools/** }
-  contracts/<name>/         { flake.nix, … }
-  infra/<name>/             { flake.nix, … }
-  interfaces/<name>/        { flake.nix, … }
-  domains/<name>/           { flake.nix, … }
+  apps/[<scope>/]<name>/       { flake.nix, cue/**, tools/** }
+  contracts/<name>/            { flake.nix, … }
+  infra/<name>/                { flake.nix, … }
+  interfaces/<name>/           { flake.nix, … }
+  domains/<name>/              { flake.nix, … }
 
 # repo直下の 4層（interfaces/apps/domains/infra/policy/contracts）は現行維持
 ```
 
 **`<entrypath>`定義**:
 - `specification/**` 配下で「**直下に flake.nix を持つ任意ディレクトリ**」
-- 例: `apps/core/video`, `contracts/http`, `infra/runtime`, `interfaces/gateway`, `domains/common`
+- 形式: `<layer>/[<scope>/]<name>` （scopeは任意）
+- 命名: kebab-case
+- 重複: 禁止（CIが検知）
+
+**例**:
+- `apps/video`, `apps/core/video` （scopeは任意）
+- `contracts/http`, `infra/runtime`, `interfaces/gateway`, `domains/common`
 
 **禁止**:
 - `path:` の常用
@@ -57,29 +63,29 @@ specification/
 inputs.spec.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=<entrypath>";
 ```
 
-**サービス例**:
+**例**:
 ```nix
-# <entrypath> = apps/core/video（推奨例。強制ではない）
-inputs.spec.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=apps/core/video";
-```
+# apps層（scopeは任意）
+inputs.spec-video.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=apps/video";
+inputs.spec-core-video.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=apps/core/video";
 
-**共有例**:
-```nix
-# contracts/http, infra/runtime, interfaces/gateway, domains/common など
+# 共有層
 inputs.contracts-http.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=contracts/http";
+inputs.infra-runtime.url = "git+https://github.com/<you>/<repo>?ref=partial/specification&dir=infra/runtime";
 ```
 
 #### 仕様→実装（必要時のみ）
 
 ```nix
-inputs.app.url = "git+https://github.com/<you>/<repo>?ref=partial/<scope>-<service>&dir=<entrypath>";
+inputs.app.url = "git+https://github.com/<you>/<repo>?ref=partial/<entrypath('/'→'-')>&dir=<entrypath>";
 ```
 
 ### 2.3 ブランチ戦略
 
 - `main`: 安定。直接push不可
 - `partial/specification`: 仕様系の下書き・集約
-- `partial/<scope>-<service>`: 個別アプリの部分実装
+- `partial/<entrypath('/'→'-')>`: 個別アプリ/コンポーネントの部分実装
+  - 例: `partial/apps-video`, `partial/apps-core-video`, `partial/contracts-http`
 - `partial/*` → `main` はPR経由（CI承認で自動マージ可）
 
 ### 2.4 タグ運用
@@ -90,7 +96,8 @@ spec-<entrypath ('/'→'-' 変換)>-YYYYMMDD[-hhmm]
 ```
 
 #### 例
-- `spec-apps-core-video-20251026`
+- `spec-apps-video-20251026` （scopeなし）
+- `spec-apps-core-video-20251026` （scopeあり）
 - `spec-contracts-http-20251026-0930`
 - `spec-infra-runtime-20251026`
 
@@ -98,11 +105,12 @@ spec-<entrypath ('/'→'-' 変換)>-YYYYMMDD[-hhmm]
 - 配布点の明示
 - `flake.lock` 更新PRの安全トリガ（自動化は将来）
 
-### 2.5 命名・入口の指針
+### 2.5 統一規則
 
-#### 重複回避
-- サービスは `apps/<scope>/<service>` を推奨（一意性・可読性）
-- 共有コンポーネントは `contracts/<name>`, `infra/<name>` など
+#### 命名
+- 形式: `<layer>/[<scope>/]<name>` （scopeは任意）
+- kebab-case を使用
+- 重複禁止（CIが検知）
 
 #### 公開の最小契約
 - 各`<entrypath>`の`flake.nix`は **packages/checks（+必要ならdevShells）**のみ公開
@@ -124,7 +132,11 @@ spec-<entrypath ('/'→'-' 変換)>-YYYYMMDD[-hhmm]
    - その直下に `flake.nix` があるか
    - なければ fail
 
-3. **lock-only原則**:
+3. **重複検出**:
+   - `specification/<layer>/**` で同名 `<name>` の衝突があれば fail
+   - kebab-case 違反があれば fail
+
+4. **lock-only原則**:
    - ロック更新PRは `flake.lock` 以外の差分があれば fail
 
 #### ローカル実行
@@ -137,8 +149,8 @@ spec-<entrypath ('/'→'-' 変換)>-YYYYMMDD[-hhmm]
 - **責務**: 本ADRは参照入口と参照規約のみを定義
 
 ### 3.2 移行
-- 旧テンプレの `dir=apps/<service>` は有効
-- `apps/<scope>/<service>` への段階移行を推奨
+- 既存の `apps/<scope>/<service>` 形式はそのまま有効（scopeは任意）
+- 新規追加時は `<layer>/[<scope>/]<name>` の統一規則に従う
 
 ## 4. 非採用（理由）
 
