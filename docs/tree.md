@@ -3,8 +3,8 @@
 > ADR本文にツリーは書かない。本ファイルのみ最新設計を更新。
 > 5原則（SRP/KISS/YAGNI/SOLID/DRY）を徹底。必要になるまで実装しない（YAGNI）。
 
-**Last Updated**: 2025-10-24 (JST)
-**対応ADR**: docs/adr/adr-0.11.3.md, docs/adr/adr-0.11.4.md
+**Last Updated**: 2025-10-25 (JST)
+**対応ADR**: docs/adr/adr-0.11.3.md, docs/adr/adr-0.11.4.md, docs/adr/adr-0.11.5.md, docs/adr/adr-0.11.6.md, docs/adr/adr-0.11.7.md, docs/adr/adr-0.11.8.md
 **運用原則**: この tree は宣言。未記載 = 削除。今回は再配置のみでデグレ無しを厳守。
 
 ---
@@ -256,7 +256,11 @@ repo/                                               # ルート（単一flake/lo
    │  ├─ adr-0.11.1.md                              # Status: Superseded（履歴）
    │  ├─ adr-0.11.2.md                              # Status: Superseded（履歴）
    │  ├─ adr-0.11.3.md                              # 最終形：0.11.2 + IaC統合
-   │  └─ adr-0.11.4.md                              # sops-nix / flake細粒度 / manifest guard / Terranix
+   │  ├─ adr-0.11.4.md                              # sops-nix / flake細粒度 / manifest guard / Terranix
+   │  ├─ adr-0.11.5.md                              # Secrets=唯一入口 / CUE=SSOT / leaf分割 / Guard方針
+   │  ├─ adr-0.11.6.md                              # Finalize Secrets/Guard/IaC/Zoning policies
+   │  ├─ adr-0.11.7.md                              # DoD整合性確認の完了（CUEガバナンス）
+   │  └─ adr-0.11.8.md                              # Manifest責務定義 & Capabilityガバナンス方針
    ├─ tree.md                                       # このファイル（最新構成の単一真実）
    ├─ architecture/
    │  ├─ context.mmd                                # コンテキスト図
@@ -276,18 +280,27 @@ repo/                                               # ルート（単一flake/lo
 - **Terranix → OpenTofu**で環境別（prod/stg/dev）のIaCを生成。
 - **remote state は R2(S3互換)**、ロックと環境分離を前提化。
 - **Secrets は sops-nix**で暗号化。平文コミット不可。復号はactivation時に実施。
+- **Secrets = 唯一のエントリポイント（手動管理）**。外部金庫・R2バックアップは当面不採用（詳細: ADR 0.11.5）。
 
 ### Manifest Guard（要約）
 - 各サービスの実使用infraは**flake出力(=manifest)**で生成。
 - サービス側の**allowlist**と比較して逸脱を検出（将来CIでfail）。
 - **flakeはleaf出力**へ細分化し、サービスは必要leafのみ束ねる。
 - **※ manifestはflake生成(CUE)。リポに固定ファイルは置かない（VCS非追跡）。**
+- **CUE=SSOT**。必要時のみ `CUE → (sh/json/yaml)` 生成。逆方向禁止（詳細: ADR 0.11.5）。
+- **出力形式=CUE固定、生成物はVCS非追跡**（詳細: ADR 0.11.6）。
 
-> 注: 具体的コマンドやコード例は tree には置かない（ADR 0.11.4 を参照）。
+### Logs / 観測（要約）
+- **長期保管はR2**（SaaS不使用）。Loki等は任意の可視化レイヤ（詳細: ADR 0.11.6）。
+
+### Zoning（要約）
+- **当面はzoneラベルで管理**、stable昇格後に物理移動（詳細: ADR 0.11.6）。
+
+> 注: 具体的コマンドやコード例は tree には置かない（ADR 0.11.4/0.11.5/0.11.6 を参照）。
 
 ---
 
-## 構成原則（ADR 0.11.3/0.11.4準拠）
+## 構成原則（ADR 0.11.3/0.11.4/0.11.5/0.11.6/0.11.7/0.11.8準拠）
 
 ### 4層構造（変更なし）
 
@@ -402,6 +415,10 @@ nix develop
 
 ## 更新履歴
 
+- **2025-10-25**: ADR 0.11.8適用、Manifest責務定義 & Capabilityガバナンス方針（docsのみ）
+- **2025-10-25**: ADR 0.11.7適用、DoD整合性確認の完了（CUEガバナンス）
+- **2025-10-25**: ADR 0.11.6適用、Finalize Secrets/Guard/IaC/Zoning policies
+- **2025-10-25**: ADR 0.11.5適用、Secrets=唯一入口(手動) / CUE=SSOT / leaf分割 / Guard方針
 - **2025-10-24**: ADR 0.11.4適用、sops-nix / flake細粒度 / manifest guard / Terranix→OpenTofu（R2）
 - **2025-10-24**: ADR 0.11.3適用、最終形（0.11.2 + IaC統合）
 - **2025-10-23**: ADR 0.11.2適用、命名統一・infra/sdk解体・dist責務固定
