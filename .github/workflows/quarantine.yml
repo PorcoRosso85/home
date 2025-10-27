@@ -1,0 +1,13 @@
+# 責務: 隔離環境での検証（破壊的変更のテスト）
+name: Quarantine
+
+on:
+  workflow_dispatch:
+
+jobs:
+  quarantine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run quarantine tests
+        run: echo "Quarantine tests TBD"

@@ -1,0 +1,36 @@
+# 責務: CI最小UX - build→lint→plan→smoke を直列実行
+# DoD: すべて0終了 + index決定的生成
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      
+      # 1. index生成
+      - name: Build contracts-index
+        run: nix build .#contracts-index
+      
+      # 2. 従来lint
+      - name: Lint all
+        run: nix run .#gate -- lint --all
+      
+      # 3. contracts検証（L100-L104）
+      - name: Lint contracts
+        run: nix run .#gate -- lint contracts
+      
+      # 4. 影響範囲/DAG
+      - name: Plan changed
+        run: nix run .#gate -- plan --changed-only
+      
+      # 5. スモークテスト
+      - name: Smoke test
+        run: nix run .#gate -- smoke
