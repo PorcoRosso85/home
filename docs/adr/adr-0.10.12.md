@@ -2,9 +2,12 @@
 
 - **ID**: adr-0.10.12 (251023-orch-v4.1b)
 - **Date**: 2025-10-23 (JST)
-- **Status**: Accepted
+- **Status**: Superseded
+- **Superseded by**: adr-0.11.0
 - **Owners**: Orchestration / Gateway / Temporal
 - **Scope**: Gateway・Workflow/Worker・Search Attributes・SSOT・ディレクトリ構成（監査は除外）
+
+> **Note**: この ADR は adr-0.11.0 により Superseded されました。構成は4層アーキテクチャに再配置されています。履歴参照用に保持。
 
 ---
 
