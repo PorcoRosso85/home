@@ -4,7 +4,7 @@
 > 5原則（SRP/KISS/YAGNI/SOLID/DRY）を徹底。必要になるまで実装しない（YAGNI）。
 
 **Last Updated**: 2025-10-25 (JST)
-**対応ADR**: docs/adr/adr-0.11.3.md, docs/adr/adr-0.11.4.md, docs/adr/adr-0.11.5.md, docs/adr/adr-0.11.6.md
+**対応ADR**: docs/adr/adr-0.11.3.md, docs/adr/adr-0.11.4.md, docs/adr/adr-0.11.5.md, docs/adr/adr-0.11.6.md, docs/adr/adr-0.11.7.md, docs/adr/adr-0.11.8.md
 **運用原則**: この tree は宣言。未記載 = 削除。今回は再配置のみでデグレ無しを厳守。
 
 ---
@@ -258,7 +258,9 @@ repo/                                               # ルート（単一flake/lo
    │  ├─ adr-0.11.3.md                              # 最終形：0.11.2 + IaC統合
    │  ├─ adr-0.11.4.md                              # sops-nix / flake細粒度 / manifest guard / Terranix
    │  ├─ adr-0.11.5.md                              # Secrets=唯一入口 / CUE=SSOT / leaf分割 / Guard方針
-   │  └─ adr-0.11.6.md                              # Finalize Secrets/Guard/IaC/Zoning policies
+   │  ├─ adr-0.11.6.md                              # Finalize Secrets/Guard/IaC/Zoning policies
+   │  ├─ adr-0.11.7.md                              # DoD整合性確認の完了（CUEガバナンス）
+   │  └─ adr-0.11.8.md                              # Manifest責務定義 & Capabilityガバナンス方針
    ├─ tree.md                                       # このファイル（最新構成の単一真実）
    ├─ architecture/
    │  ├─ context.mmd                                # コンテキスト図
@@ -298,7 +300,7 @@ repo/                                               # ルート（単一flake/lo
 
 ---
 
-## 構成原則（ADR 0.11.3/0.11.4/0.11.5/0.11.6準拠）
+## 構成原則（ADR 0.11.3/0.11.4/0.11.5/0.11.6/0.11.7/0.11.8準拠）
 
 ### 4層構造（変更なし）
 
@@ -413,6 +415,8 @@ nix develop
 
 ## 更新履歴
 
+- **2025-10-25**: ADR 0.11.8適用、Manifest責務定義 & Capabilityガバナンス方針（docsのみ）
+- **2025-10-25**: ADR 0.11.7適用、DoD整合性確認の完了（CUEガバナンス）
 - **2025-10-25**: ADR 0.11.6適用、Finalize Secrets/Guard/IaC/Zoning policies
 - **2025-10-25**: ADR 0.11.5適用、Secrets=唯一入口(手動) / CUE=SSOT / leaf分割 / Guard方針
 - **2025-10-24**: ADR 0.11.4適用、sops-nix / flake細粒度 / manifest guard / Terranix→OpenTofu（R2）
