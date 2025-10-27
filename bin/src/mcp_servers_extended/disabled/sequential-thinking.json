@@ -1,8 +1,0 @@
-{
-  "command": "wsl",
-  "args": [
-    "bash",
-    "-c",
-    "pnpx @modelcontextprotocol/server-sequential-thinking"
-  ]
-}

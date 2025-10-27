@@ -1,9 +1,0 @@
-{
-  "tasks": {
-    "test": "deno test test_network_sync.ts",
-    "test:v2": "deno test test_network_sync_v2.ts",
-    "test:v3": "deno test test_network_sync_v3.ts",
-    "test:all": "deno test test_network_sync*.ts",
-    "test:watch": "deno test --watch test_network_sync.ts"
-  }
-}

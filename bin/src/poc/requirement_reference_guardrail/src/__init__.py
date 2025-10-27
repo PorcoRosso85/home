@@ -1,3 +1,0 @@
-"""
-Requirement reference guardrail package.
-"""

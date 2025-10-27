@@ -1,7 +1,0 @@
-# アプリケーション専用の暗号化ルール
-creation_rules:
-  - path_regex: secrets/.*\.(yaml|json)$
-    key_groups:
-      - age:
-          # Age encryption key (default recommendation)
-          - age1xe09p4793xh9rptl3m7tdhxey5anc7erx8gau440ktt3qsknmq9q3nc3me

@@ -1,6 +1,0 @@
-# Test artifacts
-*.log
-.claude/
-
-# Deno
-deno.lock
