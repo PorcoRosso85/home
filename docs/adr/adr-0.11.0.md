@@ -2,9 +2,12 @@
 
 - **ID**: adr-0.11.0
 - **Date**: 2025-10-23 (JST)
-- **Status**: Accepted
+- **Status**: Superseded
+- **Superseded by**: adr-0.11.1
 - **Supersedes**: adr-0.10.12
 - **Scope**: リポジトリ全体の層構成・依存管理・命名規約
+
+> **Note**: この ADR は adr-0.11.1 により Superseded されました。ストレージ方針の明確化（R2+MinIO、S3削除）により更新。履歴参照用に保持。
 
 ---
 
