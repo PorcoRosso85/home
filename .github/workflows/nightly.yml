@@ -1,0 +1,15 @@
+# 責務: 定期実行（深い検証・性能測定）
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run nightly tests
+        run: echo "Nightly tests TBD"

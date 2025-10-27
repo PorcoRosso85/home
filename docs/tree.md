@@ -310,7 +310,7 @@ interfaces → apps → domains → contracts
            infra
 ```
 
-### 命名規則（0.11.2継承）
+### 命名規則
 
 **原則**: `<ドメイン>-<用途>-<形態>`
 
