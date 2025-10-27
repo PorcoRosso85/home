@@ -1,7 +1,0 @@
-{
-  "tasks": {
-    "run": "deno run --allow-read --allow-write --allow-net --allow-env main.ts",
-    "fmt": "deno fmt",
-    "lint": "deno lint"
-  }
-}

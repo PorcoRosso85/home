@@ -1,8 +1,0 @@
-definition user {}
-
-definition document {
-    relation viewer: user
-    relation owner: user
-    
-    permission view = viewer + owner
-}

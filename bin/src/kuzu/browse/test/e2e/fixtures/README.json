@@ -1,9 +1,0 @@
-{
-  "description": "E2Eテスト用フィクスチャディレクトリ",
-  "contents": [
-    "conflict-sample.ts - conflictを含むサンプルファイル",
-    "test-repo.json - テスト用リポジトリ設定",
-    "rpc-messages.json - RPCテスト用メッセージサンプル"
-  ],
-  "note": "実際のテストデータは必要に応じて追加"
-}

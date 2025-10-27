@@ -1,4 +1,0 @@
-# SOPS encrypted environment variables
-env.sh
-env.sh.bak
-!env.sh.enc

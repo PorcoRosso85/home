@@ -1,9 +1,0 @@
-From: sender@example.com
-Subject: Malformed Email
-Date: Not a valid date
-Content-Type: text/plain
-
-This email is intentionally malformed for testing
-error handling and graceful degradation.
-
-Missing required headers and invalid date format.

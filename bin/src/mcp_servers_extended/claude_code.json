@@ -1,8 +1,0 @@
-{
-  "command": "wsl",
-  "args": [
-    "bash",
-    "-c",
-    "ALLOWED_TOOLS='[\"GlobTool\", \"Edit\", \"GrepTool\", \"dispatch_agent\", \"LS\", \"Replace\", \"View\"]' pnpx @anthropic-ai/claude-code mcp serve"
-  ]
-}
