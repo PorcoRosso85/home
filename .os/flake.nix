@@ -19,7 +19,7 @@
     # };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, sops-nix, nixos-wsl }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, sops-nix, }:
   let
     system = "x86_64-linux";
   in {
