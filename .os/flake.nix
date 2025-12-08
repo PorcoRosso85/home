@@ -8,10 +8,10 @@
     sops-nix.url = "github:Mic92/sops-nix";
     
     # Temporarily commented out for structural separation
-    # nixos-wsl = {
-    #   url = "github:nix-community/NixOS-WSL";
-    #   inputs.nixpkgs.follows = "nixpkgs";
-    # };
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # 
     # vscode-server = {
     #   url = "github:nix-community/nixos-vscode-server";
@@ -19,7 +19,7 @@
     # };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, sops-nix, }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, sops-nix, nixos-wsl}:
   let
     system = "x86_64-linux";
   in {
