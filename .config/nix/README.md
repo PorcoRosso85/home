@@ -48,7 +48,7 @@ nix build && ./result/activate
 ## Without clone (direct from GitHub)
 ```bash
 # From default branch
-nix build github:yourusername/yourrepo#homeConfigurations.nixos.activationPackage
+nix build github:PorcoRosso85/home#homeConfigurations.nixos.activationPackage
 ./result/activate
 
 # From specific branch

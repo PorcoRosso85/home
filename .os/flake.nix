@@ -19,27 +19,31 @@
     # };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, sops-nix }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, sops-nix, nixos-wsl }:
   let
     system = "x86_64-linux";
-    pkgs = nixpkgs.legacyPackages.${system};
-    pkgs-unstable = nixpkgs-unstable.legacyPackages.${system};
   in {
-    nixosConfigurations.nixos-vm = nixpkgs.lib.nixosSystem {
-      inherit system;
-      
-      modules = [
-        ./hosts/nixos-vm/default.nix
-        ./modules/common.nix
-        ./modules/secrets.nix
-        sops-nix.nixosModules.sops
-        # Temporarily commented out for structural separation
-        # nixos-wsl.nixosModules.wsl
-        # vscode-server.nixosModules.default
-      ];
+    nixosConfigurations = {
+      nixos-vm = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          ./hosts/nixos-vm/default.nix  # ← VMのハード/boot
+          ./modules/common.nix          # ← ソフト共通
+          ./modules/secrets.nix
+          sops-nix.nixosModules.sops
+        ];
+      };
+
+      y-wsl = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          ./hosts/y-wsl/default.nix     # ← yのWSL用設定（今の/etc/nixos相当）
+          ./modules/common.nix          # ← ソフト共通（nixos-vmと同じもの）
+          ./modules/secrets.nix
+          sops-nix.nixosModules.sops
+          # 必要なら nixos-wsl.nixosModules.wsl
+        ];
+      };
     };
-    
-    # Basic check to ensure the NixOS config evaluates/builds under `nix flake check`
-    checks.${system}.nixos-vm = self.nixosConfigurations.nixos-vm.config.system.build.toplevel;
   };
 }
