@@ -41,7 +41,7 @@
           ./modules/common.nix          # ← ソフト共通（nixos-vmと同じもの）
           ./modules/secrets.nix
           sops-nix.nixosModules.sops
-          # 必要なら nixos-wsl.nixosModules.wsl
+          nixos-wsl.nixosModules.wsl
         ];
       };
     };
