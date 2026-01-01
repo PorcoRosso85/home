@@ -27,21 +27,27 @@
       nixos-vm = nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [
-          ./hosts/nixos-vm/default.nix  # ← VMのハード/boot
-          ./modules/common.nix          # ← ソフト共通
+          ./hosts/nixos-vm/default.nix
+          ./modules/common.nix
           ./modules/secrets.nix
           sops-nix.nixosModules.sops
+          ({ lib, ... }: {
+            _module.args.self = lib.mkDefault self;
+          })
         ];
       };
 
       y-wsl = nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [
-          ./hosts/y-wsl/default.nix     # ← yのWSL用設定（今の/etc/nixos相当）
-          ./modules/common.nix          # ← ソフト共通（nixos-vmと同じもの）
+          ./hosts/y-wsl/default.nix
+          ./modules/common.nix
           ./modules/secrets.nix
           sops-nix.nixosModules.sops
           nixos-wsl.nixosModules.wsl
+          ({ lib, ... }: {
+            _module.args.self = lib.mkDefault self;
+          })
         ];
       };
     };

@@ -7,6 +7,7 @@
     extraOptions = ''
       experimental-features = nix-command flakes
     '';
+    settings.trusted-users = [ "nixos" ];
   };
 
   # Users configuration (no plaintext initial passwords)
