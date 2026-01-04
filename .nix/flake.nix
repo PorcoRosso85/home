@@ -32,22 +32,6 @@
     in
     {
       nixosConfigurations = {
-        nixos-vm = nixpkgs.lib.nixosSystem {
-          inherit system;
-          modules = [
-            ./os/hosts/nixos-vm/default.nix
-            ./os/modules/common.nix
-            ./os/modules/secrets.nix
-            sops-nix.nixosModules.sops
-            (
-              { lib, ... }:
-              {
-                _module.args.self = lib.mkDefault self;
-              }
-            )
-          ];
-        };
-
         rent-wsl = nixpkgs.lib.nixosSystem {
           inherit system;
           modules = [
