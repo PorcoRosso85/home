@@ -1,99 +1,76 @@
 # NixOS System Configuration
 
-## Directory Structure
+## Architecture Layers
 
 ```
-~/.os/
-├── flake.nix              # Main flake configuration
-├── hosts/
-│   └── nixos-vm/         # VM-specific configuration
-│       ├── default.nix
-│       └── hardware-configuration.nix
-├── modules/
-│   ├── common.nix        # Common system configuration
-│   └── secrets.nix       # SOPS secrets management
-├── hardware-configuration.nix  # Legacy hardware config
-└── configuration.nix           # Legacy system config
+os   : ~/.os/          - 土台と更新（machine essentials）
+user : home-manager   - ユーザー配布（.config/.ssh含む）
+pj   : ~/feat-*/      - 言語SDK/LSP/ツールチェーン
 ```
 
-## Setup
+## Entry Points (these are the ONLY commands)
 
-### From remote repository
+| Layer | Command |
+|-------|---------|
+| **os + user** | `nixos-rebuild switch --flake ~/.os#<host>` |
+| **pj** | `./dev` (in each project directory) |
+
+**These commands are the only allowed entry points.**
+
+## Apply (os + user)
+
 ```bash
-# Direct from GitHub (no clone needed)
-sudo nixos-rebuild switch --flake github:yourusername/yourrepo#nixos-vm
-
-# From specific branch
-sudo nixos-rebuild switch --flake github:yourusername/yourrepo/<branchName>#nixos-vm
-```
-
-### With local clone
-```bash
-git clone <repo> ~/.os
 cd ~/.os
-sudo nixos-rebuild switch --flake .#nixos-vm
+sudo nixos-rebuild switch --flake .#y-wsl
 ```
+
+## Apply (pj)
+
+```bash
+cd ~/feat-*/  # or any project directory
+./dev         # nix develop -c bash wrapper
+```
+
+**No other entry points are allowed.**
 
 ## Staged Verification Process
-
-Before applying system changes, follow these verification steps:
 
 ### 1. Build Configuration
 ```bash
 cd ~/.os
-sudo nixos-rebuild build --flake ~/.os#nixos-vm
+sudo nixos-rebuild build --flake .#y-wsl
 ```
-This builds the configuration without applying it, allowing you to catch build errors early.
 
-### 2. Check Changes
+### 2. Dry Run Activation
 ```bash
-nix store diff-closures /run/current-system ./result
+sudo nixos-rebuild dry-activate --flake .#y-wsl
 ```
-This shows what packages will be added, removed, or updated.
 
-### 3. Dry Run Activation
+### 3. Apply
 ```bash
-sudo nixos-rebuild dry-activate --flake ~/.os#nixos-vm
+sudo nixos-rebuild switch --flake .#y-wsl
 ```
-This simulates the activation process and shows what systemd units would be restarted.
 
-### 4. Test Configuration
-```bash
-sudo nixos-rebuild test --flake ~/.os#nixos-vm
-```
-This applies the configuration temporarily (until reboot) for testing.
-
-### 5. Apply Permanently
-```bash
-sudo nixos-rebuild switch --flake ~/.os#nixos-vm
-```
-This makes the configuration permanent and adds it to the boot menu.
-
-### 6. Rollback if needed
+### 4. Rollback
 ```bash
 sudo nixos-rebuild switch --rollback
-```
-This rolls back to the previous generation if something goes wrong.
-
-## Quick Apply (for trusted changes)
-```bash
-cd ~/.os
-sudo nixos-rebuild switch --flake .#nixos-vm
 ```
 
 ## Current Configuration
 
-- **Host**: nixos-vm (modular VM configuration)
-- **Packages**: git, helix, yazi, lazygit, etc.
-- **Features**: sops-nix secrets management
-- **Architecture**: Modular design with host-specific and common modules
+- **Host**: y-wsl
+- **Layers**:
+  - os: machine essentials (git, fd, rg, hx, curl, etc.)
+  - user: home-manager (UX packages: gh, fzf, starship, etc.)
+  - pj: devShells per project
 
 ## Flake inputs
 - nixpkgs (25.05)
 - nixpkgs-unstable
 - sops-nix
+- home-manager
 
 ## Migration Notes
-- WSL and vscode-server modules are temporarily disabled for structural separation
-- Legacy configuration.nix and hardware-configuration.nix files are preserved but unused
-- Host-specific configurations are now in `hosts/nixos-vm/`
+
+- Host-specific configurations in `hosts/y-wsl/`
+- Home-manager integrated into os flake
