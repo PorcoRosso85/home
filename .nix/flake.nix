@@ -48,10 +48,10 @@
           ];
         };
 
-        y-wsl = nixpkgs.lib.nixosSystem {
+        rent-wsl = nixpkgs.lib.nixosSystem {
           inherit system;
           modules = [
-            ./os/hosts/y-wsl/default.nix
+            ./os/hosts/rent-wsl/default.nix
             ./os/modules/common.nix
             ./os/modules/secrets.nix
             sops-nix.nixosModules.sops
@@ -71,7 +71,7 @@
       };
 
       homeConfigurations = {
-        "nixos@y-wsl" = home-manager.lib.homeManagerConfiguration {
+        "nixos@rent-wsl" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${system};
           modules = [ ./hm/home.nix ];
         };

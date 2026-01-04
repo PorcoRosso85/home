@@ -1,12 +1,11 @@
+# Git configuration - project-local settings required
+# Do not set global user.name/user.email here
+
 [pull]
-	rebase = false
+    rebase = false
+
 [init]
-	defaultBranch = main
-[user]
-	email = user@example.com
-	name = User
-[credential]
-	helper = !/run/current-system/sw/bin/gh auth git-credential
+    defaultBranch = main
 
 [core]
     pager = delta --side-by-side
@@ -15,8 +14,8 @@
     diffFilter = delta --color-only
 
 [delta]
-    navigate = true  # use n and N to move between diff sections
-    dark = true      # or light = true, or omit for auto-detection
+    navigate = true
+    dark = true
     syntax-theme = gruvbox-dark
     minus-style = syntax "#402020"
     plus-style = syntax "#203020"
